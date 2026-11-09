@@ -1,0 +1,435 @@
+{
+ "khstock_api": {
+  "ok": true,
+  "detail": null
+ },
+ "heatmap_market_kosdaq_before": {
+  "ok": true,
+  "detail": "코스닥"
+ },
+ "open_sets_hash_and_shows": {
+  "ok": true,
+  "detail": {
+   "hash": "#s-005930",
+   "open": true,
+   "vis": true,
+   "hl": 3,
+   "inert": true,
+   "title": "삼성전자 187,000 −0.90% · 한국 증시 히트맵"
+  }
+ },
+ "esc_closes_restores_hash_focus": {
+  "ok": true,
+  "detail": {
+   "hash": "#kosdaq",
+   "open": false,
+   "vis": false,
+   "focus": "정보기술129+1.73%",
+   "inert": false,
+   "title": "한국 증시 히트맵"
+  }
+ },
+ "heatmap_market_kept_after_close": {
+  "ok": true,
+  "detail": "코스닥"
+ },
+ "browser_back_closes_focus_returns": {
+  "ok": true,
+  "detail": {
+   "hash": "#kosdaq",
+   "open": false,
+   "focusIsSecBtn": true
+  }
+ },
+ "browser_forward_reopens": {
+  "ok": true,
+  "detail": null
+ },
+ "back_button_closes_focus_returns": {
+  "ok": true,
+  "detail": {
+   "hash": "#kosdaq",
+   "open": false,
+   "focusIsSecBtn": true
+  }
+ },
+ "peer_switch_in_place": {
+  "ok": true,
+  "detail": {
+   "hash": "#s-000660",
+   "open": true,
+   "name": "SK하이닉스",
+   "hl": 3
+  }
+ },
+ "peer_then_esc_back_to_map": {
+  "ok": true,
+  "detail": null
+ },
+ "console_clean_nav": {
+  "ok": true,
+  "detail": []
+ },
+ "open_on_load_from_hash": {
+  "ok": true,
+  "detail": {
+   "open": true,
+   "name": "알테오젠",
+   "path": "헬스케어 › 생물공학"
+  }
+ },
+ "close_from_shared_link_clears_hash": {
+  "ok": true,
+  "detail": {
+   "open": false,
+   "hash": "",
+   "url": "http://127.0.0.1:8792/"
+  }
+ },
+ "console_clean_hashload": {
+  "ok": true,
+  "detail": []
+ },
+ "all_6_timeframes_render": {
+  "ok": true,
+  "detail": {
+   "1d": ",200원에서 11월 9일 17:22 187,000원까지, 봉 481개.",
+   "5d": "원에서 11월 9일 (월) 17:20 186,900원까지, 봉 609개.",
+   "3m": "500원에서 2026.11.09 (월) 186,900원까지, 봉 63개.",
+   "1y": "00원에서 2026.11.09 (월) 186,900원까지, 봉 243개.",
+   "3y": ",300원에서 2026.11.09 주 185,100원까지, 봉 157개.",
+   "10y": " 34,800원에서 2026년 11월 186,700원까지, 봉 120개."
+  }
+ },
+ "times_in_kst": {
+  "ok": true,
+  "detail": "삼성전자 1일 차트. 11월 9일 09:00 187,200원에서 11월 9일 17:22 187,000원까지, 봉 481개."
+ },
+ "crosshair_legend_updates": {
+  "ok": true,
+  "detail": "11월 9일 11:55+2.97%시194,400고194,500저194,100종194,300거래량1.2만"
+ },
+ "prev_close_ref_is_header_base_1d": {
+  "ok": true,
+  "detail": {
+   "period": "전일 종가 188,700 대비 −0.90%",
+   "legend": "−0.90%",
+   "head": "▼1,700  −0.90%"
+  }
+ },
+ "period_base_5d_is_close_before_window": {
+  "ok": true,
+  "detail": {
+   "shown": "5일 동안 −18.74%",
+   "want": "18.74%",
+   "prevClose": 230000.0
+  }
+ },
+ "palette_recolours_candles": {
+  "ok": true,
+  "detail": {
+   "before_up_dn": [
+    1538,
+    2547
+   ],
+   "after_old_up_dn_new_up_dn": [
+    4,
+    0,
+    1538,
+    2548
+   ]
+  }
+ },
+ "console_clean_tf_palette": {
+  "ok": true,
+  "detail": []
+ },
+ "orderbook_polling_rules": {
+  "ok": true,
+  "detail": {
+   "open_10s": 4,
+   "other_tab_7s": 0,
+   "back_7s": 2,
+   "hidden_7s": 0,
+   "visible_4s": 1,
+   "closed_7s": 0,
+   "levels": 10,
+   "browser_total": 9,
+   "server_total": 9
+  }
+ },
+ "console_clean_polling": {
+  "ok": true,
+  "detail": []
+ },
+ "investors_tab": {
+  "ok": true,
+  "detail": {
+   "rows": 60,
+   "cum": [
+    "+18,619,102주+1,862만주",
+    "−22,376,879주−2,238만주",
+    "+4,115,417주+412만주"
+   ],
+   "unit": "단위: 주",
+   "note": "순매수는 산 주식 수에서 판 주식 수를 뺀 값(주)이에요. 투자자별 집계는 장이 끝난 뒤 나와서 오늘 기록은 저녁이나 다음 날 아침에 들어와요. 마지막 기록은 11월 6일이에요.",
+   "colored": [
+    "rgb(255, 92, 102)",
+    "rgb(47, 214, 122)",
+    "rgb(47, 214, 122)"
+   ]
+  }
+ },
+ "daily_tab_paging": {
+  "ok": true,
+  "detail": [
+   60,
+   120,
+   {
+    "rows": 180,
+    "moreHidden": true
+   }
+  ]
+ },
+ "tabs_keyboard_arrows": {
+  "ok": true,
+  "detail": {
+   "sel": "sp-t-ob",
+   "focus": "sp-t-ob"
+  }
+ },
+ "tap_targets_40px_mobile": {
+  "ok": true,
+  "detail": []
+ },
+ "console_clean_tabs": {
+  "ok": true,
+  "detail": []
+ },
+ "loading_skeletons": {
+  "ok": true,
+  "detail": {
+   "chart": true,
+   "head": 9,
+   "ob": true
+  }
+ },
+ "error_states_with_retry": {
+  "ok": true,
+  "detail": {
+   "meta": "시세 요약을 불러오지 못했어요.다시 시도",
+   "chart": "차트를 불러오지 못했어요.서버가 응답하지 않아요 (502). 잠시 뒤 다시 시도해 주세요.다시 시도",
+   "ob": "호가를 불러오지 못했어요.서버가 응답하지 않아요 (502). 잠시 뒤 다",
+   "retry": 2
+  }
+ },
+ "retry_recovers_chart": {
+  "ok": true,
+  "detail": null
+ },
+ "not_found_state": {
+  "ok": true,
+  "detail": {
+   "nf": true,
+   "meta": "이 코드의 종목을 찾지 못했어요.다시 시도"
+  }
+ },
+ "empty_states": {
+  "ok": true,
+  "detail": {
+   "chart": "이 기간에는 거래 기록이 없어요.다른 기간을 골라 보세요.",
+   "ob": "지금은 호가가 없어요.거래가 멈췄거나 장이 열리지 않은 시간일 수 있어요.",
+   "inv": "투자자별 매매 기록이 없어요.새로 상장했거나 거래가 적은 종목일 수 있어요.",
+   "daily": "일별 시세가 없어요.새로 상장한 종목이면 거래가 쌓인 뒤에 보여요."
+  }
+ },
+ "console_clean_empty": {
+  "ok": true,
+  "detail": []
+ },
+ "market_phases": {
+  "ok": true,
+  "detail": {
+   "open": [
+    "장 중",
+    3,
+    false
+   ],
+   "after": [
+    "시간외",
+    3,
+    true
+   ],
+   "closed": [
+    "장 마감",
+    1,
+    true
+   ],
+   "holiday": [
+    "휴장",
+    1,
+    true
+   ],
+   "weekend": [
+    "주말 휴장",
+    1,
+    true
+   ]
+  }
+ },
+ "reduced_motion": {
+  "ok": true,
+  "detail": {
+   "anim": "none",
+   "skel": "none"
+  }
+ },
+ "no_horizontal_overflow_live": {
+  "ok": true,
+  "detail": null
+ },
+ "snapshot_fallback_390": {
+  "ok": true,
+  "detail": {
+   "open": true,
+   "name": "삼성전자",
+   "price": "189,900",
+   "href": "https://korea-market-heatmap.ssslot.workers.dev/#s-005930",
+   "text": "차트·호가·투자자 정보는 실시간 버전에서 볼 수 있어요",
+   "chart": false,
+   "api": [],
+   "lwc": []
+  }
+ },
+ "snapshot_esc_390": {
+  "ok": true,
+  "detail": null
+ },
+ "snapshot_open_other_390": {
+  "ok": true,
+  "detail": null
+ },
+ "snapshot_no_overflow_390": {
+  "ok": true,
+  "detail": {
+   "doc": 0,
+   "root": 0,
+   "els": [],
+   "n": 0
+  }
+ },
+ "snapshot_zero_api_390": {
+  "ok": true,
+  "detail": []
+ },
+ "snapshot_console_390": {
+  "ok": true,
+  "detail": []
+ },
+ "snapshot_fallback_1440": {
+  "ok": true,
+  "detail": {
+   "open": true,
+   "name": "삼성전자",
+   "price": "189,900",
+   "href": "https://korea-market-heatmap.ssslot.workers.dev/#s-005930",
+   "text": "차트·호가·투자자 정보는 실시간 버전에서 볼 수 있어요",
+   "chart": false,
+   "api": [],
+   "lwc": []
+  }
+ },
+ "snapshot_esc_1440": {
+  "ok": true,
+  "detail": null
+ },
+ "snapshot_open_other_1440": {
+  "ok": true,
+  "detail": null
+ },
+ "snapshot_no_overflow_1440": {
+  "ok": true,
+  "detail": {
+   "doc": 0,
+   "root": 0,
+   "els": [],
+   "n": 0
+  }
+ },
+ "snapshot_zero_api_1440": {
+  "ok": true,
+  "detail": []
+ },
+ "snapshot_console_1440": {
+  "ok": true,
+  "detail": []
+ },
+ "snapshot_no_overflow_360": {
+  "ok": true,
+  "detail": {
+   "doc": 0,
+   "root": 0,
+   "els": [],
+   "n": 0
+  }
+ },
+ "snapshot_zero_api_360": {
+  "ok": true,
+  "detail": []
+ },
+ "snapshot_console_360": {
+  "ok": true,
+  "detail": []
+ },
+ "snapshot_no_overflow_768": {
+  "ok": true,
+  "detail": {
+   "doc": 0,
+   "root": 0,
+   "els": [],
+   "n": 0
+  }
+ },
+ "snapshot_zero_api_768": {
+  "ok": true,
+  "detail": []
+ },
+ "snapshot_console_768": {
+  "ok": true,
+  "detail": []
+ },
+ "snapshot_no_overflow_1280": {
+  "ok": true,
+  "detail": {
+   "doc": 0,
+   "root": 0,
+   "els": [],
+   "n": 0
+  }
+ },
+ "snapshot_zero_api_1280": {
+  "ok": true,
+  "detail": []
+ },
+ "snapshot_console_1280": {
+  "ok": true,
+  "detail": []
+ },
+ "snapshot_no_overflow_1920": {
+  "ok": true,
+  "detail": {
+   "doc": 0,
+   "root": 0,
+   "els": [],
+   "n": 0
+  }
+ },
+ "snapshot_zero_api_1920": {
+  "ok": true,
+  "detail": []
+ },
+ "snapshot_console_1920": {
+  "ok": true,
+  "detail": []
+ }
+}
