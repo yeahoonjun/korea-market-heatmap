@@ -1037,7 +1037,12 @@ def run_motion(b):
     """KH.motion() effects (AGENTS.md §3-5): odometer, order-book flash, bars growing in, tab cross-fade. fancy only."""
     mock('/__reset')
     base = mock('/api/stock/005930/summary')
-    MODE_JS = "(m) => { window.__m = m; KH.motion = () => window.__m; document.dispatchEvent(new CustomEvent('kh:motion', { detail: { motion: m } })); }"
+    def mk(w, mode):   # the real KH.motion(): the level comes from localStorage khm.motion
+        P = Page(b, w, None)
+        P.pg.add_init_script(f"localStorage.setItem('khm.motion', JSON.stringify('{mode}'))")
+        P.pg.goto(BASE)
+        return P
+
     REFRESH = "() => document.dispatchEvent(new Event('visibilitychange'))"
     HEAD = "() => { const r = e => { const b = document.querySelector(e).getBoundingClientRect(); return [b.width, b.height]; }; return { price: document.querySelector('.sp-price').textContent, chg: document.querySelector('.sp-chg').textContent, cols: document.querySelectorAll('.sp-price .od-c, .sp-chg .od-c').length, sepCols: [...document.querySelectorAll('.od-c')].filter(c => /[,.%▲▼+−\\s]/.test(c.textContent)).length, dirs: [...new Set([...document.querySelectorAll('.od-s')].map(s => s.className.replace('od-s ', '')))], pw: r('.sp-price'), cw: r('.sp-chg') }; }"
 
@@ -1047,9 +1052,9 @@ def run_motion(b):
         P.pg.wait_for_function("(v) => document.querySelector('.sp-price').dataset.v !== v", arg=prev, timeout=4000); P.pg.wait_for_timeout(60)
 
     def opened(w, mode):
-        P = Page(b, w, BASE)
+        P = mk(w, mode)
         P.pg.wait_for_timeout(500)
-        P.ev(MODE_JS, mode)
+        assert P.ev("() => KH.motion()") == mode
         P.ev("() => KHStock.open('005930')"); P.wait_chart(); P.pg.wait_for_timeout(400)
         return P
 
@@ -1089,7 +1094,7 @@ def run_motion(b):
     out = {}
     for mode in ('standard', 'fancy'):
         mock('/__config?bump=&obfix=1')
-        P = Page(b, 1280, BASE); P.pg.wait_for_timeout(500); P.ev(MODE_JS, mode)
+        P = mk(1280, mode); P.pg.wait_for_timeout(500)
         P.pg.add_init_script("localStorage.setItem('khm.stockTab', JSON.stringify('ob'))")
         P.ev("() => KHStock.open('005930')"); P.wait_chart(); P.pg.click('#sp-t-ob'); P.pg.wait_for_selector('.sp-q span:not(:empty)'); P.pg.wait_for_timeout(500)
         first = P.ev("() => document.querySelectorAll('#sp-p-ob [data-fl]').length")
@@ -1113,7 +1118,7 @@ def run_motion(b):
     # ── 3. bars grow once per session; tab cross-fade ──
     r3 = {}
     for mode in ('standard', 'fancy'):
-        P = Page(b, 1280, BASE); P.pg.wait_for_timeout(500); P.ev(MODE_JS, mode)
+        P = mk(1280, mode); P.pg.wait_for_timeout(500)
         P.ev("() => KHStock.open('005930')"); P.wait_chart(); P.pg.wait_for_timeout(300)
         P.pg.click('#sp-t-inv')
         fade = P.ev("() => document.getElementById('sp-p-inv').getAnimations().length")
