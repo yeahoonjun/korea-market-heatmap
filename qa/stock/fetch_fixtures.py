@@ -3,10 +3,11 @@
 
     python3 qa/stock/fetch_fixtures.py 005930 196170
     python3 qa/stock/fetch_fixtures.py --only news,disclosure 005930 196170     # refresh some files only
+    DART_KEY=… python3 qa/stock/fetch_fixtures.py --only dart 005930 196170       # OpenDART list (key from the environment only)
 
 Saves qa/stock/fixtures/raw/<code>/<name>.json. The mock server turns these into the AGENTS.md §3 shapes.
 """
-import datetime as dt, json, pathlib, sys, time, urllib.request
+import datetime as dt, json, os, pathlib, sys, time, urllib.parse, urllib.request
 
 ROOT = pathlib.Path(__file__).resolve().parent / 'fixtures' / 'raw'
 UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36'
@@ -45,6 +46,12 @@ def main(codes, only=None):
             'news': f'https://m.stock.naver.com/api/news/stock/{c}?pageSize=20',          # ENDPOINTS_EXTRA.md §2
             'disclosure': f'https://m.stock.naver.com/api/stock/{c}/disclosure?pageSize=20',   # ENDPOINTS_EXTRA.md §3
         }
+        key = os.environ.get('DART_KEY')   # never written anywhere; the saved response carries no key
+        corp = json.loads((ROOT.parent.parent.parent.parent / 'web/dart_corp.json').read_text(encoding='utf-8'))['map'].get(c)
+        if key and corp:
+            urls['dart'] = ('https://opendart.fss.or.kr/api/list.json?' + urllib.parse.urlencode(
+                {'crtfc_key': key, 'corp_code': corp, 'bgn_de': (now - dt.timedelta(days=183)).strftime('%Y%m%d'),
+                 'page_count': 40, 'sort': 'date', 'sort_mth': 'desc'}))
         for name, url in urls.items():
             if only and name not in only:
                 continue
@@ -54,7 +61,7 @@ def main(codes, only=None):
                 n = len(j) if isinstance(j, list) else len(j.get('datas', j)) if isinstance(j, dict) else '?'
                 print(c, name, 'ok', n)
             except Exception as e:
-                print(c, name, 'FAIL', e)
+                print(c, name, 'FAIL', type(e).__name__)   # no URL in the message (it may hold the DART key)
             time.sleep(0.15)
     if not only:
         (ROOT / 'fetched_at.txt').write_text(now.isoformat(), encoding='utf-8')
