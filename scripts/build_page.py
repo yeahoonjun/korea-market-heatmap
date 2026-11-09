@@ -5,8 +5,10 @@ Outputs
   dist/index.html        snapshot mode (no network calls) — what gets published as the artifact
   web/index.html         live mode page — the Worker serves it from GitHub (raw.githubusercontent.com)
   web/universe.json      top 300 stocks per market + 업종/섹터, read by the Worker's /api/quotes
+  web/names.json         every stock's name + market (live search beyond the streamed 600)
+  web/close.json         KRX 15:30 closes for every stock (only when the snapshot is pinned to the close)
 """
-import json, pathlib, sys
+import json, pathlib, re, sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 tpl = (ROOT / "src/template.html").read_text(encoding="utf-8")
@@ -33,13 +35,21 @@ FONT_CDN = ('<link rel="stylesheet" crossorigin href="https://cdn.jsdelivr.net/g
 LIVE_BOOT = json.dumps({"asOf": None, "source": "네이버 증권", "marketStatus": {}, "index": {}, "stocks": []}, ensure_ascii=False)
 
 
+D3_TAG = re.compile(r'<script[^>]*src="https://cdnjs\.cloudflare\.com/ajax/libs/d3/7\.9\.0/d3\.min\.js"[^>]*></script>')
+D3_INLINE = "<script>\n" + (ROOT / "src/vendor/d3-7.9.0.min.js").read_text(encoding="utf-8").replace("</script", "<\\/script") + "\n</script>"
+
+
 def page(mode: str) -> str:
     assert "__SNAPSHOT__" in tpl and "__MODE__" in tpl and "<!--__FONT__-->" in tpl
     # the artifact's content-security policy blocks jsDelivr, so the snapshot page carries a font subset inline
     font = FONT_INLINE if mode == "snapshot" else FONT_CDN
     data = blob if mode == "snapshot" else LIVE_BOOT
     extra = embedded_data() if mode == "snapshot" else ""
-    return (tpl.replace("<!--__FONT__-->", font).replace("<!--__STOCK__-->", extra + stock_module())
+    out = tpl
+    if mode == "snapshot":                      # the snapshot must draw with no network at all: d3 rides inline
+        assert len(D3_TAG.findall(out)) == 1, "d3 <script> tag not found exactly once in the template"
+        out = D3_TAG.sub(lambda m: D3_INLINE, out)
+    return (out.replace("<!--__FONT__-->", font).replace("<!--__STOCK__-->", extra + stock_module())
             .replace("__MODE__", mode).replace("__SNAPSHOT__", data))
 
 
@@ -108,4 +118,23 @@ for x in snap["stocks"]:                       # everything else: sector lookup 
 uni["X"] = "".join(xs)
 uni["I"] = pairs
 (ROOT / "web/universe.json").write_text(json.dumps(uni, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
-print(f"stocks={len(snap['stocks'])}  dist/index.html={len(page('snapshot'))//1024}KB", file=sys.stderr)
+
+
+def dump(name, obj):
+    (ROOT / "web" / name).write_text(json.dumps(obj, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+
+
+# names for live search: every stock incl. preferred shares
+dump("names.json", {"asOf": snap.get("asOf"), "n": {x["c"]: [x["n"], x.get("m", "K")] for x in snap["stocks"]}})
+
+# KRX regular-session closes: only when the snapshot was pinned to the close (build_snapshot.py --close krx|auto)
+as_of = snap.get("asOf") or ""
+pinned = snap.get("close") == "krx" or (snap.get("close") is None and as_of[11:16] in ("15:30", "16:30")
+                                         and all(v != "OPEN" for v in (snap.get("marketStatus") or {}).values()))
+close_p = ROOT / "web/close.json"
+if pinned:
+    dump("close.json", {"date": as_of[:10], "asOf": as_of,
+                        "c": {x["c"]: [x.get("p"), x.get("d"), x.get("r")] for x in snap["stocks"] if x.get("p")}})
+elif close_p.exists():
+    close_p.unlink()                            # never leave a stale close file next to unpinned prices
+print(f"stocks={len(snap['stocks'])}  dist/index.html={len(page('snapshot'))//1024}KB  close.json={'yes' if pinned else 'no'}", file=sys.stderr)
