@@ -231,6 +231,11 @@ async function getQuotes(env) {
     index[x.itemCode] = { value: num(x.closePriceRaw), change: num(x.compareToPreviousClosePriceRaw), ratio: num(x.fluctuationsRatioRaw) };
     marketStatus[x.itemCode] = x.marketStatus;               // regular-session status
   }
+  if (!Object.keys(marketStatus).length) {                  // index call failed → judge the regular session by the KST clock
+    const k = kstNow(), hhmm = pad(k.getUTCHours()) + pad(k.getUTCMinutes()), wd = k.getUTCDay();
+    const st = stockOpen && wd >= 1 && wd <= 5 && hhmm >= '0900' && hhmm < '1530' ? 'OPEN' : 'CLOSE';
+    marketStatus.KOSPI = marketStatus.KOSDAQ = st;
+  }
   const regularOpen = Object.values(marketStatus).includes('OPEN');
   return {
     asOf,
