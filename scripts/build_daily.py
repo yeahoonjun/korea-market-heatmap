@@ -4,6 +4,7 @@
     python3 scripts/build_daily.py                    # themes + periods + flows
     python3 scripts/build_daily.py --only flows       # one part (themes|periods|flows)
     python3 scripts/build_daily.py --check-trading-day   # exit 0 if KRX traded today, 10 if not (holiday)
+    python3 scripts/build_daily.py --check-trading-day --wait-session-end   # ...and sleep until the real session end
 
 Reads  data/snapshot.json (the universe).
 Writes web/themes.json, web/periods.json, web/flows.json.
@@ -36,7 +37,10 @@ M_API = "https://m.stock.naver.com/api"
 CHART = "https://api.stock.naver.com/chart/domestic/item"
 REF = "005930"           # reference stock that defines the base dates
 WORKERS = 16
-OFFSETS = {"w1": 5, "m1": 21, "m3": 63}     # trading days back from the latest bar
+PERIOD_ORDER = ["w1", "m1", "m3", "ytd", "y1"]
+PREV_WEB = os.path.join(WEB, "flows.json")
+MAX_WAIT = 50 * 60       # --wait-session-end never sleeps longer than this
+OUT = [WEB]
 stats = {"requests": 0, "retries": 0}
 
 
@@ -90,8 +94,8 @@ def load_snapshot():
 
 
 def write_json(name, obj):
-    os.makedirs(WEB, exist_ok=True)
-    path = os.path.join(WEB, name)
+    os.makedirs(OUT[0], exist_ok=True)
+    path = os.path.join(OUT[0], name)
     with open(path, "w", encoding="utf-8") as f:
         json.dump(obj, f, ensure_ascii=False, separators=(",", ":"))
         f.write("\n")
@@ -113,17 +117,44 @@ def day_bars(code, start, end):
 
 
 # ------------------------------------------------------------------------------ trading day
-def check_trading_day():
-    today = dt.datetime.now(KST)
-    if today.weekday() >= 5:
-        log(f"{today:%Y-%m-%d} is a weekend -> no trading")
+def session_end(code=REF):
+    """Regular-session end 'HHMM' from stockExchangeType.endTime (1530 normally, 1630 on 수능 day and the
+    first trading day of the year).  Falls back to 1530 if the field is missing."""
+    try:
+        d = get_json(f"https://polling.finance.naver.com/api/realtime/domestic/stock/{code}")
+        end = str(d["datas"][0]["stockExchangeType"]["endTime"])
+        if re.fullmatch(r"\d{4}", end):
+            return end
+    except Exception as e:  # noqa: BLE001
+        log("  session_end lookup failed, assuming 1530:", e)
+    return "1530"
+
+
+def check_trading_day(wait=False):
+    now = dt.datetime.now(KST)
+    if now.weekday() >= 5:
+        log(f"{now:%Y-%m-%d} is a weekend -> no trading")
         return 10
-    bars = day_bars(REF, ymd(today), ymd(today))
-    if bars and bars[-1][0] == today.strftime("%Y-%m-%d"):
-        log(f"{today:%Y-%m-%d}: KRX traded ({REF} close {bars[-1][1]:,.0f})")
-        return 0
-    log(f"{today:%Y-%m-%d}: no {REF} bar today -> KRX holiday")
-    return 10
+    bars = day_bars(REF, ymd(now), ymd(now))
+    if not (bars and bars[-1][0] == now.strftime("%Y-%m-%d")):
+        log(f"{now:%Y-%m-%d}: no {REF} bar today -> KRX holiday")
+        return 10
+    end = session_end()
+    log(f"{now:%Y-%m-%d}: KRX traded ({REF} bar {bars[-1][1]:,.0f}); regular session ends {end[:2]}:{end[2:]}")
+    print(f"session_end={end}")
+    if os.environ.get("GITHUB_OUTPUT"):
+        with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+            f.write(f"session_end={end}\n")
+    if wait:
+        ready = dt.datetime.strptime(now.strftime("%Y%m%d") + end, "%Y%m%d%H%M").replace(tzinfo=KST) \
+            + dt.timedelta(minutes=2)               # the 1-min bars of the last minute need a moment to appear
+        secs = (ready - dt.datetime.now(KST)).total_seconds()
+        if secs > MAX_WAIT:
+            log(f"session ends too far away ({secs / 60:.0f} min) -> not waiting")
+        elif secs > 0:
+            log(f"waiting {secs:.0f}s for the session to end ({end[:2]}:{end[2:]})")
+            time.sleep(secs)
+    return 0
 
 
 # ------------------------------------------------------------------------------------ themes
@@ -183,27 +214,53 @@ def build_themes(snap):
 
 
 # ----------------------------------------------------------------------------------- periods
+def month_back(d, n):
+    y, m = d.year, d.month - n
+    while m < 1:
+        y, m = y - 1, m + 12
+    day = d.day
+    while True:
+        try:
+            return dt.date(y, m, day)
+        except ValueError:                                   # e.g. Mar 31 - 1 month
+            day -= 1
+
+
 def build_periods(snap):
-    today = dt.datetime.now(KST).date()
-    ref = day_bars(REF, ymd(today - dt.timedelta(days=420)), ymd(today))
+    """Bases are anchored to the LATEST TRADING DAY OF THE DATA (the snapshot's date / the last bar of the
+    reference stock), never to the wall clock, so re-running on a later day or a weekend gives the same bases.
+
+      w1  = last close on/before (latest day - 7 calendar days)
+      m1  = ... on/before (latest day - 1 month)      m3 = ... (latest day - 3 months)
+      ytd = last close of the previous calendar year
+      y1  = ... on/before (latest day - 1 year)
+
+    The page shows  current price / base close - 1 , i.e. "since that date's close".  `off` stores how many
+    trading sessions before `asOf` each base is (w1 is normally 5, but 4-8 around holidays)."""
+    data_day = dt.date.fromisoformat(snap["asOf"][:10])
+    ref = day_bars(REF, ymd(data_day - dt.timedelta(days=420)), ymd(data_day))
     dates = [d for d, _ in ref]
     last = dates[-1]
     last_d = dt.date.fromisoformat(last)
-    base = {k: dates[-1 - n] for k, n in OFFSETS.items()}
+    if last_d != data_day:
+        log(f"periods: WARNING reference last bar {last} != snapshot day {data_day}; anchoring to {last}")
+    target = {"w1": last_d - dt.timedelta(days=7), "m1": month_back(last_d, 1), "m3": month_back(last_d, 3),
+              "y1": month_back(last_d, 12)}
+    base = {}
+    for k, t in target.items():
+        cand = [d for d in dates if d <= t.isoformat()]
+        if not cand:
+            raise RuntimeError(f"reference chart does not reach {k} ({t})")
+        base[k] = cand[-1]
     prev_year = [d for d in dates if d < f"{last_d.year}-01-01"]
+    if not prev_year:
+        raise RuntimeError("reference chart does not reach last year-end")
     base["ytd"] = prev_year[-1]
-    try:
-        y1_target = last_d.replace(year=last_d.year - 1)
-    except ValueError:                                       # Feb 29
-        y1_target = last_d.replace(year=last_d.year - 1, day=28)
-    y1 = [d for d in dates if d <= y1_target.isoformat()]
-    if not y1:
-        raise RuntimeError("reference chart does not reach one year back")
-    base["y1"] = y1[-1]
-    order = ["w1", "m1", "m3", "ytd", "y1"]
-    log(f"periods: ref {REF} last bar {last}; base " + ", ".join(f"{k}={base[k]}" for k in order))
+    off = {k: len(dates) - 1 - dates.index(base[k]) for k in PERIOD_ORDER}
+    order = PERIOD_ORDER
+    log(f"periods: ref {REF} last bar {last}; base " + ", ".join(f"{k}={base[k]}(-{off[k]} sessions)" for k in order))
     start = ymd(dt.date.fromisoformat(base["y1"]) - dt.timedelta(days=14))   # slack for halted base days
-    end = ymd(today)
+    end = ymd(last_d)
 
     def one(code):
         try:
@@ -229,12 +286,32 @@ def build_periods(snap):
     nulls = [sum(v[i] is None for v in c.values()) for i in range(5)]
     log(f"periods: {len(c)}/{len(res)} stocks, nulls per period {dict(zip(order, nulls))}, "
         f"{len(res) - len(c)} fetch failures")
-    return {"asOf": last, "base": {k: base[k] for k in order}, "c": c}
+    return {"asOf": last, "base": {k: base[k] for k in order}, "off": {k: off[k] for k in order}, "c": c}
 
 
 # ------------------------------------------------------------------------------------- flows
-def build_flows(snap):
+def load_prev_flows():
+    try:
+        with open(PREV_WEB, encoding="utf-8") as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return None
+
+
+def sums(rows):
+    def s(col, n):
+        return round(sum(r[col] for r in rows[:n]), 1) if len(rows) >= n else None
+    return [s(1, 1), s(2, 1), s(3, 1), s(1, 5), s(2, 5), s(1, 20), s(2, 20)]
+
+
+def build_flows(snap, fake_publish=None):
+    """Per stock.  target day = newest bizdate (<= snapshot day) seen in any stock.  A stock whose newest row
+    is older (Naver publishes the evening rows gradually; or halted) keeps ITS OWN last complete values
+    (sums over its latest rows) and is listed in `stale` {code: its latest bizdate}; a stock that failed to
+    fetch keeps the previous flows.json entry (also marked stale) if there was one.  The 21:30 run redoes all.
+    fake_publish=fraction is a test hook: pretend only that fraction of stocks has the target-day row."""
     codes = [s["c"] for s in snap["stocks"] if s["c"].endswith("0")]
+    snap_day = snap["asOf"][:10].replace("-", "")
 
     def one(code):
         try:
@@ -252,43 +329,63 @@ def build_flows(snap):
         return code, out
 
     res = dict(pmap(one, codes))
-    asof = max((r[0][0] for r in res.values() if r), default=None)
-    if asof is None:
+    if fake_publish is not None:
+        rng = random.Random(1)
+        for code, rows in res.items():
+            if rows and rng.random() >= fake_publish:
+                res[code] = rows[1:]                  # drop the newest row, as if not yet published
+    seen = [r[0][0] for r in res.values() if r and r[0][0] <= snap_day]
+    if not seen:
         raise RuntimeError("no trend rows at all")
-    f, stale, failed = {}, 0, 0
+    asof = max(seen)
+    prev = load_prev_flows()
+    prev_f = (prev or {}).get("f", {})
+    prev_asof = (prev or {}).get("asOf")
+    f, stale, failed, kept_prev = {}, {}, 0, 0
     for code in codes:
         rows = res[code]
-        if rows is None:
+        rows = [r for r in rows if r[0] <= asof] if rows else rows
+        if not rows:                               # fetch failure or no usable rows
             failed += 1
+            if code in prev_f and prev_asof:       # previous flows.json value, flagged with its date
+                f[code] = prev_f[code]
+                stale[code] = prev_asof
+                kept_prev += 1
             continue
-        if not rows or rows[0][0] != asof:      # no row for the latest day (halted / not yet published): stale
-            stale += 1
-            f[code] = [None] * 7
-            continue
-
-        def s(col, n):
-            return round(sum(r[col] for r in rows[:n]), 1) if len(rows) >= n else None
-        f[code] = [s(1, 1), s(2, 1), s(3, 1), s(1, 5), s(2, 5), s(1, 20), s(2, 20)]
+        f[code] = sums(rows)
+        if rows[0][0] != asof:                     # latest row is older than the target day
+            stale[code] = iso(rows[0][0])
     nulls = [sum(v[i] is None for v in f.values()) for i in range(7)]
-    log(f"flows: {len(f)}/{len(codes)} stocks, asOf {iso(asof)}, stale(no row for asOf) {stale}, "
+    log(f"flows: {len(f)}/{len(codes)} stocks, asOf {iso(asof)}, stale {len(stale)} "
+        f"(latest row older than asOf; {kept_prev} of them carried from previous flows.json), "
         f"fetch failures {failed}, nulls per column {nulls}")
-    return {"asOf": iso(asof), "unit": "억원", "f": f}
+    out = {"asOf": iso(asof), "unit": "억원", "f": f}
+    if stale:
+        out["stale"] = dict(sorted(stale.items()))
+    return out
 
 
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--only", choices=["themes", "periods", "flows"], action="append")
     ap.add_argument("--check-trading-day", action="store_true")
+    ap.add_argument("--wait-session-end", action="store_true",
+                    help="with --check-trading-day: sleep until the session's real end (endTime) + 2 min, max 50 min")
+    ap.add_argument("--fake-publish", type=float, metavar="FRAC",
+                    help="test hook: pretend only FRAC of the stocks have the newest flows row")
+    ap.add_argument("--out", default=WEB, help="output dir (default web/)")
     a = ap.parse_args()
+    OUT[0] = a.out
     if a.check_trading_day:
-        sys.exit(check_trading_day())
+        sys.exit(check_trading_day(a.wait_session_end))
     t0 = time.time()
     snap = load_snapshot()
     for name, fn in (("themes", build_themes), ("periods", build_periods), ("flows", build_flows)):
         if a.only and name not in a.only:
             continue
         t = time.time()
-        write_json(f"{name}.json", fn(snap))
+        obj = fn(snap, a.fake_publish) if name == "flows" else fn(snap)
+        write_json(f"{name}.json", obj)
         log(f"  {name}: {time.time() - t:.0f}s")
     log(f"done in {time.time() - t0:.0f}s, {stats['requests']} requests, {stats['retries']} retries")
 

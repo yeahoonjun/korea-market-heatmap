@@ -192,22 +192,34 @@ def fetch_index(cli, market):
         return None, None, None
 
 
-def krx_close(cli, code, ymd):
-    """Last 1-minute bar <= 15:30 of trading day ymd (KRX regular session close).
+def krx_close(cli, code, ymd, end="1530"):
+    """Last 1-minute bar <= the session end (KRX regular-session close; end = 'HHMM' from
+    stockExchangeType.endTime: 1530 normally, 1630 on 수능 day / first trading day of the year).
     Returns (price, had_any_bar_that_day) or (None, None) on error."""
+    e6 = end + "00"
+    start = (dt.datetime.strptime(ymd + end, "%Y%m%d%H%M") - dt.timedelta(minutes=30)).strftime("%Y%m%d%H%M") + "00"
     try:
-        bars = cli.get(f"{CHART_API}/{code}/minute?startDateTime={ymd}150000&endDateTime={ymd}153000")
+        bars = cli.get(f"{CHART_API}/{code}/minute?startDateTime={start}&endDateTime={ymd}{e6}")
         if not bars:  # illiquid: no trade in the last 30 min -> look at the whole day
             bars = cli.get(f"{CHART_API}/{code}/minute?startDateTime={ymd}090000&endDateTime={ymd}235959")
-            reg = [b for b in bars if b["localDateTime"][:8] == ymd and b["localDateTime"][8:] <= "153000"]
+            reg = [b for b in bars if b["localDateTime"][:8] == ymd and b["localDateTime"][8:] <= e6]
             if not reg:
                 return None, bool(bars)
             bars = reg
-        bars = [b for b in bars if b["localDateTime"][:8] == ymd and b["localDateTime"][8:] <= "153000"]
+        bars = [b for b in bars if b["localDateTime"][:8] == ymd and b["localDateTime"][8:] <= e6]
         return (int(round(bars[-1]["currentPrice"])) if bars else None), True
     except Exception as e:  # noqa: BLE001
         print(f"  chart {code} failed: {e}", file=sys.stderr)
         return None, None
+
+
+def session_end_of(rows):
+    """Most common stockExchangeType.endTime among the market-list rows (default 1530)."""
+    from collections import Counter
+    c = Counter(str((r.get("stockExchangeType") or {}).get("endTime") or "") for r in rows)
+    c.pop("", None)
+    end = c.most_common(1)[0][0] if c else "1530"
+    return end if re.fullmatch(r"\d{4}", end) else "1530"
 
 
 def main():
@@ -276,12 +288,21 @@ def main():
         stocks.append(s)
 
     pin = a.close == "krx" or (a.close == "auto" and any(v != "OPEN" for v in mstat.values()))
+    end = session_end_of(raw.values())          # '1530', or '1630' on 수능 day / first trading day of the year
     trade_ymd = (idx_ts[0] or "")[:10].replace("-", "") if idx_ts else dt.datetime.now(KST).strftime("%Y%m%d")
     closes = {}
     if pin:
         # A finished day's 15:30 closes never change -> cache them so same-day re-runs are fast.
-        cache_path = os.path.join(a.cache_dir, f"krx_close_{trade_ymd}.json")
-        session_over = dt.datetime.now(KST) >= dt.datetime.strptime(trade_ymd + "1531", "%Y%m%d%H%M").replace(tzinfo=KST)
+        cache_path = os.path.join(a.cache_dir, f"krx_close_{trade_ymd}_{end}.json")
+        end_dt = dt.datetime.strptime(trade_ymd + end, "%Y%m%d%H%M").replace(tzinfo=KST)
+        session_over = dt.datetime.now(KST) >= end_dt + dt.timedelta(minutes=1)
+        if not session_over:
+            # forced pinning before the real session end (e.g. 16:10 run on a 16:30 day) would pin to a
+            # half-finished session -> don't; the output says close="naver" so the build skips close.json
+            print(f"[4/4] WARNING: session ends {end[:2]}:{end[2:]}, not over yet -> NOT pinning (close=naver)",
+                  file=sys.stderr)
+            pin = False
+    if pin:
         if session_over and os.path.exists(cache_path):
             with open(cache_path, encoding="utf-8") as f:
                 closes = {k: tuple(v) for k, v in json.load(f).items()}
@@ -291,7 +312,7 @@ def main():
         t0 = time.time()
 
         def job(s):
-            return s["itemCode"], krx_close(cli, s["itemCode"], trade_ymd)
+            return s["itemCode"], krx_close(cli, s["itemCode"], trade_ymd, end)
 
         with ThreadPoolExecutor(max_workers=max(1, a.workers)) as ex:
             for i, (c, res) in enumerate(ex.map(job, todo), 1):
@@ -349,8 +370,11 @@ def main():
         out.append(row)
     out.sort(key=lambda x: (-x["cap"], x["c"]))
 
-    as_of = f"{trade_ymd[:4]}-{trade_ymd[4:6]}-{trade_ymd[6:]}T15:30:00+09:00" if pin else max_ts
-    snap = {"asOf": as_of, "source": "네이버 증권 (m.stock.naver.com)", "marketStatus": mstat}
+    as_of = f"{trade_ymd[:4]}-{trade_ymd[4:6]}-{trade_ymd[6:]}T{end[:2]}:{end[2:]}:00+09:00" if pin else max_ts
+    snap = {"asOf": as_of, "source": "네이버 증권 (m.stock.naver.com)", "marketStatus": mstat,
+            "close": "krx" if pin else "naver"}     # krx = pinned to the regular-session end (closeAt), naver = raw
+    if pin:
+        snap["closeAt"] = end
     if index:
         snap["index"] = index
     snap["stocks"] = out
