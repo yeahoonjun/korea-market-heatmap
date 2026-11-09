@@ -302,6 +302,7 @@ function syncTools(hasData, mode) {
   for (const b of els.sortSeg.children) b.setAttribute('aria-pressed', String(b.dataset.v === S.sort));
   els.sortSeg.children[0].textContent = S.kind === 'commodity' ? '종류순' : '지역순';
   els.sortSeg.hidden = mode !== 'list' || !hasData;
+  els.viewSeg.hidden = S.kind === 'commodity';
 }
 
 let rafR = 0;
@@ -319,10 +320,12 @@ function render() {
   els.list.setAttribute('aria-label', `${K.title} 목록. 위아래 화살표로 옮기고 Enter로 자세히 봐요`);
   const hasData = !!(d && d.all.length);
   // what the stage shows: a message box (loading / failure / empty), the list, the tile map, or — 해외 지수 in 지도 — the world map
-  const wantGeo = hasData && S.view === 'map' && S.kind === 'index';
+  // 원자재 has no geography, so it is list-only (user 2026-11-10: "지도는 세계지도만"); 해외 지수 keeps 목록 · 지도(세계지도)
+  const view = S.kind === 'commodity' ? 'list' : S.view;
+  const wantGeo = hasData && view === 'map' && S.kind === 'index';
   if (wantGeo && GEO.state === 'idle') loadAtlas();
   const geoFailed = wantGeo && GEO.state === 'failed';
-  const mode = !hasData ? 'msg' : S.view === 'list' || geoFailed ? 'list' : wantGeo ? (GEO.state === 'ready' ? 'geo' : 'geoload') : 'tiles';
+  const mode = !hasData ? 'msg' : view === 'list' || geoFailed ? 'list' : wantGeo ? (GEO.state === 'ready' ? 'geo' : 'geoload') : 'tiles';
   S.mode = mode;
   if (mode !== 'geo') { clearTimeout(nightT); nightT = 0; }
   syncTools(hasData, mode);
