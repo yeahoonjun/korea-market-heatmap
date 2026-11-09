@@ -106,6 +106,7 @@ python3 tmp/shot.py /home/claude/heatmap/dist/index.html    # 1440×900 / 390×8
 - 무료 플랜 서브요청 한도(50) 때문에 종목 600개를 하나씩 부르는 일(기간 수익률, 투자자 동향)은 Worker가 아니라 매일 작업이 해요.
 
 **히트맵 확장 API** (`src/template.html`이 `window.KH`에 추가)
+- `KH.loadData(name)` → `Promise<JSON|null>` (`name`: `themes`·`periods`·`flows`). 스냅샷은 `<script id="kh-data-NAME">`에서, 실시간은 `data/NAME.json`에서 읽어요. 한 번 읽으면 기억해요.
 - `KH.watch`: `{has(code), toggle(code), list()}` + 이벤트 `kh:watch`. localStorage 키 `khm.watch`.
 - `KH.layout()` → 지금 그려진 노드 `[{kind:'sector'|'ind'|'tile', x,y,w,h, color, label, sub}]` (이미지 저장용).
 - `KH.setReplay(frame|null)`: 리플레이 프레임 `{t, prices:Map(code→{p,r})}`를 지도에 덮어 그림. `null`이면 실시간으로 복귀. 이벤트 `kh:render`.
