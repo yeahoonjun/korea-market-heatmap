@@ -14,6 +14,7 @@
 //   GET /api/quotes?codes=c1,c2,…      → same shape for the given codes (≤ 300)
 //   GET /api/themes                    → theme list with ratio / up / flat / down
 //   GET /api/market                    → market strip (indices + spark, USDKRW, US futures, WTI, gold, BTC)
+//   GET /api/world?kind=index|commodity, /api/world/chart/:key?tf=3m|1y → world indices / futures / commodities (AGENTS §3-4)
 //   GET /api/replay/dates, /api/replay?date=YYYY-MM-DD → intraday replay frames recorded in KV (env.REPLAY, one key per frame)
 //   GET /api/stock/:code/finance?period=annual|quarter → financial statements (cols oldest→newest)
 //   GET /api/stock/:code/research      → broker reports (target / opinion parsed from the preview) + consensus
@@ -36,6 +37,7 @@ export default {
     const url = new URL(request.url);
     const path = url.pathname;
     env = env || {};
+    let m;
     try {
       if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: { 'access-control-allow-origin': ORIGIN, 'access-control-allow-methods': 'GET, OPTIONS', vary: 'origin' } });
       if (path === '/' || path === '/index.html') return await getPage(request, env, ctx);
@@ -55,6 +57,19 @@ export default {
         const live = wd >= 1 && wd <= 5 && hhmm >= '0900' && hhmm < lastEndTime;
         return await edgeCached(request, ctx, `breadth-${mk}-${+pr}`, live ? 30 : 600, () => getBreadth(env, mk, +pr));
       }
+      if (path === '/api/world') {
+        const kind = url.searchParams.get('kind') || '';
+        if (kind !== 'index' && kind !== 'commodity') return fail(400, 'kind는 index 또는 commodity여야 해요');
+        return await edgeCached(request, ctx, 'world-' + kind, 30, () => getWorld(kind));
+      }
+      m = path.match(/^\/api\/world\/chart\/([^/]+)$/);
+      if (m) {
+        const item = WORLD_BY_KEY.get(m[1]);
+        if (!item) return fail(400, '알 수 없는 항목이에요');
+        const tf = url.searchParams.get('tf') || '3m';
+        if (tf !== '3m' && tf !== '1y') return fail(400, 'tf는 3m 또는 1y여야 해요 (해외 분봉 원천이 없어요)');
+        return await edgeCached(request, ctx, `wch-${item.key}-${tf}`, 600, () => getWorldChart(item, tf));
+      }
       if (path === '/api/themes') return await edgeCached(request, ctx, 'themes', 30, () => getThemes());
       if (path === '/api/market') return await edgeCached(request, ctx, 'market', 30, () => getMarket());
       if (path === '/api/replay/dates') return await edgeCached(request, ctx, 'replay-dates', 60, () => getReplayDates(env));
@@ -65,7 +80,7 @@ export default {
         return await edgeCached(request, ctx, 'replay-' + (d || 'latest'), past ? 3600 : 60, () => getReplay(env, d));
       }
       if (ASSETS[path]) return await getAsset(request, env, ctx, path);
-      let m = path.match(/^\/api\/chart\/([^/]+)$/);
+      m = path.match(/^\/api\/chart\/([^/]+)$/);
       if (m) {
         if (!CODE_RE.test(m[1])) return fail(400, '종목 코드가 올바르지 않아요');
         return await edgeCached(request, ctx, 'chart-' + m[1], CHART_TTL, () => getChart(m[1]));
@@ -344,6 +359,94 @@ async function getBreadth(env, m, part) {
     if (!seenEnd && s.stockExchangeType && /^\d{4}$/.test(s.stockExchangeType.endTime)) { seenEnd = true; lastEndTime = s.stockExchangeType.endTime; }
   }
   return { m, part, parts, asOf, rows };
+}
+
+/* ── /api/world, /api/world/chart ─────────────────────────────── */
+// Only codes Naver actually answers (probed 2026-11-09). One polling call per source → ≤ 3 subrequests per kind.
+// src: polling path after /realtime/. Index codes keep Reuters form; item key = code without the leading dot.
+const POLL = 'https://polling.finance.naver.com/api/realtime/';
+const WORLD_CFG = {
+  index: [
+    { key: 'us', name: '미국', src: 'worldstock/index', items: [['.DJI', '다우존스'], ['.INX', 'S&P 500'], ['.IXIC', '나스닥 종합'], ['.NDX', '나스닥 100'], ['.SOX', '필라델피아 반도체'], ['.DJT', '다우운송']] },
+    { key: 'usf', name: '미국 선물', src: 'worldstock/futures', items: [['EScv1', 'S&P 500 선물'], ['NQcv1', '나스닥 100 선물'], ['YMcv1', '다우 선물'], ['RTYcv1', '러셀 2000 선물']] },
+    { key: 'eu', name: '유럽', src: 'worldstock/index', items: [['.STOXX50E', '유로스톡스 50'], ['.GDAXI', '독일 DAX'], ['.FTSE', '영국 FTSE 100'], ['.FCHI', '프랑스 CAC 40'], ['.AEX', '네덜란드 AEX'], ['.IBEX', '스페인 IBEX 35'], ['.FTMIB', '이탈리아 FTSE MIB'], ['.OMXS30', '스웨덴 OMXS 30'], ['.BFX', '벨기에 BEL 20'], ['.PSI20', '포르투갈 PSI 20'], ['.ISEQ', '아일랜드 ISEQ'], ['.BUX', '헝가리 BUX']] },
+    { key: 'asia', name: '아시아·태평양', src: 'worldstock/index', items: [['.N225', '니케이 225'], ['.TOPX', '토픽스'], ['.SSEC', '상해종합'], ['.SZSC', '심천종합'], ['.CSI300', 'CSI 300'], ['.HSI', '항셍'], ['.HSCE', '홍콩H'], ['.TWII', '대만 가권'], ['.BSESN', '인도 SENSEX'], ['.VNI', '호치민 VN'], ['.HNXI', '하노이 HNX'], ['.AXJO', '호주 ASX 200'], ['.JKSE', '인도네시아 IDX'], ['.KLSE', '말레이시아 KLCI']] },
+    { key: 'am', name: '중남미', src: 'worldstock/index', items: [['.BVSP', '브라질 BOVESPA'], ['.MXX', '멕시코 IPC']] },
+    { key: 'kr', name: '한국 (비교용)', src: 'domestic/index', items: [['KOSPI', '코스피'], ['KOSDAQ', '코스닥']] },
+    { key: 'ref', name: '참고', src: 'worldstock/index', items: [['.VIX', 'VIX 변동성', { ref: true }]] },
+  ],
+  commodity: [
+    { key: 'energy', name: '에너지', src: 'marketindex/energy', items: [['CLcv1', 'WTI'], ['LCOcv1', '브렌트유'], ['NGcv1', '천연가스'], ['RBcv1', 'RBOB 가솔린'], ['HOcv1', '난방유']] },
+    { key: 'metals', name: '금속', src: 'marketindex/metals', items: [['GCcv1', '금'], ['SIcv1', '은'], ['HGcv1', '구리'], ['PLcv1', '백금'], ['PAcv1', '팔라듐']] },
+    { key: 'agri', name: '농산물', src: 'marketindex/agricultural', items: [['Ccv1', '옥수수'], ['Scv1', '대두'], ['Wcv1', '소맥'], ['KCcv1', '커피'], ['SBcv1', '설탕'], ['CCcv1', '코코아'], ['CTcv1', '면화']] },
+  ],
+};
+const WORLD_BY_KEY = new Map();
+for (const kind of Object.keys(WORLD_CFG)) for (const g of WORLD_CFG[kind]) for (const [code, name, extra] of g.items) WORLD_BY_KEY.set(code.replace(/^\./, ''), { key: code.replace(/^\./, ''), code, name, src: g.src, ref: !!(extra && extra.ref) });
+async function getWorld(kind) {
+  const groups = WORLD_CFG[kind];
+  const bySrc = new Map();
+  for (const g of groups) { const a = bySrc.get(g.src) || bySrc.set(g.src, []).get(g.src); for (const it of g.items) if (!a.includes(it[0])) a.push(it[0]); }
+  const got = new Map();                                              // src → Map(code → raw)
+  await Promise.all([...bySrc].map(async ([src, codes]) => {
+    try {
+      const r = await naver(`${POLL}${src}/${codes.join(',')}`);
+      const mm = new Map();
+      for (const x of r.datas || []) mm.set(x.reutersCode || x.itemCode, x);
+      got.set(src, mm);
+    } catch (_) { /* this source is dropped, the rest is returned */ }
+  }));
+  const out = [];
+  for (const g of groups) {
+    const mm = got.get(g.src);
+    if (!mm) continue;
+    const items = [];
+    for (const [code, name, extra] of g.items) {
+      const x = mm.get(code);
+      if (!x) continue;
+      const value = pn(x.closePriceRaw != null && x.closePriceRaw !== '' ? x.closePriceRaw : x.closePrice);
+      if (value == null) continue;
+      const dir = x.compareToPreviousPrice || x.fluctuationsType;
+      const ex = x.stockExchangeType || {};
+      const it = {
+        key: code.replace(/^\./, ''), name, value,
+        change: sgn(x.compareToPreviousClosePriceRaw != null && x.compareToPreviousClosePriceRaw !== '' ? x.compareToPreviousClosePriceRaw : (x.compareToPreviousClosePrice != null ? x.compareToPreviousClosePrice : x.fluctuations), dir) ?? 0,
+        ratio: sgn(x.fluctuationsRatioRaw != null && x.fluctuationsRatioRaw !== '' ? x.fluctuationsRatioRaw : x.fluctuationsRatio, dir) ?? 0,
+        status: x.marketStatus === 'OPEN' ? 'OPEN' : 'CLOSE',
+        tradedAt: x.localTradedAt || null,
+      };
+      if (ex.delayTime > 0) it.delayed = ex.delayTime;
+      if (x.unit) it.unit = x.unit;
+      if (ex.zoneId) it.tz = ex.zoneId;
+      if (extra && extra.ref) it.ref = true;
+      items.push(it);
+    }
+    if (items.length) out.push({ key: g.key, name: g.name, items });
+  }
+  if (!out.length) throw new Error('world: every source failed');
+  return { asOf: new Date().toISOString(), kind, groups: out };
+}
+// Daily closes only: Naver has no intraday source for foreign indices / commodities (chart/foreign/*/minute* answer []).
+async function getWorldChart(item, tf) {
+  const from = tf === '3m' ? kstDaysAgo(0, 3) : kstDaysAgo(0, 0, 1);
+  const cutoff = ymd(from);
+  let rows;
+  if (item.src.startsWith('marketindex/')) {
+    const cat = item.src.split('/')[1];
+    const pages = await Promise.all(Array.from({ length: tf === '3m' ? 2 : 5 }, (_, i) => naver(`https://api.stock.naver.com/marketindex/${cat}/${item.code}/prices?page=${i + 1}&pageSize=60`).catch(e => { if (i === 0) throw e; return []; })));
+    rows = pages.flat().map(r => ({ d: String(r.localTradedAt || '').slice(0, 10).replace(/-/g, ''), c: pn(r.closePrice) }));
+  } else {
+    const kindPath = item.src === 'worldstock/futures' ? 'foreign/futures' : item.src === 'domestic/index' ? 'domestic/index' : 'foreign/index';
+    const raw = await naver(`https://api.stock.naver.com/chart/${kindPath}/${item.code}/day?startDateTime=${cutoff}000000&endDateTime=${ymd(kstNow())}235959`);
+    rows = (Array.isArray(raw) ? raw : []).map(r => ({ d: String(r.localDate), c: pn(r.closePrice) }));
+  }
+  const seen = new Set(), bars = [];
+  for (const r of rows.sort((a, b) => a.d.localeCompare(b.d))) {
+    if (r.d < cutoff || r.c == null || seen.has(r.d) || !/^\d{8}$/.test(r.d)) continue;
+    seen.add(r.d);
+    bars.push({ t: dash(r.d), c: r.c });
+  }
+  return { key: item.key, tf, bars };
 }
 
 /* ── /api/chart/:code ─────────────────────────────── */
