@@ -2977,6 +2977,7 @@ function applyMotion(m, persist) {
     finishIntro(); tweenStop();
     for (const el of [...flashing]) if (el.__fl) el.__fl.finish();
   }
+  if (m === 'reduced') for (const el of nodes.values()) if (el.__fa) flip(el, null, el.__g);   // 줄이기: moves end where they land
   syncMotionSeg();
   document.dispatchEvent(new CustomEvent('kh:motion', { detail: { motion: m } }));
 }

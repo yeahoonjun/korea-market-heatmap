@@ -302,5 +302,29 @@ with sync_playwright() as p:
         ok('tween: console errors 0', not errs(log), errs(log)[:3])
         ctx.close()
 
+    # ───── quality in 화려하게: overflow, console, labels, keyboard, taps; screenshots for a human look ─────
+    if 'quality' in WANT:
+        for vp in ['m360', 'm390', 't768', 'd1280', 'd1440', 'd1920']:
+            ctx, pg, log = fresh(b, vp, store={'motion': 'fancy'}, wait=WAIT + 600)
+            over = pg.evaluate("document.documentElement.scrollWidth - innerWidth")
+            lab = pg.evaluate(LABEL_CHECK_JS)
+            # toolbar rows: item tops more than 12 px apart start a new row
+            rows = pg.evaluate("(() => { const t = [...document.querySelectorAll('.tools > *, .ctls > .ctl')].filter(e => e.offsetParent && getComputedStyle(e).display !== 'contents').map(e => e.getBoundingClientRect().top).sort((a, b) => a - b); let n = t.length ? 1 : 0; for (let i = 1; i < t.length; i++) if (t[i] - t[i - 1] > 12) n++; return n; })()")
+            ok(f'{vp} 화려하게: overflow 0, console errors 0, labels inside ({lab["visible"]}), toolbar rows {rows}', over == 0 and not errs(log) and lab['overflow'] == 0 and (rows <= 1 or vp in ('t768',) or vp.startswith('m')), (over, errs(log)[:2], lab['examples'][:1], rows))
+            if vp in ('m390', 't768', 'd1440'): pg.screenshot(path=SHOTS + f'fancy-{vp}-{build}.png')
+            if vp == 'd1440':
+                # keyboard: Tab reaches the 화면 button, Enter opens it with focus inside; 3D button reachable
+                pg.evaluate("document.getElementById('palseg').lastElementChild.focus()")
+                pg.keyboard.press('Tab')
+                a = pg.evaluate("document.activeElement.id")
+                pg.keyboard.press('Enter'); pg.wait_for_timeout(100)
+                b2 = pg.evaluate("document.activeElement.closest('#morePanel') ? document.activeElement.textContent : null")
+                ring = pg.evaluate("getComputedStyle(document.activeElement).outlineStyle")
+                pg.keyboard.press('Escape')
+                pg.evaluate("document.querySelector('.viewseg button[data-v=\"map\"]').focus()"); pg.keyboard.press('Tab')
+                c = pg.evaluate("document.activeElement.dataset.v")
+                ok('keyboard: 색상 → Tab → 화면 button; Enter opens with focus on 효과 (ring shown); 지도 → Tab → 3D', a == 'moreBtn' and b2 and ring == 'solid' and c == '3d', (a, b2, ring, c))
+            ctx.close()
+
     print(f'\n{sum(res)}/{len(res)} passed ({build}) [{",".join(sorted(WANT))}]')
     b.close()
