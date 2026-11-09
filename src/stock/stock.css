@@ -491,8 +491,11 @@ a.sp-nw-a:visited .sp-nw-t { color: var(--fg2); }
 }
 @media (min-width: 1100px) and (max-height: 760px) { .sp-ob-grid { grid-template-rows: repeat(10, 32px); } }
 
-@media (prefers-reduced-motion: reduce) {
-  .sp.sp-in { animation: none; }
-  .sp-chip.live i, .sp-skel, .sp-chart-skel i, .sp-fin-skel i { animation: none; }
-  .sp-q .bar, .sp-seg button, .sp-star svg, .sp-switch i, .sp-switch i::after { transition: none; }
+html[data-motion="reduced"] .sp.sp-in { animation: none; }
+html[data-motion="reduced"] .sp-chip.live i, html[data-motion="reduced"] .sp-skel, html[data-motion="reduced"] .sp-chart-skel i, html[data-motion="reduced"] .sp-fin-skel i { animation: none; }
+html[data-motion="reduced"] .sp-q .bar, html[data-motion="reduced"] .sp-seg button, html[data-motion="reduced"] .sp-star svg, html[data-motion="reduced"] .sp-switch i, html[data-motion="reduced"] .sp-switch i::after { transition: none; }
+@media (prefers-reduced-motion: reduce) {   /* fallback only when the heatmap sets no data-motion */
+  html:not([data-motion]) .sp.sp-in { animation: none; }
+  html:not([data-motion]) .sp-chip.live i, html:not([data-motion]) .sp-skel, html:not([data-motion]) .sp-chart-skel i, html:not([data-motion]) .sp-fin-skel i { animation: none; }
+  html:not([data-motion]) .sp-q .bar, html:not([data-motion]) .sp-seg button, html:not([data-motion]) .sp-star svg, html:not([data-motion]) .sp-switch i, html:not([data-motion]) .sp-switch i::after { transition: none; }
 }

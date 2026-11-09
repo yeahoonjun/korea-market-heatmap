@@ -52,6 +52,8 @@ const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
 /* New effects (AGENTS.md §3-5) run only when KH.motion() === 'fancy'; a heatmap without KH.motion counts as 'standard'.
  * Durations and curves come from the motion tokens in docs/motion-brief.md (--m-roll, --m-quint, --m-out, …) when the heatmap defines them. */
 const motion = () => { try { const m = KH.motion && KH.motion(); return m === 'fancy' || m === 'reduced' ? m : 'standard'; } catch (e) { return 'standard'; } };
+// the level comes from KH.motion() only; the OS media query is a fallback for a heatmap that has none
+const reducedNow = () => (typeof KH.motion === 'function' ? motion() === 'reduced' : reduceMotion.matches);
 const fancy = () => motion() === 'fancy' && document.visibilityState === 'visible';
 const tok = (name, dflt) => (root && getComputedStyle(root).getPropertyValue(name).trim()) || dflt;
 const msTok = (name, dflt) => { const v = tok(name, ''), x = parseFloat(v); return x > 0 ? (/ms\s*$/.test(v) ? x : /s\s*$/.test(v) ? x * 1000 : x) : dflt; };
@@ -1713,7 +1715,7 @@ function show(code, opener) {
     document.documentElement.classList.add('sp-on');
     setInert(true);
     root.classList.remove('sp-in');
-    if (!reduceMotion.matches) { void root.offsetWidth; root.classList.add('sp-in'); }
+    if (!reducedNow()) { void root.offsetWidth; root.classList.add('sp-in'); }
     S.open = true;
   }
   root.scrollTop = 0;
