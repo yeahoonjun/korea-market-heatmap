@@ -1,0 +1,65 @@
+name: daily-data
+
+on:
+  schedule:
+    - cron: "10 7 * * 1-5"   # 16:10 KST, Mon-Fri
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: daily-data
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install requests   # build_snapshot.py needs it; build_daily.py is stdlib only
+
+      - name: KRX trading day?
+        id: day
+        run: |
+          if python3 scripts/build_daily.py --check-trading-day; then
+            echo "trading=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "trading=false" >> "$GITHUB_OUTPUT"
+            echo "No KRX trading today - skipping."
+          fi
+
+      # .cache/ only lives for this run (KRX closes are reused between the steps below, never across runs)
+      - name: Snapshot
+        if: steps.day.outputs.trading == 'true'
+        run: python3 scripts/build_snapshot.py --close auto --delay 0.1
+
+      - name: Themes, periods, flows
+        if: steps.day.outputs.trading == 'true'
+        run: python3 scripts/build_daily.py
+
+      - name: Validate
+        if: steps.day.outputs.trading == 'true'
+        run: python3 scripts/validate_daily.py
+
+      - name: Build pages
+        if: steps.day.outputs.trading == 'true'
+        run: python3 scripts/build_page.py
+
+      - name: Commit and push
+        if: steps.day.outputs.trading == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data web dist
+          if git diff --cached --quiet; then
+            echo "Nothing changed."
+          else
+            git commit -m "data: daily refresh $(TZ=Asia/Seoul date +%F)"
+            git pull --rebase origin "${GITHUB_REF_NAME}" || true
+            git push
+          fi
