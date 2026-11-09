@@ -465,10 +465,21 @@ async function getChart(code) {
 /* ── /api/stock/:code/summary ─────────────────────────────── */
 // basic (price, status) + integration (ratios) fetched in parallel.
 async function getSummary(code) {
-  const [b, g] = await Promise.all([
+  // The daily chart is split-adjusted whatever Naver's /integration answers to this egress → 52-week range comes from it.
+  const [b, g, days] = await Promise.all([
     naver(`https://m.stock.naver.com/api/stock/${code}/basic`),
     naver(`https://m.stock.naver.com/api/stock/${code}/integration`),
+    naver(`https://api.stock.naver.com/chart/domestic/item/${code}/day?startDateTime=${ymd(kstDaysAgo(7, 0, 1))}000000&endDateTime=${ymd(kstNow())}235959`).catch(() => null),
   ]);
+  let hi = null, lo = null;
+  const cut = ymd(kstDaysAgo(364));
+  for (const r of Array.isArray(days) ? days : []) {
+    if (String(r.localDate) < cut) continue;
+    const h = pn(r.highPrice), l = pn(r.lowPrice);
+    if (h != null && (hi == null || h > hi)) hi = h;
+    if (l != null && l > 0 && (lo == null || l < lo)) lo = l;
+  }
+  const fromChart = hi != null && lo != null;
   const t = {};
   for (const x of g.totalInfos || []) t[x.code] = x.value;
   const ex = b.stockExchangeType || {};
@@ -488,8 +499,9 @@ async function getSummary(code) {
     pbr: pn(t.pbr),
     bps: pn(t.bps),
     dividendYield: pn(t.dividendYieldRatio),
-    high52: pn(t.highPriceOf52WeeksAdjusted ?? t.highPriceOf52Weeks),     // adjusted for splits / capital changes when Naver provides it
-    low52: pn(t.lowPriceOf52WeeksAdjusted ?? t.lowPriceOf52Weeks),
+    high52: fromChart ? hi : pn(t.highPriceOf52WeeksAdjusted ?? t.highPriceOf52Weeks),     // fallback: integration values (adjusted when Naver provides them)
+    low52: fromChart ? lo : pn(t.lowPriceOf52WeeksAdjusted ?? t.lowPriceOf52Weeks),
+    range52: fromChart ? 'chart' : 'naver',
     marketCap: parseEok(t.marketValue),
     foreignRate: pn(t.foreignRate),
     asOf: b.localTradedAt || null,
