@@ -66,7 +66,7 @@ def module(folder: str, name: str) -> str:
 
 def stock_module() -> str:
     """The stock page (src/stock/) and the extras (src/extras/) are inlined after the heatmap script."""
-    return module("stock", "stock") + module("extras", "extras") + module("world", "world") + module("map3d", "map3d")
+    return module("stock", "stock") + module("extras", "extras") + module("world", "world")
 
 
 DATA_FILES = ("themes", "periods", "flows")
