@@ -80,6 +80,13 @@ def summary(code):
     if CONFIG.get('bump'):   # /__config?bump=700 → the price moves by that many won (a rising/falling quote for the odometer checks)
         b = int(CONFIG['bump']); prev = out['price'] - out['change']
         out['price'] += b; out['change'] += b; out['ratio'] = round(out['change'] / prev * 100, 2) if prev else out['ratio']
+    out['nxt'] = None
+    nx = CONFIG.get('nxt')   # /__config?nxt=pre|after|preclosed|afterclosed (&nxtp=<price>) → summary.nxt (AGENTS.md §3-8)
+    if nx:
+        prev = out['price'] - out['change']
+        np_ = int(CONFIG.get('nxtp') or round(prev * 1.0611, -2))
+        out['nxt'] = {'p': np_, 'd': np_ - prev, 'r': round((np_ - prev) / prev * 100, 2), 's': 'pre' if nx.startswith('pre') else 'after',
+                      'o': 0 if nx.endswith('closed') else 1, 't': '2026-11-10T08:12:30+09:00'}
     if CONFIG.get('status'):
         out['marketStatus'] = CONFIG['status']
     if CONFIG.get('asof'):

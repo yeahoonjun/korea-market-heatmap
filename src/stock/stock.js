@@ -196,11 +196,12 @@ function build() {
   R.price = h('div', { class: 'sp-price num' });
   R.chg = h('div', { class: 'sp-chg num' });
   R.lim = h('span', { class: 'sp-lim', hidden: true });
+  R.nxt = h('div', { class: 'sp-nxt num', hidden: true }, h('span', { class: 'k' }), ' ', h('span', { class: 'pv' }), ' ', h('span', { class: 'pr' }), h('span', { class: 't' }));
   R.star = h('button', { class: 'sp-star', type: 'button', 'aria-label': '관심종목', 'aria-pressed': 'false', hidden: true, onclick: toggleWatch },
     svg('svg', { viewBox: '0 0 24 24', 'aria-hidden': 'true' }, svg('path', { d: 'M12 3.4l2.6 5.5 6 .8-4.4 4.2 1.1 6-5.3-2.9-5.3 2.9 1.1-6-4.4-4.2 6-.8z' })));
   R.head = h('header', { class: 'sp-head' }, h('div', { class: 'sp-head-in' }, R.back,
     h('div', { class: 'sp-id' }, R.name, h('div', { class: 'sp-sub' }, R.code, R.mkt, R.path)),
-    h('div', { class: 'sp-quote', 'aria-live': 'polite' }, R.price, R.chg, R.lim),
+    h('div', { class: 'sp-quote', 'aria-live': 'polite' }, R.price, R.chg, R.lim, R.nxt),
     R.star));
   R.meta = h('div', { class: 'sp-meta' });
   R.stats = h('dl', { class: 'sp-stats' });
@@ -322,6 +323,7 @@ function renderHead() {
     R.chg.setAttribute('aria-label', `전일 대비 ${signed(chg)}원, ${pct(ratio)}`);
   }
   renderLim();
+  renderNxt();
   renderStar();
   if (name) document.title = `${name} ${price != null ? int(price) : ''} ${price != null ? pct(ratio) : ''} · 한국 증시 히트맵`.replace(/\s+/g, ' ');
 }
@@ -333,6 +335,25 @@ function limitOf() {
   if (st && st.lim != null) return st.lim === 1 || st.lim === -1 ? st.lim : 0;
   const r = st && isNum(st.r) ? +st.r : S.sum && S.sum.code === S.code && isNum(S.sum.ratio) ? +S.sum.ratio : null;
   return r == null ? 0 : r >= 29.5 ? 1 : r <= -29.5 ? -1 : 0;
+}
+// NXT line (AGENTS.md §3-8): summary.nxt {p,d,r,s:'pre'|'after',o:1|0,t}; null/missing = the stock has no NXT trading, no line
+let nxtPrev = null;
+function renderNxt() {
+  const x = S.sum && S.sum.code === S.code && S.sum.nxt && isNum(S.sum.nxt.p) ? S.sum.nxt : null, n = R.nxt;
+  n.hidden = !x;
+  if (!x) { nxtPrev = null; return; }
+  const K = n.querySelector('.k'), PV = n.querySelector('.pv'), PR = n.querySelector('.pr'), T = n.querySelector('.t');
+  const pre = x.s === 'pre', open = !!x.o, c = cls(+x.d);
+  n.className = 'sp-nxt num ' + c;
+  K.textContent = `NXT ${pre ? (open ? '프리마켓' : '프리마켓 마감') : (open ? '애프터마켓' : '애프터 종가')}`;
+  const d = toDate(x.t), tm = d ? clock(d).slice(0, 5) : '';
+  const dir = nxtPrev && nxtPrev.code === S.code ? Math.sign(+x.p - nxtPrev.p) : 0;
+  nxtPrev = { code: S.code, p: +x.p };
+  const pv = int(x.p), pr = pct(x.r);
+  if (fancy() && dir) { setRoll(PV, pv, dir); setRoll(PR, pr, dir); }
+  else for (const [el, t] of [[PV, pv], [PR, pr]]) if (el.dataset.v !== t) { settleRoll(el); el.textContent = t; el.dataset.v = t; }
+  T.textContent = tm ? ` · ${tm}` : '';
+  n.setAttribute('aria-label', `${K.textContent} ${pv}원 ${pr}${tm ? ' ' + tm : ''}`);
 }
 function renderLim() {
   const lim = limitOf();

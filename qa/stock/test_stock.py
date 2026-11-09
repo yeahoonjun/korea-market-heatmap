@@ -342,7 +342,7 @@ def run(b):
     em = {'chart': P.ev("() => document.querySelector('.sp-chartmsg').textContent"), 'ob': P.ev("() => document.querySelector('#sp-p-ob').textContent")}
     pg.click('#sp-t-inv'); pg.wait_for_timeout(500); em['inv'] = P.ev("() => document.querySelector('#sp-p-inv').textContent")
     pg.click('#sp-t-daily'); pg.wait_for_timeout(500); em['daily'] = P.ev("() => document.querySelector('#sp-p-daily').textContent")
-    check('empty_states', '거래 기록이 없어요' in em['chart'] and '호가가 없어요' in em['ob'] and '기록이 없어요' in em['inv'] and '일별 시세가 없어요' in em['daily'], em)
+    check('empty_states', ('거래 기록이 없어요' in em['chart'] or '아직 거래가 없어요' in em['chart']) and '호가가 없어요' in em['ob'] and '기록이 없어요' in em['inv'] and '일별 시세가 없어요' in em['daily'], em)
     check('console_clean_empty', not P.console, P.console)
     P.close()
 
@@ -1150,6 +1150,51 @@ def run_motion(b):
     mock('/__reset')
 
 
+def run_nxt(b):
+    """NXT line under the header price (AGENTS.md §3-8)."""
+    mock('/__reset')
+    base = mock('/api/stock/005930/summary'); prev = base['price'] - base['change']
+    NX = "() => { const n = document.querySelector('.sp-nxt'); const b = n.getBoundingClientRect(); return { hidden: n.hidden, text: n.textContent, cls: n.className, right: b.right, vw: innerWidth, color: getComputedStyle(n.querySelector('.pv')).color, up: getComputedStyle(document.documentElement).getPropertyValue('--up-text').trim() }; }"
+    REFRESH = "() => document.dispatchEvent(new Event('visibilitychange'))"
+
+    def go(w, cfg, motion='standard'):
+        mock('/__reset'); mock('/__config?' + cfg)
+        P = Page(b, w, None); P.pg.add_init_script(f"localStorage.setItem('khm.motion', JSON.stringify('{motion}'))"); P.pg.goto(BASE); P.pg.wait_for_timeout(500)
+        P.ev("() => KHStock.open('005930')"); P.wait_chart(); P.pg.wait_for_timeout(300)
+        return P
+    r = {}
+    for k, cfg in (('pre', 'nxt=pre'), ('after', 'nxt=after'), ('preclosed', 'nxt=preclosed'), ('afterclosed', 'nxt=afterclosed'), ('none', '')):
+        P = go(1280, cfg or 'x=1'); r[k] = P.ev(NX); r[k]['err'] = P.console[:]; P.close()
+    np_ = int(round(prev * 1.0611, -2)); pc = f"{(np_ - prev) / prev * 100:+.2f}%".replace('-', '−')
+    ok = (not r['pre']['hidden'] and r['pre']['text'] == f"NXT 프리마켓 {np_:,} {pc} · 08:12" and 'up' in r['pre']['cls']
+          and r['after']['text'].startswith('NXT 애프터마켓 ') and r['preclosed']['text'].startswith('NXT 프리마켓 마감 ') and r['afterclosed']['text'].startswith('NXT 애프터 종가 ') and r['none']['hidden'])
+    check('nxt_line_texts_and_hidden_without_nxt', ok, {k: r[k]['text'] for k in r})
+    check('nxt_up_colour_from_palette', r['pre']['color'] != '' and r['pre']['up'] != '' and r['pre']['color'] != 'rgb(0, 0, 0)', {'c': r['pre']['color'], 'v': r['pre']['up']})
+    # refresh with the summary poll
+    P = go(1280, 'nxt=pre'); mock(f'/__config?nxtp={int(prev * 0.97)}'); P.ev(REFRESH)
+    P.pg.wait_for_function("() => document.querySelector('.sp-nxt').classList.contains('dn')", timeout=5000)
+    t = P.ev(NX)['text']; P.close()
+    check('nxt_line_refreshes_with_summary', '−' in t and t.startswith('NXT 프리마켓'), t)
+    # roll only in fancy
+    roll = {}
+    for m in ('standard', 'fancy'):
+        P = go(1280, 'nxt=pre', m); mock(f'/__config?nxtp={int(prev * 1.08)}'); P.ev(REFRESH)
+        try:
+            P.pg.wait_for_selector('.sp-nxt .od-c', state='attached', timeout=1500 if m == 'fancy' else 800); roll[m] = True
+        except Exception:
+            roll[m] = False
+        P.close()
+    check('nxt_roll_fancy_only', roll == {'standard': False, 'fancy': True}, roll)
+    # fits at all widths, no overflow
+    ov = {}
+    for w in (360, 390, 768, 1280, 1440):
+        P = go(w, 'nxt=pre'); o = P.ev(OVERFLOW_JS); n = P.ev(NX)
+        ov[w] = {'doc': o['doc'], 'root': o['root'], 'n': o['n'], 'inside': n['right'] <= n['vw'], 'err': P.console[:]}; P.close()
+    check('nxt_no_overflow_all_widths', all(v['doc'] <= 0 and v['root'] <= 0 and v['n'] == 0 and v['inside'] and not v['err'] for v in ov.values()), ov)
+    check('nxt_no_console_errors', not any(r[k]['err'] for k in r), None)
+    mock('/__reset')
+
+
 if __name__ == '__main__':
     srv = subprocess.Popen([sys.executable, str(HERE / 'mock_api.py')], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     try:
@@ -1163,6 +1208,8 @@ if __name__ == '__main__':
             try:
                 if '--motion-only' in sys.argv:
                     run_motion(browser)
+                elif '--nxt-only' in sys.argv:
+                    run_nxt(browser)
                 elif '--info-only' in sys.argv:
                     run_info(browser)
                 else:
@@ -1171,6 +1218,7 @@ if __name__ == '__main__':
                     run_extra(browser)
                     run_info(browser)
                     run_motion(browser)
+                    run_nxt(browser)
             finally:
                 browser.close()
     finally:
@@ -1178,6 +1226,6 @@ if __name__ == '__main__':
         srv.wait(5)
     passed = sum(1 for v in R.values() if v['ok'])
     print(f'\n{passed}/{len(R)} passed' + (f'  FAILED: {FAILS}' if FAILS else ''))
-    if '--extra-only' not in sys.argv and '--info-only' not in sys.argv and '--motion-only' not in sys.argv:
+    if '--extra-only' not in sys.argv and '--info-only' not in sys.argv and '--motion-only' not in sys.argv and '--nxt-only' not in sys.argv:
         (HERE / 'results.json').write_text(json.dumps(R, ensure_ascii=False, indent=1), encoding='utf-8')
     sys.exit(1 if FAILS else 0)
