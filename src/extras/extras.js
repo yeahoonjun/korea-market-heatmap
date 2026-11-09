@@ -330,8 +330,13 @@ function currentMarket() {
   const b = $('.tabs button[aria-pressed="true"]');
   return b ? b.dataset.mkt || 'K' : 'K';
 }
+const isWorldTab = () => { const m = currentMarket(); return m === 'world' || m === 'cmdty'; };
 function titleParts() {
   const m = currentMarket();
+  if (m === 'world' || m === 'cmdty') {
+    const d = new Date();
+    return { m, title: m === 'world' ? '해외 지수' : '원자재', when: fmtHM.format(d) + ' 기준' };
+  }
   const name = (KH.MKT_NAME && KH.MKT_NAME[m]) || '';
   const crumbs = [...document.querySelectorAll('#crumbs .c')].map(b => b.textContent.trim()).filter(Boolean);
   const path = crumbs.slice(1).join(' › ');
@@ -341,7 +346,7 @@ function titleParts() {
   return { m, title: `${name ? name + ' ' : ''}히트맵${path ? ' · ' + path : ''}`, when };
 }
 function fileName(m) {
-  const tag = { K: 'kospi', Q: 'kosdaq', ALL: 'all' }[m] || 'map';
+  const tag = { K: 'kospi', Q: 'kosdaq', ALL: 'all', world: 'world', cmdty: 'commodity' }[m] || 'map';
   let stamp;
   if (replay.frameT && replay.date) stamp = replay.date.replace(/-/g, '') + '-' + String(replay.frameT).replace(':', '');
   else {
@@ -521,8 +526,9 @@ async function saveImage(ev) {
   if (saving) return;
   const btn = ev && ev.currentTarget;
   let nodes = [];
-  try { nodes = (KH.layout() || []).filter(n => n && isFinite(n.x) && isFinite(n.y) && n.w > 0 && n.h > 0); } catch (e) { nodes = []; }
-  if (!nodes.some(n => n.kind === 'tile')) { toast('저장할 지도가 없어요. 지도 보기에서 다시 눌러 주세요.'); return; }
+  const wt = isWorldTab();
+  try { nodes = ((wt ? (window.KHWorld && typeof window.KHWorld.layout === 'function' ? window.KHWorld.layout() : []) : KH.layout()) || []).filter(n => n && isFinite(n.x) && isFinite(n.y) && n.w > 0 && n.h > 0); } catch (e) { nodes = []; }
+  if (!nodes.some(n => n.kind === 'tile')) { toast(wt ? '지도 탭에서만 저장할 수 있어요' : '저장할 지도가 없어요. 지도 보기에서 다시 눌러 주세요.'); return; }
   saving = true;
   if (btn) btn.setAttribute('aria-busy', 'true');
   try {
@@ -709,6 +715,7 @@ function rpState(kind, text, retry) {
 
 async function openReplay(ev) {
   const R = replay;
+  if (isWorldTab()) return;
   if (R.open) { closeReplay(); return; }
   if (!R.el) rpBuild();
   R.open = true;
@@ -898,7 +905,20 @@ function initTools() {
   toast('');                                               // create the live region up front so the first message is announced
   toolsEl.classList.add('xt');
   if (has('layout')) toolsEl.append(toolButton('image', '이미지로 저장', saveImage));
-  if (LIVE && has('setReplay')) toolsEl.append(toolButton('replay', '리플레이', openReplay, { 'aria-expanded': 'false' }));
+  if (LIVE && has('setReplay')) {
+    const rb = toolButton('replay', '리플레이', openReplay, { 'aria-expanded': 'false' });
+    toolsEl.append(rb);
+    // replay only makes sense on the domestic maps: dim it on the 해외 / 원자재 tabs
+    const sync = () => {
+      const off = isWorldTab();
+      if (off) { if (replay.open) closeReplay(); rb.setAttribute('aria-disabled', 'true'); rb.title = '국내 지도 탭에서 쓸 수 있어요'; }
+      else { rb.removeAttribute('aria-disabled'); rb.title = '리플레이'; }
+    };
+    document.addEventListener('kh:render', sync);
+    addEventListener('hashchange', sync);
+    document.addEventListener('click', e => { if (e.target.closest && e.target.closest('.tabs')) setTimeout(sync, 0); });
+    sync();
+  }
 }
 initStrip();
 initTools();

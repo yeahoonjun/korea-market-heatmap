@@ -51,6 +51,8 @@
 .xt-btn:hover svg{color:var(--fg2)}
 .xt-btn[aria-expanded="true"]{color:var(--amber);border-color:rgba(255,181,71,.45);background:var(--amber-soft)}
 .xt-btn[aria-expanded="true"] svg{color:var(--amber)}
+.xt-btn[aria-disabled="true"]{opacity:.4;cursor:not-allowed}
+.xt-btn[aria-disabled="true"]:hover{color:var(--fg2);border-color:var(--line)}
 .xt-btn[aria-busy="true"]{opacity:.6;cursor:progress}
 @media (min-width:761px) and (max-width:1599px){.xt-btn{width:34px;padding:0}.xt-btn span{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}}
 
