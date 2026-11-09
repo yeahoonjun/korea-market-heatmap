@@ -14,7 +14,7 @@ SNAP_PATH = pathlib.Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "data/sna
 snap = json.loads((SNAP_PATH).read_text(encoding="utf-8"))
 
 # keep only the fields the page reads, compact separators, and make it safe inside <script>
-keep = ("c", "n", "m", "s", "i", "cap", "p", "d", "r", "tv", "v")
+keep = ("c", "n", "m", "s", "i", "cap", "p", "d", "r", "tv", "v", "lim")
 snap["stocks"] = [{k: s[k] for k in keep if k in s} for s in snap["stocks"]]
 blob = json.dumps(snap, ensure_ascii=False, separators=(",", ":")).replace("</", "<\\/")
 
@@ -95,6 +95,17 @@ for m in ("K", "Q"):
         ix = pair_ix[key]
         enc.append(x["c"] + B36[ix // 36] + B36[ix % 36])
     uni[m] = "".join(enc)
+streamed = set(uni["K"][k:k + 6] for k in range(0, len(uni["K"]), 8)) | set(uni["Q"][k:k + 6] for k in range(0, len(uni["Q"]), 8))
+xs = []
+for x in snap["stocks"]:                       # everything else: sector lookup only (not streamed)
+    if x["c"] in streamed:
+        continue
+    key = (x.get("i") or "기타", x.get("s") or "기타")
+    if key not in pair_ix:
+        pair_ix[key] = len(pairs); pairs.append(list(key))
+    ix = pair_ix[key]
+    xs.append(x["c"] + B36[ix // 36] + B36[ix % 36] + x.get("m", "K"))
+uni["X"] = "".join(xs)
 uni["I"] = pairs
 (ROOT / "web/universe.json").write_text(json.dumps(uni, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
 print(f"stocks={len(snap['stocks'])}  dist/index.html={len(page('snapshot'))//1024}KB", file=sys.stderr)

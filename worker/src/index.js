@@ -66,7 +66,7 @@ export default {
         if (kind === 'summary') return await edgeCached(request, ctx, `sum-${code}`, 30, () => getSummary(code));
         if (kind === 'orderbook') return await edgeCached(request, ctx, `ob-${code}`, 2, () => getOrderbook(code));
         if (kind === 'news') return await edgeCached(request, ctx, `news-${code}`, 300, () => getNews(code));
-        if (kind === 'disclosures') return await edgeCached(request, ctx, `dis-${code}`, 300, () => getDisclosures(code));
+        if (kind === 'disclosures') return await edgeCached(request, ctx, `dis-${code}`, 300, () => getDisclosures(code, env));
         if (kind === 'investors') return await edgeCached(request, ctx, `inv-${code}`, 600, () => getInvestors(code));
         if (kind === 'chart') {
           const tf = url.searchParams.get('tf') || '1d';
@@ -216,7 +216,15 @@ async function getUniverse(env) {
         map.set(str.slice(k, k + 6), { m, i, s });
       }
     }
-    universeMem = { at: now, map };
+    // X: every other listed stock (not streamed) — 9 chars each: code + base36 index into I + market — so
+    // /api/quotes?codes= (watchlist, themes) can still give them a sector instead of 기타.
+    const extra = new Map();
+    const xs = U.X || '';
+    for (let k = 0; k + 9 <= xs.length; k += 9) {
+      const [i, s] = U.I[parseInt(xs.slice(k + 6, k + 8), 36)];
+      extra.set(xs.slice(k, k + 6), { m: xs[k + 8], i, s });
+    }
+    universeMem = { at: now, map, extra };
     return map;
   } catch (e) {
     if (universeMem) return universeMem.map;      // stale beats nothing
@@ -238,7 +246,7 @@ async function getQuotes(env, only) {
   const stocks = [];
   let asOf = '', stockOpen = false;
   for (const s of live.datas || []) {
-    let meta = STOCKS.get(s.itemCode);
+    let meta = STOCKS.get(s.itemCode) || (only && universeMem && universeMem.extra && universeMem.extra.get(s.itemCode));
     if (!meta) {
       if (!only) continue;
       const ex = s.stockExchangeType && s.stockExchangeType.code;
@@ -548,7 +556,15 @@ async function getNews(code) {
   rows.sort((x, y) => (y.datetime || '').localeCompare(x.datetime || ''));
   return { rows: rows.slice(0, 20) };
 }
-async function getDisclosures(code) {
+// 공시: OpenDART when the DART_KEY secret is set and the stock has a corp_code (web/dart_corp.json),
+// otherwise — or when DART fails — Naver's feed (which also carries KRX market notices).
+async function getDisclosures(code, env) {
+  if (env && env.DART_KEY) {
+    try {
+      const corp = (await getDartCorp(env)).get(code);
+      if (corp) return await getDartList(corp, env.DART_KEY);
+    } catch (e) { /* fall back to Naver */ }
+  }
   const raw = await naver(`https://m.stock.naver.com/api/stock/${code}/disclosure?pageSize=20`);
   const rows = (Array.isArray(raw) ? raw : []).map(r => {
     const d = String(r.datetime || '');
@@ -559,7 +575,45 @@ async function getDisclosures(code) {
     };
   });
   rows.sort((x, y) => (y.datetime || '').localeCompare(x.datetime || ''));
-  return { rows: rows.slice(0, 20) };
+  return { source: 'naver', rows: rows.slice(0, 20) };
+}
+let dartCorpMem = null;
+async function getDartCorp(env) {
+  if (dartCorpMem && Date.now() - dartCorpMem.at < 6 * 3600e3) return dartCorpMem.map;
+  const r = await fetch(assetBase(env) + 'dart_corp.json');
+  if (!r.ok) throw new Error('dart_corp ' + r.status);
+  const j = await r.json();                                   // {"005930":"00126380", …}
+  dartCorpMem = { at: Date.now(), map: new Map(Object.entries(j.map || j)) };
+  return dartCorpMem.map;
+}
+// 공시 종류 (report_nm 기준): 정기 · 실적 · 주요 · 지분 · 기타
+function dartKind(name) {
+  const n = String(name || '');
+  if (/사업보고서|반기보고서|분기보고서/.test(n)) return '정기';
+  if (/실적|손익구조|매출액/.test(n)) return '실적';
+  if (/소유상황보고서|대량보유|최대주주등소유주식|특정증권등/.test(n)) return '지분';
+  if (/주요사항|단일판매|공급계약|유상증자|무상증자|감자|자기주식|합병|분할|전환사채|신주인수권|교환사채|배당|최대주주변경|소송|영업정지|타법인주식|유형자산|투자판단|조회공시|상장/.test(n)) return '주요';
+  return '기타';
+}
+// DART remarks (rm): 유=유가증권시장본부 소관, 코=코스닥, 채=채권상장, 넥=코넥스, 공=공정위, 연=연결, 정=정정, 철=철회
+async function getDartList(corp, key) {
+  const from = ymd(kstDaysAgo(0, 6));
+  const u = `https://opendart.fss.or.kr/api/list.json?crtfc_key=${encodeURIComponent(key)}&corp_code=${corp}&bgn_de=${from}&page_count=40&sort=date&sort_mth=desc`;
+  const r = await fetch(u, { headers: { 'user-agent': UA, accept: 'application/json' } });
+  if (!r.ok) throw new Error('dart ' + r.status);
+  const j = await r.json();
+  if (j.status === '013') return { source: 'dart', rows: [] };          // no filings in range
+  if (j.status !== '000') throw new Error('dart status ' + j.status);
+  const rows = (j.list || []).map(x => ({
+    title: String(x.report_nm || '').replace(/\s+/g, ' ').trim(),
+    kind: dartKind(x.report_nm),
+    datetime: null,
+    date: /^\d{8}$/.test(x.rcept_dt) ? dash(x.rcept_dt) : null,
+    filer: x.flr_nm || null,
+    note: x.rm || '',
+    url: `https://dart.fss.or.kr/dsaf001/main.do?rcpNo=${x.rcept_no}`,
+  }));
+  return { source: 'dart', rows };
 }
 
 /* ── static assets (whitelist, binary-safe) ─────────────────────────────── */

@@ -73,7 +73,7 @@ globalThis.fetch = async (input, init) => {
 };
 
 const PORT = Number(process.env.PORT) || 8790;
-const env = { ASSET_BASE: process.env.ASSET_BASE, REPLAY: makeKV() };
+const env = { ASSET_BASE: process.env.ASSET_BASE, REPLAY: makeKV(), ...(process.env.DART_KEY ? { DART_KEY: process.env.DART_KEY } : {}) };
 http.createServer(async (req, res) => {
   try {
     const u = new URL('http://127.0.0.1:' + PORT + req.url);
