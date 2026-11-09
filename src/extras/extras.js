@@ -1142,11 +1142,12 @@ function ckRender(instant) {
   }
   if (ck.analog) ckAnalogSet(n);
   if (ck.dig) ck.dig.textContent = `${two(n.h)}:${two(n.m)}`;
-  if (ck.lastMin !== n.min) {
-    ck.lastMin = n.min;
-    ck.btn.setAttribute('aria-label', `한국 증시 히트맵 · 지금 ${two(n.h)}:${two(n.m)} · 눌러서 새로고침`);
-  }
   const ph = ckPhase(n);
+  if (ck.lastMin !== n.min || ck.lastTxt !== ph.text) {
+    ck.lastMin = n.min; ck.lastTxt = ph.text;
+    ck.btn.setAttribute('aria-label', `한국 증시 히트맵 · 지금 ${two(n.h)}:${two(n.m)} · 눌러서 새로고침`);
+    ck.btn.title = `${ph.text} · 눌러서 새로고침`;
+  }
   const smooth = lvl === 'fancy';
   const sig = ph.key + ph.mode + ph.seg.start + ph.seg.end;
   if (sig !== ck.sig) {
@@ -1187,7 +1188,7 @@ async function ckClick() {
   }
   const t0 = Date.now();
   try {
-    if (has('refresh')) await KH.refresh(); else await pollStrip();
+    if (LIVE) { if (has('refresh')) await KH.refresh(); else await pollStrip(); }      // the snapshot has nothing to refetch
   } catch (e) { /* the next poll will try again */ }
   const left = 700 - (Date.now() - t0);
   if (left > 0) await new Promise(r => setTimeout(r, left));
@@ -1224,7 +1225,7 @@ function initClock() {
   });
   document.addEventListener('kh:motion', () => { ckRender(); ckSchedule(); ckSweep(); });
   matchMedia('(max-width: 760px)').addEventListener('change', () => ckApply());
-  document.addEventListener('kh:refresh', () => { pollStrip(); });
+  document.addEventListener('kh:refresh', () => { if (LIVE) pollStrip(); });
 }
 
 /* ═════════════ boot ═════════════ */

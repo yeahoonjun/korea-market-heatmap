@@ -202,10 +202,10 @@ section.rp-player[hidden]{display:none}
   .xf{width:15px;height:22px;font-size:17px;line-height:22px;perspective:120px}
   .xc-colon{font-size:15px;line-height:22px}
   .xc-sec{display:none}
-  .xc-btn{min-height:40px;display:flex;align-items:center}
-  .xc-bar{height:3px;min-width:0}
-  .xc-txt{font-size:10.5px}
-  #clock{gap:0}
+  #clock{position:relative;gap:0;height:40px}
+  .xc-btn{height:40px;display:flex;align-items:center;margin:0;padding:0 4px 3px}
+  .xc-bar{position:absolute;left:4px;right:4px;bottom:1px;height:2px;min-width:0}
+  .xc-txt{display:none}
 }
 @media (max-width:760px){.xc-both .xa{width:28px;height:28px}.xc-both{gap:6px}}
 .xc-both .xa{width:36px;height:36px}
