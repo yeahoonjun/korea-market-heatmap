@@ -209,9 +209,11 @@ python3 tmp/shot.py /home/claude/heatmap/dist/index.html    # 1440×900 / 390×8
 
 사용자가 고른 것: **시세 플래시 + 숫자 롤링**, **첫 진입 연출 + 타임랩스 리플레이**, **세계지도 낮/밤 경계**, **3D 지도 보기(WebGL, 켜고 끌 수 있게, 기본은 꺼짐)**. 원칙: 정보를 전하는 모션만, 장식용 스크롤 연출·패럴랙스는 넣지 않아요.
 
-**효과 설정 (히트맵이 제공)**
-- `표시 설정`에 `효과: 켜기 · 줄이기`. 기본은 켜기, 단 기기가 `prefers-reduced-motion: reduce`면 줄이기. localStorage `khm.motion`.
-- `KH.motion()` → `'full'|'reduced'`, 바뀌면 document 이벤트 `kh:motion` `{motion}`. 모든 모듈은 `reduced`면 플래시·롤링·연출·트윈을 끄고 바로 최종 상태를 그려요(3D는 카메라 관성·높이 트윈 끔).
+**효과 설정 (히트맵이 제공) — 사용자 2026-11-10 01:09: "현재 효과를 기본으로 하고 화려한 효과를 따로 켤 수 있게"**
+- `표시 설정`에 `효과: 기본 · 화려하게`. **기본 = 지금 있는 모션 그대로**(확대 FLIP, 시장 띠 티커 등). 아래의 새 효과(플래시·롤링·첫 진입 연출·타임랩스 트윈·빛 맥동·3D 관성)는 **`화려하게`일 때만** 켜져요. 기기가 `prefers-reduced-motion: reduce`면 `줄이기`(지금처럼 전환까지 끔)로 시작하고, 설정에서 다시 바꿀 수 있어요. localStorage `khm.motion`.
+- `KH.motion()` → `'reduced'|'standard'|'fancy'`(기본 `'standard'`), 바뀌면 document 이벤트 `kh:motion` `{motion}`. 모든 모듈: `fancy`가 아니면 새 효과를 쓰지 않고 바로 최종 상태를 그려요. `reduced`면 기존 전환도 꺼요.
+- 정보 자체인 것은 효과 설정과 상관없이 보여요: 세계지도 낮/밤 경계(정적 음영), 3D 보기(따로 켜는 보기, 기본 꺼짐 — 단 `fancy`가 아니면 카메라 관성·높이 트윈 없이).
+- 디자인 참고: 사용자가 보낸 레퍼런스(쇼룸 페이지 `/mnt/user-data/uploads/4567632c-koh-young-showroom.html`, 모션 사이트 링크들)를 정리한 브리프가 `docs/motion-brief.md`에 생기면 그걸 따라요.
 - 성능: 애니메이션은 `transform`·`opacity`·`filter` 위주, 동시에 도는 플래시는 최대 60개 정도로 제한, 숨은 탭에서는 아무것도 안 돌아요.
 
 **히트맵(`src/template.html`)**
