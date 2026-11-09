@@ -8,8 +8,8 @@ chart.prevClose = close before the first bar, interval '1m|5m|1d|1w|1mo', orderb
 Fixtures: qa/stock/fixtures/raw/<code>/*.json (fetch with qa/stock/fetch_fixtures.py).
 Codes
   005930, 196170   real data
-  other codes in data/snapshot.json   005930's data scaled to that stock's price (so peer links work)
-  999980           summary only; chart/orderbook/investors/daily come back empty
+  other codes in data/snapshot.json   005930's data scaled to that stock's price (so peer links work); no news
+  999980           summary only; chart/orderbook/investors/daily/news/disclosures come back empty
   999990           every endpoint answers 502 {error}
   anything else    404 {error}
 Control (test helpers, not part of the contract)
@@ -17,7 +17,7 @@ Control (test helpers, not part of the contract)
   /__reset                       clear counts and config
   /__config?delay=800&fail=chart,orderbook&status=OPEN&asof=2026-11-09T10:30:00%2B09:00
 """
-import datetime as dt, json, pathlib, random, re, sys, threading, time
+import datetime as dt, html, json, pathlib, random, re, sys, threading, time
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 
@@ -151,12 +151,30 @@ def daily(code, page):
     return {'page': page, 'rows': rows, 'hasMore': raw(code, f'price_{page + 1}') is not None}
 
 
+def news(code):
+    # ENDPOINTS_EXTRA.md §2: clusters of 1 article; datetime YYYYMMDDHHmm KST; titles carry HTML entities (decoded here, as the Worker does)
+    rows = []
+    for cl in raw(code, 'news') or []:
+        for a in cl.get('items', []):
+            t = a['datetime']
+            rows.append({'title': html.unescape(a.get('titleFull') or a['title']), 'press': a.get('officeName'),
+                         'datetime': f'{t[0:4]}-{t[4:6]}-{t[6:8]}T{t[8:10]}:{t[10:12]}:00+09:00', 'url': a.get('mobileNewsUrl')})
+    return {'rows': rows[:20]}
+
+
+def disclosures(code):
+    # ENDPOINTS_EXTRA.md §3: datetime is ISO without a zone (KST) — kept as is so the page's zone-less parsing is exercised
+    return {'rows': [{'title': html.unescape(d['title']), 'datetime': d['datetime'],
+                      'url': f'https://m.stock.naver.com/domestic/stock/{code}/notice/{d["disclosureId"]}'} for d in (raw(code, 'disclosure') or [])[:20]]}
+
+
 def quotes():
     snap = json.loads((ROOT / 'data/snapshot.json').read_text(encoding='utf-8'))
     out = []
     for m in ('K', 'Q'):
         rows = sorted((x for x in snap['stocks'] if x.get('m') == m and x['c'].endswith('0')), key=lambda x: -x.get('cap', 0))[:300]
         out += rows
+    out = [dict(r, lim=1 if r.get('r', 0) >= 29.5 else -1) if abs(r.get('r', 0)) >= 29.5 else r for r in out]   # Worker: lim only when at the limit
     return {'asOf': dt.datetime.now(KST).replace(microsecond=0).isoformat(), 'source': '네이버 증권 (mock)',
             'marketStatus': snap['marketStatus'], 'afterHours': True, 'index': snap['index'], 'stocks': out}
 
@@ -169,6 +187,8 @@ EMPTY = {
     'orderbook': lambda: {'asks': [], 'bids': [], 'totalAsk': 0, 'totalBid': 0, 'prevClose': 1000, 'asOf': None},
     'investors': lambda: {'rows': []},
     'daily': lambda page: {'page': page, 'rows': [], 'hasMore': False},
+    'news': lambda: {'rows': []},
+    'disclosures': lambda: {'rows': []},
 }
 
 SNAP_ROWS = {r['c']: r for r in json.loads((ROOT / 'data/snapshot.json').read_text(encoding='utf-8'))['stocks']}
@@ -191,7 +211,7 @@ def alias_summary(code):
             'marketCap': r['cap'], 'foreignRate': None, 'asOf': CONFIG.get('asof', '2026-11-09T15:30:00+09:00')}
 
 
-ROUTE = re.compile(r'^/api/stock/([0-9A-Z]{6})/(summary|chart|orderbook|investors|daily)$')
+ROUTE = re.compile(r'^/api/stock/([0-9A-Z]{6})/(summary|chart|orderbook|investors|daily|news|disclosures)$')
 
 
 class Handler(SimpleHTTPRequestHandler):
@@ -268,11 +288,13 @@ class Handler(SimpleHTTPRequestHandler):
             base = summary('005930')['price'] or 1
             f = (SNAP_ROWS[code]['p'] or base) / base
             fn = {'summary': lambda: alias_summary(code), 'chart': lambda: scaled(chart('005930', tf), f), 'orderbook': lambda: scaled(orderbook('005930'), f),
-                  'investors': lambda: scaled(investors('005930'), f), 'daily': lambda: scaled(daily('005930', page), f)}[kind]
+                  'investors': lambda: scaled(investors('005930'), f), 'daily': lambda: scaled(daily('005930', page), f),
+                  'news': lambda: {'rows': []}, 'disclosures': lambda: {'rows': []}}[kind]
             return self.send_json(fn())
         try:
             body = {'summary': lambda: summary(code), 'chart': lambda: chart(code, tf), 'orderbook': lambda: orderbook(code),
-                    'investors': lambda: investors(code), 'daily': lambda: daily(code, page)}[kind]()
+                    'investors': lambda: investors(code), 'daily': lambda: daily(code, page),
+                    'news': lambda: news(code), 'disclosures': lambda: disclosures(code)}[kind]()
         except Exception as e:   # noqa: BLE001
             return self.send_json({'error': repr(e)}, 500)
         return self.send_json(body)

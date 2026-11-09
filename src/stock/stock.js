@@ -30,6 +30,7 @@ const TABS = [
   { key: 'ob', label: '호가', build: buildOb, show: () => { renderOb(); obStart(); }, hide: obStop, reset: obReset, summary: obSummary },
   { key: 'inv', label: '투자자', show: () => (S.inv || S.invLoading ? renderInv() : loadInv()), reset: invReset },
   { key: 'daily', label: '일별 시세', show: () => (S.daily ? renderDaily() : loadDaily(1)), reset: dailyReset, summary: renderDailyNote },
+  { key: 'news', label: '뉴스·공시', build: buildNews, show: newsShow, reset: newsReset },
 ];
 const TAB = Object.fromEntries(TABS.map(t => [t.key, t]));
 const OB_MS = 3000, SUMMARY_MS = 30000, INTRADAY_MS = 60000;
@@ -127,6 +128,7 @@ const S = {
   ob: null, obErr: null, obAt: null,              // 호가 tab
   inv: null, invErr: null, invLoading: false,     // 투자자 tab
   daily: null,                                    // 일별 시세 tab
+  news: { news: null, disc: null },               // 뉴스·공시 tab: per list {loading, err} while fetching (rows live in newsCache)
   timers: { sum: 0, chart: 0, ob: 0 },
 };
 const ctrls = {};
@@ -177,12 +179,16 @@ function build() {
   R.name = h('h1', { class: 'sp-name', id: 'sp-name', tabindex: '-1' });
   R.code = h('span', { class: 'sp-code num' });
   R.mkt = h('span', { class: 'sp-mkt' });
-  R.path = h('div', { class: 'sp-path' });
+  R.path = h('span', { class: 'sp-path' });
   R.price = h('div', { class: 'sp-price num' });
   R.chg = h('div', { class: 'sp-chg num' });
+  R.lim = h('span', { class: 'sp-lim', hidden: true });
+  R.star = h('button', { class: 'sp-star', type: 'button', 'aria-label': '관심종목', 'aria-pressed': 'false', hidden: true, onclick: toggleWatch },
+    svg('svg', { viewBox: '0 0 24 24', 'aria-hidden': 'true' }, svg('path', { d: 'M12 3.4l2.6 5.5 6 .8-4.4 4.2 1.1 6-5.3-2.9-5.3 2.9 1.1-6-4.4-4.2 6-.8z' })));
   R.head = h('header', { class: 'sp-head' }, h('div', { class: 'sp-head-in' }, R.back,
-    h('div', { class: 'sp-id' }, h('div', { class: 'sp-nmrow' }, R.name, R.code, R.mkt), R.path),
-    h('div', { class: 'sp-quote', 'aria-live': 'polite' }, R.price, R.chg)));
+    h('div', { class: 'sp-id' }, R.name, h('div', { class: 'sp-sub' }, R.code, R.mkt, R.path)),
+    h('div', { class: 'sp-quote', 'aria-live': 'polite' }, R.price, R.chg, R.lim),
+    R.star));
   R.meta = h('div', { class: 'sp-meta' });
   R.stats = h('dl', { class: 'sp-stats' });
   R.body = h('div', { class: 'sp-body' });
@@ -263,7 +269,41 @@ function renderHead() {
     R.chg.textContent = `${arrow}${isNum(chg) ? int(Math.abs(chg)) : ''}  ${pct(ratio)}`;
     R.chg.setAttribute('aria-label', `전일 대비 ${signed(chg)}원, ${pct(ratio)}`);
   }
+  renderLim();
+  renderStar();
   if (name) document.title = `${name} ${price != null ? int(price) : ''} ${price != null ? pct(ratio) : ''} · 한국 증시 히트맵`.replace(/\s+/g, ' ');
+}
+
+// 상한가·하한가: the quote row's lim (1/−1). Rows without lim (older data) or stocks outside the quote universe fall back to
+// |등락률| ≥ 29.5 — a limit move can round to +29.87%, so never test ≥ 30 (data/ENDPOINTS_EXTRA.md §5).
+function limitOf() {
+  const st = KH.stock(S.code);
+  if (st && st.lim != null) return st.lim === 1 || st.lim === -1 ? st.lim : 0;
+  const r = st && isNum(st.r) ? +st.r : S.sum && S.sum.code === S.code && isNum(S.sum.ratio) ? +S.sum.ratio : null;
+  return r == null ? 0 : r >= 29.5 ? 1 : r <= -29.5 ? -1 : 0;
+}
+function renderLim() {
+  const lim = limitOf();
+  R.lim.hidden = !lim;
+  R.lim.className = 'sp-lim' + (lim > 0 ? ' up' : lim < 0 ? ' dn' : '');
+  R.lim.textContent = lim > 0 ? '상한가' : lim < 0 ? '하한가' : '';
+}
+
+// 관심종목: KH.watch comes from the heatmap (AGENTS.md §3-2). Without it the star stays hidden.
+const watchApi = () => (KH.watch && typeof KH.watch.has === 'function' && typeof KH.watch.toggle === 'function' ? KH.watch : null);
+function renderStar() {
+  const W = watchApi();
+  R.star.hidden = !W || !S.code;
+  if (R.star.hidden) return;
+  const on = !!W.has(S.code);
+  R.star.setAttribute('aria-pressed', String(on));
+  R.star.title = on ? '관심종목에서 빼기' : '관심종목에 넣기';
+}
+function toggleWatch() {
+  const W = watchApi();
+  if (!W || !S.code) return;
+  W.toggle(S.code);
+  renderStar();
 }
 
 function chip(text, live) { return h('span', { class: 'sp-chip' + (live ? ' live' : '') }, h('i', { 'aria-hidden': 'true' }), text); }
@@ -339,7 +379,7 @@ function renderOffline() {
     svg('svg', { class: 'sp-off-ic', viewBox: '0 0 48 48', 'aria-hidden': 'true', fill: 'none', stroke: 'currentColor', 'stroke-width': '2', 'stroke-linecap': 'round' },
       svg('path', { d: 'M6 40h36' }), svg('path', { d: 'M12 30v-8M12 34v-2M20 26V12M20 30v-2M28 32V20M28 36v-2M36 22v-12M36 26v-2' })),
     h('h2', { text: st ? '차트·호가·투자자 정보는 실시간 버전에서 볼 수 있어요' : '이 종목은 스냅샷에 없어요' }),
-    h('p', { text: st ? `이 화면은 ${asOfLabel(KH.asOf())} 기준 스냅샷이라 새 시세를 받아 오지 않아요.` : `코드 ${S.code}의 시세는 실시간 버전에서 확인해 주세요.` }),
+    h('p', { text: st ? `이 화면은 ${asOfLabel(KH.asOf())} 기준 스냅샷이라 새 시세를 받아 오지 않아요. 일별 시세와 뉴스·공시도 실시간 버전에 있어요.` : `코드 ${S.code}의 시세는 실시간 버전에서 확인해 주세요.` }),
     h('a', { class: 'sp-btn pri', href, target: '_blank', rel: 'noopener', text: '실시간 버전에서 열기' }));
 }
 
@@ -919,6 +959,102 @@ function renderDaily() {
   R.dailyMore.textContent = D.loading ? '불러오는 중…' : D.err ? '다시 시도' : '더 보기';
 }
 
+/* ── 뉴스·공시 ── */
+// Both lists load when the tab opens and stay cached per stock for 5 minutes (also across closing and reopening the page).
+const NEWS_KINDS = [
+  { key: 'news', label: '뉴스', path: 'news', empty: '최근 뉴스가 없어요.', note: '네이버 증권에 모인 종목 뉴스예요. 비슷한 기사는 하나만 보여요. 누르면 새 탭에서 열려요.' },
+  { key: 'disc', label: '공시', path: 'disclosures', empty: '최근 공시가 없어요.', note: '네이버 증권의 공시 목록이에요. 거래소 시장조치 안내도 함께 나와요. 누르면 새 탭에서 열려요.' },
+];
+const NEWS_KIND = Object.fromEntries(NEWS_KINDS.map(k => [k.key, k]));
+const NEWS_TTL = 5 * 60e3;
+const newsCache = new Map();   // `${code}|${kind}` → {at, rows}
+let newsKind = NEWS_KIND[store.get('stockNewsKind', 'news')] ? store.get('stockNewsKind', 'news') : 'news';
+const MARKET_NOTICE = /가격제한폭|확대요건|투자주의|투자경고|투자위험|단기과열|매매거래정지|공매도 과열/;
+
+function newsReset() { S.news = { news: null, disc: null }; }
+function newsShow() { for (const k of NEWS_KINDS) loadNews(k.key); renderNews(); }
+function setNewsKind(k) { newsKind = k; store.set('stockNewsKind', k); renderNews(); }
+async function loadNews(kind) {
+  const code = S.code, g = S.gen, key = code + '|' + kind;
+  const hit = newsCache.get(key);
+  if ((hit && Date.now() - hit.at < NEWS_TTL) || (S.news[kind] && S.news[kind].loading)) return;
+  S.news[kind] = { loading: true, err: null };
+  try {
+    const j = await api(NEWS_KIND[kind].path, 'nw-' + kind);
+    if (g !== S.gen) return;
+    newsCache.set(key, { at: Date.now(), rows: Array.isArray(j.rows) ? j.rows.filter(r => r && r.title) : [] });
+    S.news[kind] = null;
+  } catch (e) {
+    if (aborted(e) || g !== S.gen) return;
+    S.news[kind] = { loading: false, err: e };
+  }
+  if (S.tab === 'news') renderNews();
+}
+
+// Worker datetimes are ISO in KST; a value without a zone (공시) or Naver's YYYYMMDDHHmm is read as KST too
+function parseKst(v) {
+  if (!v) return null;
+  let s = String(v).trim();
+  const c = /^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})?$/.exec(s);
+  if (c) s = `${c[1]}-${c[2]}-${c[3]}T${c[4]}:${c[5]}:${c[6] || '00'}`;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) s += 'T00:00:00';
+  s = s.replace(' ', 'T').replace(/T(\d{2}:\d{2})(?=$|[+-]|Z)/, 'T$1:00');
+  if (!/(Z|[+-]\d{2}:?\d{2})$/.test(s)) s += '+09:00';
+  const d = new Date(s);
+  return isNaN(d) ? null : d;
+}
+function relTime(d, now) {
+  const sec = (now - d) / 1000, a = kst(d), n = kst(now);
+  if (sec < 60 && sec > -300) return '방금';
+  if (sec >= 60 && sec < 3600) return Math.floor(sec / 60) + '분 전';
+  if (sec > 0 && a.key === n.key) return Math.floor(sec / 3600) + '시간 전';
+  const days = Math.round((Date.UTC(n.y, n.m - 1, n.d) - Date.UTC(a.y, a.m - 1, a.d)) / 864e5);
+  if (days === 1) return '어제';
+  if (days > 1 && days < 7) return days + '일 전';
+  return a.y === n.y ? `${a.m}월 ${a.d}일` : `${a.y}.${pad(a.m)}.${pad(a.d)}`;
+}
+const fullTime = d => { const p = kst(d); return `${p.y}년 ${p.m}월 ${p.d}일 (${WD[p.wd]}) ${pad(p.hh)}:${pad(p.mm)}`; };
+const safeUrl = u => (typeof u === 'string' && /^https?:\/\//i.test(u) ? u : null);
+
+function buildNews(panel) {
+  R.nw = {
+    seg: h('div', { class: 'sp-nwseg', role: 'group', 'aria-label': '뉴스·공시 고르기' },
+      NEWS_KINDS.map(k => h('button', { type: 'button', 'data-kind': k.key, 'aria-pressed': 'false', onclick: () => setNewsKind(k.key) },
+        h('span', { text: k.label }), h('small', { class: 'num' })))),
+    body: h('div', { class: 'sp-nw-body' }),
+    note: h('p', { class: 'sp-note' }),
+  };
+  panel.append(R.nw.seg, R.nw.body, R.nw.note);
+}
+function newsRow(r, kind, now) {
+  const d = parseKst(r.datetime), url = safeUrl(r.url);
+  const meta = [];
+  if (kind === 'disc' && MARKET_NOTICE.test(r.title)) meta.push(h('span', { class: 'sp-nw-tag', text: '시장조치' }));
+  if (r.press) meta.push(h('span', { class: 'sp-nw-press', text: String(r.press) }));
+  if (d) meta.push(h('time', { datetime: d.toISOString(), title: fullTime(d), text: relTime(d, now) }));
+  const kids = [h('span', { class: 'sp-nw-t', text: String(r.title) }), h('span', { class: 'sp-nw-m' }, meta)];
+  return h('li', {}, url
+    ? h('a', { class: 'sp-nw-a', href: url, target: '_blank', rel: 'noopener' }, kids, h('span', { class: 'sp-vh', text: ' (새 탭)' }))
+    : h('div', { class: 'sp-nw-a' }, kids));
+}
+function renderNews() {
+  if (!R.nw) return;
+  const kind = newsKind, meta = NEWS_KIND[kind], now = new Date();
+  for (const b of R.nw.seg.children) {
+    const hit = newsCache.get(S.code + '|' + b.dataset.kind);
+    b.setAttribute('aria-pressed', String(b.dataset.kind === kind));
+    b.lastChild.textContent = hit ? String(hit.rows.length) : '';
+  }
+  const hit = newsCache.get(S.code + '|' + kind), st = S.news[kind];
+  let body;
+  if (hit && hit.rows.length) body = h('ul', { class: 'sp-nw-list' }, hit.rows.map(r => newsRow(r, kind, now)));
+  else if (hit) body = msgBox(meta.empty, kind === 'news' ? '거래가 적거나 새로 상장한 종목이면 기사가 드물어요.' : '최근에 낸 공시가 없는 종목이에요.');
+  else if (st && st.err) body = msgBox(`${meta.label}를 불러오지 못했어요.`, errSub(st.err), () => { loadNews(kind); renderNews(); });
+  else body = h('div', { class: 'sp-skel-rows', role: 'status', 'aria-label': `${meta.label} 불러오는 중` }, Array.from({ length: 6 }, () => skel('100%', '52px')));
+  R.nw.body.replaceChildren(body);
+  R.nw.note.textContent = meta.note;
+}
+
 /* ───────────────── open / close ───────────────── */
 let inerted = [];
 function setInert(on) {
@@ -1038,6 +1174,7 @@ document.addEventListener('visibilitychange', () => {
 });
 document.addEventListener('kh:palette', () => { if (root) { applyColors(); if (S.open) renderPeers(); } });
 document.addEventListener('kh:data', () => { if (S.open) { renderPeers(); renderHead(); } });   // 업종 path / provisional price arrive with the quotes
+document.addEventListener('kh:watch', () => { if (S.open) renderStar(); });
 
 window.KHStock = { open, close, isOpen: () => S.open };
 onHash();

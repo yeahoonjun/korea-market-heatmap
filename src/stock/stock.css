@@ -21,18 +21,33 @@ html.sp-on, html.sp-on body { overflow: hidden; }
 .sp-back:hover { background: rgba(255, 255, 255, .06); }
 .sp-back svg { width: 24px; height: 24px; flex: none; }
 .sp-back-t { display: none; font-size: 14px; font-weight: 600; }
+/* phones: the name has line 1 to itself; code · market · 섹터 › 업종 share line 2 (ellipsis at the end) */
 .sp-id { flex: 1; min-width: 0; padding-left: 2px; }
-.sp-nmrow { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
-.sp-name { font-size: 18px; font-weight: 700; letter-spacing: -.02em; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; outline-offset: 2px; }
+.sp-name { display: block; font-size: 18px; font-weight: 700; letter-spacing: -.02em; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; outline-offset: 2px; }
 .sp-name:focus:not(:focus-visible) { outline: none; }
-.sp-code:empty { display: none; }
+.sp-sub { display: flex; align-items: baseline; gap: 0 6px; min-width: 0; margin-top: 1px; overflow: hidden; font-size: 12px; color: var(--muted); white-space: nowrap; }
 .sp-code, .sp-mkt { flex: none; font-size: 12px; color: var(--muted); white-space: nowrap; }
-.sp-mkt::before { content: "·"; margin-right: 6px; color: var(--faint); }
-.sp-mkt:empty { display: none; }
-.sp-path { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
-.sp-quote { flex: none; text-align: right; padding-left: 8px; }
-.sp-price { font-size: 20px; font-weight: 700; letter-spacing: -.01em; line-height: 1.2; white-space: nowrap; }
-.sp-chg { font-size: 13px; font-weight: 600; white-space: pre; margin-top: 1px; }
+.sp-code:empty, .sp-mkt:empty, .sp-path[hidden] { display: none; }
+.sp-mkt::before, .sp-path::before { content: "·"; margin-right: 6px; color: var(--faint); }
+.sp-code:empty + .sp-mkt::before { content: none; }
+.sp-path { flex: 0 1 auto; min-width: 0; font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* phones: 상한가 sits on the price line, right above the change, so the quote stays narrow and the name keeps its room */
+.sp-quote { flex: none; display: grid; grid-template-columns: auto auto; grid-template-areas: "lim price" "chg chg"; justify-content: end; align-items: center; text-align: right; padding-left: 8px; }
+.sp-price { grid-area: price; font-size: 20px; font-weight: 700; letter-spacing: -.01em; line-height: 1.2; white-space: nowrap; }
+.sp-chg { grid-area: chg; justify-self: end; font-size: 13px; font-weight: 600; white-space: pre; margin-top: 1px; }
+/* 상한가·하한가: a data label, so it takes the rise/fall text colours */
+.sp-lim { grid-area: lim; justify-self: end; flex: none; margin-right: 6px; font-size: 11px; font-weight: 700; line-height: 1; padding: 3px 5px; border-radius: 4px; white-space: nowrap; }
+.sp-lim[hidden] { display: none; }
+.sp-lim.up { color: var(--up-text); background: color-mix(in srgb, var(--up-text) 15%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--up-text) 45%, transparent); }
+.sp-lim.dn { color: var(--dn-text); background: color-mix(in srgb, var(--dn-text) 15%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--dn-text) 45%, transparent); }
+/* 관심종목 */
+@media (max-width: 699px) { .sp-head-in:has(.sp-star:not([hidden])) { padding-right: 4px; } }
+.sp-star { flex: none; display: inline-grid; place-items: center; width: 42px; height: 44px; margin-left: 2px; border-radius: 10px; color: var(--muted); }
+.sp-star[hidden], .sp-nf .sp-star { display: none; }
+.sp-star:hover { background: rgba(255, 255, 255, .06); color: var(--fg); }
+.sp-star svg { width: 23px; height: 23px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linejoin: round; transition: fill .15s, color .15s; }
+.sp-star[aria-pressed="true"] { color: var(--amber); }
+.sp-star[aria-pressed="true"] svg { fill: var(--amber); }
 
 /* ── meta + stats ───────────────────── */
 .sp-main { max-width: 1760px; margin: 0 auto; padding: 10px 12px 28px; }
@@ -174,6 +189,26 @@ html.sp-on, html.sp-on body { overflow: hidden; }
 .sp-cum-r.dn .sp-spark path { stroke: var(--dn-text); }
 .sp-spark .zero { stroke: var(--line2); stroke-width: 1; stroke-dasharray: 3 3; vector-effect: non-scaling-stroke; }
 
+/* ── 뉴스·공시 ───────────────────────── */
+.sp-nwseg { display: flex; flex-wrap: wrap; gap: 6px; }
+.sp-nwseg button { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 15px; border-radius: 20px; border: 1px solid var(--line); background: var(--panel); color: var(--fg2); font-size: 13.5px; font-weight: 600; }
+.sp-nwseg button small { font-size: 12px; font-weight: 500; color: var(--muted); font-variant-numeric: tabular-nums; }
+.sp-nwseg button small:empty { display: none; }
+.sp-nwseg button:hover { color: var(--fg); border-color: var(--line2); }
+.sp-nwseg button[aria-pressed="true"] { color: var(--fg); border-color: rgba(255, 181, 71, .55); background: var(--amber-soft); }
+.sp-nwseg button[aria-pressed="true"] small { color: var(--amber); }
+.sp-nw-body { margin-top: 6px; }
+.sp-nw-list { list-style: none; margin: 0; padding: 0; }
+.sp-nw-list li + li { border-top: 1px solid rgba(255, 255, 255, .06); }
+.sp-nw-a { display: flex; flex-direction: column; gap: 5px; min-height: 44px; padding: 12px 2px; color: var(--fg); text-decoration: none; border-radius: 6px; }
+a.sp-nw-a:hover .sp-nw-t { text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--muted); }
+a.sp-nw-a:visited .sp-nw-t { color: var(--fg2); }
+.sp-nw-t { font-size: 14.5px; font-weight: 500; line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+.sp-nw-m { display: flex; flex-wrap: wrap; align-items: center; gap: 3px 8px; font-size: 12px; color: var(--muted); }
+.sp-nw-press { color: var(--fg2); }
+.sp-nw-tag { font-size: 11px; line-height: 1.5; padding: 0 6px; border-radius: 4px; border: 1px solid var(--line2); color: var(--fg2); }
+.sp-vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
 /* ── tables ───────────────────────── */
 .sp-tbl { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 13px; font-variant-numeric: tabular-nums; }
 .sp-tbl caption { caption-side: top; text-align: left; font-size: 11.5px; color: var(--muted); padding: 0 2px 6px; }
@@ -219,7 +254,15 @@ html.sp-on, html.sp-on body { overflow: hidden; }
   .sp-head-in { padding: 10px 20px 10px 8px; }
   .sp-back { width: auto; padding: 0 12px 0 6px; }
   .sp-back-t { display: inline; }
-  .sp-name { font-size: 21px; }
+  /* the path row spans into a flexible column, so it never widens the code column */
+  .sp-id { display: grid; grid-template-columns: minmax(0, max-content) max-content 1fr; grid-template-areas: "name code mkt" "path path path"; column-gap: 6px; align-items: baseline; }
+  .sp-sub { display: contents; }
+  .sp-name { grid-area: name; font-size: 21px; }
+  .sp-code { grid-area: code; } .sp-mkt { grid-area: mkt; }
+  .sp-path { grid-area: path; margin-top: 1px; }
+  .sp-path::before { content: none; }
+  .sp-quote { grid-template-areas: "price price" "chg lim"; }
+  .sp-lim { margin: 1px 0 0 6px; }
   .sp-price { font-size: 24px; }
   .sp-chg { font-size: 14px; }
   .sp-main { padding: 12px 20px 28px; }
@@ -242,7 +285,9 @@ html.sp-on, html.sp-on body { overflow: hidden; }
   .sp-id { flex: 0 1 auto; }
   .sp-quote { display: flex; align-items: baseline; gap: 10px; margin-left: 22px; padding-left: 22px; border-left: 1px solid var(--line); text-align: left; }
   .sp-price { font-size: 26px; }
-  .sp-chg { font-size: 15px; }
+  .sp-chg { font-size: 15px; margin-top: 0; }
+  .sp-lim { margin: 0; align-self: center; }
+  .sp-star { margin-left: auto; }
   .sp-body { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) clamp(380px, 30vw, 480px); gap: 18px; }
   .sp-snap .sp-body { display: flex; }
   .sp-chartcol { display: flex; flex-direction: column; min-height: 0; }
@@ -263,5 +308,5 @@ html.sp-on, html.sp-on body { overflow: hidden; }
 @media (prefers-reduced-motion: reduce) {
   .sp.sp-in { animation: none; }
   .sp-chip.live i, .sp-skel, .sp-chart-skel i { animation: none; }
-  .sp-q .bar, .sp-seg button { transition: none; }
+  .sp-q .bar, .sp-seg button, .sp-star svg { transition: none; }
 }

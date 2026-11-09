@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """End-to-end checks for the stock page (src/stock) against the mock API.
 
-    python3 scripts/build_page.py && python3 qa/stock/test_stock.py
+    python3 scripts/build_page.py && python3 qa/stock/test_stock.py      [--extra-only: just 뉴스·공시 / 관심종목 / 상·하한가]
 
 Starts qa/stock/mock_api.py on 127.0.0.1:8792, runs Playwright (Chrome), stops the server.
 Screenshots → qa/shots/stock/ (git-ignored). Summary → qa/stock/results.json.
@@ -280,8 +280,10 @@ def run(b):
     check('daily_tab_paging', d1 == 60 and d2 == 120 and d3['rows'] == 180 and d3['moreHidden'], [d1, d2, d3])
     pg.screenshot(path=str(SHOTS / 'live390_tab_daily.png'))
     pg.focus('#sp-t-daily'); pg.keyboard.press('ArrowRight')
+    k1 = P.ev("() => ({ sel: document.querySelector('[role=tab][aria-selected=true]').id, focus: document.activeElement.id })")
+    pg.keyboard.press('ArrowRight')
     k = P.ev("() => ({ sel: document.querySelector('[role=tab][aria-selected=true]').id, focus: document.activeElement.id })")
-    check('tabs_keyboard_arrows', k == {'sel': 'sp-t-ob', 'focus': 'sp-t-ob'}, k)
+    check('tabs_keyboard_arrows', k1 == {'sel': 'sp-t-news', 'focus': 'sp-t-news'} and k == {'sel': 'sp-t-ob', 'focus': 'sp-t-ob'}, [k1, k])
     taps = P.ev(TAP_JS)
     check('tap_targets_40px_mobile', not taps, taps)
     check('console_clean_tabs', not P.console, P.console)
@@ -376,10 +378,13 @@ def run(b):
     for w in (360, 390, 768, 1280, 1920):
         P = Page(b, w, BASE + '#s-005930')
         P.wait_chart()
-        for tab in ('ob', 'inv', 'daily'):
+        for tab in ('ob', 'inv', 'daily', 'news'):
             P.pg.click(f'#sp-t-{tab}')
             P.pg.wait_for_timeout(700)
             o = P.ev(OVERFLOW_JS)
+            # every tab label fits inside its button (four tabs on a 360 px phone)
+            o['clipped'] = P.ev("() => [...document.querySelectorAll('.sp-tabs button, .sp-tfs button, .sp-nwseg button')].filter(b => b.offsetWidth && b.scrollWidth > b.clientWidth + 1).map(b => b.textContent)")
+            o['n'] += len(o['clipped'])
             ov[f'{w}_{tab}'] = o
         P.pg.click('#sp-t-ob'); P.pg.wait_for_timeout(500)
         P.pg.screenshot(path=str(SHOTS / f'live{w}.png'))
@@ -418,6 +423,191 @@ def run(b):
         P.close()
 
 
+WATCH_STUB = r"""() => {
+  // stand-in for the heatmap's KH.watch (AGENTS.md §3-2) until it lands on main
+  const set = new Set(JSON.parse(localStorage.getItem('khm.watch') || '[]'));
+  KH.watch = {
+    has: c => set.has(c),
+    toggle: c => { set.has(c) ? set.delete(c) : set.add(c); localStorage.setItem('khm.watch', JSON.stringify([...set]));
+      document.dispatchEvent(new CustomEvent('kh:watch', { detail: { code: c, on: set.has(c) } })); return set.has(c); },
+    list: () => [...set],
+  };
+}"""
+NEWS_JS = r"""() => ({
+  pressed: [...document.querySelectorAll('.sp-nwseg button')].map(b => [b.dataset.kind, b.getAttribute('aria-pressed'), b.textContent]),
+  rows: document.querySelectorAll('#sp-p-news .sp-nw-list li').length,
+  titles: [...document.querySelectorAll('#sp-p-news .sp-nw-t')].map(t => t.textContent),
+  times: [...document.querySelectorAll('#sp-p-news time')].map(t => t.textContent),
+  press: [...document.querySelectorAll('#sp-p-news .sp-nw-press')].map(t => t.textContent),
+  links: [...document.querySelectorAll('#sp-p-news a.sp-nw-a')].map(a => [a.getAttribute('href'), a.target, a.rel]),
+  tags: document.querySelectorAll('#sp-p-news .sp-nw-tag').length,
+  msg: (document.querySelector('#sp-p-news .sp-msgbox') || {}).textContent || '',
+  note: document.querySelector('#sp-p-news .sp-note').textContent,
+})"""
+LIM_JS = "() => { const l = document.querySelector('.sp-lim'); return l.hidden ? '' : l.textContent + '|' + l.className + '|' + getComputedStyle(l).color; }"
+
+
+def run_extra(b):
+    """뉴스·공시 tab, 관심종목 star, 상한가/하한가 badge (AGENTS.md §3-2)."""
+    import re
+    # ── news: fetched only when the tab opens, both lists, cached 5 minutes per code ──
+    mock('/__reset')
+    P = Page(b, 390, None)
+    pg = P.pg
+    pg.clock.set_fixed_time('2026-11-09T22:00:00+09:00')
+    pg.goto(BASE)
+    pg.wait_for_timeout(800)
+    P.ev("() => localStorage.setItem('khm.stockTab', JSON.stringify('ob'))")
+    P.ev("() => KHStock.open('005930')")
+    P.wait_chart(); pg.wait_for_timeout(500)
+    n_before = P.count('/news') + P.count('/disclosures')
+    t0 = time.time()
+    pg.click('#sp-t-news')
+    pg.wait_for_selector('#sp-p-news .sp-nw-list li')
+    pg.wait_for_timeout(300)
+    nw = P.ev(NEWS_JS)
+    req = {'news': P.count('/news', t0), 'disc': P.count('/disclosures', t0)}
+    check('news_fetched_only_when_tab_opens', n_before == 0 and req == {'news': 1, 'disc': 1}, {'before': n_before, 'after_open': req})
+    check('news_list', nw['rows'] == 20 and len(nw['press']) == 20 and all(nw['titles']) and nw['pressed'][0][:2] == ['news', 'true'] and '20' in nw['pressed'][1][2],
+          {k: nw[k] for k in ('rows', 'pressed')} | {'first': nw['titles'][0], 'press0': nw['press'][0]})
+    check('news_entities_decoded', not any('&quot;' in t or '&amp;' in t or '&lt;' in t for t in nw['titles']) and any('"' in t for t in nw['titles']),
+          [t for t in nw['titles'] if '"' in t][:2])
+    # clock pinned at 22:00 KST: 21:46 → 14분 전, 19:21 → 2시간 전
+    check('news_relative_time', nw['times'][0] == '14분 전' and nw['times'][-1] == '2시간 전', [nw['times'][0], nw['times'][-1]])
+    check('news_links_new_tab', all(h.startswith('https://n.news.naver.com/') and t == '_blank' and r == 'noopener' for h, t, r in nw['links']) and len(nw['links']) == 20, nw['links'][:2])
+    pg.screenshot(path=str(SHOTS / 'live390_tab_news.png'))
+    pg.click('.sp-nwseg button[data-kind="disc"]'); pg.wait_for_timeout(200)
+    ds = P.ev(NEWS_JS)
+    check('disclosures_list', ds['rows'] == 20 and ds['pressed'][1][:2] == ['disc', 'true'] and ds['tags'] >= 1 and not ds['press']
+          and all(re.match(r'^https://m\.stock\.naver\.com/domestic/stock/005930/notice/\d+$', h) for h, _, _ in ds['links'])
+          and ds['times'][0] == '3일 전' and ds['times'][-1] == '7월 31일' and '시장조치' in ds['note'],
+          {'rows': ds['rows'], 'tags': ds['tags'], 'times': [ds['times'][0], ds['times'][-1]], 'link0': ds['links'][0][0]})
+    check('news_no_extra_fetch_on_toggle', P.count('/news', t0) + P.count('/disclosures', t0) == 2)
+    pg.screenshot(path=str(SHOTS / 'live390_tab_disc.png'))
+    # cache: other tab and back, close and reopen, switch stock and back → no refetch for 005930 within 5 minutes
+    pg.click('#sp-t-inv'); pg.wait_for_timeout(200); pg.click('#sp-t-news'); pg.wait_for_timeout(300)
+    pg.keyboard.press('Escape'); pg.wait_for_timeout(200)
+    P.ev("() => KHStock.open('005930')"); pg.wait_for_timeout(600)
+    same = P.count('/news', t0) + P.count('/disclosures', t0)
+    t1 = time.time()
+    P.ev("() => KHStock.open('196170')"); pg.wait_for_selector('#sp-p-news .sp-nw-list li'); pg.wait_for_timeout(300)
+    other = P.count('/news', t1) + P.count('/disclosures', t1)
+    t2 = time.time()
+    P.ev("() => KHStock.open('005930')"); pg.wait_for_timeout(600)
+    back = P.count('/news', t2) + P.count('/disclosures', t2)
+    pg.clock.set_fixed_time('2026-11-09T22:06:00+09:00')   # 6 minutes later → stale
+    t3 = time.time()
+    pg.click('#sp-t-inv'); pg.wait_for_timeout(200); pg.click('#sp-t-news'); pg.wait_for_timeout(800)
+    stale = P.count('/news', t3) + P.count('/disclosures', t3)
+    check('news_cache_5min_per_code', same == 2 and other == 2 and back == 0 and stale == 2, {'same_code_reopen_total': same, 'other_code': other, 'back_within_5min': back, 'after_6min': stale})
+    check('console_clean_news', not P.console, P.console)
+    P.close()
+
+    # '어제' the next morning
+    P = Page(b, 390, None)
+    P.pg.clock.set_fixed_time('2026-11-10T09:00:00+09:00')
+    P.pg.goto(BASE + '#s-005930')
+    P.pg.wait_for_timeout(600)
+    P.pg.click('#sp-t-news'); P.pg.wait_for_selector('#sp-p-news .sp-nw-list li')
+    times = P.ev("() => [...document.querySelectorAll('#sp-p-news time')].map(t => t.textContent)")
+    check('news_relative_time_yesterday', set(times) == {'어제'}, sorted(set(times)))
+    P.close()
+
+    # error + retry, empty
+    mock('/__config?fail=news')
+    P = Page(b, 390, BASE + '#s-196170')
+    pg = P.pg
+    pg.wait_for_timeout(600)
+    pg.click('#sp-t-news'); pg.wait_for_selector('#sp-p-news .sp-msgbox .sp-btn')
+    err = P.ev("() => document.querySelector('#sp-p-news .sp-msgbox').textContent")
+    pg.click('.sp-nwseg button[data-kind="disc"]'); pg.wait_for_timeout(300)
+    disc_ok = P.ev("() => document.querySelectorAll('#sp-p-news .sp-nw-list li').length")
+    pg.click('.sp-nwseg button[data-kind="news"]'); pg.wait_for_timeout(200)
+    mock('/__config?fail=')
+    pg.click('#sp-p-news .sp-msgbox .sp-btn'); pg.wait_for_selector('#sp-p-news .sp-nw-list li')
+    check('news_error_retry', '뉴스를 불러오지 못했어요' in err and disc_ok == 20, {'err': err, 'disc_rows_meanwhile': disc_ok})
+    P.close()
+    P = Page(b, 390, BASE + '#s-999980')
+    pg = P.pg
+    pg.wait_for_timeout(600)
+    pg.click('#sp-t-news'); pg.wait_for_timeout(600)
+    e1 = P.ev(NEWS_JS)['msg']
+    pg.click('.sp-nwseg button[data-kind="disc"]'); pg.wait_for_timeout(200)
+    e2 = P.ev(NEWS_JS)['msg']
+    check('news_empty_states', '최근 뉴스가 없어요' in e1 and '최근 공시가 없어요' in e2, [e1, e2])
+    check('console_clean_news_states', not P.console, P.console)
+    P.close()
+
+    # ── 관심종목 star ──
+    P = Page(b, 390, BASE)
+    pg = P.pg
+    pg.wait_for_timeout(600)
+    P.ev("() => KHStock.open('005930')"); pg.wait_for_timeout(400)
+    hidden_without = P.ev("() => document.querySelector('.sp-star').hidden && getComputedStyle(document.querySelector('.sp-star')).display === 'none'")
+    pg.keyboard.press('Escape'); pg.wait_for_timeout(200)
+    P.ev(WATCH_STUB)
+    P.ev("() => KHStock.open('005930')"); pg.wait_for_timeout(400)
+    st0 = P.ev("() => { const s = document.querySelector('.sp-star'), r = s.getBoundingClientRect(); return { hidden: s.hidden, pressed: s.getAttribute('aria-pressed'), w: r.width, h: r.height, label: s.getAttribute('aria-label') }; }")
+    pg.click('.sp-star'); pg.wait_for_timeout(150)
+    st1 = P.ev("() => ({ pressed: document.querySelector('.sp-star').getAttribute('aria-pressed'), has: KH.watch.has('005930'), color: getComputedStyle(document.querySelector('.sp-star')).color, fill: getComputedStyle(document.querySelector('.sp-star svg')).fill })")
+    pg.screenshot(path=str(SHOTS / 'live390_star_on.png'), clip={'x': 0, 'y': 0, 'width': 390, 'height': 140})
+    P.ev("() => KH.watch.toggle('005930')"); pg.wait_for_timeout(100)   # changed elsewhere (e.g. the heatmap) → kh:watch
+    st2 = P.ev("() => document.querySelector('.sp-star').getAttribute('aria-pressed')")
+    pg.focus('.sp-star'); pg.keyboard.press('Enter'); pg.wait_for_timeout(100)
+    st3 = P.ev("() => [document.querySelector('.sp-star').getAttribute('aria-pressed'), KH.watch.list()]")
+    ok = (hidden_without and not st0['hidden'] and st0['pressed'] == 'false' and st0['w'] >= 40 and st0['h'] >= 40
+          and st1['pressed'] == 'true' and st1['has'] and st1['color'] == 'rgb(255, 181, 71)' and st2 == 'false' and st3 == ['true', ['005930']])
+    check('watch_star', ok, {'hidden_without_api': hidden_without, 'off': st0, 'on': st1, 'external_toggle': st2, 'keyboard': st3})
+    taps = P.ev(TAP_JS)
+    check('tap_targets_40px_with_star', not taps, taps)
+
+    # ── 상한가 / 하한가 ──
+    l0 = P.ev(LIM_JS)
+    P.ev("() => { KH.stock('005930').lim = 1; document.dispatchEvent(new CustomEvent('kh:data')); }"); pg.wait_for_timeout(100)
+    l1 = P.ev(LIM_JS)
+    pg.screenshot(path=str(SHOTS / 'live390_limit_up.png'), clip={'x': 0, 'y': 0, 'width': 390, 'height': 140})
+    P.ev("() => { KH.stock('005930').lim = -1; document.dispatchEvent(new CustomEvent('kh:data')); }"); pg.wait_for_timeout(100)
+    l2 = P.ev(LIM_JS)
+    P.ev("() => { const s = KH.stock('005930'); delete s.lim; s._r = s.r; s.r = 29.6; document.dispatchEvent(new CustomEvent('kh:data')); }"); pg.wait_for_timeout(100)
+    l3 = P.ev(LIM_JS)
+    P.ev("() => { const s = KH.stock('005930'); s.r = s._r; document.dispatchEvent(new CustomEvent('kh:data')); }"); pg.wait_for_timeout(100)
+    l4 = P.ev(LIM_JS)
+    pal = P.ev("() => KH.palette()")
+    hexrgb = lambda x: 'rgb(%d, %d, %d)' % tuple(int(x[i:i + 2], 16) for i in (1, 3, 5))
+    check('limit_badge_live', l0 == '' and l1.startswith('상한가|sp-lim up|') and l1.endswith(hexrgb(pal['upText'])) and l2.startswith('하한가|sp-lim dn|')
+          and l2.endswith(hexrgb(pal['dnText'])) and l3.startswith('상한가') and l4 == '', [l0, l1, l2, l3, l4])
+    # outside the live quote universe: the summary's ratio decides (900300 +29.96%)
+    P.ev("() => KHStock.open('900300')"); pg.wait_for_timeout(800)
+    l5 = P.ev(LIM_JS)
+    check('limit_badge_from_summary', l5.startswith('상한가'), l5)
+    check('console_clean_star_limit', not P.console, P.console)
+    P.close()
+
+    # ── news tab and star at the other widths; desktop screenshot ──
+    for w in (1440,):
+        P = Page(b, w, BASE)
+        P.pg.clock.set_fixed_time('2026-11-09T22:00:00+09:00')
+        P.pg.wait_for_timeout(600)
+        P.ev(WATCH_STUB); P.ev("() => KH.watch.toggle('005930')")
+        P.ev("() => KHStock.open('005930')"); P.wait_chart()
+        P.pg.click('#sp-t-news'); P.pg.wait_for_selector('#sp-p-news .sp-nw-list li'); P.pg.wait_for_timeout(400)
+        P.pg.screenshot(path=str(SHOTS / f'live{w}_news.png'))
+        o = P.ev(OVERFLOW_JS)
+        check(f'news_star_no_overflow_{w}', not (o['doc'] or o['root'] or o['n']) and not P.console, [o, P.console])
+        P.close()
+
+    # ── snapshot: badge from KH.stock (|r| ≥ 29.5 while snapshot rows have no lim yet), star only with KH.watch, zero fetches ──
+    for code, want in (('900300', '상한가'), ('179530', '하한가')):
+        P = Page(b, 390, SNAP + '#s-' + code)
+        P.pg.wait_for_timeout(900)
+        l = P.ev(LIM_JS)
+        api = [u for _, u in P.reqs if 'api/' in u]
+        if code == '900300':
+            P.pg.screenshot(path=str(SHOTS / 'snap390_limit.png'))
+        check(f'snapshot_limit_{code}', l.startswith(want) and not api and not P.console, [l, api, P.console])
+        P.close()
+
+
 if __name__ == '__main__':
     srv = subprocess.Popen([sys.executable, str(HERE / 'mock_api.py')], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     try:
@@ -429,7 +619,9 @@ if __name__ == '__main__':
         with sync_playwright() as p:
             browser = p.chromium.launch(executable_path='/usr/bin/google-chrome', args=['--no-sandbox'])
             try:
-                run(browser)
+                if '--extra-only' not in sys.argv:
+                    run(browser)
+                run_extra(browser)
             finally:
                 browser.close()
     finally:
@@ -437,5 +629,6 @@ if __name__ == '__main__':
         srv.wait(5)
     passed = sum(1 for v in R.values() if v['ok'])
     print(f'\n{passed}/{len(R)} passed' + (f'  FAILED: {FAILS}' if FAILS else ''))
-    (HERE / 'results.json').write_text(json.dumps(R, ensure_ascii=False, indent=1), encoding='utf-8')
+    if '--extra-only' not in sys.argv:
+        (HERE / 'results.json').write_text(json.dumps(R, ensure_ascii=False, indent=1), encoding='utf-8')
     sys.exit(1 if FAILS else 0)
