@@ -488,8 +488,8 @@ async function getSummary(code) {
     pbr: pn(t.pbr),
     bps: pn(t.bps),
     dividendYield: pn(t.dividendYieldRatio),
-    high52: pn(t.highPriceOf52Weeks),
-    low52: pn(t.lowPriceOf52Weeks),
+    high52: pn(t.highPriceOf52WeeksAdjusted ?? t.highPriceOf52Weeks),     // adjusted for splits / capital changes when Naver provides it
+    low52: pn(t.lowPriceOf52WeeksAdjusted ?? t.lowPriceOf52Weeks),
     marketCap: parseEok(t.marketValue),
     foreignRate: pn(t.foreignRate),
     asOf: b.localTradedAt || null,
