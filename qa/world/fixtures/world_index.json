@@ -1,0 +1,492 @@
+{
+ "asOf": "2026-11-09T14:58:46.613Z",
+ "kind": "index",
+ "groups": [
+  {
+   "key": "us",
+   "name": "미국",
+   "items": [
+    {
+     "key": "DJI",
+     "name": "다우존스",
+     "value": 52002.09,
+     "change": 716.36,
+     "ratio": 1.4,
+     "status": "OPEN",
+     "tradedAt": "2026-11-09T09:58:46-05:00",
+     "tz": "EST5EDT"
+    },
+    {
+     "key": "INX",
+     "name": "S&P 500",
+     "value": 7501.07,
+     "change": 124.21,
+     "ratio": 1.68,
+     "status": "OPEN",
+     "tradedAt": "2026-11-09T09:58:46-05:00",
+     "tz": "EST5EDT"
+    },
+    {
+     "key": "IXIC",
+     "name": "나스닥 종합",
+     "value": 25115.83,
+     "change": 536.41,
+     "ratio": 2.18,
+     "status": "OPEN",
+     "tradedAt": "2026-11-09T09:58:46-05:00",
+     "tz": "EST5EDT"
+    },
+    {
+     "key": "NDX",
+     "name": "나스닥 100",
+     "value": 27677.74,
+     "change": 687.75,
+     "ratio": 2.55,
+     "status": "OPEN",
+     "tradedAt": "2026-11-09T09:58:46-05:00",
+     "tz": "EST5EDT"
+    },
+    {
+     "key": "SOX",
+     "name": "필라델피아 반도체",
+     "value": 9842.52,
+     "change": 452.27,
+     "ratio": 4.82,
+     "status": "OPEN",
+     "tradedAt": "2026-11-09T09:58:46-05:00",
+     "tz": "EST5EDT"
+    },
+    {
+     "key": "DJT",
+     "name": "다우운송",
+     "value": 20159.73,
+     "change": 384.86,
+     "ratio": 1.95,
+     "status": "OPEN",
+     "tradedAt": "2026-11-09T09:58:46-05:00",
+     "tz": "EST5EDT"
+    }
+   ]
+  },
+  {
+   "key": "usf",
+   "name": "미국 선물",
+   "items": [
+    {
+     "key": "EScv1",
+     "name": "S&P 500 선물",
+     "value": 7511.5,
+     "change": 109.5,
+     "ratio": 1.48,
+     "status": "OPEN",
+     "tradedAt": "2026-11-09T08:48:44-06:00",
+     "delayed": 10,
+     "tz": "CST6CDT"
+    },
+    {
+     "key": "NQcv1",
+     "name": "나스닥 100 선물",
+     "value": 27713.25,
+     "change": 628,
+     "ratio": 2.32,
+     "status": "OPEN",
+     "tradedAt": "2026-11-09T08:48:44-06:00",
+     "delayed": 10,
+     "tz": "CST6CDT"
+    },
+    {
+     "key": "YMcv1",
+     "name": "다우 선물",
+     "value": 52008,
+     "change": 623,
+     "ratio": 1.21,
+     "status": "OPEN",
+     "tradedAt": "2026-11-09T08:48:44-06:00",
+     "delayed": 10,
+     "tz": "CST6CDT"
+    },
+    {
+     "key": "RTYcv1",
+     "name": "러셀 2000 선물",
+     "value": 2807.3,
+     "change": 46.8,
+     "ratio": 1.7,
+     "status": "OPEN",
+     "tradedAt": "2026-11-09T08:48:44-06:00",
+     "delayed": 10,
+     "tz": "CST6CDT"
+    }
+   ]
+  },
+  {
+   "key": "eu",
+   "name": "유럽",
+   "items": [
+    {
+     "key": "STOXX50E",
+     "name": "유로스톡스 50",
+     "value": 6273.26,
+     "change": 102.77,
+     "ratio": 1.67,
+     "status": "OPEN",
+     "tradedAt": "2026-11-09T15:43:46+01:00",
+     "delayed": 15,
+     "tz": "CET"
+    },
+    {
+     "key": "GDAXI",
+     "name": "독일 DAX",
+     "value": 26161.23,
+     "change": 340.87,
+     "ratio": 1.32,
+     "status": "OPEN",
+     "tradedAt": "2026-11-09T15:43:46+01:00",
+     "delayed": 15,
+     "tz": "CET"
+    },
+    {
+     "key": "FTSE",
+     "name": "영국 FTSE 100",
+     "value": 10733.89,
+     "change": 59.95,
+     "ratio": 0.56,
+     "status": "OPEN",
+     "tradedAt": "2026-11-09T14:43:46Z",
+     "delayed": 15,
+     "tz": "Europe/London"
+    },
+    {
+     "key": "FCHI",
+     "name": "프랑스 CAC 40",
+     "value": 8226.72,
+     "change": 87.72,
+     "ratio": 1.08,
+     "status": "OPEN",
+     "tradedAt": "2026-11-09T15:43:46+01:00",
+     "delayed": 15,
+     "tz": "Europe/Paris"
+    },
+    {
+     "key": "AEX",
+     "name": "네덜란드 AEX",
+     "value": 1127.97,
+     "change": 7.42,
+     "ratio": 0.66,
+     "status": "OPEN",
+     "tradedAt": "2026-11-09T15:43:46+01:00",
+     "delayed": 15,
+     "tz": "Europe/Amsterdam"
+    },
+    {
+     "key": "IBEX",
+     "name": "스페인 IBEX 35",
+     "value": 19715.5,
+     "change": 346,
+     "ratio": 1.79,
+     "status": "OPEN",
+     "tradedAt": "2026-11-09T15:43:46+01:00",
+     "delayed": 15,
+     "tz": "Europe/Madrid"
+    },
+    {
+     "key": "FTMIB",
+     "name": "이탈리아 FTSE MIB",
+     "value": 51263,
+     "change": 1210.04,
+     "ratio": 2.42,
+     "status": "OPEN",
+     "tradedAt": "2026-11-09T15:43:46+01:00",
+     "delayed": 15,
+     "tz": "Europe/Rome"
+    },
+    {
+     "key": "OMXS30",
+     "name": "스웨덴 OMXS 30",
+     "value": 3302.19,
+     "change": 34.31,
+     "ratio": 1.05,
+     "status": "OPEN",
+     "tradedAt": "2026-11-09T15:43:46+01:00",
+     "delayed": 15,
+     "tz": "Europe/Stockholm"
+    },
+    {
+     "key": "BFX",
+     "name": "벨기에 BEL 20",
+     "value": 6049.98,
+     "change": 53.91,
+     "ratio": 0.9,
+     "status": "OPEN",
+     "tradedAt": "2026-11-09T15:43:46+01:00",
+     "delayed": 15,
+     "tz": "Europe/Brussels"
+    },
+    {
+     "key": "PSI20",
+     "name": "포르투갈 PSI 20",
+     "value": 9576.89,
+     "change": 100.16,
+     "ratio": 1.06,
+     "status": "OPEN",
+     "tradedAt": "2026-11-09T14:43:46Z",
+     "delayed": 15,
+     "tz": "WET"
+    },
+    {
+     "key": "ISEQ",
+     "name": "아일랜드 ISEQ",
+     "value": 14860.53,
+     "change": 165.45,
+     "ratio": 1.13,
+     "status": "OPEN",
+     "tradedAt": "2026-11-09T14:43:46Z",
+     "delayed": 15,
+     "tz": "Europe/London"
+    },
+    {
+     "key": "BUX",
+     "name": "헝가리 BUX",
+     "value": 145098.58,
+     "change": 1644.8,
+     "ratio": 1.15,
+     "status": "OPEN",
+     "tradedAt": "2026-11-09T15:43:46+01:00",
+     "delayed": 15,
+     "tz": "Europe/Budapest"
+    }
+   ]
+  },
+  {
+   "key": "asia",
+   "name": "아시아·태평양",
+   "items": [
+    {
+     "key": "N225",
+     "name": "니케이 225",
+     "value": 58775.5,
+     "change": 1340.73,
+     "ratio": 2.33,
+     "status": "CLOSE",
+     "tradedAt": "2026-11-09T15:45:03+09:00",
+     "delayed": 15,
+     "tz": "Asia/Tokyo"
+    },
+    {
+     "key": "TOPX",
+     "name": "토픽스",
+     "value": 3818.16,
+     "change": 110.17,
+     "ratio": 2.97,
+     "status": "CLOSE",
+     "tradedAt": "2026-11-09T15:30:05+09:00",
+     "delayed": 15,
+     "tz": "Asia/Tokyo"
+    },
+    {
+     "key": "SSEC",
+     "name": "상해종합",
+     "value": 3660.79,
+     "change": 11.61,
+     "ratio": 0.32,
+     "status": "CLOSE",
+     "tradedAt": "2026-11-09T15:00:06+08:00",
+     "delayed": 15,
+     "tz": "Asia/Shanghai"
+    },
+    {
+     "key": "SZSC",
+     "name": "심천종합",
+     "value": 2133.91,
+     "change": -0.97,
+     "ratio": -0.05,
+     "status": "CLOSE",
+     "tradedAt": "2026-11-09T16:30:57+08:00",
+     "delayed": 15,
+     "tz": "Asia/Shanghai"
+    },
+    {
+     "key": "CSI300",
+     "name": "CSI 300",
+     "value": 4056.11,
+     "change": 1.83,
+     "ratio": 0.05,
+     "status": "CLOSE",
+     "tradedAt": "2026-11-09T15:00:06+08:00",
+     "delayed": 15,
+     "tz": "Asia/Shanghai"
+    },
+    {
+     "key": "HSI",
+     "name": "항셍",
+     "value": 24448.95,
+     "change": -32.91,
+     "ratio": -0.13,
+     "status": "CLOSE",
+     "tradedAt": "2026-11-09T16:08:26+08:00",
+     "delayed": 15,
+     "tz": "Asia/Hong_Kong"
+    },
+    {
+     "key": "HSCE",
+     "name": "홍콩H",
+     "value": 8260.15,
+     "change": -13.95,
+     "ratio": -0.17,
+     "status": "CLOSE",
+     "tradedAt": "2026-11-09T16:08:26+08:00",
+     "delayed": 15,
+     "tz": "Asia/Hong_Kong"
+    },
+    {
+     "key": "TWII",
+     "name": "대만 가권",
+     "value": 41661.7,
+     "change": 1960.06,
+     "ratio": 4.94,
+     "status": "CLOSE",
+     "tradedAt": "2026-11-09T13:33:16+08:00",
+     "delayed": 20,
+     "tz": "Asia/Taipei"
+    },
+    {
+     "key": "BSESN",
+     "name": "인도 SENSEX",
+     "value": 81106.65,
+     "change": 107.25,
+     "ratio": 0.13,
+     "status": "CLOSE",
+     "tradedAt": "2026-11-09T15:40:00+05:30",
+     "delayed": 15,
+     "tz": "Asia/Kolkata"
+    },
+    {
+     "key": "VNI",
+     "name": "호치민 VN",
+     "value": 1714.32,
+     "change": -11.04,
+     "ratio": -0.64,
+     "status": "CLOSE",
+     "tradedAt": "2026-11-09T15:00:00+07:00",
+     "delayed": 15,
+     "tz": "Asia/Ho_Chi_Minh"
+    },
+    {
+     "key": "HNXI",
+     "name": "하노이 HNX",
+     "value": 255.24,
+     "change": -1.49,
+     "ratio": -0.58,
+     "status": "CLOSE",
+     "tradedAt": "2026-11-09T15:05:10+07:00",
+     "delayed": 15,
+     "tz": "Asia/Ho_Chi_Minh"
+    },
+    {
+     "key": "AXJO",
+     "name": "호주 ASX 200",
+     "value": 9029.7,
+     "change": 8.9,
+     "ratio": 0.1,
+     "status": "CLOSE",
+     "tradedAt": "2026-11-09T16:55:14+11:00",
+     "delayed": 20,
+     "tz": "Australia/Sydney"
+    },
+    {
+     "key": "JKSE",
+     "name": "인도네시아 IDX",
+     "value": 5073.77,
+     "change": 23.34,
+     "ratio": 0.46,
+     "status": "CLOSE",
+     "tradedAt": "2026-11-09T16:00:00+07:00",
+     "delayed": 10,
+     "tz": "Asia/Jakarta"
+    },
+    {
+     "key": "KLSE",
+     "name": "말레이시아 KLCI",
+     "value": 1616.58,
+     "change": -19.28,
+     "ratio": -1.18,
+     "status": "CLOSE",
+     "tradedAt": "2026-11-06T17:05:00+08:00",
+     "delayed": 15,
+     "tz": "Asia/Kuala_Lumpur"
+    }
+   ]
+  },
+  {
+   "key": "am",
+   "name": "중남미",
+   "items": [
+    {
+     "key": "BVSP",
+     "name": "브라질 BOVESPA",
+     "value": 169313.5,
+     "change": 815.05,
+     "ratio": 0.48,
+     "status": "OPEN",
+     "tradedAt": "2026-11-09T11:43:46-03:00",
+     "delayed": 15,
+     "tz": "America/Sao_Paulo"
+    },
+    {
+     "key": "MXX",
+     "name": "멕시코 IPC",
+     "value": 72103.2,
+     "change": 709.63,
+     "ratio": 0.99,
+     "status": "OPEN",
+     "tradedAt": "2026-11-09T08:38:46-06:00",
+     "delayed": 20,
+     "tz": "America/Mexico_City"
+    }
+   ]
+  },
+  {
+   "key": "kr",
+   "name": "한국 (비교용)",
+   "items": [
+    {
+     "key": "KOSPI",
+     "name": "코스피",
+     "value": 5018.85,
+     "change": -40.84,
+     "ratio": -0.81,
+     "status": "CLOSE",
+     "tradedAt": "2026-11-09T20:15:00+09:00",
+     "tz": "Asia/Seoul"
+    },
+    {
+     "key": "KOSDAQ",
+     "name": "코스닥",
+     "value": 638.97,
+     "change": -5.3,
+     "ratio": -0.82,
+     "status": "CLOSE",
+     "tradedAt": "2026-11-09T20:15:00+09:00",
+     "tz": "Asia/Seoul"
+    }
+   ]
+  },
+  {
+   "key": "ref",
+   "name": "참고",
+   "items": [
+    {
+     "key": "VIX",
+     "name": "VIX 변동성",
+     "value": 21.87,
+     "change": -3.77,
+     "ratio": -14.7,
+     "status": "OPEN",
+     "tradedAt": "2026-11-09T09:43:46-05:00",
+     "delayed": 15,
+     "tz": "EST5EDT",
+     "ref": true
+    }
+   ]
+  }
+ ]
+}
