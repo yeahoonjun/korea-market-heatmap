@@ -418,6 +418,7 @@ function setData(raw) {
   const changed = [];
   if (prev) for (const s of stocks) { const o = prev.get(s.c); if (o && o.p !== s.p) changed.push([s.c, s.p > o.p ? 1 : -1]); }
   DATA = { asOf: raw.asOf, source: raw.source, marketStatus: raw.marketStatus || {}, afterHours: !!raw.afterHours, index: raw.index || {}, stocks, byCode };
+  document.dispatchEvent(new CustomEvent('kh:data'));
   return changed;
 }
 setData(SNAP);
@@ -954,7 +955,7 @@ document.addEventListener('click', e => {
   if (state[k] === v) return;
   state[k] = v;
   if (k !== 'view') store.set(k === 'palette' ? 'palette2' : k, v);
-  if (k === 'range' || k === 'palette') { rebuildColor(); state.bucket = null; }
+  if (k === 'range' || k === 'palette') { rebuildColor(); state.bucket = null; document.dispatchEvent(new CustomEvent('kh:palette')); }
   if (k === 'view') {
     $('#map').hidden = v !== 'map';
     $('#tablewrap').hidden = v !== 'table';
@@ -979,7 +980,8 @@ function setMarket(m, writeHash) {
   if (writeHash && location.hash.slice(1) !== TO_HASH[m]) location.hash = TO_HASH[m];
   renderHeader(); render({ animate: true }); renderCrumbs(); renderSide();
 }
-addEventListener('hashchange', () => { const m = HASH_TO[location.hash.slice(1)]; if (m) setMarket(m, false); });
+const bootMarket = state.market;   // what an address without #kospi/#kosdaq/#all shows
+addEventListener('hashchange', () => { const hsh = location.hash.slice(1); const m = HASH_TO[hsh] || (!hsh ? bootMarket : null); if (m) setMarket(m, false); });
 
 /* search */
 const qEl = $('#q'), sugg = $('#sugg');
@@ -1080,6 +1082,21 @@ async function poll() {
 }
 document.addEventListener('visibilitychange', () => { if (MODE === 'live' && !document.hidden) { clearTimeout(liveState.timer); poll(); } });
 
+/* ───────────────── API for the stock page (src/stock/stock.js) ───────────────── */
+// Contract: AGENTS.md §3. Events on document: 'kh:data' after quotes change, 'kh:palette' after palette/range change.
+window.KH = {
+  MODE,
+  LIVE_URL: 'https://korea-market-heatmap.ssslot.workers.dev/',
+  MKT_NAME,
+  stock: code => (DATA && DATA.byCode.get(code)) || null,
+  stocks: () => (DATA ? DATA.stocks : []),
+  asOf: () => (DATA ? DATA.asOf : null),
+  colorOf: r => colorOf(r),
+  palette: () => { const p = PALETTES[state.palette]; return { key: state.palette, label: p.label, stops: p.stops.slice(), up: p.stops[6], down: p.stops[0], flat: p.stops[3], upText: p.upText, dnText: p.dnText }; },
+  fmt: { pct: fmtPct, int: fmtInt, chg: fmtChg, eok: fmtEok, cls },
+  h,
+};
+
 /* ───────────────── boot ───────────────── */
 rebuildColor();
 buildPaletteSeg();
@@ -1095,5 +1112,6 @@ renderSide();
 if (MODE === 'live') poll();
 })();
 </script>
+
 </body>
 </html>
