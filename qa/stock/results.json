@@ -1453,5 +1453,201 @@
  "snapshot_mentions_info": {
   "ok": true,
   "detail": "차트·호가·투자자 정보는 실시간 버전에서 볼 수 있어요이 화면은 11월 9일 (월) 15:30 기준 스냅샷이라 새 시세를 받아 오지 않아요. 종목 정보(재무·애널리스트 의견), 일별 시세, 뉴스·공시도 실시간 버전에"
+ },
+ "motion_standard_no_roll": {
+  "ok": true,
+  "detail": {
+   "mid": 0,
+   "mid2": 0
+  }
+ },
+ "motion_reduced_no_roll": {
+  "ok": true,
+  "detail": {
+   "mid": 0,
+   "mid2": 0
+  }
+ },
+ "motion_fancy_odometer_up_down": {
+  "ok": true,
+  "detail": {
+   "mid": [
+    "up"
+   ],
+   "mid2": [
+    "dn"
+   ],
+   "cols": [
+    4,
+    7
+   ]
+  }
+ },
+ "motion_fancy_text_is_final_text_and_separators_stay": {
+  "ok": true,
+  "detail": {
+   "mid": "187,700",
+   "end": "187,700"
+  }
+ },
+ "motion_fancy_header_width_stable": {
+  "ok": true,
+  "detail": {
+   "dw": 0.125,
+   "dh": 0.0
+  }
+ },
+ "motion_no_console_errors_odometer": {
+  "ok": true,
+  "detail": {
+   "standard": [],
+   "reduced": [],
+   "fancy": []
+  }
+ },
+ "motion_ob_flash_fancy": {
+  "ok": true,
+  "detail": {
+   "first": 0,
+   "mid": [
+    10,
+    0,
+    0
+   ],
+   "end": 0,
+   "down": 10,
+   "err": []
+  }
+ },
+ "motion_ob_no_flash_standard": {
+  "ok": true,
+  "detail": {
+   "first": 0,
+   "mid": [
+    0,
+    0,
+    10
+   ],
+   "end": 0,
+   "down": 0,
+   "err": []
+  }
+ },
+ "motion_no_console_errors_ob": {
+  "ok": true,
+  "detail": {
+   "standard": {
+    "first": 0,
+    "mid": [
+     0,
+     0,
+     10
+    ],
+    "end": 0,
+    "down": 0,
+    "err": []
+   },
+   "fancy": {
+    "first": 0,
+    "mid": [
+     10,
+     0,
+     0
+    ],
+    "end": 0,
+    "down": 10,
+    "err": []
+   }
+  }
+ },
+ "motion_bars_grow_first_time_fancy": {
+  "ok": true,
+  "detail": {
+   "fade": 1,
+   "grow1": 3,
+   "done": 0,
+   "grow2": 0,
+   "info": 27,
+   "err": []
+  }
+ },
+ "motion_bars_static_in_standard": {
+  "ok": true,
+  "detail": {
+   "fade": 0,
+   "grow1": 0,
+   "done": 0,
+   "grow2": 0,
+   "info": 0,
+   "err": []
+  }
+ },
+ "motion_tab_fade_fancy_only": {
+  "ok": true,
+  "detail": {
+   "standard": 0,
+   "fancy": 1
+  }
+ },
+ "motion_no_console_errors_bars": {
+  "ok": true,
+  "detail": {
+   "standard": {
+    "fade": 0,
+    "grow1": 0,
+    "done": 0,
+    "grow2": 0,
+    "info": 0,
+    "err": []
+   },
+   "fancy": {
+    "fade": 1,
+    "grow1": 3,
+    "done": 0,
+    "grow2": 0,
+    "info": 27,
+    "err": []
+   }
+  }
+ },
+ "motion_overflow_zero_during_roll": {
+  "ok": true,
+  "detail": {
+   "360": {
+    "doc": 0,
+    "root": 0,
+    "n": 0,
+    "roll": 2,
+    "err": []
+   },
+   "390": {
+    "doc": 0,
+    "root": 0,
+    "n": 0,
+    "roll": 2,
+    "err": []
+   },
+   "768": {
+    "doc": 0,
+    "root": 0,
+    "n": 0,
+    "roll": 2,
+    "err": []
+   },
+   "1280": {
+    "doc": 0,
+    "root": 0,
+    "n": 0,
+    "roll": 2,
+    "err": []
+   },
+   "1440": {
+    "doc": 0,
+    "root": 0,
+    "n": 0,
+    "roll": 2,
+    "err": []
+   }
+  }
  }
 }

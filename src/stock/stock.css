@@ -36,6 +36,12 @@ html.sp-on, html.sp-on body { overflow: hidden; }
 /* phones: 상한가 sits on the price line, right above the change, so the quote stays narrow and the name keeps its room */
 .sp-quote { flex: none; display: grid; grid-template-columns: auto auto; grid-template-areas: "lim price" "chg chg"; justify-content: end; align-items: center; text-align: right; padding-left: 8px; }
 .sp-price { grid-area: price; font-size: 20px; font-weight: 700; letter-spacing: -.01em; line-height: 1.2; white-space: nowrap; }
+.sp-price, .sp-chg { --od-lh: 1.2; line-height: var(--od-lh); font-variant-numeric: tabular-nums; }
+/* odometer (fancy only): a column holds the old glyph in ::before/::after and the new one as text; the strip slides */
+.od-c { display: inline-block; height: calc(var(--od-lh, 1.2) * 1em); line-height: var(--od-lh, 1.2); overflow: hidden; vertical-align: top; white-space: pre; }
+.od-s { display: block; }
+.od-s::before, .od-s::after { display: block; height: calc(var(--od-lh, 1.2) * 1em); content: attr(data-o) "\200b"; white-space: pre; }
+.od-s.up::after, .od-s.dn::before { content: none; }
 .sp-chg { grid-area: chg; justify-self: end; font-size: 13px; font-weight: 600; white-space: pre; margin-top: 1px; }
 /* 상한가·하한가: a data label, so it takes the rise/fall text colours */
 .sp-lim { grid-area: lim; justify-self: end; flex: none; margin-right: 6px; font-size: 11px; font-weight: 700; line-height: 1; padding: 3px 5px; border-radius: 4px; white-space: nowrap; }

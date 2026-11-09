@@ -49,6 +49,14 @@ const PHASE = {
 };
 const POLL_PHASES = new Set(['open', 'after', 'pre', 'unknown']);
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
+/* New effects (AGENTS.md §3-5) run only when KH.motion() === 'fancy'; a heatmap without KH.motion counts as 'standard'.
+ * Durations and curves come from the motion tokens in docs/motion-brief.md (--m-roll, --m-quint, --m-out, …) when the heatmap defines them. */
+const motion = () => { try { const m = KH.motion && KH.motion(); return m === 'fancy' || m === 'reduced' ? m : 'standard'; } catch (e) { return 'standard'; } };
+const fancy = () => motion() === 'fancy' && document.visibilityState === 'visible';
+const tok = (name, dflt) => (root && getComputedStyle(root).getPropertyValue(name).trim()) || dflt;
+const msTok = (name, dflt) => { const v = tok(name, ''), x = parseFloat(v); return x > 0 ? (/ms\s*$/.test(v) ? x : /s\s*$/.test(v) ? x * 1000 : x) : dflt; };
+const curve = (name, dflt) => tok(name, dflt);   // docs/motion-brief.md §2-0 tokens, with the brief's values as fallbacks
+const M_OUT = 'cubic-bezier(.2,.7,.2,1)', M_QUINT = 'cubic-bezier(.22,1,.36,1)';
 
 /* ───────────────── helpers ───────────────── */
 const h = KH.h, F = KH.fmt;
@@ -249,6 +257,38 @@ function measureHead() {
 }
 
 /* ───────────────── header ───────────────── */
+// Odometer: set `text` on el. In fancy mode a change from the previous text rolls the differing characters (right-aligned, so
+// thousands separators and unchanged digits stay put); dir > 0 slides up (the value rose), dir < 0 slides down. The element's
+// textContent is always the new text (the old glyph lives in a CSS ::before/::after), and the roll is swapped for plain text after.
+const rollTimers = new WeakMap();
+function settleRoll(el) { const t = rollTimers.get(el); if (t) { clearTimeout(t); rollTimers.delete(el); if (el.dataset.v != null) el.textContent = el.dataset.v; } }
+function setRoll(el, text, dir) {
+  if (el.dataset.v === text) return;
+  const old = el.dataset.v;
+  settleRoll(el);
+  el.dataset.v = text;
+  if (old == null || !fancy() || !dir || !el.isConnected || el.getClientRects().length === 0) { el.textContent = text; return; }
+  const a = Array.from(old), b = Array.from(text), n = Math.max(a.length, b.length), kids = [];
+  const d = msTok('--m-roll', 420), ease = curve('--m-quint', M_QUINT), step = Math.min(30, 120 / Math.max(1, n - 1)), maxDelay = step * (n - 1);
+  if (a.length !== b.length) {   // digits or sign appeared/vanished (9,990 → 10,010): no rolling, a short cross-fade
+    el.textContent = text;
+    el.animate([{ opacity: .35 }, { opacity: 1 }], { duration: msTok('--m-1', 120), easing: curve('--m-exit', 'cubic-bezier(.4,0,.2,1)') });
+    return;
+  }
+  for (let i = 0; i < n; i++) {
+    const o = a[a.length - n + i] || '', c = b[b.length - n + i] || '';   // right-aligned
+    if (o === c) { kids.push(c); continue; }
+    const col = h('span', { class: 'od-c' }), strip = h('span', { class: 'od-s ' + (dir > 0 ? 'up' : 'dn'), text: c });
+    strip.dataset.o = o;
+    col.append(strip);
+    kids.push(col);
+    strip.animate(dir > 0 ? [{ transform: 'translateY(0)' }, { transform: 'translateY(calc(var(--od-lh, 1.2) * -1em))' }] : [{ transform: 'translateY(calc(var(--od-lh, 1.2) * -1em))' }, { transform: 'translateY(0)' }],
+      { duration: d, delay: (n - 1 - i) * step, easing: ease, fill: 'both' });
+  }
+  el.replaceChildren(...kids);
+  rollTimers.set(el, setTimeout(() => { rollTimers.delete(el); if (el.dataset.v === text) el.textContent = text; }, d + maxDelay + 60));
+}
+let headPrev = null;   // {code, price} of the last quote drawn, to tell which way it moved
 function renderHead() {
   const st = KH.stock(S.code), s = S.sum;
   const name = (s && s.name) || (st && st.n) || (LIVE && !S.sumErr ? '' : S.code);
@@ -262,14 +302,21 @@ function renderHead() {
   if (s && isNum(s.price)) { price = +s.price; chg = +s.change; ratio = +s.ratio; }
   else if (st) { price = st.p; chg = st.d; ratio = st.r; }
   if (price == null) {
+    settleRoll(R.price); settleRoll(R.chg); delete R.price.dataset.v; delete R.chg.dataset.v; headPrev = null;
     R.price.replaceChildren(S.sumErr ? '—' : skel('5.2em', '0.85em'));
     R.chg.replaceChildren(S.sumErr ? '' : skel('6.5em', '0.8em'));
     R.chg.className = 'sp-chg num';
   } else {
-    R.price.textContent = int(price);
     const arrow = chg > 0 ? '▲' : chg < 0 ? '▼' : '';
+    const dir = headPrev && headPrev.code === S.code && isNum(headPrev.price) ? Math.sign(price - headPrev.price) : 0;
+    headPrev = { code: S.code, price };
     R.chg.className = 'sp-chg num ' + cls(chg);
-    R.chg.textContent = `${arrow}${isNum(chg) ? int(Math.abs(chg)) : ''}  ${pct(ratio)}`;
+    if (dir && fancy()) { setRoll(R.price, int(price), dir); setRoll(R.chg, `${arrow}${isNum(chg) ? int(Math.abs(chg)) : ''}  ${pct(ratio)}`, dir); }
+    else {
+      const pt = int(price), ct = `${arrow}${isNum(chg) ? int(Math.abs(chg)) : ''}  ${pct(ratio)}`;
+      if (R.price.dataset.v !== pt) { settleRoll(R.price); R.price.textContent = pt; R.price.dataset.v = pt; }   // an unchanged value must not cut a roll short
+      if (R.chg.dataset.v !== ct) { settleRoll(R.chg); R.chg.textContent = ct; R.chg.dataset.v = ct; }
+    }
     R.chg.setAttribute('aria-label', `전일 대비 ${signed(chg)}원, ${pct(ratio)}`);
   }
   renderLim();
@@ -761,6 +808,7 @@ function syncTf() { if (R.tfs) for (const b of R.tfs.children) b.setAttribute('a
 /* ───────────────── tabs ───────────────── */
 function setTab(k, focus) {
   if (!TAB[k]) k = TABS[0].key;
+  const from = S.tab, slide = fancy() && S.open && from !== k && R.panels[from] && !R.panels[from].hidden;
   S.tab = k; store.set('stockTab', k);
   for (const b of R.tabs.children) {
     const on = b.dataset.tab === k;
@@ -773,13 +821,14 @@ function setTab(k, focus) {
     if (t.key !== k && t.hide) t.hide();
   }
   TAB[k].show(R.panels[k]);
+  if (slide) R.panels[k].animate([{ opacity: 0, transform: 'translateY(8px)' }, { opacity: 1, transform: 'none' }], { duration: msTok('--m-2', 240), easing: curve('--m-out', M_OUT) });
 }
 
 /* ── 호가 ── */
 let obLoop = 0;
 const obShouldPoll = () => LIVE && S.open && S.tab === 'ob' && document.visibilityState === 'visible';
 const obPolling = () => obShouldPoll() && POLL_PHASES.has(S.phase);   // the book stands still once the market is shut
-function obReset() { S.ob = null; S.obErr = null; S.obAt = null; }
+function obReset() { S.ob = null; S.obErr = null; S.obAt = null; if (R.ob) R.ob.prev = null; }
 function obSummary(phaseChanged) {
   if (S.ob) renderOb();   // current-price marker, % and notes follow the summary
   if (!phaseChanged || !obShouldPoll()) return;
@@ -825,6 +874,14 @@ function buildOb(panel) {
   panel.append(R.ob.msg, grid, R.ob.note);
 }
 function obInfo(label, value, c, sub) { return h('div', {}, h('span', { text: label }), h('b', { class: 'num ' + (c || ''), text: value }), sub ? h('small', { text: sub }) : null); }
+// a short tint on a cell whose value changed: dir 1 = rose (--up-text), −1 = fell (--dn-text), 0 = neutral (a new price level)
+function flash(el, dir) {
+  const c = dir > 0 ? 'var(--up-text)' : dir < 0 ? 'var(--dn-text)' : 'var(--fg2)';
+  const amt = dir ? 22 : 12;
+  el.dataset.fl = dir > 0 ? 'up' : dir < 0 ? 'dn' : 'new';
+  const a = el.animate([{ backgroundColor: `color-mix(in srgb, ${c} ${amt}%, transparent)` }, { backgroundColor: 'transparent' }], { duration: msTok('--m-flash', 700), easing: curve('--m-out', M_OUT) });
+  a.onfinish = a.oncancel = () => { if (!el.getAnimations().length) delete el.dataset.fl; };
+}
 function renderOb() {
   const o = S.ob, ob = R.ob;
   if (!ob) return;
@@ -859,6 +916,8 @@ function renderOb() {
     else if (cur < Math.min(...prices)) outside = '보이는 호가보다 낮아요';
     else { markIdx = ladder.findIndex(l => l && +l.price < cur); markPos = 'top'; }
   }
+  const pv = fancy() && ob.prev && ob.prev.code === S.code ? ob.prev.cells : null;   // first draw of a stock never flashes
+  ob.prev = { code: S.code, cells: ladder.map(l => (l ? { price: +l.price, qty: +l.qty || 0 } : null)) };
   ladder.forEach((l, i) => {
     const { q, p } = ob.rows[i];
     const side = i < 5 ? 'ask' : 'bid';
@@ -870,6 +929,11 @@ function renderOb() {
     p.className = `sp-p ${side}${l && pc ? ' ' + cls(+l.price - pc) : ''}${l && cur != null && +l.price === cur ? ' cur' : ''}`;
     if (i === markIdx) p.dataset.mark = markPos; else delete p.dataset.mark;
     p.setAttribute('aria-label', l ? `${side === 'ask' ? '매도' : '매수'} ${int(l.price)}원 ${pct(r)}, 잔량 ${int(l.qty)}주` : '');
+    const o = pv && pv[i], nw = ob.prev.cells[i];
+    if (o && nw) {
+      if (o.price !== nw.price) flash(p, 0);
+      else if (o.qty !== nw.qty) flash(q, nw.qty > o.qty ? 1 : -1);
+    }
   });
   const ta = +o.totalAsk || 0, tb = +o.totalBid || 0, share = ta + tb ? ta / (ta + tb) * 100 : 50;
   const s = S.sum;
@@ -886,6 +950,24 @@ function renderOb() {
   else if (S.phase === 'closed' || S.phase === 'holiday' || S.phase === 'weekend') notes.push('장이 열리지 않아 마지막 호가가 멈춰 있어요.');
   notes.push('잔량 합계에는 보이지 않는 호가까지 들어 있어요.');
   ob.note.textContent = notes.join(' ');
+}
+
+/* 막대 첫 진입: the first time a tab's bars are drawn in a session (fancy only) they grow from zero. */
+function growBars(panel, tab, sel, axis) {
+  if (!fancy()) return;
+  let seen = false;
+  try { seen = sessionStorage.getItem('khm.stock.grown.' + tab) === '1'; } catch (e) { /* ignore */ }
+  const els = Array.from(panel.querySelectorAll(sel));
+  if (seen || !els.length) return;
+  try { sessionStorage.setItem('khm.stock.grown.' + tab, '1'); } catch (e) { /* ignore */ }
+  const d = msTok('--m-3', 480), ease = curve('--m-out', M_OUT), st = msTok('--m-stagger', 40);
+  els.forEach((el, i) => {
+    const y = axis === 'y';
+    el.style.transformOrigin = y ? (el.classList.contains('neg') ? 'center top' : 'center bottom') : el.style.right ? 'right center' : 'left center';
+    el.dataset.grow = '1';
+    const a = el.animate(y ? [{ transform: 'scaleY(0)' }, { transform: 'scaleY(1)' }] : [{ transform: 'scaleX(0)' }, { transform: 'scaleX(1)' }], { duration: d, delay: Math.min(i, 8) * st, easing: ease, fill: 'backwards' });
+    a.onfinish = a.oncancel = () => { delete el.dataset.grow; };
+  });
 }
 
 /* ── 투자자 ── */
@@ -962,6 +1044,7 @@ function renderInv() {
     netCell(r.individual), netCell(r.foreign), netCell(r.institution),
     h('td', { class: 'num', text: fixed(r.foreignHoldRatio, 2, '%') }))));
   P.replaceChildren(todayCard(rows[0], isToday ? '오늘' : `${lp[1]}월 ${lp[2]}일`), card, note, h('table', { class: 'sp-tbl sp-inv-t' }, h('caption', { text: '날짜별 순매수 (단위: 주, 만 = 1만 주)' }), thead, tbody));
+  growBars(P, 'inv', '.sp-today .bar i', 'x');
 }
 
 /* ── 일별 시세 ── */
@@ -1325,7 +1408,15 @@ function buildInfo(panel) {
 }
 function setFinPeriod(k) { finPeriod = k; store.set('stockFinPeriod', k); renderFin(); renderStab(); }
 function setStab(k) { stabKey = k; store.set('stockStab', k); renderStab(); }
-function renderInfo() { if (!R.ci) return; renderMetrics(); renderFin(); renderStab(); renderDiv(); renderAna(); }
+function renderInfo() {
+  if (!R.ci) return;
+  renderMetrics(); renderFin(); renderStab(); renderDiv(); renderAna();
+  const P = R.panels.info;
+  if (!P || P.hidden) return;
+  growBars(P, 'info-fin', '.sp-fin-col .b', 'y');
+  growBars(P, 'info-div', '.sp-dbars .well i', 'y');
+  growBars(P, 'info-ana', '.sp-op .well i', 'y');
+}
 const ciSkel = (n, hgt) => h('div', { class: 'sp-skel-rows', role: 'status', 'aria-label': '불러오는 중' }, Array.from({ length: n }, () => skel('100%', hgt)));
 
 /* 투자 지표 */
@@ -1710,6 +1801,7 @@ document.addEventListener('visibilitychange', () => {
 });
 document.addEventListener('kh:palette', () => { if (root) { applyColors(); if (S.open) renderPeers(); } });
 document.addEventListener('kh:data', () => { if (S.open) { renderPeers(); renderHead(); } });   // 업종 path / provisional price arrive with the quotes
+document.addEventListener('kh:motion', () => { if (!fancy() && R.price) { settleRoll(R.price); settleRoll(R.chg); } });
 document.addEventListener('kh:watch', () => { if (S.open) renderStar(); });
 
 window.KHStock = { open, close, isOpen: () => S.open };

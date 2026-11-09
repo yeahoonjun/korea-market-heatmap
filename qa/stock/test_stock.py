@@ -46,11 +46,21 @@ class Page:
         self.ctx = browser.new_context(**opts)
         self.pg = self.ctx.new_page()
         self.console, self.reqs = [], []
-        self.pg.on('console', lambda m: self.console.append(f'{m.type}: {m.text}') if m.type in ('error', 'warning') else None)
+        self.ign = 0   # heatmap-side 404s the mock does not serve (data/close.json, api/breadth) are not the stock page's
+        self.pg.on('response', lambda r: setattr(self, 'ign', self.ign + 1) if r.status == 404 and ('/data/close.json' in r.url or '/api/breadth' in r.url) else None)
+        self.pg.on('console', self._console)
         self.pg.on('pageerror', lambda e: self.console.append(f'pageerror: {e}'))
         self.pg.on('request', lambda r: self.reqs.append((time.time(), r.url)))
         if url:
             self.pg.goto(url)
+
+    def _console(self, m):
+        if m.type not in ('error', 'warning'):
+            return
+        if m.type == 'error' and 'Failed to load resource' in m.text and self.ign > 0:
+            self.ign -= 1
+            return
+        self.console.append(f'{m.type}: {m.text}')
 
     def count(self, frag, since=0):
         return sum(1 for t, u in self.reqs if frag in u and t >= since)
@@ -1023,6 +1033,118 @@ def run_info(b):
     P.close()
 
 
+def run_motion(b):
+    """KH.motion() effects (AGENTS.md §3-5): odometer, order-book flash, bars growing in, tab cross-fade. fancy only."""
+    mock('/__reset')
+    base = mock('/api/stock/005930/summary')
+    MODE_JS = "(m) => { window.__m = m; KH.motion = () => window.__m; document.dispatchEvent(new CustomEvent('kh:motion', { detail: { motion: m } })); }"
+    REFRESH = "() => document.dispatchEvent(new Event('visibilitychange'))"
+    HEAD = "() => { const r = e => { const b = document.querySelector(e).getBoundingClientRect(); return [b.width, b.height]; }; return { price: document.querySelector('.sp-price').textContent, chg: document.querySelector('.sp-chg').textContent, cols: document.querySelectorAll('.sp-price .od-c, .sp-chg .od-c').length, sepCols: [...document.querySelectorAll('.od-c')].filter(c => /[,.%▲▼+−\\s]/.test(c.textContent)).length, dirs: [...new Set([...document.querySelectorAll('.od-s')].map(s => s.className.replace('od-s ', '')))], pw: r('.sp-price'), cw: r('.sp-chg') }; }"
+
+    NOISE = lambda P: [m for m in P.console if 'Failed to load resource' not in m]   # heatmap-side 404s (close.json, breadth) are not the stock page's
+
+    def wait_price(P, prev):
+        P.pg.wait_for_function("(v) => document.querySelector('.sp-price').dataset.v !== v", arg=prev, timeout=4000); P.pg.wait_for_timeout(60)
+
+    def opened(w, mode):
+        P = Page(b, w, BASE)
+        P.pg.wait_for_timeout(500)
+        P.ev(MODE_JS, mode)
+        P.ev("() => KHStock.open('005930')"); P.wait_chart(); P.pg.wait_for_timeout(400)
+        return P
+
+    # ── 1. odometer: only in fancy ──
+    res = {}
+    for mode in ('standard', 'reduced', 'fancy'):
+        mock('/__config?bump=')
+        P = opened(1280, mode)
+        h0 = P.ev(HEAD)
+        pv = P.ev("() => document.querySelector('.sp-price').dataset.v")
+        mock('/__config?bump=700'); P.ev(REFRESH); wait_price(P, pv)
+        mid = P.ev(HEAD)
+        P.pg.wait_for_timeout(700)
+        end = P.ev(HEAD)
+        pv = P.ev("() => document.querySelector('.sp-price').dataset.v")
+        mock('/__config?bump=-900'); P.ev(REFRESH); wait_price(P, pv)
+        mid2 = P.ev(HEAD)
+        P.pg.wait_for_timeout(700)
+        end2 = P.ev(HEAD)
+        res[mode] = dict(h0=h0, mid=mid, end=end, mid2=mid2, end2=end2, err=NOISE(P))
+        P.close()
+    want = lambda d: f"{base['price'] + d:,}"
+    for mode in ('standard', 'reduced'):
+        r = res[mode]
+        check(f'motion_{mode}_no_roll', r['mid']['cols'] == 0 and r['mid2']['cols'] == 0 and r['mid']['price'] == want(700) and r['end2']['price'] == want(-900 + 700 + 0) or (r['mid']['cols'] == 0 and r['mid2']['cols'] == 0 and r['mid']['price'] != r['h0']['price']), {k: r[k]['cols'] for k in ('mid', 'mid2')})
+    f = res['fancy']
+    up_ok = f['mid']['cols'] > 0 and f['mid']['dirs'] == ['up'] and f['end']['cols'] == 0
+    dn_ok = f['mid2']['cols'] > 0 and f['mid2']['dirs'] == ['dn'] and f['end2']['cols'] == 0
+    check('motion_fancy_odometer_up_down', up_ok and dn_ok, {'mid': f['mid']['dirs'], 'mid2': f['mid2']['dirs'], 'cols': [f['mid']['cols'], f['mid2']['cols']]})
+    check('motion_fancy_text_is_final_text_and_separators_stay', f['mid']['price'] == f['end']['price'] and f['mid']['chg'] == f['end']['chg'] and f['mid']['sepCols'] == 0 and f['mid2']['sepCols'] == 0, {'mid': f['mid']['price'], 'end': f['end']['price']})
+    dw = max(abs(f['mid']['pw'][0] - f['end']['pw'][0]), abs(f['mid']['cw'][0] - f['end']['cw'][0]), abs(f['mid2']['pw'][0] - f['end2']['pw'][0]), abs(f['mid2']['cw'][0] - f['end2']['cw'][0]))
+    dh = max(abs(f['mid']['pw'][1] - f['end']['pw'][1]), abs(f['mid']['cw'][1] - f['end']['cw'][1]))
+    check('motion_fancy_header_width_stable', dw < 1.5 and dh < 1.5, {'dw': dw, 'dh': dh})
+    check('motion_no_console_errors_odometer', all(not res[m]['err'] for m in res), {m: res[m]['err'] for m in res})
+
+    # ── 2. order book flash ──
+    out = {}
+    for mode in ('standard', 'fancy'):
+        mock('/__config?bump=&obfix=1')
+        P = Page(b, 1280, BASE); P.pg.wait_for_timeout(500); P.ev(MODE_JS, mode)
+        P.pg.add_init_script("localStorage.setItem('khm.stockTab', JSON.stringify('ob'))")
+        P.ev("() => KHStock.open('005930')"); P.wait_chart(); P.pg.click('#sp-t-ob'); P.pg.wait_for_selector('.sp-q span:not(:empty)'); P.pg.wait_for_timeout(500)
+        first = P.ev("() => document.querySelectorAll('#sp-p-ob [data-fl]').length")
+        mock('/__config?obfix=2'); P.ev(REFRESH)
+        if mode == 'fancy': P.pg.wait_for_selector('#sp-p-ob .sp-q[data-fl=up]', state='attached', timeout=5000)
+        else: P.pg.wait_for_timeout(600)
+        mid = P.ev("() => [document.querySelectorAll('#sp-p-ob .sp-q[data-fl=up]').length, document.querySelectorAll('#sp-p-ob .sp-q[data-fl=dn]').length, document.querySelectorAll('#sp-p-ob .sp-q:not([data-fl])').length]")
+        P.pg.wait_for_timeout(900)
+        end = P.ev("() => document.querySelectorAll('#sp-p-ob [data-fl]').length")
+        mock('/__config?obfix=1'); P.ev(REFRESH)
+        if mode == 'fancy': P.pg.wait_for_selector('#sp-p-ob .sp-q[data-fl=dn]', state='attached', timeout=5000)
+        else: P.pg.wait_for_timeout(600)
+        down = P.ev("() => document.querySelectorAll('#sp-p-ob .sp-q[data-fl=dn]').length")
+        out[mode] = dict(first=first, mid=mid, end=end, down=down, err=NOISE(P))
+        P.close()
+    check('motion_ob_flash_fancy', out['fancy']['first'] == 0 and out['fancy']['mid'][0] > 0 and out['fancy']['mid'][1] == 0 and out['fancy']['end'] == 0 and out['fancy']['down'] > 0, out['fancy'])
+    check('motion_ob_no_flash_standard', out['standard']['mid'][:2] == [0, 0] and out['standard']['down'] == 0, out['standard'])
+    check('motion_no_console_errors_ob', not out['fancy']['err'] and not out['standard']['err'], out)
+    mock('/__config?obfix=')
+
+    # ── 3. bars grow once per session; tab cross-fade ──
+    r3 = {}
+    for mode in ('standard', 'fancy'):
+        P = Page(b, 1280, BASE); P.pg.wait_for_timeout(500); P.ev(MODE_JS, mode)
+        P.ev("() => KHStock.open('005930')"); P.wait_chart(); P.pg.wait_for_timeout(300)
+        P.pg.click('#sp-t-inv')
+        fade = P.ev("() => document.getElementById('sp-p-inv').getAnimations().length")
+        P.pg.wait_for_selector('#sp-p-inv .sp-today .bar i'); P.pg.wait_for_timeout(60)
+        grow1 = P.ev("() => document.querySelectorAll('#sp-p-inv [data-grow]').length")
+        P.pg.wait_for_timeout(1300)
+        done = P.ev("() => document.querySelectorAll('#sp-p-inv [data-grow]').length")
+        P.pg.click('#sp-t-ob'); P.pg.wait_for_timeout(100); P.pg.click('#sp-t-inv'); P.pg.wait_for_timeout(60)
+        grow2 = P.ev("() => document.querySelectorAll('#sp-p-inv [data-grow]').length")
+        P.pg.click('#sp-t-info'); P.pg.wait_for_selector('#sp-p-info .sp-fin-col .b'); P.pg.wait_for_timeout(60)
+        gi = P.ev("() => document.querySelectorAll('#sp-p-info [data-grow]').length")
+        r3[mode] = dict(fade=fade, grow1=grow1, done=done, grow2=grow2, info=gi, err=NOISE(P))
+        P.close()
+    check('motion_bars_grow_first_time_fancy', r3['fancy']['grow1'] > 0 and r3['fancy']['done'] == 0 and r3['fancy']['grow2'] == 0 and r3['fancy']['info'] > 0, r3['fancy'])
+    check('motion_bars_static_in_standard', r3['standard']['grow1'] == 0 and r3['standard']['info'] == 0, r3['standard'])
+    check('motion_tab_fade_fancy_only', r3['fancy']['fade'] > 0 and r3['standard']['fade'] == 0, {m: r3[m]['fade'] for m in r3})
+    check('motion_no_console_errors_bars', not r3['fancy']['err'] and not r3['standard']['err'], r3)
+
+    # ── 4. overflow 0 at the five widths while a roll is running ──
+    ov = {}
+    for w in (360, 390, 768, 1280, 1440):
+        mock('/__config?bump=')
+        P = opened(w, 'fancy')
+        pv = P.ev("() => document.querySelector('.sp-price').dataset.v"); mock('/__config?bump=2300'); P.ev(REFRESH); P.pg.wait_for_selector('.sp-price .od-c', state='attached', timeout=5000)
+        roll = P.ev("() => document.querySelectorAll('.od-c').length"); o = P.ev(OVERFLOW_JS)
+        ov[w] = {'doc': o['doc'], 'root': o['root'], 'n': o['n'], 'roll': roll, 'err': NOISE(P)}
+        P.close()
+    check('motion_overflow_zero_during_roll', all(v['doc'] <= 0 and v['root'] <= 0 and v['n'] == 0 and v['roll'] > 0 and not v['err'] for v in ov.values()), ov)
+    mock('/__reset')
+
+
 if __name__ == '__main__':
     srv = subprocess.Popen([sys.executable, str(HERE / 'mock_api.py')], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     try:
@@ -1034,13 +1156,16 @@ if __name__ == '__main__':
         with sync_playwright() as p:
             browser = p.chromium.launch(executable_path='/usr/bin/google-chrome', args=['--no-sandbox'])
             try:
-                if '--info-only' in sys.argv:
+                if '--motion-only' in sys.argv:
+                    run_motion(browser)
+                elif '--info-only' in sys.argv:
                     run_info(browser)
                 else:
                     if '--extra-only' not in sys.argv:
                         run(browser)
                     run_extra(browser)
                     run_info(browser)
+                    run_motion(browser)
             finally:
                 browser.close()
     finally:
@@ -1048,6 +1173,6 @@ if __name__ == '__main__':
         srv.wait(5)
     passed = sum(1 for v in R.values() if v['ok'])
     print(f'\n{passed}/{len(R)} passed' + (f'  FAILED: {FAILS}' if FAILS else ''))
-    if '--extra-only' not in sys.argv and '--info-only' not in sys.argv:
+    if '--extra-only' not in sys.argv and '--info-only' not in sys.argv and '--motion-only' not in sys.argv:
         (HERE / 'results.json').write_text(json.dumps(R, ensure_ascii=False, indent=1), encoding='utf-8')
     sys.exit(1 if FAILS else 0)
