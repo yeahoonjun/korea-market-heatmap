@@ -706,6 +706,7 @@ async function getMarket() {
   const btcP = j('https://m.stock.naver.com/front-api/cryptoEnd/detail?nfTicker=BTC&exchangeType=UPBIT');
   const delay = x => { const d = x && x.stockExchangeType && x.stockExchangeType.delayTime; return d > 0 ? d : undefined; };
   const out = {};
+  let session = null;
   const put = (key, name, value, change, ratio, extra) => {
     if (value == null || !Number.isFinite(value)) return;
     out[key] = Object.assign({ key, name, value, change: change == null ? 0 : change, ratio: ratio == null ? 0 : ratio }, extra || {});
@@ -715,6 +716,8 @@ async function getMarket() {
     settle(Promise.all([idxP, kosS, kqS]), ([idx, a, b]) => {
       const sp = { KOSPI: a, KOSDAQ: b };
       for (const x of idx.datas || []) {
+        const se = x.stockExchangeType;
+        if (!session && se && /^\d{4}$/.test(se.startTime) && /^\d{4}$/.test(se.endTime)) session = { start: se.startTime, end: se.endTime };
         if (x.itemCode !== 'KOSPI' && x.itemCode !== 'KOSDAQ') continue;
         const ex = sp[x.itemCode] && sp[x.itemCode].length ? { spark: sp[x.itemCode] } : {};
         put(x.itemCode, x.stockName, pn(x.closePriceRaw), sgn(x.compareToPreviousClosePriceRaw, x.compareToPreviousPrice), sgn(x.fluctuationsRatioRaw, x.compareToPreviousPrice), ex);
@@ -734,7 +737,7 @@ async function getMarket() {
   ]);
   const items = ['KOSPI', 'KOSDAQ', 'USDKRW', 'SPX_F', 'NDX_F', 'WTI', 'GOLD', 'BTC'].filter(k => out[k]).map(k => out[k]);
   if (!items.length) throw new Error('market: every source failed');
-  return { asOf: new Date().toISOString(), items };
+  return session ? { asOf: new Date().toISOString(), items, session } : { asOf: new Date().toISOString(), items };
 }
 
 /* ── /api/stock/:code/news, /disclosures ─────────────────────────────── */
