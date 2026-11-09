@@ -319,24 +319,34 @@ def main():
         cap_krw = num(s.get("marketValueRaw"))
         cap = cap_krw / 1e8 if cap_krw else (num(s.get("marketValue")) or 0)
         base = p - d
+        flag = (s.get("compareToPreviousPrice") or {}).get("name")
+        lim = 1 if flag == "UPPER_LIMIT" else -1 if flag == "LOWER_LIMIT" else 0
         if pin and c in closes:
             kp, _any = closes[c]
             if kp is None and _any:      # traded only after hours (or not at all) -> close = 기준가
                 kp = base
             if kp is not None and base > 0:
                 n_pinned += 1
-                if kp != p:
+                moved = kp != p
+                if moved:
                     n_moved += 1
+                    # the Naver flag follows the after-hours price; re-derive it from the pinned
+                    # 15:30 close (a limit move is always >= ~29.5%, see ENDPOINTS_EXTRA.md §5)
                     cap = cap * kp / p if p else cap
                 p, d = kp, kp - base
                 r = round(d / base * 100, 2)
+                if moved:
+                    lim = 1 if r >= 29.5 else -1 if r <= -29.5 else 0
         tv = num(s.get("accumulatedTradingValueRaw"))
         tv = round(tv / 1e8) if tv is not None else round((num(s.get("accumulatedTradingValue")) or 0) / 100)
         v = num(s.get("accumulatedTradingVolumeRaw") or s.get("accumulatedTradingVolume"), int) or 0
         max_ts = max(max_ts, s.get("localTradedAt") or "")
-        out.append({"c": c, "n": s["stockName"], "m": "K" if s["sosok"] == "0" else "Q",
-                    "s": sec, "i": ind, "cap": int(round(cap)), "p": p, "d": d,
-                    "r": round(r, 2), "tv": int(tv), "v": v})
+        row = {"c": c, "n": s["stockName"], "m": "K" if s["sosok"] == "0" else "Q",
+               "s": sec, "i": ind, "cap": int(round(cap)), "p": p, "d": d,
+               "r": round(r, 2), "tv": int(tv), "v": v}
+        if lim:
+            row["lim"] = lim  # 1 limit-up, -1 limit-down, omitted otherwise
+        out.append(row)
     out.sort(key=lambda x: (-x["cap"], x["c"]))
 
     as_of = f"{trade_ymd[:4]}-{trade_ymd[4:6]}-{trade_ymd[6:]}T15:30:00+09:00" if pin else max_ts
