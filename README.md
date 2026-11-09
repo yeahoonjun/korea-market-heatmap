@@ -1,5 +1,7 @@
 # 한국 증시 히트맵
 
+**주소: https://kospimap.pages.dev**
+
 코스피·코스닥 종목을 섹터 › 업종 › 종목 트리맵으로 보여 주는 Finviz 스타일 히트맵이에요.
 타일 크기는 시가총액(또는 거래대금), 색은 전일 대비 등락률이에요.
 
@@ -38,7 +40,7 @@ python3 scripts/build_page.py
 cd worker
 npm install
 npx wrangler login
-npx wrangler deploy        # → https://korea-market-heatmap.<계정>.workers.dev
+npx wrangler deploy        # → https://korea-market-heatmap.<계정>.workers.dev (kospimap.pages.dev가 이 Worker로 연결돼요)
 ```
 
 ## Worker API

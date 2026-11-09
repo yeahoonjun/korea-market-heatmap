@@ -10,7 +10,8 @@
 - **색**: 상승은 빨강 계열, 하락은 초록 계열이 기본이에요(`krg`). HTS 색(빨강/파랑), 초록 상승(Finviz), 색각 친화는 선택지로만 둬요. 0%는 회색.
 - **글꼴**: Pretendard Variable. 숫자는 `font-variant-numeric: tabular-nums`.
 - **실시간 데이터**: 네이버 증권(비공식). 브라우저는 네이버를 직접 부를 수 없어요(외부 Origin → 403). 항상 Worker가 대신 받아요.
-- **배포**: GitHub 공개 저장소 `yeahoonjun/korea-market-heatmap` + Cloudflare Worker `korea-market-heatmap` (계정 서브도메인 `ssslot` → `https://korea-market-heatmap.ssslot.workers.dev`). Worker는 화면 파일을 저장소에서 읽어 와요.
+- **배포**: GitHub 공개 저장소 `yeahoonjun/korea-market-heatmap` + Cloudflare Worker `korea-market-heatmap`. Worker는 화면 파일을 저장소에서 읽어 와요.
+- **주소**: **`https://kospimap.pages.dev`** (사용자 선택, 2026-11-09). Cloudflare Pages 프로젝트 `kospimap`의 `_worker.js`가 모든 요청을 서비스 바인딩 `API`로 Worker에 넘겨요. Worker 주소 `korea-market-heatmap.ssslot.workers.dev`도 그대로 동작해요(cron·KV는 Worker에 있어요). 계정 서브도메인 `ssslot`은 SSSlot 게임 주소라 바꾸지 않아요.
 - **종목 상세**: 전체 화면 종목 페이지. 차트(1일·5일 분봉, 3개월·1년 일봉, 3년 주봉, 10년 월봉) + 탭(호가 5단계 · 투자자 · 일별 시세 · 뉴스·공시). 공매도는 KRX 로그인이 필요해서 빼요. 뒤로 가기로 히트맵 복귀, 주소로 공유 가능.
 - **스냅샷 아티팩트**(claude.ai): 네트워크가 막힌 미리보기예요. 종목 페이지의 실시간 기능은 "실시간 버전에서 볼 수 있어요" 안내 + 링크로 대신해요.
 
@@ -70,7 +71,7 @@ python3 tmp/shot.py /home/claude/heatmap/dist/index.html    # 1440×900 / 390×8
 - 정규장 이후(15:30~20:00) 오늘 봉과 현재가에는 NXT가 섞여요. 일별 시세(`daily`)의 오늘 행은 KRX만이라 둘이 다를 수 있어요. 화면에 표시해요.
 
 **히트맵 → 종목 페이지 연결** (`src/template.html`이 제공)
-- `window.KH`: `MODE('snapshot'|'live')`, `LIVE_URL`, `MKT_NAME`, `stock(code)`, `stocks()`, `asOf()`, `colorOf(r)`, `palette()` → `{key,label,stops,up,down,flat,upText,dnText}`, `fmt.{pct,int,chg,eok,cls}`, `h(tag, props, ...kids)`.
+- `window.KH`: `MODE('snapshot'|'live')`, `LIVE_URL`(= `https://kospimap.pages.dev/`), `MKT_NAME`, `stock(code)`, `stocks()`, `asOf()`, `colorOf(r)`, `palette()` → `{key,label,stops,up,down,flat,upText,dnText}`, `fmt.{pct,int,chg,eok,cls}`, `h(tag, props, ...kids)`.
 - 이벤트(document): `kh:data`(시세 갱신 뒤), `kh:palette`(색상·범위 변경 뒤).
 - 종목 페이지가 제공: `window.KHStock = { open(code, {opener}), close(), isOpen() }`. 주소 해시는 `#s-005930` 형식(아티팩트는 `#이름`만 허용).
 - 스냅샷 모드에서는 헤더를 `KH.stock(code)`로 그리고, 차트·호가·투자자·일별 자리에 "실시간 버전에서 볼 수 있어요" + `LIVE_URL#s-코드` 링크를 둬요.
