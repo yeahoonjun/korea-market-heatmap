@@ -1621,7 +1621,7 @@ function renderCrumbs() {
   const list = uni.filter(inFocus);
   const cap = list.reduce((a, s) => a + s.cap, 0);
   const more = state.market === 'WATCH' && uni.missing ? `  ·  시세 없는 ${uni.missing}종목` : '';
-  kids.push(h('span', { class: 'stat' }, `${list.length}종목  ·  시총 ${fmtEok(cap)}  ·  `, h('b', { class: grpCls(list), text: grpText(list, 2) }), more));
+  kids.push(list.length ? h('span', { class: 'stat' }, `${list.length}종목  ·  시총 ${fmtEok(cap)}  ·  `, h('b', { class: grpCls(list), text: grpText(list, 2) }), more) : h('span', { class: 'stat', text: `0종목${more}` }));
   el.replaceChildren(...kids);
 }
 
@@ -1692,7 +1692,7 @@ function renderDist(vals, { scope, big, bigCls, bigLab, unit }) {
     h('i', { style: `width:${up / n * 100}%;background:${P[6]}` }),
     h('i', { style: `width:${fl / n * 100}%;background:${P[3]}` }),
     h('i', { style: `width:${dn / n * 100}%;background:${P[0]}` }));
-  const w = k === 'flow' ? ['순매수', '0', '순매도'] : ['상승', '보합', '하락'];
+  const w = k === 'flow' ? ['순매수', '중립', '순매도'] : ['상승', '보합', '하락'];
   $('#breadthLab').replaceChildren(
     h('span', { class: 'up', text: `${w[0]} ${up}` }), h('span', { class: 'flat', text: `${w[1]} ${fl}` }), h('span', { class: 'dn', text: `${w[2]} ${dn}` }));
   // histogram
@@ -1763,12 +1763,14 @@ function renderSecCard(themeMode) {
   $('#secTitle').textContent = k === 'day' ? '섹터별 등락' : k === 'period' ? `섹터별 ${COLOR_METRICS[state.colorBy].label} 수익률` : `섹터별 ${flowShort()} 순매수`;
   $('#secSub').textContent = '누르면 확대';
   const uni = universe();
-  const secs = Array.from(d3.group(uni, s => s.s), ([s, arr]) => ({ s, n: arr.length, arr, r: groupVal(arr) }))
-    .sort((a, b) => (b.r == null ? -Infinity : b.r) - (a.r == null ? -Infinity : a.r));
-  const maxAbs = Math.max(curRange() / 2, ...secs.map(x => Math.abs(x.r || 0)));
+  // ordered by the number shown: the return, or (flows) the net amount; the bar uses the same number
+  const secs = Array.from(d3.group(uni, s => s.s), ([s, arr]) => ({ s, n: arr.length, arr, r: groupVal(arr), a: k === 'flow' ? sumAmt(arr) : null }))
+    .map(x => Object.assign(x, { key: k === 'flow' ? x.a : x.r }))
+    .sort((a, b) => (b.key == null ? -Infinity : b.key) - (a.key == null ? -Infinity : a.key));
+  const maxAbs = k === 'flow' ? Math.max(1, ...secs.map(x => Math.abs(x.a || 0))) : Math.max(curRange() / 2, ...secs.map(x => Math.abs(x.r || 0)));
   if (!secs.length) { box.replaceChildren(h('div', { class: 'none', text: '표시할 종목이 없어요.' })); return; }
   box.replaceChildren(...secs.map(x => {
-    const b = rankButton(x.s, x.n, x.r, grpText(x.arr, 2), x.r == null ? 0 : Math.min(Math.abs(x.r) / maxAbs, 1) * 50,
+    const b = rankButton(x.s, x.n, x.r, grpText(x.arr, 2), x.key == null ? 0 : Math.min(Math.abs(x.key) / maxAbs, 1) * 50,
       () => { zoomTo({ s: x.s }); showStage(); }, state.focus && state.focus.s === x.s);
     b.addEventListener('mouseenter', () => { if (!state.focus) { state.hoverSector = x.s; applyHighlights(); } });
     b.addEventListener('mouseleave', () => { if (state.hoverSector) { state.hoverSector = null; applyHighlights(); } });
