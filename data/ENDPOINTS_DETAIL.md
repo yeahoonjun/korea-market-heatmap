@@ -126,3 +126,9 @@ Lighter alternatives: `https://m.stock.naver.com/api/stock/{code}/basic` (200, 4
 
 ## Worker cache suggestions
 askingPrice 3-5 s; polling price 5-7 s; minute charts 10-30 s; day/week/month 60 s (5 min after close); trend/price table/integration 60-300 s.
+
+## 3차 추가 (Worker)
+- `/api/stock/{code}/integration`: `totalInfos`(lastClosePrice, openPrice, highPrice, lowPrice, accumulatedTradingVolume, accumulatedTradingValue "5조 7,342억", cnsPer, cnsEps, dividend), `industryCompareInfo[]`(`marketValue`는 **백만원** 단위 — SK하이닉스 "814,498,986" = 814조 → 억원은 ÷100, 자기 자신도 목록에 들어 있어요), `consensusInfo{priceTargetMean, recommMean, createDate}`. 우선주도 보통주의 컨센서스를 그대로 돌려줘요.
+- `/api/stock/{code}/finance/{annual|quarter}`: 없는 종목 코드도 200 + 빈 목록이라 Worker가 404로 바꿔요. 컨센서스 열은 `isConsensus:'Y'`, 값 `"-"`는 null.
+- `/api/research/stock/{code}?pageSize=20`: `previewContent`는 앞 100자 정도라 목표주가·의견이 들어 있는 글은 약 20%(3종목 60건 중 목표가 13, 의견 10).
+- KV: `list`를 쓰지 않아요(무료 하루 1,000번). `replay:days` 날짜 배열, 프레임 키는 09:00~16:30 5분 단위를 직접 `get`. 프레임에 `e`(장 마감 시각)를 같이 저장해 15:30 이후 불필요한 시세 호출을 피해요.
