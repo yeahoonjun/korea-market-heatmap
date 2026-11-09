@@ -1,0 +1,13 @@
+{
+  "name": "korea-market-heatmap",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "python3 ../scripts/build_page.py",
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "wrangler": "^4"
+  }
+}

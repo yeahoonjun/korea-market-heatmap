@@ -1,0 +1,302 @@
+{
+ "snapshot_m360": {
+  "overview": {
+   "visible": 42,
+   "overflow": 0,
+   "examples": []
+  },
+  "nodes0": {
+   "all": 135,
+   "leaving": 0,
+   "tiles": 100,
+   "secs": 8,
+   "inds": 27,
+   "stat": "100종목  ·  시총 184.9조  ·  −1.71%"
+  },
+  "docOverflowX": 0,
+  "sector": "정보기술",
+  "sectorZoom": {
+   "visible": 38,
+   "overflow": 0,
+   "examples": []
+  },
+  "industry": "반도체와반도체장비",
+  "indZoom": {
+   "visible": 28,
+   "overflow": 0,
+   "examples": []
+  },
+  "console": [],
+  "failed": []
+ },
+ "snapshot_m390": {
+  "overview": {
+   "visible": 57,
+   "overflow": 0,
+   "examples": []
+  },
+  "nodes0": {
+   "all": 135,
+   "leaving": 0,
+   "tiles": 100,
+   "secs": 8,
+   "inds": 27,
+   "stat": "100종목  ·  시총 184.9조  ·  −1.71%"
+  },
+  "docOverflowX": 0,
+  "sector": "정보기술",
+  "sectorZoom": {
+   "visible": 44,
+   "overflow": 0,
+   "examples": []
+  },
+  "industry": "반도체와반도체장비",
+  "indZoom": {
+   "visible": 28,
+   "overflow": 0,
+   "examples": []
+  },
+  "console": [],
+  "failed": []
+ },
+ "snapshot_t768": {
+  "overview": {
+   "visible": 100,
+   "overflow": 0,
+   "examples": []
+  },
+  "nodes0": {
+   "all": 357,
+   "leaving": 0,
+   "tiles": 300,
+   "secs": 9,
+   "inds": 48,
+   "stat": "300종목  ·  시총 261.3조  ·  −1.16%"
+  },
+  "docOverflowX": 0,
+  "sector": "정보기술",
+  "sectorZoom": {
+   "visible": 103,
+   "overflow": 0,
+   "examples": []
+  },
+  "industry": "반도체와반도체장비",
+  "indZoom": {
+   "visible": 68,
+   "overflow": 0,
+   "examples": []
+  },
+  "console": [],
+  "failed": []
+ },
+ "snapshot_d1280": {
+  "overview": {
+   "visible": 90,
+   "overflow": 0,
+   "examples": []
+  },
+  "nodes0": {
+   "all": 357,
+   "leaving": 0,
+   "tiles": 300,
+   "secs": 9,
+   "inds": 48,
+   "stat": "300종목  ·  시총 261.3조  ·  −1.16%"
+  },
+  "docOverflowX": 0,
+  "sector": "정보기술",
+  "sectorZoom": {
+   "visible": 104,
+   "overflow": 0,
+   "examples": []
+  },
+  "industry": "반도체와반도체장비",
+  "indZoom": {
+   "visible": 68,
+   "overflow": 0,
+   "examples": []
+  },
+  "console": [],
+  "failed": []
+ },
+ "snapshot_d1920": {
+  "overview": {
+   "visible": 253,
+   "overflow": 0,
+   "examples": []
+  },
+  "nodes0": {
+   "all": 357,
+   "leaving": 0,
+   "tiles": 300,
+   "secs": 9,
+   "inds": 48,
+   "stat": "300종목  ·  시총 261.3조  ·  −1.16%"
+  },
+  "docOverflowX": 0,
+  "sector": "정보기술",
+  "sectorZoom": {
+   "visible": 127,
+   "overflow": 0,
+   "examples": []
+  },
+  "industry": "반도체와반도체장비",
+  "indZoom": {
+   "visible": 68,
+   "overflow": 0,
+   "examples": []
+  },
+  "console": [],
+  "failed": []
+ },
+ "live_m360": {
+  "overview": {
+   "visible": 40,
+   "overflow": 0,
+   "examples": []
+  },
+  "nodes0": {
+   "all": 135,
+   "leaving": 0,
+   "tiles": 100,
+   "secs": 8,
+   "inds": 27,
+   "stat": "100종목  ·  시총 181.3조  ·  −3.63%"
+  },
+  "docOverflowX": 0,
+  "sector": "정보기술",
+  "sectorZoom": {
+   "visible": 39,
+   "overflow": 0,
+   "examples": []
+  },
+  "industry": "반도체와반도체장비",
+  "indZoom": {
+   "visible": 28,
+   "overflow": 0,
+   "examples": []
+  },
+  "console": [],
+  "failed": []
+ },
+ "live_m390": {
+  "overview": {
+   "visible": 58,
+   "overflow": 0,
+   "examples": []
+  },
+  "nodes0": {
+   "all": 135,
+   "leaving": 0,
+   "tiles": 100,
+   "secs": 8,
+   "inds": 27,
+   "stat": "100종목  ·  시총 181.3조  ·  −3.63%"
+  },
+  "docOverflowX": 0,
+  "sector": "정보기술",
+  "sectorZoom": {
+   "visible": 46,
+   "overflow": 0,
+   "examples": []
+  },
+  "industry": "반도체와반도체장비",
+  "indZoom": {
+   "visible": 28,
+   "overflow": 0,
+   "examples": []
+  },
+  "console": [],
+  "failed": []
+ },
+ "live_t768": {
+  "overview": {
+   "visible": 99,
+   "overflow": 0,
+   "examples": []
+  },
+  "nodes0": {
+   "all": 357,
+   "leaving": 0,
+   "tiles": 300,
+   "secs": 9,
+   "inds": 48,
+   "stat": "300종목  ·  시총 256.5조  ·  −2.99%"
+  },
+  "docOverflowX": 0,
+  "sector": "정보기술",
+  "sectorZoom": {
+   "visible": 106,
+   "overflow": 0,
+   "examples": []
+  },
+  "industry": "반도체와반도체장비",
+  "indZoom": {
+   "visible": 68,
+   "overflow": 0,
+   "examples": []
+  },
+  "console": [],
+  "failed": []
+ },
+ "live_d1280": {
+  "overview": {
+   "visible": 89,
+   "overflow": 0,
+   "examples": []
+  },
+  "nodes0": {
+   "all": 357,
+   "leaving": 0,
+   "tiles": 300,
+   "secs": 9,
+   "inds": 48,
+   "stat": "300종목  ·  시총 256.5조  ·  −2.99%"
+  },
+  "docOverflowX": 0,
+  "sector": "정보기술",
+  "sectorZoom": {
+   "visible": 105,
+   "overflow": 0,
+   "examples": []
+  },
+  "industry": "반도체와반도체장비",
+  "indZoom": {
+   "visible": 68,
+   "overflow": 0,
+   "examples": []
+  },
+  "console": [],
+  "failed": []
+ },
+ "live_d1920": {
+  "overview": {
+   "visible": 251,
+   "overflow": 0,
+   "examples": []
+  },
+  "nodes0": {
+   "all": 357,
+   "leaving": 0,
+   "tiles": 300,
+   "secs": 9,
+   "inds": 48,
+   "stat": "300종목  ·  시총 256.6조  ·  −2.97%"
+  },
+  "docOverflowX": 0,
+  "sector": "정보기술",
+  "sectorZoom": {
+   "visible": 127,
+   "overflow": 0,
+   "examples": []
+  },
+  "industry": "반도체와반도체장비",
+  "indZoom": {
+   "visible": 68,
+   "overflow": 0,
+   "examples": []
+  },
+  "console": [],
+  "failed": []
+ }
+}

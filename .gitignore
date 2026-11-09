@@ -1,0 +1,8 @@
+node_modules/
+worker/node_modules/
+worker/.wrangler/
+.cache/
+tmp/
+qa/shots/
+qa/__pycache__/
+__pycache__/

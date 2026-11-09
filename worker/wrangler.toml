@@ -1,0 +1,6 @@
+name = "korea-market-heatmap"
+main = "src/index.js"
+compatibility_date = "2026-11-01"
+
+# Free plan is enough: each /api/quotes cache miss makes 2 subrequests (one batch quote call for
+# 600 stocks + one index call), and the edge cache absorbs repeat hits for 8 seconds.
