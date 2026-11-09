@@ -15,7 +15,7 @@ Codes
 Control (test helpers, not part of the contract)
   /__stats                       request counts per route  {"orderbook": 3, ...} and per full path
   /__reset                       clear counts and config
-  /__config?delay=800&fail=chart,orderbook&status=OPEN&asof=2026-11-09T10:30:00%2B09:00
+  /__config?delay=800&fail=chart,orderbook&status=OPEN&asof=2026-11-09T10:30:00%2B09:00&dsrc=naver
 """
 import datetime as dt, html, json, pathlib, random, re, sys, threading, time
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
@@ -162,10 +162,27 @@ def news(code):
     return {'rows': rows[:20]}
 
 
+def dart_kind(name):
+    # same rules as the Worker's dartKind (worker/src/index.js)
+    n = str(name or '')
+    if re.search(r'사업보고서|반기보고서|분기보고서', n): return '정기'
+    if re.search(r'실적|손익구조|매출액', n): return '실적'
+    if re.search(r'소유상황보고서|대량보유|최대주주등소유주식|특정증권등', n): return '지분'
+    if re.search(r'주요사항|단일판매|공급계약|유상증자|무상증자|감자|자기주식|합병|분할|전환사채|신주인수권|교환사채|배당|최대주주변경|소송|영업정지|타법인주식|유형자산|투자판단|조회공시|상장', n): return '주요'
+    return '기타'
+
+
 def disclosures(code):
-    # ENDPOINTS_EXTRA.md §3: datetime is ISO without a zone (KST) — kept as is so the page's zone-less parsing is exercised
-    return {'rows': [{'title': html.unescape(d['title']), 'datetime': d['datetime'],
-                      'url': f'https://m.stock.naver.com/domestic/stock/{code}/notice/{d["disclosureId"]}'} for d in (raw(code, 'disclosure') or [])[:20]]}
+    # AGENTS.md §3-2: OpenDART when the Worker has a key and a corp_code (date only, kind, filer, note), else Naver.
+    # /__config?dsrc=naver forces the Naver path. Naver datetimes stay zone-less (KST) so the page's parsing is exercised.
+    dart = raw(code, 'dart')
+    if dart and CONFIG.get('dsrc') != 'naver':
+        rows = [{'title': re.sub(r'\s+', ' ', x['report_nm']).strip(), 'kind': dart_kind(x['report_nm']), 'datetime': None,
+                 'date': f"{x['rcept_dt'][0:4]}-{x['rcept_dt'][4:6]}-{x['rcept_dt'][6:8]}", 'filer': x.get('flr_nm') or None,
+                 'note': x.get('rm') or '', 'url': f"https://dart.fss.or.kr/dsaf001/main.do?rcpNo={x['rcept_no']}"} for x in dart.get('list', [])]
+        return {'source': 'dart', 'rows': rows}
+    return {'source': 'naver', 'rows': [{'title': html.unescape(d['title']), 'datetime': d['datetime'],
+                                         'url': f'https://m.stock.naver.com/domestic/stock/{code}/notice/{d["disclosureId"]}'} for d in (raw(code, 'disclosure') or [])[:20]]}
 
 
 def quotes():
@@ -188,7 +205,7 @@ EMPTY = {
     'investors': lambda: {'rows': []},
     'daily': lambda page: {'page': page, 'rows': [], 'hasMore': False},
     'news': lambda: {'rows': []},
-    'disclosures': lambda: {'rows': []},
+    'disclosures': lambda: {'source': 'dart', 'rows': []},
 }
 
 SNAP_ROWS = {r['c']: r for r in json.loads((ROOT / 'data/snapshot.json').read_text(encoding='utf-8'))['stocks']}
@@ -254,6 +271,9 @@ class Handler(SimpleHTTPRequestHandler):
                     else:
                         CONFIG[k] = v
             return self.send_json(dict(CONFIG))
+        if re.match(r'^/data/(themes|periods|flows)\.json$', path):   # Worker serves web/*.json here
+            self.path = path[len('/data'):]
+            return super().do_GET()
         if path.startswith('/api/'):
             delay = int(CONFIG.get('delay', 0) or 0)
             if delay:
@@ -265,6 +285,16 @@ class Handler(SimpleHTTPRequestHandler):
         if path == '/api/quotes':
             self.count('quotes')
             return self.send_json(quotes())
+        # the heatmap's own routes (AGENTS.md §3-2), just enough for a clean console; not what these tests check
+        if path == '/api/market':
+            idx = json.loads((ROOT / 'data/snapshot.json').read_text(encoding='utf-8')).get('index', {})
+            items = [{'key': k, 'name': {'KOSPI': '코스피', 'KOSDAQ': '코스닥'}[k], 'value': v['value'], 'change': v['change'], 'ratio': v['ratio']}
+                     for k, v in idx.items() if k in ('KOSPI', 'KOSDAQ')]
+            return self.send_json({'asOf': dt.datetime.now(KST).replace(microsecond=0).isoformat(), 'items': items})
+        if path == '/api/themes':
+            return self.send_json({'asOf': dt.datetime.now(KST).replace(microsecond=0).isoformat(), 'themes': []})
+        if path == '/api/replay/dates':
+            return self.send_json({'dates': []})
         m = ROUTE.match(path)
         if not m:
             return self.send_json({'error': 'not found'}, 404)
@@ -289,7 +319,7 @@ class Handler(SimpleHTTPRequestHandler):
             f = (SNAP_ROWS[code]['p'] or base) / base
             fn = {'summary': lambda: alias_summary(code), 'chart': lambda: scaled(chart('005930', tf), f), 'orderbook': lambda: scaled(orderbook('005930'), f),
                   'investors': lambda: scaled(investors('005930'), f), 'daily': lambda: scaled(daily('005930', page), f),
-                  'news': lambda: {'rows': []}, 'disclosures': lambda: {'rows': []}}[kind]
+                  'news': lambda: {'rows': []}, 'disclosures': lambda: {'source': 'naver', 'rows': []}}[kind]
             return self.send_json(fn())
         try:
             body = {'summary': lambda: summary(code), 'chart': lambda: chart(code, tf), 'orderbook': lambda: orderbook(code),

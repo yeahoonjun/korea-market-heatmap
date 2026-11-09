@@ -300,7 +300,8 @@
    "open": true,
    "name": "삼성전자",
    "price": "189,900",
-   "href": "https://korea-market-heatmap.ssslot.workers.dev/#s-005930",
+   "href": "https://kospimap.pages.dev/#s-005930",
+   "live": "https://kospimap.pages.dev/",
    "text": "차트·호가·투자자 정보는 실시간 버전에서 볼 수 있어요",
    "chart": false,
    "api": [],
@@ -338,7 +339,8 @@
    "open": true,
    "name": "삼성전자",
    "price": "189,900",
-   "href": "https://korea-market-heatmap.ssslot.workers.dev/#s-005930",
+   "href": "https://kospimap.pages.dev/#s-005930",
+   "live": "https://kospimap.pages.dev/",
    "text": "차트·호가·투자자 정보는 실시간 버전에서 볼 수 있어요",
    "chart": false,
    "api": [],
@@ -506,7 +508,8 @@
     "3일 전",
     "7월 31일"
    ],
-   "link0": "https://m.stock.naver.com/domestic/stock/005930/notice/182029604"
+   "link0": "https://m.stock.naver.com/domestic/stock/005930/notice/182029604",
+   "src": "출처: 네이버 증권 · 거래소 시장조치 안내도 함께 나와요지분 공시 포함"
   }
  },
  "news_no_extra_fetch_on_toggle": {
@@ -550,9 +553,170 @@
   "ok": true,
   "detail": []
  },
+ "dart_default_view": {
+  "ok": true,
+  "detail": {
+   "src": "출처: DART 전자공시 · 최근 6개월 · 접수일 기준지분 공시 포함",
+   "filters": [
+    [
+     "전체",
+     "true",
+     "32"
+    ],
+    [
+     "주요",
+     "false",
+     "18"
+    ],
+    [
+     "실적",
+     "false",
+     "2"
+    ],
+    [
+     "정기",
+     "false",
+     "2"
+    ]
+   ],
+   "switch": "false",
+   "rows": 32,
+   "fixes": [
+    "정정",
+    "정정"
+   ],
+   "time0": "11월 3일",
+   "link0": [
+    "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261103900196",
+    "_blank",
+    "noopener"
+   ]
+  }
+ },
+ "dart_kind_filter": {
+  "ok": true,
+  "detail": {
+   "실적": [
+    2,
+    [
+     "실적"
+    ],
+    [
+     "실적"
+    ]
+   ],
+   "정기": [
+    2,
+    [
+     "정기"
+    ],
+    [
+     "정기"
+    ]
+   ],
+   "주요": [
+    18,
+    [
+     "주요"
+    ],
+    [
+     "주요"
+    ]
+   ]
+  }
+ },
+ "dart_equity_switch": {
+  "ok": true,
+  "detail": {
+   "on_filters": [
+    [
+     "전체",
+     "false",
+     "37"
+    ],
+    [
+     "주요",
+     "true",
+     "18"
+    ],
+    [
+     "실적",
+     "false",
+     "2"
+    ],
+    [
+     "정기",
+     "false",
+     "2"
+    ],
+    [
+     "지분",
+     "false",
+     "5"
+    ]
+   ],
+   "equity_rows": 5,
+   "off": [
+    "false",
+    32,
+    [
+     [
+      "전체",
+      "true",
+      "32"
+     ],
+     [
+      "주요",
+      "false",
+      "18"
+     ],
+     [
+      "실적",
+      "false",
+      "2"
+     ],
+     [
+      "정기",
+      "false",
+      "2"
+     ]
+    ]
+   ]
+  }
+ },
+ "dart_samsung_equity_hidden_by_default": {
+  "ok": true,
+  "detail": {
+   "default_rows": 17,
+   "with_equity": 40,
+   "times": [
+    "오늘",
+    "11월 6일",
+    "11월 6일"
+   ],
+   "filers_shown": 21
+  }
+ },
+ "console_clean_dart": {
+  "ok": true,
+  "detail": []
+ },
+ "dart_date_only_yesterday": {
+  "ok": true,
+  "detail": [
+   "어제",
+   "11월 6일",
+   "11월 6일"
+  ]
+ },
+ "dart_view_no_overflow_all_widths": {
+  "ok": true,
+  "detail": null
+ },
  "watch_star": {
   "ok": true,
   "detail": {
+   "real_KH_watch": true,
    "hidden_without_api": true,
    "off": {
     "hidden": false,

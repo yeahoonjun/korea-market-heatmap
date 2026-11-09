@@ -15,7 +15,6 @@ SHOTS = ROOT / 'qa/shots/stock'
 SHOTS.mkdir(parents=True, exist_ok=True)
 BASE = 'http://127.0.0.1:8792/'
 SNAP = (ROOT / 'dist/index.html').as_uri()
-LIVE_URL = 'https://korea-market-heatmap.ssslot.workers.dev/'
 VP = {
     360: dict(viewport={'width': 360, 'height': 740}, is_mobile=True, has_touch=True, device_scale_factor=2),
     390: dict(viewport={'width': 390, 'height': 844}, is_mobile=True, has_touch=True, device_scale_factor=2),
@@ -402,13 +401,13 @@ def run(b):
     for w in (390, 1440, 360, 768, 1280, 1920):
         P = Page(b, w, SNAP + '#s-005930')
         P.pg.wait_for_timeout(1200)
-        s = P.ev("() => ({ open: KHStock.isOpen(), name: document.getElementById('sp-name').textContent, price: document.querySelector('.sp-price').textContent, href: document.querySelector('.sp-offline a').href, text: document.querySelector('.sp-offline h2').textContent, chart: !!document.querySelector('.sp-chart') })")
+        s = P.ev("() => ({ open: KHStock.isOpen(), name: document.getElementById('sp-name').textContent, price: document.querySelector('.sp-price').textContent, href: document.querySelector('.sp-offline a').href, live: KH.LIVE_URL, text: document.querySelector('.sp-offline h2').textContent, chart: !!document.querySelector('.sp-chart') })")
         s['api'] = [u for _, u in P.reqs if 'api/' in u]
         s['lwc'] = [u for _, u in P.reqs if 'lightweight' in u]
         s['overflow'] = P.ev(OVERFLOW_JS)
         if w in (390, 1440):
             P.pg.screenshot(path=str(SHOTS / f'snap{w}.png'))
-            ok = (s['open'] and s['name'] == '삼성전자' and s['price'] and s['href'] == LIVE_URL + '#s-005930' and '실시간 버전에서 볼 수 있어요' in s['text']
+            ok = (s['open'] and s['name'] == '삼성전자' and s['price'] and s['href'] == s['live'] + '#s-005930' and '실시간 버전에서 볼 수 있어요' in s['text']
                   and not s['chart'] and not s['api'] and not s['lwc'])
             check(f'snapshot_fallback_{w}', ok, {k: v for k, v in s.items() if k != 'overflow'})
             P.pg.keyboard.press('Escape'); P.pg.wait_for_timeout(300)
@@ -424,7 +423,8 @@ def run(b):
 
 
 WATCH_STUB = r"""() => {
-  // stand-in for the heatmap's KH.watch (AGENTS.md §3-2) until it lands on main
+  // the heatmap's KH.watch (AGENTS.md §3-2); this stand-in is used only when a build lacks it
+  if (KH.watch) return;
   const set = new Set(JSON.parse(localStorage.getItem('khm.watch') || '[]'));
   KH.watch = {
     has: c => set.has(c),
@@ -443,6 +443,12 @@ NEWS_JS = r"""() => ({
   tags: document.querySelectorAll('#sp-p-news .sp-nw-tag').length,
   msg: (document.querySelector('#sp-p-news .sp-msgbox') || {}).textContent || '',
   note: document.querySelector('#sp-p-news .sp-note').textContent,
+  src: (document.querySelector('#sp-p-news .sp-nw-src:not([hidden])') || {}).textContent || '',
+  filters: [...document.querySelectorAll('#sp-p-news .sp-dfilt:not([hidden]) button')].filter(b => !b.hidden).map(b => [b.dataset.f, b.getAttribute('aria-pressed'), b.lastChild.textContent]),
+  sw: (() => { const w = document.querySelector('#sp-p-news .sp-switch'); return w && !w.hidden && !w.closest('[hidden]') ? w.getAttribute('aria-checked') : null; })(),
+  kinds: [...document.querySelectorAll('#sp-p-news .sp-nw-tag.k')].map(t => t.textContent),
+  fixes: [...document.querySelectorAll('#sp-p-news .sp-nw-tag.fix')].map(t => t.textContent),
+  datetimes: [...document.querySelectorAll('#sp-p-news time')].map(t => t.getAttribute('datetime')),
 })"""
 LIM_JS = "() => { const l = document.querySelector('.sp-lim'); return l.hidden ? '' : l.textContent + '|' + l.className + '|' + getComputedStyle(l).color; }"
 
@@ -452,6 +458,7 @@ def run_extra(b):
     import re
     # ── news: fetched only when the tab opens, both lists, cached 5 minutes per code ──
     mock('/__reset')
+    mock('/__config?dsrc=naver')   # Naver path first; DART rows are checked further down
     P = Page(b, 390, None)
     pg = P.pg
     pg.clock.set_fixed_time('2026-11-09T22:00:00+09:00')
@@ -480,8 +487,8 @@ def run_extra(b):
     ds = P.ev(NEWS_JS)
     check('disclosures_list', ds['rows'] == 20 and ds['pressed'][1][:2] == ['disc', 'true'] and ds['tags'] >= 1 and not ds['press']
           and all(re.match(r'^https://m\.stock\.naver\.com/domestic/stock/005930/notice/\d+$', h) for h, _, _ in ds['links'])
-          and ds['times'][0] == '3일 전' and ds['times'][-1] == '7월 31일' and '시장조치' in ds['note'],
-          {'rows': ds['rows'], 'tags': ds['tags'], 'times': [ds['times'][0], ds['times'][-1]], 'link0': ds['links'][0][0]})
+          and ds['times'][0] == '3일 전' and ds['times'][-1] == '7월 31일' and ds['src'].startswith('출처: 네이버 증권') and not ds['filters'] and ds['sw'] is None,
+          {'rows': ds['rows'], 'tags': ds['tags'], 'times': [ds['times'][0], ds['times'][-1]], 'link0': ds['links'][0][0], 'src': ds['src']})
     check('news_no_extra_fetch_on_toggle', P.count('/news', t0) + P.count('/disclosures', t0) == 2)
     pg.screenshot(path=str(SHOTS / 'live390_tab_disc.png'))
     # cache: other tab and back, close and reopen, switch stock and back → no refetch for 005930 within 5 minutes
@@ -538,13 +545,91 @@ def run_extra(b):
     check('console_clean_news_states', not P.console, P.console)
     P.close()
 
+    # ── 공시 from OpenDART: date-only rows, kind chips + filter, 지분 switch (off), 정정 tag, source line ──
+    mock('/__config?dsrc=')
+    dj = {c: mock(f'/api/stock/{c}/disclosures')['rows'] for c in ('196170', '005930')}
+    P = Page(b, 390, None)
+    pg = P.pg
+    pg.clock.set_fixed_time('2026-11-09T22:00:00+09:00')
+    pg.add_init_script("localStorage.setItem('khm.stockNewsKind', JSON.stringify('disc'))")   # saved choice, read at load
+    pg.goto(BASE); pg.wait_for_timeout(600)
+    P.ev("() => KHStock.open('196170')")
+    pg.click('#sp-t-news'); pg.wait_for_selector('#sp-p-news .sp-nw-list li'); pg.wait_for_timeout(200)
+    a = P.ev(NEWS_JS)
+    rows = dj['196170']; non_eq = [r for r in rows if r['kind'] != '지분']
+    cnt = lambda k, rs=rows: sum(r['kind'] == k for r in rs)
+    want = [['전체', 'true', str(len(non_eq))], ['주요', 'false', str(cnt('주요'))], ['실적', 'false', str(cnt('실적'))], ['정기', 'false', str(cnt('정기'))]]
+    fixes = sum('정' in (r['note'] or '') for r in non_eq)
+    ok = (a['src'].startswith('출처: DART 전자공시') and a['filters'] == want and a['sw'] == 'false' and a['rows'] == len(non_eq) and fixes >= 1
+          and len(a['kinds']) == a['rows'] and '지분' not in a['kinds'] and a['fixes'] == ['정정'] * fixes
+          and all(re.match(r'^\d{4}-\d{2}-\d{2}$', d) for d in a['datetimes']) and not any(':' in t for t in a['times']) and a['times'][0] == '11월 3일'
+          and all(re.match(r'^https://dart\.fss\.or\.kr/dsaf001/main\.do\?rcpNo=\d{14}$', u) and t == '_blank' and rl == 'noopener' for u, t, rl in a['links'])
+          and a['press'] == [r['filer'] for r in non_eq if r['filer'] and r['filer'] != '알테오젠'])   # only outside filers (금융감독원 …) are named
+    check('dart_default_view', ok, {'src': a['src'], 'filters': a['filters'], 'switch': a['sw'], 'rows': a['rows'], 'fixes': a['fixes'], 'time0': a['times'][0], 'link0': a['links'][0]})
+    pg.screenshot(path=str(SHOTS / 'live390_tab_dart.png'))
+    got = {}
+    for f in ('실적', '정기', '주요'):
+        pg.click(f'.sp-dfilt button[data-f="{f}"]'); pg.wait_for_timeout(100)
+        x = P.ev(NEWS_JS)
+        got[f] = (x['rows'], set(x['kinds']), [p[0] for p in x['filters'] if p[1] == 'true'])
+    check('dart_kind_filter', all(got[f] == (cnt(f), {f}, [f]) for f in got), {f: [v[0], sorted(v[1]), v[2]] for f, v in got.items()})
+    pg.click('.sp-switch'); pg.wait_for_timeout(100)
+    on = P.ev(NEWS_JS)
+    pg.click('.sp-dfilt button[data-f="지분"]'); pg.wait_for_timeout(100)
+    eq = P.ev(NEWS_JS)
+    pg.click('.sp-switch'); pg.wait_for_timeout(100)
+    off = P.ev(NEWS_JS)
+    check('dart_equity_switch', on['sw'] == 'true' and ['지분', 'false', str(cnt('지분'))] in on['filters'] and eq['rows'] == cnt('지분') and set(eq['kinds']) == {'지분'}
+          and off['sw'] == 'false' and off['rows'] == len(non_eq) and [p[0] for p in off['filters']] == ['전체', '주요', '실적', '정기'] and off['filters'][0][1] == 'true',
+          {'on_filters': on['filters'], 'equity_rows': eq['rows'], 'off': [off['sw'], off['rows'], off['filters']]})
+    # 삼성전자: mostly 지분 reports; with the switch on, today's filing reads 오늘 and outside filers (임원) are named
+    P.ev("() => KHStock.open('005930')"); pg.wait_for_selector('#sp-p-news .sp-nw-list li'); pg.wait_for_timeout(200)
+    s0 = P.ev(NEWS_JS)
+    sam = dj['005930']; sam_non = [r for r in sam if r['kind'] != '지분']
+    pg.click('.sp-switch'); pg.wait_for_timeout(100)
+    s1 = P.ev(NEWS_JS)
+    check('dart_samsung_equity_hidden_by_default', s0['rows'] == len(sam_non) and s1['rows'] == len(sam) and s1['times'][0] == '오늘' and '11월 6일' in s1['times']
+          and len(s1['press']) == sum(1 for r in sam if r['filer'] and r['filer'] != '삼성전자') and '삼성전자' not in s1['press'],
+          {'default_rows': s0['rows'], 'with_equity': s1['rows'], 'times': s1['times'][:3], 'filers_shown': len(s1['press'])})
+    check('console_clean_dart', not P.console, P.console)
+    P.close()
+    # next morning: yesterday's filing reads 어제 (switch state persisted in localStorage → set again in the new context)
+    P = Page(b, 390, None)
+    P.pg.clock.set_fixed_time('2026-11-10T09:00:00+09:00')
+    P.pg.add_init_script("localStorage.setItem('khm.stockNewsKind', JSON.stringify('disc')); localStorage.setItem('khm.stockDiscEquity', 'true')")
+    P.pg.goto(BASE); P.pg.wait_for_timeout(600)
+    P.ev("() => KHStock.open('005930')"); P.pg.click('#sp-t-news'); P.pg.wait_for_selector('#sp-p-news .sp-nw-list li'); P.pg.wait_for_timeout(200)
+    y = P.ev(NEWS_JS)
+    check('dart_date_only_yesterday', y['times'][0] == '어제' and y['sw'] == 'true', y['times'][:3])
+    P.close()
+    # DART view (switch on, longest list) at every width: no overflow, labels fit, no console errors
+    bad = {}
+    for w in (360, 390, 768, 1280, 1920, 1440):
+        P = Page(b, w, None)
+        P.pg.clock.set_fixed_time('2026-11-09T22:00:00+09:00')
+        P.pg.add_init_script("localStorage.setItem('khm.stockNewsKind', JSON.stringify('disc')); localStorage.setItem('khm.stockDiscEquity', 'true')")
+        P.pg.goto(BASE); P.pg.wait_for_timeout(600)
+        P.ev("() => KHStock.open('196170')"); P.wait_chart()
+        P.pg.click('#sp-t-news'); P.pg.wait_for_selector('#sp-p-news .sp-nw-list li'); P.pg.wait_for_timeout(300)
+        o = P.ev(OVERFLOW_JS)
+        o['clipped'] = P.ev("() => [...document.querySelectorAll('.sp-tabs button, .sp-nwseg button, .sp-dfilt button, .sp-switch')].filter(b => b.offsetWidth && b.scrollWidth > b.clientWidth + 1).map(b => b.textContent)")
+        o['taps'] = P.ev(TAP_JS) if w < 700 else []
+        if o['doc'] or o['root'] or o['n'] or o['clipped'] or o['taps'] or P.console:
+            bad[w] = [o, P.console]
+        if w == 1440:
+            P.pg.screenshot(path=str(SHOTS / 'live1440_dart.png'))
+        P.close()
+    check('dart_view_no_overflow_all_widths', not bad, bad or None)
+
     # ── 관심종목 star ──
     P = Page(b, 390, BASE)
     pg = P.pg
     pg.wait_for_timeout(600)
-    P.ev("() => KHStock.open('005930')"); pg.wait_for_timeout(400)
+    P.ev("() => { window.__watch = KH.watch; delete KH.watch; KHStock.open('005930'); }"); pg.wait_for_timeout(400)
     hidden_without = P.ev("() => document.querySelector('.sp-star').hidden && getComputedStyle(document.querySelector('.sp-star')).display === 'none'")
     pg.keyboard.press('Escape'); pg.wait_for_timeout(200)
+    P.ev("() => { if (window.__watch) KH.watch = window.__watch; }")
+    real_watch = P.ev("() => !!KH.watch")
     P.ev(WATCH_STUB)
     P.ev("() => KHStock.open('005930')"); pg.wait_for_timeout(400)
     st0 = P.ev("() => { const s = document.querySelector('.sp-star'), r = s.getBoundingClientRect(); return { hidden: s.hidden, pressed: s.getAttribute('aria-pressed'), w: r.width, h: r.height, label: s.getAttribute('aria-label') }; }")
@@ -557,7 +642,7 @@ def run_extra(b):
     st3 = P.ev("() => [document.querySelector('.sp-star').getAttribute('aria-pressed'), KH.watch.list()]")
     ok = (hidden_without and not st0['hidden'] and st0['pressed'] == 'false' and st0['w'] >= 40 and st0['h'] >= 40
           and st1['pressed'] == 'true' and st1['has'] and st1['color'] == 'rgb(255, 181, 71)' and st2 == 'false' and st3 == ['true', ['005930']])
-    check('watch_star', ok, {'hidden_without_api': hidden_without, 'off': st0, 'on': st1, 'external_toggle': st2, 'keyboard': st3})
+    check('watch_star', ok, {'real_KH_watch': real_watch, 'hidden_without_api': hidden_without, 'off': st0, 'on': st1, 'external_toggle': st2, 'keyboard': st3})
     taps = P.ev(TAP_JS)
     check('tap_targets_40px_with_star', not taps, taps)
 
