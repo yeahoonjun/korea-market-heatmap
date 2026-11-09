@@ -655,6 +655,8 @@ function render({ animate = false } = {}) {
   const secGroups = d3.group(uni, s => s.s);
   const root = layout(buildRoot(list), W, H);
   const anim = animate && !reduceMotion;
+  // geometry animation only while the map is small: above ~350 nodes just jump and fade (fewer long tasks)
+  const geo = anim && root.descendants().length <= 350;
   mapEl.classList.toggle('anim', anim);
   mapEl.classList.toggle('focus-leaf', !!(state.focus && state.focus.i));
   const seen = new Set();
@@ -675,7 +677,7 @@ function render({ animate = false } = {}) {
     placeNode(el, n, secGroups);
     const nw = [n.x0, n.y0, n.x1 - n.x0, n.y1 - n.y0];
     el.__g = nw;
-    flip(el, anim && !fresh ? old : null, nw);
+    flip(el, geo && !fresh ? old : null, nw);
   }
   for (const [id, el] of nodes) {
     if (seen.has(id)) continue;
