@@ -1,5 +1,6 @@
 """Heatmap v2 checks (numbers, not eyeballing). usage: verify2.py [snapshot|live]
 themes overview / drill-down, period colours, flow sizes, limit chips, watchlist, KH hooks (loadData, watch, layout, setReplay, kh:render)."""
+import os; HM_BASE = 'http://127.0.0.1:%s/' % os.environ.get('HM_PORT', '8806')   # dev Worker (harness) port
 import sys, json, re, math, urllib.request
 sys.path.insert(0, '/home/claude/hm-heatmap/qa/heatmap')
 from common import launch, Log, LABEL_CHECK_JS, VIEWPORTS
@@ -7,7 +8,7 @@ from playwright.sync_api import sync_playwright
 
 build = sys.argv[1] if len(sys.argv) > 1 else 'snapshot'
 LIVE = build == 'live'
-URL = 'http://127.0.0.1:8798/' if LIVE else 'file:///home/claude/hm-heatmap/dist/index.html'
+URL = HM_BASE if LIVE else 'file:///home/claude/hm-heatmap/dist/index.html'
 ROOT = '/home/claude/hm-heatmap/'
 THEMES = json.load(open(ROOT + 'web/themes.json'))
 PERIODS = json.load(open(ROOT + 'web/periods.json'))
@@ -23,7 +24,7 @@ def ok(item, cond, info=''):
 
 
 def api(path):
-    with urllib.request.urlopen('http://127.0.0.1:8798/' + path, timeout=20) as r:
+    with urllib.request.urlopen(HM_BASE + path, timeout=20) as r:
         return json.load(r)
 
 

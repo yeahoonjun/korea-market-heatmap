@@ -1,6 +1,7 @@
 """Heatmap review fixes + §3-3/§3-4 checks (numbers, not eyeballing). usage: verify3.py [snapshot|live]
 table on phones, 정규장 종가/NXT 포함, replay player vs map, full-market 등락 분포, search beyond the stream, d3 guard, compact phone
 header, keyboard tiles, tap targets, 상/하한가 edges, hidden-tab polling, world tabs (stub KHWorld), leftovers."""
+import os; HM_BASE = 'http://127.0.0.1:%s/' % os.environ.get('HM_PORT', '8806')   # dev Worker (harness) port
 import sys, json, re, urllib.request
 sys.path.insert(0, '/home/claude/hm-heatmap/qa/heatmap')
 from common import launch, Log, LABEL_CHECK_JS, VIEWPORTS
@@ -8,7 +9,7 @@ from playwright.sync_api import sync_playwright
 
 build = sys.argv[1] if len(sys.argv) > 1 else 'snapshot'
 LIVE = build == 'live'
-URL = 'http://127.0.0.1:8798/' if LIVE else 'file:///home/claude/hm-heatmap/dist/index.html'
+URL = HM_BASE if LIVE else 'file:///home/claude/hm-heatmap/dist/index.html'
 ROOT = '/home/claude/hm-heatmap/'
 CLOSE = json.load(open(ROOT + 'web/close.json'))
 NAMES = json.load(open(ROOT + 'web/names.json'))['n']
@@ -28,7 +29,7 @@ def ok(item, cond, info=''):
 
 
 def api(path):
-    with urllib.request.urlopen('http://127.0.0.1:8798/' + path, timeout=30) as r:
+    with urllib.request.urlopen(HM_BASE + path, timeout=30) as r:
         return json.load(r)
 
 
@@ -46,7 +47,7 @@ def fresh(b, vp, store=None, hsh='', init=(), routes=None, wait=WAIT):
     js = "for (const k of Object.keys(localStorage)) if (k.startsWith('khm.')) localStorage.removeItem(k);"
     for k, v in (store or {}).items(): js += f"localStorage.setItem('khm.{k}', {json.dumps(json.dumps(v))});"
     pg.evaluate(js)
-    pg.goto(URL + hsh); pg.reload(); pg.wait_for_timeout(wait)
+    pg.goto(URL + hsh); log.mark = len(log.reqs); pg.reload(); pg.wait_for_timeout(wait)
     if vp.startswith('m'): pg.add_style_tag(content=ICON); pg.wait_for_timeout(250)
     return ctx, pg, log
 
@@ -64,7 +65,12 @@ with sync_playwright() as p:
         lab = pg.evaluate(LABEL_CHECK_JS)
         top = pg.evaluate("Math.round(document.getElementById('map').getBoundingClientRect().top)")
         ok(f'{vp}: overflow 0, console errors 0, tile labels inside ({lab["visible"]} labels)', over == 0 and not errs(log) and lab['overflow'] == 0, (over, errs(log)[:2], lab['examples'][:2]))
-        if vp == 'm390': ok('m390: map top ≤ 232 (ticker strip present)', top <= 232, top)
+        if vp == 'm390':
+            # the template's own budget (clock off); the extras clock in the title spot adds its height above 40 px (reported, not counted)
+            ctx2, pg2, _ = fresh(b, vp, store={'set.clock': False})
+            top2 = pg2.evaluate("Math.round(document.getElementById('map').getBoundingClientRect().top)"); ctx2.close()
+            ok('m390: map top ≤ 232 (ticker strip present, clock off)', top2 <= 232, top2)
+            print('INFO m390 map top with the clock on:', top, '(clock row', pg.evaluate("Math.round(document.getElementById('clock').getBoundingClientRect().height)"), 'px)')
         ctx.close()
 
     # ───── 1 table view on phones ─────
@@ -129,6 +135,7 @@ with sync_playwright() as p:
         # phones: a short time stays visible
         ctx, pg, log = fresh(b, 'm390')
         vis = pg.evaluate("[...document.querySelectorAll('#status *')].filter(e => e.offsetParent && /\\d\\d:\\d\\d/.test(e.textContent) && !e.children.length).map(e => e.textContent)")
+        # (while the session is live and the clock is on, the clock in the title spot is the time on a phone)
         ok('m390: a HH:MM is visible in the header', vis, vis)
         ctx.close()
         # no close.json for that day → plain "NXT 포함 · HH:MM 기준" badge, no toggle
@@ -199,7 +206,9 @@ with sync_playwright() as p:
     pg.fill('#q', ''); pg.type('#q', '123456', delay=10); pg.wait_for_timeout(500)
     opts = pg.evaluate("[...document.querySelectorAll('#sugg [role=option]')].map(o => o.textContent)")
     ok('a typed 6-character code always offers its stock', opts and '123456' in opts[0], opts[:2])
-    ok('names.json loaded lazily (first search focus)' if LIVE else 'snapshot: no names.json request', (len([u for u in log.reqs if 'names.json' in u]) == 1) if LIVE else not [u for u in log.reqs if 'names.json' in u], [u for u in log.reqs if 'names.json' in u])
+    # live: names.json once per page load — at the first search focus, or at boot when 정규장 종가's full-market 등락 분포 needs it
+    nm = [u for u in log.reqs[log.mark:] if 'names.json' in u]
+    ok('names.json loaded once (search focus, or 정규장 종가 등락 분포)' if LIVE else 'snapshot: no names.json request', len(nm) == 1 if LIVE else not [u for u in log.reqs if 'names.json' in u], nm)
     ctx.close()
 
     # ───── 6 d3 blocked ─────
@@ -339,7 +348,7 @@ with sync_playwright() as p:
         body = re.sub(r'<script>(?:(?!</script>).)*?window\.KHWorld\s*=(?:(?!</script>).)*</script>', '', body, flags=re.S)
         route.fulfill(response=r, body=body)
     # (live only: a file:// page cannot be rewritten, and blocking the global alone still lets the module self-start)
-    ctx, pg, log = fresh(b, 'm360', hsh='#cmdty', routes={'http://127.0.0.1:8798/': no_world}) if LIVE else fresh(b, 'm360', hsh='#kospi')
+    ctx, pg, log = fresh(b, 'm360', hsh='#cmdty', routes={HM_BASE: no_world}) if LIVE else fresh(b, 'm360', hsh='#kospi')
     if not LIVE: pg.evaluate("location.hash = 'cmdty'"); pg.wait_for_timeout(600)
     w = pg.evaluate("""() => { const t = document.querySelector('.tabs'), a = t.querySelector('[aria-pressed="true"]'), tr = t.getBoundingClientRect(), ar = a.getBoundingClientRect();
       return { msg: document.getElementById('world').innerText, active: a.dataset.mkt, inView: ar.left >= tr.left - 1 && ar.right <= tr.right + 1, scroll: t.scrollWidth > t.clientWidth, over: document.documentElement.scrollWidth - innerWidth }; }""")

@@ -1,11 +1,12 @@
 """quick probe: console errors, overflow, map top, status/basis per viewport, both builds. usage: smoke3.py [snapshot|live] [vp…]"""
+import os; HM_BASE = 'http://127.0.0.1:%s/' % os.environ.get('HM_PORT', '8806')   # dev Worker (harness) port
 import sys, json
 sys.path.insert(0, '/home/claude/hm-heatmap/qa/heatmap')
 from common import launch, Log, VIEWPORTS
 from playwright.sync_api import sync_playwright
 build = sys.argv[1] if len(sys.argv) > 1 else 'snapshot'
 vps = sys.argv[2:] or ['m360', 'm390', 't768', 'd1280', 'd1920']
-URL = 'http://127.0.0.1:8798/' if build == 'live' else 'file:///home/claude/hm-heatmap/dist/index.html'
+URL = HM_BASE if build == 'live' else 'file:///home/claude/hm-heatmap/dist/index.html'
 ICON = "#extras-tools .xt-btn{width:40px!important;height:40px!important;padding:0!important}#extras-tools .xt-btn span{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}"
 with sync_playwright() as p:
     b = launch(p)
