@@ -193,10 +193,16 @@
  },
  "tabs_keyboard_arrows": {
   "ok": true,
-  "detail": {
-   "sel": "sp-t-ob",
-   "focus": "sp-t-ob"
-  }
+  "detail": [
+   {
+    "sel": "sp-t-news",
+    "focus": "sp-t-news"
+   },
+   {
+    "sel": "sp-t-ob",
+    "focus": "sp-t-ob"
+   }
+  ]
  },
  "tap_targets_40px_mobile": {
   "ok": true,
@@ -431,5 +437,193 @@
  "snapshot_console_1920": {
   "ok": true,
   "detail": []
+ },
+ "news_fetched_only_when_tab_opens": {
+  "ok": true,
+  "detail": {
+   "before": 0,
+   "after_open": {
+    "news": 1,
+    "disc": 1
+   }
+  }
+ },
+ "news_list": {
+  "ok": true,
+  "detail": {
+   "rows": 20,
+   "pressed": [
+    [
+     "news",
+     "true",
+     "뉴스20"
+    ],
+    [
+     "disc",
+     "false",
+     "공시20"
+    ]
+   ],
+   "first": "빈센트 \"젠슨황 없는 엔비디아? 물러나도 지금은 아닐 것\"[한판승부]",
+   "press0": "노컷뉴스"
+  }
+ },
+ "news_entities_decoded": {
+  "ok": true,
+  "detail": [
+   "빈센트 \"젠슨황 없는 엔비디아? 물러나도 지금은 아닐 것\"[한판승부]",
+   "\"AI는 답하고 리더는 판 만든다\"…AI시대 리더에 필요한 6가지 힘"
+  ]
+ },
+ "news_relative_time": {
+  "ok": true,
+  "detail": [
+   "14분 전",
+   "2시간 전"
+  ]
+ },
+ "news_links_new_tab": {
+  "ok": true,
+  "detail": [
+   [
+    "https://n.news.naver.com/mnews/article/079/0004208025",
+    "_blank",
+    "noopener"
+   ],
+   [
+    "https://n.news.naver.com/mnews/article/056/0012290277",
+    "_blank",
+    "noopener"
+   ]
+  ]
+ },
+ "disclosures_list": {
+  "ok": true,
+  "detail": {
+   "rows": 20,
+   "tags": 6,
+   "times": [
+    "3일 전",
+    "7월 31일"
+   ],
+   "link0": "https://m.stock.naver.com/domestic/stock/005930/notice/182029604"
+  }
+ },
+ "news_no_extra_fetch_on_toggle": {
+  "ok": true,
+  "detail": null
+ },
+ "news_cache_5min_per_code": {
+  "ok": true,
+  "detail": {
+   "same_code_reopen_total": 2,
+   "other_code": 2,
+   "back_within_5min": 0,
+   "after_6min": 2
+  }
+ },
+ "console_clean_news": {
+  "ok": true,
+  "detail": []
+ },
+ "news_relative_time_yesterday": {
+  "ok": true,
+  "detail": [
+   "어제"
+  ]
+ },
+ "news_error_retry": {
+  "ok": true,
+  "detail": {
+   "err": "뉴스를 불러오지 못했어요.서버가 응답하지 않아요 (502). 잠시 뒤 다시 시도해 주세요.다시 시도",
+   "disc_rows_meanwhile": 20
+  }
+ },
+ "news_empty_states": {
+  "ok": true,
+  "detail": [
+   "최근 뉴스가 없어요.거래가 적거나 새로 상장한 종목이면 기사가 드물어요.",
+   "최근 공시가 없어요.최근에 낸 공시가 없는 종목이에요."
+  ]
+ },
+ "console_clean_news_states": {
+  "ok": true,
+  "detail": []
+ },
+ "watch_star": {
+  "ok": true,
+  "detail": {
+   "hidden_without_api": true,
+   "off": {
+    "hidden": false,
+    "pressed": "false",
+    "w": 42,
+    "h": 44,
+    "label": "관심종목"
+   },
+   "on": {
+    "pressed": "true",
+    "has": true,
+    "color": "rgb(255, 181, 71)",
+    "fill": "rgb(255, 181, 71)"
+   },
+   "external_toggle": "false",
+   "keyboard": [
+    "true",
+    [
+     "005930"
+    ]
+   ]
+  }
+ },
+ "tap_targets_40px_with_star": {
+  "ok": true,
+  "detail": []
+ },
+ "limit_badge_live": {
+  "ok": true,
+  "detail": [
+   "",
+   "상한가|sp-lim up|rgb(255, 92, 102)",
+   "하한가|sp-lim dn|rgb(47, 214, 122)",
+   "상한가|sp-lim up|rgb(255, 92, 102)",
+   ""
+  ]
+ },
+ "limit_badge_from_summary": {
+  "ok": true,
+  "detail": "상한가|sp-lim up|rgb(255, 92, 102)"
+ },
+ "console_clean_star_limit": {
+  "ok": true,
+  "detail": []
+ },
+ "news_star_no_overflow_1440": {
+  "ok": true,
+  "detail": [
+   {
+    "doc": 0,
+    "root": 0,
+    "els": [],
+    "n": 0
+   },
+   []
+  ]
+ },
+ "snapshot_limit_900300": {
+  "ok": true,
+  "detail": [
+   "상한가|sp-lim up|rgb(255, 92, 102)",
+   [],
+   []
+  ]
+ },
+ "snapshot_limit_179530": {
+  "ok": true,
+  "detail": [
+   "하한가|sp-lim dn|rgb(47, 214, 122)",
+   [],
+   []
+  ]
  }
 }

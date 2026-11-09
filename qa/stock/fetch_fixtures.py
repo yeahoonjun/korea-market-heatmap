@@ -2,6 +2,7 @@
 """Fetch raw Naver responses once for the stock-page mock server (qa/stock/mock_api.py).
 
     python3 qa/stock/fetch_fixtures.py 005930 196170
+    python3 qa/stock/fetch_fixtures.py --only news,disclosure 005930 196170     # refresh some files only
 
 Saves qa/stock/fixtures/raw/<code>/<name>.json. The mock server turns these into the AGENTS.md §3 shapes.
 """
@@ -18,7 +19,7 @@ def get(url):
         return json.loads(r.read().decode('utf-8'))
 
 
-def main(codes):
+def main(codes, only=None):
     now = dt.datetime.now(KST)
     today = now.strftime('%Y%m%d')
     d = lambda days: (now - dt.timedelta(days=days)).strftime('%Y%m%d')
@@ -41,8 +42,12 @@ def main(codes):
             'day_1y': ch.format(c=c) + f'day?startDateTime={d(366)}000000&endDateTime={today}235959',
             'week_3y': ch.format(c=c) + f'week?startDateTime={d(3 * 366)}000000&endDateTime={today}235959',
             'month_10y': ch.format(c=c) + f'month?startDateTime={d(10 * 366)}000000&endDateTime={today}235959',
+            'news': f'https://m.stock.naver.com/api/news/stock/{c}?pageSize=20',          # ENDPOINTS_EXTRA.md §2
+            'disclosure': f'https://m.stock.naver.com/api/stock/{c}/disclosure?pageSize=20',   # ENDPOINTS_EXTRA.md §3
         }
         for name, url in urls.items():
+            if only and name not in only:
+                continue
             try:
                 j = get(url)
                 (out / f'{name}.json').write_text(json.dumps(j, ensure_ascii=False), encoding='utf-8')
@@ -51,8 +56,15 @@ def main(codes):
             except Exception as e:
                 print(c, name, 'FAIL', e)
             time.sleep(0.15)
-    (ROOT / 'fetched_at.txt').write_text(now.isoformat(), encoding='utf-8')
+    if not only:
+        (ROOT / 'fetched_at.txt').write_text(now.isoformat(), encoding='utf-8')
 
 
 if __name__ == '__main__':
-    main(sys.argv[1:] or ['005930', '196170'])
+    args = sys.argv[1:]
+    only = None
+    if '--only' in args:
+        i = args.index('--only')
+        only = set(args[i + 1].split(','))
+        del args[i:i + 2]
+    main(args or ['005930', '196170'], only)
