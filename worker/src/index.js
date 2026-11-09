@@ -265,6 +265,18 @@ async function getUniverse(env) {
   }
 }
 
+/* ── NXT (overMarketPriceInfo) ─────────────────────────────── */
+// → {p, d, r, s:'pre'|'after', o:1|0, t} | null (no overPrice, unknown session or trading halted). Read-only: no extra calls.
+function nxtOf(i) {
+  if (!i || i.overPrice == null || i.overPrice === '') return null;
+  const st = i.tradingSessionType === 'PRE_MARKET' ? 'pre' : i.tradingSessionType === 'AFTER_MARKET' ? 'after' : null;
+  const ts = i.tradeStopType && i.tradeStopType.name;
+  if (!st || (ts && ts !== 'TRADING')) return null;
+  const p = pn(i.overPrice);
+  if (p == null) return null;
+  return { p, d: sgn(i.compareToPreviousClosePrice, i.compareToPreviousPrice) ?? 0, r: sgn(i.fluctuationsRatio, i.compareToPreviousPrice) ?? 0, s: st, o: i.overMarketStatus === 'OPEN' ? 1 : 0, t: i.localTradedAt || null };
+}
+
 /* ── /api/quotes ─────────────────────────────── */
 // One polling call returns live rows for up to 1000 codes; we send the top 300 per market
 // (from ASSET_BASE/universe.json) to keep the response small and CPU time low on the free plan.
@@ -278,7 +290,7 @@ async function quotesCore(env, only) {
     naver('https://polling.finance.naver.com/api/realtime/domestic/index/KOSPI,KOSDAQ').catch(() => null),
   ]);
   const stocks = [];
-  let asOf = '', stockOpen = false, endTime = '';
+  let asOf = '', stockOpen = false, endTime = '', nxOpen = '', nxSess = '';
   for (const s of live.datas || []) {
     let meta = STOCKS.get(s.itemCode) || (only && universeMem && universeMem.extra && universeMem.extra.get(s.itemCode));
     if (!meta) {
@@ -305,6 +317,10 @@ async function quotesCore(env, only) {
     };
     if (limName === 'UPPER_LIMIT') row.lim = 1;
     else if (limName === 'LOWER_LIMIT') row.lim = -1;
+    if (s.overMarketPriceInfo) {
+      const nx = nxtOf(s.overMarketPriceInfo);
+      if (nx) { row.nx = nx; if (nx.o) nxOpen = nx.s; else if (!nxSess) nxSess = nx.s; }
+    }
     stocks.push(row);
   }
   const index = {}, marketStatus = {};
@@ -325,6 +341,7 @@ async function quotesCore(env, only) {
       source: '네이버 증권 (polling.finance.naver.com)',
       marketStatus,
       afterHours: !regularOpen && stockOpen,                 // NXT/시간외 prices are moving after the regular session
+      nxt: { session: nxOpen || nxSess || null, open: !!nxOpen },
       index,
       stocks,
     },
@@ -355,6 +372,8 @@ async function getBreadth(env, m, part) {
     const row = [s.itemCode, num(s.fluctuationsRatioRaw)];
     const ln = s.compareToPreviousPrice && s.compareToPreviousPrice.name;
     if (ln === 'UPPER_LIMIT') row.push(1); else if (ln === 'LOWER_LIMIT') row.push(-1);
+    const nx = s.overMarketPriceInfo && nxtOf(s.overMarketPriceInfo);
+    if (nx) { if (row.length < 3) row.push(0); row.push(nx.r); }
     rows.push(row);
     if (!seenEnd && s.stockExchangeType && /^\d{4}$/.test(s.stockExchangeType.endTime)) { seenEnd = true; lastEndTime = s.stockExchangeType.endTime; }
   }
@@ -515,6 +534,7 @@ async function getSummary(code) {
     cnsEps: pn(t.cnsEps),
     dps: pn(t.dividend),
     peers: peersOf(g, b.itemCode || code),
+    nxt: nxtOf(b.overMarketPriceInfo),
   };
 }
 
