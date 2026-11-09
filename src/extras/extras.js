@@ -634,10 +634,35 @@ function iosHint(ev) {
 }
 
 /* ═════════════ 4. Replay (live only) ═════════════ */
-const SLOT0 = 9 * 60, SLOTS = (15 * 60 + 30 - SLOT0) / 5;            // 09:00 … 15:30 in 5-minute slots (0 … 78)
-const slotOfT = t => { const m = String(t).replace(':', '').match(/^(\d\d)(\d\d)$/); return m ? Math.round((+m[1] * 60 + +m[2] - SLOT0) / 5) : 0; };
-const slotLabel = sl => { const m = SLOT0 + sl * 5; return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`; };
+const hmMin = t => { const m = String(t).replace(':', '').match(/^(\d\d)(\d\d)$/); return m ? +m[1] * 60 + +m[2] : NaN; };
+const minLabel = m => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+// the slider's range follows the day's real frames: 09:00 … max(15:30, last frame); sessions that open at 10:00 or later
+// (수능 day, first trading day) run 10:00 … 16:30
+const SESSION = { s0: 9 * 60, s1: 15 * 60 + 30, slots: 78 };
+const slotOfT = t => { const m = hmMin(t); return isFinite(m) ? Math.round((m - SESSION.s0) / 5) : 0; };
+function setSession(frames) {
+  const mins = frames.map(f => hmMin(f.t)).filter(isFinite);
+  const first = mins.length ? Math.min(...mins) : 9 * 60, last = mins.length ? Math.max(...mins) : 15 * 60 + 30;
+  const late = first >= 10 * 60;
+  const s0 = Math.min(late ? 10 * 60 : 9 * 60, Math.floor(first / 5) * 5);
+  const s1 = Math.max(late ? 16 * 60 + 30 : 15 * 60 + 30, Math.ceil(last / 5) * 5);
+  Object.assign(SESSION, { s0, s1, slots: (s1 - s0) / 5 });
+}
 const replay = { open: false, el: null, btn: null, dates: null, date: null, day: null, cache: new Map(), i: -1, playing: false, speed: 1, timer: 0, req: 0, frameT: null, raf: 0 };
+function rpTicks() {
+  const ui = replay.ui, { s0, s1, slots } = SESSION;
+  const marks = [s0];
+  for (let m = Math.ceil((s0 + 1) / 60) * 60; m < s1; m += 60) marks.push(m);
+  if (s1 - marks[marks.length - 1] < 40) marks.pop();          // the last hour mark would crowd the closing time
+  marks.push(s1);
+  ui.ticks.replaceChildren(...marks.map((m, k) => h('span', { class: k % 2 && k < marks.length - 1 ? 'o' : null, style: `left:${((m - s0) / 5 / slots) * 100}%`, text: minLabel(m) })));
+  ui.slider.max = slots;
+}
+function rpSetH() {
+  const R = replay;
+  const px = R.open && R.el && !R.el.hidden ? Math.round(R.el.offsetHeight + (parseFloat(getComputedStyle(R.el).bottom) || 0)) : 0;
+  document.documentElement.style.setProperty('--rp-h', px + 'px');
+}
 
 function rpBuild() {
   const R = replay;
@@ -649,23 +674,28 @@ function rpBuild() {
   ui.date = h('select', { class: 'rp-date', 'aria-label': '날짜', onchange: e => loadDay(e.target.value, false) });
   ui.speed = h('div', { class: 'rp-speed', role: 'group', 'aria-label': '재생 속도' }, [1, 2, 4].map(v =>
     h('button', { type: 'button', 'data-v': v, 'aria-pressed': String(v === R.speed), text: `${v}×`, 'aria-label': `${v}배속`, onclick: () => setSpeed(v) })));
-  ui.slider = h('input', { type: 'range', class: 'rp-slider', min: 0, max: SLOTS, step: 1, value: 0, 'aria-label': '시각' });
+  ui.slider = h('input', { type: 'range', class: 'rp-slider', min: 0, max: SESSION.slots, step: 1, value: 0, 'aria-label': '시각' });
   ui.slider.addEventListener('input', () => { pause(); seekSlot(+ui.slider.value); });
-  ui.ticks = h('div', { class: 'rp-ticks', 'aria-hidden': 'true' }, ['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:30'].map((t, k) =>
-    h('span', { class: k % 2 ? 'o' : null, style: `left:${(slotOfT(t) / SLOTS) * 100}%`, text: t })));
+  ui.ticks = h('div', { class: 'rp-ticks', 'aria-hidden': 'true' });
+  ui.more = h('button', { type: 'button', class: 'rp-more', 'aria-label': '날짜·속도 설정', 'aria-expanded': 'false', 'aria-controls': 'rp-set', title: '날짜·속도 설정',
+    onclick: () => { const on = !R.el.classList.contains('rp-more-on'); R.el.classList.toggle('rp-more-on', on); ui.more.setAttribute('aria-expanded', String(on)); } },
+    h('span', { 'aria-hidden': 'true', text: '⋯' }));
   ui.msg = h('div', { class: 'rp-msg', role: 'status' });
   ui.note = h('div', { class: 'rp-note' });
   ui.close = h('button', { type: 'button', class: 'rp-x', 'aria-label': '리플레이 닫기', onclick: () => closeReplay() }, icon(ICON.close));
-  const label = () => h('div', { class: 'rp-h' }, h('span', { text: '장중 리플레이' }), h('span', { class: 'rp-badge', text: '지난 시세' }));
+  const label = () => h('div', { class: 'rp-hd' }, h('span', { text: '장중 리플레이' }), h('span', { class: 'rp-badge', text: '지난 시세' }));
   ui.label = label;
+  ui.set = h('div', { class: 'rp-set', id: 'rp-set' }, ui.date, ui.day, ui.speed);
   ui.body = h('div', { class: 'rp-main' },
     ui.play,
-    h('div', { class: 'rp-when' }, label(), h('div', { class: 'rp-tl' }, ui.time, ui.date, ui.day)),
-    ui.idx, ui.speed,
-    h('div', { class: 'rp-track' }, ui.slider, ui.ticks));
-  R.el = h('section', { class: 'rp', role: 'region', 'aria-label': '장중 리플레이', hidden: true }, ui.close, ui.msg, ui.body, ui.note);
+    h('div', { class: 'rp-when' }, label(), ui.time),
+    h('div', { class: 'rp-track' }, ui.slider, ui.ticks),
+    ui.more, ui.idx, ui.set);
+  R.el = h('section', { class: 'rp-player', id: 'replay-player', role: 'region', 'aria-label': '장중 리플레이', hidden: true }, ui.close, ui.msg, ui.body, ui.note);
   document.body.append(R.el);
-  new ResizeObserver(() => document.documentElement.style.setProperty('--rp-h', (R.open ? R.el.offsetHeight + 12 : 0) + 'px')).observe(R.el);
+  rpTicks();
+  new ResizeObserver(rpSetH).observe(R.el);
+  addEventListener('resize', rpSetH);
 }
 function rpState(kind, text, retry) {
   const ui = replay.ui;
@@ -673,7 +703,7 @@ function rpState(kind, text, retry) {
   ui.msg.hidden = kind === 'ready';
   ui.msg.replaceChildren(ui.label(), h('p', { text }));
   if (retry) ui.msg.append(h('button', { type: 'button', class: 'rp-retry', onclick: retry, text: '다시 시도' }));
-  ui.note.textContent = kind === 'ready' || kind === 'empty' ? '5분마다 기록한 시세예요. 정규장(09:00~15:30) 기준 · 네이버 증권' : '';
+  ui.note.textContent = kind === 'ready' ? `5분마다 기록한 시세예요. 정규장(${minLabel(SESSION.s0)}~${minLabel(SESSION.s1)}) 기준 · 네이버 증권` : kind === 'empty' ? '5분마다 기록한 시세예요. 네이버 증권' : '';
   if (kind === 'ready' && !narrowMQ.matches) ui.note.textContent += ' · 스페이스 재생/멈춤, ←/→ 한 칸씩';
 }
 
@@ -686,6 +716,7 @@ async function openReplay(ev) {
   if (R.btn) R.btn.setAttribute('aria-expanded', 'true');
   R.el.hidden = false;
   document.documentElement.classList.add('rp-open');
+  rpSetH();
   R.ui.close.focus();
   await loadDates();
 }
@@ -724,7 +755,7 @@ async function loadDay(date, fallback) {
       const j = await getJSON('api/replay?date=' + encodeURIComponent(date), 20000);
       if (!j || !Array.isArray(j.codes) || !Array.isArray(j.frames)) throw new Error('bad shape');
       day = { date: j.date || date, codes: j.codes.map(String), frames: j.frames.filter(f => f && f.t != null && Array.isArray(f.p) && Array.isArray(f.r)), index: j.index || {}, base: j.base || j.prev || null };
-      day.frames.sort((a, b) => slotOfT(a.t) - slotOfT(b.t));
+      day.frames.sort((a, b) => hmMin(a.t) - hmMin(b.t));
       R.cache.set(date, day);
     } catch (e) {
       if (id !== R.req || !R.open) return;
@@ -741,10 +772,12 @@ async function loadDay(date, fallback) {
   if (id !== R.req || !R.open) return;
   if (!day.frames.length) { fail(`${dayLabel(date)}에는 아직 기록된 장면이 없어요. 장이 열리면 5분마다 쌓여요.`); return; }
   R.date = date; R.day = day;
+  setSession(day.frames);
+  rpTicks();
   rpState('ready');
   const first = slotOfT(day.frames[0].t), last = slotOfT(day.frames[day.frames.length - 1].t);
-  R.ui.slider.style.setProperty('--rec0', (first / SLOTS * 100) + '%');
-  R.ui.slider.style.setProperty('--rec1', (last / SLOTS * 100) + '%');
+  R.ui.slider.style.setProperty('--rec0', (first / SESSION.slots * 100) + '%');
+  R.ui.slider.style.setProperty('--rec1', (last / SESSION.slots * 100) + '%');
   showFrame(0);
 }
 function indexBase(day, key) {
@@ -774,7 +807,7 @@ function showFrame(i) {
   ui.time.textContent = R.frameT;
   ui.slider.value = sl;
   ui.slider.setAttribute('aria-valuetext', `${dayLabel(day.date)} ${R.frameT}`);
-  ui.slider.style.setProperty('--pos', (sl / SLOTS * 100) + '%');
+  ui.slider.style.setProperty('--pos', (sl / SESSION.slots * 100) + '%');
   ui.idx.replaceChildren(...['KOSPI', 'KOSDAQ'].map(k => {
     const arr = day.index[k];
     const v = Array.isArray(arr) ? +(Array.isArray(arr[i]) ? arr[i][0] : arr[i] && typeof arr[i] === 'object' ? arr[i].value : arr[i]) : NaN;
@@ -786,7 +819,7 @@ function showFrame(i) {
     return h('div', { class: 'rp-ix' }, kids);
   }));
   const lastT = hhmm(day.frames[day.frames.length - 1].t);
-  ui.day.textContent = `${i + 1}/${day.frames.length}장면${lastT !== '15:30' ? ` · ${lastT}까지 기록` : ''}`;
+  ui.day.textContent = `${i + 1}/${day.frames.length}장면${hmMin(lastT) < SESSION.s1 ? ` · ${lastT}까지 기록` : ''}`;
 }
 function seekSlot(sl) {
   const day = replay.day;
@@ -838,7 +871,7 @@ function closeReplay() {
   try { KH.setReplay(null); } catch (e) { /* nothing to undo */ }
   R.el.hidden = true;
   document.documentElement.classList.remove('rp-open');
-  document.documentElement.style.setProperty('--rp-h', '0px');
+  rpSetH();
   if (R.btn) { R.btn.setAttribute('aria-expanded', 'false'); R.btn.focus(); }
 }
 let spaceTaken = false;
