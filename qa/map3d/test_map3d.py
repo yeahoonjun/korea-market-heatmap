@@ -271,6 +271,17 @@ def motion_checks(browser):
     page.wait_for_timeout(900)
     page.click('#rangeseg button:nth-child(1)')
     page.wait_for_timeout(700)
+    fl = page.evaluate('''async () => {
+      const codes = KH.layout().filter(n => n.kind === 'tile' && n.code).slice(0, 3).map(n => n.code);
+      for (const c of codes) KH.stock(c).p += 5;          // three prices tick, nothing else changes
+      document.dispatchEvent(new CustomEvent('kh:data'));
+      await new Promise(r => setTimeout(r, 60));
+      const a = KH3D.qa.inspect().flashes;
+      await new Promise(r => setTimeout(r, 1200));
+      for (const c of codes) KH.stock(c).p -= 5;
+      return [a, KH3D.qa.inspect().flashes];
+    }''')
+    check(f'{tag}: price ticks pulse the top faces (and end)', fl == [3, 0], fl)
     t = page.evaluate('async () => { const t = performance.now(); const p = KH3D.hide(); const mid = KH3D.qa.inspect().leaving; await p; return [performance.now() - t, mid]; }')
     check(f'{tag}: hide() folds back (promise resolves after the fold)', t[1] and t[0] >= 300, f'{t[0]:.0f} ms')
     check(f'{tag}: console clean', not con.take())
@@ -284,9 +295,72 @@ def motion_checks(browser):
     page.click('#rangeseg button:nth-child(2)')
     page.wait_for_timeout(60)
     check(f'{tag}: no height tween', not inspect(page)['tweening'])
+    fl = page.evaluate('''async () => {
+      const c = KH.layout().find(n => n.kind === 'tile' && n.code).code;
+      KH.stock(c).p += 5; document.dispatchEvent(new CustomEvent('kh:data'));
+      await new Promise(r => setTimeout(r, 60)); KH.stock(c).p -= 5;
+      return KH3D.qa.inspect().flashes; }''')
+    check(f'{tag}: no tick pulses', fl == 0, fl)
     t = page.evaluate('async () => { const p = KH3D.hide(); const i = KH3D.qa.inspect(); await p; return [i.built, i.leaving]; }')
     check(f'{tag}: hide() tears down at once (no fold)', t == [False, False], t)
     check(f'{tag}: console clean', not con.take())
+    ctx.close()
+
+
+def reduced_check(browser):
+    tag = 'snapshot 1440 reduced'
+    ctx, page, con = open_page(browser, 1440, SNAP, motion='reduced')
+    turn_on(page)
+    page.focus('#map3d canvas')
+    page.keyboard.press('ArrowLeft')
+    i = inspect(page)
+    check(f'{tag}: camera jumps (no follow smoothing)', i['cam']['az'] == i['goal']['az'] and not i['flying'])
+    page.keyboard.press('0')
+    i = inspect(page)
+    check(f'{tag}: home without a flight', i['atHome'] and not i['flying'])
+    check(f'{tag}: console clean', not (m := con.take()), m[:2])
+    ctx.close()
+
+
+def touch_checks(browser):
+    """Phone: sideways swipe turns, vertical swipe leaves the page its scroll (touch-action: pan-y), pinch zooms, tap opens."""
+    tag = 'snapshot 390 touch'
+    ctx, page, con = open_page(browser, 390, SNAP)
+    turn_on(page)
+    cdp = ctx.new_cdp_session(page)
+
+    def centre():
+        r = page.evaluate("() => document.querySelector('#map3d canvas').getBoundingClientRect().toJSON()")
+        return r['x'] + r['width'] / 2, r['y'] + r['height'] / 2
+
+    def swipe(pts):
+        cdp.send('Input.dispatchTouchEvent', {'type': 'touchStart', 'touchPoints': [dict(x=x, y=y, id=k) for k, (x, y) in enumerate(pts[0])]})
+        for step in pts[1:]:
+            cdp.send('Input.dispatchTouchEvent', {'type': 'touchMove', 'touchPoints': [dict(x=x, y=y, id=k) for k, (x, y) in enumerate(step)]})
+        cdp.send('Input.dispatchTouchEvent', {'type': 'touchEnd', 'touchPoints': []})
+        page.wait_for_timeout(350)
+
+    cx, cy = centre()
+    g0 = inspect(page)['goal']
+    swipe([[(cx - 50 + 10 * i, cy + i)] for i in range(11)])
+    g1, sy = inspect(page)['goal'], page.evaluate('() => scrollY')
+    check(f'{tag}: sideways swipe turns the map, page stays', g1['az'] != g0['az'] and sy == 0, f"az {g0['az']:.3f}→{g1['az']:.3f}")
+    swipe([[(cx + i * 0.4, cy + 100 - 25 * i)] for i in range(11)])
+    g2, sy = inspect(page)['goal'], page.evaluate('() => scrollY')
+    check(f'{tag}: vertical swipe scrolls the page, map untouched', g2['az'] == g1['az'] and g2['polar'] == g1['polar'] and sy > 0, f'scrollY {sy}')
+    page.evaluate('() => scrollTo(0, 0)'); page.wait_for_timeout(1200); page.evaluate('() => scrollTo(0, 0)'); page.wait_for_timeout(300)
+    cx, cy = centre()
+    swipe([[(cx - 30 - 4 * i, cy), (cx + 30 + 4 * i, cy)] for i in range(9)])
+    check(f'{tag}: pinch zooms in', inspect(page)['goal']['dist'] < g2['dist'] * 0.8, f"{g2['dist']:.0f}→{inspect(page)['goal']['dist']:.0f}")
+    page.tap('#map3d .m3-ctl .reset')
+    page.wait_for_timeout(400)
+    check(f'{tag}: reset button → home view', inspect(page)['atHome'])
+    big = page.evaluate("() => KH.layout().filter(n => n.kind === 'tile' && n.code).sort((a, b) => b.w * b.h - a.w * a.h)[0].code")
+    a = page.evaluate('k => KH3D.qa.anchor(k)', big)
+    page.touchscreen.tap(a['x'], a['y'])
+    page.wait_for_timeout(700)
+    check(f'{tag}: tap opens the stock page', page.evaluate('() => KHStock.isOpen()') and big in page.evaluate('() => location.hash'), big)
+    check(f'{tag}: console clean', not (m := con.take()), m[:2])
     ctx.close()
 
 
@@ -400,6 +474,8 @@ def main():
             check(f'{tag}: console clean', not (msgs := con.take()), msgs[:3])
             ctx.close()
         motion_checks(b)
+        reduced_check(b)
+        touch_checks(b)
         perf_check(b)
         b.close()
         fallback_checks(p)

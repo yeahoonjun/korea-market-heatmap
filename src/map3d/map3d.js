@@ -412,10 +412,31 @@ function readLayout() {
   if (mapEl && mapEl.clientWidth > 0) { W = mapEl.clientWidth; H = mapEl.clientHeight || H; }
   return { tiles, sectors, W, H };
 }
+// tick flash (fancy, live updates only, not in replay): price changed since the last data → top brightness pulse, at most 60
+// (largest |Δp/p| × area first), each delayed 0–200 ms by a hash of the code so they do not all blink together
+function priceTicks(tiles, tick) {
+  const k0 = KH();
+  const px = c => { const st = k0 && k0.stock ? k0.stock(c) : null; return st && st.p > 0 ? st.p : 0; };
+  if (tick && fancy() && !S.replay && S.lastPx.size) {
+    const cand = [];
+    for (const t of tiles) {
+      if (!t.code) continue;
+      const p = px(t.code), q = S.lastPx.get(t.code);
+      if (p && q && p !== q) cand.push([t.code, Math.abs(p - q) / q * t.w * t.h]);
+    }
+    cand.sort((a, b) => b[1] - a[1]);
+    const now = performance.now();
+    for (const [c] of cand.slice(0, MAX_FLASH)) S.flashes.set(c, now + hash01(c) * 200);
+  }
+  S.lastPx = new Map();
+  for (const t of tiles) if (t.code) { const p = px(t.code); if (p) S.lastPx.set(t.code, p); }
+}
 function rebuild(entry) {
   if (!S.built || S.leaving) return;
   const { tiles, sectors, W, H } = readLayout();
   const tick = S.dataTick; S.dataTick = false;
+  if (S.n) priceTicks(tiles, tick); else priceTicks(tiles, false);
+  if (S.flashes.size) requestRender();
   const sig = tiles.length + '|' + W + 'x' + H + '|' + tiles.map(t => (t.code || t.label) + t.x + ',' + t.y + ',' + t.w + ',' + t.h + t.color + t.sub).join(';') + '|' + sectors.map(s => s.label + s.sub + s.x + ',' + s.y).join(';');
   if (sig === S.lastSig) return;
   S.lastSig = sig;
@@ -485,22 +506,6 @@ function rebuild(entry) {
       else from[o + 4] = 0.2;
     }
   }
-  // tick flash (fancy, live updates only): price changed since the last data → top brightness pulse, at most 60
-  const k0 = KH();
-  if (isFancy && tick && !S.replay && !firstData && S.lastPx.size) {
-    const cand = [];
-    for (let i = 0; i < n; i++) {
-      const c = tiles[i].code; if (!c) continue;
-      const st = k0 && k0.stock ? k0.stock(c) : null, p = st && st.p, q = S.lastPx.get(c);
-      if (p > 0 && q > 0 && p !== q) cand.push([i, Math.abs(p - q) / q * tiles[i].w * tiles[i].h, c]);
-    }
-    cand.sort((a, b) => b[1] - a[1]);
-    const now = performance.now();
-    for (const [i, , c] of cand.slice(0, MAX_FLASH)) S.flashes.set(keys[i], now + hash01(c) * 200);
-  }
-  S.lastPx = new Map();
-  for (const t of tiles) if (t.code) { const st = k0 && k0.stock ? k0.stock(t.code) : null; if (st && st.p > 0) S.lastPx.set(t.code, st.p); }
-
   S.n = n; S.keys = keys; S.keyIx = keyIx; S.to = to; S.from = from; S.delay = delay;
   S.cur = new Float32Array(doEntry || doTween ? from : to);
   S.tween = doEntry || doTween ? { start: performance.now(), dur: tk.m3, maxDelay, ease: tk.out } : null;
@@ -962,7 +967,7 @@ function onMove(e) {
   S.userMoved = true; hideHint();
   const g = S.goal;
   if (D.mode === 'rot') {
-    const kx = 2.2 / Math.max(S.vw, 320), ky = 1.6 / Math.max(S.vh, 320);
+    const kx = 1.7 / Math.max(S.vw, 360), ky = 1.4 / Math.max(S.vh, 360);   // a full-width drag ≈ 100°
     g.az -= dx * kx; g.polar -= dy * ky;
     D.samples.push([performance.now(), dx * kx, dy * ky]);
   } else if (D.mode === 'pan') {
