@@ -6,3 +6,6 @@ tmp/
 qa/shots/
 qa/__pycache__/
 __pycache__/
+worker/src/page.js
+worker/src/universe.js
+worker/dist/
