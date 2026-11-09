@@ -14,7 +14,7 @@
 //   GET /api/quotes?codes=c1,c2,…      → same shape for the given codes (≤ 300)
 //   GET /api/themes                    → theme list with ratio / up / flat / down
 //   GET /api/market                    → market strip (indices + spark, USDKRW, US futures, WTI, gold, BTC)
-//   GET /api/replay/dates, /api/replay?date=YYYY-MM-DD → intraday replay frames recorded in KV (env.REPLAY)
+//   GET /api/replay/dates, /api/replay?date=YYYY-MM-DD → intraday replay frames recorded in KV (env.REPLAY, one key per frame)
 //   GET /data/{themes,periods,flows}.json, PWA files   → static from ASSET_BASE (whitelist)
 //   scheduled()                        → cron: appends a replay frame every 5 min on weekdays 09:00–15:30 KST
 //   GET /api/health                    → {ok:true}
@@ -50,7 +50,8 @@ export default {
       if (path === '/api/replay') {
         const d = url.searchParams.get('date') || '';
         if (d && !/^\d{4}-\d{2}-\d{2}$/.test(d)) return fail(400, 'date는 YYYY-MM-DD 형식이어야 해요');
-        return await edgeCached(request, ctx, 'replay-' + (d || 'latest'), 60, () => getReplay(env, d));
+        const past = d && d.replace(/-/g, '') < ymd(kstNow());           // a finished day never changes
+        return await edgeCached(request, ctx, 'replay-' + (d || 'latest'), past ? 3600 : 60, () => getReplay(env, d));
       }
       if (ASSETS[path]) return await getAsset(request, env, ctx, path);
       let m = path.match(/^\/api\/chart\/([^/]+)$/);
@@ -588,18 +589,24 @@ async function getAsset(request, env, ctx, path) {
   return res;
 }
 
-/* ── intraday replay (KV env.REPLAY, key frames:YYYYMMDD) ─────────────────────────────── */
-// value: {codes:[…], frames:[{t:'HHMM', p:[int|null,…], r:[2-decimals|null,…], i:[KOSPI, KOSDAQ]}]}
-async function listReplayDates(env) {
-  const dates = [];
+/* ── intraday replay (KV env.REPLAY) ─────────────────────────────── */
+// replay:YYYYMMDD:codes → ["005930",…] (written with the day's first frame)
+// replay:YYYYMMDD:HHMM  → {p:[int|null,…], r:[2-decimals|null,…], i:[KOSPI, KOSDAQ]}   (~10 KB each, TTL 40 days)
+const REPLAY_TTL = 40 * 86400;
+async function kvKeys(env, prefix, max = 5) {
+  const names = [];
   let cursor;
-  for (let n = 0; n < 5; n++) {
-    const l = await env.REPLAY.list({ prefix: 'frames:', cursor });
-    for (const k of l.keys) if (/^frames:\d{8}$/.test(k.name)) dates.push(dash(k.name.slice(7)));
+  for (let n = 0; n < max; n++) {
+    const l = await env.REPLAY.list({ prefix, cursor });
+    for (const k of l.keys) names.push(k.name);
     if (l.list_complete) break;
     cursor = l.cursor;
   }
-  return dates.sort().reverse();
+  return names;
+}
+async function listReplayDates(env) {
+  const names = await kvKeys(env, 'replay:', 10);
+  return names.map(n => /^replay:(\d{8}):codes$/.exec(n)).filter(Boolean).map(m => dash(m[1])).sort().reverse();
 }
 async function getReplayDates(env) {
   if (!env.REPLAY) throw new HttpError(503, '리플레이 저장소가 연결되지 않았어요');
@@ -611,15 +618,21 @@ async function getReplay(env, date) {
     date = (await listReplayDates(env))[0];
     if (!date) throw new HttpError(404, '기록된 날이 아직 없어요');
   }
-  const v = await env.REPLAY.get('frames:' + date.replace(/-/g, ''), 'json');
-  if (!v) throw new HttpError(404, '그날 기록이 없어요');
-  const fr = v.frames || [];
-  return {
-    date,
-    codes: v.codes || [],
-    frames: fr.map(f => ({ t: f.t, p: f.p, r: f.r })),
-    index: { KOSPI: fr.map(f => (f.i ? f.i[0] : null)), KOSDAQ: fr.map(f => (f.i ? f.i[1] : null)) },
-  };
+  const day = date.replace(/-/g, '');
+  const [codes, names] = await Promise.all([env.REPLAY.get(`replay:${day}:codes`, 'json'), kvKeys(env, `replay:${day}:`, 2)]);
+  if (!codes) throw new HttpError(404, '그날 기록이 없어요');
+  const ts = names.map(n => n.slice(16)).filter(t => /^\d{4}$/.test(t)).sort();
+  const vals = [];
+  for (let i = 0; i < ts.length; i += 20) vals.push(...await Promise.all(ts.slice(i, i + 20).map(t => env.REPLAY.get(`replay:${day}:${t}`, 'json'))));
+  const frames = [], ix = { KOSPI: [], KOSDAQ: [] };
+  ts.forEach((t, n) => {
+    const f = vals[n];
+    if (!f) return;
+    frames.push({ t, p: f.p, r: f.r });
+    ix.KOSPI.push(f.i ? f.i[0] : null);
+    ix.KOSDAQ.push(f.i ? f.i[1] : null);
+  });
+  return { date, codes, frames, index: ix };
 }
 
 // Cron entry. event.scheduledTime (ms) is the cron's nominal time; the dev harness passes a fake one.
@@ -631,36 +644,23 @@ async function recordFrame(event, env) {
   if (wd < 1 || wd > 5 || mins < 540 || mins > 930) return { skipped: 'outside-hours' };
   const bucket = mins - (mins % 5);
   const t = pad(Math.floor(bucket / 60)) + pad(bucket % 60);
-  const day = ymd(k), key = 'frames:' + day;
-  const doc = (await env.REPLAY.get(key, 'json')) || null;
-  if (doc && (doc.frames || []).some(f => f.t === t)) return { skipped: 'duplicate', t };
+  const day = ymd(k), fkey = `replay:${day}:${t}`, ckey = `replay:${day}:codes`;
+  if ((await env.REPLAY.list({ prefix: fkey, limit: 1 })).keys.some(x => x.name === fkey)) return { skipped: 'duplicate', t };
   const q = await getQuotes(env);
   const closed = q.marketStatus.KOSPI !== 'OPEN' && q.marketStatus.KOSDAQ !== 'OPEN';
   // Holiday guard: both indices CLOSE. The 15:30 frame is allowed when the data is stamped today (the close may already have flipped).
   if (closed && !(t === '1530' && (q.asOf || '').slice(0, 10) === dash(day))) return { skipped: 'closed', t };
-  const out = doc || { codes: q.stocks.map(s => s.c), frames: [] };
+  let codes = await env.REPLAY.get(ckey, 'json');
+  if (!codes) {
+    codes = q.stocks.map(s => s.c);
+    await env.REPLAY.put(ckey, JSON.stringify(codes), { expirationTtl: REPLAY_TTL });
+  }
   const by = new Map(q.stocks.map(s => [s.c, s]));
   const ix = x => (q.index[x] ? round2(q.index[x].value) : null);
-  out.frames.push({
-    t,
-    p: out.codes.map(c => (by.has(c) ? Math.round(by.get(c).p) : null)),
-    r: out.codes.map(c => (by.has(c) ? round2(by.get(c).r) : null)),
+  await env.REPLAY.put(fkey, JSON.stringify({
+    p: codes.map(c => (by.has(c) ? Math.round(by.get(c).p) : null)),
+    r: codes.map(c => (by.has(c) ? round2(by.get(c).r) : null)),
     i: [ix('KOSPI'), ix('KOSDAQ')],
-  });
-  await env.REPLAY.put(key, JSON.stringify(out), { expirationTtl: 40 * 86400 });
-  if (!doc) await pruneReplay(env, new Date(k.getTime() - 30 * 86400e3));                    // once a day: when the day's first frame is written
-  return { wrote: t, frames: out.frames.length };
-}
-async function pruneReplay(env, cutoffDate) {
-  const cut = ymd(cutoffDate);
-  let removed = 0;
-  try {
-    let cursor;
-    for (let n = 0; n < 5 && removed < 20; n++) {
-      const l = await env.REPLAY.list({ prefix: 'frames:', cursor });
-      for (const x of l.keys) if (/^frames:\d{8}$/.test(x.name) && x.name.slice(7) < cut && removed < 20) { await env.REPLAY.delete(x.name); removed++; }
-      if (l.list_complete) break;
-      cursor = l.cursor;
-    }
-  } catch (_) { /* pruning is best effort */ }
+  }), { expirationTtl: REPLAY_TTL });
+  return { wrote: t };
 }
