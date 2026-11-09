@@ -46,11 +46,21 @@ class Page:
         self.ctx = browser.new_context(**opts)
         self.pg = self.ctx.new_page()
         self.console, self.reqs = [], []
-        self.pg.on('console', lambda m: self.console.append(f'{m.type}: {m.text}') if m.type in ('error', 'warning') else None)
+        self.ign = 0   # heatmap-side 404s the mock does not serve (data/close.json, api/breadth) are not the stock page's
+        self.pg.on('response', lambda r: setattr(self, 'ign', self.ign + 1) if r.status == 404 and ('/data/close.json' in r.url or '/api/breadth' in r.url) else None)
+        self.pg.on('console', self._console)
         self.pg.on('pageerror', lambda e: self.console.append(f'pageerror: {e}'))
         self.pg.on('request', lambda r: self.reqs.append((time.time(), r.url)))
         if url:
             self.pg.goto(url)
+
+    def _console(self, m):
+        if m.type not in ('error', 'warning'):
+            return
+        if m.type == 'error' and 'Failed to load resource' in m.text and self.ign > 0:
+            self.ign -= 1
+            return
+        self.console.append(f'{m.type}: {m.text}')
 
     def count(self, frag, since=0):
         return sum(1 for t, u in self.reqs if frag in u and t >= since)
@@ -1083,11 +1093,15 @@ def run_motion(b):
         P.pg.add_init_script("localStorage.setItem('khm.stockTab', JSON.stringify('ob'))")
         P.ev("() => KHStock.open('005930')"); P.wait_chart(); P.pg.click('#sp-t-ob'); P.pg.wait_for_selector('.sp-q span:not(:empty)'); P.pg.wait_for_timeout(500)
         first = P.ev("() => document.querySelectorAll('#sp-p-ob [data-fl]').length")
-        mock('/__config?obfix=2'); P.ev(REFRESH); P.pg.wait_for_timeout(150)
+        mock('/__config?obfix=2'); P.ev(REFRESH)
+        if mode == 'fancy': P.pg.wait_for_selector('#sp-p-ob .sp-q[data-fl=up]', state='attached', timeout=5000)
+        else: P.pg.wait_for_timeout(600)
         mid = P.ev("() => [document.querySelectorAll('#sp-p-ob .sp-q[data-fl=up]').length, document.querySelectorAll('#sp-p-ob .sp-q[data-fl=dn]').length, document.querySelectorAll('#sp-p-ob .sp-q:not([data-fl])').length]")
         P.pg.wait_for_timeout(900)
         end = P.ev("() => document.querySelectorAll('#sp-p-ob [data-fl]').length")
-        mock('/__config?obfix=1'); P.ev(REFRESH); P.pg.wait_for_timeout(150)
+        mock('/__config?obfix=1'); P.ev(REFRESH)
+        if mode == 'fancy': P.pg.wait_for_selector('#sp-p-ob .sp-q[data-fl=dn]', state='attached', timeout=5000)
+        else: P.pg.wait_for_timeout(600)
         down = P.ev("() => document.querySelectorAll('#sp-p-ob .sp-q[data-fl=dn]').length")
         out[mode] = dict(first=first, mid=mid, end=end, down=down, err=NOISE(P))
         P.close()
@@ -1123,8 +1137,8 @@ def run_motion(b):
     for w in (360, 390, 768, 1280, 1440):
         mock('/__config?bump=')
         P = opened(w, 'fancy')
-        pv = P.ev("() => document.querySelector('.sp-price').dataset.v"); mock('/__config?bump=2300'); P.ev(REFRESH); wait_price(P, pv)
-        o = P.ev(OVERFLOW_JS); roll = P.ev("() => document.querySelectorAll('.od-c').length")
+        pv = P.ev("() => document.querySelector('.sp-price').dataset.v"); mock('/__config?bump=2300'); P.ev(REFRESH); P.pg.wait_for_selector('.sp-price .od-c', state='attached', timeout=5000)
+        roll = P.ev("() => document.querySelectorAll('.od-c').length"); o = P.ev(OVERFLOW_JS)
         ov[w] = {'doc': o['doc'], 'root': o['root'], 'n': o['n'], 'roll': roll, 'err': NOISE(P)}
         P.close()
     check('motion_overflow_zero_during_roll', all(v['doc'] <= 0 and v['root'] <= 0 and v['n'] == 0 and v['roll'] > 0 and not v['err'] for v in ov.values()), ov)
