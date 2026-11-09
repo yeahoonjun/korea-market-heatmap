@@ -2605,6 +2605,26 @@ a.sp-nw-a:visited .sp-nw-t { color: var(--fg2); }
 .sp-nw-m { display: flex; flex-wrap: wrap; align-items: center; gap: 3px 8px; font-size: 12px; color: var(--muted); }
 .sp-nw-press { color: var(--fg2); }
 .sp-nw-tag { font-size: 11px; line-height: 1.5; padding: 0 6px; border-radius: 4px; border: 1px solid var(--line2); color: var(--fg2); }
+/* 공시: kind filter (DART), source line + 지분 switch, tags */
+.sp-dfilt { display: flex; gap: 2px; margin-top: 8px; overflow-x: auto; scrollbar-width: none; border-bottom: 1px solid var(--line); }
+.sp-dfilt::-webkit-scrollbar { display: none; }
+.sp-dfilt[hidden], .sp-dfilt button[hidden], .sp-nw-src[hidden], .sp-switch[hidden] { display: none; }
+.sp-dfilt button { flex: none; display: inline-flex; align-items: center; gap: 5px; min-height: 40px; padding: 0 10px; font-size: 13.5px; font-weight: 600; color: var(--muted); box-shadow: inset 0 -2px 0 transparent; }
+.sp-dfilt button small { font-size: 11.5px; font-weight: 500; color: var(--muted); font-variant-numeric: tabular-nums; }
+.sp-dfilt button:hover { color: var(--fg); }
+.sp-dfilt button[aria-pressed="true"] { color: var(--fg); box-shadow: inset 0 -2px 0 var(--amber); }
+.sp-dfilt button[aria-pressed="true"] small { color: var(--fg2); }
+.sp-nw-src { display: flex; flex-wrap: wrap; align-items: center; gap: 0 12px; margin-top: 4px; font-size: 12px; color: var(--muted); }
+.sp-nw-src > span { padding: 6px 0; }
+.sp-switch { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; margin-left: auto; padding: 0 2px; font-size: 12.5px; font-weight: 600; color: var(--fg2); }
+.sp-switch i { position: relative; flex: none; width: 32px; height: 18px; border-radius: 9px; background: var(--line2); transition: background .15s; }
+.sp-switch i::after { content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: var(--fg2); transition: transform .15s; }
+.sp-switch:hover { color: var(--fg); }
+.sp-switch[aria-checked="true"] { color: var(--fg); }
+.sp-switch[aria-checked="true"] i { background: var(--amber); }
+.sp-switch[aria-checked="true"] i::after { transform: translateX(14px); background: #1b1404; }
+.sp-nw-tag.k { color: var(--fg2); background: var(--panel2); border-color: transparent; }
+.sp-nw-tag.fix { color: var(--fg); border-color: var(--fg2); }
 .sp-vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
 /* ── tables ───────────────────────── */
@@ -2706,7 +2726,7 @@ a.sp-nw-a:visited .sp-nw-t { color: var(--fg2); }
 @media (prefers-reduced-motion: reduce) {
   .sp.sp-in { animation: none; }
   .sp-chip.live i, .sp-skel, .sp-chart-skel i { animation: none; }
-  .sp-q .bar, .sp-seg button, .sp-star svg { transition: none; }
+  .sp-q .bar, .sp-seg button, .sp-star svg, .sp-switch i, .sp-switch i::after { transition: none; }
 }
 
 </style>
@@ -3674,19 +3694,33 @@ function renderDaily() {
 
 /* ── 뉴스·공시 ── */
 // Both lists load when the tab opens and stay cached per stock for 5 minutes (also across closing and reopening the page).
+// 공시 comes from OpenDART (date only, kind, filer, 비고) or, when the Worker has no DART access, from Naver (with time).
 const NEWS_KINDS = [
-  { key: 'news', label: '뉴스', path: 'news', empty: '최근 뉴스가 없어요.', note: '네이버 증권에 모인 종목 뉴스예요. 비슷한 기사는 하나만 보여요. 누르면 새 탭에서 열려요.' },
-  { key: 'disc', label: '공시', path: 'disclosures', empty: '최근 공시가 없어요.', note: '네이버 증권의 공시 목록이에요. 거래소 시장조치 안내도 함께 나와요. 누르면 새 탭에서 열려요.' },
+  { key: 'news', label: '뉴스', path: 'news', empty: '최근 뉴스가 없어요.', emptySub: '거래가 적거나 새로 상장한 종목이면 기사가 드물어요.',
+    note: '네이버 증권에 모인 종목 뉴스예요. 비슷한 기사는 하나만 보여요. 누르면 새 탭에서 열려요.' },
+  { key: 'disc', label: '공시', path: 'disclosures', empty: '최근 공시가 없어요.', emptySub: '최근에 낸 공시가 없는 종목이에요.', note: '누르면 새 탭에서 열려요.' },
 ];
 const NEWS_KIND = Object.fromEntries(NEWS_KINDS.map(k => [k.key, k]));
 const NEWS_TTL = 5 * 60e3;
-const newsCache = new Map();   // `${code}|${kind}` → {at, rows}
+const newsCache = new Map();   // `${code}|${kind}` → {at, rows, source}
 let newsKind = NEWS_KIND[store.get('stockNewsKind', 'news')] ? store.get('stockNewsKind', 'news') : 'news';
 const MARKET_NOTICE = /가격제한폭|확대요건|투자주의|투자경고|투자위험|단기과열|매매거래정지|공매도 과열/;
+// DART kinds (Worker: 정기·실적·주요·지분·기타). 지분 reports (임원·주요주주 소유상황 등) swamp big caps, so they stay out
+// of 전체 — and their chip stays hidden — until "지분 공시 포함" is switched on.
+const DISC_FILTERS = ['전체', '주요', '실적', '정기', '지분'];
+let discFilter = DISC_FILTERS.includes(store.get('stockDiscFilter', '전체')) ? store.get('stockDiscFilter', '전체') : '전체';
+let discEquity = store.get('stockDiscEquity', false) === true;
+const DART_NOTE = { 정: '정정', 철: '철회' };   // 비고 letters worth a tag; 연·유·코·채·넥·공 are not shown
 
 function newsReset() { S.news = { news: null, disc: null }; }
 function newsShow() { for (const k of NEWS_KINDS) loadNews(k.key); renderNews(); }
 function setNewsKind(k) { newsKind = k; store.set('stockNewsKind', k); renderNews(); }
+function setDiscFilter(f) { discFilter = f; store.set('stockDiscFilter', f); renderNews(); }
+function setDiscEquity(on) {
+  discEquity = on; store.set('stockDiscEquity', on);
+  if (!on && discFilter === '지분') { discFilter = '전체'; store.set('stockDiscFilter', '전체'); }
+  renderNews();
+}
 async function loadNews(kind) {
   const code = S.code, g = S.gen, key = code + '|' + kind;
   const hit = newsCache.get(key);
@@ -3695,7 +3729,8 @@ async function loadNews(kind) {
   try {
     const j = await api(NEWS_KIND[kind].path, 'nw-' + kind);
     if (g !== S.gen) return;
-    newsCache.set(key, { at: Date.now(), rows: Array.isArray(j.rows) ? j.rows.filter(r => r && r.title) : [] });
+    newsCache.set(key, { at: Date.now(), rows: Array.isArray(j.rows) ? j.rows.filter(r => r && r.title) : [],
+      source: j.source === 'dart' ? 'dart' : kind === 'disc' ? 'naver' : null });
     S.news[kind] = null;
   } catch (e) {
     if (aborted(e) || g !== S.gen) return;
@@ -3704,7 +3739,7 @@ async function loadNews(kind) {
   if (S.tab === 'news') renderNews();
 }
 
-// Worker datetimes are ISO in KST; a value without a zone (공시) or Naver's YYYYMMDDHHmm is read as KST too
+// Worker datetimes are ISO in KST; a value without a zone (Naver 공시) or Naver's YYYYMMDDHHmm is read as KST too
 function parseKst(v) {
   if (!v) return null;
   let s = String(v).trim();
@@ -3716,56 +3751,111 @@ function parseKst(v) {
   const d = new Date(s);
   return isNaN(d) ? null : d;
 }
+const dayDiff = (a, n) => Math.round((Date.UTC(n.y, n.m - 1, n.d) - Date.UTC(a.y, a.m - 1, a.d)) / 864e5);
+const dayLabel = (a, n) => (a.y === n.y ? `${a.m}월 ${a.d}일` : `${a.y}.${pad(a.m)}.${pad(a.d)}`);
 function relTime(d, now) {
   const sec = (now - d) / 1000, a = kst(d), n = kst(now);
   if (sec < 60 && sec > -300) return '방금';
   if (sec >= 60 && sec < 3600) return Math.floor(sec / 60) + '분 전';
   if (sec > 0 && a.key === n.key) return Math.floor(sec / 3600) + '시간 전';
-  const days = Math.round((Date.UTC(n.y, n.m - 1, n.d) - Date.UTC(a.y, a.m - 1, a.d)) / 864e5);
+  const days = dayDiff(a, n);
   if (days === 1) return '어제';
   if (days > 1 && days < 7) return days + '일 전';
-  return a.y === n.y ? `${a.m}월 ${a.d}일` : `${a.y}.${pad(a.m)}.${pad(a.d)}`;
+  return dayLabel(a, n);
+}
+// date-only rows (DART 접수일): 오늘 / 어제 / 11월 6일 — never a made-up clock time
+function relDate(ymd, now) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(ymd || ''));
+  if (!m) return null;
+  const a = { y: +m[1], m: +m[2], d: +m[3] }, n = kst(now), days = dayDiff(a, n);
+  return days === 0 ? '오늘' : days === 1 ? '어제' : dayLabel(a, n);
 }
 const fullTime = d => { const p = kst(d); return `${p.y}년 ${p.m}월 ${p.d}일 (${WD[p.wd]}) ${pad(p.hh)}:${pad(p.mm)}`; };
+const fullDate = ymd => { const [y, m, d] = ymd.split('-').map(Number); return `${y}년 ${m}월 ${d}일 (${WD[new Date(Date.UTC(y, m - 1, d)).getUTCDay()]}) 접수`; };
 const safeUrl = u => (typeof u === 'string' && /^https?:\/\//i.test(u) ? u : null);
+const bareName = v => String(v || '').replace(/\(주\)|㈜|주식회사|\s/g, '');
 
 function buildNews(panel) {
   R.nw = {
     seg: h('div', { class: 'sp-nwseg', role: 'group', 'aria-label': '뉴스·공시 고르기' },
       NEWS_KINDS.map(k => h('button', { type: 'button', 'data-kind': k.key, 'aria-pressed': 'false', onclick: () => setNewsKind(k.key) },
         h('span', { text: k.label }), h('small', { class: 'num' })))),
+    filters: h('div', { class: 'sp-dfilt', role: 'group', 'aria-label': '공시 종류', hidden: true },
+      DISC_FILTERS.map(f => h('button', { type: 'button', 'data-f': f, 'aria-pressed': 'false', onclick: () => setDiscFilter(f) },
+        h('span', { text: f }), h('small', { class: 'num' })))),
+    src: h('div', { class: 'sp-nw-src', hidden: true }),
     body: h('div', { class: 'sp-nw-body' }),
     note: h('p', { class: 'sp-note' }),
   };
-  panel.append(R.nw.seg, R.nw.body, R.nw.note);
+  R.nw.srcText = h('span');
+  R.nw.equity = h('button', { type: 'button', class: 'sp-switch', role: 'switch', 'aria-checked': 'false', onclick: () => setDiscEquity(!discEquity) },
+    h('span', { class: 'sp-switch-t', text: '지분 공시 포함' }), h('i', { 'aria-hidden': 'true' }));
+  R.nw.src.append(R.nw.srcText, R.nw.equity);
+  panel.append(R.nw.seg, R.nw.filters, R.nw.src, R.nw.body, R.nw.note);
 }
+function tag(text, cls) { return h('span', { class: 'sp-nw-tag' + (cls ? ' ' + cls : ''), text }); }
 function newsRow(r, kind, now) {
-  const d = parseKst(r.datetime), url = safeUrl(r.url);
-  const meta = [];
-  if (kind === 'disc' && MARKET_NOTICE.test(r.title)) meta.push(h('span', { class: 'sp-nw-tag', text: '시장조치' }));
-  if (r.press) meta.push(h('span', { class: 'sp-nw-press', text: String(r.press) }));
+  const url = safeUrl(r.url), meta = [];
+  if (kind === 'disc') {
+    if (r.kind) meta.push(tag(String(r.kind), 'k'));
+    for (const ch of new Set(String(r.note || ''))) if (DART_NOTE[ch]) meta.push(tag(DART_NOTE[ch], 'fix'));
+    if (!r.kind && MARKET_NOTICE.test(r.title)) meta.push(tag('시장조치'));
+    const own = bareName((S.sum && S.sum.name) || (KH.stock(S.code) || {}).n);
+    if (r.filer && bareName(r.filer) !== own) meta.push(h('span', { class: 'sp-nw-press', text: String(r.filer) }));
+  } else if (r.press) meta.push(h('span', { class: 'sp-nw-press', text: String(r.press) }));
+  const d = parseKst(r.datetime), rd = !d && relDate(r.date, now);
   if (d) meta.push(h('time', { datetime: d.toISOString(), title: fullTime(d), text: relTime(d, now) }));
+  else if (rd) meta.push(h('time', { datetime: r.date, title: fullDate(r.date), text: rd }));
   const kids = [h('span', { class: 'sp-nw-t', text: String(r.title) }), h('span', { class: 'sp-nw-m' }, meta)];
   return h('li', {}, url
     ? h('a', { class: 'sp-nw-a', href: url, target: '_blank', rel: 'noopener' }, kids, h('span', { class: 'sp-vh', text: ' (새 탭)' }))
     : h('div', { class: 'sp-nw-a' }, kids));
 }
+// 공시 rows after the kind filter and the 지분 switch (Naver rows have no kind and are all shown)
+function discRows(hit) {
+  if (hit.source !== 'dart') return hit.rows;
+  if (discFilter !== '전체') return hit.rows.filter(r => r.kind === discFilter);
+  return discEquity ? hit.rows : hit.rows.filter(r => r.kind !== '지분');
+}
 function renderNews() {
   if (!R.nw) return;
   const kind = newsKind, meta = NEWS_KIND[kind], now = new Date();
   for (const b of R.nw.seg.children) {
-    const hit = newsCache.get(S.code + '|' + b.dataset.kind);
-    b.setAttribute('aria-pressed', String(b.dataset.kind === kind));
-    b.lastChild.textContent = hit ? String(hit.rows.length) : '';
+    const k = b.dataset.kind, hk = newsCache.get(S.code + '|' + k);
+    b.setAttribute('aria-pressed', String(k === kind));
+    b.lastChild.textContent = hk ? String(k === 'disc' ? discRows(hk).length : hk.rows.length) : '';
   }
   const hit = newsCache.get(S.code + '|' + kind), st = S.news[kind];
+  const dart = kind === 'disc' && hit && hit.source === 'dart';
+  // 공시: filters (DART only) and the source line
+  R.nw.filters.hidden = !(dart && hit.rows.length);
+  R.nw.src.hidden = !(kind === 'disc' && hit);
+  if (kind === 'disc' && hit) {
+    R.nw.srcText.textContent = dart ? '출처: DART 전자공시 · 최근 6개월 · 접수일 기준' : '출처: 네이버 증권 · 거래소 시장조치 안내도 함께 나와요';
+    R.nw.equity.hidden = !(dart && hit.rows.some(r => r.kind === '지분'));
+    R.nw.equity.setAttribute('aria-checked', String(discEquity));
+  }
+  if (dart) {
+    if (!discEquity && discFilter === '지분') discFilter = '전체';
+    for (const b of R.nw.filters.children) {
+      const f = b.dataset.f, n = f === '전체' ? hit.rows.filter(r => discEquity || r.kind !== '지분').length : hit.rows.filter(r => r.kind === f).length;
+      b.hidden = f === '지분' && !discEquity;
+      b.setAttribute('aria-pressed', String(f === discFilter));
+      b.lastChild.textContent = String(n);
+    }
+  }
   let body;
-  if (hit && hit.rows.length) body = h('ul', { class: 'sp-nw-list' }, hit.rows.map(r => newsRow(r, kind, now)));
-  else if (hit) body = msgBox(meta.empty, kind === 'news' ? '거래가 적거나 새로 상장한 종목이면 기사가 드물어요.' : '최근에 낸 공시가 없는 종목이에요.');
+  const rows = hit ? (kind === 'disc' ? discRows(hit) : hit.rows) : null;
+  if (rows && rows.length) body = h('ul', { class: 'sp-nw-list' }, rows.map(r => newsRow(r, kind, now)));
+  else if (hit && hit.rows.length) {   // the filter left nothing
+    const onlyEquity = !discEquity && discFilter === '전체' && hit.rows.every(r => r.kind === '지분');
+    body = msgBox(onlyEquity ? '최근 6개월 공시가 모두 지분 공시예요.' : `최근 6개월 동안 ${discFilter} 공시가 없어요.`, onlyEquity ? "'지분 공시 포함'을 켜면 볼 수 있어요." : '다른 종류를 골라 보세요.');
+  } else if (hit) body = msgBox(meta.empty, meta.emptySub);
   else if (st && st.err) body = msgBox(`${meta.label}를 불러오지 못했어요.`, errSub(st.err), () => { loadNews(kind); renderNews(); });
   else body = h('div', { class: 'sp-skel-rows', role: 'status', 'aria-label': `${meta.label} 불러오는 중` }, Array.from({ length: 6 }, () => skel('100%', '52px')));
   R.nw.body.replaceChildren(body);
   R.nw.note.textContent = meta.note;
+  R.nw.note.hidden = !(rows && rows.length);
 }
 
 /* ───────────────── open / close ───────────────── */
