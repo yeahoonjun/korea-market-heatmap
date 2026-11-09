@@ -258,3 +258,25 @@ python3 tmp/shot.py /home/claude/heatmap/dist/index.html    # 1440×900 / 390×8
 - `KH.setReplay(frame, {tween:ms, easing?:'out'})` — `fancy`에서만 보간, 아니면 즉시.
 - `KH3D.show()`, `KH3D.hide()` → `Promise`(fancy면 접히는 0.36초 뒤 끝남), `KH3D.isOn()`, `KH3D.stats()`. `#map3d`는 템플릿이 `#map` 위에 놓고(`#map`은 visibility:hidden으로 계속 배치), 실패 시 `kh:3d-unavailable {reason,message}`.
 - `/api/market`의 `session:{start,end}`.
+
+## 3-8. NXT 가격 반영 (사용자 2026-11-10 08:07: "NXT 가격은 적용 안돼?")
+
+실측(11/10 08:08): 09:00 전에는 네이버 `closePrice`가 전일 KRX 종가(0.00%)로 돌아가 있고, **NXT 프리마켓 가격은 `overMarketPriceInfo`에만** 있어요(`tradingSessionType:'PRE_MARKET'`, `overMarketStatus:'OPEN'`, `overPrice`, `compareToPreviousClosePrice`, `fluctuationsRatio`, `compareToPreviousPrice`, `localTradedAt`). 코스피 상위 300 중 248종목이 NXT에서 거래돼요. 정규장 뒤에는 `AFTER_MARKET`(15:30~20:00)이 같은 자리에 와요. 그래서 지금 지도는 장 시작 전에 전부 0%(회색)예요.
+
+**Worker**
+- `/api/quotes` 행과 `/api/breadth` 행에 NXT 값: quotes 행 `nx:{p, d, r, s:'pre'|'after', o:1|0, t}`(`o`=그 세션 진행 중, `t`=localTradedAt, 부호는 `compareToPreviousPrice`로), breadth 행은 `[코드, 등락률, lim?, nxr?]`(네 번째가 NXT 등락률, 없으면 생략 — lim이 없으면 세 번째 자리에 `0`). `overPrice`가 없거나 `tradeStopType`이 거래정지면 생략. 응답 머리에 `nxt:{session:'pre'|'after'|null, open:boolean}`(행들에서 판단).
+- `/api/stock/{code}/summary`에 `nxt:{p, d, r, s, o, t}|null`.
+- 무료 플랜 CPU: 같은 polling 응답에서 읽기만 하니 추가 호출 없음.
+
+**히트맵 — 가격 기준 선택을 하나로**
+- 머리글의 기존 `정규장 종가 · NXT 포함` 자리를 **가격 기준** 선택으로 일반화: `KRX · NXT`.
+  - NXT 세션이 **열려 있을 때**(프리마켓 08:00~08:50, 애프터마켓 15:30~20:00): 기본 **NXT**. NXT 가격이 있는 종목은 `nx.p/d/r`로 칠하고, NXT에서 거래되지 않는 종목은 KRX 값 그대로 + 옅게(빗금 또는 낮은 채도) 표시하고 툴팁에 "NXT 거래 없음".
+  - 프리마켓 중 `KRX`를 고르면 KRX는 아직 거래 전이니 **어제 KRX 종가 기준 등락**(close.json)으로 보여 주고 "어제 종가" 표시.
+  - NXT 세션이 **닫혀 있을 때**: 지금처럼 기본 **KRX 정규장 종가**, `NXT`를 고르면 마지막 NXT 가격(애프터마켓 종가).
+  - 정규장(09:00~15:30) 중에는 선택을 숨기고 KRX 실시간(지금 그대로).
+  - 사용자가 고른 값은 세션(프리/정규/애프터/야간)이 바뀔 때까지만 유지하고, 세션이 바뀌면 그 세션의 기본으로.
+- 머리글 배지: "NXT 프리마켓 · 08:12 기준" / "NXT 애프터마켓 · 17:40 기준" / "KRX 15:30 종가". 휴대폰은 짧게("NXT 08:12").
+- 크기(시총)는 KRX 시총을 가격 비율로 보정(`cap×p_nxt/p_krx`), 사이드 패널·표·툴팁·검색 결과·관심 보기·테마 보기 모두 같은 값. 등락 분포도 같은 기준(NXT면 `nxr`가 있는 종목만, 범위에 "NXT 248종목" 식으로).
+- 리플레이는 KRX 그대로.
+
+**종목 페이지**: 머리 현재가 아래에 NXT 줄 — 세션 중이면 "NXT 프리마켓 201,500 +6.11% · 08:12"(오름/내림 색), 끝났으면 "NXT 애프터 종가 …". NXT 미거래 종목은 줄 없음.
