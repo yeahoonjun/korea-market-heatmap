@@ -216,6 +216,49 @@ function updateTicker(kids) {
   tkSize(false);
 }
 
+
+/* ── odometer: when a strip value changes and effects are 'fancy', the changed digits roll like a counter ── */
+const motion = () => { try { if (has('motion')) { const m = KH.motion(); if (m === 'reduced' || m === 'standard' || m === 'fancy') return m; } } catch (e) { /* default below */ } return reduceMQ.matches ? 'reduced' : 'standard'; };
+const stripPrev = new Map();                                   // key → { v, r, vt, rt } from the previous render
+function rollText(el, oldT, newT, up) {
+  if (!el || oldT === newT || !oldT) return;
+  const a = [...oldT], b = [...newT];
+  const kids = b.map((ch, i) => {
+    const o = a[a.length - (b.length - i)];
+    if (o === undefined || o === ch || !/[0-9]/.test(ch + o)) return document.createTextNode(ch);
+    const col = h('span', { class: 'od' }, h('span', { class: 'od-s' }, up ? h('i', { text: o }) : h('i', { text: ch }), up ? h('i', { text: ch }) : h('i', { text: o })));
+    col.dataset.up = up ? '1' : '0';
+    return col;
+  });
+  el.replaceChildren(...kids);
+  let k = 0;
+  const cols = [...el.querySelectorAll('.od-s')].reverse();           // the last digit moves first
+  for (const st of cols) {
+    const from = st.parentNode.dataset.up === '1' ? 'translateY(0)' : 'translateY(-50%)', to = st.parentNode.dataset.up === '1' ? 'translateY(-50%)' : 'translateY(0)';
+    try { st.animate([{ transform: from }, { transform: to }], { duration: 520, delay: k++ * 45, easing: 'cubic-bezier(.2,.7,.2,1)', fill: 'backwards' }); } catch (e) { /* static digits are fine */ }
+  }
+}
+function rollChanged(items) {
+  const lvl = motion();
+  const seen = new Set();
+  for (const it of items || []) {
+    const v = +it.value, r = +it.ratio, key = it.key;
+    seen.add(key);
+    const prev = stripPrev.get(key);
+    const cur = { v, r };
+    stripPrev.set(key, cur);
+    if (!prev || lvl !== 'fancy' || document.hidden || !stripEl) continue;
+    if (isFinite(v) && isFinite(prev.v) && v !== prev.v) {
+      const def = STRIP[key] || { dp: 2 };
+      const oldT = key === 'BTC' && prev.v >= 1e8 ? krwShort(prev.v) : fixed(prev.v, def.dp);
+      for (const el of stripEl.querySelectorAll(`.xs-item[data-k="${key}"] .xs-v`)) rollText(el, oldT, el.textContent, v > prev.v);
+    }
+    if (isFinite(r) && isFinite(prev.r) && r !== prev.r) {
+      for (const el of stripEl.querySelectorAll(`.xs-item[data-k="${key}"] .xs-r`)) rollText(el, pct(prev.r), el.textContent, r > prev.r);
+    }
+  }
+}
+
 function renderStrip() {
   if (!stripEl) return;
   const items = strip.items;
@@ -254,6 +297,7 @@ function renderStrip() {
   // the header's own 코스피/코스닥 readout (#idx) duplicates the strip
   document.documentElement.classList.toggle('xs-on', items.some(it => it.key === 'KOSPI' || it.key === 'KOSDAQ'));
   stripOverflow();
+  rollChanged(items);
 }
 function stripOverflow() {
   if (!stripEl || stripEl.hidden) return;
@@ -286,6 +330,7 @@ async function pollStrip() {
     const j = await getJSON('api/market');
     if (!j || !Array.isArray(j.items)) throw new Error('bad shape');
     strip.items = j.items; strip.asOf = j.asOf || new Date().toISOString(); strip.failed = false;
+    strip.session = j.session && /^\d{4}$/.test(j.session.start) && /^\d{4}$/.test(j.session.end) ? j.session : null;
   } catch (e) {
     strip.failed = true;
   }
@@ -809,9 +854,12 @@ function showFrame(i) {
   }
   R.prices = prices;
   cancelAnimationFrame(R.raf);
-  R.raf = requestAnimationFrame(() => { try { KH.setReplay({ t: String(f.t), date: day.date, prices }); } catch (e) { /* map keeps its last frame */ } });
+  // 'fancy' timelapse: while playing, the map tweens from frame to frame (the template ignores the option when it can't)
+  const tw = R.playing && motion() === 'fancy' ? Math.round(1000 / R.speed * 0.92) : 0;
+  R.raf = requestAnimationFrame(() => { try { KH.setReplay({ t: String(f.t), date: day.date, prices }, tw ? { tween: tw } : undefined); } catch (e) { /* map keeps its last frame */ } });
   const ui = R.ui, sl = slotOfT(f.t);
   ui.time.textContent = R.frameT;
+  bigUpdate();
   ui.slider.value = sl;
   ui.slider.setAttribute('aria-valuetext', `${dayLabel(day.date)} ${R.frameT}`);
   ui.slider.style.setProperty('--pos', (sl / SESSION.slots * 100) + '%');
@@ -827,6 +875,22 @@ function showFrame(i) {
   }));
   const lastT = hhmm(day.frames[day.frames.length - 1].t);
   ui.day.textContent = `${i + 1}/${day.frames.length}장면${hmMin(lastT) < SESSION.s1 ? ` · ${lastT}까지 기록` : ''}`;
+}
+
+/* big time readout over a corner of the map while the timelapse plays ('fancy' only) */
+function bigUpdate() {
+  const R = replay;
+  const want = R.open && R.playing && R.day && motion() === 'fancy' && !document.hidden;
+  if (!want) { if (R.big) R.big.classList.remove('on'); return; }
+  const map = document.getElementById('map'), stage = map && map.closest('.stage');
+  if (!map || !stage || !map.offsetParent) { if (R.big) R.big.classList.remove('on'); return; }
+  if (!R.big) { R.big = h('div', { class: 'rp-big', 'aria-hidden': 'true' }, h('b', { class: 'rp-big-t' }), h('span', { class: 'rp-big-d' })); }
+  if (R.big.parentNode !== stage) stage.append(R.big);
+  R.big.style.right = (stage.offsetWidth - (map.offsetLeft + map.offsetWidth) + 12) + 'px';
+  R.big.style.bottom = (stage.offsetHeight - (map.offsetTop + map.offsetHeight) + 8) + 'px';
+  R.big.firstChild.textContent = R.frameT || '';
+  R.big.lastChild.textContent = dayLabel(R.day.date);
+  R.big.classList.add('on');
 }
 function seekSlot(sl) {
   const day = replay.day;
@@ -852,7 +916,7 @@ function play() {
   const R = replay;
   if (!R.day || R.playing) return;
   if (R.i >= R.day.frames.length - 1) showFrame(0);
-  R.playing = true; setPlayIcon();
+  R.playing = true; setPlayIcon(); bigUpdate();
   R.timer = setTimeout(tick, 1000 / R.speed);
 }
 function pause() {
@@ -861,6 +925,7 @@ function pause() {
   if (!R.playing) return;
   R.playing = false;
   if (R.ui) setPlayIcon();
+  bigUpdate();
 }
 function togglePlay() { replay.playing ? pause() : play(); }
 function setSpeed(v) {
@@ -877,6 +942,7 @@ function closeReplay() {
   cancelAnimationFrame(R.raf);
   try { KH.setReplay(null); } catch (e) { /* nothing to undo */ }
   R.el.hidden = true;
+  if (R.big) R.big.classList.remove('on');
   document.documentElement.classList.remove('rp-open');
   rpSetH();
   if (R.btn) { R.btn.setAttribute('aria-expanded', 'false'); R.btn.focus(); }
@@ -897,6 +963,268 @@ function rpKeys(e) {
   if (!R.day || !R.ui || R.ui.body.hidden) return;
   if (e.key === ' ' || e.code === 'Space') { e.preventDefault(); e.stopPropagation(); spaceTaken = true; if (!e.repeat) togglePlay(); }
   else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); e.stopPropagation(); step(e.key === 'ArrowLeft' ? -1 : 1); }
+}
+
+/* ═════════════ 5. Clock + session progress (#clock, §3-6) ═════════════ */
+const clockEl = document.getElementById('clock');
+const getSet = (k, d) => {
+  try { if (has('getSetting')) { const v = KH.getSetting(k); if (v != null) return v; } } catch (e) { /* storage fallback */ }
+  try { const v = localStorage.getItem('khm.set.' + k); if (v != null) return v === 'true' ? true : v === 'false' ? false : v; } catch (e) { /* default */ }
+  return d;
+};
+const kstNow = () => {
+  const d = new Date(Date.now() + 9 * 36e5);                    // KST wall clock, whatever the viewer's time zone is
+  const h24 = d.getUTCHours(), m = d.getUTCMinutes(), s = d.getUTCSeconds();
+  return { dow: d.getUTCDay(), h: h24, m, s, ms: d.getUTCMilliseconds(), min: h24 * 60 + m, date: d.toISOString().slice(0, 10) };
+};
+const two = n => String(n).padStart(2, '0');
+const hm2m = t => +String(t).slice(0, 2) * 60 + +String(t).slice(2, 4);
+const PH = { pre: '#6f78e6', am: '#5cc0f2', pm: '#ffb547', auc: '#ee7a2c', nxt: '#a97bf2', night: '#4a5f9c' };
+const PHN = { pre: '장 시작 전', am: '오전장', pm: '오후장', auc: '마감 동시호가', nxt: 'NXT 애프터마켓', night: '밤·휴장' };
+const ck = { on: false, style: 'flap', cells: [], timer: 0, raf: 0, busy: false, shown: '', lastMin: -1, key: '' };
+
+function ckSession() {
+  const s = strip.session;
+  const a = s ? hm2m(s.start) : 9 * 60, b = s ? hm2m(s.end) : 15 * 60 + 30;
+  return b > a ? { start: a, end: b } : { start: 9 * 60, end: 15 * 60 + 30 };
+}
+// phase from the KST clock. Holiday: weekend, or a weekday whose quotes carry no record from today once the session is under way
+function ckPhase(n) {
+  const { start, end } = ckSession();
+  const mid = Math.min(start + 180, Math.round((start + end) / 2)), auc = end - 10, nxtEnd = 20 * 60;
+  const t = n.min + n.s / 60;
+  let hol = n.dow === 0 || n.dow === 6;
+  if (!hol && LIVE && t >= start + 10) {
+    try {
+      let ms = null;
+      if (has('marketStatus')) ms = KH.marketStatus();
+      if (ms && typeof ms === 'object') { const v = Object.values(ms); hol = t < end && v.length > 0 && v.every(x => x === 'CLOSE'); }
+      else if (has('asOf')) { const a = KH.asOf(); const d = a ? new Date(a) : null; if (d && !isNaN(d) && kstYmd(d) < n.date) hol = true; }
+    } catch (e) { /* unknown: not a holiday */ }
+  }
+  const seg = { start, mid, auc, end };
+  if (hol) return { key: 'night', text: '휴장', fill: 0, mode: 'solid', seg };
+  if (t < 8 * 60) return { key: 'night', text: '장 시작 전', fill: 0, mode: 'solid', seg };
+  if (t < start) {
+    const left = Math.ceil(start - t);
+    return { key: 'pre', text: t >= start - 30 ? `장 시작 전 · ${left}분 남음` : '장 시작 전', fill: (t - 8 * 60) / (start - 8 * 60), mode: 'solid', seg };
+  }
+  if (t < end) {
+    const f = (t - start) / (end - start);
+    const key = t >= auc ? 'auc' : t >= mid ? 'pm' : 'am';
+    return { key, text: t >= auc ? '마감 동시호가' : `정규장 ${Math.min(99, Math.floor(f * 100))}%`, fill: f, mode: 'reg', seg, pct: Math.floor(f * 100) };
+  }
+  if (t < nxtEnd) return { key: 'nxt', text: '장 마감 · NXT 20:00까지', fill: (t - end) / (nxtEnd - end), mode: 'solid', seg };
+  return { key: 'night', text: '장 마감', fill: 0, mode: 'solid', seg };
+}
+
+/* split-flap digit: static top (new) + static bottom (old) + two flipping halves */
+function flapCell(ch) {
+  const half = (cls, c) => h('span', { class: 'xh ' + cls }, h('i', { text: c }));
+  const el = h('span', { class: 'xf' }, half('u', ch), half('d', ch));
+  el.cur = ch; el.want = ch; el.busy = false;
+  return el;
+}
+async function flipOnce(cell, from, to, dur, fancy) {
+  const u = cell.querySelector('.u'), d = cell.querySelector('.d');
+  u.firstChild.textContent = to;
+  const half = (cls, c) => h('span', { class: 'xh ' + cls }, h('i', { text: c }));
+  const fu = half('u fl', from), fd = half('d fl', to);
+  cell.append(fu, fd);
+  try {
+    const sh = fancy ? { filter: ['brightness(1)', 'brightness(.5)'] } : {};
+    await fu.animate([Object.assign({ transform: 'rotateX(0deg)' }, fancy ? { filter: 'brightness(1)' } : {}), Object.assign({ transform: 'rotateX(-90deg)' }, sh.filter ? { filter: sh.filter[1] } : {})], { duration: dur / 2, easing: 'ease-in', fill: 'forwards' }).finished;
+    fu.remove();
+    fd.style.transform = 'rotateX(90deg)';
+    await fd.animate([{ transform: 'rotateX(90deg)', filter: fancy ? 'brightness(.5)' : 'none' }, { transform: 'rotateX(0deg)', filter: 'brightness(1)' }], { duration: dur / 2, easing: 'cubic-bezier(.3,1.5,.5,1)', fill: 'forwards' }).finished;
+  } catch (e) { /* cancelled: settle below */ }
+  d.firstChild.textContent = to;
+  fu.remove(); fd.remove();
+  cell.cur = to;
+}
+async function cellSet(cell, ch, force) {
+  cell.want = ch;
+  if (cell.busy) return;
+  cell.busy = true;
+  try {
+    while (cell.cur !== cell.want || force) {
+      const lvl = motion(), to = cell.want, from = cell.cur;
+      const num = /^\d$/.test(from) && /^\d$/.test(to);
+      if (lvl === 'reduced' || document.hidden || !num && !force) {
+        cell.querySelectorAll('.xh i').forEach(i => { i.textContent = to; }); cell.cur = to;
+      } else if (lvl === 'fancy') {
+        // like a real board: the flaps between the old and the new digit fall one by one (at most four)
+        const steps = from === to ? 3 : Math.min(4, (+to - +from + 10) % 10 || 10);
+        let c = from;
+        for (let k = steps - 1; k >= 0; k--) { const nx = String((+to - k + 100) % 10); await flipOnce(cell, c, nx, 150, true); c = nx; }
+      } else {
+        await flipOnce(cell, from, to, from === to ? 300 : 260, false);
+      }
+      force = false;
+    }
+  } finally { cell.busy = false; }
+}
+
+function ckAnalogSvg() {
+  const S = (t, a, ...k) => svg(t, a, ...k);
+  const root = S('svg', { viewBox: '0 0 100 100', class: 'xa', 'aria-hidden': 'true', focusable: 'false' });
+  root.append(S('circle', { cx: 50, cy: 50, r: 49, fill: '#2a2c33' }), S('circle', { cx: 50, cy: 50, r: 46.5, fill: '#f4f1e8' }), S('circle', { cx: 50, cy: 50, r: 41.6, fill: 'none', stroke: '#d9d5c8', 'stroke-width': 0.5 }));
+  for (let i = 0; i < 60; i++) {
+    const a = i * 6 * Math.PI / 180, big = i % 5 === 0, r1 = 45, r2 = big ? 36.5 : 42.6;
+    if (big) root.append(S('line', { x1: 50 + Math.sin(a) * r1, y1: 50 - Math.cos(a) * r1, x2: 50 + Math.sin(a) * r2, y2: 50 - Math.cos(a) * r2, stroke: '#17181c', 'stroke-width': i % 15 === 0 ? 3.8 : 2.8, 'stroke-linecap': 'butt' }));
+    else root.append(S('circle', { cx: 50 + Math.sin(a) * 43.6, cy: 50 - Math.cos(a) * 43.6, r: 0.55, fill: '#6b6a64' }));
+  }
+  const gw = S('g', { class: 'xa-wig' });
+  const hh = S('g', { class: 'xa-g xa-hh' }, S('polygon', { points: '47.2,57 52.8,57 51.9,27 48.1,27', fill: '#17181c' }), S('rect', { x: 49.2, y: 33, width: 1.6, height: 15, fill: '#f4f1e8', opacity: 0.9 }));
+  const mh = S('g', { class: 'xa-g xa-mh' }, S('polygon', { points: '47.6,58 52.4,58 51.5,10 48.5,10', fill: '#17181c' }), S('rect', { x: 49.35, y: 17, width: 1.3, height: 24, fill: '#f4f1e8', opacity: 0.9 }));
+  const sh = S('g', { class: 'xa-g xa-sh' }, S('rect', { x: 49.35, y: 8, width: 1.3, height: 52, fill: '#ffb547' }), S('rect', { x: 48.4, y: 56, width: 3.2, height: 8.5, fill: '#ffb547' }));
+  gw.append(hh, mh, sh, S('circle', { cx: 50, cy: 50, r: 2.2, fill: '#ffb547', stroke: '#17181c', 'stroke-width': 0.8 }));
+  root.append(gw);
+  root._h = hh; root._m = mh; root._s = sh; root._w = gw;
+  return root;
+}
+function ckAnalogSet(n, sweep) {
+  const a = ck.analog; if (!a) return;
+  const lvl = motion();
+  const mAng = n.m * 6, hAng = (n.h % 12) * 30 + n.m * 0.5;
+  const tr = (el, ang, t) => { el.style.transition = t || 'none'; el.style.transform = `rotate(${ang}deg)`; };
+  const first = ck.mAng == null;
+  const minuteMoved = ck.mAng !== mAng;
+  const mt = lvl === 'reduced' || first ? 'none' : 'transform .38s cubic-bezier(.3,1.7,.5,1)';
+  if (minuteMoved) { tr(a._m, mAng, mt); tr(a._h, hAng, mt); ck.mAng = mAng; }
+  a._s.style.display = lvl === 'reduced' ? 'none' : '';
+  if (lvl === 'standard') tr(a._s, n.s * 6, n.s === 0 || first ? 'none' : 'transform .14s cubic-bezier(.4,2.2,.5,1)');
+  else if (lvl === 'fancy' && !sweep) { const f = Math.min(1, (n.s + n.ms / 1000) / 58.5); tr(a._s, f * 360, 'none'); }
+}
+function ckSweep() {
+  cancelAnimationFrame(ck.raf);
+  if (!ck.on || !ck.analog || motion() !== 'fancy' || document.hidden) return;
+  const frame = () => {
+    const n = kstNow();
+    // the station-clock way: the hand sweeps in 58.5 s, waits at 12, and the minute hand drops when it restarts
+    const f = Math.min(1, (n.s + n.ms / 1000) / 58.5);
+    ck.analog._s.style.transition = 'none'; ck.analog._s.style.transform = `rotate(${f * 360}deg)`;
+    ck.raf = requestAnimationFrame(frame);
+  };
+  ck.raf = requestAnimationFrame(frame);
+}
+
+function ckBuild() {
+  const narrow = matchMedia('(max-width: 760px)').matches;
+  const want = getSet('clockStyle', 'flap');
+  const style = want === 'both' ? 'both' : want === 'analog' && !narrow ? 'analog' : 'flap';   // phones: analog alone gives way to the flap digits
+  ck.style = style; ck.cells = []; ck.analog = null; ck.mAng = null; ck.shown = '';
+  const face = h('span', { class: 'xc-face xc-' + style });
+  if (style !== 'flap') { ck.analog = ckAnalogSvg(); face.append(ck.analog); }
+  if (style === 'analog') { ck.dig = h('span', { class: 'xc-dig', text: '' }); face.append(ck.dig); }
+  else {
+    const n = kstNow();
+    const cells = [...(two(n.h) + two(n.m))].map(flapCell);
+    ck.cells = cells;
+    ck.sec = h('span', { class: 'xc-sec', text: two(n.s) });
+    face.append(h('span', { class: 'xc-flap' }, cells[0], cells[1], h('span', { class: 'xc-colon', text: ':' }), cells[2], cells[3]), ck.sec);
+  }
+  ck.btn = h('button', { type: 'button', class: 'xc-btn', onclick: ckClick }, face);
+  ck.fill = h('div', { class: 'xc-fill' });
+  ck.segs = h('div', { class: 'xc-segs' });
+  ck.bar = h('div', { class: 'xc-bar', role: 'progressbar', 'aria-valuemin': 0, 'aria-valuemax': 100 }, ck.segs, ck.fill);
+  ck.txt = h('div', { class: 'xc-txt' });
+  clockEl.replaceChildren(ck.btn, ck.bar, ck.txt);
+}
+
+function ckRender(instant) {
+  if (!ck.on || !clockEl) return;
+  const n = kstNow(), lvl = motion();
+  const t = two(n.h) + two(n.m);
+  if (ck.cells.length) {
+    ck.cells.forEach((c, i) => cellSet(c, t[i]));
+    ck.sec.textContent = lvl === 'reduced' ? '' : two(n.s);
+  }
+  if (ck.analog) ckAnalogSet(n);
+  if (ck.dig) ck.dig.textContent = `${two(n.h)}:${two(n.m)}`;
+  if (ck.lastMin !== n.min) {
+    ck.lastMin = n.min;
+    ck.btn.setAttribute('aria-label', `한국 증시 히트맵 · 지금 ${two(n.h)}:${two(n.m)} · 눌러서 새로고침`);
+  }
+  const ph = ckPhase(n);
+  const smooth = lvl === 'fancy';
+  const sig = ph.key + ph.mode + ph.seg.start + ph.seg.end;
+  if (sig !== ck.sig) {
+    ck.sig = sig;
+    const { start, mid, auc, end } = ph.seg, W = end - start;
+    const p = v => ((v - start) / W * 100).toFixed(2) + '%';
+    const tint = c => c + '38';
+    ck.segs.style.background = `linear-gradient(90deg,${tint(PH.am)} 0 ${p(mid)},${tint(PH.pm)} ${p(mid)} ${p(auc)},${tint(PH.auc)} ${p(auc)} 100%)`;
+    ck.fill.style.background = ph.mode === 'reg'
+      ? `linear-gradient(90deg,${PH.am} 0 ${p(mid)},${PH.pm} ${p(mid)} ${p(auc)},${PH.auc} ${p(auc)} 100%)`
+      : PH[ph.key];
+    ck.bar.title = `장 시작 전 08:00~${two(start / 60 | 0)}:${two(start % 60)} · 오전장 ~${two(mid / 60 | 0)}:${two(mid % 60)} · 오후장 ~${two(auc / 60 | 0)}:${two(auc % 60)} · 마감 동시호가 ~${two(end / 60 | 0)}:${two(end % 60)} · NXT 애프터마켓 ~20:00`;
+    ck.txt.style.color = PH[ph.key];
+  }
+  ck.fill.style.transition = smooth ? 'clip-path 1s linear' : 'none';
+  ck.fill.style.clipPath = `inset(0 ${(100 - Math.max(0, Math.min(1, ph.fill)) * 100).toFixed(2)}% 0 0)`;
+  if (ck.txt.textContent !== ph.text) ck.txt.textContent = ph.text;
+  ck.bar.setAttribute('aria-valuenow', Math.round(Math.max(0, Math.min(1, ph.fill)) * 100));
+  ck.bar.setAttribute('aria-valuetext', ph.text);
+  ck.bar.dataset.phase = ph.key;
+}
+function ckSchedule() {
+  clearTimeout(ck.timer);
+  if (!ck.on || document.hidden) return;
+  const lvl = motion();
+  const now = Date.now();
+  const per = lvl === 'reduced' ? 60000 : 1000;
+  ck.timer = setTimeout(() => { ckRender(); ckSchedule(); }, per - (now % per) + 20);
+}
+async function ckClick() {
+  if (ck.busy) return;
+  ck.busy = true;
+  ck.btn.setAttribute('aria-busy', 'true'); ck.btn.classList.add('xc-busy');
+  const lvl = motion();
+  if (lvl !== 'reduced') {
+    ck.cells.forEach((c, i) => setTimeout(() => cellSet(c, c.cur, true), i * 60));
+    if (ck.analog) { ck.analog._w.classList.remove('xa-do'); void ck.analog._w.getBoundingClientRect(); ck.analog._w.classList.add('xa-do'); }
+  }
+  const t0 = Date.now();
+  try {
+    if (has('refresh')) await KH.refresh(); else await pollStrip();
+  } catch (e) { /* the next poll will try again */ }
+  const left = 700 - (Date.now() - t0);
+  if (left > 0) await new Promise(r => setTimeout(r, left));
+  ck.busy = false;
+  if (ck.btn) { ck.btn.removeAttribute('aria-busy'); ck.btn.classList.remove('xc-busy'); }
+  ckRender();
+}
+function ckApply() {
+  if (!clockEl) return;
+  const on = getSet('clock', true) !== false && getSet('clock', true) !== 'false';
+  ck.on = on;
+  document.documentElement.classList.toggle('has-clock', on);
+  clockEl.hidden = !on;
+  clearTimeout(ck.timer); cancelAnimationFrame(ck.raf);
+  if (!on) { clockEl.replaceChildren(); return; }
+  ck.sig = '';
+  ckBuild();
+  ckRender();
+  ckSchedule();
+  ckSweep();
+}
+function initClock() {
+  if (!clockEl) return;
+  if (has('addSetting')) {
+    try {
+      KH.addSetting({ key: 'clock', label: '시계·장 진행률', default: true, onChange: () => ckApply() });
+      KH.addSetting({ key: 'clockStyle', label: '시계 모양', options: [{ v: 'flap', label: '플랩' }, { v: 'analog', label: '아날로그' }, { v: 'both', label: '둘 다' }], default: 'flap', onChange: () => ckApply() });
+    } catch (e) { /* settings are optional */ }
+  }
+  ckApply();
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) { clearTimeout(ck.timer); cancelAnimationFrame(ck.raf); return; }
+    ckRender(); ckSchedule(); ckSweep();
+  });
+  document.addEventListener('kh:motion', () => { ckRender(); ckSchedule(); ckSweep(); });
+  matchMedia('(max-width: 760px)').addEventListener('change', () => ckApply());
+  document.addEventListener('kh:refresh', () => { pollStrip(); });
 }
 
 /* ═════════════ boot ═════════════ */
@@ -921,9 +1249,13 @@ function initTools() {
   }
 }
 initStrip();
+initClock();
 initTools();
 initPWA();
 document.addEventListener('keydown', rpKeys);
+document.addEventListener('visibilitychange', () => { if (document.hidden) pause(); });
+addEventListener('resize', () => { if (replay.big && replay.big.classList.contains('on')) bigUpdate(); });
+document.addEventListener('kh:motion', () => bigUpdate());
 // Space on a focused button would also "click" it on keyup: swallow that when the player took the keydown
 document.addEventListener('keyup', e => { if (spaceTaken && (e.key === ' ' || e.code === 'Space')) { e.preventDefault(); spaceTaken = false; } });
 })();
