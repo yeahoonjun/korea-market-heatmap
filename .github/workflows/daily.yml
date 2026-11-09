@@ -2,7 +2,8 @@ name: daily-data
 
 on:
   schedule:
-    - cron: "10 7 * * 1-5"   # 16:10 KST, Mon-Fri
+    - cron: "10 7 * * 1-5"   # 16:10 KST, Mon-Fri: everything
+    - cron: "30 12 * * 1-5"  # 21:30 KST: investor flows again (Naver publishes the day's row in the evening)
   workflow_dispatch:
 
 permissions:
@@ -35,12 +36,16 @@ jobs:
 
       # .cache/ only lives for this run (KRX closes are reused between the steps below, never across runs)
       - name: Snapshot
-        if: steps.day.outputs.trading == 'true'
+        if: steps.day.outputs.trading == 'true' && github.event.schedule != '30 12 * * 1-5'
         run: python3 scripts/build_snapshot.py --close auto --delay 0.1
 
       - name: Themes, periods, flows
-        if: steps.day.outputs.trading == 'true'
+        if: steps.day.outputs.trading == 'true' && github.event.schedule != '30 12 * * 1-5'
         run: python3 scripts/build_daily.py
+
+      - name: Flows only (evening run)
+        if: steps.day.outputs.trading == 'true' && github.event.schedule == '30 12 * * 1-5'
+        run: python3 scripts/build_daily.py --only flows
 
       - name: Validate
         if: steps.day.outputs.trading == 'true'

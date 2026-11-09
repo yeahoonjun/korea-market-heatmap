@@ -102,7 +102,8 @@ python3 tmp/shot.py /home/claude/heatmap/dist/index.html    # 1440×900 / 390×8
 | `/data/themes.json`, `/data/periods.json`, `/data/flows.json` | ASSET_BASE의 `web/*.json` 그대로 | 10분 |
 | `/manifest.webmanifest`, `/sw.js`, `/icon.svg`, `/icon-192.png`, `/icon-512.png`, `/apple-touch-icon.png` | ASSET_BASE에서 올바른 content-type으로 | 1시간 |
 
-- 리플레이 기록: Worker `scheduled()`가 평일 09:00~15:30 KST에 5분마다 유니버스 600종목 시세를 KV 바인딩 `REPLAY`(namespace id `bfdaeef6e5204d0ba223a568f76d3c85`)의 `frames:YYYYMMDD`에 덧붙여요(한 키를 읽고 다시 써요). 30일 넘은 키는 지워요. cron `*/5 0-6 * * 1-5` (UTC). 무료 플랜: 요청당 서브요청 50개, KV 쓰기 하루 1,000번.
+- 리플레이 기록: Worker `scheduled()`가 평일 09:00~15:30 KST에 5분마다(`t`는 5분 단위, 15:30 프레임은 지수가 CLOSE여도 기록) 유니버스 600종목 시세를 KV 바인딩 `REPLAY`(namespace id `bfdaeef6e5204d0ba223a568f76d3c85`)에 프레임마다 한 키로 써요: `replay:YYYYMMDD:codes`, `replay:YYYYMMDD:HHMM` → `{p,r,i}`. TTL 40일. cron `*/5 0-6 * * 1-5` (UTC). 무료 플랜: 외부 서브요청 50개·Cloudflare 서비스 호출 1,000개/요청, KV 쓰기 하루 1,000번.
+- `/api/market`의 `delayed:10`은 미국 선물뿐 아니라 WTI·금에도 붙어요(CME/NYMEX/COMEX). 매일 작업은 21:30 KST에 투자자 동향만 한 번 더 받아요(그날 행이 저녁에 올라와요).
 - 무료 플랜 서브요청 한도(50) 때문에 종목 600개를 하나씩 부르는 일(기간 수익률, 투자자 동향)은 Worker가 아니라 매일 작업이 해요.
 
 **히트맵 확장 API** (`src/template.html`이 `window.KH`에 추가)
