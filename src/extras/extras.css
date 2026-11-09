@@ -24,6 +24,17 @@
 .xs-t{display:flex;flex-direction:column;gap:1px;margin-left:auto;flex:none;color:var(--muted);font-size:11.5px;line-height:1.2;text-align:right;font-variant-numeric:tabular-nums}
 .xs-t span + span{font-size:12px}
 .xs-t.xs-stale span:first-child{color:var(--amber)}
+.xs-vp{flex:1 1 0;min-width:0;overflow:hidden;-webkit-mask-image:linear-gradient(90deg,transparent,#000 26px,#000 calc(100% - 26px),transparent);mask-image:linear-gradient(90deg,transparent,#000 26px,#000 calc(100% - 26px),transparent)}
+#strip.xs.xs-tk{overflow:hidden}
+.xs-track{display:flex;width:max-content;will-change:transform;animation:xs-run var(--xs-dur,30s) linear infinite}
+@keyframes xs-run{to{transform:translateX(var(--xs-shift,-100%))}}
+.xs-tk .xs-item:first-child{padding-left:11px;border-left:1px solid var(--line)}
+.xs-off .xs-track,.xs-hold .xs-track,.xs-vp:focus-within .xs-track{animation-play-state:paused}
+@media (hover:hover){.xs-vp:hover .xs-track{animation-play-state:paused}}
+.xs-pp{flex:none;display:grid;place-items:center;width:28px;height:28px;border-radius:50%;border:1px solid var(--line);background:transparent;color:var(--muted);cursor:pointer;padding:0}
+.xs-pp svg{width:12px;height:12px}
+.xs-pp:hover{color:var(--fg);border-color:var(--line2)}
+.xs-pp:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
 .xs-msg{color:var(--muted);font-size:12.5px}
 .xs-live{margin-left:auto;flex:none;color:var(--muted);font-size:12px;text-decoration:underline;text-decoration-color:var(--line2);text-underline-offset:3px}
 .xs-live:hover{color:var(--fg)}
@@ -122,6 +133,9 @@ dialog.xp{width:min(400px,calc(100% - 24px))}
 @media (max-width:760px){
   #strip.xs{padding:0 12px 8px;gap:12px}
   .xs-item{padding:0 10px}
+  .xs-tk .xs-item:first-child{padding-left:10px}
+  .xs-pp{width:40px;height:40px}
+  .xs-pp svg{width:14px;height:14px}
   .tools > #extras-tools.xt{margin-left:0;flex:1 1 100%}
   .tools > #extras-tools.xt .xt-btn{flex:1;min-width:0}
   .xt-btn{height:40px}
@@ -132,3 +146,5 @@ dialog.xp{width:min(400px,calc(100% - 24px))}
   .rp{animation:none}
   .xt-toast,.xt-btn,.xt-btn svg{transition:none}
 }
+
+@media (prefers-reduced-motion:reduce){.xs-track{animation:none}}
