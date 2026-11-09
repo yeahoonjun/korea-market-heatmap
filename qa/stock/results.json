@@ -1506,13 +1506,13 @@
   }
  },
  "motion_ob_flash_fancy": {
-  "ok": false,
+  "ok": true,
   "detail": {
    "first": 0,
    "mid": [
+    10,
     0,
-    0,
-    10
+    0
    ],
    "end": 0,
    "down": 10,
@@ -1550,9 +1550,9 @@
    "fancy": {
     "first": 0,
     "mid": [
+     10,
      0,
-     0,
-     10
+     0
     ],
     "end": 0,
     "down": 10,
@@ -1611,7 +1611,7 @@
   }
  },
  "motion_overflow_zero_during_roll": {
-  "ok": false,
+  "ok": true,
   "detail": {
    "360": {
     "doc": 0,
@@ -1631,7 +1631,7 @@
     "doc": 0,
     "root": 0,
     "n": 0,
-    "roll": 0,
+    "roll": 2,
     "err": []
    },
    "1280": {
