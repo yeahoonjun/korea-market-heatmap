@@ -63,12 +63,19 @@ class Errors:
 ERR = Errors()
 
 
-def open_page(browser, url, width=1440, height=900, mobile=False, reduced=False, clock=False):
+def open_page(browser, url, width=1440, height=900, mobile=False, reduced=False, clock=False, view=None, sort=None, block_storage=False):
+    """view / sort: preset localStorage khm.worldView / khm.worldSort before the page boots (None = leave it empty)."""
     opts = dict(viewport={'width': width, 'height': height}, device_scale_factor=2 if mobile else 1, is_mobile=mobile, has_touch=mobile)
     if reduced:
         opts['reduced_motion'] = 'reduce'
     ctx = browser.new_context(**opts)
     ctx.add_init_script(SHIM)
+    if block_storage:
+        ctx.add_init_script("Object.defineProperty(window, 'localStorage', {configurable: true, get() { throw new DOMException('blocked', 'SecurityError'); }});")
+    pre = {k: v for k, v in (('khm.worldView', view), ('khm.worldSort', sort)) if v}
+    if pre:
+        ctx.add_init_script("(() => { if (sessionStorage.getItem('__kwPre')) return; sessionStorage.setItem('__kwPre', '1'); "
+                            + ''.join(f"localStorage.setItem({json.dumps(k)}, {json.dumps(v)});" for k, v in pre.items()) + "})();")
     page = ctx.new_page()
     if clock:
         page.clock.install()
@@ -140,7 +147,7 @@ COLORS_JS = r"""
 TARGETS_JS = r"""
 () => {
   const small = [];
-  for (const el of document.querySelectorAll('#world .kw-tile, #world .kw-row, #world .kw-retry, .kw-sheet button, .kw-sheet a')) {
+  for (const el of document.querySelectorAll('#world .kw-tile, #world .kw-row, #world .kw-lr, #world .kw-seg button, #world .kw-retry, .kw-sheet button, .kw-sheet a')) {
     if (!el.offsetParent && getComputedStyle(el).position !== 'fixed') continue;
     const r = el.getBoundingClientRect();
     if (!r.width) continue;
@@ -150,10 +157,336 @@ TARGETS_JS = r"""
 }"""
 
 
-def kind_pass(browser, kind, width, height):
+# ── list view (default, AGENTS §3-4 "목록이 기본") ──
+LIST_JS = r"""
+(fix) => {
+  const norm = c => { const e = document.createElement('i'); e.style.color = c; document.body.append(e); const v = getComputedStyle(e).color; e.remove(); return v; };
+  const items = new Map(); for (const g of fix.groups) for (const it of g.items) items.set(it.key, Object.assign({ group: g.name }, it));
+  const sgn = v => v > 0 ? '+' : v < 0 ? '−' : '';
+  const pct = v => sgn(v) + Math.abs(v).toFixed(2) + '%';
+  const num = t => +t.replace(/[,+]/g, '').replace('−', '-');
+  const lin = v => { v /= 255; return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; };
+  const lum = c => { const m = c.match(/[\d.]+/g).map(Number).slice(0, 3).map(lin); return 0.2126 * m[0] + 0.7152 * m[1] + 0.0722 * m[2]; };
+  const contrast = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+  const bad = { value: [], pct: [], chg: [], color: [], ink: [], ref: [], clip: [], nums: [] };
+  let n = 0, minInk = 99;
+  const vw = document.documentElement.clientWidth;
+  for (const r of document.querySelectorAll('#world .kw-lr')) {
+    const it = items.get(r.dataset.k); if (!it) { bad.value.push('unknown ' + r.dataset.k); continue; }
+    n++;
+    const lv = r.querySelector('.kw-lv'), lc = r.querySelector('.kw-lc'), chip = r.querySelector('.kw-pchip');
+    if (Math.abs(num(lv.textContent) - it.value) > 1e-6 * Math.max(1, Math.abs(it.value))) bad.value.push(`${it.key} ${lv.textContent} != ${it.value}`);
+    if (chip.textContent !== pct(it.ratio)) bad.pct.push(`${it.key} ${chip.textContent} != ${pct(it.ratio)}`);
+    if (Math.abs(num(lc.textContent) - it.change) > 1e-6 * Math.max(1, Math.abs(it.change))) bad.chg.push(`${it.key} ${lc.textContent} != ${it.change}`);
+    for (const el of [lv, lc, chip]) if (!/tabular-nums/.test(getComputedStyle(el).fontVariantNumeric) || getComputedStyle(el).textAlign === 'left' && el !== lv) bad.nums.push(`${it.key} ${el.className}`);
+    const bg = getComputedStyle(chip).backgroundColor, fg = getComputedStyle(chip).color;
+    if (it.ref) {
+      const tagEl = r.querySelector('.kw-ln .sub.tag');
+      if (!chip.classList.contains('ref') || bg !== 'rgba(0, 0, 0, 0)' || !tagEl || tagEl.textContent !== '참고' || /\b(up|dn)\b/.test(lc.className)) bad.ref.push(`${it.key} ref chip ${bg}, tag ${tagEl && tagEl.textContent}, chg ${lc.className}`);
+      if (getComputedStyle(r.querySelector('.kw-lb i')).backgroundColor !== 'rgb(91, 95, 105)') bad.ref.push(`${it.key} bar not grey`);
+    } else {
+      if (bg !== norm(KH.colorOf(it.ratio))) bad.color.push(`${it.key} ${bg} != ${norm(KH.colorOf(it.ratio))}`);
+      const cr = contrast(bg, fg); minInk = Math.min(minInk, cr); if (cr < 4.5) bad.ink.push(`${it.key} ${cr.toFixed(2)}`);
+      if (getComputedStyle(r.querySelector('.kw-lb i')).backgroundColor !== bg) bad.color.push(`${it.key} bar colour`);
+    }
+    const rr = r.getBoundingClientRect();
+    for (const el of [chip, lv, lc]) {
+      const b = el.getBoundingClientRect();
+      if (el.scrollWidth > el.clientWidth + 1 || b.right > rr.right + 0.5 || b.left < rr.left - 0.5 || b.right > vw || b.width < 8) bad.clip.push(`${it.key} ${el.className} ${b.left.toFixed(0)}-${b.right.toFixed(0)} row ${rr.left.toFixed(0)}-${rr.right.toFixed(0)}`);
+    }
+  }
+  return { n, bad, minInk };
+}"""
+
+ALIGN_JS = r"""
+() => {
+  const out = [];
+  const cols = [...document.querySelectorAll('#world .kw-col')];
+  for (const col of cols) for (const sel of ['.kw-lv', '.kw-lc', '.kw-pchip', '.kw-lb']) {
+    const rs = [...col.querySelectorAll('.kw-lr ' + sel)].map(e => e.getBoundingClientRect().right);
+    if (rs.length && Math.max(...rs) - Math.min(...rs) > 1) out.push(`${sel} right ${Math.min(...rs).toFixed(1)}..${Math.max(...rs).toFixed(1)}`);
+  }
+  const offs = cols.map(c => { const r = c.querySelector('.kw-lr .kw-lv'); return r ? Math.round(c.getBoundingClientRect().right - r.getBoundingClientRect().right) : null; });
+  if (new Set(offs).size > 1) out.push('value column offset differs per column: ' + offs);
+  const hs = cols.map(c => c.getBoundingClientRect().height);
+  return { out, cols: cols.length, heights: hs.map(Math.round), rowH: Math.min(...[...document.querySelectorAll('#world .kw-lr')].map(r => r.getBoundingClientRect().height)) };
+}"""
+
+SECS_JS = r"""
+(fix) => {
+  const out = [];
+  const sgn = v => v > 0 ? '+' : v < 0 ? '−' : '';
+  const pct = v => sgn(v) + Math.abs(v).toFixed(2) + '%';
+  const secs = new Map([...document.querySelectorAll('#world .kw-sec')].map(s => [s.querySelector('.kw-sh .t').textContent, s]));
+  for (const g of fix.groups) {
+    const s = secs.get(g.name);
+    if (!s) { out.push('missing section ' + g.name); continue; }
+    const keys = [...s.querySelectorAll('.kw-lr')].map(r => r.dataset.k).join(',');
+    if (keys !== g.items.map(it => it.key).join(',')) out.push(`${g.name} rows ${keys}`);
+    const vals = g.items.filter(it => !it.ref).map(it => it.ratio);
+    const a = s.querySelector('.kw-sh .a b');
+    if (vals.length) { const want = pct(vals.reduce((x, y) => x + y, 0) / vals.length); if (!a || a.textContent !== want) out.push(`${g.name} avg ${a && a.textContent} != ${want}`); }
+    const st = s.querySelector('.kw-sh .s').textContent, open = g.items.filter(it => it.status === 'OPEN').length;
+    if (!(open === 0 ? st === '마감' : open === g.items.length ? st.startsWith('장중') : st === `장중 ${open} · 마감 ${g.items.length - open}`)) out.push(`${g.name} state '${st}'`);
+  }
+  if (secs.size !== fix.groups.length) out.push(`sections ${secs.size} != ${fix.groups.length}`);
+  return out;
+}"""
+
+
+def wait_list(page, timeout=8000):
+    page.wait_for_selector('#world .kw-lr', timeout=timeout)
+    page.wait_for_timeout(300)
+
+
+def list_pass(browser, kind, width, height):
     mobile = width < 700
     hsh = '#world' if kind == 'index' else '#cmdty'
     ctx, page = open_page(browser, LIVE + hsh, width, height, mobile)
+    try:
+        wait_list(page)
+        tag = f'list {kind} {width}'
+        st = page.evaluate("""({ n: document.querySelectorAll('#world .kw-lr').length, tiles: document.querySelectorAll('#world .kw-tile').length, view: KHWorld.view(),
+            pressed: document.querySelector('#world .kw-seg[data-kw=view] button[aria-pressed=true]').textContent, mapHidden: document.querySelector('#world .kw-map').hidden })""")
+        check(f'{tag}: list is the default view, one row per item', st['n'] == COUNT[kind] and st['view'] == 'list' and st['pressed'] == '목록' and st['tiles'] == 0 and st['mapHidden'], str(st))
+        ov = page.evaluate("document.documentElement.scrollWidth - document.documentElement.clientWidth")
+        check(f'{tag}: no horizontal overflow', ov <= 0, f'{ov}px')
+        r = page.evaluate(LIST_JS, FIX[kind])
+        b = r['bad']
+        check(f'{tag}: value · change · % = API', r['n'] == COUNT[kind] and not (b['value'] or b['pct'] or b['chg']), '; '.join((b['value'] + b['pct'] + b['chg'])[:3]))
+        check(f'{tag}: % chip + bar = KH.colorOf, chip text ≥ 4.5:1', not (b['color'] or b['ink']), '; '.join((b['color'] + b['ink'])[:3]) or f"min contrast {r['minInk']:.2f}")
+        check(f'{tag}: VIX grey, "참고", not coloured', not b['ref'] if kind == 'index' else True, '; '.join(b['ref'][:2]))
+        check(f'{tag}: % / value / change never clipped', not b['clip'], '; '.join(b['clip'][:3]))
+        check(f'{tag}: numbers right-aligned, tabular-nums', not b['nums'], '; '.join(b['nums'][:3]))
+        al = page.evaluate(ALIGN_JS)
+        check(f'{tag}: columns line up across rows and sections', not al['out'], '; '.join(al['out'][:3]) or f"{al['cols']} col(s), heights {al['heights']}")
+        if width >= 1280 and kind == 'index':
+            hs = al['heights']
+            check(f'{tag}: 2–3 balanced columns on desktop', al['cols'] >= 2 and (max(hs) - min(hs)) <= 0.22 * max(hs), str(hs))
+        if mobile:
+            check(f'{tag}: one column, rows ≥ 44px', al['cols'] == 1 and al['rowH'] >= 44, f"{al['cols']} col, row {al['rowH']:.0f}px")
+            small = page.evaluate(TARGETS_JS)
+            check(f'{tag}: tap targets ≥ 40px', not small, '; '.join(small[:4]))
+        secs = page.evaluate(SECS_JS, FIX[kind])
+        check(f'{tag}: sections = groups, Worker order, header average + state', not secs, '; '.join(secs[:3]))
+        side = page.evaluate("""() => { const s = document.querySelector('#world .kw-side').getBoundingClientRect(), m = document.querySelector('#world .kw-list').getBoundingClientRect();
+            return { right: s.left >= m.right - 1, below: s.top >= m.bottom - 1, rank: document.querySelectorAll('#world .kw-row').length, open: !!document.querySelector('#world .kw-open').textContent }; }""")
+        check(f'{tag}: side cards unchanged, {"below" if width <= 980 else "right of"} the list', (side['below'] if width <= 980 else side['right']) and side['rank'] >= 5 and side['open'], str(side))
+        page.screenshot(path=str(SHOTS / f'list_{kind}_{width}.png'), full_page=True)
+    finally:
+        ctx.close()
+
+
+def toggle_pass(browser):
+    ctx, page = open_page(browser, LIVE + '#world', 1280, 800)
+    try:
+        wait_list(page)
+        page.click('#world .kw-seg[data-kw=view] button[data-v=map]')
+        wait_world(page)
+        st = page.evaluate("""({ tiles: document.querySelectorAll('#world .kw-tile').length, list: document.querySelector('#world .kw-list').hidden, sort: document.querySelector('#world .kw-seg[data-kw=sort]').hidden,
+            stored: localStorage.getItem('khm.worldView'), pressed: document.querySelector('#world .kw-seg[data-kw=view] button[aria-pressed=true]').textContent })""")
+        check('toggle: 지도 shows the tiles, hides the list and the sort, is stored', st['tiles'] == COUNT['index'] and st['list'] and st['sort'] and st['stored'] == 'map' and st['pressed'] == '지도', str(st))
+        page.reload()
+        wait_world(page)
+        check('toggle: 지도 remembered after reload', page.evaluate("KHWorld.view() === 'map' && !document.querySelector('#world .kw-map').hidden"))
+        page.click('.tabs button[data-mkt="CMDTY"]')
+        wait_world(page, '#world .kw-tile[data-k="CLcv1"]')
+        check('toggle: one choice for both tabs (원자재 opens in 지도 too)', page.evaluate("KHWorld.view() === 'map' && document.querySelectorAll('#world .kw-tile').length") == COUNT['commodity'])
+        page.click('#world .kw-seg[data-kw=view] button[data-v=list]')
+        wait_list(page)
+        page.reload()
+        wait_list(page)
+        check('toggle: 목록 remembered after reload', page.evaluate("KHWorld.view() === 'list' && localStorage.getItem('khm.worldView') === 'list'") and page.evaluate("document.querySelectorAll('#world .kw-lr').length") == COUNT['commodity'])
+    finally:
+        ctx.close()
+    n0 = len(ERR.items)
+    ctx, page = open_page(browser, LIVE + '#world', 1280, 800, block_storage=True)
+    try:
+        wait_list(page)
+        page.click('#world .kw-seg[data-kw=view] button[data-v=map]')
+        wait_world(page)
+        page.click('#world .kw-seg[data-kw=view] button[data-v=list]')
+        wait_list(page)
+        check('toggle: blocked localStorage → still works, no errors', page.evaluate("KHWorld.view()") == 'list' and len(ERR.items) == n0, '; '.join(ERR.items[n0:n0 + 2]))
+    finally:
+        ctx.close()
+
+
+def sort_pass(browser):
+    ctx, page = open_page(browser, LIVE + '#world', 1440, 900)
+    try:
+        wait_list(page)
+        page.click('#world .kw-seg[data-kw=sort] button[data-v=pct]')
+        page.wait_for_selector('#world .kw-list.flat')
+        flat = [it for g in FIX['index']['groups'] for it in g['items']]
+        order = sorted((it for it in flat if not it.get('ref')), key=lambda it: -it['ratio']) + [it for it in flat if it.get('ref')]
+        got = page.evaluate("""[...document.querySelectorAll('#world .kw-lr')].map(r => ({ k: r.dataset.k, rk: r.querySelector('.rk').textContent, sub: r.querySelector('.kw-ln .sub').textContent }))""")
+        grp = {it['key']: g['name'] for g in FIX['index']['groups'] for it in g['items']}
+        ok_order = [x['k'] for x in got] == [it['key'] for it in order]
+        ok_rank = all(x['rk'] == str(i + 1) for i, x in enumerate(got[:-1])) and got[-1]['rk'] == ''
+        ok_sub = all(x['sub'] == grp[x['k']] for x in got[:-1])
+        check('sort 등락률순: one ranked list by % (desc), VIX last', ok_order, ' '.join(x['k'] for x in got[:6]))
+        check('sort 등락률순: rank numbers + group name as secondary text', ok_rank and ok_sub, str(got[:2]))
+        check('sort 등락률순: stored', page.evaluate("localStorage.getItem('khm.worldSort')") == 'pct')
+        r = page.evaluate(LIST_JS, FIX['index'])
+        check('sort 등락률순: values / colours still right', not any(r['bad'].values()), str({k: v[:1] for k, v in r['bad'].items() if v}))
+        page.screenshot(path=str(SHOTS / 'list_sorted_1440.png'), full_page=True)
+        page.reload()
+        wait_list(page)
+        check('sort: 등락률순 remembered after reload', page.evaluate("document.querySelector('#world .kw-list').classList.contains('flat')"))
+        page.click('#world .kw-seg[data-kw=sort] button[data-v=group]')
+        page.wait_for_selector('#world .kw-list:not(.flat)')
+        secs = page.evaluate(SECS_JS, FIX['index'])
+        check('sort 지역순: back to the sections', not secs, '; '.join(secs[:2]))
+        page.click('.tabs button[data-mkt="CMDTY"]')
+        page.wait_for_selector('#world .kw-lr[data-k="CLcv1"]')
+        check('sort label on 원자재 is 종류순', page.evaluate("document.querySelector('#world .kw-seg[data-kw=sort] button[data-v=group]').textContent") == '종류순')
+    finally:
+        ctx.close()
+
+
+def list_keyboard_pass(browser):
+    ctx, page = open_page(browser, LIVE + '#world', 1440, 900)
+    try:
+        wait_list(page)
+        stops = page.evaluate("[...document.querySelectorAll('#world .kw-lr')].filter(r => r.tabIndex === 0).length")
+        check('list keyboard: one tab stop (roving)', stops == 1, str(stops))
+        page.focus('#world .kw-lr[tabindex="0"]')
+        order = page.evaluate("[...document.querySelectorAll('#world .kw-lr')].map(r => r.dataset.k)")
+        k0 = page.evaluate('document.activeElement.dataset.k')
+        page.keyboard.press('ArrowDown'); k1 = page.evaluate('document.activeElement.dataset.k')
+        page.keyboard.press('ArrowDown'); k2 = page.evaluate('document.activeElement.dataset.k')
+        page.keyboard.press('ArrowUp'); k3 = page.evaluate('document.activeElement.dataset.k')
+        check('list keyboard: ↑/↓ move row by row', [k0, k1, k2, k3] == [order[0], order[1], order[2], order[1]], f'{k0}→{k1}→{k2}→{k3}')
+        ring = page.evaluate("(() => { const s = getComputedStyle(document.activeElement); return [s.outlineStyle, s.outlineColor, s.outlineWidth]; })()")
+        check('list keyboard: visible amber focus ring', ring == ['solid', 'rgb(255, 181, 71)', '2px'], str(ring))
+        page.keyboard.press('End'); ke = page.evaluate('document.activeElement.dataset.k')
+        page.keyboard.press('Home'); kh = page.evaluate('document.activeElement.dataset.k')
+        check('list keyboard: Home / End', ke == order[-1] and kh == order[0], f'{kh} … {ke}')
+        page.keyboard.press('ArrowRight')
+        col = page.evaluate("[...document.querySelectorAll('#world .kw-col')].indexOf(document.activeElement.closest('.kw-col'))")
+        page.keyboard.press('ArrowLeft')
+        col2 = page.evaluate("[...document.querySelectorAll('#world .kw-col')].indexOf(document.activeElement.closest('.kw-col'))")
+        check('list keyboard: ←/→ jump between columns', col == 1 and col2 == 0, f'{col}, {col2}')
+        moved = page.evaluate("[...document.querySelectorAll('#world .kw-lr')].filter(r => r.tabIndex === 0).map(r => r.dataset.k)")
+        check('list keyboard: tab stop follows focus', moved == [page.evaluate('document.activeElement.dataset.k')], str(moved))
+        page.keyboard.press('ArrowDown'); page.keyboard.press('ArrowDown')
+        tgt = page.evaluate('document.activeElement.dataset.k')
+        page.keyboard.press('Enter')
+        page.wait_for_selector('.kw-sheet:not([hidden])', timeout=3000)
+        info = page.evaluate("""() => ({ inSheet: document.querySelector('.kw-sheet').contains(document.activeElement), name: document.querySelector('#kw-dt').textContent,
+            sel: document.querySelector('#world .kw-lr.sel')?.dataset.k, rowName: document.querySelector('#world .kw-lr.sel')?.title })""")
+        check('list detail: Enter opens the sheet for that row, row marked', info['inSheet'] and info['sel'] == tgt and info['name'] == info['rowName'], str(info))
+        page.wait_for_selector('.kw-sheet svg.kw-svg', timeout=5000)
+        page.keyboard.press('Escape')
+        page.wait_for_timeout(100)
+        after = page.evaluate("({ hidden: document.querySelector('.kw-sheet').hidden, k: document.activeElement.dataset.k, row: document.activeElement.classList.contains('kw-lr'), sel: document.querySelectorAll('#world .kw-lr.sel').length })")
+        check('list detail: Esc closes, focus back on the row', after['hidden'] and after['k'] == tgt and after['row'] and after['sel'] == 0, str(after))
+        page.click('#world .kw-lr[data-k="GDAXI"]')
+        page.wait_for_selector('.kw-sheet:not([hidden])')
+        check('list detail: click opens the right item', page.evaluate("document.querySelector('#kw-dt').textContent") == '독일 DAX')
+        page.mouse.click(5, 400)
+        page.wait_for_timeout(100)
+        check('list detail: click outside closes (desktop)', page.evaluate("document.querySelector('.kw-sheet').hidden"))
+        # image save in the list view: the tile map laid out off screen (extras draws it), not an empty picture
+        lay = page.evaluate("KHWorld.layout()")
+        tiles = [x for x in lay if x['kind'] == 'tile']
+        lw = page.evaluate("document.querySelector('#world .kw-list').clientWidth")
+        okb = all(0 <= t['x'] and t['x'] + t['w'] <= lw + 0.5 and t['y'] >= 0 for t in tiles)
+        check('KHWorld.layout() in the list view: off-screen tile map for "이미지로 저장"', len(tiles) == COUNT['index'] and okb and any(t['sub'] for t in tiles), f'{len(tiles)} tiles, inBounds {okb}')
+        btn = page.query_selector('#extras-tools button[data-x="image"]')
+        if btn:
+            with page.expect_download(timeout=8000) as dl:
+                btn.click()
+            name = dl.value.suggested_filename
+            page.wait_for_timeout(150)
+            toast = page.evaluate("document.querySelector('.xt-toast') ? document.querySelector('.xt-toast').textContent : ''")
+            check('이미지로 저장 in the list view: a PNG, not "지도 탭에서만" or an empty image', name.endswith('.png') and '지도 탭에서만' not in toast, f'{name} · {toast}')
+        else:
+            check('이미지로 저장 button present', False)
+    finally:
+        ctx.close()
+
+
+def refresh_pass(browser, reduced=False, sort=None):
+    api('/__reset')
+    tag = 'refresh' + (' (reduced motion)' if reduced else '') + (' 등락률순' if sort else '')
+    ctx, page = open_page(browser, LIVE + '#world', 1440, 900, clock=True, reduced=reduced, sort=sort)
+    try:
+        wait_list(page)
+        page.evaluate("document.querySelectorAll('#world .kw-lr').forEach(r => r.__tag = 1)")
+        page.focus('#world .kw-lr[tabindex="0"]')
+        for _ in range(9):
+            page.keyboard.press('ArrowDown')
+        k = page.evaluate('document.activeElement.dataset.k')
+        page.evaluate('scrollTo(0, 260)')
+        page.wait_for_timeout(100)
+        sy = page.evaluate('scrollY')
+        before = page.evaluate("Object.fromEntries([...document.querySelectorAll('#world .kw-lr')].map(r => [r.dataset.k, r.querySelector('.kw-lv').textContent]))")
+        api('/__mode?world=drift')
+        page.clock.run_for(30500)
+        page.wait_for_function("(b) => [...document.querySelectorAll('#world .kw-lr')].some(r => r.querySelector('.kw-lv').textContent !== b[r.dataset.k])", arg=before, timeout=5000)
+        page.wait_for_timeout(50)
+        st = page.evaluate("""() => ({ k: document.activeElement.dataset.k, tagged: !!document.activeElement.__tag, sy: scrollY,
+            fresh: [...document.querySelectorAll('#world .kw-lr')].filter(r => !r.__tag).length,
+            fl: [...document.querySelectorAll('#world .kw-fl')].filter(e => getComputedStyle(e).animationName !== 'none').length })""")
+        last = api('/__last?kind=index')
+        r = page.evaluate(LIST_JS, last)
+        changed = sum(1 for kk, v in page.evaluate("Object.fromEntries([...document.querySelectorAll('#world .kw-lr')].map(r => [r.dataset.k, r.querySelector('.kw-lv').textContent]))").items() if before.get(kk) != v)
+        check(f'{tag}: rows updated in place (same elements), values = new API answer', st['fresh'] == 0 and changed > 0 and not (r['bad']['value'] or r['bad']['pct'] or r['bad']['color']), f"{changed} changed; " + '; '.join((r['bad']['value'] + r['bad']['pct'])[:2]))
+        check(f'{tag}: focus and scroll kept', st['k'] == k and st['tagged'] and abs(st['sy'] - sy) < 1, f"{k}→{st['k']}, scroll {sy}→{st['sy']}")
+        if reduced:
+            check(f'{tag}: no highlight animation', st['fl'] == 0, str(st['fl']))
+        elif not sort:
+            check(f'{tag}: brief highlight on changed values', st['fl'] > 0, str(st['fl']))
+    finally:
+        api('/__reset')
+        ctx.close()
+
+
+def list_palette_pass(browser):
+    ctx, page = open_page(browser, LIVE + '#world', 1440, 900)
+    try:
+        wait_list(page)
+        page.click('.seg[data-key="palette"] button[data-v="global"]')
+        page.wait_for_timeout(150)
+        r = page.evaluate(LIST_JS, FIX['index'])
+        check('list: palette switch recolours chips + bars, text stays readable', not (r['bad']['color'] or r['bad']['ink']), '; '.join((r['bad']['color'] + r['bad']['ink'])[:2]))
+        page.click('#rangeseg button[data-v="10"]')
+        page.wait_for_timeout(150)
+        w = page.evaluate("""(() => { const r = document.querySelector('#world .kw-lr[data-k="SOX"]'); return r.querySelector('.kw-lb i').getBoundingClientRect().width / r.querySelector('.kw-lb').getBoundingClientRect().width; })()""")
+        sox = next(it for g in FIX['index']['groups'] for it in g['items'] if it['key'] == 'SOX')
+        want = min(abs(sox['ratio']) / 10, 1) * 0.5
+        check('list: range ±10% rescales the bars', abs(w - want) < 0.02, f'{w:.3f} vs {want:.3f}')
+        page.click('.seg[data-key="palette"] button[data-v="krg"]')
+        page.click('#rangeseg button[data-v="3"]')
+    finally:
+        ctx.close()
+
+
+def list_states_pass(browser):
+    ERR.expect_net = True
+    try:
+        api('/__mode?world=fail')
+        ctx, page = open_page(browser, LIVE + '#world', 390, 844, True)
+        try:
+            page.wait_for_selector('#world .kw-msg', timeout=8000)
+            check('list view, failure: message + 다시 시도', '해외 지수를 불러오지 못했어요' in page.evaluate("document.querySelector('#world .kw-msg').textContent") and page.evaluate("document.querySelector('#world .kw-list').hidden"))
+            api('/__mode?world=ok')
+            page.tap('#world .kw-retry')
+            wait_list(page)
+            check('list view, failure → 다시 시도 loads the rows', page.evaluate("document.querySelectorAll('#world .kw-lr').length") == COUNT['index'])
+        finally:
+            ctx.close()
+    finally:
+        api('/__reset')
+        ERR.expect_net = False
+
+
+def kind_pass(browser, kind, width, height):
+    mobile = width < 700
+    hsh = '#world' if kind == 'index' else '#cmdty'
+    ctx, page = open_page(browser, LIVE + hsh, width, height, mobile, view='map')
     try:
         wait_world(page)
         tag = f'{kind} {width}'
@@ -180,7 +513,7 @@ def kind_pass(browser, kind, width, height):
 
 
 def keyboard_pass(browser):
-    ctx, page = open_page(browser, LIVE + '#world', 1280, 800)
+    ctx, page = open_page(browser, LIVE + '#world', 1280, 800, view='map')
     try:
         wait_world(page)
         stops = page.evaluate("[...document.querySelectorAll('#world .kw-tile')].filter(t => t.tabIndex === 0).length")
@@ -254,7 +587,7 @@ def keyboard_pass(browser):
 
 
 def palette_pass(browser):
-    ctx, page = open_page(browser, LIVE + '#world', 1440, 900)
+    ctx, page = open_page(browser, LIVE + '#world', 1440, 900, view='map')
     try:
         wait_world(page)
         before = page.evaluate("document.querySelector('#world .kw-tile[data-k=\"INX\"]').style.backgroundColor")
@@ -281,7 +614,7 @@ def states_pass(browser):
     try:
         for mode, text in (('fail', '해외 지수를 불러오지 못했어요'), ('html404', '서버에 아직 이 기능이 없어요'), ('empty', '지금 보여 줄 해외 지수가 없어요')):
             api(f'/__mode?world={mode}')
-            ctx, page = open_page(browser, LIVE + '#world', 1280, 800)
+            ctx, page = open_page(browser, LIVE + '#world', 1280, 800, view='map')
             try:
                 page.wait_for_selector('#world .kw-msg', timeout=8000)
                 page.wait_for_timeout(300)
@@ -298,7 +631,7 @@ def states_pass(browser):
         api('/__mode?world=ok')
         # loading message while the first answer is slow
         api('/__mode?world=slow')
-        ctx, page = open_page(browser, LIVE + '#cmdty', 390, 844, True)
+        ctx, page = open_page(browser, LIVE + '#cmdty', 390, 844, True, view='map')
         try:
             page.wait_for_selector('#world .kw-msg.busy', timeout=3000)
             check('state loading: message while waiting', '불러오는 중이에요' in page.evaluate("document.querySelector('#world .kw-msg').textContent"))
@@ -307,7 +640,7 @@ def states_pass(browser):
             ctx.close()
         api('/__mode?world=ok')
         # stale: data shown, then a refresh fails → keeps tiles, says so
-        ctx, page = open_page(browser, LIVE + '#world', 1280, 800, clock=True)
+        ctx, page = open_page(browser, LIVE + '#world', 1280, 800, clock=True, view='map')
         try:
             wait_world(page)
             api('/__mode?world=fail')
@@ -323,7 +656,7 @@ def states_pass(browser):
             ctx.close()
         # weekend: nothing open
         api('/__mode?world=closed')
-        ctx, page = open_page(browser, LIVE + '#world', 1280, 800)
+        ctx, page = open_page(browser, LIVE + '#world', 1280, 800, view='map')
         try:
             wait_world(page)
             t = page.evaluate("document.querySelector('#world .kw-open').textContent")
@@ -333,7 +666,7 @@ def states_pass(browser):
         api('/__mode?world=ok')
         # chart route missing (plain 404): detail without chart, asked once per session
         api('/__mode?chart=none')
-        ctx, page = open_page(browser, LIVE + '#world', 1280, 800)
+        ctx, page = open_page(browser, LIVE + '#world', 1280, 800, view='map')
         try:
             wait_world(page)
             c0 = api('/__stats').get('/api/world/chart', 0)
@@ -348,7 +681,7 @@ def states_pass(browser):
         finally:
             ctx.close()
         api('/__mode?chart=fail')
-        ctx, page = open_page(browser, LIVE + '#world', 1280, 800)
+        ctx, page = open_page(browser, LIVE + '#world', 1280, 800, view='map')
         try:
             wait_world(page)
             page.click('#world .kw-tile[data-k="GDAXI"]')
@@ -363,7 +696,7 @@ def states_pass(browser):
 
 def polling_pass(browser):
     api('/__reset')
-    ctx, page = open_page(browser, LIVE + '#world', 1280, 800, clock=True)
+    ctx, page = open_page(browser, LIVE + '#world', 1280, 800, clock=True, view='map')
     try:
         wait_world(page)
         n = lambda: api('/__stats').get('world:index', 0)
@@ -403,7 +736,7 @@ def polling_pass(browser):
 
 
 def mobile_pass(browser):
-    ctx, page = open_page(browser, LIVE + '#world', 390, 844, True)
+    ctx, page = open_page(browser, LIVE + '#world', 390, 844, True, view='map')
     try:
         wait_world(page)
         page.tap('#world .kw-tile[data-k="INX"]')
@@ -423,7 +756,7 @@ def mobile_pass(browser):
         check('phone: tapping the scrim closes', page.evaluate("document.querySelector('.kw-sheet').hidden"))
     finally:
         ctx.close()
-    ctx, page = open_page(browser, LIVE + '#cmdty', 1440, 900)
+    ctx, page = open_page(browser, LIVE + '#cmdty', 1440, 900, view='map')
     try:
         wait_world(page)
         page.click('#world .kw-tile[data-k="GCcv1"]')
@@ -436,7 +769,7 @@ def mobile_pass(browser):
 
 
 def reduced_pass(browser):
-    ctx, page = open_page(browser, LIVE + '#world', 1280, 800, reduced=True)
+    ctx, page = open_page(browser, LIVE + '#world', 1280, 800, reduced=True, view='map')
     try:
         wait_world(page)
         page.click('#world .kw-tile')
@@ -449,7 +782,7 @@ def reduced_pass(browser):
 
 def boot_pass(browser):
     # page opened at #cmdty: the template calls show() before world.js exists → the module starts itself
-    ctx, page = open_page(browser, LIVE + '#cmdty', 1280, 800)
+    ctx, page = open_page(browser, LIVE + '#cmdty', 1280, 800, view='map')
     try:
         wait_world(page)
         check('boot at #cmdty: module self-starts (template called show() too early)', page.evaluate("KHWorld.shown()") == 'commodity')
@@ -489,7 +822,7 @@ def real_pass(browser):
         real = {k: api(f'/api/world?kind={k}', f'http://127.0.0.1:{REAL_PORT}') for k in ('index', 'commodity')}
         for kind, hsh in (('index', 'world'), ('commodity', 'cmdty')):
             want = sum(len(g['items']) for g in real[kind]['groups'])
-            ctx, page = open_page(browser, f'http://127.0.0.1:{REAL_PORT}/#{hsh}', 1440, 900)
+            ctx, page = open_page(browser, f'http://127.0.0.1:{REAL_PORT}/#{hsh}', 1440, 900, view='map')
             try:
                 wait_world(page, timeout=20000)
                 n = page.evaluate("document.querySelectorAll('#world .kw-tile').length")
@@ -500,6 +833,21 @@ def real_pass(browser):
                 page.screenshot(path=str(SHOTS / f'real_{kind}_1440.png'))
             finally:
                 ctx.close()
+            # the default list view against the same Worker: every row, values as the API gives them
+            for w, hgt in ((1440, 900), (390, 844)):
+                ctx, page = open_page(browser, f'http://127.0.0.1:{REAL_PORT}/#{hsh}', w, hgt, w < 700)
+                try:
+                    wait_list(page, timeout=20000)
+                    now = api(f'/api/world?kind={kind}', f'http://127.0.0.1:{REAL_PORT}')
+                    r = page.evaluate(LIST_JS, now)
+                    b = r['bad']
+                    ov = page.evaluate("document.documentElement.scrollWidth - document.documentElement.clientWidth")
+                    want = sum(len(g['items']) for g in now['groups'])
+                    check(f'real Worker list {kind} {w}: rows, values = API, colours, nothing clipped', r['n'] == want and len(b['value'] + b['pct']) <= 2 and not (b['color'] or b['ink'] or b['clip']) and ov <= 0,
+                          f"{r['n']}/{want} rows, overflow {ov}; " + '; '.join((b['value'] + b['pct'] + b['color'] + b['ink'] + b['clip'])[:3]))
+                    page.screenshot(path=str(SHOTS / f'real_list_{kind}_{w}.png'), full_page=True)
+                finally:
+                    ctx.close()
     finally:
         if proc:
             proc.terminate()
@@ -519,6 +867,17 @@ def main():
     try:
         with sync_playwright() as p:
             browser = p.chromium.launch(executable_path='/usr/bin/google-chrome', args=['--no-sandbox'])
+            for kind in ('index', 'commodity'):
+                for w, hgt in list(WIDTHS.items()) + [(1440, 900)]:
+                    list_pass(browser, kind, w, hgt)
+            toggle_pass(browser)
+            sort_pass(browser)
+            list_keyboard_pass(browser)
+            list_palette_pass(browser)
+            refresh_pass(browser)
+            refresh_pass(browser, reduced=True)
+            refresh_pass(browser, sort='pct')
+            list_states_pass(browser)
             for kind in ('index', 'commodity'):
                 for w, hgt in list(WIDTHS.items()) + [(1440, 900)]:
                     kind_pass(browser, kind, w, hgt)

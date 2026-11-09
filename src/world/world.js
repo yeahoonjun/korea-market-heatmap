@@ -161,37 +161,49 @@ function tw(text, weight) {
 }
 
 /* ───────── state ───────── */
+// localStorage can throw (private mode, blocked storage): the choice then lasts for this page only
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* not kept */ } },
+};
+const VIEW_KEY = 'khm.worldView', SORT_KEY = 'khm.worldSort';
 const S = {
   kind: null, shown: false,
   data: { index: null, commodity: null }, at: { index: 0, commodity: 0 }, err: { index: null, commodity: null },
   seq: 0, ac: null, timer: 0, busy: null, announced: {},
   focusKey: null, detail: null, chartRoute: true,
+  view: store.get(VIEW_KEY) === 'map' ? 'map' : 'list',          // 목록 is the default (AGENTS §3-4), shared by both tabs
+  sort: store.get(SORT_KEY) === 'pct' ? 'pct' : 'group',
+  listFocus: null,
 };
 let root = null, els = null;
 
 /* normalise one /api/world payload; throws on a wrong shape */
 function normalise(j, kind) {
   if (!j || !Array.isArray(j.groups)) throw new Error('응답 모양이 달라요');
-  const groups = [];
+  const groups = [], seen = new Set();
+  let ix = 0;
   for (const g of j.groups) {
     if (!g || !Array.isArray(g.items)) continue;
     const items = [];
     for (const x of g.items) {
-      if (!x || x.key == null || x.value == null || !isFinite(+x.value)) continue;
+      if (!x || x.key == null || x.value == null || !isFinite(+x.value) || seen.has(String(x.key))) continue;
+      seen.add(String(x.key));
       const it = {
         key: String(x.key), name: String(x.name || x.key), value: +x.value,
         change: x.change == null || !isFinite(+x.change) ? null : +x.change,
         ratio: x.ratio == null || !isFinite(+x.ratio) ? null : +x.ratio,
         status: x.status === 'OPEN' ? 'OPEN' : 'CLOSE', tradedAt: x.tradedAt || null,
         delayed: +x.delayed > 0 ? +x.delayed : 0, unit: x.unit || null, tz: x.tz || null,
-        ref: !!(x.ref || g.ref), group: String(g.name || ''), gkey: String(g.key || ''),
+        ref: !!(x.ref || g.ref), group: String(g.name || ''), gkey: String(g.key || ''), ix: ix++,
       };
       items.push(it);
     }
     if (!items.length) continue;
-    // biggest first inside a group (stable for equal weights), so the squarified layout puts headline tiles top-left
+    // biggest first inside a group (stable for equal weights), so the squarified layout puts headline tiles top-left;
+    // the list keeps the Worker's order (`list`)
     const ordered = items.map((it, i) => [it, i]).sort((a, b) => weightOf(b[0]) - weightOf(a[0]) || a[1] - b[1]).map(a => a[0]);
-    groups.push({ key: String(g.key || g.name), name: String(g.name || ''), items: ordered });
+    groups.push({ key: String(g.key || g.name), name: String(g.name || ''), items: ordered, list: items });
   }
   const all = groups.flatMap(g => g.items);
   return { asOf: j.asOf || null, kind, groups, all, byKey: new Map(all.map(it => [it.key, it])), charts: j.charts !== false };
@@ -206,27 +218,65 @@ function scaffold() {
   root.replaceChildren();
   if (!LIVE) { root.__kw = true; els = { snap: true }; return true; }
   const map = h('div', { class: 'kw-map', role: 'group' });
-  const bar = h('div', { class: 'kw-bar' }, h('h2', { class: 'kw-title' }), h('span', { class: 'kw-sum' }), h('span', { class: 'kw-time' }));
+  const list = h('div', { class: 'kw-list', role: 'group', hidden: true });
+  const seg = (name, label, opts) => h('div', { class: 'seg kw-seg', role: 'group', 'aria-label': label, 'data-kw': name },
+    opts.map(([v, t]) => h('button', { type: 'button', 'data-v': v, 'aria-pressed': 'false' }, t)));
+  const sortSeg = seg('sort', '정렬', [['group', '지역순'], ['pct', '등락률순']]);
+  const viewSeg = seg('view', '보기', [['list', '목록'], ['map', '지도']]);
+  const tools = h('div', { class: 'kw-tools' }, sortSeg, viewSeg);
+  const bar = h('div', { class: 'kw-bar' }, h('h2', { class: 'kw-title' }), h('span', { class: 'kw-sum' }), h('span', { class: 'kw-time' }), tools);
   const legend = h('div', { class: 'legend kw-legend' });
   const rank = h('div', { class: 'kw-rank' });
   const open = h('div', { class: 'kw-open' });
   const src = h('p', { class: 'kw-src' });
   const live = h('div', { class: 'sr', role: 'status', 'aria-live': 'polite' });
   root.append(
-    h('section', { class: 'kw-stage' }, bar, map, legend),
+    h('section', { class: 'kw-stage' }, bar, list, map, legend),
     h('aside', { class: 'kw-side' },
       h('section', { class: 'card kw-card' }, h('h2', {}, h('span', { text: '많이 오른·내린' }), h('small', { class: 'kw-rank-sub' })), rank),
       h('section', { class: 'card kw-card' }, h('h2', {}, h('span', { text: '지금 열린 시장' }), h('small', { text: '현지 시각' })), open),
       src),
     live);
-  els = { map, bar, legend, rank, open, src, live, tiles: new Map(), heads: new Map(), boxes: null, mapW: 0 };
+  els = { map, list, bar, tools, sortSeg, viewSeg, legend, rank, open, src, live, tiles: new Map(), heads: new Map(), boxes: null, mapW: 0,
+    rows: new Map(), listW: 0, listSig: '' };
   root.__kw = true;
   map.addEventListener('click', e => { const t = e.target.closest('.kw-tile'); if (t) openDetail(t.dataset.k, t); });
   map.addEventListener('keydown', onMapKey);
   map.addEventListener('focusin', e => { const t = e.target.closest('.kw-tile'); if (t) setRoving(t.dataset.k); });
+  list.addEventListener('click', e => { const r = e.target.closest('.kw-lr'); if (r) openDetail(r.dataset.k, r); });
+  list.addEventListener('keydown', onListKey);
+  list.addEventListener('focusin', e => { const r = e.target.closest('.kw-lr'); if (r) setListFocus(r.dataset.k); });
   rank.addEventListener('click', e => { const b = e.target.closest('.kw-row'); if (b) openDetail(b.dataset.k, b); });
-  new ResizeObserver(() => { if (S.shown && els.map.clientWidth !== els.mapW) schedRender(); }).observe(map);
+  tools.addEventListener('click', e => {
+    const b = e.target.closest('.kw-seg button[data-v]');
+    if (!b) return;
+    const k = b.parentElement.dataset.kw, v = b.dataset.v;
+    if (k === 'view') setView(v); else if (k === 'sort') setSort(v);
+  });
+  new ResizeObserver(() => { if (S.shown && S.view === 'map' && els.map.clientWidth !== els.mapW) schedRender(); }).observe(map);
+  new ResizeObserver(() => { if (S.shown && S.view === 'list' && els.list.clientWidth !== els.listW) schedRender(); }).observe(list);
   return true;
+}
+function setView(v) {
+  v = v === 'map' ? 'map' : 'list';
+  if (S.view === v) return;
+  S.view = v;
+  store.set(VIEW_KEY, v);
+  render();
+}
+function setSort(v) {
+  v = v === 'pct' ? 'pct' : 'group';
+  if (S.sort === v) return;
+  S.sort = v;
+  store.set(SORT_KEY, v);
+  render();
+}
+function syncTools(hasData) {
+  if (!els || !els.tools) return;
+  for (const b of els.viewSeg.children) b.setAttribute('aria-pressed', String(b.dataset.v === S.view));
+  for (const b of els.sortSeg.children) b.setAttribute('aria-pressed', String(b.dataset.v === S.sort));
+  els.sortSeg.children[0].textContent = S.kind === 'commodity' ? '종류순' : '지역순';
+  els.sortSeg.hidden = S.view !== 'list' || !hasData;
 }
 let rafR = 0;
 const schedRender = () => { cancelAnimationFrame(rafR); rafR = requestAnimationFrame(() => { if (S.shown) render(); }); };
@@ -239,6 +289,14 @@ function render() {
   $('.kw-title', els.bar).textContent = K.title;
   $('.kw-side', root).setAttribute('aria-label', `${K.title} 요약`);
   els.map.setAttribute('aria-label', `${K.title} 지도. 화살표로 옮기고 Enter로 자세히 봐요`);
+  els.list.setAttribute('aria-label', `${K.title} 목록. 위아래 화살표로 옮기고 Enter로 자세히 봐요`);
+  const hasData = !!(d && d.all.length);
+  syncTools(hasData);
+  // messages (loading, failure, empty) use the black stage box in either view
+  const listMode = hasData && S.view === 'list';
+  els.list.hidden = !listMode;
+  els.map.hidden = listMode;
+  root.classList.toggle('kw-v-list', listMode);
   if (!d) {
     els.tiles.clear(); els.heads.clear(); els.boxes = null;
     els.map.style.height = '';
@@ -264,7 +322,7 @@ function render() {
   }
   if (els.map.classList.contains('kw-msgmode')) { els.map.classList.remove('kw-msgmode'); els.map.replaceChildren(); }
   renderBar(d, err);
-  renderMap(d);
+  if (listMode) renderList(d); else renderMap(d);
   renderLegend(d);
   renderRank(d);
   renderOpen(d);
@@ -297,7 +355,7 @@ function renderBar(d, err) {
 }
 
 /* ── layout: desktop = one squarified treemap of groups; phones = groups stacked in rows (small groups share a row) ── */
-function computeLayout(d, W) {
+function computeLayout(d, W, Hfix) {
   const narrow = W < 560;
   const HD = narrow ? 18 : 20, GAP = 3;
   const wsum = arr => arr.reduce((a, it) => a + weightOf(it), 0);
@@ -311,7 +369,7 @@ function computeLayout(d, W) {
     for (const l of root.leaves()) tiles.push({ it: l.data.it, g: g.g, x: x + l.x0, y: y + g.hd + l.y0, w: l.x1 - l.x0, h: l.y1 - l.y0 });
   };
   if (!narrow) {
-    const H = mapHeightDesktop(d, W);
+    const H = Hfix || mapHeightDesktop(d, W);
     const root = d3.hierarchy({ children: groups.map(g => ({ grp: g, children: g.g.items.map(it => ({ it })) })) }).sum(n => n.it ? weightOf(n.it) : 0);
     d3.treemap().size([W, H]).round(true).tile(d3.treemapSquarify.ratio(1))
       .paddingInner(n => n.depth === 0 ? GAP : 1)
@@ -570,11 +628,295 @@ function renderLegend(d) {
     P.length ? h('span', { class: 'grad', style: `background:linear-gradient(90deg,${P.join(',')})`, 'aria-hidden': 'true' }) : null,
     R ? h('span', { class: 'tk', text: `+${R}%` }) : null)];
   if (d.all.some(isRef)) kids.push(h('span', { class: 'lg' }, h('i', { class: 'sw kw-refsw' }), h('span', { text: 'VIX는 참고 지표라 색칠하지 않아요' })));
+  if (S.view === 'list') {
+    kids.push(h('span', { class: 'lg' }, h('i', { class: 'kw-sd open', 'aria-hidden': 'true' }), h('span', { text: '장중' }),
+      h('i', { class: 'kw-sd close', 'aria-hidden': 'true' }), h('span', { text: '마감' })));
+    if (R) kids.push(h('span', { class: 'lg right' }, h('span', { class: 'k', text: '막대' }), h('b', { text: `가운데가 0 · 끝이 ±${R}%` })));
+    els.legend.replaceChildren(...kids);
+    return;
+  }
   kids.push(h('span', { class: 'lg' }, h('span', { class: 'kw-chip-l open', 'aria-hidden': 'true', text: '장중' }), h('span', { class: 'kw-chip-l close', 'aria-hidden': 'true', text: '마감' }),
     h('span', { class: 'sr', text: '타일 왼쪽 위 표시: 장중 또는 마감, 지연 시간' })));
   kids.push(h('span', { class: 'lg right' }, h('span', { class: 'k', text: '크기' }), h('b', { text: '대표 지수를 크게' }), h('span', { class: 'note', text: '시가총액과는 관계없어요' })));
   if (S.kind === 'commodity') kids[kids.length - 1] = h('span', { class: 'lg right' }, h('span', { class: 'k', text: '크기' }), h('b', { text: '주요 품목을 크게' }), h('span', { class: 'note', text: '거래 규모와는 관계없어요' }));
   els.legend.replaceChildren(...kids);
+}
+
+/* ───────── list view (the default, AGENTS §3-4 "목록이 기본") ─────────
+   Sections per group (or one ranked list), laid out in 1–3 columns by the list's width; rows are kept per key and
+   updated in place on every refresh, so focus and scroll stay put. Wide rows are one line (name · state · value ·
+   change · % chip · bar); narrow columns get a two-line row (name / state, value / change). */
+const PLACE = {
+  DJI: '뉴욕', INX: '뉴욕', IXIC: '뉴욕', NDX: '뉴욕', SOX: '뉴욕', DJT: '뉴욕', RUT: '뉴욕',
+  EScv1: '시카고', NQcv1: '시카고', YMcv1: '시카고', RTYcv1: '시카고', VIX: '시카고',
+  STOXX50E: '유로존', GDAXI: '프랑크푸르트', FTSE: '런던', FCHI: '파리', AEX: '암스테르담', IBEX: '마드리드', FTMIB: '밀라노',
+  OMXS30: '스톡홀름', BFX: '브뤼셀', PSI20: '리스본', ISEQ: '더블린', BUX: '부다페스트',
+  N225: '도쿄', TOPX: '도쿄', SSEC: '상하이', SZSC: '선전', CSI300: '상하이·선전', HSI: '홍콩', HSCE: '홍콩', TWII: '타이베이',
+  BSESN: '뭄바이', VNI: '호찌민', HNXI: '하노이', AXJO: '시드니', JKSE: '자카르타', KLSE: '쿠알라룸푸르',
+  BVSP: '상파울루', MXX: '멕시코시티', KOSPI: '서울', KOSDAQ: '서울',
+};
+// one-line rows: name (≥ NAME_MIN) · state 64 · value · change · chip 66 · bar 48, gaps 8, row padding 12, section 14 (CSS)
+const NAME_MIN = 118, FIXED_W = 64 + 66 + 48 + 5 * 8 + 12 + 14, MIN_COL_C = 300, COL_GAP = 12;
+const ROW_H = 36, ROW_HC = 52, HEAD_H = 42, SEC_PAD = 12;
+const placeOf = it => PLACE[it.key] || cityOf(it, null) || '';
+function listSub(it, flat) {
+  const u = S.kind === 'commodity' ? unitOf(it) : null;
+  if (flat) return [it.group, u ? u[1] : null].filter(Boolean).join(' · ');
+  return u ? u[1] : placeOf(it);
+}
+function avgOf(items) {
+  const v = items.filter(it => !isRef(it) && it.ratio != null).map(it => it.ratio);
+  return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null;
+}
+function stateOf(items) {
+  let o = 0, c = 0;
+  for (const it of items) if (it.status === 'OPEN') o++; else c++;
+  if (o && c) return { open: true, text: `장중 ${o} · 마감 ${c}` };
+  if (!o) return { open: false, text: '마감' };
+  const dl = new Set(items.map(it => it.delayed));
+  return { open: true, text: dl.size === 1 ? (items[0].delayed ? `장중 · ${items[0].delayed}분 지연` : '장중 · 실시간') : '장중' };
+}
+// text on a palette colour: white or black, whichever has more contrast (the worst case is 4.58:1)
+const INK_DARK = '#000';
+function rgbOf(c) {
+  let m = /^#([0-9a-f]{6})$/i.exec(c);
+  if (m) { const n = parseInt(m[1], 16); return [n >> 16, (n >> 8) & 255, n & 255]; }
+  m = /^#([0-9a-f]{3})$/i.exec(c);
+  if (m) return m[1].split('').map(x => parseInt(x + x, 16));
+  m = /rgba?\(\s*([\d.]+)[,\s]+([\d.]+)[,\s]+([\d.]+)/i.exec(c);
+  return m ? [+m[1], +m[2], +m[3]] : null;
+}
+function luma(rgb) {
+  const L = rgb.map(v => { v /= 255; return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; });
+  return 0.2126 * L[0] + 0.7152 * L[1] + 0.0722 * L[2];
+}
+const DARK_Y = luma(rgbOf(INK_DARK));
+function inkOn(c) {
+  const rgb = rgbOf(String(c || ''));
+  if (!rgb) return '#fff';
+  const y = luma(rgb);
+  return 1.05 / (y + 0.05) >= (y + 0.05) / (DARK_Y + 0.05) ? '#fff' : INK_DARK;
+}
+
+// columns by width: as many one-line columns as fit (≤ 3), else two two-line columns (tablets), else one column
+function listGeom(W, minWide) {
+  for (const n of [3, 2]) if ((W - (n - 1) * COL_GAP) / n >= minWide) return { n, compact: false };
+  if ((W - COL_GAP) / 2 >= MIN_COL_C) return { n: 2, compact: true };
+  return { n: 1, compact: W < minWide };
+}
+// sections → columns with heights as even as possible. Contiguous runs keep the reading order; when that leaves one
+// column much taller, the biggest sections are spread first (each column still lists its sections in the original order).
+function distribute(secs, n, rowH) {
+  const hs = secs.map(s => (s.head ? HEAD_H : 6) + s.items.length * rowH + SEC_PAD);
+  const colH = idx => idx.reduce((a, i) => a + hs[i], 0) + Math.max(0, idx.length - 1) * COL_GAP;
+  n = Math.min(n, secs.length);
+  if (n <= 1) return [secs];
+  let best = null;
+  const rec = (start, left, acc) => {
+    if (left === 1) {
+      const cols = acc.concat([secs.map((s, i) => i).slice(start)]);
+      const m = Math.max(...cols.map(colH));
+      if (!best || m < best.m) best = { m, cols };
+      return;
+    }
+    for (let end = start + 1; end <= secs.length - left + 1; end++) rec(end, left - 1, acc.concat([secs.map((s, i) => i).slice(start, end)]));
+  };
+  rec(0, n, []);
+  const order = secs.map((s, i) => i).sort((a, b) => hs[b] - hs[a] || a - b);
+  const cols = Array.from({ length: n }, () => []);
+  for (const i of order) cols.reduce((m, c) => colH(c) < colH(m) ? c : m).push(i);
+  cols.forEach(c => c.sort((a, b) => a - b));
+  cols.sort((a, b) => a[0] - b[0]);
+  const lpt = Math.max(...cols.map(colH));
+  const pick = best && best.m <= lpt * 1.08 ? best.cols : cols;
+  return pick.map(c => c.map(i => secs[i]));
+}
+function buildColumns(d, geo) {
+  const rowH = geo.compact ? ROW_HC : ROW_H;
+  if (S.sort !== 'pct') {
+    const secs = d.groups.map(g => ({ key: g.key, name: g.name, head: true, items: g.list, ref: g.list.every(isRef), rank: 0 }));
+    return distribute(secs, geo.n, rowH);
+  }
+  // 등락률순: one ranked list (missing values last, ties in the Worker's order), split evenly over the columns; VIX at the end
+  const rv = it => it.ratio == null ? -Infinity : it.ratio;
+  const main = d.all.filter(it => !isRef(it)).sort((a, b) => rv(b) - rv(a) || a.ix - b.ix);
+  const refs = d.all.filter(isRef);
+  const n = Math.max(1, Math.min(geo.n, Math.ceil(main.length / 4)));
+  const per = Math.ceil(main.length / n);
+  const cols = [];
+  for (let c = 0; c < n; c++) {
+    const items = main.slice(c * per, (c + 1) * per);
+    if (!items.length) continue;
+    const a = c * per + 1, b = c * per + items.length;
+    cols.push([{ key: 'rank' + c, name: c === 0 ? `등락률 높은 순 · ${a}–${b}위` : `${a}–${b}위`, head: true, items, rank: a, flat: true }]);
+  }
+  if (refs.length) (cols[cols.length - 1] || (cols[0] = [])).push({ key: 'ref', name: '참고', head: true, items: refs, ref: true, flat: true });
+  return cols;
+}
+function rowEl(it) {
+  let el = els.rows.get(it.key);
+  if (!el) {
+    el = h('button', { type: 'button', class: 'kw-lr', 'data-k': it.key, tabindex: '-1' },
+      h('span', { class: 'kw-ln', 'aria-hidden': 'true' }, h('span', { class: 'rk' }), h('span', { class: 'nm' }), h('span', { class: 'sub' })),
+      h('span', { class: 'kw-ls', 'aria-hidden': 'true' }, h('i', { class: 'kw-sd' }), h('span', { class: 'st' }), h('span', { class: 'sub2' })),
+      h('span', { class: 'kw-lv', 'aria-hidden': 'true' }),
+      h('span', { class: 'kw-lc', 'aria-hidden': 'true' }),
+      h('span', { class: 'kw-lp', 'aria-hidden': 'true' }, h('span', { class: 'kw-pchip' })),
+      h('span', { class: 'kw-lb', 'aria-hidden': 'true' }, h('i')));
+    el.addEventListener('animationend', e => e.target.classList.remove('kw-fl'));   // a moved row must not fade again
+    els.rows.set(it.key, el);
+  }
+  return el;
+}
+function flash(el) {
+  if (reduceMQ.matches) return;
+  el.classList.remove('kw-fl');
+  void el.offsetWidth;                                   // restart the fade when values change on consecutive refreshes
+  el.classList.add('kw-fl');
+}
+function fillRow(el, it, sub, rank, R) {
+  const [ln, ls, lv, lc, lp, lb] = el.children;
+  const [rk, nm, sb] = ln.children;
+  const ref = isRef(it), open = it.status === 'OPEN';
+  rk.textContent = rank ? String(rank) : '';
+  rk.hidden = !rank;
+  if (nm.textContent !== it.name) nm.textContent = it.name;
+  const subText = ref ? '참고' : sub || '';
+  sb.textContent = subText;
+  sb.hidden = !subText;
+  sb.className = 'sub' + (ref ? ' tag' : '');
+  ls.children[0].className = 'kw-sd ' + (open ? 'open' : 'close');
+  ls.children[1].textContent = open ? (it.delayed ? `${it.delayed}분 지연` : '실시간') : '마감';
+  ls.children[1].className = 'st' + (open && it.delayed ? ' dl' : '');
+  ls.children[2].textContent = ref ? '' : sub || '';
+  const v = valText(it), c = chgText(it), p = pct(it.ratio);
+  const was = el.__vals;
+  lv.textContent = v;
+  lc.textContent = c;
+  lc.className = 'kw-lc ' + (ref || it.change == null ? 'flat' : cls(it.change));
+  const chip = lp.firstChild;
+  chip.textContent = p;
+  const col = ref ? null : colorOf(it);
+  chip.style.backgroundColor = col || '';
+  chip.style.color = col ? inkOn(col) : '';
+  chip.className = 'kw-pchip' + (ref ? ' ref' : it.ratio == null ? ' nod' : '');
+  // a short fade on values that changed since the last refresh (none under reduced motion)
+  if (was && was.v !== v) flash(lv);
+  if (was && was.p !== p) flash(chip);
+  el.__col = col;
+  const bar = lb.firstChild;
+  const frac = it.ratio == null || !R ? 0 : Math.min(Math.abs(it.ratio) / R, 1) * 50;
+  bar.style.width = frac.toFixed(2) + '%';
+  bar.style.left = it.ratio >= 0 ? '50%' : '';
+  bar.style.right = it.ratio < 0 ? '50%' : '';
+  bar.style.backgroundColor = ref ? '' : col || '';
+  bar.className = ref ? 'ref' : '';
+  el.classList.toggle('ref', ref);
+  el.__vals = { v, p };
+  el.title = it.name;
+  el.setAttribute('aria-label', ariaOf(it) + (rank ? `, ${rank}위` : ''));
+  el.classList.toggle('sel', !!(S.detail && S.detail.key === it.key));
+}
+function fillHead(sec, hd) {
+  const [t, s, a] = hd.children;
+  t.textContent = sec.name;
+  if (sec.flat && !sec.ref) { s.replaceChildren(); a.replaceChildren(); return; }
+  const st = stateOf(sec.items);
+  s.replaceChildren(h('i', { class: 'kw-sd ' + (st.open ? 'open' : 'close'), 'aria-hidden': 'true' }), st.text);
+  if (sec.ref) { a.replaceChildren(h('small', { text: '색칠하지 않는 지표' })); return; }
+  const avg = avgOf(sec.items);
+  a.replaceChildren(avg == null ? null : h('small', { text: '평균' }), avg == null ? null : h('b', { class: cls(avg), text: pct(avg) }));
+}
+function renderList(d) {
+  const L = els.list;
+  const W = L.clientWidth;
+  if (!W) return;
+  els.listW = W;
+  // value / change columns: as wide as the widest text, so numbers line up across sections and columns
+  let vw = 0, cw = 0;
+  for (const it of d.all) { vw = Math.max(vw, tw(valText(it), 500)); cw = Math.max(cw, tw(chgText(it), 500)); }
+  const geo = listGeom(W, NAME_MIN + FIXED_W + Math.ceil(vw * 13.5 + 4) + Math.ceil(cw * 12.5 + 4));
+  const cols = buildColumns(d, geo);
+  const fsV = geo.compact ? 14 : 13.5, fsC = geo.compact ? 12 : 12.5;
+  L.style.setProperty('--kw-n', String(cols.length || 1));
+  L.style.setProperty('--kw-vw', Math.ceil(vw * fsV + 4) + 'px');
+  L.style.setProperty('--kw-cw', Math.ceil(cw * fsC + 4) + 'px');
+  L.style.setProperty('--kw-vcw', Math.ceil(Math.max(vw * fsV, cw * fsC) + 4) + 'px');
+  L.classList.toggle('compact', geo.compact);
+  L.classList.toggle('flat', S.sort === 'pct');
+  const sig = [S.kind, S.sort, geo.compact, cols.map(c => c.map(s => s.key + ':' + s.items.map(it => it.key).join(',')).join(';')).join('/')].join('|');
+  const R = rangeNow();
+  const subs = new Map();
+  for (const col of cols) for (const sec of col) {
+    // a place shared by every row of a section (미국 · 뉴욕) says nothing: leave it out
+    const ss = sec.items.map(it => listSub(it, sec.flat));
+    const same = !sec.flat && ss.length > 1 && ss.every(x => x === ss[0]) && S.kind !== 'commodity';
+    sec.items.forEach((it, i) => subs.set(it.key, same ? '' : ss[i]));
+  }
+  if (sig !== els.listSig) {
+    // structure changed (first draw, sort, width class, a new order in 등락률순): rebuild the shells, keep the row elements
+    const ae = document.activeElement;
+    const fk = ae && ae.classList && ae.classList.contains('kw-lr') && L.contains(ae) ? ae.dataset.k : null;
+    const sy = scrollY;
+    const keep = new Set(d.all.map(it => it.key));
+    for (const [k, el] of els.rows) if (!keep.has(k)) { el.remove(); els.rows.delete(k); }
+    L.replaceChildren(...cols.map(col => h('div', { class: 'kw-col' }, col.map(sec => {
+      const id = `kw-sh-${S.kind}-${sec.key}`;
+      const hd = h('h3', { class: 'kw-sh', id }, h('span', { class: 't' }), h('span', { class: 's' }), h('span', { class: 'a' }));
+      const el = h('section', { class: 'kw-sec' + (sec.ref ? ' ref' : ''), 'data-g': sec.key, 'aria-labelledby': id }, hd,
+        h('div', { class: 'kw-rows' }, sec.items.map(rowEl)));
+      el.__sec = sec;
+      return el;
+    }))));
+    els.listSig = sig;
+    if (fk && els.rows.has(fk) && document.activeElement !== els.rows.get(fk)) els.rows.get(fk).focus({ preventScroll: true });
+    if (scrollY !== sy) scrollTo(scrollX, sy);
+  }
+  // fill in place
+  for (const secEl of L.querySelectorAll('.kw-sec')) {
+    const old = secEl.__sec;
+    const sec = cols.flat().find(s => s.key === old.key) || old;
+    secEl.__sec = sec;
+    fillHead(sec, secEl.firstChild);
+    sec.items.forEach((it, i) => fillRow(els.rows.get(it.key), it, subs.get(it.key), sec.flat && !sec.ref ? sec.rank + i : 0, R));
+  }
+  if (!S.listFocus || !els.rows.has(S.listFocus)) S.listFocus = cols.length && cols[0][0] ? cols[0][0].items[0].key : null;
+  for (const [k, el] of els.rows) el.tabIndex = k === S.listFocus ? 0 : -1;
+  // a place or unit that would be cut is left out, so the name keeps its room (one layout read for all rows)
+  if (!geo.compact) {
+    const subEls = [...L.querySelectorAll('.kw-ln .sub:not(.tag)')];
+    for (const x of subEls) x.classList.remove('cut');
+    const cut = subEls.filter(x => !x.hidden && x.scrollWidth > x.clientWidth);
+    for (const x of cut) x.classList.add('cut');
+  }
+}
+function setListFocus(key) {
+  if (!els.rows.has(key)) return;
+  S.listFocus = key;
+  for (const [k, el] of els.rows) el.tabIndex = k === key ? 0 : -1;
+}
+// one tab stop for the list; ↑/↓ row by row (across sections), ←/→ to the nearest row of the next column, Home/End
+function onListKey(e) {
+  const cur = e.target.closest('.kw-lr');
+  if (!cur) return;
+  const rows = [...els.list.querySelectorAll('.kw-lr')];
+  const i = rows.indexOf(cur);
+  let next = null;
+  if (e.key === 'ArrowDown') next = rows[i + 1];
+  else if (e.key === 'ArrowUp') next = rows[i - 1];
+  else if (e.key === 'Home') next = rows[0];
+  else if (e.key === 'End') next = rows[rows.length - 1];
+  else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+    const cols = [...els.list.querySelectorAll('.kw-col')];
+    const col = cols[cols.indexOf(cur.closest('.kw-col')) + (e.key === 'ArrowRight' ? 1 : -1)];
+    if (col) {
+      const y = cur.getBoundingClientRect().top;
+      let bd = Infinity;
+      for (const r of col.querySelectorAll('.kw-lr')) { const dd = Math.abs(r.getBoundingClientRect().top - y); if (dd < bd) { bd = dd; next = r; } }
+    }
+  } else return;
+  e.preventDefault();
+  if (next) { setListFocus(next.dataset.k); next.focus(); }
 }
 
 /* side: biggest movers, open markets, source */
@@ -665,7 +1007,7 @@ function ensureSheet() {
     }
   });
   document.addEventListener('pointerdown', e => {
-    if (!S.detail || sheet.contains(e.target) || e.target.closest('.kw-tile,.kw-row')) return;
+    if (!S.detail || sheet.contains(e.target) || e.target.closest('.kw-tile,.kw-row,.kw-lr')) return;
     if (!narrowMQ.matches) closeDetail(false);
   }, true);
   addEventListener('resize', () => { if (S.detail && S.detail.chart) drawChart(); });
@@ -677,6 +1019,7 @@ function openDetail(key, opener) {
   const same = S.detail && S.detail.key === key;
   S.detail = { key, kind: S.kind, opener: opener || null, tf: same ? S.detail.tf : '3m', chart: null };
   for (const [k, el] of els.tiles) el.classList.toggle('sel', k === key);
+  for (const [k, el] of els.rows) el.classList.toggle('sel', k === key);
   fillDetail(true);
   sheet.hidden = false;
   sheet.classList.toggle('kw-noanim', reduceMQ.matches);
@@ -692,11 +1035,18 @@ function closeDetail(restore) {
   sheet.hidden = true;
   scrim.classList.remove('open');
   if (els && els.tiles) for (const el of els.tiles.values()) el.classList.remove('sel');
+  if (els && els.rows) for (const el of els.rows.values()) el.classList.remove('sel');
   if (!restore || !S.shown) return;
-  let target = opener && opener.isConnected ? opener : null;
+  // back to the opener; if it is gone or hidden (the view changed meanwhile), to the same item in what is shown now
+  const visible = el => el && el.isConnected && el.getClientRects().length > 0;
+  let target = visible(opener) ? opener : null;
   if (!target && opener && opener.classList.contains('kw-row')) target = els.rank.querySelector(`.kw-row[data-k="${CSS.escape(key)}"]`);
-  if (!target) target = els.tiles.get(key);
-  if (target) { if (target.classList.contains('kw-tile')) setRoving(key); target.focus({ preventScroll: false }); }
+  if (!visible(target)) target = S.view === 'list' && visible(els.rows.get(key)) ? els.rows.get(key) : visible(els.tiles.get(key)) ? els.tiles.get(key) : null;
+  if (target) {
+    if (target.classList.contains('kw-tile')) setRoving(key);
+    if (target.classList.contains('kw-lr')) setListFocus(key);
+    target.focus({ preventScroll: false });
+  }
 }
 function fillDetail(full) {
   const D = S.detail, d = S.data[D.kind];
@@ -911,7 +1261,11 @@ function show(kind) {
   kind = kind === 'commodity' || kind === 'cmdty' ? 'commodity' : 'index';
   if (!scaffold()) return;
   const sameKind = S.kind === kind;
-  if (!sameKind) { closeDetail(false); S.kind = kind; S.focusKey = null; if (els.tiles) { for (const el of els.tiles.values()) el.remove(); for (const el of els.heads.values()) el.remove(); els.tiles.clear(); els.heads.clear(); } }
+  if (!sameKind) {
+    closeDetail(false); S.kind = kind; S.focusKey = null; S.listFocus = null;
+    if (els.tiles) { for (const el of els.tiles.values()) el.remove(); for (const el of els.heads.values()) el.remove(); els.tiles.clear(); els.heads.clear(); }
+    if (els.rows) { els.list.replaceChildren(); els.rows.clear(); els.listSig = ''; }
+  }
   const was = S.shown;
   S.shown = true;
   if (!LIVE) { renderSnapshot(); return; }
@@ -927,21 +1281,40 @@ function hide() {
   if (S.ac) S.ac.abort();
   closeDetail(false);
 }
-// the map as drawn now, in map pixels (same shape as KH.layout(), for saving an image)
+// the tile map in map pixels (same shape as KH.layout(), for "이미지로 저장"). In the list view it is the map the 지도
+// view draws at this width, laid out off screen: the saved picture is a map either way (extras says "지도를 저장했어요").
+function headSub(g) {
+  const avg = avgOf(g.g.items);
+  const vt = avg == null ? '' : pct(avg);
+  return vt && g.w - tw(g.g.name, 700) * 12 - 16 >= tw(vt, 600) * 12 + 4 ? vt : '';
+}
 function layout() {
-  if (!S.shown || !els || els.snap || !els.boxes) return [];
+  if (!S.shown || !els || els.snap) return [];
+  const d = S.data[S.kind];
+  if (!d || !d.all.length) return [];
   const out = [];
-  for (const g of els.boxes.heads) {
-    const el = els.heads.get(g.g.key);
-    out.push({ kind: 'sector', x: g.x, y: g.y, w: g.w, h: g.h, color: '#000', label: g.hd ? g.g.name : '', sub: g.hd && el ? el.__sub || '' : '', hd: g.hd });
+  if (S.view === 'map' && els.boxes && !els.map.hidden) {
+    for (const g of els.boxes.heads) {
+      const el = els.heads.get(g.g.key);
+      out.push({ kind: 'sector', x: g.x, y: g.y, w: g.w, h: g.h, color: '#000', label: g.hd ? g.g.name : '', sub: g.hd && el ? el.__sub || '' : '', hd: g.hd });
+    }
+    for (const t of els.boxes.tiles) {
+      const el = els.tiles.get(t.it.key);
+      out.push({ kind: 'tile', x: t.x, y: t.y, w: t.w, h: t.h, color: el ? el.__col : colorOf(t.it), label: t.it.name, sub: el ? el.__sub || '' : '', code: t.it.key });
+    }
+    return out;
   }
-  for (const t of els.boxes.tiles) {
-    const el = els.tiles.get(t.it.key);
-    out.push({ kind: 'tile', x: t.x, y: t.y, w: t.w, h: t.h, color: el ? el.__col : colorOf(t.it), label: t.it.name, sub: el ? el.__sub || '' : '', code: t.it.key });
+  const W = Math.round((els.list.clientWidth || els.map.clientWidth || root.clientWidth || 0));
+  if (!W) return [];
+  const Lo = computeLayout(d, W, Math.max(480, Math.min(760, Math.round(W * 0.6))));
+  for (const g of Lo.heads) out.push({ kind: 'sector', x: g.x, y: g.y, w: g.w, h: g.h, color: '#000', label: g.hd ? g.g.name : '', sub: g.hd ? headSub(g) : '', hd: g.hd });
+  for (const t of Lo.tiles) {
+    const L = fit(tileTexts(t.it, t.g), t.w, t.h);
+    out.push({ kind: 'tile', x: t.x, y: t.y, w: t.w, h: t.h, color: colorOf(t.it), label: t.it.name, sub: L && L.lv >= 2 ? pct(t.it.ratio) : '', code: t.it.key });
   }
   return out;
 }
-window.KHWorld = { show, hide, layout, shown: () => S.shown ? S.kind : null };
+window.KHWorld = { show, hide, layout, shown: () => S.shown ? S.kind : null, view: () => S.view };
 
 // the template may have tried show() before this script existed (page opened at #world / #cmdty): start now
 try {

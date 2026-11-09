@@ -46,6 +46,75 @@
 .kw-retry:hover{background:rgba(255,181,71,.22)}
 .kw-retry.sm{height:30px;margin:0 0 0 6px;padding:0 10px;font-size:12.5px}
 
+/* header toggles: 지역순 · 등락률순, 목록 · 지도 (the heatmap's .seg look) */
+.kw-tools{display:flex;align-items:center;gap:8px}
+.kw-seg[hidden]{display:none}
+.kw-seg button{padding:4px 10px;font-size:12.5px}
+.kw-seg button:focus-visible{outline-offset:-2px}
+
+/* list view */
+.kw-list{display:grid;grid-template-columns:repeat(var(--kw-n,1),minmax(0,1fr));gap:12px;align-items:start}
+.kw-list[hidden],.kw-map[hidden]{display:none}
+.kw-col{display:flex;flex-direction:column;gap:12px;min-width:0}
+.kw-sec{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:0 6px 6px;min-width:0}
+.kw-sh{display:flex;align-items:center;gap:10px;min-height:41px;margin:0 2px 4px;padding:0 6px;border-bottom:1px solid var(--line);font-size:13.5px;font-weight:700;color:var(--fg);white-space:nowrap}
+.kw-sh .t{overflow:hidden;text-overflow:ellipsis;min-width:0;flex:0 1 auto}
+.kw-sh .s{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:500;color:var(--muted);flex:none}
+.kw-sh .s:empty{display:none}
+.kw-sh .a{margin-left:auto;display:inline-flex;align-items:baseline;gap:6px;flex:none;font-variant-numeric:tabular-nums}
+.kw-sh .a small{font-size:11.5px;font-weight:400;color:var(--muted)}
+.kw-sh .a b{font-size:13px;font-weight:600}
+.kw-rows{display:flex;flex-direction:column}
+.kw-lr{display:grid;grid-template-columns:minmax(0,1fr) 64px var(--kw-vw,76px) var(--kw-cw,62px) 66px 48px;grid-template-areas:"n s v c p b";align-items:center;column-gap:8px;width:100%;min-height:36px;padding:0 6px;border-radius:6px;text-align:left;font-size:13.5px;line-height:1.25;color:var(--fg)}
+.kw-lr:hover{background:rgba(255,255,255,.045)}
+.kw-lr:focus-visible{outline:2px solid var(--amber);outline-offset:-2px}
+.kw-lr.sel{background:var(--amber-soft);box-shadow:inset 3px 0 0 var(--amber)}
+.kw-ln{grid-area:n;display:flex;align-items:baseline;gap:7px;min-width:0;overflow:hidden;white-space:nowrap}
+.kw-ln .rk{flex:none;min-width:17px;text-align:right;font-size:11.5px;color:var(--faint);font-variant-numeric:tabular-nums}
+.kw-ln .rk[hidden]{display:none}
+.kw-ln .nm{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;font-weight:600;letter-spacing:-.01em}
+.kw-ln .sub{flex:0 1000 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;font-size:11.5px;color:var(--faint)}
+.kw-ln .sub[hidden],.kw-ln .sub.cut{display:none}
+.kw-ln .sub.tag{flex:none;align-self:center;font-size:11px;line-height:16px;padding:0 5px;border-radius:4px;border:1px solid var(--line2);color:var(--fg2)}
+.kw-ls{grid-area:s;display:flex;align-items:center;gap:5px;min-width:0;overflow:hidden;white-space:nowrap;font-size:11.5px;color:var(--muted)}
+.kw-ls .st.dl{color:var(--fg2)}
+.kw-ls .sub2{display:none}
+.kw-sd{flex:none;display:inline-block;width:6px;height:6px;border-radius:50%}
+.kw-sd.open{background:var(--amber)}
+.kw-sd.close{box-shadow:inset 0 0 0 1.3px var(--muted)}
+.kw-lv{grid-area:v;justify-self:end;white-space:nowrap;font-weight:500;font-variant-numeric:tabular-nums;border-radius:4px;padding:1px 3px;margin:-1px -3px}
+.kw-lc{grid-area:c;text-align:right;white-space:nowrap;font-size:12.5px;font-variant-numeric:tabular-nums}
+.kw-lc.flat{color:var(--fg2)}
+.kw-lp{grid-area:p;display:flex;justify-content:flex-end}
+.kw-pchip{display:inline-block;min-width:100%;height:23px;padding:0 7px;border-radius:5px;font-size:12.5px;font-weight:650;line-height:23px;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums;color:#fff}
+.kw-pchip.ref{background:none;box-shadow:inset 0 0 0 1px var(--line2);color:var(--fg2);font-weight:500}
+.kw-pchip.nod{background:var(--nodata);color:var(--muted)}
+.kw-lb{grid-area:b;position:relative;height:10px}
+.kw-lb::before{content:"";position:absolute;left:50%;top:-2px;bottom:-2px;width:1px;background:var(--line2)}
+.kw-lb i{position:absolute;top:1px;height:8px;border-radius:2px}
+.kw-lb i.ref{background:#5b5f69}
+.kw-fl{animation:kwFl 1.4s ease-out}
+@keyframes kwFl{from{background-color:rgba(255,255,255,.2)}to{background-color:transparent}}
+.kw-pchip.kw-fl{animation:kwFlc 1.4s ease-out}
+@keyframes kwFlc{from{box-shadow:0 0 0 2px rgba(255,255,255,.55)}to{box-shadow:0 0 0 2px rgba(255,255,255,0)}}
+/* two-line rows (phones, narrow columns): name · value · chip / state · place · change · bar under the chip */
+.kw-list.compact .kw-lr{grid-template-columns:minmax(0,1fr) var(--kw-vcw,76px) 70px;grid-template-areas:"n v p" "s c b";column-gap:10px;row-gap:3px;min-height:52px;padding:6px 6px}
+.kw-list.compact .kw-ln{font-size:14.5px}
+.kw-list.compact .kw-ln .sub{display:none}
+.kw-list.compact .kw-ln .sub.tag{display:inline-block}
+.kw-list.compact .kw-ls .sub2{display:inline;overflow:hidden;text-overflow:ellipsis;min-width:0;color:var(--faint)}
+.kw-list.compact .kw-ls .sub2:empty{display:none}
+.kw-list.compact .kw-ls .sub2::before{content:"·";margin-right:5px;color:var(--faint)}
+.kw-list.compact .kw-lv{font-size:14px}
+.kw-list.compact .kw-lc{font-size:12px}
+.kw-list.compact .kw-pchip{height:26px;line-height:26px;font-size:13px}
+.kw-list.compact .kw-lb{height:4px;align-self:center}
+.kw-list.compact .kw-lb::before{top:-3px;bottom:-3px}
+.kw-list.compact .kw-lb i{top:0;height:4px;border-radius:2px}
+.kw-list.compact .kw-ln .rk{min-width:15px}
+/* legend dots */
+.kw-legend .kw-sd{margin-left:2px}
+
 /* legend (reuses the heatmap's .legend look) */
 .kw-legend .grad{width:120px}
 .kw-refsw{background-color:#30333b;background-image:repeating-linear-gradient(135deg,rgba(255,255,255,.16) 0 2px,transparent 2px 5px);box-shadow:inset 0 0 0 1px var(--line2)}
@@ -137,7 +206,9 @@
 @media (max-width:760px){
   #world.kw{padding:0 12px 12px;gap:12px}
   .kw-side{display:flex}
-  .kw-time{margin-left:0;width:100%}
+  .kw-time{margin-left:0;flex:1 1 auto}
+  .kw-tools{margin-left:auto;gap:6px}
+  .kw-seg button{padding:4px 10px}
   .kw-legend .right{margin-left:0}
   .kw-row{min-height:44px}
   .kw-retry{min-height:40px}
@@ -149,6 +220,7 @@
   .kw-tf button{min-width:64px}
 }
 @media (prefers-reduced-motion: reduce){
+  .kw-fl,.kw-pchip.kw-fl{animation:none}
   .kw-tile{transition:none}
   .kw-sheet{animation:none}
   .kw-msg.busy b::after{animation:none;opacity:.8}
