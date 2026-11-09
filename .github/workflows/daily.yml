@@ -2,7 +2,7 @@ name: daily-data
 
 on:
   schedule:
-    - cron: "10 7 * * 1-5"   # 16:10 KST, Mon-Fri: everything
+    - cron: "40 7 * * 1-5"   # 16:40 KST, Mon-Fri: everything (after the 16:30 end on 수능 day / first trading day; the check step also waits for the real endTime)
     - cron: "30 12 * * 1-5"  # 21:30 KST: investor flows again (Naver publishes the day's row in the evening)
   workflow_dispatch:
 
@@ -27,7 +27,7 @@ jobs:
       - name: KRX trading day?
         id: day
         run: |
-          if python3 scripts/build_daily.py --check-trading-day; then
+          if python3 scripts/build_daily.py --check-trading-day --wait-session-end; then
             echo "trading=true" >> "$GITHUB_OUTPUT"
           else
             echo "trading=false" >> "$GITHUB_OUTPUT"
@@ -63,8 +63,34 @@ jobs:
           git add data web dist
           if git diff --cached --quiet; then
             echo "Nothing changed."
-          else
-            git commit -m "data: daily refresh $(TZ=Asia/Seoul date +%F)"
-            git pull --rebase origin "${GITHUB_REF_NAME}" || true
-            git push
+            exit 0
           fi
+          git commit -m "data: daily refresh $(TZ=Asia/Seoul date +%F)"
+          # All of data/ web/ dist/ is this job's own output, so on a rebase conflict our (job) side wins.
+          # During `git rebase` "theirs" is the commit being replayed = our regenerated files.
+          for attempt in 1 2 3; do
+            git fetch origin "${GITHUB_REF_NAME}"
+            if ! git rebase -X theirs "origin/${GITHUB_REF_NAME}"; then
+              echo "::warning::rebase conflict (attempt $attempt) - taking the job's generated files"
+              # conflicts that -X theirs cannot settle (modify/delete etc.): generated paths -> ours-of-job
+              git diff --name-only --diff-filter=U | while read -r f; do
+                case "$f" in
+                  data/*|web/*|dist/*) git checkout --theirs -- "$f" 2>/dev/null && git add -- "$f" || git rm -q -- "$f" ;;
+                esac
+              done
+              if git diff --name-only --diff-filter=U | grep -q .; then
+                echo "::error::unresolved conflicts outside generated files:"; git diff --name-only --diff-filter=U
+                git rebase --abort || true
+                exit 1
+              fi
+              GIT_EDITOR=true git rebase --continue || { git rebase --abort || true; echo "::error::rebase failed"; exit 1; }
+            fi
+            if git push origin "HEAD:${GITHUB_REF_NAME}"; then
+              echo "pushed on attempt $attempt"
+              exit 0
+            fi
+            echo "::warning::push rejected (attempt $attempt), retrying"
+            sleep $((attempt * 5))
+          done
+          echo "::error::could not push after 3 attempts"
+          exit 1

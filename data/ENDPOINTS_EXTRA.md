@@ -248,3 +248,22 @@ looked split-adjusted (196170: 1y 401,654, 3y 49,783), which is a plus for retur
   Units: net buy in **shares (주), signed strings** (no KRW value; multiply by close for an approximation). 100 of 100 top-cap stocks returned the 11/09 row.
   Measured: 20 sequential = 13.1 s (0.65 s each); 100 calls at concurrency 25 = 3.2 s. **600 stocks = 600 calls, ~0.2 MB total, ~20 s at concurrency 25.**
   Publication timing: after the close the row appears sometime in the evening, so during the session the latest row is the previous trading day. Same Cloudflare subrequest limit as §6; cache for hours and refresh once in the evening.
+
+---
+
+## 8. Daily-job notes (2026-11-09 review fixes; for AGENTS-facing docs)
+
+**Period bases (`web/periods.json`)**: anchored to the *latest trading day of the data* (the snapshot's day = last bar of the reference stock 005930), never to the wall clock, so a re-run on a later day or a weekend gives identical bases.
+`base` = the exact close date each period uses; the page computes `current price / close(base) - 1`, i.e. **"since that date's close"**:
+`w1` = last close on/before (latest day - 7 calendar days); `m1` / `m3` = on/before latest day minus 1 / 3 calendar months; `ytd` = last close of the previous calendar year (e.g. 2025-12-30); `y1` = on/before latest day minus 1 year.
+New additive field `off` = how many trading sessions before `asOf` each base is (w1 is 5 normally, 4-8 around holidays; on 2026-11-09: w1 5, m1 21, m3 61, ytd 208, y1 244). Existing keys/shape are unchanged.
+Drift: if the page is viewed on a later day before the next build, the live price is up to 1 session newer than the build's `asOf`, so "1주" then spans `off.w1 + 1` sessions (<= 1 session drift). Show "기준: {base} 종가" in the tooltip to stay exact.
+
+**Flows (`web/flows.json`)**: per-stock. Target day = newest `bizdate` (<= snapshot day) seen across stocks. A stock whose latest row is older (Naver publishes evening rows gradually, or the stock is halted) keeps *its own* last complete sums and is listed in the additive top-level `stale: {code: its latest bizdate}`; a stock whose fetch failed keeps its previous flows.json entry (also in `stale`). `validate_daily.py` prints `N current, M stale`. The 21:30 KST run rebuilds everything and completes the rest. Stale stocks' "1일" is their last published day, not asOf.
+
+**Session end**: regular session ends at `stockExchangeType.endTime` (`1530`; `1630` on 수능 day and the first trading day of the year; read from `polling.finance.naver.com/api/realtime/domestic/stock/{code}`, also on every row of the market lists).
+* `build_snapshot.py` pins to bars <= `endTime` (window = last 30 min before it) and sets `asOf` to `T{endTime}`; top-level `"close": "krx"|"naver"` (+ `"closeAt":"HHMM"` when krx). The build writes `web/close.json` only when `close == "krx"`. If pinning is forced before the session is really over (+1 min), it refuses to pin and writes `"close":"naver"`. The pin cache is keyed by date and end time.
+* Daily cron moved to **16:40 KST** (`40 7 * * 1-5` UTC), after the 16:30 end; the trading-day step also runs `--wait-session-end` (sleeps until endTime + 2 min, at most 50 min; manual dispatches wait too). The trading-day check itself (REF's day bar for today + weekday) is unaffected by session length.
+* Consumers must not hard-code 15:30: the page rule "asOf after 15:30" works because `asOf` of a pinned snapshot is the real end (16:30 on those days), and a live `asOf` after that is NXT-mixed.
+
+**Commit step** (`daily.yml`): fetch, `rebase -X theirs` (the job's generated `data/ web/ dist/` win), leftover conflicts in those paths resolved to the job's version, anything else aborts the rebase and fails; push retried 3x with backoff, then fails loudly.
