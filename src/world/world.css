@@ -46,6 +46,163 @@
 .kw-retry:hover{background:rgba(255,181,71,.22)}
 .kw-retry.sm{height:30px;margin:0 0 0 6px;padding:0 10px;font-size:12.5px}
 
+/* header toggles: 지역순 · 등락률순, 목록 · 지도 (the heatmap's .seg look) */
+.kw-tools{display:flex;align-items:center;gap:8px}
+.kw-seg[hidden]{display:none}
+.kw-seg button{padding:4px 10px;font-size:12.5px}
+.kw-seg button:focus-visible{outline-offset:-2px}
+
+/* list view */
+.kw-list{display:grid;grid-template-columns:repeat(var(--kw-n,1),minmax(0,1fr));gap:12px;align-items:start}
+.kw-list[hidden],.kw-map[hidden]{display:none}
+.kw-col{display:flex;flex-direction:column;gap:12px;min-width:0}
+.kw-sec{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:0 6px 6px;min-width:0}
+.kw-sh{display:flex;align-items:center;gap:10px;min-height:41px;margin:0 2px 4px;padding:0 6px;border-bottom:1px solid var(--line);font-size:13.5px;font-weight:700;color:var(--fg);white-space:nowrap}
+.kw-sh .t{overflow:hidden;text-overflow:ellipsis;min-width:0;flex:0 1 auto}
+.kw-sh .s{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:500;color:var(--muted);flex:none}
+.kw-sh .s:empty{display:none}
+.kw-sh .a{margin-left:auto;display:inline-flex;align-items:baseline;gap:6px;flex:none;font-variant-numeric:tabular-nums}
+.kw-sh .a small{font-size:11.5px;font-weight:400;color:var(--muted)}
+.kw-sh .a b{font-size:13px;font-weight:600}
+.kw-rows{display:flex;flex-direction:column}
+.kw-lr{display:grid;grid-template-columns:minmax(0,1fr) 64px var(--kw-vw,76px) var(--kw-cw,62px) 66px 48px;grid-template-areas:"n s v c p b";align-items:center;column-gap:8px;width:100%;min-height:36px;padding:0 6px;border-radius:6px;text-align:left;font-size:13.5px;line-height:1.25;color:var(--fg)}
+.kw-lr:hover{background:rgba(255,255,255,.045)}
+.kw-lr:focus-visible{outline:2px solid var(--amber);outline-offset:-2px}
+.kw-lr.sel{background:var(--amber-soft);box-shadow:inset 3px 0 0 var(--amber)}
+.kw-ln{grid-area:n;display:flex;align-items:baseline;gap:7px;min-width:0;overflow:hidden;white-space:nowrap}
+.kw-ln .rk{flex:none;min-width:17px;text-align:right;font-size:11.5px;color:var(--faint);font-variant-numeric:tabular-nums}
+.kw-ln .rk[hidden]{display:none}
+.kw-ln .nm{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;font-weight:600;letter-spacing:-.01em}
+.kw-ln .sub{flex:0 1000 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;font-size:11.5px;color:var(--faint)}
+.kw-ln .sub[hidden],.kw-ln .sub.cut{display:none}
+.kw-ln .sub.tag{flex:none;align-self:center;font-size:11px;line-height:16px;padding:0 5px;border-radius:4px;border:1px solid var(--line2);color:var(--fg2)}
+.kw-ls{grid-area:s;display:flex;align-items:center;gap:5px;min-width:0;overflow:hidden;white-space:nowrap;font-size:11.5px;color:var(--muted)}
+.kw-ls .st.dl{color:var(--fg2)}
+.kw-ls .sub2{display:none}
+.kw-sd{flex:none;display:inline-block;width:6px;height:6px;border-radius:50%}
+.kw-sd.open{background:var(--amber)}
+.kw-sd.close{box-shadow:inset 0 0 0 1.3px var(--muted)}
+.kw-lv{grid-area:v;justify-self:end;white-space:nowrap;font-weight:500;font-variant-numeric:tabular-nums;border-radius:4px;padding:1px 3px;margin:-1px -3px}
+.kw-lc{grid-area:c;text-align:right;white-space:nowrap;font-size:12.5px;font-variant-numeric:tabular-nums}
+.kw-lc.flat{color:var(--fg2)}
+.kw-lp{grid-area:p;display:flex;justify-content:flex-end}
+.kw-pchip{display:inline-block;min-width:100%;height:23px;padding:0 7px;border-radius:5px;font-size:12.5px;font-weight:650;line-height:23px;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums;color:#fff}
+.kw-pchip.ref{background:none;box-shadow:inset 0 0 0 1px var(--line2);color:var(--fg2);font-weight:500}
+.kw-pchip.nod{background:var(--nodata);color:var(--muted)}
+.kw-lb{grid-area:b;position:relative;height:10px}
+.kw-lb::before{content:"";position:absolute;left:50%;top:-2px;bottom:-2px;width:1px;background:var(--line2)}
+.kw-lb i{position:absolute;top:1px;height:8px;border-radius:2px}
+.kw-lb i.ref{background:#5b5f69}
+.kw-fl{animation:kwFl 1.4s ease-out}
+@keyframes kwFl{from{background-color:rgba(255,255,255,.2)}to{background-color:transparent}}
+.kw-pchip.kw-fl{animation:kwFlc 1.4s ease-out}
+@keyframes kwFlc{from{box-shadow:0 0 0 2px rgba(255,255,255,.55)}to{box-shadow:0 0 0 2px rgba(255,255,255,0)}}
+/* two-line rows (phones, narrow columns): name · value · chip / state · place · change · bar under the chip */
+.kw-list.compact .kw-lr{grid-template-columns:minmax(0,1fr) var(--kw-vcw,76px) 70px;grid-template-areas:"n v p" "s c b";column-gap:10px;row-gap:3px;min-height:52px;padding:6px 6px}
+.kw-list.compact .kw-ln{font-size:14.5px}
+.kw-list.compact .kw-ln .sub{display:none}
+.kw-list.compact .kw-ln .sub.tag{display:inline-block}
+.kw-list.compact .kw-ls .sub2{display:inline;overflow:hidden;text-overflow:ellipsis;min-width:0;color:var(--faint)}
+.kw-list.compact .kw-ls .sub2:empty{display:none}
+.kw-list.compact .kw-ls .sub2::before{content:"·";margin-right:5px;color:var(--faint)}
+.kw-list.compact .kw-lv{font-size:14px}
+.kw-list.compact .kw-lc{font-size:12px}
+.kw-list.compact .kw-pchip{height:26px;line-height:26px;font-size:13px}
+.kw-list.compact .kw-lb{height:4px;align-self:center}
+.kw-list.compact .kw-lb::before{top:-3px;bottom:-3px}
+.kw-list.compact .kw-lb i{top:0;height:4px;border-radius:2px}
+.kw-list.compact .kw-ln .rk{min-width:15px}
+/* world map (해외 지수 · 지도) */
+.kw-geo[hidden],.kw-gnote[hidden]{display:none}
+.kw-gnote{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:0 0 10px;padding:9px 12px;border-radius:8px;background:var(--panel2);border:1px solid var(--line2);font-size:13px;color:var(--fg2)}
+.kw-gnote .kw-retry.sm{margin-left:auto}
+.kw-gmap{position:relative;background:#000;border-radius:6px;overflow:hidden;user-select:none;-webkit-user-select:none;touch-action:manipulation}
+.kw-gsvg{display:block}
+.kw-gsea{fill:#0a0b0e}
+.kw-ggrat{fill:none;stroke:rgba(255,255,255,.045);stroke-width:.6}
+.kw-cp{fill:#1f2126;stroke:none}
+.kw-cp.has{cursor:pointer;transition:fill .48s cubic-bezier(.2,.7,.2,1)}
+/* layers above the fills (motion brief (e)): night → borders → open-market glow → selection / hover → leader lines → markers */
+.kw-gnight,.kw-gbord,.kw-gglow,.kw-gsel,.kw-ghov,.kw-glines{pointer-events:none}
+.kw-gn{fill:#050814;fill-opacity:.12}
+.kw-gterm{fill:none;stroke:rgba(255,255,255,.08);stroke-width:1}
+.kw-gbord{fill:none;stroke:#000;stroke-width:.55;stroke-linejoin:round}
+.kw-ggb{filter:blur(2px)}
+.kw-ggb path{fill:none;stroke:rgba(255,181,71,.18);stroke-width:4;stroke-linejoin:round}
+.kw-ggl path{fill:none;stroke:rgba(255,181,71,.6);stroke-width:1.25;stroke-linejoin:round}
+.kw-gsel path{fill:none;stroke:var(--amber);stroke-width:2;stroke-linejoin:round}
+.kw-ghov path{fill:none;stroke:rgba(255,255,255,.9);stroke-width:1.2;stroke-linejoin:round}
+.kw-gld{fill:none;stroke:rgba(255,255,255,.42);stroke-width:.8}
+/* market markers: amber dot = open, hollow grey dot = closed; 홍콩 is a dot in its index colour with the state as its ring */
+.kw-gdot{fill:#0b0c10;stroke:#9aa0aa;stroke-width:1.2;cursor:pointer}
+.kw-gdot.open{fill:var(--amber);stroke:#000;stroke-width:.8}
+.kw-gdot.sel{stroke:#fff;stroke-width:1.4}
+.kw-gmk{stroke:#9aa0aa;stroke-width:1.4;cursor:pointer;paint-order:stroke}
+.kw-gmk.open{stroke:var(--amber)}
+.kw-gmk.sel{stroke:#fff;stroke-width:2.4}
+.kw-gp{fill:none;stroke:var(--amber);stroke-width:1.2;opacity:0;transform-box:fill-box;transform-origin:center;pointer-events:none}
+.kw-fx .kw-gp.on{animation:kwRing 2.4s cubic-bezier(.2,.7,.2,1) infinite}
+.kw-fx .kw-gp.on.just{animation:kwRing .8s cubic-bezier(.2,.7,.2,1) 3;animation-delay:0s!important}
+.kw-gl.in .kw-sd{position:relative}
+.kw-fx .kw-gl.in .kw-sd.open::after{content:"";position:absolute;inset:0;border-radius:50%;box-shadow:0 0 0 1px var(--amber);opacity:0;animation:kwRing 2.4s cubic-bezier(.2,.7,.2,1) var(--pd,0s) infinite}
+@keyframes kwRing{0%{transform:scale(1);opacity:.55}100%{transform:scale(3);opacity:0}}
+.kw-paused .kw-gp,.kw-paused .kw-sd::after{animation-play-state:paused!important}
+/* 'fancy', first opening: countries → night → markers */
+.kw-gin .kw-gland{animation:kwFade .24s cubic-bezier(.2,.7,.2,1) both}
+.kw-gin .kw-gnight{animation:kwFade .48s cubic-bezier(.2,.7,.2,1) .16s both}
+.kw-gin .kw-gglow,.kw-gin .kw-glines,.kw-gin .kw-gmarks,.kw-gin .kw-glabs{animation:kwFade .24s cubic-bezier(.2,.7,.2,1) .56s both}
+@keyframes kwFade{from{opacity:0}}
+.kw-glabs{position:absolute;inset:0;pointer-events:none}
+.kw-gl{position:absolute;pointer-events:auto;white-space:nowrap;font-variant-numeric:tabular-nums}
+.kw-gl.in{transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:0;padding:2px 4px;border-radius:5px;color:#fff;line-height:1.15;text-shadow:0 0 2px rgba(0,0,0,.9),0 0 5px rgba(0,0,0,.6)}
+.kw-gl.in .n{display:inline-flex;align-items:center;gap:4px;font-size:calc(12px * var(--gs,1));font-weight:600}
+.kw-gl.in .p{font-size:calc(12.5px * var(--gs,1));font-weight:700}
+.kw-gl.in .kw-sd.close{box-shadow:inset 0 0 0 1.3px rgba(255,255,255,.8)}
+.kw-gl.in.sm{pointer-events:none;padding:0;flex-direction:row;gap:3px}
+.kw-gl.in.sm .kw-sd{width:5px;height:5px}
+.kw-gl.in.sm .p{font-size:10.5px;font-weight:650}
+.kw-gl.chip{transform:translateY(-50%);display:inline-flex;align-items:center;gap:5px;height:21px;padding:0 7px 0 6px;border-radius:5px;background:rgba(17,18,22,.93);border:1px solid rgba(255,255,255,.12);box-shadow:inset 3px 0 0 var(--c,#383c46);padding-left:9px;font-size:11.5px;color:var(--fg)}
+.kw-gl.chip.end{transform:translate(-100%,-50%)}
+.kw-gl.chip .t{font-weight:600}
+.kw-gl.chip .p{font-weight:650}
+.kw-gl:hover{z-index:2}
+.kw-gl.chip:hover{border-color:rgba(255,255,255,.4)}
+.kw-gl.in:hover{background:rgba(0,0,0,.35)}
+.kw-gl:focus-visible{outline:2px solid var(--amber);outline-offset:1px;z-index:3}
+.kw-gl.sel{z-index:2;outline:2px solid var(--amber);outline-offset:1px}
+.kw-goff{position:absolute;left:8px;bottom:8px;width:218px;padding:7px 6px 5px;border-radius:8px;background:rgba(17,18,22,.92);border:1px solid var(--line);z-index:2}
+.kw-goff.below{position:static;width:auto;margin-top:12px;background:var(--panel);border-radius:10px;padding:6px;display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));column-gap:12px}
+.kw-goff.below .kw-goh{grid-column:1/-1;padding-top:3px}
+.kw-goh{font-size:11.5px;color:var(--muted);padding:0 4px 4px}
+.kw-go{display:grid;grid-template-columns:8px minmax(0,1fr) auto;align-items:center;gap:7px;width:100%;min-height:26px;padding:0 4px;border-radius:5px;font-size:12px;text-align:left}
+.kw-go .t{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.kw-go:hover{background:rgba(255,255,255,.05)}
+.kw-go:focus-visible{outline:2px solid var(--amber);outline-offset:-2px}
+.kw-go.sel{background:var(--amber-soft)}
+.kw-pchip.sm{height:19px;line-height:19px;min-width:58px;font-size:11.5px;padding:0 6px}
+.kw-ggrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px;margin-top:10px}
+.kw-gc{display:grid;grid-template-columns:10px minmax(0,1fr) auto;align-items:center;gap:8px;min-height:44px;padding:4px 10px;border-radius:8px;background:var(--panel);border:1px solid var(--line);text-align:left}
+.kw-gc .sw{width:10px;height:10px;border-radius:2px}
+.kw-gc .t{display:flex;flex-direction:column;min-width:0;line-height:1.25}
+.kw-gc .t b{font-size:13.5px;font-weight:600}
+.kw-gc .t small{font-size:11px;color:var(--faint);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.kw-gc .p{font-size:13px;font-weight:650;font-variant-numeric:tabular-nums}
+.kw-gc:focus-visible{outline:2px solid var(--amber);outline-offset:-2px}
+.kw-gc.sel{border-color:var(--amber);background:var(--amber-soft)}
+.kw-geo.narrow .kw-go{min-height:44px;font-size:13px}
+/* detail sheet: a country's indices */
+.kw-peers{display:flex;flex-wrap:wrap;gap:5px;padding:12px 48px 2px 14px}
+.kw-peers-h{width:100%;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:1px}
+.kw-peers button{display:inline-flex;align-items:baseline;gap:6px;height:28px;padding:0 9px;border-radius:7px;border:1px solid var(--line2);background:var(--panel2);font-size:12px;color:var(--fg2);white-space:nowrap;font-variant-numeric:tabular-nums}
+.kw-peers button .v{font-weight:600}
+.kw-peers button[aria-pressed="true"]{border-color:rgba(255,181,71,.6);background:var(--amber-soft);color:var(--fg)}
+.kw-peers button:hover{color:var(--fg)}
+.kw-sheet.has-peers .kw-dh{padding-top:8px}
+
+/* legend dots */
+.kw-legend .kw-sd{margin-left:2px}
+.kw-nightsw{background:linear-gradient(90deg,#8a8f9b 50%,#1a1c22 50%)!important;border-radius:50%!important;box-shadow:inset 0 0 0 1px var(--line2)}
+
 /* legend (reuses the heatmap's .legend look) */
 .kw-legend .grad{width:120px}
 .kw-refsw{background-color:#30333b;background-image:repeating-linear-gradient(135deg,rgba(255,255,255,.16) 0 2px,transparent 2px 5px);box-shadow:inset 0 0 0 1px var(--line2)}
@@ -137,7 +294,9 @@
 @media (max-width:760px){
   #world.kw{padding:0 12px 12px;gap:12px}
   .kw-side{display:flex}
-  .kw-time{margin-left:0;width:100%}
+  .kw-time{margin-left:0;flex:1 1 auto}
+  .kw-tools{margin-left:auto;gap:6px}
+  .kw-seg button{padding:4px 10px}
   .kw-legend .right{margin-left:0}
   .kw-row{min-height:44px}
   .kw-retry{min-height:40px}
@@ -147,9 +306,17 @@
   .kw-grab{display:block;width:38px;height:4px;border-radius:2px;background:var(--line2);margin:8px auto 0}
   .kw-scrim.open{display:block;position:fixed;inset:0;z-index:91;background:rgba(0,0,0,.45)}
   .kw-tf button{min-width:64px}
+  .kw-peers button{height:40px}
 }
+/* the device's reduced-motion setting, only when the page has no 효과 setting of its own (no <html data-motion>):
+   with one, KH.motion() decides (a user may pick 기본 on such a device) and .kw-rm below applies */
 @media (prefers-reduced-motion: reduce){
-  .kw-tile{transition:none}
-  .kw-sheet{animation:none}
-  .kw-msg.busy b::after{animation:none;opacity:.8}
+  html:not([data-motion]) .kw-fl,html:not([data-motion]) .kw-pchip.kw-fl{animation:none}
+  html:not([data-motion]) .kw-tile,html:not([data-motion]) .kw-cp.has{transition:none}
+  html:not([data-motion]) .kw-sheet{animation:none}
+  html:not([data-motion]) .kw-msg.busy b::after{animation:none;opacity:.8}
 }
+/* 효과: 줄이기 (KH.motion() 'reduced') — the same, whatever the OS says */
+.kw-rm .kw-fl,.kw-rm .kw-pchip.kw-fl,.kw-rm .kw-gin *{animation:none!important}
+.kw-rm .kw-tile,.kw-rm .kw-cp.has{transition:none}
+.kw-rm .kw-msg.busy b::after{animation:none;opacity:.8}

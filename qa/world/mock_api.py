@@ -6,8 +6,10 @@
 Routes: /api/world?kind=index|commodity, /api/world/chart/<key>?tf=3m|1y (1d / unknown key → 400 like the Worker),
         /api/quotes, /api/market, /api/replay/dates, /api/breadth, /api/themes, /data/<name>.json, static files from web/.
 Test controls (not part of the contract):
-  /__mode?world=ok|fail|empty|closed|slow|html404&chart=ok|none|fail   switch failure modes
+  /__mode?world=ok|fail|empty|closed|slow|html404|drift&chart=ok|none|fail   switch failure modes
+                                    (drift: every answer moves values a little, deterministically, to test in-place refresh)
   /__stats   request counts per route        /__reset   counts + modes back to default
+  /__last?kind=index|commodity   the last /api/world answer sent
 """
 import json
 import pathlib
@@ -41,6 +43,8 @@ DEFAULT = {'world': 'ok', 'chart': 'ok'}
 MODE = dict(DEFAULT)
 STATS = {}
 LOCK = threading.Lock()
+DRIFT = {'n': 0}
+LAST = {}
 
 
 def synth_chart(key, days):
@@ -97,7 +101,7 @@ class H(SimpleHTTPRequestHandler):
         if path == '/__stats':
             return self.send_json(STATS)
         if path == '/__reset':
-            STATS.clear(); MODE.clear(); MODE.update(DEFAULT)
+            STATS.clear(); MODE.clear(); MODE.update(DEFAULT); DRIFT['n'] = 0
             return self.send_json({'ok': True})
         if path == '/api/world':
             kind = q.get('kind')
@@ -114,11 +118,24 @@ class H(SimpleHTTPRequestHandler):
             d['asOf'] = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
             if mode == 'empty':
                 d['groups'] = []
+            if mode == 'drift':
+                DRIFT['n'] += 1
+                n = DRIFT['n']
+                for g in d['groups']:
+                    for i, it in enumerate(g['items']):
+                        step = ((i * 7 + len(it['key']) + n) % 5) - 2          # −2 … +2
+                        prev = it['value'] - (it.get('change') or 0)
+                        it['value'] = round(it['value'] * (1 + 0.004 * step * n), 4)
+                        it['change'] = round(it['value'] - prev, 4)
+                        it['ratio'] = round((it['value'] / prev - 1) * 100, 2) if prev else it.get('ratio')
             if mode == 'closed':
                 for g in d['groups']:
                     for it in g['items']:
                         it['status'] = 'CLOSE'
+            LAST[kind] = d
             return self.send_json(d)
+        if path == '/__last':
+            return self.send_json(LAST.get(q.get('kind', 'index')) or {})
         if path.startswith('/api/world/chart/'):
             key = urllib.parse.unquote(path.rsplit('/', 1)[1])
             if MODE['chart'] == 'none':
