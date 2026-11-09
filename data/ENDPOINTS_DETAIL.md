@@ -132,3 +132,7 @@ askingPrice 3-5 s; polling price 5-7 s; minute charts 10-30 s; day/week/month 60
 - `/api/stock/{code}/finance/{annual|quarter}`: 없는 종목 코드도 200 + 빈 목록이라 Worker가 404로 바꿔요. 컨센서스 열은 `isConsensus:'Y'`, 값 `"-"`는 null.
 - `/api/research/stock/{code}?pageSize=20`: `previewContent`는 앞 100자 정도라 목표주가·의견이 들어 있는 글은 약 20%(3종목 60건 중 목표가 13, 의견 10).
 - KV: `list`를 쓰지 않아요(무료 하루 1,000번). `replay:days` 날짜 배열, 프레임 키는 09:00~16:30 5분 단위를 직접 `get`. 프레임에 `e`(장 마감 시각)를 같이 저장해 15:30 이후 불필요한 시세 호출을 피해요.
+
+## 해외 지수·원자재 (Worker `/api/world`)
+- 지수 `polling…/worldstock/index/{.DJI,…}`(이름 필드 `indexName`), 선물 `…/worldstock/futures/{EScv1,NQcv1,YMcv1,RTYcv1}`(`futuresName`; VX·NK·FDX는 응답 없음), 원자재 `…/marketindex/{energy|metals|agricultural}/{코드}`(`name`, `unit`, 변동 `fluctuations`). 응답 없는 코드: .RUT .SZI .STI .KS11 .NSEI .SSMI .GSPTSE .SETI .PSI(러셀 2000은 RTYcv1 선물만). 주말·휴장 원자재는 `marketStatus: null` → CLOSE로 처리.
+- 차트: 분봉 원천 없음(`chart/foreign/*/minute*`는 `[]`). 일봉만 — 지수 `api.stock.naver.com/chart/foreign/index/{코드}/day`, 선물 `…/foreign/futures/{코드}/day`(기간 파라미터, 최대 약 300행), 원자재 `api.stock.naver.com/marketindex/{energy|metals|agricultural}/{코드}/prices?page=N&pageSize=60`(60 초과 불가, 1년 = 5쪽).
