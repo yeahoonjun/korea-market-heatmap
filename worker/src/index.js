@@ -9,6 +9,14 @@
 //   GET /api/stock/:code/orderbook     → 5-level order book, best price first
 //   GET /api/stock/:code/investors     → investor net buying, latest 60 days
 //   GET /api/stock/:code/daily?page=N  → daily price table, 60 rows per page
+//   GET /api/stock/:code/news          → latest 20 news items
+//   GET /api/stock/:code/disclosures   → latest 20 disclosures
+//   GET /api/quotes?codes=c1,c2,…      → same shape for the given codes (≤ 300)
+//   GET /api/themes                    → theme list with ratio / up / flat / down
+//   GET /api/market                    → market strip (indices + spark, USDKRW, US futures, WTI, gold, BTC)
+//   GET /api/replay/dates, /api/replay?date=YYYY-MM-DD → intraday replay frames recorded in KV (env.REPLAY)
+//   GET /data/{themes,periods,flows}.json, PWA files   → static from ASSET_BASE (whitelist)
+//   scheduled()                        → cron: appends a replay frame every 5 min on weekdays 09:00–15:30 KST
 //   GET /api/health                    → {ok:true}
 // Contract: AGENTS.md §3, sources and pitfalls: data/ENDPOINTS_DETAIL.md.
 // The Worker has no build-generated modules: page and stock universe come from ASSET_BASE.
@@ -29,18 +37,35 @@ export default {
       if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: { 'access-control-allow-origin': '*', 'access-control-allow-methods': 'GET, OPTIONS' } });
       if (path === '/' || path === '/index.html') return await getPage(request, env, ctx);
       if (path === '/api/health') return json({ ok: true });
-      if (path === '/api/quotes') return await edgeCached(request, ctx, 'quotes', QUOTES_TTL, () => getQuotes(env));
+      if (path === '/api/quotes') {
+        const raw = url.searchParams.get('codes');
+        if (raw == null) return await edgeCached(request, ctx, 'quotes', QUOTES_TTL, () => getQuotes(env));
+        const codes = [...new Set(raw.split(',').map(x => x.trim().toUpperCase()))].sort();
+        if (!codes.length || codes.length > 300 || !codes.every(c => CODE_RE.test(c))) return fail(400, 'codes는 6자 종목 코드를 쉼표로 이어 300개까지 보낼 수 있어요');
+        return await edgeCached(request, ctx, 'quotes-' + codes.join(','), QUOTES_TTL, () => getQuotes(env, codes));
+      }
+      if (path === '/api/themes') return await edgeCached(request, ctx, 'themes', 30, () => getThemes());
+      if (path === '/api/market') return await edgeCached(request, ctx, 'market', 30, () => getMarket());
+      if (path === '/api/replay/dates') return await edgeCached(request, ctx, 'replay-dates', 60, () => getReplayDates(env));
+      if (path === '/api/replay') {
+        const d = url.searchParams.get('date') || '';
+        if (d && !/^\d{4}-\d{2}-\d{2}$/.test(d)) return fail(400, 'date는 YYYY-MM-DD 형식이어야 해요');
+        return await edgeCached(request, ctx, 'replay-' + (d || 'latest'), 60, () => getReplay(env, d));
+      }
+      if (ASSETS[path]) return await getAsset(request, env, ctx, path);
       let m = path.match(/^\/api\/chart\/([^/]+)$/);
       if (m) {
         if (!CODE_RE.test(m[1])) return fail(400, '종목 코드가 올바르지 않아요');
         return await edgeCached(request, ctx, 'chart-' + m[1], CHART_TTL, () => getChart(m[1]));
       }
-      m = path.match(/^\/api\/stock\/([^/]+)\/(summary|chart|orderbook|investors|daily)$/);
+      m = path.match(/^\/api\/stock\/([^/]+)\/(summary|chart|orderbook|investors|daily|news|disclosures)$/);
       if (m) {
         const code = m[1], kind = m[2];
         if (!CODE_RE.test(code)) return fail(400, '종목 코드가 올바르지 않아요');
         if (kind === 'summary') return await edgeCached(request, ctx, `sum-${code}`, 30, () => getSummary(code));
         if (kind === 'orderbook') return await edgeCached(request, ctx, `ob-${code}`, 2, () => getOrderbook(code));
+        if (kind === 'news') return await edgeCached(request, ctx, `news-${code}`, 300, () => getNews(code));
+        if (kind === 'disclosures') return await edgeCached(request, ctx, `dis-${code}`, 300, () => getDisclosures(code));
         if (kind === 'investors') return await edgeCached(request, ctx, `inv-${code}`, 600, () => getInvestors(code));
         if (kind === 'chart') {
           const tf = url.searchParams.get('tf') || '1d';
@@ -57,6 +82,9 @@ export default {
       if (err && err.status) return fail(err.status, err.message);
       return fail(502, String(err && err.message || err));
     }
+  },
+  async scheduled(event, env, ctx) {
+    await recordFrame(event, env || {});
   },
 };
 
@@ -198,9 +226,10 @@ async function getUniverse(env) {
 /* ── /api/quotes ─────────────────────────────── */
 // One polling call returns live rows for up to 1000 codes; we send the top 300 per market
 // (from ASSET_BASE/universe.json) to keep the response small and CPU time low on the free plan.
-async function getQuotes(env) {
-  const STOCKS = await getUniverse(env);
-  const codes = [...STOCKS.keys()];
+// `only` (array of codes) → those codes instead of the universe; stocks outside the universe get s/i '기타'.
+async function getQuotes(env, only) {
+  const STOCKS = only ? await getUniverse(env).catch(() => new Map()) : await getUniverse(env);
+  const codes = only || [...STOCKS.keys()];
   const [live, idx] = await Promise.all([
     naver(`https://polling.finance.naver.com/api/realtime/domestic/stock/${codes.join(',')}`),
     naver('https://polling.finance.naver.com/api/realtime/domestic/index/KOSPI,KOSDAQ').catch(() => null),
@@ -208,11 +237,16 @@ async function getQuotes(env) {
   const stocks = [];
   let asOf = '', stockOpen = false;
   for (const s of live.datas || []) {
-    const meta = STOCKS.get(s.itemCode);
-    if (!meta) continue;
+    let meta = STOCKS.get(s.itemCode);
+    if (!meta) {
+      if (!only) continue;
+      const ex = s.stockExchangeType && s.stockExchangeType.code;
+      meta = { m: ex === 'KQ' ? 'Q' : 'K', s: '기타', i: '기타' };
+    }
     if (s.marketStatus === 'OPEN') stockOpen = true;
     if (s.localTradedAt && s.localTradedAt > asOf) asOf = s.localTradedAt;
-    stocks.push({
+    const limName = s.compareToPreviousPrice && s.compareToPreviousPrice.name;
+    const row = {
       c: s.itemCode,
       n: s.stockName,
       m: meta.m,
@@ -224,7 +258,10 @@ async function getQuotes(env) {
       r: num(s.fluctuationsRatioRaw),
       tv: Math.round(num(s.accumulatedTradingValueRaw) / 1e8),  // 원 → 억원
       v: num(s.accumulatedTradingVolumeRaw),
-    });
+    };
+    if (limName === 'UPPER_LIMIT') row.lim = 1;
+    else if (limName === 'LOWER_LIMIT') row.lim = -1;
+    stocks.push(row);
   }
   const index = {}, marketStatus = {};
   for (const x of (idx && idx.datas) || []) {
@@ -394,3 +431,236 @@ async function getDaily(code, page) {
   };
 }
 
+
+
+/* ── shared parsing ─────────────────────────────── */
+// signed change / ratio: trust the sign in the string, fall back on the direction object (code 4/5 = down, 1/2 = up)
+const sgn = (v, dir) => {
+  const n = pn(v);
+  if (n == null) return null;
+  const code = dir && String(dir.code != null ? dir.code : '');
+  return (code === '4' || code === '5') ? -Math.abs(n) : (code === '1' || code === '2') ? Math.abs(n) : n;
+};
+const ENTITIES = { quot: '"', amp: '&', lt: '<', gt: '>', apos: "'", nbsp: ' ', lsquo: '‘', rsquo: '’', ldquo: '“', rdquo: '”', hellip: '…', middot: '·' };
+function decodeEntities(str) {
+  return String(str == null ? '' : str).replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (all, e) => {
+    if (e[0] === '#') {
+      const cp = e[1] === 'x' || e[1] === 'X' ? parseInt(e.slice(2), 16) : parseInt(e.slice(1), 10);
+      try { return String.fromCodePoint(cp); } catch (_) { return all; }
+    }
+    const v = ENTITIES[e.toLowerCase()];
+    return v == null ? all : v;
+  });
+}
+
+/* ── /api/themes ─────────────────────────────── */
+// Naver's theme list is sorted by the live change rate, so rows can slip across page boundaries between calls.
+// Fetch the 3 pages in parallel, union by id, and re-walk (at most twice) until totalCount unique themes are in.
+async function getThemes() {
+  const byNo = new Map();
+  let total = 0;
+  const walk = async (pages) => {
+    const res = await Promise.all(pages.map(pg => naver(`https://m.stock.naver.com/api/stocks/theme?page=${pg}&pageSize=100`)));
+    for (const r of res) {
+      total = Math.max(total, r.totalCount || 0);
+      for (const g of r.groups || []) byNo.set(g.no, g);
+    }
+  };
+  await walk([1, 2, 3]);
+  for (let k = 0; k < 2 && byNo.size < total; k++) await walk([1, 2, 3]);
+  const themes = [...byNo.values()].map(g => ({
+    id: g.no,
+    name: g.name,
+    ratio: pn(g.changeRate),
+    up: g.riseCount == null ? null : +g.riseCount,
+    flat: g.steadyCount == null ? null : +g.steadyCount,
+    down: g.fallCount == null ? null : +g.fallCount,
+  }));
+  if (!themes.length) throw new Error('themes empty');
+  return { asOf: new Date().toISOString(), themes };
+}
+
+/* ── /api/market ─────────────────────────────── */
+// 9 upstream calls. Every item is independent: a failing one is dropped, the rest is returned.
+async function getMarket() {
+  const j = u => naver(u);
+  const idxP = j('https://polling.finance.naver.com/api/realtime/domestic/index/KOSPI,KOSDAQ');
+  const sparkP = code => j(`https://api.stock.naver.com/chart/domestic/index/${code}/minute5`).then(rows => {
+    const list = Array.isArray(rows) ? rows : [];
+    if (!list.length) return null;
+    const day = String(list[list.length - 1].localDateTime).slice(0, 8);
+    return list.filter(r => String(r.localDateTime).startsWith(day) && String(r.localDateTime).slice(8, 12) <= '1530')
+      .map(r => [kstSec(String(r.localDateTime)), pn(r.currentPrice)]);
+  }).catch(() => null);
+  const kosS = sparkP('KOSPI'), kqS = sparkP('KOSDAQ');
+  const fxP = j('https://api.stock.naver.com/marketindex/exchange/FX_USDKRW');
+  const futP = j('https://polling.finance.naver.com/api/realtime/worldstock/futures/EScv1,NQcv1');
+  const enP = j('https://polling.finance.naver.com/api/realtime/marketindex/energy/CLcv1');
+  const meP = j('https://polling.finance.naver.com/api/realtime/marketindex/metals/GCcv1');
+  const btcP = j('https://m.stock.naver.com/front-api/cryptoEnd/detail?nfTicker=BTC&exchangeType=UPBIT');
+  const delay = x => { const d = x && x.stockExchangeType && x.stockExchangeType.delayTime; return d > 0 ? d : undefined; };
+  const out = {};
+  const put = (key, name, value, change, ratio, extra) => {
+    if (value == null || !Number.isFinite(value)) return;
+    out[key] = Object.assign({ key, name, value, change: change == null ? 0 : change, ratio: ratio == null ? 0 : ratio }, extra || {});
+  };
+  const settle = async (p, fn) => { try { fn(await p); } catch (_) { /* drop this item */ } };
+  await Promise.all([
+    settle(Promise.all([idxP, kosS, kqS]), ([idx, a, b]) => {
+      const sp = { KOSPI: a, KOSDAQ: b };
+      for (const x of idx.datas || []) {
+        if (x.itemCode !== 'KOSPI' && x.itemCode !== 'KOSDAQ') continue;
+        const ex = sp[x.itemCode] && sp[x.itemCode].length ? { spark: sp[x.itemCode] } : {};
+        put(x.itemCode, x.stockName, pn(x.closePriceRaw), sgn(x.compareToPreviousClosePriceRaw, x.compareToPreviousPrice), sgn(x.fluctuationsRatioRaw, x.compareToPreviousPrice), ex);
+      }
+    }),
+    settle(fxP, r => { const x = r.exchangeInfo; put('USDKRW', '원/달러', pn(x.closePrice), sgn(x.fluctuations, x.fluctuationsType), sgn(x.fluctuationsRatio, x.fluctuationsType)); }),
+    settle(futP, r => {
+      const names = { EScv1: ['SPX_F', 'S&P 500 선물'], NQcv1: ['NDX_F', '나스닥 100 선물'] };
+      for (const x of r.datas || []) {
+        const k = names[x.reutersCode];
+        if (k) put(k[0], k[1], pn(x.closePriceRaw), sgn(x.compareToPreviousClosePriceRaw, x.compareToPreviousPrice), sgn(x.fluctuationsRatioRaw, x.compareToPreviousPrice), { delayed: delay(x) || 10 });
+      }
+    }),
+    settle(enP, r => { const x = (r.datas || [])[0]; put('WTI', 'WTI', pn(x.closePriceRaw || x.closePrice), sgn(x.fluctuations, x.fluctuationsType), sgn(x.fluctuationsRatio, x.fluctuationsType), { delayed: delay(x) }); }),
+    settle(meP, r => { const x = (r.datas || [])[0]; put('GOLD', '국제 금', pn(x.closePriceRaw || x.closePrice), sgn(x.fluctuations, x.fluctuationsType), sgn(x.fluctuationsRatio, x.fluctuationsType), { delayed: delay(x) }); }),
+    settle(btcP, r => { const x = r.result; put('BTC', '비트코인', pn(x.currentPrice), sgn(x.fluctuations, { code: x.fluctuationsType === 'FALLING' ? 5 : x.fluctuationsType === 'RISING' ? 2 : '' }), sgn(x.fluctuationsRatio, { code: x.fluctuationsType === 'FALLING' ? 5 : x.fluctuationsType === 'RISING' ? 2 : '' })); }),
+  ]);
+  const items = ['KOSPI', 'KOSDAQ', 'USDKRW', 'SPX_F', 'NDX_F', 'WTI', 'GOLD', 'BTC'].filter(k => out[k]).map(k => out[k]);
+  if (!items.length) throw new Error('market: every source failed');
+  return { asOf: new Date().toISOString(), items };
+}
+
+/* ── /api/stock/:code/news, /disclosures ─────────────────────────────── */
+async function getNews(code) {
+  const raw = await naver(`https://m.stock.naver.com/api/news/stock/${code}?pageSize=20`);
+  const arts = (Array.isArray(raw) ? raw : []).flatMap(c => (c && c.items) || []);
+  const rows = arts.map(a => {
+    const d = String(a.datetime || '');
+    return {
+      title: decodeEntities(a.title || a.titleFull),
+      press: a.officeName || null,
+      datetime: /^\d{12}/.test(d) ? `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}T${d.slice(8, 10)}:${d.slice(10, 12)}:00+09:00` : null,
+      url: a.mobileNewsUrl || (a.officeId && a.articleId ? `https://n.news.naver.com/mnews/article/${a.officeId}/${a.articleId}` : null),
+    };
+  });
+  rows.sort((x, y) => (y.datetime || '').localeCompare(x.datetime || ''));
+  return { rows: rows.slice(0, 20) };
+}
+async function getDisclosures(code) {
+  const raw = await naver(`https://m.stock.naver.com/api/stock/${code}/disclosure?pageSize=20`);
+  const rows = (Array.isArray(raw) ? raw : []).map(r => {
+    const d = String(r.datetime || '');
+    return {
+      title: decodeEntities(r.title),
+      datetime: d ? (/[zZ]|[+-]\d\d:?\d\d$/.test(d) ? d : d + '+09:00') : null,
+      url: `https://m.stock.naver.com/domestic/stock/${code}/notice/${r.disclosureId}`,
+    };
+  });
+  rows.sort((x, y) => (y.datetime || '').localeCompare(x.datetime || ''));
+  return { rows: rows.slice(0, 20) };
+}
+
+/* ── static assets (whitelist, binary-safe) ─────────────────────────────── */
+const JSON_T = 'application/json; charset=utf-8';
+const ASSETS = {
+  '/data/themes.json': { file: 'themes.json', type: JSON_T, ttl: 600, cors: true },
+  '/data/periods.json': { file: 'periods.json', type: JSON_T, ttl: 600, cors: true },
+  '/data/flows.json': { file: 'flows.json', type: JSON_T, ttl: 600, cors: true },
+  '/manifest.webmanifest': { file: 'manifest.webmanifest', type: 'application/manifest+json', ttl: 3600 },
+  '/sw.js': { file: 'sw.js', type: 'text/javascript; charset=utf-8', ttl: 3600, extra: { 'service-worker-allowed': '/' } },
+  '/icon.svg': { file: 'icon.svg', type: 'image/svg+xml', ttl: 3600 },
+  '/icon-192.png': { file: 'icon-192.png', type: 'image/png', ttl: 3600 },
+  '/icon-512.png': { file: 'icon-512.png', type: 'image/png', ttl: 3600 },
+  '/apple-touch-icon.png': { file: 'apple-touch-icon.png', type: 'image/png', ttl: 3600 },
+};
+async function getAsset(request, env, ctx, path) {
+  const spec = ASSETS[path];
+  const cache = caches.default;
+  const cacheKey = new Request(new URL('/__cache/asset-' + spec.file, request.url).toString());
+  const hit = await cache.match(cacheKey);
+  if (hit) return hit;
+  const r = await fetch(assetBase(env) + spec.file);
+  if (!r.ok) return fail(r.status === 404 ? 404 : 502, r.status === 404 ? '아직 만들어지지 않은 파일이에요' : '원본을 불러오지 못했어요');
+  const headers = { 'content-type': spec.type, 'cache-control': `public, max-age=${spec.ttl}`, ...(spec.cors ? { 'access-control-allow-origin': '*' } : {}), ...(spec.extra || {}) };
+  const res = new Response(await r.arrayBuffer(), { headers });
+  ctx.waitUntil(cache.put(cacheKey, res.clone()));
+  return res;
+}
+
+/* ── intraday replay (KV env.REPLAY, key frames:YYYYMMDD) ─────────────────────────────── */
+// value: {codes:[…], frames:[{t:'HHMM', p:[int|null,…], r:[2-decimals|null,…], i:[KOSPI, KOSDAQ]}]}
+async function listReplayDates(env) {
+  const dates = [];
+  let cursor;
+  for (let n = 0; n < 5; n++) {
+    const l = await env.REPLAY.list({ prefix: 'frames:', cursor });
+    for (const k of l.keys) if (/^frames:\d{8}$/.test(k.name)) dates.push(dash(k.name.slice(7)));
+    if (l.list_complete) break;
+    cursor = l.cursor;
+  }
+  return dates.sort().reverse();
+}
+async function getReplayDates(env) {
+  if (!env.REPLAY) throw new HttpError(503, '리플레이 저장소가 연결되지 않았어요');
+  return { dates: await listReplayDates(env) };
+}
+async function getReplay(env, date) {
+  if (!env.REPLAY) throw new HttpError(503, '리플레이 저장소가 연결되지 않았어요');
+  if (!date) {
+    date = (await listReplayDates(env))[0];
+    if (!date) throw new HttpError(404, '기록된 날이 아직 없어요');
+  }
+  const v = await env.REPLAY.get('frames:' + date.replace(/-/g, ''), 'json');
+  if (!v) throw new HttpError(404, '그날 기록이 없어요');
+  const fr = v.frames || [];
+  return {
+    date,
+    codes: v.codes || [],
+    frames: fr.map(f => ({ t: f.t, p: f.p, r: f.r })),
+    index: { KOSPI: fr.map(f => (f.i ? f.i[0] : null)), KOSDAQ: fr.map(f => (f.i ? f.i[1] : null)) },
+  };
+}
+
+// Cron entry. event.scheduledTime (ms) is the cron's nominal time; the dev harness passes a fake one.
+async function recordFrame(event, env) {
+  if (!env.REPLAY) return { skipped: 'no-kv' };
+  const at = new Date((event && event.scheduledTime) || Date.now());
+  const k = new Date(at.getTime() + 9 * 3600e3);                       // KST wall clock via getUTC*
+  const wd = k.getUTCDay(), mins = k.getUTCHours() * 60 + k.getUTCMinutes();
+  if (wd < 1 || wd > 5 || mins < 540 || mins > 930) return { skipped: 'outside-hours' };
+  const bucket = mins - (mins % 5);
+  const t = pad(Math.floor(bucket / 60)) + pad(bucket % 60);
+  const day = ymd(k), key = 'frames:' + day;
+  const doc = (await env.REPLAY.get(key, 'json')) || null;
+  if (doc && (doc.frames || []).some(f => f.t === t)) return { skipped: 'duplicate', t };
+  const q = await getQuotes(env);
+  const closed = q.marketStatus.KOSPI !== 'OPEN' && q.marketStatus.KOSDAQ !== 'OPEN';
+  // Holiday guard: both indices CLOSE. The 15:30 frame is allowed when the data is stamped today (the close may already have flipped).
+  if (closed && !(t === '1530' && (q.asOf || '').slice(0, 10) === dash(day))) return { skipped: 'closed', t };
+  const out = doc || { codes: q.stocks.map(s => s.c), frames: [] };
+  const by = new Map(q.stocks.map(s => [s.c, s]));
+  const ix = x => (q.index[x] ? round2(q.index[x].value) : null);
+  out.frames.push({
+    t,
+    p: out.codes.map(c => (by.has(c) ? Math.round(by.get(c).p) : null)),
+    r: out.codes.map(c => (by.has(c) ? round2(by.get(c).r) : null)),
+    i: [ix('KOSPI'), ix('KOSDAQ')],
+  });
+  await env.REPLAY.put(key, JSON.stringify(out), { expirationTtl: 40 * 86400 });
+  if (!doc) await pruneReplay(env, new Date(k.getTime() - 30 * 86400e3));                    // once a day: when the day's first frame is written
+  return { wrote: t, frames: out.frames.length };
+}
+async function pruneReplay(env, cutoffDate) {
+  const cut = ymd(cutoffDate);
+  let removed = 0;
+  try {
+    let cursor;
+    for (let n = 0; n < 5 && removed < 20; n++) {
+      const l = await env.REPLAY.list({ prefix: 'frames:', cursor });
+      for (const x of l.keys) if (/^frames:\d{8}$/.test(x.name) && x.name.slice(7) < cut && removed < 20) { await env.REPLAY.delete(x.name); removed++; }
+      if (l.list_complete) break;
+      cursor = l.cursor;
+    }
+  } catch (_) { /* pruning is best effort */ }
+}
