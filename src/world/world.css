@@ -308,11 +308,13 @@
   .kw-tf button{min-width:64px}
   .kw-peers button{height:40px}
 }
+/* the device's reduced-motion setting, only when the page has no 효과 setting of its own (no <html data-motion>):
+   with one, KH.motion() decides (a user may pick 기본 on such a device) and .kw-rm below applies */
 @media (prefers-reduced-motion: reduce){
-  .kw-fl,.kw-pchip.kw-fl{animation:none}
-  .kw-tile,.kw-cp.has{transition:none}
-  .kw-sheet{animation:none}
-  .kw-msg.busy b::after{animation:none;opacity:.8}
+  html:not([data-motion]) .kw-fl,html:not([data-motion]) .kw-pchip.kw-fl{animation:none}
+  html:not([data-motion]) .kw-tile,html:not([data-motion]) .kw-cp.has{transition:none}
+  html:not([data-motion]) .kw-sheet{animation:none}
+  html:not([data-motion]) .kw-msg.busy b::after{animation:none;opacity:.8}
 }
 /* 효과: 줄이기 (KH.motion() 'reduced') — the same, whatever the OS says */
 .kw-rm .kw-fl,.kw-rm .kw-pchip.kw-fl,.kw-rm .kw-gin *{animation:none!important}

@@ -844,6 +844,32 @@ def night_pass(browser):
         ctx.close()
 
 
+def motion_setting_pass(browser):
+    # the template's own 효과 setting (localStorage khm.motion → KH.motion()), not a stub
+    ctx, page = open_page(browser, LIVE + '#world', 1440, 900, view='map')
+    try:
+        ctx.add_init_script("localStorage.setItem('khm.motion', JSON.stringify('fancy'));")       # the template stores JSON
+        page.reload()
+        wait_world(page, GEO_SEL)
+        has = page.evaluate("typeof KH.motion === 'function'")
+        if not has:
+            check('효과 setting: template has no KH.motion yet → treated as standard', not page.evaluate("document.getElementById('world').classList.contains('kw-fx')"))
+            return
+        r = page.evaluate("""({ m: KH.motion(), fx: document.getElementById('world').classList.contains('kw-fx'),
+            rings: [...document.querySelectorAll('#world .kw-gp.on')].filter(p => getComputedStyle(p).animationName === 'kwRing').length })""")
+        check("효과 setting 화려하게 (khm.motion): the world map pulses", r['m'] == 'fancy' and r['fx'] and r['rings'] > 0, str(r))
+        # 효과 · 줄이기 in the template's settings (its button's own handler; the panel may be folded at this width)
+        if page.evaluate("!!document.querySelector('#motionseg button[data-mo=\"reduced\"]')"):
+            page.evaluate("document.querySelector('#motionseg button[data-mo=\"reduced\"]').click()")
+            page.wait_for_timeout(150)
+            check('효과 setting 줄이기 picked in the settings → KH.motion() reduced', page.evaluate("KH.motion()") == 'reduced')
+        if page.evaluate("KH.motion()") == 'reduced':
+            r2 = page.evaluate("({ rm: document.getElementById('world').classList.contains('kw-rm'), rings: [...document.querySelectorAll('#world .kw-gp.on')].filter(p => getComputedStyle(p).animationName === 'kwRing').length, caps: document.querySelectorAll('.kw-gnight .kw-gn').length })")
+            check('효과 setting 줄이기: nothing moves, night still drawn', r2['rm'] and r2['rings'] == 0 and r2['caps'] == 4, str(r2))
+    finally:
+        ctx.close()
+
+
 def refresh_event_pass(browser):
     # the header clock's tap (KH.refresh → document 'kh:refresh', AGENTS §3-6) fetches at once, view and scroll kept
     api('/__reset')
@@ -1255,6 +1281,7 @@ def main():
             geo_refresh_pass(browser)
             night_pass(browser)
             refresh_event_pass(browser)
+            motion_setting_pass(browser)
             keyboard_pass(browser)
             palette_pass(browser)
             mobile_pass(browser)
