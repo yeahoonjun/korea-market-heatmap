@@ -184,7 +184,7 @@ python3 tmp/shot.py /home/claude/heatmap/dist/index.html    # 1440×900 / 390×8
 `{asOf, kind, groups:[{key, name, items:[{key, name, value, change, ratio, status:'OPEN'|'CLOSE', tradedAt, delayed?, unit?, tz?}]}]}`
 - 원천: 지수 `polling.finance.naver.com/api/realtime/worldstock/index/{로이터코드,…}`, 원자재 `…/realtime/marketindex/{energy|metals|agricultural}/{코드,…}`. `delayed`는 `stockExchangeType.delayTime`(분, 0이면 생략), `tradedAt`은 `localTradedAt` 그대로(현지 시각 ISO).
 - 지수 묶음(예): 미국(다우·S&P 500·나스닥 종합·필라델피아 반도체·러셀 2000 있으면), 미국 선물(S&P 500·나스닥 100·다우 선물), 유럽(유로스톡스 50·DAX·FTSE 100·CAC 40 …), 아시아(니케이 225·상해종합·선전·항셍·대만 가권·인도 SENSEX·베트남·호주 …), 한국(코스피·코스닥, 비교용), 참고(VIX — 오르면 불안이라는 뜻이라 색칠 대상 아님, `ref:true`). 원자재 묶음: 에너지(WTI·브렌트유·천연가스·RBOB 가솔린·난방유), 금속(금·은·구리·백금·팔라듐), 농산물(옥수수·대두·소맥·커피·설탕·코코아·면화). 실제로 응답이 오는 코드만 넣어요.
-- 가능하면 `/api/world/chart/{key}?tf=1d|3m|1y` → `{key, tf, bars:[{t, c}]}`(분봉 `t` 유닉스 초, 일봉 `YYYY-MM-DD`) — 네이버 해외 차트 원천이 있을 때만. 없으면 이 경로는 만들지 않아요.
+- `/api/world/chart/{key}?tf=3m|1y` → `{key, tf, bars:[{t:'YYYY-MM-DD', c}]}` 일봉 종가만(네이버에 해외 지수·원자재 분봉 원천이 없어 `1d`는 400). `key`는 로이터 코드에서 앞의 점을 뺀 값. 실제 묶음: 미국·미국 선물·유럽·아시아·태평양·중남미·한국·참고(VIX) 41개, 원자재 17개(`data/ENDPOINTS_DETAIL.md`).
 
 **히트맵(`src/template.html`)이 제공하는 연결**
 - 탭 `해외`(`state.market='WORLD'`, 해시 `#world`), `원자재`(`'CMDTY'`, 해시 `#cmdty`). `KH.market()` → `'world'|'cmdty'`.
