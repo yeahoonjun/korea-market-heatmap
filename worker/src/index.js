@@ -625,14 +625,16 @@ async function getReplay(env, date) {
   const vals = [];
   for (let i = 0; i < ts.length; i += 20) vals.push(...await Promise.all(ts.slice(i, i + 20).map(t => env.REPLAY.get(`replay:${day}:${t}`, 'json'))));
   const frames = [], ix = { KOSPI: [], KOSDAQ: [] };
+  let base = null;                                                     // previous close of each index (from the first frame that has it)
   ts.forEach((t, n) => {
     const f = vals[n];
     if (!f) return;
     frames.push({ t, p: f.p, r: f.r });
     ix.KOSPI.push(f.i ? f.i[0] : null);
     ix.KOSDAQ.push(f.i ? f.i[1] : null);
+    if (!base && f.b) base = { KOSPI: f.b[0], KOSDAQ: f.b[1] };
   });
-  return { date, codes, frames, index: ix };
+  return { date, codes, frames, index: ix, base };
 }
 
 // Cron entry. event.scheduledTime (ms) is the cron's nominal time; the dev harness passes a fake one.
@@ -657,10 +659,12 @@ async function recordFrame(event, env) {
   }
   const by = new Map(q.stocks.map(s => [s.c, s]));
   const ix = x => (q.index[x] ? round2(q.index[x].value) : null);
+  const bx = x => (q.index[x] ? round2(q.index[x].value - q.index[x].change) : null);
   await env.REPLAY.put(fkey, JSON.stringify({
     p: codes.map(c => (by.has(c) ? Math.round(by.get(c).p) : null)),
     r: codes.map(c => (by.has(c) ? round2(by.get(c).r) : null)),
     i: [ix('KOSPI'), ix('KOSDAQ')],
+    b: [bx('KOSPI'), bx('KOSDAQ')],
   }), { expirationTtl: REPLAY_TTL });
   return { wrote: t };
 }

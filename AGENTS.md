@@ -99,7 +99,7 @@ python3 tmp/shot.py /home/claude/heatmap/dist/index.html    # 1440×900 / 390×8
 | `/api/stock/{code}/news` | `{rows:[{title, press, datetime(ISO KST), url}]}` 최신 20개, 제목 HTML 엔티티 풀어서 | 5분 |
 | `/api/stock/{code}/disclosures` | `{rows:[{title, datetime, url}]}` 최신 20개, `url`=`https://m.stock.naver.com/domestic/stock/{code}/notice/{id}` | 5분 |
 | `/api/replay/dates` | `{dates:['YYYY-MM-DD',…]}` 최신순 | 60초 |
-| `/api/replay?date=YYYY-MM-DD` | `{date, codes:[…], frames:[{t:'HHMM', p:[…], r:[…]}], index:{KOSPI:[…],KOSDAQ:[…]}}` — `p`·`r`·지수는 `codes`/`frames` 순서. 날짜 없으면 최신 | 60초 |
+| `/api/replay?date=YYYY-MM-DD` | `{date, codes:[…], frames:[{t:'HHMM', p:[…], r:[…]}], index:{KOSPI:[…],KOSDAQ:[…]}, base:{KOSPI,KOSDAQ}\|null}` — `p`·`r`·지수는 `codes`/`frames` 순서, `base`는 지수 전일 종가. 날짜 없으면 최신 | 60초(지난 날 1시간) |
 | `/data/themes.json`, `/data/periods.json`, `/data/flows.json` | ASSET_BASE의 `web/*.json` 그대로 | 10분 |
 | `/manifest.webmanifest`, `/sw.js`, `/icon.svg`, `/icon-192.png`, `/icon-512.png`, `/apple-touch-icon.png` | ASSET_BASE에서 올바른 content-type으로 | 1시간 |
 
