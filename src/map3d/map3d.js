@@ -46,7 +46,7 @@ const S = {
   lastPx: new Map(), dataTick: false, replay: null, flashes: new Map(), fxDirty: false,
   cam: null, goal: null, fly: null, inertia: null, fitDist: 1000, homePose: null, userMoved: false,
   vw: 0, vh: 0, pm: null, tier: 'high', dpr: 1,
-  raf: 0, rebuildQ: 0, ro: null, io: null, lastNow: 0, frames: 0, ft: [],
+  raf: 0, rebuildQ: 0, ro: null, io: null, lastNow: 0, frames: 0, ft: [], ftL: [], ftR: [],
   ptrs: new Map(), drag: null, tapT: 0, tapXY: null, tapTimer: 0, hoverQ: 0, hoverXY: null, hinted: false,
   tipPos: null, tipGoal: null, tipRaf: 0, tipHide: 0,
 };
@@ -759,11 +759,15 @@ function frame(now) {
   }
   if (!S.built) return;          // a fold-out flight may have finished and freed everything
   applyCamera(S.camera, S.cam);
+  const tr = performance.now();
   S.renderer.render(S.scene, S.camera);
   S.pm = S.camera.projectionMatrix.clone().multiply(S.camera.matrixWorldInverse).elements;
+  const t1 = performance.now();
+  S.ftR.push(t1 - tr); if (S.ftR.length > 60) S.ftR.shift();
   if (!S.leaving) updateLabels();
-  const ms = performance.now() - t0;
+  const t2 = performance.now(), ms = t2 - t0;
   S.frames++; S.ft.push(ms); if (S.ft.length > 60) S.ft.shift();
+  S.ftL.push(t2 - t1); if (S.ftL.length > 60) S.ftL.shift();
   if (active) requestRender(); else S.lastNow = 0;
 }
 // returns true when the size changed
@@ -1047,7 +1051,7 @@ function onKey(e) {
     case '0': case 'Home': e.preventDefault(); goHome(); return;
     case 'Escape': {
       e.preventDefault();
-      if (S.tip && S.tip.classList.contains('show')) { hideTip(true); setHover(-1); return; }
+      hideTip(true); setHover(-1);
       if (!atHome()) { goHome(); return; }
       // already at home: hand focus to the view switch (지도 · 3D · 표) so the 2D map / table is one key away
       const seg = document.querySelector('.viewseg');
@@ -1084,6 +1088,12 @@ function setText(e, a, b, bcls) {
   if (e.__b !== b) { e.lastChild.textContent = b; e.__b = b; e.lastChild.hidden = !b; }
   if (bcls !== undefined && e.__bc !== bcls) { e.lastChild.className = 'b ' + bcls; e.__bc = bcls; }
 }
+// write only what changed (labels move every frame while the camera does)
+function place(e, tr, fs) {
+  if (e.__t !== tr) { e.style.transform = tr; e.__t = tr; }
+  if (e.__f !== fs) { e.style.fontSize = fs; e.__f = fs; }
+  if (e.hidden) e.hidden = false;
+}
 const overlaps = (r, used) => { for (const u of used) if (r[0] < u[2] && r[2] > u[0] && r[1] < u[3] && r[3] > u[1]) return true; return false; };
 // screen rects labels keep clear of (legend chip, zoom buttons)
 function reserve() {
@@ -1109,12 +1119,34 @@ function stockCand(i, o, a, c4) {
   const lw = fs * Math.max(units(name), two ? units(t.sub) * 0.8 : 0), lh = fs * (two ? 2.1 : 1.15);
   const r = [a[0] - lw / 2, a[1] - lh / 2, a[0] + lw / 2, a[1] + lh / 2];
   if (r[0] < 2 || r[2] > vw - 2 || r[1] < 2 || r[3] > vh - 2) return null;
-  // hidden behind another box? cast from the camera to the anchor on the top face
-  const d = [cx - o[0], h + 0.01 - o[1], cz - o[2]], L = Math.hypot(d[0], d[1], d[2]);
-  d[0] /= L; d[1] /= L; d[2] /= L;
-  const hit = castBoxes(o, d, L - 0.5);
-  if (hit.i >= 0 && hit.i !== i) return null;
   return { i, x: a[0], y: a[1], fs, two, r, name, sub: t.sub };
+}
+// is the top-face centre of box i hidden from the camera at o? The ray rises from the anchor, so only boxes taller than box i,
+// inside the short stretch of the ray that is still below the tallest box, can be in the way (cheap rejects first).
+function occluded(i, o) {
+  const A = S.cur, p = i * STRIDE, ax = A[p], ay = A[p + 4] + 0.01, az = A[p + 1];
+  const dx = o[0] - ax, dy = o[1] - ay, dz = o[2] - az;
+  if (dy <= 0) return false;
+  const f = Math.min(1, (S.maxH + 1 - ay) / dy);
+  if (f <= 0) return false;
+  const ex = ax + dx * f, ez = az + dz * f;
+  const x0 = Math.min(ax, ex), x1 = Math.max(ax, ex), z0 = Math.min(az, ez), z1 = Math.max(az, ez);
+  const ix = 1 / (dx || 1e-12), iy = 1 / dy, iz = 1 / (dz || 1e-12);
+  for (let j = 0; j < S.n; j++) {
+    const q = j * STRIDE, h = A[q + 4];
+    if (j === i || h <= ay) continue;
+    const cx = A[q], cz = A[q + 1], hw = A[q + 2] / 2, hd = A[q + 3] / 2;
+    if (cx + hw < x0 || cx - hw > x1 || cz + hd < z0 || cz - hd > z1) continue;
+    let t1 = (cx - hw - ax) * ix, t2 = (cx + hw - ax) * ix;
+    let tmin = Math.min(t1, t2), tmax = Math.max(t1, t2);
+    t1 = -ay * iy; t2 = (h - ay) * iy;
+    tmin = Math.max(tmin, Math.min(t1, t2)); tmax = Math.min(tmax, Math.max(t1, t2));
+    if (tmax < tmin) continue;
+    t1 = (cz - hd - az) * iz; t2 = (cz + hd - az) * iz;
+    tmin = Math.max(tmin, Math.min(t1, t2)); tmax = Math.min(tmax, Math.max(t1, t2));
+    if (tmax >= tmin && tmax > 1e-4 && tmin < f) return true;
+  }
+  return false;
 }
 function updateLabels() {
   if (!S.labLayer || !S.pm) return;
@@ -1122,24 +1154,31 @@ function updateLabels() {
   const used = S.reserved.slice();
   const small = vw < 560;
   const cp = S.camera.position, o = [cp.x, cp.y, cp.z];
-  const cands = [];
+  // the largest screen scale anywhere on the map (px per world unit) = at the smallest view depth of its bounding box:
+  // boxes that cannot reach 40 × 18 px even there are skipped without projecting them
+  const e = S.pm, mv = S.camera.matrixWorldInverse.elements;
+  let zmin = Infinity;
+  for (const x of [-W / 2, W / 2]) for (const z of [-H / 2, H / 2]) for (const y of [0, S.maxH]) zmin = Math.min(zmin, -(mv[2] * x + mv[6] * y + mv[10] * z + mv[14]));
+  const kmax = zmin > 1 ? vh / 2 / (zmin * Math.tan(FOV * DEG / 2)) : Infinity, need = 40 / kmax;
+  const cands = [];   // projected only; the occlusion test runs when a candidate is about to be placed
   for (const i of S.order) {
     if (cands.length >= MAX_LABELS * 1.5) break;
-    const q = i * STRIDE;
-    if (S.cur[q + 2] * S.cur[q + 3] < 150) break;   // ordered by footprint: the rest are smaller still
+    const q = i * STRIDE, w = S.cur[q + 2], d = S.cur[q + 3];
+    if (w * d < 150 || w * d * kmax * kmax < 720) break;   // ordered by footprint: the rest are smaller still
+    if (Math.max(w, d) < need) continue;
     const c = stockCand(i, o, a, c4);
     if (c) cands.push(c);
   }
   let li = 0;
   const placeStock = c => {
     if (c.done || li >= MAX_LABELS || overlaps(c.r, used)) return;
-    c.done = true; used.push(c.r);
+    c.done = true;
+    if (occluded(c.i, o)) return;
+    used.push(c.r);
     const e = poolEl(S.labEls, li++, 'm3-lab');
     setText(e, c.name, c.two ? c.sub : '');
     if (e.__k !== S.keys[c.i]) { e.__k = S.keys[c.i]; e.dataset.k = e.__k; }
-    e.style.fontSize = c.fs.toFixed(1) + 'px';
-    e.style.transform = `translate(${c.x.toFixed(1)}px,${c.y.toFixed(1)}px) translate(-50%,-50%)`;
-    e.hidden = false;
+    place(e, `translate(${c.x.toFixed(1)}px,${c.y.toFixed(1)}px) translate(-50%,-50%)`, c.fs.toFixed(1) + 'px');
   };
   // 1) big stock names (they carry the picture), 2) sector names on the floor at the sector's top-left, 3) the other stocks
   for (const c of cands) if (c.fs >= 15) placeStock(c);
@@ -1163,13 +1202,11 @@ function updateLabels() {
     used.push(at[2]);
     const e = poolEl(S.secEls, si++, 'm3-sec');
     setText(e, s.label, s.sub || '', signCls(s.sub));
-    e.style.fontSize = fsS + 'px';
-    e.style.transform = `translate(${at[0].toFixed(1)}px,${(at[1] - fsS * 0.75).toFixed(1)}px)`;
-    e.hidden = false;
+    place(e, `translate(${at[0].toFixed(1)}px,${(at[1] - fsS * 0.75).toFixed(1)}px)`, fsS + 'px');
   }
-  for (let i = si; i < S.secEls.length; i++) S.secEls[i].hidden = true;
+  for (let i = si; i < S.secEls.length; i++) if (!S.secEls[i].hidden) S.secEls[i].hidden = true;
   for (const c of cands) placeStock(c);
-  for (let i = li; i < S.labEls.length; i++) S.labEls[i].hidden = true;
+  for (let i = li; i < S.labEls.length; i++) if (!S.labEls[i].hidden) S.labEls[i].hidden = true;
   S.labelCount = li; S.secCount = si;
 }
 
@@ -1320,6 +1357,8 @@ function stats() {
   const avg = n ? a.reduce((s, v) => s + v, 0) / n : 0;
   return {
     frames: n, avgMs: +avg.toFixed(2), p95Ms: n ? +sorted[Math.min(n - 1, Math.floor(n * 0.95))].toFixed(2) : 0, maxMs: n ? +sorted[n - 1].toFixed(2) : 0,
+    renderAvgMs: S.ftR.length ? +(S.ftR.reduce((x, y) => x + y, 0) / S.ftR.length).toFixed(2) : 0,
+    labelsAvgMs: S.ftL.length ? +(S.ftL.reduce((x, y) => x + y, 0) / S.ftL.length).toFixed(2) : 0,
     last60: a.map(v => +v.toFixed(2)), tier: S.tier, dpr: S.dpr, antialias: S.tier === 'high',
     instances: S.mesh ? S.mesh.count : 0, calls: S.renderer ? S.renderer.info.render.calls : 0, triangles: S.renderer ? S.renderer.info.render.triangles : 0,
   };
