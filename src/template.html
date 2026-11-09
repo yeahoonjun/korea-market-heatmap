@@ -720,7 +720,8 @@ function norm(x) {
     c: String(x.c), n: String(x.n), m: x.m === 'K' ? 'K' : 'Q',
     s: x.s || (map ? map[0] : '기타'), i: x.i || (map ? map[1] : '기타'),
     cap: +x.cap || 0, p: +x.p || 0, d: +x.d || 0, r: +x.r || 0, tv: +x.tv || 0, v: +x.v || 0,
-    lim: x.lim === 1 || x.lim === -1 ? x.lim : 0,
+    // 상/하한가: the row's flag, or |r| ≥ 29.5 when the row has none (the limit is ±30 % rounded to the tick)
+    lim: x.lim === 1 || x.lim === -1 ? x.lim : Math.abs(+x.r || 0) >= 29.5 ? Math.sign(+x.r) : 0,
   };
 }
 function setData(raw) {
@@ -757,7 +758,7 @@ function allStocks() {
   if (allCache.ver !== VER) allCache = { ver: VER, arr: DATA.stocks.map(ov) };
   return allCache.arr;
 }
-const limOf = st => st.lim || (Math.abs(st.r) >= 29.5 && !st.nodata ? Math.sign(st.r) : 0);
+const limOf = st => st.live ? (Math.abs(st.r) >= 29.5 ? Math.sign(st.r) : 0) : st.lim;   // replay rows: from the frame's change
 const marketOpen = () => Object.values(DATA.marketStatus || {}).some(v => v === 'OPEN');
 
 /* ───────────────── metrics ───────────────── */
@@ -1020,13 +1021,8 @@ function themeDesc(t) {
     aria: `${t.name} 테마 ${t.v == null ? '데이터 없음' : thText(t)}, ${t.codes.length}종목. 누르면 종목 지도가 열려요`,
   };
 }
-function paintTile(el, d, w, hh) {
-  el.style.backgroundColor = d.col;
-  el.classList.toggle('nod', d.nod);
-  el.__col = d.col; el.__name = d.name; el.__sub = d.sub;
-  el.setAttribute('aria-label', d.aria);
-  const lab = el.firstChild, nm = lab.children[0], pc = lab.children[1], px = lab.children[2];
-  const chip = el.children[1] || null;
+// fit a tile label into w × hh: one line, two lines, or an ellipsis; then the value line and (big tiles) the price line
+function fitLabel(d, w, hh) {
   const W = w - 6;
   // one line
   let fs = Math.min(hh * 0.3, W / textUnits(d.name), 40);
@@ -1041,35 +1037,50 @@ function paintTile(el, d, w, hh) {
     const fh = Math.min(hh * 0.32, 11);
     if (fh >= 9 && W / fh >= 3.2) { fs = fh; ell = true; }   // only truncate when ≥3 characters stay visible
   }
-  let labH = 0, labW = 0;
-  if (fs < 8 || w < 18 || hh < 13) lab.hidden = true;
-  else {
-    const nameH = parts ? 2.2 : 1.1;
-    // the % line is 0.74em; make sure it fits the width too, shrinking the type a little if needed
-    const pctText = d.sub;
-    const fsPct = Math.min(fs, W / (textUnits(pctText) * 0.74));
-    let showPct = fsPct >= 8 && hh >= fsPct * (nameH + 1.0);
-    if (showPct) fs = fsPct;
-    if (fs >= 24 && showPct) { const p2 = d.sub2 || pctText; if (W >= textUnits(p2) * 0.74 * fs) pc.textContent = p2; else pc.textContent = pctText; }
-    else pc.textContent = pctText;
-    lab.hidden = false;
-    lab.style.fontSize = fs.toFixed(1) + 'px';
-    if (parts) nm.replaceChildren(parts[0], document.createElement('br'), parts[1]);
-    else nm.textContent = d.name;
-    nm.classList.toggle('ell', ell);
-    pc.hidden = !showPct;
-    const three = !!d.px && showPct && hh >= fs * (nameH + 1.75) && fs >= 15 && w >= 70 && W >= textUnits(d.px) * 0.52 * fs;
-    px.hidden = !three;
-    if (three) px.textContent = d.px;
-    labH = fs * (nameH + (showPct ? 0.92 : 0) + (three ? 0.86 : 0));
-    labW = Math.min(W, fs * Math.max(parts ? Math.max(textUnits(parts[0]), textUnits(parts[1])) : textUnits(d.name), showPct ? textUnits(pc.textContent) * 0.74 : 0));
+  if (fs < 8 || w < 18 || hh < 13) return { hidden: true, fs: 0, labH: 0, labW: 0 };
+  const nameH = parts ? 2.2 : 1.1;
+  // the value line is 0.74em; make sure it fits the width too, shrinking the type a little if needed
+  const fsPct = Math.min(fs, W / (textUnits(d.sub) * 0.74));
+  const showPct = fsPct >= 8 && hh >= fsPct * (nameH + 1.0);
+  if (showPct) fs = fsPct;
+  let pcText = d.sub;
+  if (fs >= 24 && showPct) { const p2 = d.sub2 || d.sub; if (W >= textUnits(p2) * 0.74 * fs) pcText = p2; }
+  const three = !!d.px && showPct && hh >= fs * (nameH + 1.75) && fs >= 15 && w >= 70 && W >= textUnits(d.px) * 0.52 * fs;
+  const labH = fs * (nameH + (showPct ? 0.92 : 0) + (three ? 0.86 : 0));
+  const labW = Math.min(W, fs * Math.max(parts ? Math.max(textUnits(parts[0]), textUnits(parts[1])) : textUnits(d.name), showPct ? textUnits(pcText) * 0.74 : 0));
+  return { hidden: false, fs, parts, ell, showPct, pcText, three, labH, labW, nameH };
+}
+// a corner chip (16 × 16 at the top-left) stays clear of a centred label of this size
+const chipRoom = (L, w, hh) => w >= 34 && hh >= 26 && (L.hidden || (hh - L.labH) / 2 >= 17 || (w - L.labW) / 2 >= 21);
+function paintTile(el, d, w, hh) {
+  el.style.backgroundColor = d.col;
+  el.classList.toggle('nod', d.nod);
+  el.__col = d.col; el.__name = d.name; el.__sub = d.sub;
+  el.setAttribute('aria-label', d.aria);
+  const lab = el.firstChild, nm = lab.children[0], pc = lab.children[1], px = lab.children[2];
+  const chip = el.children[1] || null;
+  let L = fitLabel(d, w, hh), chipOn = false;
+  if (chip && d.lim) {
+    // 상/하 is worth more than the price line or slightly smaller type: drop the price line, else refit with 17 px free above and below
+    const La = L.three ? Object.assign({}, L, { three: false, labH: L.fs * (L.nameH + (L.showPct ? 0.92 : 0)) }) : null;
+    if (chipRoom(L, w, hh)) chipOn = true;
+    else if (La && chipRoom(La, w, hh)) { L = La; chipOn = true; }
+    else if (w >= 34 && hh - 34 >= 13) {
+      const L2 = fitLabel(d, w, hh - 34);
+      if (!L2.hidden && L2.fs >= L.fs * 0.6) { L = L2; chipOn = true; }
+    }
   }
-  // 상/하 chip in the top-left corner, only where it stays clear of the label
-  if (chip) {
-    const room = w >= 34 && hh >= 26 && (lab.hidden || (hh - labH) / 2 >= 17 || (w - labW) / 2 >= 21);
-    chip.hidden = !(d.lim && room);
-    if (d.lim) chip.textContent = d.lim > 0 ? '상' : '하';
-  }
+  if (chip) { chip.hidden = !chipOn; if (d.lim) chip.textContent = d.lim > 0 ? '상' : '하'; }
+  if (L.hidden) { lab.hidden = true; return; }
+  lab.hidden = false;
+  lab.style.fontSize = L.fs.toFixed(1) + 'px';
+  if (L.parts) nm.replaceChildren(L.parts[0], document.createElement('br'), L.parts[1]);
+  else nm.textContent = d.name;
+  nm.classList.toggle('ell', L.ell);
+  pc.textContent = L.pcText;
+  pc.hidden = !L.showPct;
+  px.hidden = !L.three;
+  if (L.three) px.textContent = d.px;
 }
 function placeNode(el, n, mdl) {
   const x = n.x0, y = n.y0, w = Math.max(0, n.x1 - n.x0), hh = Math.max(0, n.y1 - n.y0);
