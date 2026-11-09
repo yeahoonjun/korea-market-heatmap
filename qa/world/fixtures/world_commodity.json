@@ -1,0 +1,228 @@
+{
+ "asOf": "2026-11-09T14:59:03.337Z",
+ "kind": "commodity",
+ "groups": [
+  {
+   "key": "energy",
+   "name": "에너지",
+   "items": [
+    {
+     "key": "CLcv1",
+     "name": "WTI",
+     "value": 87.48,
+     "change": -3.35,
+     "ratio": -3.69,
+     "status": "OPEN",
+     "tradedAt": "2026-11-09T08:49:02-06:00",
+     "delayed": 10,
+     "unit": "USD/BBL",
+     "tz": "CST6CDT"
+    },
+    {
+     "key": "LCOcv1",
+     "name": "브렌트유",
+     "value": 94,
+     "change": -4.32,
+     "ratio": -4.39,
+     "status": "OPEN",
+     "tradedAt": "2026-11-09T14:49:02Z",
+     "delayed": 10,
+     "unit": "USD/BBL",
+     "tz": "Europe/London"
+    },
+    {
+     "key": "NGcv1",
+     "name": "천연가스",
+     "value": 3,
+     "change": 0.05,
+     "ratio": 1.73,
+     "status": "CLOSE",
+     "tradedAt": "2026-11-06T16:00:00-06:00",
+     "delayed": 10,
+     "unit": "USD/MMBTU",
+     "tz": "CST6CDT"
+    },
+    {
+     "key": "RBcv1",
+     "name": "RBOB 가솔린",
+     "value": 2.6882,
+     "change": -0.0885,
+     "ratio": -3.19,
+     "status": "OPEN",
+     "tradedAt": "2026-11-09T08:49:02-06:00",
+     "delayed": 10,
+     "unit": "USD/U GAL",
+     "tz": "CST6CDT"
+    },
+    {
+     "key": "HOcv1",
+     "name": "난방유",
+     "value": 4.2669,
+     "change": -0.0648,
+     "ratio": -1.5,
+     "status": "OPEN",
+     "tradedAt": "2026-11-09T08:49:02-06:00",
+     "delayed": 10,
+     "unit": "USD/U GAL",
+     "tz": "CST6CDT"
+    }
+   ]
+  },
+  {
+   "key": "metals",
+   "name": "금속",
+   "items": [
+    {
+     "key": "GCcv1",
+     "name": "금",
+     "value": 4128.9,
+     "change": 54,
+     "ratio": 1.33,
+     "status": "OPEN",
+     "tradedAt": "2026-11-09T08:49:03-06:00",
+     "delayed": 10,
+     "unit": "USD/OZS",
+     "tz": "CST6CDT"
+    },
+    {
+     "key": "SIcv1",
+     "name": "은",
+     "value": 52.73,
+     "change": 0.79,
+     "ratio": 1.52,
+     "status": "OPEN",
+     "tradedAt": "2026-11-09T08:49:03-06:00",
+     "delayed": 10,
+     "unit": "USD/OZS",
+     "tz": "CST6CDT"
+    },
+    {
+     "key": "HGcv1",
+     "name": "구리",
+     "value": 6.336,
+     "change": 0.0985,
+     "ratio": 1.58,
+     "status": "OPEN",
+     "tradedAt": "2026-11-09T08:49:03-06:00",
+     "delayed": 10,
+     "unit": "USD/LBS",
+     "tz": "CST6CDT"
+    },
+    {
+     "key": "PLcv1",
+     "name": "백금",
+     "value": 1563.9,
+     "change": 27,
+     "ratio": 1.76,
+     "status": "OPEN",
+     "tradedAt": "2026-11-09T08:49:03-06:00",
+     "delayed": 10,
+     "unit": "USD/OZS",
+     "tz": "CST6CDT"
+    },
+    {
+     "key": "PAcv1",
+     "name": "팔라듐",
+     "value": 1028,
+     "change": 10.9,
+     "ratio": 1.07,
+     "status": "OPEN",
+     "tradedAt": "2026-11-09T08:49:03-06:00",
+     "delayed": 10,
+     "unit": "USD/OZS",
+     "tz": "CST6CDT"
+    }
+   ]
+  },
+  {
+   "key": "agri",
+   "name": "농산물",
+   "items": [
+    {
+     "key": "Ccv1",
+     "name": "옥수수",
+     "value": 441.5,
+     "change": 1.5,
+     "ratio": 0.34,
+     "status": "CLOSE",
+     "tradedAt": "2026-11-06T16:00:00-06:00",
+     "delayed": 10,
+     "unit": "USc/BSH",
+     "tz": "CST6CDT"
+    },
+    {
+     "key": "Scv1",
+     "name": "대두",
+     "value": 1189,
+     "change": 8,
+     "ratio": 0.68,
+     "status": "CLOSE",
+     "tradedAt": "2026-11-06T16:00:00-06:00",
+     "delayed": 10,
+     "unit": "USc/BSH",
+     "tz": "CST6CDT"
+    },
+    {
+     "key": "Wcv1",
+     "name": "소맥",
+     "value": 591.25,
+     "change": -8,
+     "ratio": -1.34,
+     "status": "CLOSE",
+     "tradedAt": "2026-11-06T16:00:00-06:00",
+     "delayed": 10,
+     "unit": "USc/BSH",
+     "tz": "CST6CDT"
+    },
+    {
+     "key": "KCcv1",
+     "name": "커피",
+     "value": 280,
+     "change": 2.85,
+     "ratio": 1.03,
+     "status": "CLOSE",
+     "tradedAt": "2026-11-06T23:00:00Z",
+     "delayed": 10,
+     "unit": "USc/LBS",
+     "tz": "EST5EDT"
+    },
+    {
+     "key": "SBcv1",
+     "name": "설탕",
+     "value": 18.24,
+     "change": -0.32,
+     "ratio": -1.72,
+     "status": "CLOSE",
+     "tradedAt": "2026-11-06T23:00:00Z",
+     "delayed": 10,
+     "unit": "USc/LBS",
+     "tz": "EST5EDT"
+    },
+    {
+     "key": "CCcv1",
+     "name": "코코아",
+     "value": 5155,
+     "change": -26,
+     "ratio": -0.5,
+     "status": "CLOSE",
+     "tradedAt": "2026-11-06T23:00:00Z",
+     "delayed": 10,
+     "unit": "USD/TONNE",
+     "tz": "EST5EDT"
+    },
+    {
+     "key": "CTcv1",
+     "name": "면화",
+     "value": 79.11,
+     "change": 0.4,
+     "ratio": 0.51,
+     "status": "CLOSE",
+     "tradedAt": "2026-11-06T23:00:00Z",
+     "delayed": 10,
+     "unit": "USc/LBS",
+     "tz": "EST5EDT"
+    }
+   ]
+  }
+ ]
+}
