@@ -230,3 +230,10 @@ python3 tmp/shot.py /home/claude/heatmap/dist/index.html    # 1440×900 / 390×8
 - `window.KH3D = {show(), hide(), isOn()}`. `#map3d` 안에 canvas. 데이터는 `KH.layout()`(타일 x·y·w·h·color·code·label·sub, 섹터·업종 머리글)과 `KH.stock(code)`.
 - 타일을 상자로 세우고 높이 = |등락률|(색 범위 도구 기준으로 정규화), 오른 종목은 위로·내린 종목은 바닥 아래로(또는 같은 방향으로 세우고 색으로만 구분 — 판단해서 읽기 쉬운 쪽). 섹터 사이 틈, 섹터 이름 라벨. 마우스 끌기·한 손가락으로 회전, 휠·두 손가락으로 확대, 처음엔 약간 기울어진 시점. 마우스 올리면 툴팁(이름·등락률·현재가), 누르면 `KHStock.open(code)`.
 - three.js는 3D를 처음 켤 때만 jsDelivr에서 SRI로 불러요(UMD `build/three.min.js`가 있는 버전). `InstancedMesh` 등으로 600개도 휴대폰에서 부드럽게. 갱신 때 높이·색 트윈(`full`일 때). 탭이 숨으면 렌더 루프 멈춤, `hide()`면 GPU 자원 정리.
+
+## 3-6. 시계 · 장 진행률 (사용자 요청 2026-11-10 01:12)
+
+"시계도 위에 보여주면 좋으려나. 장 시작부터 장 마감까지 현재 몇 퍼센트인지 로딩바처럼 시계 바로 아래에, 이것도 온오프 가능하게"
+- **히트맵**: 머리글(로고 오른쪽 상태 영역 근처)에 마운트 `<div id="clock"></div>`. 그리고 모듈이 `표시 설정`에 스위치를 넣을 수 있게 `KH.addSetting({key, label, hint?, default:boolean, onChange(value)})` → 설정 시트에 켬/끔 스위치를 그리고 localStorage `khm.set.<key>`에 저장, 처음과 바뀔 때 `onChange(value)` 호출. `KH.getSetting(key)`도 제공. (효과 설정처럼 템플릿 자체 설정은 그대로.)
+- **extras**: `#clock`에 KST 시계(HH:MM:SS, tabular-nums, 초는 작게)와 바로 아래 얇은 진행 막대: 정규장 09:00→마감까지 경과 %(막대 + "정규장 64%" 글자). 단계 표시: 장 시작 전(08:30 동시호가부터 "장 시작 전 · 18분 남음"), 정규장(15:20 이후 "마감 동시호가"), 장 마감 뒤("장 마감 · NXT 애프터마켓 20:00까지" 또는 "장 마감"), 주말·휴장("휴장"). 휴장일 판단: 평일 정규장 시간인데 시세의 `marketStatus`가 둘 다 CLOSE이고 오늘 거래 기록(asOf 날짜)이 없으면 휴장. 마감 시각은 `/api/market`의 `session`(아래)이 있으면 그것, 없으면 15:30. `KH.addSetting({key:'clock', label:'시계·장 진행률', default:true})`로 켜고 끔. 휴대폰에서는 시계를 짧게(HH:MM) 쓰고 막대는 머리글 아래 전체 폭의 2px 선으로 바꿔도 돼요(공간 판단). `fancy` 효과일 때만 초 단위로 막대가 부드럽게 흐르고, 아니면 1분마다 갱신. 숨은 탭에서는 멈춰요.
+- **Worker**: `/api/market` 응답에 `session:{start:'HHMM', end:'HHMM'}`(국내 정규장, 시세의 `stockExchangeType.startTime/endTime`에서; 없으면 생략)를 더해요.
