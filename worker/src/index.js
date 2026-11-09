@@ -274,7 +274,7 @@ function nxtOf(i) {
   if (!st || (ts && ts !== 'TRADING')) return null;
   const p = pn(i.overPrice);
   if (p == null) return null;
-  return { p, d: sgn(i.compareToPreviousClosePrice, i.compareToPreviousPrice) ?? 0, r: sgn(i.fluctuationsRatio, i.compareToPreviousPrice) ?? 0, s: st, o: i.overMarketStatus === 'OPEN' ? 1 : 0, t: i.localTradedAt || null };
+  return { p, d: sgn(i.compareToPreviousClosePrice, i.compareToPreviousPrice) ?? 0, r: sgn(i.fluctuationsRatio, i.compareToPreviousPrice) ?? 0, s: st, o: i.overMarketStatus === 'OPEN' ? 1 : 0, t: i.localTradedAt || null, v: pn(i.accumulatedTradingVolumeRaw ?? i.accumulatedTradingVolume), tv: i.accumulatedTradingValueRaw != null && i.accumulatedTradingValueRaw !== '' ? Math.round(num(i.accumulatedTradingValueRaw) / 1e8) : parseEok(i.accumulatedTradingValue) };
 }
 
 /* ── /api/quotes ─────────────────────────────── */
@@ -485,10 +485,11 @@ async function getChart(code) {
 // basic (price, status) + integration (ratios) fetched in parallel.
 async function getSummary(code) {
   // The daily chart is split-adjusted whatever Naver's /integration answers to this egress → 52-week range comes from it.
-  const [b, g, days] = await Promise.all([
+  const [b, g, days, poll] = await Promise.all([
     naver(`https://m.stock.naver.com/api/stock/${code}/basic`),
     naver(`https://m.stock.naver.com/api/stock/${code}/integration`),
     naver(`https://api.stock.naver.com/chart/domestic/item/${code}/day?startDateTime=${ymd(kstDaysAgo(7, 0, 1))}000000&endDateTime=${ymd(kstNow())}235959`).catch(() => null),
+    naver(`https://polling.finance.naver.com/api/realtime/domestic/stock/${code}`).catch(() => null),   // /basic's overMarketPriceInfo has no volume
   ]);
   let hi = null, lo = null;
   const cut = ymd(kstDaysAgo(364));
@@ -534,7 +535,7 @@ async function getSummary(code) {
     cnsEps: pn(t.cnsEps),
     dps: pn(t.dividend),
     peers: peersOf(g, b.itemCode || code),
-    nxt: nxtOf(b.overMarketPriceInfo),
+    nxt: nxtOf((poll && poll.datas && poll.datas[0] && poll.datas[0].overMarketPriceInfo) || b.overMarketPriceInfo),
   };
 }
 
