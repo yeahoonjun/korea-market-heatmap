@@ -216,7 +216,7 @@
   "ok": true,
   "detail": {
    "chart": true,
-   "head": 9,
+   "head": 10,
    "ob": true
   }
  },
@@ -789,5 +789,669 @@
    [],
    []
   ]
+ },
+ "info_lazy_load": {
+  "ok": true,
+  "detail": {
+   "before_tab": 0,
+   "on_open": {
+    "annual": 1,
+    "quarter": 1,
+    "research": 1
+   },
+   "refetch_after_switches": 0
+  }
+ },
+ "info_metrics_match_fixtures": {
+  "ok": true,
+  "detail": {
+   "shown": {
+    "시가총액": [
+     "1,093.3조원",
+     ""
+    ],
+    "PER": [
+     "8.39배",
+     ""
+    ],
+    "추정PER": [
+     "4.10배",
+     "증권사 예상"
+    ],
+    "PBR": [
+     "2.17배",
+     ""
+    ],
+    "ROE": [
+     "10.85%",
+     "2025년 기준"
+    ],
+    "PSR": [
+     "2.25배",
+     "최근 4분기 매출 기준"
+    ],
+    "배당수익률": [
+     "0.89%",
+     ""
+    ],
+    "외국인 소진율": [
+     "45.94%",
+     ""
+    ]
+   },
+   "want": {
+    "시가총액": [
+     "1,093.3조원",
+     ""
+    ],
+    "PER": [
+     "8.39배",
+     ""
+    ],
+    "추정PER": [
+     "4.10배",
+     "증권사 예상"
+    ],
+    "PBR": [
+     "2.17배",
+     ""
+    ],
+    "ROE": [
+     "10.85%",
+     "2025년 기준"
+    ],
+    "PSR": [
+     "2.25배",
+     "최근 4분기 매출 기준"
+    ],
+    "배당수익률": [
+     "0.89%",
+     ""
+    ],
+    "외국인 소진율": [
+     "45.94%",
+     ""
+    ]
+   }
+  }
+ },
+ "info_finance_quarter_bars": {
+  "ok": true,
+  "detail": {
+   "cols": [
+    [
+     "202506",
+     false,
+     "false",
+     -1
+    ],
+    [
+     "202509",
+     false,
+     "false",
+     -1
+    ],
+    [
+     "202512",
+     false,
+     "false",
+     -1
+    ],
+    [
+     "202603",
+     false,
+     "false",
+     -1
+    ],
+    [
+     "202606",
+     false,
+     "true",
+     0
+    ],
+    [
+     "202609",
+     true,
+     "false",
+     -1
+    ]
+   ],
+   "xs": [
+    "25년 6월",
+    "25년 9월",
+    "25년 12월",
+    "26년 3월",
+    "26년 6월",
+    "26년 9월예상"
+   ],
+   "vals": [
+    [
+     "매출",
+     "171조 4,995억원"
+    ],
+    [
+     "영업이익",
+     "89조 4,924억원"
+    ],
+    [
+     "순이익",
+     "71조 6,245억원"
+    ]
+   ],
+   "when": "26년 6월분기 실적"
+  }
+ },
+ "info_finance_keyboard_pick": {
+  "ok": true,
+  "detail": [
+   [
+    "202603",
+    "true",
+    [
+     "133조 8,734억원",
+     "57조 2,328억원",
+     "47조 2,253억원"
+    ]
+   ],
+   [
+    "202609",
+    "26년 9월예상"
+   ]
+  ]
+ },
+ "info_finance_annual_toggle": {
+  "ok": true,
+  "detail": {
+   "cols": [
+    [
+     "202312",
+     false,
+     "false",
+     -1
+    ],
+    [
+     "202412",
+     false,
+     "false",
+     -1
+    ],
+    [
+     "202512",
+     false,
+     "true",
+     0
+    ],
+    [
+     "202612",
+     true,
+     "false",
+     -1
+    ]
+   ],
+   "xs": [
+    "2023년",
+    "2024년",
+    "2025년",
+    "2026년예상"
+   ]
+  }
+ },
+ "info_stability_lines": {
+  "ok": true,
+  "detail": {
+   "부채비율": [
+    "25.4%",
+    "27.9%",
+    "29.9%"
+   ],
+   "당좌비율": [
+    "189.5%",
+    "187.8%",
+    "183.3%"
+   ]
+  }
+ },
+ "info_dividend": {
+  "ok": true,
+  "detail": {
+   "kv": [
+    "1,668원",
+    "0.89%"
+   ],
+   "bars": [
+    "1,444원",
+    "1,446원",
+    "1,668원",
+    "9,566원"
+   ]
+  }
+ },
+ "info_analyst_distribution_consensus": {
+  "ok": true,
+  "detail": {
+   "h": "최근 3개월 리포트 20건최근 20건까지만 셌어요",
+   "op": [
+    [
+     "적극매도",
+     "0건",
+     false
+    ],
+    [
+     "매도",
+     "0건",
+     false
+    ],
+    [
+     "중립",
+     "0건",
+     false
+    ],
+    [
+     "매수",
+     "3건",
+     true
+    ],
+    [
+     "적극매수",
+     "0건",
+     false
+    ]
+   ],
+   "want": [
+    0,
+    0,
+    0,
+    3,
+    0
+   ],
+   "note": "의견을 찾지 못한 리포트 17건은 세지 않았어요.",
+   "cons": [
+    [
+     "평균 목표주가11월 6일 기준 · 증권사 평균",
+     "472,381원현재가 대비 +152.6%"
+    ],
+    [
+     "평균 투자의견1 적극매도 ~ 5 적극매수",
+     "4.00점매수"
+    ]
+   ],
+   "gap": [
+    "현재가 대비 +152.6%",
+    "sp-gap num up"
+   ]
+  }
+ },
+ "info_report_list": {
+  "ok": true,
+  "detail": {
+   "first": [
+    "STRESS TEST",
+    "11월 4일iM증권목표가 370,000원매수",
+    "https://m.stock.naver.com/research/company/97570",
+    "_blank",
+    "noopener"
+   ],
+   "n": 5,
+   "more": "리포트 15건 더 보기",
+   "src": "출처: 네이버 증권 · 컨센서스는 증권사 추정치예요"
+  }
+ },
+ "info_report_list_expands": {
+  "ok": true,
+  "detail": [
+   20,
+   "접기",
+   "true"
+  ]
+ },
+ "info_no_investment_wording": {
+  "ok": true,
+  "detail": null
+ },
+ "peers_from_summary_open_in_place": {
+  "ok": true,
+  "detail": {
+   "chips": [
+    [
+     "000660",
+     "SK하이닉스",
+     "1,120,000",
+     "−1.06%"
+    ],
+    [
+     "402340",
+     "SK스퀘어",
+     "709,000",
+     "−2.07%"
+    ]
+   ],
+   "want": [
+    [
+     "000660",
+     "SK하이닉스",
+     "1,120,000",
+     "−1.06%"
+    ],
+    [
+     "402340",
+     "SK스퀘어",
+     "709,000",
+     "−2.07%"
+    ]
+   ],
+   "after": {
+    "hash": "#s-402340",
+    "name": "SK스퀘어",
+    "hl": 3,
+    "tab": "sp-t-info"
+   }
+  }
+ },
+ "console_clean_info": {
+  "ok": true,
+  "detail": []
+ },
+ "header_day_and_52w_ranges": {
+  "ok": true,
+  "detail": {
+   "shown": {
+    "d1": [
+     "1일 범위시가 190,900 · 전일 188,700",
+     "183,800",
+     "195,400",
+     "27.6%",
+     "fill dn",
+     "42.2%",
+     "61.2%"
+    ],
+    "w52": [
+     "52주 범위",
+     "93,500",
+     "380,000",
+     "32.6%"
+    ],
+    "aria": "1일 최저 183,800원, 최고 195,400원, 현재가 187,000원은 아래에서 28% 위치, 전일 종가 188,700원, 시가 190,900원"
+   },
+   "want": {
+    "d1": [
+     "1일 범위시가 190,900 · 전일 188,700",
+     "183,800",
+     "195,400",
+     "27.6%",
+     "fill dn",
+     "42.2%",
+     "61.2%"
+    ],
+    "w52": [
+     "52주 범위",
+     "93,500",
+     "380,000",
+     "32.6%"
+    ]
+   }
+  }
+ },
+ "investors_today_card_last_day": {
+  "ok": true,
+  "detail": {
+   "h": "11월 6일 순매수",
+   "first": "sp-today",
+   "rows": [
+    [
+     "개인",
+     "+858,557주",
+     "left:50%;width:50%;"
+    ],
+    [
+     "외국인",
+     "−655,978주",
+     "right:50%;width:38.2%;"
+    ],
+    [
+     "기관",
+     "−242,926주",
+     "right:50%;width:14.1%;"
+    ]
+   ]
+  }
+ },
+ "investors_today_card_today": {
+  "ok": true,
+  "detail": {
+   "h": "오늘 순매수",
+   "first": "sp-today",
+   "rows": [
+    [
+     "개인",
+     "+858,557주",
+     "left:50%;width:50%;"
+    ],
+    [
+     "외국인",
+     "−655,978주",
+     "right:50%;width:38.2%;"
+    ],
+    [
+     "기관",
+     "−242,926주",
+     "right:50%;width:14.1%;"
+    ]
+   ]
+  }
+ },
+ "daily_note_today_row_mixes_nxt": {
+  "ok": true,
+  "detail": [
+   false,
+   "정규장 이후에는 오늘 행에 NXT 거래가 섞여 KRX 종가(15:30)와 다를 수 있어요."
+  ]
+ },
+ "info_small_cap_losses_no_estimates_no_research": {
+  "ok": true,
+  "detail": {
+   "cols": [
+    [
+     "202506",
+     false,
+     "false",
+     -1
+    ],
+    [
+     "202509",
+     false,
+     "false",
+     -1
+    ],
+    [
+     "202512",
+     false,
+     "false",
+     -1
+    ],
+    [
+     "202603",
+     false,
+     "false",
+     -1
+    ],
+    [
+     "202606",
+     false,
+     "true",
+     0
+    ]
+   ],
+   "finNote": "증권사 예상치가 없어요. 막대를 누르면 그 기간 숫자를 볼 수 있어요.",
+   "negBelow": [
+    0.5,
+    0.5,
+    0.5,
+    0.5,
+    0.5,
+    0.5,
+    0.5
+   ],
+   "anaMsg": "최근 증권사 리포트가 없어요.증권사 분석이 드문 종목이에요. 리포트가 나오면 여기에 보여요.",
+   "divMsg": "최근 배당 기록이 없어요.최근 결산에서 배당하지 않았거나 정보가 없는 종목이에요.",
+   "psr": [
+    "0.43배",
+    "최근 4분기 매출 기준"
+   ]
+  }
+ },
+ "console_clean_info_smallcap": {
+  "ok": true,
+  "detail": []
+ },
+ "info_psr_annual_fallback_and_period_error": {
+  "ok": true,
+  "detail": {
+   "psr": [
+    "0.41배",
+    "2025년 매출 기준"
+   ],
+   "quarter_msg": "재무 정보를 불러오지 못했어요.서버가 응답하지 않아요 ",
+   "annual_cols": 3
+  }
+ },
+ "info_research_fails_alone_and_retries": {
+  "ok": true,
+  "detail": {
+   "msg": "애널리스트 의견을 불러오지 못했어요.서버가 응답하지 않아요 (502). ",
+   "metrics": {
+    "시가총액": [
+     "11.6조원",
+     ""
+    ],
+    "PER": [
+     "61.01배",
+     ""
+    ],
+    "추정PER": [
+     "43.12배",
+     "증권사 예상"
+    ],
+    "PBR": [
+     "21.82배",
+     ""
+    ],
+    "ROE": [
+     "39.42%",
+     "2025년 기준"
+    ],
+    "PSR": [
+     "45.80배",
+     "최근 4분기 매출 기준"
+    ],
+    "배당수익률": [
+     "0.17%",
+     ""
+    ],
+    "외국인 소진율": [
+     "16.25%",
+     ""
+    ]
+   },
+   "recovered": true
+  }
+ },
+ "console_clean_info_fail_research": {
+  "ok": true,
+  "detail": [
+   "error: Failed to load resource: the server responded with a status of 502 (Bad Gateway)"
+  ]
+ },
+ "info_finance_fails_alone_and_retries": {
+  "ok": true,
+  "detail": {
+   "msg": "재무 정보를 불러오지 못했어요.서버가 응답하지 않아요 (502). 잠시 ",
+   "metrics": {
+    "시가총액": [
+     "11.6조원",
+     ""
+    ],
+    "PER": [
+     "61.01배",
+     ""
+    ],
+    "추정PER": [
+     "43.12배",
+     "증권사 예상"
+    ],
+    "PBR": [
+     "21.82배",
+     ""
+    ],
+    "ROE": [
+     "—",
+     ""
+    ],
+    "PSR": [
+     "—",
+     ""
+    ],
+    "배당수익률": [
+     "0.17%",
+     ""
+    ],
+    "외국인 소진율": [
+     "16.25%",
+     ""
+    ]
+   },
+   "recovered": true
+  }
+ },
+ "console_clean_info_fail_finance": {
+  "ok": true,
+  "detail": [
+   "error: Failed to load resource: the server responded with a status of 502 (Bad Gateway)",
+   "error: Failed to load resource: the server responded with a status of 502 (Bad Gateway)"
+  ]
+ },
+ "info_states_999980": {
+  "ok": true,
+  "detail": {
+   "fin": "재무 정보가 없어요.새로 상장했거나 실적을 내지 않는 종목일 수 있어요.",
+   "ana": "최근 증권사 리포트가 없어요.증권사 분석이 드문 종목이에요. 리포트가 나",
+   "skel": 0
+  }
+ },
+ "info_states_999990": {
+  "ok": true,
+  "detail": {
+   "fin": "재무 정보를 불러오지 못했어요.서버가 응답하지 않아요 (502). 잠시 ",
+   "ana": "애널리스트 의견을 불러오지 못했어요.서버가 응답하지 않아요 (502). ",
+   "skel": 0
+  }
+ },
+ "info_keyboard_reach_and_esc": {
+  "ok": true,
+  "detail": [
+   "sp-panel|solid",
+   "quarter|solid",
+   "annual|solid",
+   "202606|solid",
+   "SUMMARY|solid",
+   "quarter|solid",
+   "annual|solid",
+   "BUTTON|solid",
+   "BUTTON|solid",
+   "sp-rp|solid",
+   "sp-rp|solid",
+   "sp-rp|solid"
+  ]
+ },
+ "info_no_overflow_all_widths": {
+  "ok": true,
+  "detail": null
+ },
+ "info_reduced_motion": {
+  "ok": true,
+  "detail": "none"
+ },
+ "snapshot_mentions_info": {
+  "ok": true,
+  "detail": "차트·호가·투자자 정보는 실시간 버전에서 볼 수 있어요이 화면은 11월 9일 (월) 15:30 기준 스냅샷이라 새 시세를 받아 오지 않아요. 종목 정보(재무·애널리스트 의견), 일별 시세, 뉴스·공시도 실시간 버전에"
  }
 }

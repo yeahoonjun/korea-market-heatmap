@@ -3,15 +3,31 @@
 
     python3 qa/stock/fetch_fixtures.py 005930 196170
     python3 qa/stock/fetch_fixtures.py --only news,disclosure 005930 196170     # refresh some files only
+    python3 qa/stock/fetch_fixtures.py --only finance_annual,finance_quarter,research 005930 196170   # 종목 정보 tab (AGENTS.md §3-3)
+    python3 qa/stock/fetch_fixtures.py 406820                                    # small cap: no research, no estimates
     DART_KEY=… python3 qa/stock/fetch_fixtures.py --only dart 005930 196170       # OpenDART list (key from the environment only)
 
 Saves qa/stock/fixtures/raw/<code>/<name>.json. The mock server turns these into the AGENTS.md §3 shapes.
 """
-import datetime as dt, json, os, pathlib, sys, time, urllib.parse, urllib.request
+import datetime as dt, html, json, os, pathlib, re, sys, time, urllib.parse, urllib.request
 
 ROOT = pathlib.Path(__file__).resolve().parent / 'fixtures' / 'raw'
 UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36'
 KST = dt.timezone(dt.timedelta(hours=9))
+
+
+# Research previews are the brokers' own text (AGENTS.md §3-3: never re-published). Keep only the short phrases the
+# Worker reads target price and opinion from (투자의견 …, 목표주가 …), so the fixture stores no report body.
+KEEP = re.compile(r'(?:투자\s*의견|목표\s*주가|(?:적극\s*)?(?:매수|중립|매도)\s*의견|비중\s*(?:확대|축소))[^.。\n]{0,40}')
+
+
+def trim_preview(text):
+    text = html.unescape(str(text or ''))
+    return ' … '.join(m.group(0).strip() for m in KEEP.finditer(text))[:300]
+
+
+def trim_research(rows):
+    return [dict(r, previewContent=trim_preview(r.get('previewContent'))) for r in rows] if isinstance(rows, list) else rows
 
 
 def get(url):
@@ -45,6 +61,9 @@ def main(codes, only=None):
             'month_10y': ch.format(c=c) + f'month?startDateTime={d(10 * 366)}000000&endDateTime={today}235959',
             'news': f'https://m.stock.naver.com/api/news/stock/{c}?pageSize=20',          # ENDPOINTS_EXTRA.md §2
             'disclosure': f'https://m.stock.naver.com/api/stock/{c}/disclosure?pageSize=20',   # ENDPOINTS_EXTRA.md §3
+            'finance_annual': f'https://m.stock.naver.com/api/stock/{c}/finance/annual',       # AGENTS.md §3-3
+            'finance_quarter': f'https://m.stock.naver.com/api/stock/{c}/finance/quarter',
+            'research': f'https://m.stock.naver.com/api/research/stock/{c}?pageSize=20',
         }
         key = os.environ.get('DART_KEY')   # never written anywhere; the saved response carries no key
         corp = json.loads((ROOT.parent.parent.parent.parent / 'web/dart_corp.json').read_text(encoding='utf-8'))['map'].get(c)
@@ -57,14 +76,15 @@ def main(codes, only=None):
                 continue
             try:
                 j = get(url)
+                if name == 'research':
+                    j = trim_research(j)
                 (out / f'{name}.json').write_text(json.dumps(j, ensure_ascii=False), encoding='utf-8')
                 n = len(j) if isinstance(j, list) else len(j.get('datas', j)) if isinstance(j, dict) else '?'
                 print(c, name, 'ok', n)
             except Exception as e:
                 print(c, name, 'FAIL', type(e).__name__)   # no URL in the message (it may hold the DART key)
             time.sleep(0.15)
-    if not only:
-        (ROOT / 'fetched_at.txt').write_text(now.isoformat(), encoding='utf-8')
+        (out / 'fetched_at.txt').write_text(now.isoformat() + (' ' + ','.join(sorted(only)) if only else ' all') + '\n', encoding='utf-8')
 
 
 if __name__ == '__main__':

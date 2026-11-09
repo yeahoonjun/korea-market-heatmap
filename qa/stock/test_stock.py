@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """End-to-end checks for the stock page (src/stock) against the mock API.
 
-    python3 scripts/build_page.py && python3 qa/stock/test_stock.py      [--extra-only: just 뉴스·공시 / 관심종목 / 상·하한가]
+    python3 scripts/build_page.py && python3 qa/stock/test_stock.py      [--extra-only: 뉴스·공시 / 관심종목 / 상·하한가 / 종목 정보]
+                                                                          [--info-only: just 종목 정보 / 범위 막대 / 같은 업종 / 오늘 순매수]
 
 Starts qa/stock/mock_api.py on 127.0.0.1:8792, runs Playwright (Chrome), stops the server.
 Screenshots → qa/shots/stock/ (git-ignored). Summary → qa/stock/results.json.
@@ -377,7 +378,7 @@ def run(b):
     for w in (360, 390, 768, 1280, 1920):
         P = Page(b, w, BASE + '#s-005930')
         P.wait_chart()
-        for tab in ('ob', 'inv', 'daily', 'news'):
+        for tab in ('ob', 'info', 'inv', 'daily', 'news'):
             P.pg.click(f'#sp-t-{tab}')
             P.pg.wait_for_timeout(700)
             o = P.ev(OVERFLOW_JS)
@@ -693,6 +694,335 @@ def run_extra(b):
         P.close()
 
 
+# ── 종목 정보 tab, header ranges, peers from /summary, 오늘 순매수 (AGENTS.md §3-3) ──────────────────────
+def ko(v, d=0):
+    return f'{v:,.{d}f}'
+
+
+def eok(v):   # KH.fmt.eok
+    return (f'{v / 10000:,.1f}'.removesuffix('.0') + '조') if v >= 10000 else f'{round(v):,}억'
+
+
+def eok_full(v):   # stock.js eokFull
+    s, a = ('−' if v < 0 else ''), round(abs(v))
+    if a >= 10000:
+        jo, r = divmod(a, 10000)
+        return s + f'{jo:,}조' + (f' {r:,}억' if r else '') + '원'
+    return s + f'{a:,}억원'
+
+
+def signed_pct(v, d=1):
+    return ('+' if v > 0 else '−' if v < 0 else '') + f'{abs(v):.{d}f}%'
+
+
+def bucket(o):   # stock.js opinionBucket, for the strings the fixtures produce
+    s = (o or '').replace(' ', '').lower()
+    for i, pre in ((4, ('strongbuy', '적극매수', '강력매수')), (0, ('strongsell', '적극매도', '강력매도')),
+                   (3, ('buy', '매수', 'tradingbuy', '비중확대', 'outperform', 'overweight')), (1, ('sell', '매도', 'underperform', '비중축소')),
+                   (2, ('hold', '중립', 'neutral', 'marketperform'))):
+        if s.startswith(pre):
+            return i
+    return -1
+
+
+def fin_expect(fin):
+    """columns the chart draws (any of 매출·영업이익·당기순이익 present), oldest first"""
+    rows = {r['title']: r['values'] for r in fin['rows']}
+    out = []
+    for i, c in enumerate(fin['cols']):
+        v = [rows.get(t, [None] * len(fin['cols']))[i] for t in ('매출액', '영업이익', '당기순이익')]
+        if any(x is not None for x in v):
+            out.append((c, v))
+    return out
+
+
+INFO_JS = r"""() => {
+  const P = document.getElementById('sp-p-info'), q = s => [...P.querySelectorAll(s)];
+  const sec = k => P.querySelector('.sp-ci-' + k);
+  return {
+    metrics: Object.fromEntries(q('.sp-m').map(m => [m.querySelector('dt').textContent, [m.querySelectorAll('dd')[0].textContent, (m.querySelector('dd.sub') || {}).textContent || '']])),
+    cols: q('.sp-fin-col').map(b => [b.dataset.key, b.classList.contains('est'), b.getAttribute('aria-checked'), b.tabIndex]),
+    xs: q('.sp-fin-x span').map(s => s.textContent),
+    when: (P.querySelector('.sp-fin-when') || {}).textContent || '',
+    vals: q('.sp-fin-vals > div').map(d => [d.querySelector('dt').textContent, d.querySelector('dd').textContent]),
+    finMsg: (sec('fin').querySelector('.sp-msgbox') || {}).textContent || '',
+    finNote: (sec('fin').querySelector('.sp-note') || {}).textContent || '',
+    negBelow: q('.sp-fin-col .b.neg').map(b => b.getBoundingClientRect().top - P.querySelector('.sp-fin-area .zero').getBoundingClientRect().top),
+    posAbove: q('.sp-fin-col .b:not(.neg)').map(b => P.querySelector('.sp-fin-area .zero').getBoundingClientRect().top - b.getBoundingClientRect().bottom),
+    estHatched: q('.sp-fin-col.est .b').map(b => getComputedStyle(b).backgroundImage.includes('repeating-linear-gradient')),
+    stabHidden: sec('stab').hidden,
+    stab: q('.sp-ln .lb').map(s => s.textContent),
+    stabX: q('.sp-ln-x span').map(s => s.textContent),
+    stabMsg: (sec('stab').querySelector('.sp-msgbox') || {}).textContent || '',
+    divKv: q('.sp-ci-div .sp-kv dd').map(d => d.textContent),
+    divBars: q('.sp-dbars .v').map(s => s.textContent),
+    divMsg: (sec('div').querySelector('.sp-msgbox') || {}).textContent || '',
+    anaH: (P.querySelector('.sp-ana-h') || {}).textContent || '',
+    op: q('.sp-op .col').map(c => [c.querySelector('.x').textContent, c.querySelector('.n').textContent, c.classList.contains('max')]),
+    opNote: (P.querySelector('.sp-op-note') || {}).textContent || '',
+    cons: q('.sp-cons > div').map(d => [d.querySelector('dt').textContent, d.querySelector('dd').textContent]),
+    gap: (() => { const g = P.querySelector('.sp-gap'); return g ? [g.textContent, g.className] : null; })(),
+    reports: q('.sp-rp-list li').map(li => { const a = li.querySelector('a'); return [li.querySelector('.sp-rp-t').textContent, li.querySelector('.sp-rp-m').textContent, a && a.getAttribute('href'), a && a.target, a && a.rel]; }),
+    more: (sec('ana').querySelector('.sp-more') || {}).textContent || '',
+    anaMsg: (sec('ana').querySelector('.sp-msgbox') || {}).textContent || '',
+    src: (P.querySelector('.sp-ci-src') || {}).textContent || '',
+    pressed: q('.sp-mseg [aria-pressed=true]').map(b => b.dataset.p),
+    skel: q('.sp-skel, .sp-fin-skel').length,
+    text: P.textContent,
+    ownText: (() => { const c = P.cloneNode(true); c.querySelectorAll('.sp-rp-list').forEach(e => e.remove()); return c.textContent; })(),   // without the brokers' report titles
+  };
+}"""
+
+
+def run_info(b):
+    T = '2026-11-09T22:00:00+09:00'
+    mock('/__reset')
+    s5 = mock('/api/stock/005930/summary')
+    fa5, fq5, rs5 = mock('/api/stock/005930/finance?period=annual'), mock('/api/stock/005930/finance?period=quarter'), mock('/api/stock/005930/research')
+    mock('/__reset')
+
+    # ── lazy load: nothing until the tab opens; three requests then; none on tab switches or 분기/연간 ──
+    P = Page(b, 390, None)
+    pg = P.pg
+    pg.clock.set_fixed_time(T)
+    pg.add_init_script("localStorage.setItem('khm.stockTab', JSON.stringify('ob')); localStorage.setItem('khm.stockFinPeriod', JSON.stringify('quarter'))")
+    pg.goto(BASE); pg.wait_for_timeout(600)
+    P.ev("() => KHStock.open('005930')"); P.wait_chart(); pg.wait_for_timeout(400)
+    before = P.count('/finance') + P.count('/research')
+    t0 = time.time()
+    pg.click('#sp-t-info')
+    pg.wait_for_selector('#sp-p-info .sp-fin-col'); pg.wait_for_selector('#sp-p-info .sp-rp-list li'); pg.wait_for_timeout(300)
+    req = {'annual': P.count('finance?period=annual', t0), 'quarter': P.count('finance?period=quarter', t0), 'research': P.count('/research', t0)}
+    pg.click('#sp-t-inv'); pg.wait_for_timeout(200); pg.click('#sp-t-info'); pg.wait_for_timeout(200)
+    pg.click('.sp-ci-fin .sp-mseg [data-p="annual"]'); pg.wait_for_timeout(150); pg.click('.sp-ci-fin .sp-mseg [data-p="quarter"]'); pg.wait_for_timeout(150)
+    again = P.count('/finance', t0) + P.count('/research', t0) - 3
+    check('info_lazy_load', before == 0 and req == {'annual': 1, 'quarter': 1, 'research': 1} and again == 0, {'before_tab': before, 'on_open': req, 'refetch_after_switches': again})
+    x = P.ev(INFO_JS)
+    pg.screenshot(path=str(SHOTS / 'live390_tab_info.png'))
+
+    # 투자 지표: summary values, ROE (latest actual year), PSR (cap ÷ last 4 actual quarters' 매출)
+    cap = s5['marketCap']
+    roe = next((v, c) for c, v in reversed(list(zip(fa5['cols'], next(r['values'] for r in fa5['rows'] if r['title'] == 'ROE')))) if not c['estimate'] and v is not None)
+    qs = [v for c, v in zip(fq5['cols'], next(r['values'] for r in fq5['rows'] if r['title'] == '매출액')) if not c['estimate'] and v is not None][-4:]
+    want = {'시가총액': [eok(cap) + '원', ''], 'PER': [f"{s5['per']:.2f}배", ''], '추정PER': [f"{s5['cnsPer']:.2f}배", '증권사 예상'], 'PBR': [f"{s5['pbr']:.2f}배", ''],
+            'ROE': [f'{roe[0]:.2f}%', roe[1]['label'][:4] + '년 기준'], 'PSR': [f'{cap / sum(qs):.2f}배', '최근 4분기 매출 기준'],
+            '배당수익률': [f"{s5['dividendYield']:.2f}%", ''], '외국인 소진율': [f"{s5['foreignRate']:.2f}%", '']}
+    check('info_metrics_match_fixtures', x['metrics'] == want and len(qs) == 4, {'shown': x['metrics'], 'want': want})
+
+    # 재무 (분기): one column per period with numbers, estimates hatched + 예상, latest actual picked, values listed in 조·억
+    fe = fin_expect(fq5)
+    last_actual = max(i for i, (c, _) in enumerate(fe) if not c['estimate'])
+    ok = ([c[0] for c in x['cols']] == [c['key'] for c, _ in fe] and [c[1] for c in x['cols']] == [c['estimate'] for c, _ in fe]
+          and all(('예상' in xs) == c['estimate'] for xs, (c, _) in zip(x['xs'], fe)) and any(c['estimate'] for c, _ in fe) and all(x['estHatched']) and x['estHatched']
+          and [c[2] for c in x['cols']].index('true') == last_actual and x['vals'] == [[n, eok_full(v)] for n, v in zip(('매출', '영업이익', '순이익'), fe[last_actual][1])]
+          and '빗금 막대는 증권사 예상치' in x['finNote'] and x['pressed'] == ['quarter', 'quarter'])
+    check('info_finance_quarter_bars', ok, {'cols': x['cols'], 'xs': x['xs'], 'vals': x['vals'], 'when': x['when']})
+    # pick another period with the keyboard (radio group: arrows move the choice)
+    pg.focus(f'.sp-fin-col[data-key="{fe[last_actual][0]["key"]}"]'); pg.keyboard.press('ArrowLeft'); pg.wait_for_timeout(100)
+    k1 = P.ev("() => [document.activeElement.dataset.key, document.activeElement.getAttribute('aria-checked'), [...document.querySelectorAll('.sp-fin-vals dd')].map(d => d.textContent)]")
+    pg.keyboard.press('End'); pg.wait_for_timeout(100)
+    k2 = P.ev("() => [document.activeElement.dataset.key, document.querySelector('.sp-fin-when').textContent]")
+    check('info_finance_keyboard_pick', k1[0] == fe[last_actual - 1][0]['key'] and k1[1] == 'true' and k1[2] == [eok_full(v) for v in fe[last_actual - 1][1]]
+          and k2[0] == fe[-1][0]['key'] and '예상' in k2[1], [k1, k2])
+    # 연간
+    pg.click('.sp-ci-fin .sp-mseg [data-p="annual"]'); pg.wait_for_timeout(200)
+    y = P.ev(INFO_JS)
+    fa_e = fin_expect(fa5)
+    check('info_finance_annual_toggle', [c[0] for c in y['cols']] == [c['key'] for c, _ in fa_e] and y['pressed'] == ['annual', 'annual'] and y['xs'][0].startswith(fa_e[0][0]['label'][:4])
+          and sum(c[1] for c in y['cols']) == sum(c['estimate'] for c, _ in fa_e) == 1, {'cols': y['cols'], 'xs': y['xs']})
+    # 안정성 (연간 now): one label per year with a value, 당좌비율 switch
+    dr = [v for v in next(r['values'] for r in fa5['rows'] if r['title'] == '부채비율') if v is not None]
+    qr = [v for v in next(r['values'] for r in fa5['rows'] if r['title'] == '당좌비율') if v is not None]
+    pg.click('.sp-stabseg [data-k="당좌비율"]'); pg.wait_for_timeout(150)
+    y2 = P.ev(INFO_JS)
+    check('info_stability_lines', y['stab'] == [f'{v:,.1f}%' for v in dr] and y2['stab'] == [f'{v:,.1f}%' for v in qr] and not y['stabHidden'] and len(y['stabX']) == len(dr),
+          {'부채비율': y['stab'], '당좌비율': y2['stab']})
+    pg.click('.sp-stabseg [data-k="부채비율"]'); pg.click('.sp-ci-fin .sp-mseg [data-p="quarter"]'); pg.wait_for_timeout(150)
+    # 배당: summary dps + yield, bars per year from annual finance
+    dps = [v for v in next(r['values'] for r in fa5['rows'] if r['title'] == '주당배당금') if v is not None]
+    check('info_dividend', x['divKv'] == [f"{s5['dps']:,}원", f"{s5['dividendYield']:.2f}%"] and x['divBars'] == [f'{v:,}원' for v in dps], {'kv': x['divKv'], 'bars': x['divBars']})
+    # 애널리스트: last 3 months (clock pinned 11-09 → since 08-09), buckets from the parsed opinion, unknown not counted
+    recent = [r for r in rs5['rows'] if r['date'] >= '2026-08-09']
+    counts = [0] * 5
+    for r in recent:
+        if bucket(r['opinion']) >= 0:
+            counts[bucket(r['opinion'])] += 1
+    unknown = len(recent) - sum(counts)
+    gap = (rs5['consensus']['targetMean'] / s5['price'] - 1) * 100
+    ok = (x['anaH'].startswith(f'최근 3개월 리포트 {len(recent)}건') and '20건까지만' in x['anaH'] and [o[1] for o in x['op']] == [f'{n}건' for n in counts]
+          and [o[0] for o in x['op']] == ['적극매도', '매도', '중립', '매수', '적극매수'] and sum(counts) >= 2 and f'{unknown}건은 세지 않았어요' in x['opNote']
+          and x['cons'][0][1].startswith(f"{rs5['consensus']['targetMean']:,}원") and x['gap'] == [f'현재가 대비 {signed_pct(gap)}', 'sp-gap num up']
+          and x['cons'][1][1].startswith(f"{rs5['consensus']['opinionMean']:.2f}점") and '매수' in x['cons'][1][1])
+    check('info_analyst_distribution_consensus', ok, {'h': x['anaH'], 'op': x['op'], 'want': counts, 'note': x['opNote'], 'cons': x['cons'], 'gap': x['gap']})
+    rows = rs5['rows']
+    ok = (len(x['reports']) == 5 and all(r[2] == w['url'] and r[3] == '_blank' and r[4] == 'noopener' and r[0] == w['title'] and w['broker'] in r[1] for r, w in zip(x['reports'], rows))
+          and ('목표가 370,000원' in x['reports'][0][1]) and '매수' in x['reports'][0][1] and x['more'] == f'리포트 {len(rows) - 5}건 더 보기'
+          and x['src'] == '출처: 네이버 증권 · 컨센서스는 증권사 추정치예요' and all('preview' not in k.lower() for r in rows for k in r))
+    check('info_report_list', ok, {'first': x['reports'][0], 'n': len(x['reports']), 'more': x['more'], 'src': x['src']})
+    pg.click('.sp-ci-ana .sp-more'); pg.wait_for_timeout(150)
+    ex = P.ev("() => [document.querySelectorAll('.sp-rp-list li').length, document.activeElement.textContent, document.activeElement.getAttribute('aria-expanded')]")
+    check('info_report_list_expands', ex == [len(rows), '접기', 'true'], ex)
+    check('info_no_investment_wording', not any(w in x['ownText'] for w in ('추천', '사세요', '팔세요', '저평가', '고평가', '상승 여력', '기회')), None)
+    # peers from summary.peers: name, price, % — opening one switches in place
+    pe = P.ev("() => [...document.querySelectorAll('.sp-peer')].map(b => [b.dataset.code, b.querySelector('.nm').textContent, b.querySelector('.pr').textContent, b.querySelector('.pc').textContent])")
+    wp = [[p_['code'], p_['name'], f"{p_['price']:,}", signed_pct(p_['ratio'], 2)] for p_ in s5['peers']]
+    hl = P.ev('history.length')
+    pg.click('.sp-peer:nth-child(2)'); pg.wait_for_timeout(700)
+    sw = P.ev("() => ({ hash: location.hash, name: document.getElementById('sp-name').textContent, hl: history.length, tab: document.querySelector('[role=tab][aria-selected=true]').id })")
+    check('peers_from_summary_open_in_place', pe == wp and sw['hash'] == '#s-' + wp[1][0] and sw['name'] == wp[1][1] and sw['hl'] == hl and sw['tab'] == 'sp-t-info', {'chips': pe[:2], 'want': wp[:2], 'after': sw})
+    check('console_clean_info', not P.console, P.console)
+    P.close()
+
+    # ── header: 1일 range (low–high, current dot, 시가 / 전일 종가) and 52주 range ──
+    P = Page(b, 1280, None)
+    P.pg.clock.set_fixed_time(T)
+    P.pg.goto(BASE + '#s-005930'); P.pg.wait_for_selector('.sp-rng.d1 .dot'); P.pg.wait_for_timeout(200)
+    r = P.ev("""() => { const c = k => document.querySelector('.sp-rng.' + k); return {
+        d1: [c('d1').querySelector('dt').textContent, c('d1').querySelector('.lo').textContent, c('d1').querySelector('.hi').textContent, c('d1').querySelector('.dot').style.left, c('d1').querySelector('.fill').className, c('d1').querySelector('.tk.prev').style.left, c('d1').querySelector('.tk.open').style.left],
+        w52: [c('w52').querySelector('dt').textContent, c('w52').querySelector('.lo').textContent, c('w52').querySelector('.hi').textContent, c('w52').querySelector('.dot').style.left],
+        aria: c('d1').querySelector('.track').getAttribute('aria-label') }; }""")
+    pos = lambda v, lo, hi: f'{(v - lo) / (hi - lo) * 100:.1f}%'
+    want = {'d1': [f"1일 범위시가 {s5['open']:,} · 전일 {s5['prevClose']:,}", f"{s5['low']:,}", f"{s5['high']:,}", pos(s5['price'], s5['low'], s5['high']), 'fill dn',
+                   pos(s5['prevClose'], s5['low'], s5['high']), pos(s5['open'], s5['low'], s5['high'])],
+            'w52': ['52주 범위', f"{s5['low52']:,}", f"{s5['high52']:,}", pos(s5['price'], s5['low52'], s5['high52'])]}
+    check('header_day_and_52w_ranges', r['d1'] == want['d1'] and r['w52'] == want['w52'] and '현재가 187,000원' in r['aria'], {'shown': r, 'want': want})
+    P.close()
+
+    # ── 투자자: 오늘 순매수 on top (latest row) ──
+    inv = mock('/api/stock/005930/investors')['rows'][0]
+    for at, when in (('2026-11-09T22:00:00+09:00', None), (inv['date'] + 'T20:00:00+09:00', '오늘')):
+        P = Page(b, 390, None)
+        P.pg.clock.set_fixed_time(at)
+        P.pg.add_init_script("localStorage.setItem('khm.stockTab', JSON.stringify('inv'))")
+        P.pg.goto(BASE + '#s-005930'); P.pg.wait_for_selector('.sp-today-r'); P.pg.wait_for_timeout(200)
+        t = P.ev("() => ({ h: document.querySelector('.sp-today h3').textContent, first: document.querySelector('#sp-p-inv > *').className, rows: [...document.querySelectorAll('.sp-today-r')].map(r => [r.querySelector('.k').textContent, r.querySelector('b .l').textContent, r.querySelector('.bar i').getAttribute('style').replace(/\s/g, '')]) })")
+        sg = lambda v: ('+' if v > 0 else '−' if v < 0 else '') + f'{abs(v):,}주'
+        m, d = int(inv['date'][5:7]), int(inv['date'][8:10])
+        ok = (t['first'] == 'sp-today' and t['h'] == f"{when or f'{m}월 {d}일'} 순매수" and [x[0] for x in t['rows']] == ['개인', '외국인', '기관']
+              and [x[1] for x in t['rows']] == [sg(inv[k]) for k in ('individual', 'foreign', 'institution')]
+              and all(x[2].startswith('left:50%' if inv[k] >= 0 else 'right:50%') for x, k in zip(t['rows'], ('individual', 'foreign', 'institution'))))
+        check(f'investors_today_card_{"today" if when else "last_day"}', ok, t)
+        if not when:
+            P.pg.screenshot(path=str(SHOTS / 'live390_inv_today.png'))
+        P.close()
+
+    # ── 일별 시세 note (after 15:30 the today row mixes NXT) ──
+    P = Page(b, 390, BASE + '#s-005930')
+    P.pg.click('#sp-t-daily'); P.pg.wait_for_selector('.sp-daily-t tbody tr'); P.pg.wait_for_timeout(200)
+    note = P.ev("() => { const n = document.querySelector('#sp-p-daily .sp-note'); return [n.hidden, n.textContent]; }")
+    check('daily_note_today_row_mixes_nxt', note == [False, '정규장 이후에는 오늘 행에 NXT 거래가 섞여 KRX 종가(15:30)와 다를 수 있어요.'], note)
+    P.close()
+
+    # ── small cap: losses below the zero line, no estimates, no research, no dividend; PSR from 4 quarters ──
+    s4, fq4, fa4 = mock('/api/stock/406820/summary'), mock('/api/stock/406820/finance?period=quarter'), mock('/api/stock/406820/finance?period=annual')
+    P = Page(b, 360, None)
+    P.pg.clock.set_fixed_time(T)
+    P.pg.add_init_script("localStorage.setItem('khm.stockTab', JSON.stringify('info'))")
+    P.pg.goto(BASE + '#s-406820'); P.pg.wait_for_selector('.sp-fin-col'); P.pg.wait_for_selector('.sp-ci-ana .sp-msgbox'); P.pg.wait_for_timeout(300)
+    z = P.ev(INFO_JS)
+    q4 = [v for c, v in zip(fq4['cols'], next(r['values'] for r in fq4['rows'] if r['title'] == '매출액')) if not c['estimate'] and v is not None][-4:]
+    ok = (not any(c[1] for c in z['cols']) and len(z['cols']) == len(fin_expect(fq4)) and '증권사 예상치가 없어요' in z['finNote'] and z['negBelow'] and min(z['negBelow']) >= -1.5
+          and min(z['posAbove']) >= -1.5 and '최근 증권사 리포트가 없어요' in z['anaMsg'] and '최근 배당 기록이 없어요' in z['divMsg']
+          and z['metrics']['PSR'] == [f"{s4['marketCap'] / sum(q4):.2f}배", '최근 4분기 매출 기준'] and z['metrics']['추정PER'] == ['—', ''] and z['metrics']['ROE'][0].startswith('−'))
+    check('info_small_cap_losses_no_estimates_no_research', ok, {k: z[k] for k in ('cols', 'finNote', 'negBelow', 'anaMsg', 'divMsg')} | {'psr': z['metrics']['PSR']})
+    P.pg.screenshot(path=str(SHOTS / 'live360_info_smallcap.png'), full_page=True)
+    check('console_clean_info_smallcap', not P.console, P.console)
+    P.close()
+    # PSR falls back to the latest actual year when the quarters are missing
+    mock('/__config?fail=finance:quarter')
+    P = Page(b, 390, None)
+    P.pg.add_init_script("localStorage.setItem('khm.stockTab', JSON.stringify('info')); localStorage.setItem('khm.stockFinPeriod', JSON.stringify('quarter'))")
+    P.pg.goto(BASE + '#s-406820'); P.pg.wait_for_selector('.sp-ci-fin .sp-msgbox'); P.pg.wait_for_timeout(400)
+    z = P.ev(INFO_JS)
+    a4 = next((c, v) for c, v in reversed(list(zip(fa4['cols'], next(r['values'] for r in fa4['rows'] if r['title'] == '매출액')))) if not c['estimate'] and v is not None)
+    P.pg.click('.sp-ci-fin .sp-mseg [data-p="annual"]'); P.pg.wait_for_timeout(200)
+    z2 = P.ev(INFO_JS)
+    check('info_psr_annual_fallback_and_period_error', z['metrics']['PSR'] == [f"{s4['marketCap'] / a4[1]:.2f}배", a4[0]['label'][:4] + '년 매출 기준'] and '재무 정보를 불러오지 못했어요' in z['finMsg']
+          and z['stabHidden'] and z2['cols'] and not z2['finMsg'] and not z2['stabHidden'], {'psr': z['metrics']['PSR'], 'quarter_msg': z['finMsg'][:30], 'annual_cols': len(z2['cols'])})
+    P.close()
+    mock('/__config?fail=')
+
+    # ── failures are independent; retry recovers ──
+    for fail, sel in (('research', '.sp-ci-ana .sp-msgbox .sp-btn'), ('finance', '.sp-ci-fin .sp-msgbox .sp-btn')):
+        mock('/__config?fail=' + fail)
+        P = Page(b, 390, None)
+        P.pg.clock.set_fixed_time(T)
+        P.pg.add_init_script("localStorage.setItem('khm.stockTab', JSON.stringify('info'))")
+        P.pg.goto(BASE + '#s-196170'); P.pg.wait_for_selector(sel); P.pg.wait_for_timeout(400)
+        e = P.ev(INFO_JS)
+        if fail == 'research':
+            ok = '애널리스트 의견을 불러오지 못했어요' in e['anaMsg'] and len(e['cols']) >= 5 and e['metrics']['ROE'][0] != '—' and not e['finMsg']
+        else:
+            ok = ('재무 정보를 불러오지 못했어요' in e['finMsg'] and e['stabHidden'] and e['metrics']['ROE'] == ['—', ''] and e['metrics']['PSR'] == ['—', '']
+                  and e['metrics']['PER'][0] != '—' and len(e['reports']) == 5 and not e['anaMsg'] and '연도별 배당 기록을 불러오지 못했어요' in e['text'])
+        P.pg.screenshot(path=str(SHOTS / f'live390_info_fail_{fail}.png'), full_page=True)
+        mock('/__config?fail=')
+        P.pg.click(sel); P.pg.wait_for_timeout(800)
+        e2 = P.ev(INFO_JS)
+        rec = (len(e2['reports']) == 5 and not e2['anaMsg']) if fail == 'research' else (len(e2['cols']) >= 5 and not e2['finMsg'] and not e2['stabHidden'] and e2['metrics']['ROE'][0] != '—')
+        check(f'info_{fail}_fails_alone_and_retries', ok and rec, {'msg': (e['anaMsg'] or e['finMsg'])[:40], 'metrics': e['metrics'], 'recovered': rec})
+        check(f'console_clean_info_fail_{fail}', not [m for m in P.console if '502' not in m and 'Failed to load resource' not in m], P.console)
+        P.close()
+
+    # empty stock (no finance rows, no research) and a broken one (every route 502)
+    for code, want in (('999980', ('재무 정보가 없어요', '최근 증권사 리포트가 없어요')), ('999990', ('재무 정보를 불러오지 못했어요', '애널리스트 의견을 불러오지 못했어요'))):
+        P = Page(b, 390, None)
+        P.pg.add_init_script("localStorage.setItem('khm.stockTab', JSON.stringify('info'))")
+        P.pg.goto(BASE + '#s-' + code); P.pg.wait_for_selector('.sp-ci-fin .sp-msgbox'); P.pg.wait_for_selector('.sp-ci-ana .sp-msgbox'); P.pg.wait_for_timeout(300)
+        e = P.ev(INFO_JS)
+        check(f'info_states_{code}', want[0] in e['finMsg'] and want[1] in e['anaMsg'] and e['stabHidden'] and not e['skel'], {'fin': e['finMsg'][:40], 'ana': e['anaMsg'][:40], 'skel': e['skel']})
+        P.close()
+
+    # ── every width: info tab with the table open and all reports, no overflow / clipping, phone tap targets, keyboard + Esc ──
+    bad = {}
+    for w in (360, 390, 768, 1280, 1440, 1920):
+        P = Page(b, w, None)
+        P.pg.clock.set_fixed_time(T)
+        P.pg.add_init_script("localStorage.setItem('khm.stockTab', JSON.stringify('info'))")
+        P.pg.goto(BASE + '#s-005930'); P.wait_chart(); P.pg.wait_for_selector('.sp-rp-list li'); P.pg.wait_for_timeout(300)
+        P.pg.click('.sp-fin-tbl summary'); P.pg.click('.sp-ci-ana .sp-more'); P.pg.wait_for_timeout(200)
+        o = P.ev(OVERFLOW_JS)
+        o['clipped'] = P.ev("""() => [...document.querySelectorAll('.sp-tabs button, .sp-mseg button, .sp-stabseg button, .sp-m dt, .sp-m dd, .sp-fin-x span, .sp-ln-x span, .sp-op .x, .sp-op .n, .sp-dbars .v, .sp-fin-vals dd, .sp-stat dd, .sp-rng small, .sp-peer .nm')]
+            .filter(e => e.offsetWidth && !e.closest('[hidden]') && e.scrollWidth > e.clientWidth + 1).map(e => e.className + ':' + e.textContent)""")
+        # labels on the line chart stay inside the panel
+        o['lb'] = P.ev("() => { const p = document.querySelector('#sp-p-info').getBoundingClientRect(); return [...document.querySelectorAll('.sp-ln .lb')].filter(l => { const r = l.getBoundingClientRect(); return r.left < p.left - 1 || r.right > p.right + 1; }).length; }")
+        o['taps'] = P.ev(TAP_JS) if w < 700 else []
+        if o['doc'] or o['root'] or o['n'] or o['clipped'] or o['lb'] or o['taps'] or P.console:
+            bad[w] = [o, P.console]
+        if w in (390, 768, 1440):
+            P.pg.screenshot(path=str(SHOTS / f'live{w}_info.png'))
+        if w == 1440:
+            # keyboard: Tab from the tab list reaches the 분기/연간 switch and the period radios; Esc closes from inside the panel
+            P.pg.focus('#sp-t-info')
+            seen = []
+            for _ in range(12):
+                P.pg.keyboard.press('Tab')
+                seen.append(P.ev("() => { const a = document.activeElement; return (a.dataset.p || a.dataset.key || a.className || a.tagName) + '|' + (getComputedStyle(a).outlineStyle) ; }"))
+            reach = any(s.startswith('quarter|') or s.startswith('annual|') for s in seen) and any('|' in s and s.split('|')[0].isdigit() for s in seen)
+            vis = all(s.split('|')[1] != 'none' for s in seen if not s.startswith('sp-panel'))
+            P.pg.keyboard.press('Escape'); P.pg.wait_for_timeout(300)
+            check('info_keyboard_reach_and_esc', reach and vis and P.ev("() => !KHStock.isOpen()"), seen)
+        P.close()
+    check('info_no_overflow_all_widths', not bad, bad or None)
+
+    # reduced motion: the finance skeleton does not pulse
+    mock('/__config?delay=1500')
+    P = Page(b, 390, None, reduced_motion='reduce')
+    P.pg.add_init_script("localStorage.setItem('khm.stockTab', JSON.stringify('info'))")
+    P.pg.goto(BASE + '#s-196170'); P.pg.wait_for_selector('.sp-fin-skel i', timeout=4000)
+    an = P.ev("() => getComputedStyle(document.querySelector('.sp-fin-skel i')).animationName")
+    check('info_reduced_motion', an == 'none', an)
+    P.close()
+    mock('/__config?delay=')
+
+    # snapshot: no requests; the offline card points at the live page for 종목 정보 too
+    P = Page(b, 390, SNAP + '#s-005930')
+    P.pg.wait_for_timeout(900)
+    t = P.ev("() => document.querySelector('.sp-offline').textContent")
+    check('snapshot_mentions_info', '종목 정보' in t and '실시간 버전에서 볼 수 있어요' in t and not [u for _, u in P.reqs if 'api/' in u] and not P.console, t[:120])
+    P.close()
+
+
 if __name__ == '__main__':
     srv = subprocess.Popen([sys.executable, str(HERE / 'mock_api.py')], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     try:
@@ -704,9 +1034,13 @@ if __name__ == '__main__':
         with sync_playwright() as p:
             browser = p.chromium.launch(executable_path='/usr/bin/google-chrome', args=['--no-sandbox'])
             try:
-                if '--extra-only' not in sys.argv:
-                    run(browser)
-                run_extra(browser)
+                if '--info-only' in sys.argv:
+                    run_info(browser)
+                else:
+                    if '--extra-only' not in sys.argv:
+                        run(browser)
+                    run_extra(browser)
+                    run_info(browser)
             finally:
                 browser.close()
     finally:
@@ -714,6 +1048,6 @@ if __name__ == '__main__':
         srv.wait(5)
     passed = sum(1 for v in R.values() if v['ok'])
     print(f'\n{passed}/{len(R)} passed' + (f'  FAILED: {FAILS}' if FAILS else ''))
-    if '--extra-only' not in sys.argv:
+    if '--extra-only' not in sys.argv and '--info-only' not in sys.argv:
         (HERE / 'results.json').write_text(json.dumps(R, ensure_ascii=False, indent=1), encoding='utf-8')
     sys.exit(1 if FAILS else 0)
