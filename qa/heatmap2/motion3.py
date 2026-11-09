@@ -1,5 +1,5 @@
 """§3-5 / §3-6 hooks and 화려하게 effects in src/template.html (numbers, not eyeballing). usage: motion3.py [snapshot|live] [section…]
-sections: hooks, view3d, flash, intro, tween, perf, quality (default: all)."""
+sections: hooks, view3d (stub KH3D), real3d (src/map3d on SwiftShader), flash (live), intro, tween, quality (default: all)."""
 import sys, os, json, re
 sys.path.insert(0, '/home/claude/hm-heatmap/qa/heatmap')
 from common import launch, Log, LABEL_CHECK_JS, VIEWPORTS
@@ -8,7 +8,7 @@ VIEWPORTS = dict(VIEWPORTS, d1440=dict(viewport={'width': 1440, 'height': 900}))
 
 build = sys.argv[1] if len(sys.argv) > 1 else 'snapshot'
 LIVE = build == 'live'
-WANT = set(sys.argv[2:]) or {'hooks', 'view3d', 'flash', 'intro', 'tween', 'perf', 'quality'}
+WANT = set(sys.argv[2:]) or {'hooks', 'view3d', 'real3d', 'flash', 'intro', 'tween', 'quality'}
 HM_BASE = 'http://127.0.0.1:%s/' % os.environ.get('HM_PORT', '8806')
 URL = HM_BASE if LIVE else 'file:///home/claude/hm-heatmap/dist/index.html'
 ROOT = '/home/claude/hm-heatmap/'
@@ -122,6 +122,184 @@ with sync_playwright() as p:
         ok('prefers-reduced-motion: KH.motion() reduced, 줄이기 shown + pressed, hint shown, tooltip transition off', r['m'] == 'reduced' and r['shown'][0] == ['reduced', True, 'true'] and r['hint'] and r['tr'] in ('0s', ''), r)
         pg.evaluate("document.getElementById('moreBtn').click()"); pg.click('#motionseg button[data-mo="standard"]'); pg.wait_for_timeout(100)
         ok('…and 기본 can be picked again (stored; transitions back)', pg.evaluate("[KH.motion(), localStorage.getItem('khm.motion'), getComputedStyle(document.querySelector('.tip')).transitionDuration]") [:2] == ['standard', '"standard"'])
+        ctx.close()
+
+    # ───── 지도 · 3D · 표 (stub KH3D) ─────
+    if 'view3d' in WANT:
+        ctx, pg, log = fresh(b, 'd1440', store={'market': 'K'}, init=[KH3D_STUB])
+        lay0 = pg.evaluate("KH.layout().filter(n => n.kind === 'tile').map(n => [n.code, n.x, n.y, n.w, n.h].join()).sort().join('|')")
+        pg.evaluate("window.__kr = []; document.addEventListener('kh:render', e => window.__kr.push(e.detail))")
+        pg.click('.viewseg button[data-v="3d"]'); pg.wait_for_timeout(200)
+        r = pg.evaluate("""() => { const m = document.getElementById('map').getBoundingClientRect(), t = document.getElementById('map3d').getBoundingClientRect();
+          return { k3: window.__k3, view: KH.view(), pressed: [...document.querySelectorAll('.viewseg button')].map(b => b.dataset.v + ':' + b.getAttribute('aria-pressed')).join(' '),
+            mapVis: getComputedStyle(document.getElementById('map')).visibility, same: [m.left, m.top, m.width, m.height].map(Math.round).join() === [t.left, t.top, t.width, t.height].map(Math.round).join(),
+            rect: [t.width, t.height].map(Math.round), hidden3: document.getElementById('map3d').hidden, kr: window.__kr.map(d => d.is3d), tiles: document.querySelectorAll('#map .tile').length }; }""")
+        lay1 = pg.evaluate("KH.layout().filter(n => n.kind === 'tile').map(n => [n.code, n.x, n.y, n.w, n.h].join()).sort().join('|')")
+        ok('3D: KH3D.show() with #map3d visible over exactly the map box; #map laid out but invisible; 3D pressed; KH.view() 3d; kh:render is3d',
+           r['k3'][0] == 'show' and r['view'] == '3d' and 'map:false 3d:true table:false' == r['pressed'] and r['mapVis'] == 'hidden' and r['same'] and not r['hidden3'] and r['rect'][0] > 900 and r['kr'] and r['kr'][-1] is True, r)
+        ok('3D: KH.layout() still returns the drawn map (same tiles and boxes as in 2D)', lay1 == lay0 and len(lay0) > 1000, (len(lay0), len(lay1)))
+        # map work keeps going in 3D: a market switch renders and fires kh:render; layout follows
+        pg.click('.tabs button[data-mkt="Q"]'); pg.wait_for_timeout(700)
+        r = pg.evaluate("({kr: window.__kr.length, lay: KH.layout().filter(n => n.kind === 'tile').length, still: KH.view(), m: KH.market()})")
+        ok('3D stays on across a market switch; kh:render fires and KH.layout() follows the new map', r['still'] == '3d' and r['m'] == 'Q' and r['lay'] > 50 and r['kr'] >= 2, r)
+        pg.keyboard.press('Escape'); pg.wait_for_timeout(100)
+        pg.click('.viewseg button[data-v="table"]'); pg.wait_for_timeout(300)
+        r = pg.evaluate("({k3: window.__k3.slice(-1)[0], view: KH.view(), map3d: document.getElementById('map3d').hidden, table: !document.getElementById('tablewrap').hidden, cls: document.documentElement.classList.contains('v3d')})")
+        ok('3D → 표: KH3D.hide(), #map3d hidden, table shown', r == {'k3': 'hide', 'view': 'table', 'map3d': True, 'table': True, 'cls': False}, r)
+        pg.click('.viewseg button[data-v="3d"]'); pg.wait_for_timeout(300)
+        r = pg.evaluate("({view: KH.view(), mapShown: !document.getElementById('map').hidden, lay: KH.layout().length, rect: window.__k3.filter(x => x.startsWith('rect')).slice(-1)[0]})")
+        ok('표 → 3D: the map is laid out first, then 3D shows over it', r['view'] == '3d' and r['mapShown'] and r['lay'] > 50 and r['rect'] and not r['rect'].endswith('x0'), r)
+        pg.click('.tabs button[data-mkt="WORLD"]'); pg.wait_for_timeout(400)
+        ok('해외 tab leaves 3D (KH3D.hide)', pg.evaluate("[KH.view(), window.__k3.slice(-1)[0], document.getElementById('map3d').hidden]") == ['map', 'hide', True])
+        pg.click('.tabs button[data-mkt="K"]'); pg.wait_for_timeout(500)
+        # WebGL refused → message, back to 지도, focus not lost
+        pg.evaluate("window.__k3fail = true"); pg.click('.viewseg button[data-v="3d"]'); pg.wait_for_timeout(400)
+        r = pg.evaluate("({view: KH.view(), toast: document.getElementById('khToast').textContent, vis: getComputedStyle(document.getElementById('khToast')).opacity, mapVis: getComputedStyle(document.getElementById('map')).visibility, focus: document.activeElement.tagName + ':' + (document.activeElement.dataset.v || '')})")
+        ok('kh:3d-unavailable → toast "…3D 보기를 쓸 수 없어요…", back to 지도, map visible', r['view'] == 'map' and '3D 보기' in r['toast'] and r['mapVis'] == 'visible', r)
+        pg.screenshot(path=SHOTS + f'3d-toast-d1440-{build}.png')
+        ok('view3d: console errors 0', not errs(log), errs(log)[:3])
+        ctx.close()
+        # not remembered: a reload starts in 2D; without KH3D (module missing) → message and stay on 지도
+        ctx, pg, log = fresh(b, 'm390', store={'market': 'K'})
+        has3d = pg.evaluate("!!window.KH3D")
+        pg.evaluate("delete window.KH3D; window.KH3D = undefined")
+        pg.click('.viewseg button[data-v="3d"]'); pg.wait_for_timeout(250)
+        r = pg.evaluate("({view: KH.view(), toast: document.getElementById('khToast').textContent, pressed: document.querySelector('.viewseg [aria-pressed=\"true\"]').dataset.v, over: document.documentElement.scrollWidth - innerWidth})")
+        ok('m390 no KH3D → toast, 지도 stays pressed, no overflow', r['view'] == 'map' and r['toast'] and r['pressed'] == 'map' and r['over'] == 0, (has3d, r))
+        sz = pg.evaluate("[...document.querySelectorAll('.viewseg button')].map(b => { const r = b.getBoundingClientRect(); return [b.textContent, Math.round(r.width), Math.round(r.height)]; })")
+        ok('m390 지도·3D·표 buttons ≥ 40×40', all(w >= 40 and hh >= 40 for _, w, hh in sz), sz)
+        pg.screenshot(path=SHOTS + f'3d-missing-m390-{build}.png')
+        ctx.close()
+
+    # ───── 지도 · 3D · 표 with the real src/map3d (WebGL on SwiftShader) ─────
+    if 'real3d' in WANT:
+        bg = p.chromium.launch(executable_path='/usr/bin/google-chrome', args=['--no-sandbox', '--use-gl=swiftshader', '--enable-webgl', '--ignore-gpu-blocklist'])
+        for vp, motion in [('d1440', 'fancy'), ('m390', 'standard')]:
+            ctx, pg, log = fresh(bg, vp, store={'market': 'K', 'motion': motion}, session={'khm.intro': '1'})
+            pg.click('.viewseg button[data-v="3d"]')
+            try:
+                pg.wait_for_function("() => window.KH3D && KH3D.qa && KH3D.qa.inspect().instances > 0 && !KH3D.qa.inspect().flying && !KH3D.qa.inspect().tweening", timeout=30000)
+            except Exception as e:
+                print('  (3D did not come up)', pg.evaluate("document.getElementById('map3d').innerText"), errs(log)[:2])
+            pg.wait_for_timeout(400)
+            r = pg.evaluate("""() => { const m = document.getElementById('map').getBoundingClientRect(), t = document.getElementById('map3d').getBoundingClientRect(), c = document.querySelector('#map3d canvas');
+              const tiles = KH.layout().filter(n => n.kind === 'tile' && n.w > 0 && n.h > 0).length, q = KH3D.qa.inspect();
+              return { box: [t.left - m.left, t.top - m.top, t.width - m.width, t.height - m.height].map(Math.round), w: Math.round(t.width), h: Math.round(t.height), canvas: c ? [c.clientWidth, c.clientHeight] : null,
+                tiles, inst: q.instances, on: KH3D.isOn(), view: KH.view(), tip: document.getElementById('tip').classList.contains('show'), range: KH.range(), qrange: q.range, over: document.documentElement.scrollWidth - innerWidth }; }""")
+            ok(f'{vp} real 3D: #map3d exactly over #map ({r["w"]}×{r["h"]}), canvas fills it, one box per KH.layout() tile, KH.range() = module range',
+               r['box'] == [0, 0, 0, 0] and r['h'] > 300 and r['canvas'] and r['canvas'][1] > 300 and r['inst'] == r['tiles'] > 50 and r['on'] and r['view'] == '3d' and r['over'] == 0, r)
+            pg.screenshot(path=SHOTS + f'3d-real-{vp}-{build}.png')
+            pg.click('.viewseg button[data-v="map"]'); pg.wait_for_timeout(120)
+            mid = pg.evaluate("({map3d: !document.getElementById('map3d').hidden, mapVis: getComputedStyle(document.getElementById('map')).visibility})")
+            pg.wait_for_timeout(900)
+            end = pg.evaluate("({map3d: !document.getElementById('map3d').hidden, mapVis: getComputedStyle(document.getElementById('map')).visibility, on: KH3D.isOn(), view: KH.view(), tiles: document.querySelectorAll('#map .tile').length})")
+            ok(f'{vp} back to 지도' + (' (화려하게: #map3d stays for the fold, then #map shows)' if motion == 'fancy' else ''),
+               (mid == {'map3d': True, 'mapVis': 'hidden'} if motion == 'fancy' else True) and end == {'map3d': False, 'mapVis': 'visible', 'on': False, 'view': 'map', 'tiles': end['tiles']} and end['tiles'] > 50, (mid, end))
+            ok(f'{vp} real 3D: console errors 0', not errs(log), errs(log)[:3])
+            ctx.close()
+        bg.close()
+
+    # ───── tick flash (live: moving quotes) ─────
+    if 'flash' in WANT and LIVE:
+        for motion, vp in [('fancy', 'd1440'), ('standard', 'd1440'), ('reduced', 'd1440')]:
+            ctx, pg, log = fresh(b, vp, store={'market': 'K', 'motion': motion}, init=[MOVER], session={'khm.intro': '1'})
+            # after the close the map draws 정규장 종가 (fixed prices, no ticks): look at NXT 포함
+            if pg.evaluate("!document.getElementById('basis').hidden"): pg.click('#basis [data-v="nxt"]'); pg.wait_for_timeout(500)
+            pg.evaluate("window.__move = true")
+            pg.evaluate("KH.refresh()"); pg.wait_for_timeout(120)
+            r = pg.evaluate("""() => ({ ring: document.querySelectorAll('#map .tile.fl-u, #map .tile.fl-d').length, old: document.querySelectorAll('#map .tile.flash-up, #map .tile.flash-dn').length,
+              anims: document.getAnimations().filter(a => a.effect && a.effect.pseudoElement === '::after').length, small: document.querySelectorAll('#map .tile.fl-sm').length,
+              delays: [...new Set(document.getAnimations().filter(a => a.effect && a.effect.pseudoElement === '::after').map(a => a.effect.getTiming().delay))].length,
+              ev: null })""")
+            if motion == 'fancy':
+                pg.wait_for_timeout(300)
+                mid = pg.evaluate("(() => { const t = document.querySelector('#map .tile.fl-u, #map .tile.fl-d'); return t ? [getComputedStyle(t, '::after').opacity, getComputedStyle(t, '::after').boxShadow.slice(0, 60), getComputedStyle(t).backgroundColor === t.style.backgroundColor || true] : null; })()")
+                pg.screenshot(path=SHOTS + f'flash-d1440-{build}.png')
+                pg.wait_for_timeout(900)
+                after = pg.evaluate("document.querySelectorAll('#map .tile.fl-u, #map .tile.fl-d').length")
+                ok(f'fancy: rings on moved tiles (≤ 60 at once, ::after opacity only, staggered 0–200 ms), gone after ~0.9 s; no white/black overlay',
+                   0 < r['ring'] <= 60 and r['anims'] == r['ring'] and r['old'] == 0 and r['delays'] > 5 and after == 0 and mid and float(mid[0]) > 0, (r, mid, after))
+            elif motion == 'standard':
+                ok('기본: the original white/black overlay, no rings', r['old'] > 0 and r['ring'] == 0, r)
+            else:
+                ok('줄이기: no flash at all', r['old'] == 0 and r['ring'] == 0, r)
+            if motion == 'fancy':
+                # replay on → no flash; table → value cells flash, rows on screen only
+                pg.evaluate("KH.setReplay({t:'0905', prices:new Map()})"); pg.evaluate("KH.refresh()"); pg.wait_for_timeout(120)
+                n = pg.evaluate("document.querySelectorAll('#map .tile.fl-u, #map .tile.fl-d').length")
+                pg.evaluate("KH.setReplay(null)")
+                ok('fancy: no flash while a replay frame is drawn', n == 0, n)
+                pg.click('.viewseg button[data-v="table"]'); pg.wait_for_timeout(300)
+                pg.evaluate("KH.refresh()"); pg.wait_for_timeout(150)
+                r = pg.evaluate("""() => { const w = document.getElementById('tablewrap'), cells = [...w.querySelectorAll('td.fl-u, td.fl-d')];
+                  const wr = w.getBoundingClientRect(); return { n: cells.length, cols: [...new Set(cells.map(td => [...td.parentElement.children].indexOf(td)))], off: cells.filter(td => { const r = td.getBoundingClientRect(); return r.bottom < wr.top || r.top > wr.bottom; }).length }; }""")
+                ok('fancy table: 현재가 + 등락률 cells of moved rows flash, only rows on screen', r['n'] > 0 and sorted(r['cols']) == [2, 3] and r['off'] == 0, r)
+                pg.screenshot(path=SHOTS + f'flash-table-d1440-{build}.png')
+                ok('flash: console errors 0', not errs(log), errs(log)[:3])
+            ctx.close()
+
+    # ───── first entry (once per session) + count-up ─────
+    if 'intro' in WANT:
+        REC = """window.__ir = []; window.__idx = []; (() => { const t0 = performance.now();
+          new MutationObserver(ms => { for (const mu of ms) { const m = mu.target; if (m.id !== 'map') continue; const on = m.classList.contains('fx-intro'); const last = window.__ir[window.__ir.length - 1];
+            if (!last || last.on !== on) window.__ir.push({ on, t: performance.now(), dl: on ? Math.max(0, ...[...m.querySelectorAll('.node')].map(e => parseFloat(e.style.getPropertyValue('--dl')) || 0)) : 0, tiles: m.querySelectorAll('.tile').length,
+              span: on ? Math.max(0, ...document.getAnimations().filter(x => /^fx-(in|fade)$/.test(x.animationName)).map(x => x.effect.getTiming().delay + x.effect.getTiming().duration)) : 0 }); } })
+            .observe(document, { attributes: true, attributeFilter: ['class'], subtree: true });
+          const tick = () => { const v = [...document.querySelectorAll('#idx .v')].map(e => e.textContent).join(' '); if (v && window.__idx[window.__idx.length - 1] !== v) window.__idx.push(v); if (performance.now() - t0 < 8000) requestAnimationFrame(tick); }; requestAnimationFrame(tick); })();"""
+        ctx, pg, log = fresh(b, 'd1440', store={'market': 'K', 'motion': 'fancy'}, init=[REC])
+        pg.evaluate("sessionStorage.clear()"); pg.reload(); pg.wait_for_timeout(WAIT)      # a new session for the observed load
+        r = pg.evaluate("({ir: window.__ir, ss: sessionStorage.getItem('khm.intro'), idx: window.__idx.slice(0, 3).concat(window.__idx.slice(-1)), n: window.__idx.length, final: [...document.querySelectorAll('#idx .v')].map(e => e.textContent).join(' ')})")
+        on = [x for x in r['ir'] if x['on']]; off = [x for x in r['ir'] if not x['on']]
+        dur = off[0]['t'] - on[0]['t'] if on and off else None
+        ok('fancy first entry: intro once, every tile animated, delay + duration ≤ 700 ms, class cleaned up, khm.intro set',
+           len(on) == 1 and on[0]['dl'] <= 480 and on[0]['tiles'] > 100 and 0 < on[0]['span'] <= 700 and dur is not None and dur <= 1500 and r['ss'] == '1', (on[:1], round(dur or 0), r['ss']))
+        ok('header indices count up (several in-between values, end on the quote)', r['n'] >= 4 and r['idx'][-1] == r['final'], (r['n'], r['idx']))
+        lab = pg.evaluate(LABEL_CHECK_JS)
+        ok('after the intro: labels inside tiles, console errors 0', lab['overflow'] == 0 and not errs(log), (lab['overflow'], errs(log)[:2]))
+        pg.reload(); pg.wait_for_timeout(WAIT)
+        r = pg.evaluate("window.__ir.filter(x => x.on).length")
+        ok('same session, reload: no intro', r == 0, r)
+        ctx.close()
+        # any input ends it at once; 기본 never runs it
+        ctx, pg, log = fresh(b, 'd1440', store={'market': 'K', 'motion': 'fancy'}, init=[REC, "new MutationObserver(ms => { for (const mu of ms) if (mu.target.id === 'map' && mu.target.classList.contains('fx-intro') && !window.__kd) { window.__kd = 1; setTimeout(() => dispatchEvent(new KeyboardEvent('keydown', { key: 'Shift' })), 60); } }).observe(document, { attributes: true, attributeFilter: ['class'], subtree: true });"], wait=WAIT)
+        pg.evaluate("sessionStorage.clear()"); pg.reload(); pg.wait_for_timeout(WAIT)
+        r = pg.evaluate("window.__ir")
+        on = [x for x in r if x['on']]; off = [x for x in r if not x['on']]
+        ok('a key press during the intro finishes it at once (< 200 ms)', on and off and off[0]['t'] - on[0]['t'] < 200, [(x['on'], round(x['t'])) for x in r])
+        ctx.close()
+        ctx, pg, log = fresh(b, 'd1440', store={'market': 'K'}, init=[REC])
+        ok('기본: no intro', not [x for x in pg.evaluate("window.__ir") if x['on']])
+        ctx.close()
+
+    # ───── replay tween ─────
+    if 'tween' in WANT:
+        ctx, pg, log = fresh(b, 'd1440', store={'market': 'K', 'motion': 'fancy'}, session={'khm.intro': '1'})
+        # frames: every 코스피 stock moves by k %, every third one twice as far (so the boxes change too)
+        FR = """(k) => { const m = new Map(); let i = 0; for (const s of KH.stocks()) if (s.m === 'K') { const kk = i++ % 3 ? k : 2 * k; m.set(s.c, { p: Math.round(s.p * (1 + kk / 100)), r: +(s.r + kk).toFixed(2) }); } return m; }"""
+        pg.evaluate(f"window.__fr = {FR}; KH.setReplay({{t:'0905', prices: __fr(-4)}})"); pg.wait_for_timeout(200)
+        a = pg.evaluate("(() => { const t = document.querySelector('#map .tile[data-c=\"005930\"]'); return [t.style.backgroundColor, t.querySelector('.pc').textContent]; })()")
+        pg.evaluate("KH.setReplay({t:'0910', prices: __fr(4)}, {tween: 1200})"); pg.wait_for_timeout(450)
+        m = pg.evaluate("""(() => { const t = document.querySelector('#map .tile[data-c="005930"]'); const L = KH.layout().find(n => n.code === '005930');
+          return { bg: getComputedStyle(t).backgroundColor, pc: t.querySelector('.pc').textContent, flips: document.getAnimations().filter(x => x.playState === 'running' && !x.effect.pseudoElement && x.effect.getKeyframes().some(k => k.transform)).length, layoutCol: L.color, layoutSub: L.sub, status: document.querySelector('#status .badge').textContent }; })()""")
+        pg.wait_for_timeout(1000)
+        z = pg.evaluate("(() => { const t = document.querySelector('#map .tile[data-c=\"005930\"]'); return [getComputedStyle(t).backgroundColor, t.querySelector('.pc').textContent, KH.layout().find(n => n.code === '005930').color]; })()")
+        def num(t): return float(t.replace('−', '-').replace('%', '').replace('+', ''))
+        mid_ok = m['bg'] not in (a[0], z[0]) and num(a[1]) < num(m['pc']) < num(z[1])
+        ok('fancy tween 1.2 s: mid-way the fill is between (Lab) and the % counts between; FLIP moves run; KH.layout() already has the final frame',
+           mid_ok and m['flips'] > 0 and m['layoutCol'] == z[2] and m['status'] == '리플레이 09:10', (a, m, z))
+        ok('…and at the end the fill and text are exactly the final ones (fill = KH.layout() colour)', z[0] == z[2] and num(z[1]) > num(m['pc']), z)
+        lab = pg.evaluate(LABEL_CHECK_JS)
+        ok('after the tween: labels inside tiles', lab['overflow'] == 0, lab['examples'][:2])
+        # no tween option → at once; 기본 with tween → at once
+        pg.evaluate("KH.setReplay({t:'0915', prices: __fr(-4)})"); pg.wait_for_timeout(30)
+        n = pg.evaluate("(() => { const t = document.querySelector('#map .tile[data-c=\"005930\"]'); return [t.style.backgroundColor, t.querySelector('.pc').textContent]; })()")
+        ok('without {tween}: the frame is drawn at once', n == a, (n, a))
+        pg.evaluate("document.getElementById('moreBtn').click()"); pg.click('#motionseg button[data-mo="standard"]'); pg.keyboard.press('Escape')
+        pg.evaluate("KH.setReplay({t:'0920', prices: __fr(4)}, {tween: 1200})"); pg.wait_for_timeout(60)
+        n = pg.evaluate("(() => { const t = document.querySelector('#map .tile[data-c=\"005930\"]'); return [t.style.backgroundColor, t.querySelector('.pc').textContent]; })()")
+        ok('기본 + {tween}: drawn at once (no new motion)', n[1] == z[1], (n, z))
+        pg.evaluate("KH.setReplay(null)")
+        ok('tween: console errors 0', not errs(log), errs(log)[:3])
         ctx.close()
 
     print(f'\n{sum(res)}/{len(res)} passed ({build}) [{",".join(sorted(WANT))}]')
