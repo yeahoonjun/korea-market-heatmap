@@ -2448,6 +2448,8 @@ function keepTabInView() {
 }
 /* 해외 / 원자재: window.KHWorld (src/world) draws into <div id="world"> */
 let worldShown = null;     // the kind KHWorld is showing
+// opening …/#world lands on the element with that id, so the browser's fragment scroll would hide the header: undo it once loaded
+if (/^#(world|cmdty)$/.test(location.hash)) addEventListener('load', () => setTimeout(() => { if (scrollY) scrollTo(0, 0); }, 0), { once: true });
 function syncWorld(boot) {
   const want = isWorld() ? WORLD_KIND[state.market] : null;
   const box = $('#world');
