@@ -45,10 +45,11 @@ KH3D_STUB = """window.__k3 = []; window.KH3D = { on: false,
     window.__k3.push('rect:' + Math.round(m.getBoundingClientRect().width) + 'x' + Math.round(m.getBoundingClientRect().height)); if (window.__k3fail) setTimeout(() => document.dispatchEvent(new CustomEvent('kh:3d-unavailable', { detail: { reason: 'webgl' } })), 50); },
   hide() { window.__k3.push('hide'); this.on = false; document.getElementById('map3d').replaceChildren(); },
   isOn() { return this.on; } };"""
-# quotes that move: every poll shifts ~40 % of the prices by one tick so the live flash has something to show
+# quotes that move: every poll shifts ~40 % of the prices by one tick so the live flash has something to show. The quotes say the
+# KRX regular session is open (§3-8: outside it the map may draw fixed KRX closes or NXT prices, whatever the hour of the run)
 MOVER = """(() => { const f0 = window.fetch; let n = 0; window.fetch = async function (u, o) { const r = await f0.apply(this, arguments);
-  if (typeof u === 'string' && /api\\/quotes$/.test(u) && window.__move) { const j = await r.clone().json(); n++;
-    for (const [i, s] of j.stocks.entries()) if ((i + n) % 5 < 2) { const d = ((i + n) % 2 ? 1 : -1) * Math.max(1, Math.round(s.p * 0.002)); s.p += d; s.d += d; s.r = +(s.r + d / s.p * 100).toFixed(2); }
+  if (typeof u === 'string' && /api\\/quotes$/.test(u)) { const j = await r.clone().json(); j.marketStatus = { KOSPI: 'OPEN', KOSDAQ: 'OPEN' };
+    if (window.__move) { n++; for (const [i, s] of j.stocks.entries()) if ((i + n) % 5 < 2) { const d = ((i + n) % 2 ? 1 : -1) * Math.max(1, Math.round(s.p * 0.002)); s.p += d; s.d += d; s.r = +(s.r + d / s.p * 100).toFixed(2); } }
     return new Response(JSON.stringify(j), { headers: { 'content-type': 'application/json' } }); } return r; }; })();"""
 
 with sync_playwright() as p:
@@ -203,8 +204,6 @@ with sync_playwright() as p:
     if 'flash' in WANT and LIVE:
         for motion, vp in [('fancy', 'd1440'), ('standard', 'd1440'), ('reduced', 'd1440')]:
             ctx, pg, log = fresh(b, vp, store={'market': 'K', 'motion': motion}, init=[MOVER], session={'khm.intro': '1'})
-            # after the close the map draws 정규장 종가 (fixed prices, no ticks): look at NXT 포함
-            if pg.evaluate("!document.getElementById('basis').hidden"): pg.click('#basis [data-v="nxt"]'); pg.wait_for_timeout(500)
             pg.evaluate("window.__move = true")
             pg.evaluate("KH.refresh()"); pg.wait_for_timeout(120)
             r = pg.evaluate("""() => ({ ring: document.querySelectorAll('#map .tile.fl-u, #map .tile.fl-d').length, old: document.querySelectorAll('#map .tile.flash-up, #map .tile.flash-dn').length,

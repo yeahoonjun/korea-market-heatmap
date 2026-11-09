@@ -57,12 +57,13 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 .status.replay .dot{background:var(--amber);animation:none}
 .status.err .dot{background:var(--dn-text);animation:none}
 .status .tshort{display:none;font-size:12px;color:var(--fg2);font-variant-numeric:tabular-nums}
-.status.has-basis .badge{display:none}
-/* 정규장 종가 · NXT 포함 (live, after the close when close.json covers that day) */
+/* §3-8 price basis outside the regular session: KRX · NXT choice + a badge saying what is drawn (short on phones) */
 .basis[hidden]{display:none}
-.basis button{font-size:12.5px;padding:4px 9px;font-variant-numeric:tabular-nums}
-.basis .bs,.basis .ks{display:none}
-@media (max-width:1279px){ .basis .bl{display:none} .basis .bs{display:inline} .status.has-basis .txt{display:none} }
+.basis button{font-size:12.5px;padding:4px 10px;font-weight:600}
+.status .badge .bs{display:none}
+.status.has-blab .badge{font-variant-numeric:tabular-nums}
+.status.has-blab .tshort{display:none}
+@media (max-width:1279px){ .status.has-basis .txt{display:none} }
 @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(255,181,71,.55)}70%{box-shadow:0 0 0 7px rgba(255,181,71,0)}100%{box-shadow:0 0 0 0 rgba(255,181,71,0)}}
 
 /* ── Toolbar ───────────────────────────── */
@@ -226,6 +227,9 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 .sec.hot{box-shadow:inset 0 0 0 2px var(--amber);z-index:4;pointer-events:none}
 .tile{z-index:3;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#fff;text-align:center}
 .tile.nod{background-image:repeating-linear-gradient(135deg,rgba(255,255,255,.055) 0 3px,transparent 3px 8px)}
+/* §3-8 NXT prices drawn, no NXT trade: the KRX value, darker and hatched */
+.tile.nonx{background-image:repeating-linear-gradient(135deg,rgba(0,0,0,.55) 0 3px,rgba(0,0,0,.3) 3px 8px)}
+.tile.nonx .lab{opacity:.78}
 .tile:focus{outline:none}
 .tile:focus-visible{outline:2px solid var(--amber);outline-offset:-2px;box-shadow:inset 0 0 0 4px rgba(0,0,0,.55);z-index:6}
 /* tile labels: a soft dark halo keeps white type readable on the brightest fills (#12a15b, #ef3e4a, #2bb553) */
@@ -290,6 +294,9 @@ main.layout[hidden],#world[hidden]{display:none}
 .legend .grad{width:140px;height:8px;border-radius:2px;flex:none}
 .legend .tk{font-variant-numeric:tabular-nums;color:var(--fg2)}
 .legend .sw{width:10px;height:10px;border-radius:2px;display:inline-block;flex:none}
+/* inline `background:` shorthands on these chips would reset the hatch: !important */
+.legend .nxsw,.sw.nonx,.nmcell i.nonx,.movers i.nonx{background-image:repeating-linear-gradient(135deg,rgba(0,0,0,.55) 0 2px,rgba(0,0,0,.25) 2px 5px)!important}
+.legend .nxsw{background-color:var(--panel2);box-shadow:inset 0 0 0 1px var(--line2)}
 .legend .nodsw{background-color:var(--nodata);background-image:repeating-linear-gradient(135deg,rgba(255,255,255,.12) 0 2px,transparent 2px 5px);box-shadow:inset 0 0 0 1px var(--line2)}
 .legend .lg-replay{color:var(--amber);border:1px solid rgba(255,181,71,.4);background:var(--amber-soft);border-radius:5px;padding:1px 7px;font-weight:600}
 .legend .limsw{width:12px;height:10px;display:inline-block;flex:none;background:#5a5e69;border-radius:1px}
@@ -321,6 +328,11 @@ table.list{width:100%;border-collapse:collapse;font-size:13.5px}
 .wbtn{flex:none;display:inline-grid;place-items:center;width:24px;height:24px;margin:-4px -4px -4px -6px;border-radius:6px;font-size:15px;line-height:1;color:var(--faint)}
 .wbtn:hover{color:var(--fg);background:rgba(255,255,255,.06)}
 .wbtn[aria-pressed="true"]{color:var(--amber)}
+.list tr.nonx .nmt{color:var(--fg2);font-weight:500}
+.nxtag{display:inline-block;flex:none;font-size:10.5px;font-weight:600;line-height:16px;padding:0 4px;border-radius:4px;color:var(--muted);border:1px solid var(--line2);white-space:nowrap}
+.card-head .nxrow{display:flex;align-items:baseline;gap:7px;margin-top:4px;font-size:12.5px;color:var(--fg2);font-variant-numeric:tabular-nums;flex-wrap:wrap}
+.card-head .nxrow b{font-weight:600;color:var(--muted)}
+.card-head .nxrow .nxk{color:var(--fg2)}
 .limtag{display:inline-block;flex:none;font-size:11px;font-weight:700;line-height:16px;padding:0 5px;border-radius:4px;border:1px solid currentColor;font-variant-numeric:normal}
 /* 화려하게: the 현재가 / 등락률 cells of a row whose price just moved */
 .list td.fl-u,.list td.fl-d{position:relative}
@@ -503,10 +515,10 @@ footer a{color:var(--muted)}
   .sheet .acts button,.sheet .acts a{height:44px}
   .swbtn{min-height:44px}
   .status .tshort{display:inline}
-  .status.has-basis .tshort{display:none}
-  /* the clock (title spot) needs the room: shorter 정규장 종가, and no second "last update" time while the session is live */
-  .has-clock .basis .kl{display:none}
-  .has-clock .basis .ks{display:inline}
+  .status.has-blab .tshort{display:none}
+  .status.has-blab .badge .bl{display:none}
+  .status.has-blab .badge .bs{display:inline}
+  /* the clock (title spot) needs the room: no second "last update" time while the session is live */
   .has-clock .status.live .tshort{display:none}
 }
 /* phones: the table keeps a readable name column (two lines) and drops 거래대금 (and 시가총액 when a 7th column is shown) */
@@ -519,6 +531,8 @@ footer a{color:var(--muted)}
   .list .nmt{min-width:5.6em;white-space:normal;word-break:keep-all;overflow-wrap:anywhere;line-height:1.25;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
   .list .limtag{font-size:10.5px;padding:0 3px}
 }
+/* phones and tablets: no room for the tag — the hatched chip and the muted name say it (and the row's aria-label) */
+@media (max-width:1023px){ .list .nxtag{display:none} }
 /* 화려하게: the live dot beats once per quote update instead of pulsing on its own (motion-brief g) */
 html[data-motion="fancy"] .status.live .dot{animation:none}
 html[data-motion="fancy"] .status.live .dot.beat{animation:pulse 1.2s var(--m-out) 1}
@@ -547,7 +561,7 @@ html[data-motion="reduced"] .kh-toast,html[data-motion="reduced"] .swbtn .swt,ht
   </div>
   <div class="idx" id="idx"></div>
   <div class="status" id="status"><span class="dot"></span><span class="txt"></span><span class="tshort"></span>
-    <div class="seg basis" id="basis" role="group" aria-label="가격 기준" hidden><button type="button" data-v="krx" title="KRX 정규장 종가(15:30)로 그려요" aria-label="정규장 종가"><span class="kl">정규장 종가</span><span class="ks" aria-hidden="true">종가</span></button><button type="button" data-v="nxt"><span class="bl"></span><span class="bs"></span></button></div>
+    <div class="seg basis" id="basis" role="group" aria-label="가격 기준" hidden><button type="button" data-v="krx">KRX</button><button type="button" data-v="nxt">NXT</button></div>
     <span class="badge"></span></div>
 </header>
 <div id="strip"></div>
@@ -605,7 +619,7 @@ html[data-motion="reduced"] .kh-toast,html[data-motion="reduced"] .swbtn .swt,ht
       <div class="secs" id="secs"></div>
     </section>
     <section class="card" id="moverCard">
-      <h2>눈에 띄는 종목</h2>
+      <h2>눈에 띄는 종목 <small id="moverScope"></small></h2>
       <div class="movers-tabs" id="moverTabs"><button data-v="up">상승률</button><button data-v="dn">하락률</button><button data-v="tv">거래대금</button></div>
       <div class="movers" id="movers"></div>
     </section>
@@ -662,7 +676,13 @@ html[data-motion="reduced"] .kh-toast,html[data-motion="reduced"] .swbtn .swt,ht
         addSetting({key, label, hint?, default, onChange, options?:[{v,label}]}) → value, getSetting(key) — rows in 화면 (the
         표시 설정 sheet / the 화면 popover), localStorage khm.set.<key>, 'kh:setting' {key, value}.
         refresh() → Promise<boolean>: quotes now (waits for one under way), fires 'kh:refresh' for the other modules.
-        marketStatus() → {KOSPI, KOSDAQ} regular-session status of the current quotes ('OPEN' | 'CLOSE' | …). */
+        marketStatus() → {KOSPI, KOSDAQ} regular-session status of the current quotes ('OPEN' | 'CLOSE' | …).
+   §3-8 basis()          → the prices the map draws: 'krx' (KRX live in the session, or that day's 15:30 closes after it) | 'nxt' (NXT
+                         프리/애프터마켓 prices; stocks without an NXT trade keep their KRX value, drawn hatched) | 'krx-prev' (before
+                         09:00: the previous session's KRX closes and that day's change, from close.json). A replay is 'krx'.
+        'kh:basis' {detail:{basis, phase: 'regular'|'pre'|'after'|'closed', label}} on document when basis() or the phase changes.
+        stock(code) rows carry nx: {p, d, r, s 'pre'|'after', o 1|0, t} | null (the Worker's NXT fields, as received).
+        layout() tiles gain nonx (true: NXT prices drawn, this stock has none, its KRX value is shown). */
 
 /* ───────────────── 효과 level (AGENTS §3-5): 'reduced' | 'standard' | 'fancy', localStorage khm.motion ─────────────────
    No stored choice: the device's reduced-motion setting picks 'reduced', otherwise 'standard'. <html data-motion> mirrors it for CSS. */
@@ -809,7 +829,6 @@ const state = {
   rangeP: store.get('rangeP', 20),             // period returns
   rangeF: store.get('rangeF', 1),              // flows: index into RANGES.flow[window]
   palette: store.get('palette2', 'krg'),
-  basis: 'krx',          // live after the close: 'krx' 정규장 종가 (default) | 'nxt' NXT 포함
   view: 'map',
   focus: null,          // {s} | {s, i}
   bucket: null,
@@ -929,7 +948,6 @@ let DATA = null;
 const EXTRA = new Map();     // live: rows from /api/quotes?codes= for theme members / watched codes outside the main stream
 let REPLAY = null;           // {t, date, prices: Map(code → {p, r})}
 let CLOSE = null;            // live: close.json {date, asOf, c:{code:[p, d, r]}, hm:'1530'} — KRX regular-session closes
-let CLOSE_ON = false;        // live, after the close: draw p/d/r from CLOSE instead of the NXT-mixed quotes (정규장 종가)
 let VER = 0;                 // bumps whenever quotes, replay, the price basis or daily data change
 const OV = new Map();
 function bump() { VER++; OV.clear(); }
@@ -939,57 +957,168 @@ function afterClose() {
   const hm = CLOSE && CLOSE.date === DATA.k.date ? CLOSE.hm : '1530';
   return DATA.k.hm >= hm;
 }
-// the 정규장 종가 / NXT 포함 choice exists when close.json holds the closes of the quotes' trading day
-const basisAvail = () => !!(CLOSE && afterClose() && CLOSE.date === DATA.k.date);
-// the quotes on screen carry NXT / 시간외 trades (after the close, or NXT's pre-market)
-const nxtMixed = () => MODE === 'live' && !CLOSE_ON && !!DATA && (afterClose() || DATA.afterHours);
-// theme colours from Naver's live theme list (today's change, live quotes, no replay frame or 정규장 종가 override)
-const naverThemeDay = () => MODE === 'live' && kind() === 'day' && !REPLAY && !CLOSE_ON;
-function syncBasis() {
-  const on = basisAvail() && state.basis === 'krx';
-  if (on !== CLOSE_ON) { CLOSE_ON = on; bump(); }
+
+/* ───────────────── price basis: KRX · NXT (AGENTS §3-8) ─────────────────
+   phase of the quotes: 'regular' (KRX 09:00–15:30: live KRX, no choice) | 'pre' (NXT 프리마켓 open, 08:00–08:50) | 'after' (NXT
+   애프터마켓 open, 15:30–20:00) | 'closed' (night, 08:50–09:00, weekends). From the quotes: marketStatus, then the Worker's head
+   nxt:{session, open} (without one: the rows' nx).
+   What KRX draws outside the session (BASIS.krx): 'close' = the 15:30 closes of the quotes' own day (close.json); 'prev' = before
+   that day's session, the previous session's closes and moves (close.json, checked against the quotes, which still show those
+   closes at 0 %); 'quote' = the quotes as they are (before 09:00: yesterday's close at 0 %; after 15:30 without that day's
+   close.json: Naver's integrated price, NXT / 시간외 included).
+   What NXT draws: rows with nx use nx.p/d/r (size cap × nx.p / p); rows without keep the KRX value, flagged nonx (hatched,
+   "NXT 거래 없음"). Defaults: pre / after → NXT, closed → KRX. A pick (khm.basis) lasts while its phase lasts. A replay is KRX.
+   Older Worker (no NXT fields at all): after the close 'NXT' = the integrated quotes ("NXT 포함"), as before §3-8. */
+const PHASES = ['regular', 'pre', 'after', 'closed'];
+let BASIS = { key: '', phase: 'regular', v: 'krx', krx: 'quote', nxt: false, legacy: false, show: false };
+let basisPick = (() => {
+  const v = store.get('basis', null);
+  return v && (v.v === 'krx' || v.v === 'nxt') && PHASES.includes(v.phase) && Date.now() - (+v.at || 0) < 16 * 3600e3 ? v : null;
+})();
+// NXT summary of the quotes: {n rows with nx, s 'pre'|'after'|null, open, t (kst of the latest NXT trade), head (the Worker sent one)}
+function nxInfo(stocks, head) {
+  let n = 0, t = '', pre = 0, after = 0, open = 0;
+  for (const s of stocks) {
+    const x = s.nx; if (!x) continue;
+    n++; if (x.t && x.t > t) t = x.t;
+    if (x.s === 'after') after++; else pre++;
+    if (x.o) open++;
+  }
+  const hd = head && typeof head === 'object' ? head : null;
+  const s = hd ? (hd.session === 'pre' || hd.session === 'after' ? hd.session : null) : n ? (after > pre ? 'after' : 'pre') : null;
+  return { n, s, open: !!s && (hd ? !!hd.open : open > 0), t: t ? kst(t) : null, head: !!hd };
 }
+// (no quotes yet: null — shown as 'regular', and a stored pick waits for the first quotes)
+function phaseNow() {
+  if (MODE !== 'live' || !DATA || marketOpen()) return 'regular';
+  if (!DATA.stocks.length) return null;
+  return DATA.nx.open ? DATA.nx.s : 'closed';
+}
+// close.json holds the session before the quotes' day, and the quotes still show those closes (before 09:00)
+function closeIsPrev() {
+  if (!CLOSE || !DATA.k || CLOSE.date >= DATA.k.date || DATA.k.hm >= '0900') return false;
+  let n = 0, same = 0;
+  for (const s of DATA.stocks) { const c = CLOSE.c[s.c]; if (!c || !(s.p > 0)) continue; n++; if (+c[0] === s.p) same++; }
+  return n > 0 && same >= n * 0.9;
+}
+function krxSrc(ph) {
+  if (ph === 'regular' || !CLOSE || !DATA.k) return 'quote';
+  if (CLOSE.date === DATA.k.date && afterClose()) return 'close';
+  return closeIsPrev() ? 'prev' : 'quote';
+}
+// → true when what is drawn changed
+function syncBasis() {
+  const ph = phaseNow() || 'regular';
+  if (basisPick && phaseNow() && basisPick.phase !== ph) { basisPick = null; store.set('basis', null); }
+  const krx = krxSrc(ph);
+  const nxt = ph !== 'regular' && DATA.nx.n > 0;
+  const legacy = !nxt && !DATA.nx.head && ph !== 'regular' && krx === 'close';
+  let v = basisPick ? basisPick.v : (ph === 'pre' || ph === 'after') && nxt ? 'nxt' : 'krx';
+  if (v === 'nxt' && !nxt && !legacy) v = 'krx';
+  const key = [ph, v, krx, nxt, legacy].join('|');
+  if (key === BASIS.key) return false;
+  BASIS = { key, phase: ph, v, krx, nxt, legacy, show: nxt || legacy };
+  bump();
+  return true;
+}
+const nxDrawn = () => BASIS.v === 'nxt' && BASIS.nxt && !REPLAY;               // rows with nx draw NXT prices
+// close.json closes drawn (all rows under KRX; under NXT the rows without nx, and only today's closes)
+const krxDrawn = () => REPLAY ? BASIS.krx !== 'quote' : BASIS.v === 'nxt' ? BASIS.krx === 'close' && !BASIS.legacy : BASIS.krx !== 'quote';
+const ovOn = () => !!REPLAY || nxDrawn() || krxDrawn();
+// 'krx' | 'nxt' | 'krx-prev' (KRX closes of the previous session, before today's): what the map's prices are now
+function basisId() {
+  if (MODE !== 'live' || REPLAY || BASIS.phase === 'regular') return 'krx';
+  return BASIS.v === 'nxt' ? 'nxt' : BASIS.krx === 'prev' ? 'krx-prev' : 'krx';
+}
+const kstDay = ymd => { const m = /^(\d{4})-(\d\d)-(\d\d)$/.exec(ymd || ''); return m ? Date.UTC(+m[1], +m[2] - 1, +m[3]) / 864e5 : NaN; };
+const mdDay = ymd => `${+ymd.slice(5, 7)}/${+ymd.slice(8, 10)}`;
+// the header badge for what is drawn outside the regular session: {long, short (phones), title}
+function basisLabel() {
+  const k = DATA.k, tq = k ? k.hhmm : '';
+  if (BASIS.v === 'nxt' && BASIS.nxt) {
+    const n = DATA.nx, t = n.t ? n.t.hhmm : tq, ss = n.s === 'after' ? '애프터마켓' : '프리마켓';
+    const tail = ' NXT에서 거래되지 않는 종목은 KRX 값 그대로 빗금으로 보여요.';
+    return n.open ? { long: `NXT ${ss} · ${t} 기준`, short: `NXT ${t}`, title: `넥스트레이드(NXT) ${ss} 가격으로 그려요.` + tail }
+      : { long: `NXT ${ss} 마감 · ${t} 기준`, short: `NXT ${t}`, title: `넥스트레이드(NXT) ${ss}의 마지막 가격으로 그려요.` + tail };
+  }
+  if (BASIS.v === 'nxt') return { long: `NXT 포함 · ${tq} 기준`, short: `NXT ${tq}`, title: '정규장 뒤 NXT·시간외 거래가 섞인 마지막 가격으로 그려요' };
+  return krxLabel();
+}
+// what KRX draws outside the regular session (BASIS.krx), as a label
+function krxLabel() {
+  const k = DATA.k, tq = k ? k.hhmm : '';
+  if (BASIS.krx === 'close') { const t = hhmm(CLOSE.hm); return { long: `KRX ${t} 종가`, short: `${t} 종가`, title: `KRX 정규장 종가(${t})로 그려요` }; }
+  if (BASIS.krx === 'prev') {
+    const y = kstDay(k.date) - kstDay(CLOSE.date) === 1 ? '어제' : mdDay(CLOSE.date);
+    return { long: `KRX ${y} 종가`, short: `${y} 종가`, title: `KRX는 9시에 열려요. ${dayName(CLOSE.date)} KRX 종가와 그날 등락률로 그려요` };
+  }
+  if (k && k.hm < '0900') return { long: 'KRX 장 시작 전', short: 'KRX 개장 전', title: 'KRX는 9시에 열려요. 지금 KRX 가격은 전일 종가라 등락이 0%예요' };
+  return { long: `통합 시세 · ${tq} 기준`, short: `통합 ${tq}`, title: '오늘 KRX 종가 자료가 아직 없어 네이버 통합 시세(NXT·시간외 거래 포함)로 그려요' };
+}
+// 'kh:basis' {basis, phase, label} when KH.basis() or the phase changes
+let basisSent = '';
+function emitBasis() {
+  const id = basisId(), lab = MODE === 'live' && DATA && DATA.stocks.length && BASIS.phase !== 'regular' && !REPLAY ? basisLabel().long : '';
+  const key = id + '|' + BASIS.phase;
+  if (key === basisSent) return;
+  basisSent = key;
+  document.dispatchEvent(new CustomEvent('kh:basis', { detail: { basis: id, phase: BASIS.phase, label: lab } }));
+}
+// theme colours from Naver's live theme list (today's change of the live KRX quotes: no replay frame, KRX closes or NXT prices)
+const naverThemeDay = () => MODE === 'live' && kind() === 'day' && !ovOn();
 function norm(x) {
   const map = INDUSTRY.get(String(x.c));
+  const nx = x.nx && +x.nx.p > 0 ? x.nx : null;
   return {
     c: String(x.c), n: String(x.n), m: x.m === 'K' ? 'K' : 'Q',
     s: x.s || (map ? map[0] : '기타'), i: x.i || (map ? map[1] : '기타'),
     cap: +x.cap || 0, p: +x.p || 0, d: +x.d || 0, r: +x.r || 0, tv: +x.tv || 0, v: +x.v || 0,
     // 상/하한가: the row's flag, or |r| ≥ 29.5 when the row has none (the limit is ±30 % rounded to the tick)
     lim: x.lim === 1 || x.lim === -1 ? x.lim : Math.abs(+x.r || 0) >= 29.5 ? Math.sign(+x.r) : 0,
+    // NXT (§3-8): {p, d, r, s 'pre'|'after', o 1 while that session runs, t ISO time of the last NXT trade} | null
+    nx: nx ? { p: +nx.p, d: +nx.d || 0, r: +nx.r || 0, s: nx.s === 'after' ? 'after' : 'pre', o: nx.o ? 1 : 0, t: nx.t ? String(nx.t) : null } : null,
   };
 }
+let SHOWN = null;            // {key: BASIS.key, p: Map code → the price drawn} — ticks are measured on what is drawn
+// the streamed rows' drawn prices now (a basis change in between polls re-takes it, so the next poll compares like with like)
+function snapShown() { const m = new Map(); for (const s of DATA.stocks) m.set(s.c, basisRow(s, true).p); SHOWN = { key: BASIS.key, p: m }; }
 function setData(raw) {
-  const prev = DATA && DATA.byCode;
   const stocks = (raw.stocks || []).map(norm);
   const byCode = new Map(stocks.map(s => [s.c, s]));
-  const changed = [];
-  // [code, tick direction, |Δp/p|] for every streamed row whose price moved since the last quotes
-  if (prev) for (const s of stocks) { const o = prev.get(s.c); if (o && o.p !== s.p && o.p > 0) changed.push([s.c, s.p > o.p ? 1 : -1, Math.abs(s.p - o.p) / o.p]); }
-  DATA = { asOf: raw.asOf, k: kst(raw.asOf), source: raw.source, marketStatus: raw.marketStatus || {}, afterHours: !!raw.afterHours, index: raw.index || {}, stocks, byCode };
+  DATA = { asOf: raw.asOf, k: kst(raw.asOf), source: raw.source, marketStatus: raw.marketStatus || {}, afterHours: !!raw.afterHours, index: raw.index || {}, stocks, byCode, nx: nxInfo(stocks, raw.nxt) };
   syncBasis();
   bump();
-  // detail.changed: the ticks a flash may show ([] while a replay frame or the 정규장 종가 is drawn — those prices do not move)
-  document.dispatchEvent(new CustomEvent('kh:data', { detail: { changed: REPLAY || CLOSE_ON ? [] : changed.map(x => x.slice(0, 2)) } }));
+  // [code, tick direction, |Δp/p|] for every streamed row whose drawn price (NXT, KRX close or quote) moved since the last quotes;
+  // none when the basis changed in between or a replay frame is drawn
+  const prev = SHOWN, changed = [];
+  snapShown();
+  if (prev && prev.key === BASIS.key && !REPLAY) for (const [c, p] of SHOWN.p) { const o = prev.p.get(c); if (o > 0 && p > 0 && o !== p) changed.push([c, p > o ? 1 : -1, Math.abs(p - o) / o]); }
+  emitBasis();
+  document.dispatchEvent(new CustomEvent('kh:data', { detail: { changed: changed.map(x => x.slice(0, 2)) } }));
   return changed;
 }
 const marketOpen = () => Object.values(DATA.marketStatus || {}).some(v => v === 'OPEN');
-setData(SNAP);
 const rawGet = c => (DATA.byCode.get(c) || EXTRA.get(c) || null);
-// one row as drawn: 정규장 종가 (close.json) instead of the NXT-mixed quote, then the replay frame on top.
-// size by cap follows the price (cap × p_shown / p_live); codes missing from close.json / the frame keep their live values
+// one row in the price basis (no replay): NXT prices, or KRX closes (close.json), else the quote. live = the quote row.
+// size by cap follows the price (cap × p_shown / p_quote); codes missing from close.json keep the quote's values
+function basisRow(st, nxOk = !REPLAY) {
+  const nxOn = nxOk && BASIS.v === 'nxt' && BASIS.nxt;
+  if (nxOn && st.nx) { const x = st.nx; return Object.assign({}, st, { p: x.p, d: x.d, r: x.r, cap: st.p > 0 ? st.cap * x.p / st.p : st.cap, nxOn: true, live: st }); }
+  let o = st;
+  // KRX closes: today's ('close') under KRX or NXT; the previous session's ('prev') under KRX only — next to today's NXT
+  // prices a stock without an NXT trade shows today's KRX quote (0 % before 09:00), not yesterday's move
+  if ((BASIS.krx === 'close' || (BASIS.krx === 'prev' && !nxOn)) && (!nxOk || !(BASIS.v === 'nxt' && BASIS.legacy)) && CLOSE) {
+    const c = CLOSE.c[st.c];
+    if (c && +c[0] > 0) { const p = +c[0]; o = Object.assign({}, st, { p, d: +c[1] || 0, r: +c[2] || 0, cap: st.p > 0 ? st.cap * p / st.p : st.cap, krx: true, live: st }); }
+  }
+  return nxOn ? Object.assign(o === st ? Object.assign({}, st) : o, { nonx: true }) : o;
+}
+// one row as drawn: the basis, then the replay frame on top (codes missing from the frame keep their values)
 function ov(st) {
-  if (!st || (!REPLAY && !CLOSE_ON)) return st;
+  if (!st || !ovOn()) return st;
   let o = OV.get(st.c);
   if (o) return o;
-  o = st;
-  if (CLOSE_ON) {
-    const c = CLOSE.c[st.c];
-    if (c && +c[0] > 0) {
-      const p = +c[0], r = +c[2] || 0;
-      o = Object.assign({}, st, { p, d: +c[1] || 0, r, cap: st.p > 0 ? st.cap * p / st.p : st.cap, krx: true, live: st });
-    }
-  }
+  o = basisRow(st);
   if (REPLAY) {
     const f = REPLAY.prices.get(st.c);
     const prev = o.p - o.d;
@@ -1001,10 +1130,11 @@ function ov(st) {
   OV.set(st.c, o);
   return o;
 }
+setData(SNAP);
 const get = c => ov(rawGet(c));
 let allCache = { ver: -1, arr: null };
 function allStocks() {
-  if (!REPLAY && !CLOSE_ON) return DATA.stocks;
+  if (!ovOn()) return DATA.stocks;
   if (allCache.ver !== VER) allCache = { ver: VER, arr: DATA.stocks.map(ov) };
   return allCache.arr;
 }
@@ -1259,15 +1389,15 @@ function stockDesc(st) {
   const lim = limOf(st), limTxt = lim > 0 ? ', 상한가' : lim < 0 ? ', 하한가' : '';
   return {
     name: st.n, split: splitName, sub, sub2: isFlow() ? sub : vText(v, 2), px: st.p > 0 ? fmtInt(st.p) : '',
-    col: colorOf(v), nod: v == null, lim,
-    aria: (day ? `${st.n} ${v == null ? '데이터 없음' : fmtPct(v)}` : `${st.n} ${metricLong()} ${v == null ? '데이터 없음' : stText(st)}`) + limTxt,
+    col: colorOf(v), nod: v == null, lim, nonx: !!st.nonx,
+    aria: (day ? `${st.n} ${v == null ? '데이터 없음' : fmtPct(v)}` : `${st.n} ${metricLong()} ${v == null ? '데이터 없음' : stText(st)}`) + limTxt + (st.nonx ? ', NXT 거래 없음(KRX 값)' : ''),
   };
 }
 function themeDesc(t) {
   const sub = isFlow() ? (t.a == null ? '—' : fmtAmt(t.a)) : vText(t.v, 1);
   return {
     name: t.name, split: splitTheme, sub, sub2: isFlow() ? sub : vText(t.v, 2), px: `${t.codes.length}종목`,
-    col: colorOf(t.v), nod: t.v == null, lim: 0,
+    col: colorOf(t.v), nod: t.v == null, lim: 0, nonx: false,
     aria: `${t.name} 테마 ${t.v == null ? '데이터 없음' : thText(t)}, ${t.codes.length}종목. 누르면 종목 지도가 열려요`,
   };
 }
@@ -1305,6 +1435,7 @@ const chipRoom = (L, w, hh) => w >= 34 && hh >= 26 && (L.hidden || (hh - L.labH)
 function paintTile(el, d, w, hh) {
   el.style.backgroundColor = d.col;
   el.classList.toggle('nod', d.nod);
+  el.classList.toggle('nonx', d.nonx);          // NXT prices drawn, this stock has none: KRX value, hatched
   el.__col = d.col; el.__name = d.name; el.__sub = d.sub; el.__px = d.px;
   el.setAttribute('aria-label', d.aria);
   el.classList.toggle('limu', d.lim > 0); el.classList.toggle('limd', d.lim < 0);
@@ -1486,7 +1617,7 @@ function flashTiles(list) {
   }
 }
 function flashChanged(changed) {
-  if (!changed.length || reduced() || V3D || isWorld() || REPLAY || CLOSE_ON || document.hidden) return;
+  if (!changed.length || reduced() || V3D || isWorld() || REPLAY || document.hidden) return;
   if (!fancy()) {
     // '기본': the original white / black overlay
     if (state.market === 'THEME') return;
@@ -1749,7 +1880,7 @@ function applyHighlights() {
     if (!st) continue;
     let ok = true;
     if (q) ok = matchQuery(st, q);
-    if (ok && b != null) ok = bucketOf(cval(st)) === b;
+    if (ok && b != null) ok = !st.nonx && bucketOf(cval(st)) === b;    // NXT prices drawn: the 등락 분포 counts NXT stocks only
     if (ok && hs) ok = st.s === hs;
     el.classList.toggle('dim', dimOn && !ok);
     el.classList.toggle('sel', st.c === state.selected);
@@ -1781,6 +1912,22 @@ function peerRows(st, limit) {
       h('i', { style: `background:${colorOf(v)}` }), h('span', { class: 'nm', text: p.n }), bar, h('span', { class: 'v ' + (tv == null ? 'flat' : cls(tv)), text: stText(p) }));
   }) };
 }
+// outside the regular session, under the price (§3-8): the other market for this stock — its NXT price while KRX is drawn, its
+// KRX value while NXT is drawn — or "NXT 거래 없음" for a stock drawn with its KRX value because it has no NXT trade
+function nxLine(st) {
+  if (MODE !== 'live' || REPLAY || BASIS.phase === 'regular' || !BASIS.nxt) return null;
+  if (st.nonx) return h('div', { class: 'nxrow' }, h('b', { class: 'nxk', text: 'NXT 거래 없음' }), h('span', { text: 'KRX 값으로 그렸어요' }));
+  const raw = st.live || rawGet(st.c) || st, x = raw.nx;
+  if (!x) return null;
+  if (st.nxOn) {
+    const kr = basisRow(raw, false);
+    return h('div', { class: 'nxrow' }, h('b', { text: krxLabel().long }), h('span', { class: 'num', text: kr.p > 0 ? fmtInt(kr.p) : '—' }), h('span', { class: 'num ' + cls(kr.r), text: fmtPct(kr.r) }));
+  }
+  const t = x.t ? kst(x.t) : null;
+  return h('div', { class: 'nxrow' }, h('b', { text: `NXT ${x.s === 'after' ? '애프터마켓' : '프리마켓'}${x.o ? '' : ' 마감'}` }), h('span', { class: 'num', text: fmtInt(x.p) }),
+    h('span', { class: 'num ' + cls(x.r), text: fmtPct(x.r) }), t ? h('span', { class: 'num', text: t.hhmm }) : null);
+}
+function nxTag(st) { return st.nonx ? h('span', { class: 'nxtag', title: 'NXT 거래 없음 · KRX 값이에요', text: 'NXT 없음' }) : null; }
 function limTag(st) {
   const l = limOf(st);
   return l ? h('span', { class: 'limtag ' + (l > 0 ? 'up' : 'dn'), text: l > 0 ? '상한가' : '하한가' }) : null;
@@ -1817,6 +1964,7 @@ function headBlock(st, how) {
       limTag(st),
       tipMode ? (watched ? h('span', { class: 'wmark', text: '★ 관심' }) : null) : starBtn(st.c, 'wstar')),
     h('div', { class: 'px' }, h('b', { text: st.p > 0 ? fmtInt(st.p) : '—' }), h('span', { class: cls(st.r), text: `${fmtChg(st.d)}  (${fmtPct(st.r)})` }), kind() !== 'day' ? h('span', { class: 'flat', text: '오늘' }) : null),
+    nxLine(st),
     metricRow(st),
     h('div', { class: 'meta' }, h('span', {}, '시가총액 ', h('em', { text: fmtEok(st.cap) })), h('span', {}, '거래대금 ', h('em', { text: fmtEok(st.tv) }))));
 }
@@ -2239,6 +2387,11 @@ function renderLegend() {
     kids.push(h('span', { class: 'lg right' }, h('span', { class: 'k', text: '크기' }), h('b', { text: themeOv ? '테마 시가총액' : SIZE_METRICS[state.sizeBy] })));
   }
   if (missing) kids.splice(REPLAY ? 2 : 1 + (k === 'flow' ? 1 : 0), 0, h('span', { class: 'lg' }, h('i', { class: 'sw nodsw' }), h('span', { text: `데이터 없음 ${missing}` })));
+  // NXT prices drawn: how many stocks on the map have no NXT trade (hatched, their KRX value)
+  if (!themeOv && distNxt()) {
+    const nn = universe().filter(inFocus).filter(s => s.nonx).length;
+    if (nn) kids.splice(REPLAY ? 2 : 1 + (k === 'flow' ? 1 : 0), 0, h('span', { class: 'lg', title: 'NXT에서 거래되지 않는 종목은 KRX 값 그대로 빗금으로 그려요' }, h('i', { class: 'sw nxsw' }), h('span', { text: `NXT 거래 없음 ${nn}` })));
+  }
   if (themeOv && naverThemeDay() && !THEME_LIVE) kids.push(h('span', { class: 'lg note', text: themesLive.ok ? '테마 등락률을 불러오는 중…' : '테마 등락률을 불러오지 못했어요. 다시 시도하는 중' }));
   // 상/하한가 marks (white bar on the top / bottom edge of the tile) when the map has any
   if (!themeOv && state.view === 'map') {
@@ -2311,11 +2464,12 @@ function renderDist(vals, { scope, big, bigCls, bigLab, unit, note = '', mapVals
 }
 
 /* ───────────────── 등락 분포 over the whole market (AGENTS §3-3) ─────────────────
-   snapshot: the embedded rows (every listed stock); live 정규장 종가: close.json + names.json; live quotes: /api/breadth parts
-   (part 1..parts, ≤600 codes each), refreshed every 60 s in the session (10 min outside) while the card is on screen and the tab
-   is visible. Period / flow colours need a price / cap, so they count every stock that has one; theme, 관심, a zoomed sector /
-   industry and a replay frame keep the map's own scope. */
-const BR = { K: null, Q: null };   // per market: {rows: Map code → [r, lim], parts, got, at, asOf, failed, busy}
+   snapshot: the embedded rows (every listed stock); live KRX closes (BASIS.krx 'close' / 'prev'): close.json + names.json; live
+   quotes: /api/breadth parts (part 1..parts, ≤600 codes each), refreshed every 60 s in the KRX / NXT sessions (10 min outside)
+   while the card is on screen and the tab is visible; NXT (§3-8): the same parts' 4th column (NXT %), only stocks that have one.
+   Period / flow colours need a price / cap, so they count every stock that has one; theme, 관심, a zoomed sector / industry and a
+   replay frame keep the map's own scope. */
+const BR = { K: null, Q: null };   // per market: {rows: Map code → [r, lim, nxr|null], parts, got, at, asOf, failed, busy}
 const brState = { timer: null, visible: !('IntersectionObserver' in window) };
 async function getJSON(url, ms = 8000) {
   const ac = new AbortController(); const killer = setTimeout(() => ac.abort(), ms);
@@ -2326,8 +2480,12 @@ async function getJSON(url, ms = 8000) {
   } finally { clearTimeout(killer); }
 }
 const fullScopeView = () => ['K', 'Q', 'ALL'].includes(state.market) && !state.focus && !REPLAY;
+// 등락 분포 from close.json (KRX closes drawn) / from the NXT column of /api/breadth (NXT prices drawn)
+const distClose = () => BASIS.v !== 'nxt' && BASIS.krx !== 'quote';
+const distNxt = () => nxDrawn();
+const sessionLive = () => marketOpen() || DATA.nx.open;    // KRX regular session or an NXT session: prices move
 function brWanted() {
-  if (MODE !== 'live' || kind() !== 'day' || CLOSE_ON || !fullScopeView() || !DATA.stocks.length) return [];
+  if (MODE !== 'live' || kind() !== 'day' || distClose() || !fullScopeView() || !DATA.stocks.length) return [];
   return state.market === 'ALL' ? ['K', 'Q'] : [state.market];
 }
 async function fetchBreadth(m) {
@@ -2337,7 +2495,8 @@ async function fetchBreadth(m) {
     for (const x of (j && j.rows) || []) {
       if (!Array.isArray(x) || x[1] == null || !isFinite(+x[1])) continue;
       const c = String(x[0]);
-      if (CODE_RE.test(c)) rows.set(c, [+x[1], x[2] === 1 || x[2] === -1 ? x[2] : 0]);
+      // [code, r, lim?, nxr?] — lim is 0 when only nxr follows
+      if (CODE_RE.test(c)) rows.set(c, [+x[1], x[2] === 1 || x[2] === -1 ? x[2] : 0, x[3] != null && isFinite(+x[3]) ? +x[3] : null]);
     }
   };
   try {
@@ -2360,7 +2519,7 @@ function syncBreadth() {
   clearTimeout(brState.timer); brState.timer = null;
   const want = brWanted();
   if (!want.length || document.hidden || !brState.visible) return;
-  const ivl = marketOpen() ? 60000 : 600000, now = Date.now();
+  const ivl = sessionLive() ? 60000 : 600000, now = Date.now();
   let next = ivl;
   for (const m of want) {
     const b = BR[m];
@@ -2389,19 +2548,19 @@ function needNames() {
       namesSt.st = 'ok';
     } else namesSt.st = 'fail';
     if (document.activeElement === qEl && qEl.value.trim()) renderSugg();
-    if (CLOSE_ON) renderSide();
+    if (distClose()) renderSide();
   });
 }
-// the rows the card counts: {list, scope:'all'|'data'|'map', label, note, partial}
+// the rows the card counts: {list, scope:'all'|'data'|'map'|'nxt', label, note, partial}
 function distPool() {
-  const mapList = universe().filter(inFocus);
+  const mapList = universe().filter(inFocus).filter(s => !s.nonx);    // NXT prices drawn: stocks traded on NXT only
   if (!fullScopeView()) return { list: mapList, scope: 'map' };
   const label = state.market === 'ALL' ? '전 종목' : `${MKT_NAME[state.market]} 전 종목`;
   const k = kind();
   if (MODE === 'snapshot') return { list: allStocks().filter(inMarket), scope: k === 'day' ? 'all' : 'data', label };
   const stream = allStocks().filter(inMarket);
-  if (CLOSE_ON) {
-    // 정규장 종가: every code in close.json; names.json tells the market
+  if (distClose()) {
+    // KRX closes: every code in close.json; names.json tells the market
     const N = namesIdx();
     if (!N) { needNames(); return { list: mapList, scope: 'map', note: namesSt.st === 'fail' ? '전 종목 목록을 불러오지 못해 지도 종목으로 보여요.' : '전 종목 분포를 불러오는 중…' }; }
     const have = new Set(stream.map(s => s.c)), list = stream.slice();
@@ -2416,12 +2575,13 @@ function distPool() {
     return { list, scope: k === 'day' ? 'all' : 'data', label };
   }
   if (k !== 'day') return { list: stream, scope: 'data', label, note: '실시간으로 받는 시장별 시총 상위 300종목 중' };
-  // today's change from /api/breadth
+  // today's change from /api/breadth (NXT: its NXT column, stocks traded on NXT only)
+  const nx = distNxt(), nxLabel = state.market === 'ALL' ? 'NXT' : `${MKT_NAME[state.market]} NXT`;
   const want = state.market === 'ALL' ? ['K', 'Q'] : [state.market];
   const ready = want.filter(m => BR[m] && BR[m].rows), failed = want.filter(m => BR[m] && !BR[m].rows && BR[m].failed && !BR[m].busy);
   if (!ready.length) {
-    if (failed.length === want.length) return { list: mapList, scope: 'map', note: '전 종목 분포를 불러오지 못해 지도 종목으로 보여요.' };
-    return { list: mapList, scope: 'map', note: '전 종목 분포를 불러오는 중…' };
+    const note = failed.length === want.length ? '전 종목 분포를 불러오지 못해 지도 종목으로 보여요.' : '전 종목 분포를 불러오는 중…';
+    return nx ? { list: mapList.filter(s => s.nxOn), scope: 'map', note } : { list: mapList, scope: 'map', note };
   }
   const byCode = new Map(stream.map(s => [s.c, s]));
   const list = [];
@@ -2429,12 +2589,21 @@ function distPool() {
   for (const m of ready) {
     const b = BR[m];
     if (b.got < b.parts) partial = true;
-    for (const [c, x] of b.rows) list.push(byCode.get(c) || { c, m, r: x[0], d: 0, p: 0, cap: 0, tv: 0, lim: x[1] });
+    if (nx) {
+      for (const [c, x] of b.rows) {
+        if (x[2] == null) continue;
+        const s = byCode.get(c);
+        list.push(s && s.nxOn ? s : { c, m, r: x[2], d: 0, p: 0, cap: 0, tv: 0, lim: Math.abs(x[2]) >= 29.5 ? Math.sign(x[2]) : 0 });
+      }
+    } else for (const [c, x] of b.rows) list.push(byCode.get(c) || { c, m, r: x[0], d: 0, p: 0, cap: 0, tv: 0, lim: x[1] });
   }
   // streamed rows a failed part left out still count
   const seen = new Set(list.map(s => s.c));
-  for (const s of stream) if (!seen.has(s.c)) list.push(s);
-  return { list, scope: 'all', label, partial };
+  for (const s of stream) if (!seen.has(s.c) && (!nx || s.nxOn)) list.push(s);
+  if (nx && list.length && seen.size === 0)
+    // the breadth rows carry no NXT column (older Worker): the streamed NXT stocks only
+    return { list, scope: 'nxt', label: nxLabel, note: '전 종목 NXT 등락률이 없어 실시간으로 받는 시장별 시총 상위 300종목 중 NXT 종목만 셌어요.' };
+  return { list, scope: nx ? 'nxt' : 'all', label: nx ? nxLabel : label, partial };
 }
 function renderSide() {
   if (isWorld()) return;
@@ -2452,9 +2621,12 @@ function renderSide() {
     const list = pool.list, vals = list.map(cval);
     const n = vals.filter(v => v != null).length;
     let scope;
+    const nxs = distNxt() ? 'NXT ' : '';
     if (pool.scope === 'all') scope = `${pool.label} ${fmtInt(n)}${pool.partial ? ' · 일부만 반영' : ''}`;
+    else if (pool.scope === 'nxt') scope = `${pool.label} ${fmtInt(n)}종목${pool.partial ? ' · 일부만 반영' : ''}`;
     else if (pool.scope === 'data') scope = `${MKT_NAME[state.market]} ${fmtInt(n)}종목`;
-    else scope = state.focus ? (state.focus.i || state.focus.s) : themeMode ? (curTheme() ? curTheme().name : '') : `${MKT_NAME[state.market]} 지도 ${list.length}종목`;
+    else if (state.focus || themeMode) scope = (state.focus ? (state.focus.i || state.focus.s) : curTheme() ? curTheme().name : '') + (nxs ? ` · NXT ${fmtInt(list.length)}종목` : '');
+    else scope = `${MKT_NAME[state.market]} 지도 ${nxs}${list.length}종목`;
     // the cap-weighted number needs market caps: say how many stocks it covers when that is fewer than the card counts
     let capN = 0;
     if (k !== 'flow') for (let i = 0; i < list.length; i++) if (list[i].cap > 0 && vals[i] != null) capN++;
@@ -2464,7 +2636,7 @@ function renderSide() {
     if (pool.partial) note = '일부 묶음을 받지 못해 받은 종목만 셌어요.';
     const F = isFlow() ? FLO() : null;
     if (F && F.stale) { let st = 0; for (const x of list) if (F.stale[x.c] && amt(x) != null) st++; if (st) note = (note + ` ${fmtInt(st)}종목은 전일 기준이에요.`).trim(); }
-    renderDist(vals, { scope, big: grpText(list, 2), bigCls: grpCls(list), note, mapVals: pool.scope !== 'map' ? universe().filter(inFocus).map(cval) : null,
+    renderDist(vals, { scope, big: grpText(list, 2), bigCls: grpCls(list), note, mapVals: pool.scope !== 'map' ? universe().filter(inFocus).filter(s => !s.nonx).map(cval) : null,
       bigLab: (k === 'flow' ? `${flowShort()} 순매수 합계` : k === 'day' ? '시가총액 가중 등락률' : `시가총액 가중 ${COLOR_METRICS[state.colorBy].long}`) + capNote, unit: '종목' });
   }
   renderSecCard(themeMode);
@@ -2524,10 +2696,13 @@ function renderMovers(themeOverview) {
   [...$('#moverTabs').children].forEach((b, i) => { b.textContent = labels[i]; b.setAttribute('aria-pressed', String(b.dataset.v === state.movers)); });
   const list = universe().filter(inFocus);
   const key = s => k === 'flow' ? amt(s) : cval(s);
+  // NXT prices drawn: the 상승률 / 하락률 lists rank NXT stocks only (the others keep their KRX value)
+  const nxOnly = distNxt() && k !== 'flow' && state.movers !== 'tv';
+  $('#moverScope').textContent = nxOnly ? 'NXT 거래 종목' : '';
   let mv;
   if (state.movers === 'tv') mv = list.slice().sort((a, b) => b.tv - a.tv);
   else {
-    mv = list.filter(s => key(s) != null);
+    mv = list.filter(s => key(s) != null && !(nxOnly && s.nonx));
     mv.sort(state.movers === 'up' ? (a, b) => key(b) - key(a) : (a, b) => key(a) - key(b));
     mv = mv.filter(s => state.movers === 'up' ? key(s) > 0 : key(s) < 0);
   }
@@ -2538,7 +2713,7 @@ function renderMovers(themeOverview) {
   box.replaceChildren(...mv.map(s => {
     const v = cval(s), tv = k === 'flow' ? amt(s) : v;
     return h('button', { 'data-c': s.c, onclick: ev => openStock(s.c, ev.currentTarget) },
-      h('i', { style: `background:${colorOf(v)}` }), h('span', { class: 'nm', text: s.n }),
+      h('i', { class: s.nonx ? 'nonx' : null, style: `background:${colorOf(v)}` }), h('span', { class: 'nm', text: s.n }),
       h('span', { class: 'px', text: state.movers === 'tv' ? fmtEok(s.tv) : s.p > 0 ? fmtInt(s.p) : '—' }),
       h('span', { class: 'v ' + (tv == null ? 'flat' : cls(tv)), text: stText(s) }));
   }));
@@ -2567,7 +2742,7 @@ function renderTable() {
   if (k === 'flow') cols.push(['a', flowShort()]);
   cols.push(['cap', '시가총액'], ['tv', '거래대금']);
   if (!cols.some(c => c[0] === state.sort.key)) state.sort = { key: 'cap', dir: -1 };
-  let list = universe().filter(inFocus).filter(s => matchQuery(s, q) && (state.bucket == null || bucketOf(cval(s)) === state.bucket));
+  let list = universe().filter(inFocus).filter(s => matchQuery(s, q) && (state.bucket == null || (!s.nonx && bucketOf(cval(s)) === state.bucket)));
   const { key, dir } = state.sort;
   const val = key === 'v' ? cval : key === 'a' ? amt : key === 'r' ? (s => s.r) : (s => s[key]);
   sortRows(list, key, dir, val);
@@ -2582,7 +2757,7 @@ function renderTable() {
   const tbody = h('tbody', {}, list.map(s => {
     const v = cval(s);
     const cells = [
-      h('td', {}, h('div', { class: 'nmcell' }, starBtn(s.c, 'wbtn'), h('i', { class: v == null ? 'nod' : null, style: `background:${colorOf(v)}` }), h('span', { class: 'nmt', text: s.n }), h('small', { text: s.c }), limTag(s))),
+      h('td', {}, h('div', { class: 'nmcell' }, starBtn(s.c, 'wbtn'), h('i', { class: v == null ? 'nod' : s.nonx ? 'nonx' : null, style: `background:${colorOf(v)}` }), h('span', { class: 'nmt', text: s.n }), h('small', { text: s.c }), limTag(s), nxTag(s))),
       h('td', { class: 'indc', text: `${s.s} · ${s.i}` }),
       h('td', { 'data-f': '', text: s.p > 0 ? fmtInt(s.p) : '—' }),
     ];
@@ -2590,8 +2765,8 @@ function renderTable() {
     cells.push(h('td', { class: cls(s.r), 'data-f': '', text: fmtPct(s.r) }));
     if (k === 'flow') { const a = amt(s); cells.push(h('td', { class: a == null ? 'nd' : cls(a), text: a == null ? '데이터 없음' : fmtAmt(a) })); }
     cells.push(h('td', { text: fmtEok(s.cap) }), h('td', { text: fmtEok(s.tv) }));
-    return h('tr', { class: s.c === state.selected ? 'sel' : '', 'data-c': s.c, tabindex: '0',
-      'aria-label': `${s.n} ${k === 'day' ? fmtPct(s.r) : metricLong() + ' ' + (v == null ? '데이터 없음' : stText(s))}`,
+    return h('tr', { class: (s.c === state.selected ? 'sel' : '') + (s.nonx ? ' nonx' : ''), 'data-c': s.c, tabindex: '0',
+      'aria-label': `${s.n} ${k === 'day' ? fmtPct(s.r) : metricLong() + ' ' + (v == null ? '데이터 없음' : stText(s))}${s.nonx ? ', NXT 거래 없음(KRX 값)' : ''}`,
       onclick: ev => rowOpen(s, ev.currentTarget),
       onkeydown: ev => { if ((ev.key === 'Enter' || ev.key === ' ') && ev.target === ev.currentTarget) { ev.preventDefault(); rowOpen(s, ev.currentTarget); } } }, cells);
   }));
@@ -2657,10 +2832,12 @@ function renderStatus() {
   const okAsOf = asOf && !isNaN(asOf);
   const open = marketOpen();
   const txt = el.querySelector('.txt'), badge = el.querySelector('.badge'), ts = el.querySelector('.tshort'), bas = $('#basis');
-  // 정규장 종가 · NXT 포함: shown after the close when close.json covers the quotes' day (not in replay or the 해외 / 원자재 tabs)
-  const showBasis = MODE === 'live' && liveState.ok && !REPLAY && !isWorld() && basisAvail();
+  // outside the regular session (§3-8): the KRX · NXT choice when there is one, and a badge saying what is drawn
+  const blab = MODE === 'live' && liveState.ok && !REPLAY && !isWorld() && !!DATA.stocks.length && BASIS.phase !== 'regular' && (BASIS.show || BASIS.krx !== 'quote' || DATA.afterHours || afterClose());
+  const showBasis = blab && BASIS.show;
   bas.hidden = !showBasis;
   el.classList.toggle('has-basis', showBasis);
+  el.classList.toggle('has-blab', blab);
   el.classList.toggle('replay', !!REPLAY);
   ts.textContent = '';
   badge.title = '';
@@ -2671,7 +2848,7 @@ function renderStatus() {
     badge.title = '지도가 이 시각 시세로 그려져 있어요';
     return;
   }
-  el.classList.toggle('live', MODE === 'live' && liveState.ok && (open || DATA.afterHours));
+  el.classList.toggle('live', MODE === 'live' && liveState.ok && (open || DATA.afterHours || DATA.nx.open));
   el.classList.toggle('err', MODE === 'live' && !liveState.ok);
   const k = DATA.k, lastK = liveState.last ? kst(liveState.last) : null;
   if (MODE === 'snapshot') {
@@ -2681,20 +2858,24 @@ function renderStatus() {
   } else if (!liveState.ok) {
     txt.textContent = '연결이 끊겼어요. 다시 시도하는 중';
     badge.textContent = '재연결';
-  } else if (showBasis) {
-    for (const b of bas.children) b.setAttribute('aria-pressed', String(b.dataset.v === state.basis));
-    const nb = bas.querySelector('[data-v="nxt"]');
-    nb.querySelector('.bl').textContent = `NXT 포함 · ${k.hhmm} 기준`;
-    nb.querySelector('.bs').textContent = `NXT ${k.hhmm}`;
-    nb.setAttribute('aria-label', `NXT 포함, ${k.hhmm} 기준`);
-    nb.title = '정규장 뒤 NXT·시간외 거래가 섞인 마지막 가격으로 그려요';
-    const ck = kst(CLOSE.asOf);
-    txt.textContent = CLOSE_ON ? `${kstDayFmt.format(new Date(CLOSE.asOf))} ${ck ? ck.hhmm : '15:30'} 종가` : DATA.afterHours && lastK ? `${kstClock.format(liveState.last)} 갱신` : (okAsOf ? kstDayFmt.format(asOf) : '');
-  } else if (nxtMixed() && k) {
-    // after the close (or NXT's pre-market) without a 정규장 종가 file for that day: the quotes carry NXT / 시간외 trades
-    badge.textContent = `NXT 포함 · ${k.hhmm} 기준`;
-    badge.title = '정규장 밖 NXT·시간외 거래가 섞인 가격이에요';
-    txt.textContent = DATA.afterHours && lastK ? `${kstClock.format(liveState.last)} 갱신` : (okAsOf ? kstDayFmt.format(asOf) : '');
+  } else if (blab) {
+    for (const b of bas.children) {
+      const on = b.dataset.v === BASIS.v;
+      b.setAttribute('aria-pressed', String(on));
+      if (b.dataset.v === 'nxt') {
+        const lg = BASIS.legacy;
+        b.title = lg ? '정규장 뒤 NXT·시간외 거래가 섞인 마지막 가격으로 그려요' : '넥스트레이드(NXT) 가격으로 그려요. NXT에서 거래되지 않는 종목은 KRX 값 그대로 빗금으로 보여요';
+        b.setAttribute('aria-label', lg ? 'NXT 포함 가격' : 'NXT 가격');
+      } else {
+        const L = krxLabel();
+        b.title = L.title;
+        b.setAttribute('aria-label', L.long);
+      }
+    }
+    const L = basisLabel();
+    badge.replaceChildren(h('span', { class: 'bl', text: L.long }), h('span', { class: 'bs', 'aria-hidden': 'true', text: L.short }));
+    badge.title = L.title;
+    txt.textContent = (DATA.afterHours || DATA.nx.open) && lastK ? `${kstClock.format(liveState.last)} 갱신` : (okAsOf ? kstDayFmt.format(asOf) : '');
   } else if (open) {
     txt.textContent = lastK ? `${kstClock.format(liveState.last)} 갱신` : '';
     ts.textContent = lastK ? lastK.hhmm : '';
@@ -2704,6 +2885,15 @@ function renderStatus() {
     ts.textContent = shortDay(k);
     badge.textContent = '장 마감';
   }
+}
+// the colour's wording in the footer for today's change, by the price basis
+function basisColTxt() {
+  if (MODE !== 'live' || REPLAY || BASIS.phase === 'regular') return '전일 대비 등락률';
+  if (BASIS.v === 'nxt' && BASIS.nxt) return '전일 대비 등락률(NXT 가격 기준, NXT에서 거래되지 않는 종목은 KRX 값을 빗금으로)';
+  if (BASIS.v === 'nxt') return '전일 대비 등락률(NXT·시간외 거래 포함)';
+  if (BASIS.krx === 'close') return '전일 대비 등락률(KRX 정규장 종가 기준)';
+  if (BASIS.krx === 'prev') return `${dayName(CLOSE.date)} 등락률(KRX 종가 기준)`;
+  return '전일 대비 등락률';
 }
 function renderFooter() {
   const asOf = DATA.asOf ? kstFmt.format(new Date(DATA.asOf)) : '';
@@ -2716,7 +2906,7 @@ function renderFooter() {
   const sizeTxt = themeOv ? '테마 구성 종목의 시가총액 합' : isFlow() ? `${FLOW_WHO[state.sizeBy]} 순매수 금액(${state.flowWin === 1 ? '1일' : state.flowWin + '일 합'}, 순매수 주식 수 × 그날 종가)` : SIZE_METRICS[state.sizeBy];
   let colTxt;
   if (k === 'flow') colTxt = '순매수(빨강 쪽)·순매도(반대쪽) 방향과 시가총액 대비 크기';
-  else if (k === 'day') colTxt = themeOv && naverThemeDay() ? '네이버 증권의 테마 등락률' : CLOSE_ON ? '전일 대비 등락률(KRX 정규장 종가 기준)' : '전일 대비 등락률';
+  else if (k === 'day') colTxt = themeOv && naverThemeDay() ? '네이버 증권의 테마 등락률' : basisColTxt();
   else { const P = PER(), m = COLOR_METRICS[state.colorBy]; colTxt = `${m.long}(현재가 ÷ ${P && P.base ? dayName(P.base[m.key]) + ' ' : '기준일 '}종가 − 1)`; }
   const parts = [h('p', {}, `데이터: ${DATA.source || '네이버 증권'}. 크기는 ${sizeTxt}, 색은 ${colTxt}이에요. 섹터 분류는 네이버 업종(WICS 기준)을, 테마는 네이버 증권 테마를 따랐어요. 투자 판단의 근거로 쓰지 마세요.`)];
   const daily = [];
@@ -2726,9 +2916,9 @@ function renderFooter() {
   if (THEMES && THEMES.asOf && state.market === 'THEME') daily.push(`테마 구성은 ${dayName(THEMES.asOf)} 기준이에요`);
   if (daily.length) parts.push(h('p', {}, daily.join('. ') + '.'));
   if (MODE === 'live') {
-    const ck = CLOSE ? kst(CLOSE.asOf) : null;
-    parts.push(h('p', {}, '정규장 중에는 10초마다 새 시세를 받아 와요. ' + (basisAvail()
-      ? `정규장(${ck ? ck.hhmm : '15:30'}) 뒤에는 위에서 '정규장 종가'(KRX 종가)와 'NXT 포함'(NXT·시간외 거래가 섞인 마지막 가격) 중에 골라 볼 수 있어요.`
+    parts.push(h('p', {}, '정규장과 NXT 거래 시간에는 10초마다 새 시세를 받아 와요. ' + (BASIS.show && !BASIS.legacy
+      ? '정규장 밖에서는 위에서 KRX(한국거래소)와 NXT(넥스트레이드) 가격 중에 골라 볼 수 있어요. NXT 프리마켓(08:00~08:50)과 애프터마켓(15:30~20:00) 중에는 NXT가 기본이고, NXT에서 거래되지 않는 종목은 KRX 값을 빗금으로 보여요. 장 시작 전 KRX는 어제 종가와 그날 등락률이에요.'
+      : BASIS.show ? `정규장 뒤에는 위에서 KRX 정규장 종가와 'NXT'(NXT·시간외 거래가 섞인 마지막 가격) 중에 골라 볼 수 있어요.`
       : '정규장 밖 시간의 시세에는 NXT·시간외 거래가 섞여요.')));
   }
   if (MODE === 'snapshot') parts.push(h('p', {}, `이 화면은 ${asOf} 시세를 담은 스냅샷이라 자동으로 갱신되지 않아요. `,
@@ -3161,10 +3351,10 @@ function renderSugg() {
     if (s.ext) {
       // outside the map: the quote when we have one, else just name · code · market and "종목 페이지"
       const r = s.row, nm = s.n || (r && r.n) || `${s.c} 종목`, mk = s.m || (r && r.m);
-      return suggOption(s, i, [h('i', { class: 'sw', style: `background:${r ? colorFor(r) : NODATA}` }), h('span', {}, nm, ' ', h('span', { class: 'meta', text: `${s.c}${mk ? ' · ' + MKT_NAME[mk] : ''}${(s.n || r) && isPreferred({ c: s.c }) ? ' · 우선주' : ''}` })),
+      return suggOption(s, i, [h('i', { class: 'sw' + (r && r.nonx ? ' nonx' : ''), style: `background:${r ? colorFor(r) : NODATA}` }), h('span', {}, nm, ' ', h('span', { class: 'meta', text: `${s.c}${mk ? ' · ' + MKT_NAME[mk] : ''}${(s.n || r) && isPreferred({ c: s.c }) ? ' · 우선주' : ''}${r && r.nonx ? ' · NXT 없음' : ''}` })),
         h('span', { class: 'meta num', text: r && r.p > 0 ? fmtInt(r.p) : '' }), r ? h('span', { class: 'num ' + cls(r.r), text: fmtPct(r.r) }) : h('span', { class: 'meta', text: '종목 페이지' })]);
     }
-    return suggOption(s, i, [h('i', { class: 'sw', style: `background:${colorFor(s)}` }), h('span', {}, s.n, ' ', h('span', { class: 'meta', text: `${s.c} · ${s.i}` })),
+    return suggOption(s, i, [h('i', { class: 'sw' + (s.nonx ? ' nonx' : ''), style: `background:${colorFor(s)}` }), h('span', {}, s.n, ' ', h('span', { class: 'meta', text: `${s.c} · ${s.i}${s.nonx ? ' · NXT 없음' : ''}` })),
       h('span', { class: 'meta num', text: s.p > 0 ? fmtInt(s.p) : '—' }), h('span', { class: 'num ' + cls(s.r), text: fmtPct(s.r) })]);
   });
   if (!opts.length) opts.push(h('div', { class: 'empty' }, loadingNames ? '종목 목록을 불러오는 중…' : `'${q}'와 맞는 ${where} 없어요.`,
@@ -3268,9 +3458,8 @@ async function loadClose(fresh) {
     const k = kst(j.asOf);
     CLOSE = { date: j.date, asOf: j.asOf || `${j.date}T15:30:00+09:00`, c: j.c, hm: k && k.date === j.date ? k.hm : '1530' };
   }
-  const was = CLOSE_ON;
-  syncBasis();
-  if (was !== CLOSE_ON || basisAvail()) { renderAll(); refreshOpenViews(); }
+  if (syncBasis()) { snapShown(); renderAll(); refreshOpenViews(); }
+  emitBasis();
   renderStatus();
 }
 // after the close, a close.json for an older day is re-checked every 10 min (the daily job writes the new one around 16:10)
@@ -3298,14 +3487,14 @@ async function pollOnce() {
     const raw = await res.json();
     if (!raw || !Array.isArray(raw.stocks) || !raw.stocks.length) throw new Error('empty');
     if (seq !== pollSeq) return;             // a newer poll took over (the tab came back)
-    const hadBasis = basisAvail();
+    const hadBasis = BASIS.key;
     const changed = setData(raw);
     liveState.ok = true; liveState.last = new Date();
-    open = marketOpen();
+    open = sessionLive();
     render({ animate: !REPLAY }); renderSide(); renderCrumbs(); renderHeader(); renderLegend();
-    if (hadBasis !== basisAvail()) renderFooter();
+    if (hadBasis !== BASIS.key) { renderFooter(); refreshOpenViews(); }
     maybeReloadClose();
-    // flashes follow the live quotes; under 정규장 종가 the drawn prices do not move
+    // flashes follow the prices as drawn (NXT, KRX quotes); KRX closes do not move
     flashChanged(changed);
     if (fancy()) { const dot = $('#status .dot'); if (dot) { dot.classList.remove('beat'); void dot.offsetWidth; dot.classList.add('beat'); } }
     if (state.hover && tip.classList.contains('show') && !String(state.hover).startsWith('#')) { const st = get(state.hover); if (st) fillTip(st); }
@@ -3380,7 +3569,7 @@ async function pollExtra() {
       bump();
       render(); renderCrumbs(); renderSide(); renderLegend();
       if (state.hover && tip.classList.contains('show') && !String(state.hover).startsWith('#')) { const st = get(state.hover); if (st) fillTip(st); }
-      extra.timer = setTimeout(pollExtra, !extra.ok ? 15000 : (marketOpen() || DATA.afterHours) ? 10000 : 60000);
+      extra.timer = setTimeout(pollExtra, !extra.ok ? 15000 : (sessionLive() || DATA.afterHours) ? 10000 : 60000);
     }
   }
 }
@@ -3445,6 +3634,7 @@ function setReplay(frame, opts) {
   render(); renderSide(); renderCrumbs(); renderStatus(); renderLegend(); renderFooter();
   if (before) startTween(before, tw, opts.easing === 'out');
   refreshOpenViews();
+  emitBasis();
 }
 // the tooltip and the quick-view sheet show the values as drawn now (replay frame, 정규장 종가)
 function refreshOpenViews() {
@@ -3469,6 +3659,7 @@ function khLayout() {
       const t = { kind: 'tile', x, y, w, h: hh, color: el.__col || NODATA, label: el.__name || '', sub: el.__sub || '' };
       if (el.dataset.c) { t.code = el.dataset.c; if (el.__px) t.px = el.__px; }   // px: the price as drawn (정규장 종가 / replay)
       if (el.classList.contains('dim')) t.dim = true;                              // dimmed by search / 등락 분포 bucket / sector hover
+      if (el.classList.contains('nonx')) t.nonx = true;                            // NXT prices drawn, no NXT trade: the KRX value (§3-8)
       out.push(t);
     } else {
       const sec = el.classList.contains('sec'), hd = el.firstChild, H = el.__hd || 0;
@@ -3504,16 +3695,20 @@ window.KH = {
   view: () => (V3D ? '3d' : state.view),
   range: () => curRange(),
   market: () => ({ THEME: 'theme', WATCH: 'watch', WORLD: 'world', CMDTY: 'cmdty' })[state.market] || state.market,
+  basis: basisId,
 };
 
-/* 정규장 종가 · NXT 포함 */
+/* KRX · NXT (§3-8): the pick lasts while the session phase lasts (khm.basis) */
 $('#basis').addEventListener('click', e => {
   const b = e.target.closest('button[data-v]');
-  if (!b || b.dataset.v === state.basis) return;
-  state.basis = b.dataset.v;
-  syncBasis();
+  if (!b || b.dataset.v === BASIS.v) return;
+  basisPick = { v: b.dataset.v, phase: BASIS.phase, at: Date.now() };
+  store.set('basis', basisPick);
+  if (!syncBasis()) return;
+  snapShown();
   render({ animate: true }); renderCrumbs(); renderSide(); renderLegend(); renderFooter(); renderStatus();
   refreshOpenViews();
+  emitBasis();
 });
 /* the 등락 분포 card fetches the whole market only while it is on screen */
 if ('IntersectionObserver' in window) new IntersectionObserver(es => {

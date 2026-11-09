@@ -6,6 +6,8 @@ import sys, json, re, urllib.request
 sys.path.insert(0, '/home/claude/hm-heatmap/qa/heatmap')
 from common import launch, Log, LABEL_CHECK_JS, VIEWPORTS
 from playwright.sync_api import sync_playwright
+sys.path.insert(0, '/home/claude/hm-heatmap/qa/heatmap2')
+import nxt_fix   # §3-8: the price basis depends on the session phase, so the basis checks answer quotes from fixed phases
 
 build = sys.argv[1] if len(sys.argv) > 1 else 'snapshot'
 LIVE = build == 'live'
@@ -37,11 +39,14 @@ def pnum(t):
     return float(t.replace('−', '-').replace('%', '').replace('+', '').replace(',', '').strip())
 
 
-def fresh(b, vp, store=None, hsh='', init=(), routes=None, wait=WAIT):
+def fresh(b, vp, store=None, hsh='', init=(), routes=None, wait=WAIT, phase=None):
     # service workers off when a test rewrites responses (the PWA worker would answer from its cache)
-    ctx = b.new_context(**VIEWPORTS[vp], **({'service_workers': 'block'} if routes else {}))
+    # phase (live): /api/quotes + /api/breadth from nxt_fix's phase and the page clock at that phase (routes added later win)
+    ctx = b.new_context(**VIEWPORTS[vp], **({'service_workers': 'block'} if routes or phase else {}))
     for s in init: ctx.add_init_script(s)
     pg = ctx.new_page(); log = Log(); log.attach(pg)
+    if phase and LIVE:
+        pg.clock.set_fixed_time(nxt_fix.CLOCK[phase]); nxt_fix.route(pg, phase)
     for pat, fn in (routes or {}).items(): pg.route(pat, fn)
     pg.goto(URL)
     js = "for (const k of Object.keys(localStorage)) if (k.startsWith('khm.')) localStorage.removeItem(k);"
@@ -99,16 +104,16 @@ with sync_playwright() as p:
     ok('m390 theme table shows 테마 + 등락률', hs[:2] == ['테마', '등락률'], hs)
     ctx.close()
 
-    # ───── 2 정규장 종가 / NXT 포함 (live) ─────
+    # ───── 2 KRX 종가 / NXT after the close (live; §3-8 phases mocked: 11/09 21:30 after the after-market, and an older Worker) ─────
     if LIVE:
-        q = {s['c']: s for s in api('api/quotes')['stocks']}
-        ss = q['005930']
-        ctx, pg, log = fresh(b, 'd1280', store={'market': 'K'})
-        st = pg.evaluate("({hidden: document.getElementById('basis').hidden, pressed: document.querySelector('#basis [aria-pressed=\"true\"]')?.dataset.v, status: document.getElementById('status').innerText})")
+        Qn = {s['c']: s for s in nxt_fix.built('night')[0]['stocks']}
+        ss = Qn['005930']
+        ctx, pg, log = fresh(b, 'd1280', store={'market': 'K'}, phase='night')
+        st = pg.evaluate("({hidden: document.getElementById('basis').hidden, pressed: document.querySelector('#basis [aria-pressed=\"true\"]')?.dataset.v, badge: document.querySelector('#status .badge .bl')?.textContent})")
         lab = pg.evaluate("document.querySelector('#map .tile[data-c=\"005930\"]').getAttribute('aria-label')")
         c = CLOSE['c']['005930']
-        ok('after 15:30 with close.json of that day: toggle shown, 정규장 종가 by default', not st['hidden'] and st['pressed'] == 'krx', st)
-        ok(f"정규장 종가: 삼성전자 tile % = close.json {c[2]}", abs(pnum(lab.split(' ')[-1]) - c[2]) < 0.006, (lab, c))
+        ok('after the after-market with close.json of that day: KRX · NXT shown, KRX 15:30 종가 by default', not st['hidden'] and st['pressed'] == 'krx' and st['badge'] == 'KRX 15:30 종가', st)
+        ok(f"KRX 종가: 삼성전자 tile % = close.json {c[2]}", abs(pnum(lab.split(' ')[-1]) - c[2]) < 0.006, (lab, c))
         # table / tooltip / side / layout px follow
         pg.hover('#map .tile[data-c="005930"]'); pg.wait_for_timeout(250)
         tipPx = pg.evaluate("document.querySelector('#tip .card-head .px b').textContent")
@@ -120,28 +125,27 @@ with sync_playwright() as p:
         row = pg.evaluate("[...document.querySelector('#tablewrap tr[data-c=\"005930\"]').children].map(td => td.textContent)")
         ok('table 현재가 / 등락률 = 종가', int(row[2].replace(',', '')) == c[0] and abs(pnum(row[3]) - c[2]) < 0.006, row[:4])
         pg.click('.viewseg button[data-v="map"]'); pg.wait_for_timeout(300)
-        # size by cap follows the price (cap × p_close / p_live)
+        # size by cap follows the price (cap × p_shown / p_quote)
         w1 = pg.evaluate("(() => { const L = KH.layout().filter(n => n.kind === 'tile'); const a = L.find(n => n.code === '005930'), b = L.find(n => n.code === '000660'); return a.w * a.h / (b.w * b.h); })()")
         pg.click('#basis [data-v="nxt"]'); pg.wait_for_timeout(900)
         lab2 = pg.evaluate("document.querySelector('#map .tile[data-c=\"005930\"]').getAttribute('aria-label')")
-        st2 = pg.evaluate("({pressed: document.querySelector('#basis [aria-pressed=\"true\"]')?.dataset.v, nxt: document.querySelector('#basis [data-v=\"nxt\"] .bl').textContent})")
-        ok(f"NXT 포함: 삼성전자 tile % = live quote {ss['r']}", abs(pnum(lab2.split(' ')[-1]) - ss['r']) < 0.006 and st2['pressed'] == 'nxt', (lab2, st2))
-        ok('NXT button reads "NXT 포함 · HH:MM 기준"', re.fullmatch(r'NXT 포함 · \d\d:\d\d 기준', st2['nxt']), st2)
+        st2 = pg.evaluate("({pressed: document.querySelector('#basis [aria-pressed=\"true\"]')?.dataset.v, badge: document.querySelector('#status .badge .bl')?.textContent})")
+        ok(f"NXT: 삼성전자 tile % = the after-market's last NXT price {ss['nx']['r']}", abs(pnum(lab2.split(' ')[-1]) - ss['nx']['r']) < 0.006 and st2['pressed'] == 'nxt', (lab2, st2))
+        ok('NXT badge reads "NXT 애프터마켓 마감 · HH:MM 기준"', re.fullmatch(r'NXT 애프터마켓 마감 · \d\d:\d\d 기준', st2['badge'] or ''), st2)
         w2 = pg.evaluate("(() => { const L = KH.layout().filter(n => n.kind === 'tile'); const a = L.find(n => n.code === '005930'), b = L.find(n => n.code === '000660'); return a.w * a.h / (b.w * b.h); })()")
-        cs, ch = CLOSE['c']['005930'][0] / ss['p'], CLOSE['c']['000660'][0] / q['000660']['p']
-        ok('tile area ratio follows the basis (cap × p_shown / p_live)', abs((w1 / w2) / (cs / ch) - 1) < 0.04, (round(w1, 4), round(w2, 4), round(cs / ch, 4)))
+        cs, ch = CLOSE['c']['005930'][0] / ss['nx']['p'], CLOSE['c']['000660'][0] / Qn['000660']['nx']['p']
+        ok('tile area ratio follows the basis (cap × p_shown / p_quote)', abs((w1 / w2) / (cs / ch) - 1) < 0.04, (round(w1, 4), round(w2, 4), round(cs / ch, 4)))
         pg.screenshot(path=ROOT + 'qa/heatmap2/shots3/nxt-d1280.png')
         ctx.close()
         # phones: a short time stays visible
-        ctx, pg, log = fresh(b, 'm390')
+        ctx, pg, log = fresh(b, 'm390', phase='night')
         vis = pg.evaluate("[...document.querySelectorAll('#status *')].filter(e => e.offsetParent && /\\d\\d:\\d\\d/.test(e.textContent) && !e.children.length).map(e => e.textContent)")
-        # (while the session is live and the clock is on, the clock in the title spot is the time on a phone)
         ok('m390: a HH:MM is visible in the header', vis, vis)
         ctx.close()
-        # no close.json for that day → plain "NXT 포함 · HH:MM 기준" badge, no toggle
-        ctx, pg, log = fresh(b, 'm390', routes={'**/data/close.json': lambda r: r.fulfill(status=404, body='{}')})
-        st = pg.evaluate("({hidden: document.getElementById('basis').hidden, badge: document.querySelector('#status .badge').textContent, vis: getComputedStyle(document.querySelector('#status .badge')).display})")
-        ok('close.json 404 → no toggle, badge "NXT 포함 · HH:MM 기준" visible on a phone', st['hidden'] and re.fullmatch(r'NXT 포함 · \d\d:\d\d 기준', st['badge']) and st['vis'] != 'none', st)
+        # older Worker and no close.json for that day → no choice, badge "통합 시세 · HH:MM 기준" (short on a phone)
+        ctx, pg, log = fresh(b, 'm390', phase='legacy', routes={'**/data/close.json': lambda r: r.fulfill(status=404, body='{}')})
+        st = pg.evaluate("({hidden: document.getElementById('basis').hidden, badge: document.querySelector('#status .badge .bl')?.textContent, short: document.querySelector('#status .badge .bs')?.textContent, vis: getComputedStyle(document.querySelector('#status .badge .bs')).display})")
+        ok('close.json 404 → no choice, badge "통합 시세 · HH:MM 기준", "통합 HH:MM" visible on a phone', st['hidden'] and re.fullmatch(r'통합 시세 · \d\d:\d\d 기준', st['badge'] or '') and re.fullmatch(r'통합 \d\d:\d\d', st['short'] or '') and st['vis'] != 'none', st)
         n404 = len([u for u in log.reqs if 'close.json' in u]); pg.wait_for_timeout(6000)
         ok('close.json 404 is not retried in a loop (one request per page load, none after)', len([u for u in log.reqs if 'close.json' in u]) == n404 == 3, n404)
         ctx.close()
@@ -150,7 +154,7 @@ with sync_playwright() as p:
     def dist(pg):
         return pg.evaluate("({scope: document.getElementById('breadthScope').textContent, lab: document.getElementById('breadthLab').textContent, note: document.getElementById('histNote').textContent})")
     for mk, name in [('K', '코스피'), ('Q', '코스닥')]:
-        ctx, pg, log = fresh(b, 'd1280', store={'market': mk})
+        ctx, pg, log = fresh(b, 'd1280', store={'market': mk}, phase='night')
         d = dist(pg)
         if LIVE:
             rs = [x for x in CLOSE['c'] if NAMES.get(x, [0, ''])[1] == mk]
@@ -165,21 +169,24 @@ with sync_playwright() as p:
         ok(f'{name} bucket click: "이 구간 N종목 중 지도에 M종목" + map dims', re.search(r'이 구간 [\d,]+종목 중 지도에 [\d,]+종목', d2['note']) and dimmed > 0, (d2['note'], dimmed))
         ctx.close()
     if LIVE:
-        # NXT 포함 → /api/breadth parts (1-based); partial and total failure
-        bK = [api('api/breadth?m=K&part=1')]; bK += [api(f'api/breadth?m=K&part={i}') for i in range(2, bK[0]['parts'] + 1)]
-        rowsK = [r for x in bK for r in x['rows']]
-        ctx, pg, log = fresh(b, 'd1280', store={'market': 'K'})
+        # older Worker after the close, 'NXT 포함' → /api/breadth parts (1-based); partial and total failure
+        q_l, br_l = nxt_fix.built('legacy')
+        stream = {x['c']: x for x in q_l['stocks'] if x['m'] == 'K'}
+        rowsK = [r for (m, _), bb in sorted(br_l.items()) if m == 'K' for r in bb['rows']]
+        vals = [stream[r[0]]['r'] if r[0] in stream else r[1] for r in rowsK]
+        ctx, pg, log = fresh(b, 'd1280', store={'market': 'K'}, phase='legacy')
         pg.click('#basis [data-v="nxt"]'); pg.wait_for_timeout(2500)
-        d = dist(pg); up = sum(1 for r in rowsK if r[1] > 0)
+        d = dist(pg); up = sum(1 for v in vals if v > 0)
         reqs = sorted(set(u.split('?')[1] for u in log.reqs if 'api/breadth' in u))
-        ok(f'NXT 포함: 코스피 전 종목 {len(rowsK)} from /api/breadth parts 1..{bK[0]["parts"]}', d['scope'] == f'코스피 전 종목 {len(rowsK):,}' and f'상승 {up:,}' in d['lab'] and 'm=K&part=0' not in reqs, (d, reqs))
+        nparts = max(k[1] for k in br_l if k[0] == 'K')
+        ok(f'NXT 포함 (older Worker): 코스피 전 종목 {len(rowsK)} from /api/breadth parts 1..{nparts}', d['scope'] == f'코스피 전 종목 {len(rowsK):,}' and f'상승 {up:,}' in d['lab'] and 'm=K&part=0' not in reqs, (d, reqs, up))
         ctx.close()
-        ctx, pg, log = fresh(b, 'd1280', store={'market': 'K'}, routes={'**/api/breadth?m=K&part=2': lambda r: r.abort()})
+        ctx, pg, log = fresh(b, 'd1280', store={'market': 'K'}, phase='legacy', routes={'**/api/breadth?m=K&part=2': lambda r: r.abort()})
         pg.click('#basis [data-v="nxt"]'); pg.wait_for_timeout(2500)
         d = dist(pg)
         ok('one part fails → counts what arrived + "일부만 반영"', '일부만 반영' in d['scope'] and '일부 묶음' in d['note'], d)
         ctx.close()
-        ctx, pg, log = fresh(b, 'd1280', store={'market': 'K'}, routes={'**/api/breadth*': lambda r: r.fulfill(status=502, body='{"error":"x"}')})
+        ctx, pg, log = fresh(b, 'd1280', store={'market': 'K'}, phase='legacy', routes={'**/api/breadth*': lambda r: r.fulfill(status=502, body='{"error":"x"}')})
         pg.click('#basis [data-v="nxt"]'); pg.wait_for_timeout(2500)
         d = dist(pg)
         ok('every part fails → map stocks + says so', d['scope'].startswith('코스피 지도 ') and '불러오지 못해 지도 종목' in d['note'], d)
@@ -280,7 +287,7 @@ with sync_playwright() as p:
 
     # ───── 11 상/하한가 marks ─────
     # 관심종목 map: two giants and three limit stocks (live: 정규장 종가 rows from close.json carry the limit moves)
-    ctx, pg, log = fresh(b, 'd1280', store={'market': 'WATCH', 'watch': ['000250', '008930', '267270', '222800', '138930', '012750', '900300', '179530', '267850']})
+    ctx, pg, log = fresh(b, 'd1280', store={'market': 'WATCH', 'watch': ['000250', '008930', '267270', '222800', '138930', '012750', '900300', '179530', '267850']}, phase='night')
     r = pg.evaluate("""() => [...document.querySelectorAll('#map .tile.limu, #map .tile.limd')].map(t => { const g = t.getBoundingClientRect(), be = getComputedStyle(t, '::before');
       return { c: t.dataset.c, w: Math.round(g.width), h: Math.round(g.height), aria: t.getAttribute('aria-label'), bar: be.content !== 'none' ? be.height : null, chip: !t.querySelector('.lim').hidden }; })""")
     if r:
