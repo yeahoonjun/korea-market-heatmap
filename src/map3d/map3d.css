@@ -1,0 +1,56 @@
+/* 3D 지도 (src/map3d) — AGENTS.md §3-5. Everything lives inside <div id="map3d"> (the template sizes and places it). */
+#map3d.m3{position:relative;background:#000;overflow:hidden;border-radius:6px;isolation:isolate;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent}
+#map3d[hidden]{display:none}
+/* touch: sideways drags turn the map, vertical ones still scroll the page (docs/motion-brief.md f) */
+.m3 .m3-cv{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:pan-y;outline:none;cursor:grab}
+.m3 .m3-cv:active{cursor:grabbing}
+.m3 .m3-cv:focus-visible{outline:2px solid var(--amber,#ffb547);outline-offset:-2px}
+.m3 .m3-labels{position:absolute;inset:0;pointer-events:none;overflow:hidden;contain:strict}
+.m3-lab,.m3-sec{position:absolute;left:0;top:0;white-space:nowrap;will-change:transform}
+.m3-lab[hidden],.m3-sec[hidden],.m3 .m3-labels[hidden]{display:none}
+.m3-lab{display:flex;flex-direction:column;align-items:center;color:#fff;font-weight:650;line-height:1.06;letter-spacing:-.015em;
+  text-shadow:0 0 1px rgba(0,0,0,.6),0 0 3px rgba(0,0,0,.42),0 1px 2px rgba(0,0,0,.5)}
+.m3-lab .b{font-size:.8em;font-weight:600;margin-top:.14em;font-variant-numeric:tabular-nums}
+.m3-sec{display:flex;align-items:baseline;gap:.42em;padding:.18em .55em .24em;border-radius:5px;background:rgba(12,13,16,.8);
+  box-shadow:0 0 0 1px rgba(255,255,255,.07),0 4px 14px rgba(0,0,0,.5);color:var(--fg,#eef0f3);font-weight:700;letter-spacing:-.01em;line-height:1.2}
+.m3-sec .b{font-size:.9em;font-weight:650;font-variant-numeric:tabular-nums}
+.m3-sec .b.flat{color:var(--fg2,#bcc0c8)}
+/* top-left legend for the height */
+.m3 .m3-hud{position:absolute;left:10px;top:10px;display:flex;align-items:baseline;gap:8px;max-width:calc(100% - 20px);padding:6px 10px;border-radius:8px;
+  background:rgba(19,20,24,.8);border:1px solid var(--line,#2b2d34);font-size:12px;color:var(--fg2,#bcc0c8);pointer-events:none;white-space:nowrap;overflow:hidden;
+  box-shadow:0 6px 20px rgba(0,0,0,.4)}
+.m3 .m3-hud b{color:var(--amber,#ffb547);font-weight:800;font-size:11.5px;letter-spacing:.02em}
+.m3 .m3-hud .m{color:var(--fg,#eef0f3);font-weight:600}
+.m3 .m3-hud .s{color:var(--muted,#8a8f99);font-variant-numeric:tabular-nums;overflow:hidden;text-overflow:ellipsis}
+/* zoom / reset */
+.m3 .m3-ctl{position:absolute;right:10px;bottom:10px;display:flex;flex-direction:column;border-radius:9px;overflow:hidden;
+  background:rgba(19,20,24,.86);border:1px solid var(--line,#2b2d34);box-shadow:0 6px 20px rgba(0,0,0,.45)}
+.m3 .m3-btn{width:34px;height:34px;display:grid;place-items:center;color:var(--fg2,#bcc0c8);font-size:18px;font-weight:500;line-height:1;background:none;border:0;cursor:pointer}
+.m3 .m3-btn + .m3-btn{border-top:1px solid var(--line,#2b2d34)}
+.m3 .m3-btn:hover{color:var(--fg,#eef0f3);background:rgba(255,255,255,.05)}
+.m3 .m3-btn:focus-visible{outline:2px solid var(--amber,#ffb547);outline-offset:-2px}
+/* gesture hint: fades after the first interaction */
+.m3 .m3-hint{position:absolute;left:50%;bottom:12px;transform:translateX(-50%);max-width:calc(100% - 80px);padding:6px 12px;border-radius:999px;
+  background:rgba(19,20,24,.84);border:1px solid var(--line,#2b2d34);color:var(--fg2,#bcc0c8);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  pointer-events:none;transition:opacity .5s}
+.m3 .m3-hint.gone{opacity:0}
+.m3 .m3-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;margin:0}
+/* loading / unavailable / empty */
+.m3 .m3-msg{position:absolute;inset:0;display:grid;place-items:center;padding:20px;text-align:center;z-index:2;background:#000}
+.m3 .m3-msg[hidden]{display:none}
+.m3 .m3-msg-in{display:flex;flex-direction:column;align-items:center;gap:6px;max-width:340px;color:var(--muted,#8a8f99);font-size:13.5px;line-height:1.6}
+.m3 .m3-msg-in b{color:var(--fg,#eef0f3);font-size:15.5px;font-weight:700}
+.m3 .m3-back{margin-top:8px;height:40px;padding:0 14px;border-radius:8px;border:1px solid rgba(255,181,71,.4);background:var(--amber-soft,rgba(255,181,71,.14));
+  color:var(--amber,#ffb547);font-size:13px;font-weight:600;cursor:pointer}
+.m3-tip .tiphint{padding:7px 13px 9px;font-size:11.5px;color:var(--muted,#8a8f99)}
+@media (max-width:760px), (pointer:coarse){
+  .m3 .m3-btn{width:40px;height:40px}
+  .m3 .m3-hud{font-size:11.5px;padding:5px 9px;gap:6px}
+  .m3 .m3-hint{left:10px;right:62px;bottom:10px;transform:none;max-width:none;white-space:normal;border-radius:10px;font-size:11.5px;line-height:1.45}
+}
+@media (max-width:420px){
+  .m3 .m3-hud .s{display:none}
+}
+@media (prefers-reduced-motion: reduce){
+  .m3 .m3-hint{transition:none}
+}
