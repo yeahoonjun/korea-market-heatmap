@@ -177,6 +177,19 @@ const S = {
   listFocus: null,
 };
 let root = null, els = null;
+// effect level (AGENTS §3-5): KH.motion() when the heatmap has it, else the OS setting decides between reduced and standard
+function motion() {
+  try { if (typeof KH.motion === 'function') { const m = KH.motion(); return m === 'reduced' || m === 'fancy' ? m : 'standard'; } } catch (e) { /* fall through */ }
+  return reduceMQ.matches ? 'reduced' : 'standard';
+}
+const calm = () => motion() === 'reduced';
+function syncMotion() {
+  if (!root) return;
+  const m = motion();
+  root.classList.toggle('kw-fx', m === 'fancy');            // new effects (open-market pulse, map intro) only here
+  root.classList.toggle('kw-rm', m === 'reduced');          // no transitions at all
+  if (sheet) sheet.classList.toggle('kw-noanim', m === 'reduced');
+}
 
 /* normalise one /api/world payload; throws on a wrong shape */
 function normalise(j, kind) {
@@ -259,6 +272,8 @@ function scaffold() {
   new ResizeObserver(() => { if (S.shown && S.view === 'map' && els.map.clientWidth !== els.mapW) schedRender(); }).observe(map);
   new ResizeObserver(() => { if (S.shown && S.view === 'list' && els.list.clientWidth !== els.listW) schedRender(); }).observe(list);
   new ResizeObserver(() => { if (S.shown && S.mode === 'geo' && els.g && els.geo.clientWidth !== els.g.W) schedRender(); }).observe(geo);
+  // the open-market pulse ('fancy') stops while the map is off screen or the browser tab is hidden
+  if ('IntersectionObserver' in window) new IntersectionObserver(es => { for (const e of es) S.offscreen = !e.isIntersecting; root.classList.toggle('kw-paused', document.hidden || !!S.offscreen); }).observe(geo);
   geo.addEventListener('click', onGeoClick);
   geo.addEventListener('keydown', onGeoKey);
   geo.addEventListener('focusin', e => { const b = e.target.closest('.kw-gb'); if (b) setGeoFocus(b.dataset.f); });
@@ -296,6 +311,7 @@ const schedRender = () => { cancelAnimationFrame(rafR); rafR = requestAnimationF
 function render() {
   if (!S.shown || !els) return;
   if (els.snap) return renderSnapshot();
+  syncMotion();
   const K = KINDS[S.kind], d = S.data[S.kind], err = S.err[S.kind];
   $('.kw-title', els.bar).textContent = K.title;
   $('.kw-side', root).setAttribute('aria-label', `${K.title} 요약`);
@@ -308,6 +324,7 @@ function render() {
   const geoFailed = wantGeo && GEO.state === 'failed';
   const mode = !hasData ? 'msg' : S.view === 'list' || geoFailed ? 'list' : wantGeo ? (GEO.state === 'ready' ? 'geo' : 'geoload') : 'tiles';
   S.mode = mode;
+  if (mode !== 'geo') { clearTimeout(nightT); nightT = 0; }
   syncTools(hasData, mode);
   els.list.hidden = mode !== 'list';
   els.geo.hidden = mode !== 'geo';
@@ -657,6 +674,7 @@ function renderLegend(d) {
     kids.push(h('span', { class: 'lg' }, h('i', { class: 'sw', style: `background:${GEO_NONE};box-shadow:inset 0 0 0 1px var(--line2)` }), h('span', { text: '지수 없는 나라' })));
     kids.push(h('span', { class: 'lg' }, h('i', { class: 'kw-sd open', 'aria-hidden': 'true' }), h('span', { text: '장중' }),
       h('i', { class: 'kw-sd close', 'aria-hidden': 'true' }), h('span', { text: '마감' })));
+    kids.push(h('span', { class: 'lg' }, h('i', { class: 'sw kw-nightsw', 'aria-hidden': 'true' }), h('span', { text: '어두운 쪽은 지금 밤' })));
     kids.push(h('span', { class: 'lg right' }, h('span', { class: 'k', text: '나라 색' }), h('b', { text: '대표 지수 등락률' }), h('span', { class: 'note', text: '눌러서 그 나라 지수를 모두 봐요' })));
     els.legend.replaceChildren(...kids);
     return;
@@ -802,7 +820,7 @@ function rowEl(it) {
   return el;
 }
 function flash(el) {
-  if (reduceMQ.matches) return;
+  if (calm()) return;
   el.classList.remove('kw-fl');
   void el.offsetWidth;                                   // restart the fade when values change on consecutive refreshes
   el.classList.add('kw-fl');
@@ -1081,6 +1099,44 @@ function geoProjection(W, narrow) {
 const svgEl = (tag, attrs) => svg(tag, attrs);
 const fx1 = v => v.toFixed(1);
 
+/* day / night (AGENTS §3-5, docs/motion-brief.md (e)) — information, so drawn at every effect level, statically.
+   Subsolar point from the low-precision almanac (good to ~0.01°, plenty at 110m); the night side is the 90° circle around
+   the antisolar point, drawn as four nested caps (90 · 84 · 78 · 72° = sunset, civil, nautical, astronomical twilight) of
+   12 % each, so the darkest part is ≈ 40 % and the countries' colours still read. Redrawn every minute (0.25°/min). */
+const NIGHT_R = [90, 84, 78, 72];
+const wrapLon = x => ((x % 360) + 540) % 360 - 180;
+function subsolar(t) {
+  const rad = Math.PI / 180, d = t / 864e5 - 10957.5;
+  const g = (357.529 + 0.98560028 * d) * rad;
+  const q = 280.459 + 0.98564736 * d;
+  const L = (q + 1.915 * Math.sin(g) + 0.020 * Math.sin(2 * g)) * rad;
+  const e = (23.439 - 3.6e-7 * d) * rad;
+  const ra = Math.atan2(Math.cos(e) * Math.sin(L), Math.cos(L)) / rad;
+  const dec = Math.asin(Math.sin(e) * Math.sin(L)) / rad;
+  const eqt = ((((q - ra) / 15) % 24) + 36) % 24 - 12;          // equation of time in hours, [−12, 12)
+  const utc = (((t % 864e5) + 864e5) % 864e5) / 36e5;
+  return [wrapLon(-15 * (utc - 12 + eqt)), dec];
+}
+function nightCentre(t) { const [lon, lat] = subsolar(t); return [wrapLon(lon + 180), -lat]; }
+function drawNight() {
+  const g = els && els.g;
+  if (!g || !g.night.isConnected) return;
+  const t = Date.now(), c = nightCentre(t), path = d3.geoPath(g.P);
+  const cap = r => d3.geoCircle().center(c).radius(r).precision(2)();
+  const kids = NIGHT_R.map(r => svgEl('path', { class: 'kw-gn', d: path(cap(r)) || '' }));
+  // the terminator as a line (a polygon outline would also trace the map's edge where the cap is cut)
+  kids.push(svgEl('path', { class: 'kw-gterm', d: path({ type: 'LineString', coordinates: cap(90).coordinates[0] }) || '' }));
+  g.night.replaceChildren(...kids);
+  g.night.dataset.lon = c[0].toFixed(2); g.night.dataset.lat = c[1].toFixed(2);
+  g.nightMin = Math.floor(t / 60000);
+}
+let nightT = 0;
+function schedNight() {
+  clearTimeout(nightT); nightT = 0;
+  if (!S.shown || S.mode !== 'geo' || document.hidden) return;
+  nightT = setTimeout(() => { nightT = 0; drawNight(); schedNight(); }, 60000 - Date.now() % 60000 + 40);
+}
+
 function buildGeo(d, W, narrow, G, sig) {
   const ae = document.activeElement;
   const fk = ae && ae.classList && ae.classList.contains('kw-gb') && els.geo.contains(ae) ? ae.dataset.f : null;
@@ -1090,7 +1146,7 @@ function buildGeo(d, W, narrow, G, sig) {
   const byId = new Map(G.cs.map(x => [x.c.id, x]));
   const s = svgEl('svg', { class: 'kw-gsvg', width: W, height: H, viewBox: `0 0 ${W} ${H}`, 'aria-hidden': 'true' });
   s.append(svgEl('path', { class: 'kw-gsea', d: path({ type: 'Sphere' }) }), svgEl('path', { class: 'kw-ggrat', d: path(d3.geoGraticule10()) }));
-  // layers, bottom to top (motion brief (e)): fills → night (day/night shading, empty for now) → borders → open-market outline → selection / hover → leader lines → markers
+  // layers, bottom to top (motion brief (e)): fills → night → borders → open-market glow → selection / hover → leader lines → markers
   const land = svgEl('g', { class: 'kw-gland' });
   const paths = new Map(), dOf = new Map(), border = [];
   for (const f of GEO.features) {
@@ -1104,7 +1160,7 @@ function buildGeo(d, W, narrow, G, sig) {
   }
   const layer = c => svgEl('g', { class: c });
   const night = layer('kw-gnight'), glow = layer('kw-gglow'), selG = layer('kw-gsel'), hov = layer('kw-ghov'), lines = layer('kw-glines'), marks = layer('kw-gmarks');
-  glow.append(layer('kw-ggl'));
+  glow.append(layer('kw-ggb'), layer('kw-ggl'));
   s.append(land, night, svgEl('path', { class: 'kw-gbord', d: border.join('') }), glow, selG, hov, lines, marks);
   const hovP = svgEl('path', {});
   hov.append(hovP);
@@ -1113,13 +1169,16 @@ function buildGeo(d, W, narrow, G, sig) {
   const labs = h('div', { class: 'kw-glabs' });
   const btns = new Map(), dots = new Map(), inLabs = [], colList = [];
   const cols = {};
-  // a market marker: a 5 px dot (amber = open, hollow grey = closed)
+  // a market marker: a 5 px dot (amber = open, hollow grey = closed) and, behind it, the ring that pulses in 'fancy'
+  const delay = x => (((x.c.at[0] + 180) / 360) * 2.4).toFixed(2) + 's';       // west → east wave
   const addDot = (x, ax, ay, big) => {
+    const pr = svgEl('circle', { class: 'kw-gp', cx: fx1(ax), cy: fx1(ay), r: big ? 4.5 : 2.5 });
+    pr.style.animationDelay = delay(x);
     const dot = svgEl('circle', { class: big ? 'kw-gmk' : 'kw-gdot', cx: fx1(ax), cy: fx1(ay), r: big ? (narrow ? 3.5 : 4.5) : narrow ? 2.2 : 2.5 });
     dot.dataset.c = x.c.id;
     if (big) dot.append(svgEl('title', {}));
-    marks.append(dot);
-    dots.set(x.c.id, { dot });
+    marks.append(pr, dot);
+    dots.set(x.c.id, { dot, pr });
   };
   for (const x of G.cs) {
     const [ax, ay] = P(x.c.at) || [NaN, NaN];
@@ -1128,12 +1187,12 @@ function buildGeo(d, W, narrow, G, sig) {
     if (narrow) {
       // phones: the big markets carry a % on the map, the others a marker; the buttons under the map are the way in
       if (!x.c.big) { if (!x.c.marker) addDot(x, ax, ay, false); continue; }
-      const b = h('span', { class: 'kw-gl in sm', 'data-c': x.c.id, 'aria-hidden': 'true'}, h('i', { class: 'kw-sd' }), h('span', { class: 'p' }));
+      const b = h('span', { class: 'kw-gl in sm', 'data-c': x.c.id, 'aria-hidden': 'true', style: `--pd:${delay(x)}` }, h('i', { class: 'kw-sd' }), h('span', { class: 'p' }));
       labs.append(b); btns.set(x.c.id, b); inLabs.push({ el: b, x: ax, y: ay });
       continue;
     }
     if (x.c.big && !(mid && x.c.id === '360')) {
-      const b = h('button', { type: 'button', class: 'kw-gb kw-gl in', 'data-c': x.c.id, 'data-f': 'c' + x.c.id, tabindex: '-1'},
+      const b = h('button', { type: 'button', class: 'kw-gb kw-gl in', 'data-c': x.c.id, 'data-f': 'c' + x.c.id, tabindex: '-1', style: `--pd:${delay(x)}` },
         h('span', { class: 'n' }, h('i', { class: 'kw-sd' }), h('span', { class: 't' })), h('span', { class: 'p' }));
       labs.append(b); btns.set(x.c.id, b); inLabs.push({ el: b, x: ax, y: ay });
       continue;
@@ -1167,7 +1226,13 @@ function buildGeo(d, W, narrow, G, sig) {
       h('i', { class: 'sw' }), h('span', { class: 't' }, h('b', { text: x.c.name }), h('small')), h('span', { class: 'p' })))) : null;
   put(els.geo, mapBox, grid, offBelow && G.off.length ? off : null);
   els.geo.classList.toggle('narrow', narrow);
-  els.g = { sig, W, H, P, narrow, paths, dOf, btns, dots, night, glow, selG, lines, inLabs, cols: colList, cs: G.cs, off: G.off, openSig: null };
+  const first = !els.g;
+  els.g = { sig, W, H, P, narrow, paths, dOf, btns, dots, night, glow, selG, lines, inLabs, cols: colList, cs: G.cs, off: G.off, openSig: null, was: new Map(), nightMin: -1 };
+  // 'fancy': the first time the map opens, countries → night → markers fade in (motion brief (e))
+  if (first && motion() === 'fancy') {
+    mapBox.classList.add('kw-gin');
+    setTimeout(() => mapBox.classList.remove('kw-gin'), 1200);
+  }
   if (fk) { const b = els.geo.querySelector(`.kw-gb[data-f="${CSS.escape(fk)}"]`); if (b) b.focus({ preventScroll: true }); }
 }
 function renderGeo(d) {
@@ -1192,7 +1257,11 @@ function renderGeo(d) {
     if (m) {
       if (m.dot.classList.contains('kw-gmk')) { m.dot.style.fill = col; m.dot.firstChild.textContent = tip; }
       m.dot.classList.toggle('open', open); m.dot.classList.toggle('sel', sel);
+      m.pr.classList.toggle('on', open);
+      // a market that just opened rings three times first (only seen in 'fancy', where the rings move)
+      if (open && g.was.get(x.c.id) === false) { m.pr.classList.add('just'); setTimeout(() => m.pr.classList.remove('just'), 2500); }
     }
+    g.was.set(x.c.id, open);
     const aria = `${x.c.name} ${it.name} ${valText(it)}, ${pct(it.ratio)}, ${open ? '장중' : '마감'}${x.items.length > 1 ? `, 지수 ${x.items.length}개` : ''}`;
     const b = g.btns.get(x.c.id);
     if (b) {
@@ -1213,11 +1282,12 @@ function renderGeo(d) {
       c.setAttribute('aria-label', aria);
     }
   }
-  // open markets: a static amber outline, redrawn only when the set changes
+  // open markets: a static amber outline + soft glow, redrawn only when the set changes
   const osig = openIds.join(',');
   if (g.openSig !== osig) {
     g.openSig = osig;
-    const [gl] = g.glow.children;
+    const [gb, gl] = g.glow.children;
+    gb.replaceChildren(...openIds.filter(id => g.dOf.has(id)).map(id => svgEl('path', { d: g.dOf.get(id) })));
     gl.replaceChildren(...openIds.filter(id => g.dOf.has(id)).map(id => svgEl('path', { d: g.dOf.get(id), 'data-c': id })));
   }
   syncGeoSel();
@@ -1234,11 +1304,13 @@ function renderGeo(d) {
     b.setAttribute('aria-label', ariaOf(it));
   }
   placeLabels();
+  if (g.nightMin !== Math.floor(Date.now() / 60000)) drawNight();
+  schedNight();
   // roving focus over the map's buttons
   const fs = [...els.geo.querySelectorAll('.kw-gb')];
   if (!S.geoFocus || !fs.some(b => b.dataset.f === S.geoFocus)) S.geoFocus = fs.length ? fs[0].dataset.f : null;
   for (const b of fs) b.tabIndex = b.dataset.f === S.geoFocus ? 0 : -1;
-  els.geo.setAttribute('aria-label', '해외 지수 세계지도. 나라마다 대표 지수의 등락률로 칠했어요. 화살표로 옮기고 Enter로 자세히 봐요');
+  els.geo.setAttribute('aria-label', '해외 지수 세계지도. 나라마다 대표 지수의 등락률로 칠했고, 지금 밤인 쪽은 어둡게 했어요. 화살표로 옮기고 Enter로 자세히 봐요');
   els.geo.setAttribute('role', 'group');
 }
 // the selected country's outline sits above the night and the borders
@@ -1456,7 +1528,7 @@ function openDetail(key, opener, peers, place) {
   markSel(key);
   fillDetail(true);
   sheet.hidden = false;
-  sheet.classList.toggle('kw-noanim', reduceMQ.matches);
+  sheet.classList.toggle('kw-noanim', calm());
   if (narrowMQ.matches) scrim.classList.add('open');
   sheet.scrollTop = 0;
   sheet.focus({ preventScroll: true });
@@ -1704,12 +1776,15 @@ function announce(kind, ok) {
 }
 document.addEventListener('visibilitychange', () => {
   if (!S.shown || !LIVE) return;
-  if (document.hidden) { clearTimeout(S.timer); S.timer = 0; S.seq++; S.busy = null; if (S.ac) S.ac.abort(); return; }
+  root.classList.toggle('kw-paused', document.hidden || !!S.offscreen);
+  if (document.hidden) { clearTimeout(S.timer); S.timer = 0; S.seq++; S.busy = null; if (S.ac) S.ac.abort(); clearTimeout(nightT); nightT = 0; return; }
+  if (S.mode === 'geo') { drawNight(); schedNight(); }
   const age = Date.now() - (S.at[S.kind] || 0);
   if (!S.data[S.kind] || age >= POLL_MS) load(S.kind); else schedule(POLL_MS - age);
 });
 // the clock in the header refreshes everything at once (AGENTS §3-6): fetch now, keep view, scroll and focus
 document.addEventListener('kh:refresh', () => { if (S.shown && LIVE && !document.hidden) load(S.kind); });
+document.addEventListener('kh:motion', () => { if (S.shown && els && !els.snap) syncMotion(); });
 document.addEventListener('kh:palette', () => {
   if (!S.shown || !els || els.snap) return;
   render();
@@ -1743,6 +1818,7 @@ function show(kind) {
 function hide() {
   S.shown = false;
   clearTimeout(S.timer); S.timer = 0;
+  clearTimeout(nightT); nightT = 0;
   S.seq++; S.busy = null;
   if (S.ac) S.ac.abort();
   closeDetail(false);

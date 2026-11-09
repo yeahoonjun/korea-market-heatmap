@@ -5,7 +5,8 @@
 
 Starts qa/world/mock_api.py on :8803 (serves web/ + /api/world*), injects qa/world/shim.js for the §3-4 template hooks
 until they are merged, and writes screenshots to qa/shots/world/. --real also runs a smoke pass against the local Worker
-(NODE_USE_ENV_PROXY=1 ASSET_BASE=http://127.0.0.1:8803/ PORT=8802 node worker/dev/serve.mjs, started and stopped here).
+(NODE_USE_ENV_PROXY=1 ASSET_BASE=http://127.0.0.1:8803/ PORT=8802 node worker/dev/serve.mjs, started and stopped here);
+--real-cdn makes that pass fetch the world atlas from jsDelivr itself (SRI checked by the browser) instead of the fixture.
 Exit code 1 if any check fails.
 """
 import json
@@ -534,7 +535,7 @@ def kind_pass(browser, kind, width, height):
         ctx.close()
 
 
-# ── world map (해외 지수 · 지도, AGENTS §3-4) ──
+# ── world map (해외 지수 · 지도, AGENTS §3-4) + day / night (§3-5, docs/motion-brief.md (e)) ──
 # representative index per country (AGENTS list), ISO numeric ids as in world-atlas
 REP = {'840': 'INX', '484': 'MXX', '076': 'BVSP', '372': 'ISEQ', '826': 'FTSE', '528': 'AEX', '056': 'BFX', '250': 'FCHI',
        '620': 'PSI20', '724': 'IBEX', '752': 'OMXS30', '276': 'GDAXI', '348': 'BUX', '380': 'FTMIB', '356': 'BSESN', '156': 'SSEC',
@@ -542,6 +543,28 @@ REP = {'840': 'INX', '484': 'MXX', '076': 'BVSP', '372': 'ISEQ', '826': 'FTSE', 
 IDX = {it['key']: dict(it, gkey=g['key']) for g in FIX['index']['groups'] for it in g['items']}
 REP_HERE = {c: k for c, k in REP.items() if k in IDX}
 OFF = [k for k, it in IDX.items() if it['gkey'] in ('usf', 'ref') or k == 'STOXX50E']       # not tied to one country
+
+
+def subsolar(ms):
+    """the same low-precision almanac as the brief, written independently → night centre (lon, lat)"""
+    import math
+    rad = math.pi / 180
+    d = ms / 864e5 - 10957.5
+    g = (357.529 + 0.98560028 * d) * rad
+    q = 280.459 + 0.98564736 * d
+    lam = (q + 1.915 * math.sin(g) + 0.020 * math.sin(2 * g)) * rad
+    e = (23.439 - 3.6e-7 * d) * rad
+    ra = math.degrees(math.atan2(math.cos(e) * math.sin(lam), math.cos(lam)))
+    dec = math.degrees(math.asin(math.sin(e) * math.sin(lam)))
+    eqt = (((q - ra) / 15) % 24 + 36) % 24 - 12
+    utc = (ms % 864e5) / 36e5
+    lon = -15 * (utc - 12 + eqt)
+    wrap = lambda x: (x % 360 + 540) % 360 - 180
+    return wrap(lon + 180), -dec
+
+
+def lon_diff(a, b):
+    return abs((a - b + 540) % 360 - 180)
 
 
 GEO_JS = r"""
@@ -581,7 +604,10 @@ GEO_JS = r"""
   if (box) { const br = box.getBoundingClientRect(); for (const { el, r } of labs) if (hit(r, br)) out.overlap.push(`${el.dataset.c} under the side box`); }
   const offKeys = [...geo.querySelectorAll('.kw-go')].map(b => b.dataset.k);
   const vix = geo.querySelector('.kw-go[data-k="VIX"] .kw-pchip');
+  const n = geo.querySelector('.kw-gnight');
   return { coloured, out, offKeys, vixGrey: !!vix && vix.classList.contains('ref') && getComputedStyle(vix).backgroundColor === 'rgba(0, 0, 0, 0)',
+    night: { caps: n.querySelectorAll('.kw-gn').length, line: n.querySelectorAll('.kw-gterm').length, lon: +n.dataset.lon, lat: +n.dataset.lat,
+      empty: [...n.children].filter(c => !c.getAttribute('d')).length, op: getComputedStyle(n.querySelector('.kw-gn')).fillOpacity, fill: getComputedStyle(n.querySelector('.kw-gn')).fill },
     order: [...geo.querySelector('.kw-gsvg').children].map(c => c.getAttribute('class')),
     h: mr.height, w: mr.width, narrow };
 }"""
@@ -603,6 +629,7 @@ def geo_pass(browser, width, height):
     ctx, page = open_page(browser, LIVE + '#world', width, height, mobile, view='map')
     try:
         wait_world(page, GEO_SEL)
+        t0 = page.evaluate('Date.now()')
         tag = f'world map {width}'
         r = page.evaluate(GEO_JS, {c: IDX[k] for c, k in REP_HERE.items()})
         o = r['out']
@@ -613,8 +640,12 @@ def geo_pass(browser, width, height):
         check(f'{tag}: labels do not overlap each other or the side box', not o['overlap'], '; '.join(o['overlap'][:3]))
         check(f'{tag}: open markets outlined + marked, closed ones not', not o['open'], '; '.join(o['open'][:3]))
         check(f'{tag}: US futures · Euro Stoxx 50 · VIX in the side box, VIX grey', sorted(r['offKeys']) == sorted(OFF) and r['vixGrey'], str(r['offKeys']))
+        nt = r['night']
+        lon, lat = subsolar(t0)
+        check(f'{tag}: day/night — four 12 % caps + terminator around the antisolar point', nt['caps'] == 4 and nt['line'] == 1 and nt['empty'] == 0 and nt['op'] == '0.12'
+              and nt['fill'] == 'rgb(5, 8, 20)' and lon_diff(nt['lon'], lon) < 0.5 and abs(nt['lat'] - lat) < 0.3, f"centre {nt['lon']:.2f},{nt['lat']:.2f} vs {lon:.2f},{lat:.2f}")
         order = [c for c in r['order'] if c in ('kw-gland', 'kw-gnight', 'kw-gbord', 'kw-gglow', 'kw-glines', 'kw-gmarks')]
-        check(f'{tag}: layers fills → night → borders → outline → lines → markers', order == ['kw-gland', 'kw-gnight', 'kw-gbord', 'kw-gglow', 'kw-glines', 'kw-gmarks'], str(order))
+        check(f'{tag}: layers fills → night → borders → glow → lines → markers', order == ['kw-gland', 'kw-gnight', 'kw-gbord', 'kw-gglow', 'kw-glines', 'kw-gmarks'], str(order))
         ov = page.evaluate("document.documentElement.scrollWidth - document.documentElement.clientWidth")
         check(f'{tag}: no horizontal overflow', ov <= 0, f'{ov}px')
         if mobile:
@@ -759,6 +790,57 @@ def geo_refresh_pass(browser):
               str(st) + ' ' + '; '.join((r['out']['colour'] + r['out']['label'])[:2]))
     finally:
         api('/__reset')
+        ctx.close()
+
+
+def night_pass(browser):
+    # a fixed instant: 2026-06-21 12:00 UTC → the sun over ~0°E, 23.4°N; night centred near 180°, −23.4°
+    t = 1782043200000
+    ctx, page = open_page(browser, LIVE + '#world', 1280, 800, clock=t, view='map')
+    try:
+        wait_world(page, GEO_SEL)
+        t = page.evaluate('Date.now()')
+        a = page.evaluate("[+document.querySelector('.kw-gnight').dataset.lon, +document.querySelector('.kw-gnight').dataset.lat]")
+        lon, lat = subsolar(t)
+        check('day/night: centre at the antisolar point (June solstice, noon UTC)', lon_diff(a[0], lon) < 0.3 and abs(a[1] - lat) < 0.2 and abs(a[1] + 23.4) < 0.2, f'{a} vs {lon:.2f},{lat:.2f}')
+        page.clock.run_for(60 * 60 * 1000)
+        page.wait_for_timeout(100)
+        b = page.evaluate("[+document.querySelector('.kw-gnight').dataset.lon, +document.querySelector('.kw-gnight').dataset.lat]")
+        lon2, _ = subsolar(t + 3600000)
+        check('day/night: redrawn every minute (an hour later the night moved 15° west)', lon_diff(b[0], lon2) < 0.3 and abs(lon_diff(a[0], b[0]) - 15) < 0.3, f'{a[0]} → {b[0]}')
+    finally:
+        ctx.close()
+    # every effect level draws it; only 'fancy' pulses the open markets (KH.motion() stubbed: the template adds it later)
+    ctx, page = open_page(browser, LIVE + '#world', 1280, 800, view='map', reduced=True)
+    try:
+        wait_world(page, GEO_SEL)
+        r = page.evaluate("({ caps: document.querySelectorAll('.kw-gnight .kw-gn').length, rm: document.getElementById('world').classList.contains('kw-rm'), anim: [...document.querySelectorAll('.kw-gp')].filter(p => getComputedStyle(p).animationName !== 'none').length })")
+        check('day/night under reduced motion: still drawn, nothing moves', r['caps'] == 4 and r['rm'] and r['anim'] == 0, str(r))
+    finally:
+        ctx.close()
+    ctx, page = open_page(browser, LIVE + '#world', 1440, 900, view='map')
+    try:
+        wait_world(page, GEO_SEL)
+        PULSE = """() => { const rings = [...document.querySelectorAll('#world .kw-gp.on')].filter(p => getComputedStyle(p).animationName === 'kwRing');
+            const labs = [...document.querySelectorAll('#world .kw-gl.in .kw-sd.open')].filter(d => getComputedStyle(d, '::after').animationName === 'kwRing');
+            const open = document.querySelectorAll('#world .kw-gdot.open, #world .kw-gmk.open').length + document.querySelectorAll('#world .kw-gl.in .kw-sd.open').length;
+            const dl = rings.map(p => [+p.getAttribute('cx'), parseFloat(p.style.animationDelay)]).sort((a, b) => a[0] - b[0]).map(x => x[1]);
+            return { rings: rings.length, labs: labs.length, open, wave: dl.every((v, i) => !i || v >= dl[i - 1] - 0.02), glow: document.querySelectorAll('#world .kw-ggl path').length }; }"""
+        std = page.evaluate(PULSE)
+        check("effects 'standard': open markets glow (static), no pulse", std['rings'] == 0 and std['labs'] == 0 and std['glow'] > 0, str(std))
+        page.evaluate("KH.motion = () => 'fancy'; document.dispatchEvent(new CustomEvent('kh:motion', { detail: { motion: 'fancy' } }))")
+        page.wait_for_timeout(100)
+        fx = page.evaluate(PULSE)
+        check("effects 'fancy': one pulse ring per open marker, staggered west → east", fx['rings'] + fx['labs'] == fx['open'] and fx['open'] > 0 and fx['wave'] and fx['rings'] + fx['labs'] <= 25, str(fx))
+        page.evaluate("Object.defineProperty(document, 'hidden', {configurable: true, get: () => true}); document.dispatchEvent(new Event('visibilitychange'))")
+        ps = page.evaluate("getComputedStyle(document.querySelector('#world .kw-gp.on')).animationPlayState")
+        page.evaluate("Object.defineProperty(document, 'hidden', {configurable: true, get: () => false}); document.dispatchEvent(new Event('visibilitychange'))")
+        check("effects 'fancy': pulse paused while the browser tab is hidden", ps == 'paused', ps)
+        page.screenshot(path=str(SHOTS / 'geo_fancy_1440.png'))
+        page.evaluate("KH.motion = () => 'standard'; document.dispatchEvent(new CustomEvent('kh:motion', { detail: { motion: 'standard' } }))")
+        page.wait_for_timeout(50)
+        check("effects back to 'standard': pulse stops", page.evaluate(PULSE)['rings'] == 0)
+    finally:
         ctx.close()
 
 
@@ -1086,19 +1168,39 @@ def real_pass(browser):
                 time.sleep(0.5)
     try:
         real = {k: api(f'/api/world?kind={k}', f'http://127.0.0.1:{REAL_PORT}') for k in ('index', 'commodity')}
+        # 해외 지도 = the world map, with the atlas from the real jsDelivr (SRI checked by the browser) when it can be reached
+        atlas = 'real' if '--real-cdn' in sys.argv else 'local'
+        ctx, page = open_page(browser, f'http://127.0.0.1:{REAL_PORT}/#world', 1440, 900, view='map', atlas=atlas)
+        try:
+            wait_world(page, GEO_SEL, timeout=30000)
+            now = api('/api/world?kind=index', f'http://127.0.0.1:{REAL_PORT}')
+            items = {it['key']: it for g in now['groups'] for it in g['items']}
+            reps = {c: items[k] for c, k in REP.items() if k in items}
+            r = page.evaluate(GEO_JS, reps)
+            o = r['out']
+            check(f'real Worker world map ({atlas} atlas): every representative index coloured, labels clean', r['coloured'] >= len(reps) - 2 and not (o['clip'] or o['overlap'] or o['none']),
+                  f"{r['coloured']}/{len(reps)}; " + '; '.join((o['colour'] + o['clip'] + o['overlap'])[:3]))
+            page.click('#world .kw-gl[data-c="840"]')
+            page.wait_for_selector('.kw-sheet svg.kw-svg', timeout=20000)
+            check('real Worker world map: 미국 → sheet with chart', page.evaluate("document.querySelectorAll('.kw-sheet .kw-peers button').length") >= 3)
+            page.keyboard.press('Escape')
+            page.screenshot(path=str(SHOTS / 'real_geo_1440.png'), full_page=True)
+        finally:
+            ctx.close()
+        # 원자재 지도 = the tile map
+        want = sum(len(g['items']) for g in real['commodity']['groups'])
+        ctx, page = open_page(browser, f'http://127.0.0.1:{REAL_PORT}/#cmdty', 1440, 900, view='map')
+        try:
+            wait_world(page, timeout=20000)
+            n = page.evaluate("document.querySelectorAll('#world .kw-tile').length")
+            lab = page.evaluate(LABELS_JS)
+            page.click('#world .kw-tile')
+            page.wait_for_selector('.kw-sheet svg.kw-svg', timeout=20000)
+            check('real Worker commodity: tiles, labels inside, chart', abs(n - want) <= 2 and not lab['out'], f'{n} tiles (api {want}); ' + '; '.join(lab['out'][:2]))
+            page.screenshot(path=str(SHOTS / 'real_commodity_1440.png'))
+        finally:
+            ctx.close()
         for kind, hsh in (('index', 'world'), ('commodity', 'cmdty')):
-            want = sum(len(g['items']) for g in real[kind]['groups'])
-            ctx, page = open_page(browser, f'http://127.0.0.1:{REAL_PORT}/#{hsh}', 1440, 900, view='map')
-            try:
-                wait_world(page, timeout=20000)
-                n = page.evaluate("document.querySelectorAll('#world .kw-tile').length")
-                lab = page.evaluate(LABELS_JS)
-                page.click('#world .kw-tile')
-                page.wait_for_selector('.kw-sheet svg.kw-svg', timeout=20000)
-                check(f'real Worker {kind}: tiles, labels inside, chart', abs(n - want) <= 2 and not lab['out'], f'{n} tiles (api {want}); ' + '; '.join(lab['out'][:2]))
-                page.screenshot(path=str(SHOTS / f'real_{kind}_1440.png'))
-            finally:
-                ctx.close()
             # the default list view against the same Worker: every row, values as the API gives them
             for w, hgt in ((1440, 900), (390, 844)):
                 ctx, page = open_page(browser, f'http://127.0.0.1:{REAL_PORT}/#{hsh}', w, hgt, w < 700)
@@ -1151,6 +1253,7 @@ def main():
             geo_keyboard_pass(browser)
             geo_fallback_pass(browser)
             geo_refresh_pass(browser)
+            night_pass(browser)
             refresh_event_pass(browser)
             keyboard_pass(browser)
             palette_pass(browser)
