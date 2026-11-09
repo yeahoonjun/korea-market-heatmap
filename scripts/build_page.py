@@ -38,13 +38,14 @@ def page(mode: str) -> str:
     # the artifact's content-security policy blocks jsDelivr, so the snapshot page carries a font subset inline
     font = FONT_INLINE if mode == "snapshot" else FONT_CDN
     data = blob if mode == "snapshot" else LIVE_BOOT
-    return (tpl.replace("<!--__FONT__-->", font).replace("<!--__STOCK__-->", stock_module())
+    extra = embedded_data() if mode == "snapshot" else ""
+    return (tpl.replace("<!--__FONT__-->", font).replace("<!--__STOCK__-->", extra + stock_module())
             .replace("__MODE__", mode).replace("__SNAPSHOT__", data))
 
 
-def stock_module() -> str:
-    """The stock page (src/stock/) is inlined after the heatmap script. Missing files → nothing."""
-    css_p, js_p = ROOT / "src/stock/stock.css", ROOT / "src/stock/stock.js"
+def module(folder: str, name: str) -> str:
+    """Inline src/<folder>/<name>.css and .js (missing files → nothing)."""
+    css_p, js_p = ROOT / f"src/{folder}/{name}.css", ROOT / f"src/{folder}/{name}.js"
     out = ""
     if css_p.exists():
         out += "<style>\n" + css_p.read_text(encoding="utf-8") + "\n</style>\n"
@@ -53,8 +54,30 @@ def stock_module() -> str:
     return out
 
 
+def stock_module() -> str:
+    """The stock page (src/stock/) and the extras (src/extras/) are inlined after the heatmap script."""
+    return module("stock", "stock") + module("extras", "extras")
+
+
+DATA_FILES = ("themes", "periods", "flows")
+
+
+def embedded_data() -> str:
+    """Snapshot mode can't fetch, so the daily data files ride along as JSON blocks: <script id="kh-data-themes">."""
+    out = ""
+    for name in DATA_FILES:
+        f = ROOT / "web" / f"{name}.json"
+        if f.exists():
+            txt = json.dumps(json.loads(f.read_text(encoding="utf-8")), ensure_ascii=False, separators=(",", ":")).replace("</", "<\\/")
+            out += f'<script id="kh-data-{name}" type="application/json">{txt}</script>\n'
+    return out
+
+
 (ROOT / "web").mkdir(exist_ok=True)
 (ROOT / "web/index.html").write_text(page("live"), encoding="utf-8")
+import shutil
+for f in (ROOT / "src/pwa").iterdir():          # manifest, service worker, icons for "add to home screen"
+    shutil.copyfile(f, ROOT / "web" / f.name)
 (ROOT / "dist").mkdir(exist_ok=True)
 (ROOT / "dist/index.html").write_text(page("snapshot"), encoding="utf-8")
 
