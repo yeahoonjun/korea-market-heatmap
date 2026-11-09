@@ -77,6 +77,9 @@ def summary(code):
     }
     if not CONFIG.get('nosum'):
         out.update(summary_extra(integ, info))
+    if CONFIG.get('bump'):   # /__config?bump=700 → the price moves by that many won (a rising/falling quote for the odometer checks)
+        b = int(CONFIG['bump']); prev = out['price'] - out['change']
+        out['price'] += b; out['change'] += b; out['ratio'] = round(out['change'] / prev * 100, 2) if prev else out['ratio']
     if CONFIG.get('status'):
         out['marketStatus'] = CONFIG['status']
     if CONFIG.get('asof'):
@@ -205,6 +208,8 @@ def chart(code, tf):
 def orderbook(code):
     j = raw(code, 'askingPrice')
     jit = lambda q: max(1, int(q * random.uniform(0.85, 1.15)))   # make each poll visibly different
+    if CONFIG.get('obfix'):   # /__config?obfix=1 → fixed quantities (no jitter), obfix=2 → every quantity +1000
+        k = int(CONFIG['obfix']); jit = lambda q: q + (1000 if k == 2 else 0)
     asks = [{'price': num(x['price']), 'qty': jit(num(x['count']))} for x in reversed(j['sellInfo'])]   # best (lowest) ask first
     bids = [{'price': num(x['price']), 'qty': jit(num(x['count']))} for x in j['buyInfos']]
     now = dt.datetime.now(dt.timezone.utc).isoformat(timespec='milliseconds').replace('+00:00', 'Z')   # real Worker: UTC with ms
