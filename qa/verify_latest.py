@@ -1,0 +1,60 @@
+import sys; sys.path.insert(0, '/home/claude/heatmap/qa')
+from common import *
+crumbs = lambda pg: pg.inner_text('#crumbs').replace('\n', ' ')
+rows = lambda pg: pg.evaluate("document.querySelectorAll('#tablewrap tbody tr').length")
+with sync_playwright() as p:
+    b = launch(p)
+    ctx, pg, log = new_page(b, 'd1280', SNAP_URL)
+    # 1 hash back to boot entry
+    pg.click('.tabs button[data-mkt="K"]'); pg.wait_for_timeout(500); pg.go_back(); pg.wait_for_timeout(600)
+    print('1 back to hash-less entry ->', crumbs(pg)[:10], '| hash', pg.evaluate('location.hash'))
+    # 7 ALL crumb
+    pg.click('.tabs button[data-mkt="ALL"]'); pg.wait_for_timeout(600)
+    print('7 ALL root crumb:', pg.inner_text('#crumbs button.c'))
+    pg.click('.tabs button[data-mkt="Q"]'); pg.wait_for_timeout(600)
+    # 2 table staleness
+    pg.click('.seg[data-key="view"] button[data-v="table"]'); pg.wait_for_timeout(300)
+    sw0 = pg.eval_on_selector('#tablewrap tbody tr .nmcell i', 'e=>e.style.background')
+    pg.click('#secs button >> nth=0'); pg.wait_for_timeout(400)
+    a = (pg.inner_text('#crumbs .stat'), rows(pg))
+    pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
+    pg.click('.seg[data-key="topN"] button[data-v="100"]'); pg.wait_for_timeout(300)
+    bb = (pg.inner_text('#crumbs .stat'), rows(pg))
+    pg.click('.seg[data-key="palette"] button[data-v="cvd"]'); pg.wait_for_timeout(300)
+    sw1 = pg.eval_on_selector('#tablewrap tbody tr .nmcell i', 'e=>e.style.background')
+    pg.click('.seg[data-key="range"] button[data-v="10"]'); pg.wait_for_timeout(300)
+    print('2 table view: sector click', a, '| topN100', bb, '| first swatch krg->cvd', sw0, '->', sw1)
+    pg.click('.seg[data-key="palette"] button[data-v="krg"]'); pg.click('.seg[data-key="range"] button[data-v="3"]'); pg.click('.seg[data-key="topN"] button[data-v="300"]')
+    pg.click('.seg[data-key="view"] button[data-v="map"]'); pg.wait_for_timeout(600)
+    # 3 industry zoom header
+    pg.click('#map .sec[data-s="헬스케어"] .hd'); pg.wait_for_timeout(700)
+    s1 = pg.inner_text('#map .sec[data-s="헬스케어"] .hd').replace('\n', ' ')
+    pg.click('#map .ind[data-i="제약"] .hd'); pg.wait_for_timeout(700)
+    s2 = [pg.inner_text(x).replace('\n', ' ') for x in ('#map .sec:not(.leaving) .hd', '#map .ind:not(.leaving) .hd')]
+    print('3 sector header at sector zoom:', s1, '| at industry zoom (sector, industry):', s2)
+    pg.keyboard.press('Escape'); pg.wait_for_timeout(500); pg.keyboard.press('Escape'); pg.wait_for_timeout(700)
+    # 4/5 tooltip peers: KOSPI Samsung
+    pg.click('.tabs button[data-mkt="K"]'); pg.wait_for_timeout(800)
+    bx = pg.locator('#map .tile[data-c="005930"]').bounding_box()
+    pg.mouse.move(bx['x'] + 30, bx['y'] + 30); pg.mouse.move(bx['x'] + 40, bx['y'] + 40); pg.wait_for_timeout(300)
+    print('4/5 tooltip 삼성전자:', pg.inner_text('#tip .peers .ttl'), '| peers:', pg.eval_on_selector_all('#tip .peer .nm', 'e=>e.map(x=>x.textContent)')[:6],
+          '| map header:', pg.inner_text('#map .ind[data-i="반도체와반도체장비"] .hd').replace('\n', ' '))
+    pg.mouse.move(2, 2)
+    # 6 ghost header click
+    hb = pg.locator('#map .sec[data-s="산업재"] .hd').bounding_box()
+    pg.click('#map .sec[data-s="정보기술"] .hd'); pg.wait_for_timeout(60)
+    hit = pg.evaluate(f"(()=>{{const e=document.elementFromPoint({hb['x']+10},{hb['y']+hb['height']/2});const n=e&&e.closest('.node');return n?n.className+' '+(n.dataset.s||''):null}})()")
+    pg.mouse.click(hb['x'] + 10, hb['y'] + hb['height'] / 2); pg.wait_for_timeout(800)
+    print('6 element under old 산업재 header 60ms after zooming 정보기술:', hit, '| click result:', crumbs(pg)[:40])
+    pg.keyboard.press('Escape'); pg.wait_for_timeout(700)
+    print('console', log.console)
+    ctx.close()
+    # 8 HMM overflow screenshot
+    ctx, pg, log = new_page(b, 'm390', SNAP_URL)
+    pg.locator('.tabs button[data-mkt="K"]').tap(); pg.wait_for_timeout(700)
+    pg.locator('#map .sec[data-s="산업재"] .hd').tap(); pg.wait_for_timeout(800)
+    t = pg.locator('#map .tile[data-c="011200"]')
+    r = pg.evaluate("(()=>{const t=document.querySelector('#map .tile[data-c=\"011200\"]');const n=t.querySelector('.nm');return [t.clientWidth,n.scrollWidth,t.querySelector('.lab').style.fontSize]})()")
+    t.screenshot(path=f'{SHOTS}/snapshot_m390_HMM_clipped.png')
+    print('8 HMM tile width / name width / font:', r)
+    ctx.close(); b.close()
