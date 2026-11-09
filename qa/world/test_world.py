@@ -27,6 +27,8 @@ SNAP = (ROOT / 'dist/index.html').as_uri()
 SHIM = (HERE / 'shim.js').read_text(encoding='utf-8')
 FIX = {k: json.loads((HERE / f'fixtures/world_{k}.json').read_text(encoding='utf-8')) for k in ('index', 'commodity')}
 COUNT = {k: sum(len(g['items']) for g in v['groups']) for k, v in FIX.items()}
+ATLAS_URL = 'https://cdn.jsdelivr.net/npm/world-atlas@2.0.2/countries-110m.json'
+ATLAS = (HERE / 'fixtures/countries-110m.json').read_bytes()          # world-atlas 2.0.2 (ISC), Natural Earth data
 WIDTHS = {360: 740, 390: 844, 768: 1024, 1280: 800, 1920: 1080}
 NOPROXY = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 
@@ -50,7 +52,7 @@ class Errors:
     def on_console(self, m):
         if m.type != 'error':
             return
-        if self.expect_net and m.text.startswith('Failed to load resource'):
+        if self.expect_net and (m.text.startswith('Failed to load resource') or 'integrity' in m.text):
             self.expected.append(m.text)
         else:
             self.items.append(m.text[:160])
@@ -63,13 +65,29 @@ class Errors:
 ERR = Errors()
 
 
-def open_page(browser, url, width=1440, height=900, mobile=False, reduced=False, clock=False, view=None, sort=None, block_storage=False):
+def route_atlas(ctx, atlas):
+    """atlas: 'local' serves the fixture (same bytes as jsDelivr, so SRI passes), 'block' fails the request,
+    'bad' sends altered bytes (SRI must reject them), 'real' leaves the network alone."""
+    if atlas == 'real':
+        return
+    ctx.unroute(ATLAS_URL)
+    hdr = {'content-type': 'application/json; charset=utf-8', 'access-control-allow-origin': '*'}
+    if atlas == 'block':
+        ctx.route(ATLAS_URL, lambda r: r.abort())
+    elif atlas == 'bad':
+        ctx.route(ATLAS_URL, lambda r: r.fulfill(status=200, body=ATLAS.replace(b'"Korea"', b'"Corea"', 1) + b' ', headers=hdr))
+    else:
+        ctx.route(ATLAS_URL, lambda r: r.fulfill(status=200, body=ATLAS, headers=hdr))
+
+
+def open_page(browser, url, width=1440, height=900, mobile=False, reduced=False, clock=False, view=None, sort=None, block_storage=False, atlas='local'):
     """view / sort: preset localStorage khm.worldView / khm.worldSort before the page boots (None = leave it empty)."""
     opts = dict(viewport={'width': width, 'height': height}, device_scale_factor=2 if mobile else 1, is_mobile=mobile, has_touch=mobile)
     if reduced:
         opts['reduced_motion'] = 'reduce'
     ctx = browser.new_context(**opts)
     ctx.add_init_script(SHIM)
+    route_atlas(ctx, atlas)
     if block_storage:
         ctx.add_init_script("Object.defineProperty(window, 'localStorage', {configurable: true, get() { throw new DOMException('blocked', 'SecurityError'); }});")
     pre = {k: v for k, v in (('khm.worldView', view), ('khm.worldSort', sort)) if v}
@@ -78,10 +96,13 @@ def open_page(browser, url, width=1440, height=900, mobile=False, reduced=False,
                             + ''.join(f"localStorage.setItem({json.dumps(k)}, {json.dumps(v)});" for k, v in pre.items()) + "})();")
     page = ctx.new_page()
     if clock:
-        page.clock.install()
+        page.clock.install(**({} if clock is True else {'time': clock / 1000}))   # clock=<ms>: start the page at that instant (Python takes seconds)
     ERR.attach(page)
     page.goto(url)
     return ctx, page
+
+
+GEO_SEL = '#world .kw-geo:not([hidden]) .kw-gsvg'
 
 
 def wait_world(page, sel='#world .kw-tile', timeout=8000):
@@ -282,13 +303,14 @@ def toggle_pass(browser):
     try:
         wait_list(page)
         page.click('#world .kw-seg[data-kw=view] button[data-v=map]')
-        wait_world(page)
-        st = page.evaluate("""({ tiles: document.querySelectorAll('#world .kw-tile').length, list: document.querySelector('#world .kw-list').hidden, sort: document.querySelector('#world .kw-seg[data-kw=sort]').hidden,
-            stored: localStorage.getItem('khm.worldView'), pressed: document.querySelector('#world .kw-seg[data-kw=view] button[aria-pressed=true]').textContent })""")
-        check('toggle: 지도 shows the tiles, hides the list and the sort, is stored', st['tiles'] == COUNT['index'] and st['list'] and st['sort'] and st['stored'] == 'map' and st['pressed'] == '지도', str(st))
+        wait_world(page, GEO_SEL)
+        st = page.evaluate("""({ geo: !document.querySelector('#world .kw-geo').hidden, tiles: document.querySelectorAll('#world .kw-tile').length, list: document.querySelector('#world .kw-list').hidden,
+            sort: document.querySelector('#world .kw-seg[data-kw=sort]').hidden, stored: localStorage.getItem('khm.worldView'),
+            pressed: document.querySelector('#world .kw-seg[data-kw=view] button[aria-pressed=true]').textContent })""")
+        check('toggle: 해외 지도 = the world map (no tiles), list and sort hidden, stored', st['geo'] and st['tiles'] == 0 and st['list'] and st['sort'] and st['stored'] == 'map' and st['pressed'] == '지도', str(st))
         page.reload()
-        wait_world(page)
-        check('toggle: 지도 remembered after reload', page.evaluate("KHWorld.view() === 'map' && !document.querySelector('#world .kw-map').hidden"))
+        wait_world(page, GEO_SEL)
+        check('toggle: 지도 remembered after reload', page.evaluate("KHWorld.view() === 'map' && !document.querySelector('#world .kw-geo').hidden"))
         page.click('.tabs button[data-mkt="CMDTY"]')
         wait_world(page, '#world .kw-tile[data-k="CLcv1"]')
         check('toggle: one choice for both tabs (원자재 opens in 지도 too)', page.evaluate("KHWorld.view() === 'map' && document.querySelectorAll('#world .kw-tile').length") == COUNT['commodity'])
@@ -304,7 +326,7 @@ def toggle_pass(browser):
     try:
         wait_list(page)
         page.click('#world .kw-seg[data-kw=view] button[data-v=map]')
-        wait_world(page)
+        wait_world(page, GEO_SEL)
         page.click('#world .kw-seg[data-kw=view] button[data-v=list]')
         wait_list(page)
         check('toggle: blocked localStorage → still works, no errors', page.evaluate("KHWorld.view()") == 'list' and len(ERR.items) == n0, '; '.join(ERR.items[n0:n0 + 2]))
@@ -473,7 +495,7 @@ def list_states_pass(browser):
             page.wait_for_selector('#world .kw-msg', timeout=8000)
             check('list view, failure: message + 다시 시도', '해외 지수를 불러오지 못했어요' in page.evaluate("document.querySelector('#world .kw-msg').textContent") and page.evaluate("document.querySelector('#world .kw-list').hidden"))
             api('/__mode?world=ok')
-            page.tap('#world .kw-retry')
+            page.tap('#world .kw-msg .kw-retry')
             wait_list(page)
             check('list view, failure → 다시 시도 loads the rows', page.evaluate("document.querySelectorAll('#world .kw-lr').length") == COUNT['index'])
         finally:
@@ -512,8 +534,252 @@ def kind_pass(browser, kind, width, height):
         ctx.close()
 
 
-def keyboard_pass(browser):
+# ── world map (해외 지수 · 지도, AGENTS §3-4) ──
+# representative index per country (AGENTS list), ISO numeric ids as in world-atlas
+REP = {'840': 'INX', '484': 'MXX', '076': 'BVSP', '372': 'ISEQ', '826': 'FTSE', '528': 'AEX', '056': 'BFX', '250': 'FCHI',
+       '620': 'PSI20', '724': 'IBEX', '752': 'OMXS30', '276': 'GDAXI', '348': 'BUX', '380': 'FTMIB', '356': 'BSESN', '156': 'SSEC',
+       '410': 'KOSPI', '392': 'N225', '158': 'TWII', '344': 'HSI', '704': 'VNI', '458': 'KLSE', '360': 'JKSE', '036': 'AXJO'}
+IDX = {it['key']: dict(it, gkey=g['key']) for g in FIX['index']['groups'] for it in g['items']}
+REP_HERE = {c: k for c, k in REP.items() if k in IDX}
+OFF = [k for k, it in IDX.items() if it['gkey'] in ('usf', 'ref') or k == 'STOXX50E']       # not tied to one country
+
+
+GEO_JS = r"""
+(rep) => {
+  const norm = c => { const e = document.createElement('i'); e.style.color = c; document.body.append(e); const v = getComputedStyle(e).color; e.remove(); return v; };
+  const sgn = v => v > 0 ? '+' : v < 0 ? '−' : '';
+  const pct = v => sgn(v) + Math.abs(v).toFixed(2) + '%';
+  const geo = document.querySelector('#world .kw-geo'), mapBox = geo.querySelector('.kw-gmap'), mr = mapBox.getBoundingClientRect();
+  const narrow = geo.classList.contains('narrow');
+  const out = { colour: [], label: [], clip: [], overlap: [], none: [], open: [] };
+  let coloured = 0;
+  for (const [id, it] of Object.entries(rep)) {
+    const want = norm(KH.colorOf(it.ratio));
+    const el = geo.querySelector(`.kw-cp[data-c="${id}"]`) || geo.querySelector(`.kw-gmk[data-c="${id}"]`);
+    if (!el) { out.colour.push(`${id} not drawn`); continue; }
+    const got = norm(getComputedStyle(el).fill);
+    if (got !== want) out.colour.push(`${id} ${got} != ${want}`); else coloured++;
+    // the % shown for the country: on the map (desktop) or in its button under the map (phones)
+    const lab = narrow ? geo.querySelector(`.kw-gc[data-c="${id}"] .p`) : geo.querySelector(`.kw-gl[data-c="${id}"] .p`);
+    if (!lab || lab.textContent !== pct(it.ratio)) out.label.push(`${id} '${lab && lab.textContent}' != ${pct(it.ratio)}`);
+    const open = it.status === 'OPEN';
+    const marked = !!geo.querySelector(`.kw-ggl path[data-c="${id}"]`) || !!geo.querySelector(`.kw-gmk.open[data-c="${id}"]`);
+    if (open !== marked) out.open.push(`${id} open=${open} outline=${marked}`);
+    const dot = geo.querySelector(`.kw-gdot[data-c="${id}"], .kw-gmk[data-c="${id}"]`) || geo.querySelector(`.kw-gl[data-c="${id}"] .kw-sd`);
+    if (dot && (dot.classList.contains('open') !== open)) out.open.push(`${id} marker state`);
+  }
+  for (const p of geo.querySelectorAll('.kw-cp:not(.has)')) { const f = norm(getComputedStyle(p).fill); if (f !== 'rgb(31, 33, 38)') { out.none.push(f); break; } }
+  // labels and chips: inside the map, % not cut, no two on top of each other, none under the side box
+  const labs = [...geo.querySelectorAll('.kw-gl')].map(el => ({ el, r: el.getBoundingClientRect() }));
+  const box = mapBox.querySelector('.kw-goff');
+  for (const { el, r } of labs) {
+    if (r.left < mr.left - 0.5 || r.right > mr.right + 0.5 || r.top < mr.top - 0.5 || r.bottom > mr.bottom + 0.5) out.clip.push(`${el.dataset.c} outside the map`);
+    for (const c of el.querySelectorAll('.p, .t')) if (c.scrollWidth > c.clientWidth + 1) out.clip.push(`${el.dataset.c} ${c.className} cut`);
+  }
+  const hit = (a, b) => Math.min(a.right, b.right) - Math.max(a.left, b.left) > 1 && Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 1;
+  for (let i = 0; i < labs.length; i++) for (let j = i + 1; j < labs.length; j++) if (hit(labs[i].r, labs[j].r)) out.overlap.push(`${labs[i].el.dataset.c} × ${labs[j].el.dataset.c}`);
+  if (box) { const br = box.getBoundingClientRect(); for (const { el, r } of labs) if (hit(r, br)) out.overlap.push(`${el.dataset.c} under the side box`); }
+  const offKeys = [...geo.querySelectorAll('.kw-go')].map(b => b.dataset.k);
+  const vix = geo.querySelector('.kw-go[data-k="VIX"] .kw-pchip');
+  return { coloured, out, offKeys, vixGrey: !!vix && vix.classList.contains('ref') && getComputedStyle(vix).backgroundColor === 'rgba(0, 0, 0, 0)',
+    order: [...geo.querySelector('.kw-gsvg').children].map(c => c.getAttribute('class')),
+    h: mr.height, w: mr.width, narrow };
+}"""
+
+GEO_TARGETS_JS = r"""
+() => {
+  const small = [];
+  for (const el of document.querySelectorAll('#world .kw-gc, #world .kw-go, #world .kw-seg button, #world .kw-row')) {
+    if (!el.offsetParent) continue;
+    const r = el.getBoundingClientRect();
+    if (r.height < 40 || r.width < 40) small.push(`${el.className} ${el.dataset.c || el.dataset.k || el.textContent.trim().slice(0, 10)} ${r.width.toFixed(0)}x${r.height.toFixed(0)}`);
+  }
+  return small;
+}"""
+
+
+def geo_pass(browser, width, height):
+    mobile = width < 700
+    ctx, page = open_page(browser, LIVE + '#world', width, height, mobile, view='map')
+    try:
+        wait_world(page, GEO_SEL)
+        tag = f'world map {width}'
+        r = page.evaluate(GEO_JS, {c: IDX[k] for c, k in REP_HERE.items()})
+        o = r['out']
+        check(f'{tag}: every representative index colours its country (KH.colorOf)', r['coloured'] == len(REP_HERE) and not o['colour'], f"{r['coloured']}/{len(REP_HERE)} " + '; '.join(o['colour'][:3]))
+        check(f'{tag}: countries without an index stay dark grey', not o['none'], str(o['none']))
+        check(f'{tag}: each country shows its representative %', not o['label'], '; '.join(o['label'][:3]))
+        check(f'{tag}: labels inside the map, % never cut', not o['clip'], '; '.join(o['clip'][:3]))
+        check(f'{tag}: labels do not overlap each other or the side box', not o['overlap'], '; '.join(o['overlap'][:3]))
+        check(f'{tag}: open markets outlined + marked, closed ones not', not o['open'], '; '.join(o['open'][:3]))
+        check(f'{tag}: US futures · Euro Stoxx 50 · VIX in the side box, VIX grey', sorted(r['offKeys']) == sorted(OFF) and r['vixGrey'], str(r['offKeys']))
+        order = [c for c in r['order'] if c in ('kw-gland', 'kw-gnight', 'kw-gbord', 'kw-gglow', 'kw-glines', 'kw-gmarks')]
+        check(f'{tag}: layers fills → night → borders → outline → lines → markers', order == ['kw-gland', 'kw-gnight', 'kw-gbord', 'kw-gglow', 'kw-glines', 'kw-gmarks'], str(order))
+        ov = page.evaluate("document.documentElement.scrollWidth - document.documentElement.clientWidth")
+        check(f'{tag}: no horizontal overflow', ov <= 0, f'{ov}px')
+        if mobile:
+            small = page.evaluate(GEO_TARGETS_JS)
+            check(f'{tag}: tap targets ≥ 40px (country buttons, side box)', not small, '; '.join(small[:4]))
+        page.screenshot(path=str(SHOTS / f'geo_{width}.png'), full_page=True)
+    finally:
+        ctx.close()
+
+
+def geo_click_pass(browser):
+    us = [k for k, it in IDX.items() if it['gkey'] == 'us']
+    ctx, page = open_page(browser, LIVE + '#world', 1440, 900, view='map')
+    try:
+        wait_world(page, GEO_SEL)
+        page.click('#world .kw-gl[data-c="840"]')
+        page.wait_for_selector('.kw-sheet:not([hidden])')
+        st = page.evaluate("""() => ({ name: document.querySelector('#kw-dt').textContent, peers: [...document.querySelectorAll('.kw-sheet .kw-peers button')].map(b => b.dataset.k),
+            place: document.querySelector('.kw-peers-h') && document.querySelector('.kw-peers-h').textContent, sel: !!document.querySelector('#world .kw-gsel path'),
+            pressed: document.querySelector('.kw-peers button[aria-pressed=true]').dataset.k })""")
+        check('world map click 미국: sheet with S&P 500 + every US index', st['name'] == IDX['INX']['name'] and sorted(st['peers']) == sorted(us) and st['pressed'] == 'INX' and st['place'] == '미국' and st['sel'], str(st))
+        page.click('.kw-sheet .kw-peers button[data-k="IXIC"]')
+        page.wait_for_timeout(150)
+        check('world map sheet: switching to 나스닥 inside the country', page.evaluate("document.querySelector('#kw-dt').textContent") == IDX['IXIC']['name'])
+        page.keyboard.press('Escape')
+        page.wait_for_timeout(100)
+        back = page.evaluate("({ hidden: document.querySelector('.kw-sheet').hidden, c: document.activeElement.dataset.c, sel: !!document.querySelector('#world .kw-gsel path') })")
+        check('world map sheet: Esc closes, focus back on 미국, outline cleared', back['hidden'] and back['c'] == '840' and not back['sel'], str(back))
+        page.dispatch_event('#world .kw-cp[data-c="276"]', 'click')
+        page.wait_for_selector('.kw-sheet:not([hidden])')
+        check('world map: clicking Germany itself opens DAX', page.evaluate("document.querySelector('#kw-dt').textContent") == IDX['GDAXI']['name'])
+        page.keyboard.press('Escape')
+        page.dispatch_event('#world .kw-gmk[data-c="344"]', 'click')
+        page.wait_for_selector('.kw-sheet:not([hidden])')
+        hk = page.evaluate("[document.querySelector('#kw-dt').textContent, [...document.querySelectorAll('.kw-sheet .kw-peers button')].map(b => b.dataset.k)]")
+        check('world map: the 홍콩 marker opens 항셍 (+ H지수)', hk[0] == IDX['HSI']['name'] and sorted(hk[1]) == ['HSCE', 'HSI'], str(hk))
+        page.keyboard.press('Escape')
+        page.click('#world .kw-go[data-k="NQcv1"]')
+        page.wait_for_selector('.kw-sheet:not([hidden])')
+        fu = page.evaluate("[document.querySelector('#kw-dt').textContent, [...document.querySelectorAll('.kw-sheet .kw-peers button')].map(b => b.dataset.k)]")
+        check('world map side box: 나스닥 100 선물 opens with the other US futures', fu[0] == IDX['NQcv1']['name'] and sorted(fu[1]) == sorted(k for k, it in IDX.items() if it['gkey'] == 'usf'), str(fu))
+        page.keyboard.press('Escape')
+        lay = page.evaluate('KHWorld.layout()')
+        check('KHWorld.layout() on the world map: an array (tile picture or empty)', isinstance(lay, list))
+    finally:
+        ctx.close()
+    ctx, page = open_page(browser, LIVE + '#world', 390, 844, True, view='map')
+    try:
+        wait_world(page, GEO_SEL)
+        page.tap('#world .kw-gc[data-c="158"]')
+        page.wait_for_selector('.kw-sheet:not([hidden])')
+        page.wait_for_timeout(300)
+        check('world map (phone): tapping 대만 opens 대만 가권', page.evaluate("document.querySelector('#kw-dt').textContent") == IDX['TWII']['name'])
+        page.screenshot(path=str(SHOTS / 'geo_sheet_390.png'))
+    finally:
+        ctx.close()
+
+
+def geo_keyboard_pass(browser):
     ctx, page = open_page(browser, LIVE + '#world', 1280, 800, view='map')
+    try:
+        wait_world(page, GEO_SEL)
+        stops = page.evaluate("[...document.querySelectorAll('#world .kw-gb')].filter(b => b.tabIndex === 0).length")
+        check('world map keyboard: one tab stop (roving)', stops == 1, str(stops))
+        page.focus('#world .kw-gb[tabindex="0"]')
+        seen = [page.evaluate('document.activeElement.dataset.f')]
+        for key in ('ArrowRight', 'ArrowDown', 'ArrowDown', 'ArrowLeft', 'ArrowUp'):
+            page.keyboard.press(key)
+            seen.append(page.evaluate('document.activeElement.dataset.f'))
+        check('world map keyboard: arrows move between countries', len(set(seen)) >= 4 and all(seen), ' → '.join(map(str, seen)))
+        ring = page.evaluate("(() => { const s = getComputedStyle(document.activeElement); return [s.outlineStyle, s.outlineColor]; })()")
+        check('world map keyboard: amber focus ring', ring == ['solid', 'rgb(255, 181, 71)'], str(ring))
+        page.keyboard.press('End'); e = page.evaluate('document.activeElement.dataset.f')
+        page.keyboard.press('Home'); h0 = page.evaluate('document.activeElement.dataset.f')
+        check('world map keyboard: Home / End', e != h0 and e and h0, f'{h0} … {e}')
+        tgt = page.evaluate('document.activeElement.dataset.f')
+        page.keyboard.press('Enter')
+        page.wait_for_selector('.kw-sheet:not([hidden])')
+        page.keyboard.press('Escape')
+        page.wait_for_timeout(100)
+        check('world map keyboard: Enter opens, Esc returns focus', page.evaluate('document.activeElement.dataset.f') == tgt)
+    finally:
+        ctx.close()
+
+
+def geo_fallback_pass(browser):
+    ERR.expect_net = True
+    try:
+        for how in ('block', 'bad'):
+            ctx, page = open_page(browser, LIVE + '#world', 1280, 800, view='map', atlas=how)
+            try:
+                wait_list(page)
+                st = page.evaluate("""({ note: !document.querySelector('#world .kw-gnote').hidden && document.querySelector('#world .kw-gnote').textContent, geo: document.querySelector('#world .kw-geo').hidden,
+                    rows: document.querySelectorAll('#world .kw-lr').length, pressed: document.querySelector('#world .kw-seg[data-kw=view] button[aria-pressed=true]').textContent,
+                    stored: localStorage.getItem('khm.worldView') })""")
+                what = 'fetch blocked' if how == 'block' else 'SRI mismatch (altered bytes)'
+                check(f'world map fallback, {what}: list + message, choice kept', st['note'] and '목록으로' in st['note'] and st['geo'] and st['rows'] == COUNT['index'] and st['pressed'] == '목록' and st['stored'] == 'map', str(st))
+                if how == 'block':
+                    page.screenshot(path=str(SHOTS / 'geo_fallback_1280.png'))
+                    route_atlas(page.context, 'local')
+                    page.click('#world .kw-gnote .kw-retry')
+                    wait_world(page, GEO_SEL)
+                    check('world map fallback: 다시 시도 loads the map', page.evaluate("document.querySelector('#world .kw-gnote').hidden && !document.querySelector('#world .kw-geo').hidden"))
+            finally:
+                ctx.close()
+    finally:
+        ERR.expect_net = False
+    # the atlas is fetched once, only when the map view opens
+    reqs = []
+    ctx, page = open_page(browser, LIVE + '#world', 1280, 800)
+    try:
+        page.on('request', lambda r: reqs.append(r.url) if 'world-atlas' in r.url else None)
+        wait_list(page)
+        n0 = len(reqs)
+        page.click('#world .kw-seg[data-kw=view] button[data-v=map]')
+        wait_world(page, GEO_SEL)
+        page.click('#world .kw-seg[data-kw=view] button[data-v=list]')
+        page.click('#world .kw-seg[data-kw=view] button[data-v=map]')
+        wait_world(page, GEO_SEL)
+        check('world map data: not fetched for the list, fetched once for the map', n0 == 0 and len(reqs) == 1, f'{n0} then {len(reqs)}')
+    finally:
+        ctx.close()
+
+
+def geo_refresh_pass(browser):
+    api('/__reset')
+    ctx, page = open_page(browser, LIVE + '#world', 1440, 900, clock=True, view='map')
+    try:
+        wait_world(page, GEO_SEL)
+        page.evaluate("document.querySelectorAll('#world .kw-gb, #world .kw-cp.has').forEach(e => e.__tag = 1)")
+        page.focus('#world .kw-gl[data-c="392"]')
+        before = page.evaluate("document.querySelector('#world .kw-gl[data-c=\"392\"] .p').textContent")
+        api('/__mode?world=drift')
+        page.clock.run_for(30500)
+        page.wait_for_function("(b) => document.querySelector('#world .kw-gl[data-c=\"392\"] .p').textContent !== b", arg=before, timeout=5000)
+        page.wait_for_timeout(700)                         # the 0.48 s fill transition
+        last = api('/__last?kind=index')
+        items = {it['key']: it for g in last['groups'] for it in g['items']}
+        r = page.evaluate(GEO_JS, {c: items[k] for c, k in REP_HERE.items()})
+        st = page.evaluate("({ f: document.activeElement.dataset.f, tagged: !!document.activeElement.__tag, fresh: [...document.querySelectorAll('#world .kw-gb, #world .kw-cp.has')].filter(e => !e.__tag).length })")
+        check('world map refresh: colours + % follow the new answer, in place, focus kept', not (r['out']['colour'] or r['out']['label']) and st['f'] == 'c392' and st['tagged'] and st['fresh'] == 0,
+              str(st) + ' ' + '; '.join((r['out']['colour'] + r['out']['label'])[:2]))
+    finally:
+        api('/__reset')
+        ctx.close()
+
+
+def refresh_event_pass(browser):
+    # the header clock's tap (KH.refresh → document 'kh:refresh', AGENTS §3-6) fetches at once, view and scroll kept
+    api('/__reset')
+    ctx, page = open_page(browser, LIVE + '#world', 1280, 800)
+    try:
+        wait_list(page)
+        page.evaluate('scrollTo(0, 200)')
+        a = api('/__stats').get('world:index', 0)
+        page.evaluate("document.dispatchEvent(new Event('kh:refresh'))")
+        page.wait_for_timeout(600)
+        b = api('/__stats').get('world:index', 0)
+        check('kh:refresh: fetches now, list and scroll kept', b == a + 1 and page.evaluate("KHWorld.view() === 'list' && scrollY") == 200, f'{a}→{b}')
+    finally:
+        ctx.close()
+
+
+def keyboard_pass(browser):
+    ctx, page = open_page(browser, LIVE + '#cmdty', 1280, 800, view='map')
     try:
         wait_world(page)
         stops = page.evaluate("[...document.querySelectorAll('#world .kw-tile')].filter(t => t.tabIndex === 0).length")
@@ -580,27 +846,27 @@ def keyboard_pass(browser):
         okb = all(0 <= t['x'] and t['x'] + t['w'] <= mw + 0.5 and 0 <= t['y'] and t['y'] + t['h'] <= mh + 0.5 for t in tiles)
         subs = page.evaluate("[...document.querySelectorAll('#world .kw-tile')].map(t => [t.dataset.k, t.querySelector('.kw-pc').hidden || t.querySelector('.kw-lab').hidden ? '' : t.querySelector('.kw-pc').textContent])")
         subok = dict(subs) == {t['code']: t['sub'] for t in tiles}
-        check('KHWorld.layout(): tiles + groups in map pixels, sub = shown %', len(tiles) == COUNT['index'] and okb and subok and sum(1 for x in lay if x['kind'] == 'sector') == len(FIX['index']['groups']), f'{len(tiles)} tiles, inBounds {okb}, sub {subok}')
+        check('KHWorld.layout(): tiles + groups in map pixels, sub = shown %', len(tiles) == COUNT['commodity'] and okb and subok and sum(1 for x in lay if x['kind'] == 'sector') == len(FIX['commodity']['groups']), f'{len(tiles)} tiles, inBounds {okb}, sub {subok}')
         page.screenshot(path=str(SHOTS / 'kbd_1280.png'))
     finally:
         ctx.close()
 
 
 def palette_pass(browser):
-    ctx, page = open_page(browser, LIVE + '#world', 1440, 900, view='map')
+    ctx, page = open_page(browser, LIVE + '#cmdty', 1440, 900, view='map')
     try:
         wait_world(page)
-        before = page.evaluate("document.querySelector('#world .kw-tile[data-k=\"INX\"]').style.backgroundColor")
+        before = page.evaluate("document.querySelector('#world .kw-tile[data-k=\"GCcv1\"]').style.backgroundColor")
         page.click('.seg[data-key="palette"] button[data-v="global"]')
         page.wait_for_timeout(150)
-        col = page.evaluate(COLORS_JS, FIX['index'])
-        after = page.evaluate("document.querySelector('#world .kw-tile[data-k=\"INX\"]').style.backgroundColor")
+        col = page.evaluate(COLORS_JS, FIX['commodity'])
+        after = page.evaluate("document.querySelector('#world .kw-tile[data-k=\"GCcv1\"]').style.backgroundColor")
         check('palette switch recolours tiles (초록 상승)', before != after and not col['bad'], f'{before} → {after}')
         sw = page.evaluate("[document.querySelector('#world .kw-row .kw-sw').style.background, document.querySelector('#world .kw-legend .grad').style.background]")
         check('palette switch recolours side swatches + legend', 'rgb' in sw[0] and '#f63538' in sw[1].lower() or 'rgb(246, 53, 56)' in sw[1], sw[1][:60])
         page.click('#rangeseg button[data-v="10"]')
         page.wait_for_timeout(150)
-        col = page.evaluate(COLORS_JS, FIX['index'])
+        col = page.evaluate(COLORS_JS, FIX['commodity'])
         tick = page.evaluate("[...document.querySelectorAll('#world .kw-legend .tk')].map(t => t.textContent)")
         check('range switch (±10%) recolours + legend ticks', not col['bad'] and tick == ['−10%', '+10%'], str(tick))
         page.click('.seg[data-key="palette"] button[data-v="krg"]')
@@ -614,18 +880,18 @@ def states_pass(browser):
     try:
         for mode, text in (('fail', '해외 지수를 불러오지 못했어요'), ('html404', '서버에 아직 이 기능이 없어요'), ('empty', '지금 보여 줄 해외 지수가 없어요')):
             api(f'/__mode?world={mode}')
-            ctx, page = open_page(browser, LIVE + '#world', 1280, 800, view='map')
+            ctx, page = open_page(browser, LIVE + '#world', 1280, 800, view='list')
             try:
                 page.wait_for_selector('#world .kw-msg', timeout=8000)
                 page.wait_for_timeout(300)
                 msg = page.evaluate("document.querySelector('#world .kw-msg').textContent")
-                check(f'state {mode}: message', text in msg and page.evaluate("!!document.querySelector('#world .kw-retry')"), msg[:60])
+                check(f'state {mode}: message', text in msg and page.evaluate("!!document.querySelector('#world .kw-msg .kw-retry')"), msg[:60])
                 if mode == 'fail':
                     page.screenshot(path=str(SHOTS / 'fail_1280.png'))
                     api('/__mode?world=ok')
-                    page.click('#world .kw-retry')
-                    wait_world(page)
-                    check('state fail → 다시 시도 loads', page.evaluate("document.querySelectorAll('#world .kw-tile').length") == COUNT['index'])
+                    page.click('#world .kw-msg .kw-retry')
+                    wait_list(page)
+                    check('state fail → 다시 시도 loads', page.evaluate("document.querySelectorAll('#world .kw-lr').length") == COUNT['index'])
             finally:
                 ctx.close()
         api('/__mode?world=ok')
@@ -640,13 +906,13 @@ def states_pass(browser):
             ctx.close()
         api('/__mode?world=ok')
         # stale: data shown, then a refresh fails → keeps tiles, says so
-        ctx, page = open_page(browser, LIVE + '#world', 1280, 800, clock=True, view='map')
+        ctx, page = open_page(browser, LIVE + '#world', 1280, 800, clock=True, view='list')
         try:
-            wait_world(page)
+            wait_list(page)
             api('/__mode?world=fail')
             page.clock.run_for(31000)
             page.wait_for_selector('#world .kw-stale', timeout=5000)
-            check('state stale: tiles kept + "새로 받지 못했어요"', page.evaluate("document.querySelectorAll('#world .kw-tile').length") == COUNT['index'],
+            check('state stale: rows kept + "새로 받지 못했어요"', page.evaluate("document.querySelectorAll('#world .kw-lr').length") == COUNT['index'],
                   page.evaluate("document.querySelector('#world .kw-stale').textContent"))
             api('/__mode?world=ok')
             page.clock.run_for(16000)
@@ -656,9 +922,9 @@ def states_pass(browser):
             ctx.close()
         # weekend: nothing open
         api('/__mode?world=closed')
-        ctx, page = open_page(browser, LIVE + '#world', 1280, 800, view='map')
+        ctx, page = open_page(browser, LIVE + '#world', 1280, 800, view='list')
         try:
-            wait_world(page)
+            wait_list(page)
             t = page.evaluate("document.querySelector('#world .kw-open').textContent")
             check('state closed (weekend): "지금은 열린 시장이 없어요"', '지금은 열린 시장이 없어요' in t and '모두 마감' in page.evaluate("document.querySelector('#world .kw-sum').textContent"), t[:40])
         finally:
@@ -666,14 +932,14 @@ def states_pass(browser):
         api('/__mode?world=ok')
         # chart route missing (plain 404): detail without chart, asked once per session
         api('/__mode?chart=none')
-        ctx, page = open_page(browser, LIVE + '#world', 1280, 800, view='map')
+        ctx, page = open_page(browser, LIVE + '#world', 1280, 800, view='list')
         try:
-            wait_world(page)
+            wait_list(page)
             c0 = api('/__stats').get('/api/world/chart', 0)
-            page.click('#world .kw-tile[data-k="INX"]')
+            page.click('#world .kw-lr[data-k="INX"]')
             page.wait_for_function("document.querySelector('.kw-sheet .kw-chart') && document.querySelector('.kw-sheet .kw-chart').hidden", timeout=5000)
             page.keyboard.press('Escape')
-            page.click('#world .kw-tile[data-k="N225"]')
+            page.click('#world .kw-lr[data-k="N225"]')
             page.wait_for_timeout(400)
             c1 = api('/__stats').get('/api/world/chart', 0)
             vis = page.evaluate("!document.querySelector('.kw-sheet').hidden && !!document.querySelector('.kw-sheet .kw-px b').textContent")
@@ -681,10 +947,10 @@ def states_pass(browser):
         finally:
             ctx.close()
         api('/__mode?chart=fail')
-        ctx, page = open_page(browser, LIVE + '#world', 1280, 800, view='map')
+        ctx, page = open_page(browser, LIVE + '#world', 1280, 800, view='list')
         try:
-            wait_world(page)
-            page.click('#world .kw-tile[data-k="GDAXI"]')
+            wait_list(page)
+            page.click('#world .kw-lr[data-k="GDAXI"]')
             page.wait_for_selector('.kw-sheet .kw-cmsg .kw-retry', timeout=5000)
             check('chart failure: message + 다시 시도', '차트를 불러오지 못했어요' in page.evaluate("document.querySelector('.kw-sheet .kw-cmsg').textContent"))
         finally:
@@ -698,7 +964,7 @@ def polling_pass(browser):
     api('/__reset')
     ctx, page = open_page(browser, LIVE + '#world', 1280, 800, clock=True, view='map')
     try:
-        wait_world(page)
+        wait_world(page, GEO_SEL)
         n = lambda: api('/__stats').get('world:index', 0)
         a = n()
         page.clock.run_for(30500); page.wait_for_timeout(500)
@@ -723,7 +989,7 @@ def polling_pass(browser):
         f = n()
         check('polling: visible again → refreshes', f == e + 1, f'{e}→{f}')
         # switching kinds: commodity tab shows commodities, detail closes
-        page.click('#world .kw-tile')
+        page.click('#world .kw-gl[data-c="276"]')
         page.wait_for_selector('.kw-sheet:not([hidden])')
         page.click('.tabs button[data-mkt="CMDTY"]')
         wait_world(page, '#world .kw-tile[data-k="CLcv1"]')
@@ -736,10 +1002,10 @@ def polling_pass(browser):
 
 
 def mobile_pass(browser):
-    ctx, page = open_page(browser, LIVE + '#world', 390, 844, True, view='map')
+    ctx, page = open_page(browser, LIVE + '#cmdty', 390, 844, True, view='map')
     try:
         wait_world(page)
-        page.tap('#world .kw-tile[data-k="INX"]')
+        page.tap('#world .kw-tile[data-k="CLcv1"]')
         page.wait_for_selector('.kw-sheet:not([hidden])')
         page.wait_for_selector('.kw-sheet svg.kw-svg', timeout=5000)
         page.wait_for_timeout(350)                       # the 0.2 s slide-in
@@ -769,7 +1035,7 @@ def mobile_pass(browser):
 
 
 def reduced_pass(browser):
-    ctx, page = open_page(browser, LIVE + '#world', 1280, 800, reduced=True, view='map')
+    ctx, page = open_page(browser, LIVE + '#cmdty', 1280, 800, reduced=True, view='map')
     try:
         wait_world(page)
         page.click('#world .kw-tile')
@@ -878,9 +1144,14 @@ def main():
             refresh_pass(browser, reduced=True)
             refresh_pass(browser, sort='pct')
             list_states_pass(browser)
-            for kind in ('index', 'commodity'):
-                for w, hgt in list(WIDTHS.items()) + [(1440, 900)]:
-                    kind_pass(browser, kind, w, hgt)
+            for w, hgt in list(WIDTHS.items()) + [(1440, 900)]:
+                kind_pass(browser, 'commodity', w, hgt)
+                geo_pass(browser, w, hgt)
+            geo_click_pass(browser)
+            geo_keyboard_pass(browser)
+            geo_fallback_pass(browser)
+            geo_refresh_pass(browser)
+            refresh_event_pass(browser)
             keyboard_pass(browser)
             palette_pass(browser)
             mobile_pass(browser)

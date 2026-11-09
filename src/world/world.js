@@ -219,6 +219,9 @@ function scaffold() {
   if (!LIVE) { root.__kw = true; els = { snap: true }; return true; }
   const map = h('div', { class: 'kw-map', role: 'group' });
   const list = h('div', { class: 'kw-list', role: 'group', hidden: true });
+  const geo = h('div', { class: 'kw-geo', hidden: true });
+  const note = h('p', { class: 'kw-gnote', role: 'status', hidden: true }, '세계지도를 불러오지 못해서 목록으로 보여 드려요. ',
+    h('button', { type: 'button', class: 'kw-retry sm', onclick: () => { GEO.state = 'idle'; render(); } }, '다시 시도'));
   const seg = (name, label, opts) => h('div', { class: 'seg kw-seg', role: 'group', 'aria-label': label, 'data-kw': name },
     opts.map(([v, t]) => h('button', { type: 'button', 'data-v': v, 'aria-pressed': 'false' }, t)));
   const sortSeg = seg('sort', '정렬', [['group', '지역순'], ['pct', '등락률순']]);
@@ -231,14 +234,14 @@ function scaffold() {
   const src = h('p', { class: 'kw-src' });
   const live = h('div', { class: 'sr', role: 'status', 'aria-live': 'polite' });
   root.append(
-    h('section', { class: 'kw-stage' }, bar, list, map, legend),
+    h('section', { class: 'kw-stage' }, bar, note, list, map, geo, legend),
     h('aside', { class: 'kw-side' },
       h('section', { class: 'card kw-card' }, h('h2', {}, h('span', { text: '많이 오른·내린' }), h('small', { class: 'kw-rank-sub' })), rank),
       h('section', { class: 'card kw-card' }, h('h2', {}, h('span', { text: '지금 열린 시장' }), h('small', { text: '현지 시각' })), open),
       src),
     live);
-  els = { map, list, bar, tools, sortSeg, viewSeg, legend, rank, open, src, live, tiles: new Map(), heads: new Map(), boxes: null, mapW: 0,
-    rows: new Map(), listW: 0, listSig: '' };
+  els = { map, list, geo, note, bar, tools, sortSeg, viewSeg, legend, rank, open, src, live, tiles: new Map(), heads: new Map(), boxes: null, mapW: 0,
+    rows: new Map(), listW: 0, listSig: '', g: null };
   root.__kw = true;
   map.addEventListener('click', e => { const t = e.target.closest('.kw-tile'); if (t) openDetail(t.dataset.k, t); });
   map.addEventListener('keydown', onMapKey);
@@ -255,10 +258,15 @@ function scaffold() {
   });
   new ResizeObserver(() => { if (S.shown && S.view === 'map' && els.map.clientWidth !== els.mapW) schedRender(); }).observe(map);
   new ResizeObserver(() => { if (S.shown && S.view === 'list' && els.list.clientWidth !== els.listW) schedRender(); }).observe(list);
+  new ResizeObserver(() => { if (S.shown && S.mode === 'geo' && els.g && els.geo.clientWidth !== els.g.W) schedRender(); }).observe(geo);
+  geo.addEventListener('click', onGeoClick);
+  geo.addEventListener('keydown', onGeoKey);
+  geo.addEventListener('focusin', e => { const b = e.target.closest('.kw-gb'); if (b) setGeoFocus(b.dataset.f); });
   return true;
 }
 function setView(v) {
   v = v === 'map' ? 'map' : 'list';
+  if (v === 'map' && GEO.state === 'failed' && S.kind === 'index') { GEO.state = 'idle'; S.view = v; store.set(VIEW_KEY, v); render(); return; }   // try the world map again
   if (S.view === v) return;
   S.view = v;
   store.set(VIEW_KEY, v);
@@ -271,13 +279,16 @@ function setSort(v) {
   store.set(SORT_KEY, v);
   render();
 }
-function syncTools(hasData) {
+function syncTools(hasData, mode) {
   if (!els || !els.tools) return;
-  for (const b of els.viewSeg.children) b.setAttribute('aria-pressed', String(b.dataset.v === S.view));
+  // the pressed button says what is on screen (the list stands in when the world map could not load)
+  const shown = mode === 'list' ? 'list' : mode === 'msg' ? S.view : 'map';
+  for (const b of els.viewSeg.children) b.setAttribute('aria-pressed', String(b.dataset.v === shown));
   for (const b of els.sortSeg.children) b.setAttribute('aria-pressed', String(b.dataset.v === S.sort));
   els.sortSeg.children[0].textContent = S.kind === 'commodity' ? '종류순' : '지역순';
-  els.sortSeg.hidden = S.view !== 'list' || !hasData;
+  els.sortSeg.hidden = mode !== 'list' || !hasData;
 }
+
 let rafR = 0;
 const schedRender = () => { cancelAnimationFrame(rafR); rafR = requestAnimationFrame(() => { if (S.shown) render(); }); };
 
@@ -291,12 +302,19 @@ function render() {
   els.map.setAttribute('aria-label', `${K.title} 지도. 화살표로 옮기고 Enter로 자세히 봐요`);
   els.list.setAttribute('aria-label', `${K.title} 목록. 위아래 화살표로 옮기고 Enter로 자세히 봐요`);
   const hasData = !!(d && d.all.length);
-  syncTools(hasData);
-  // messages (loading, failure, empty) use the black stage box in either view
-  const listMode = hasData && S.view === 'list';
-  els.list.hidden = !listMode;
-  els.map.hidden = listMode;
-  root.classList.toggle('kw-v-list', listMode);
+  // what the stage shows: a message box (loading / failure / empty), the list, the tile map, or — 해외 지수 in 지도 — the world map
+  const wantGeo = hasData && S.view === 'map' && S.kind === 'index';
+  if (wantGeo && GEO.state === 'idle') loadAtlas();
+  const geoFailed = wantGeo && GEO.state === 'failed';
+  const mode = !hasData ? 'msg' : S.view === 'list' || geoFailed ? 'list' : wantGeo ? (GEO.state === 'ready' ? 'geo' : 'geoload') : 'tiles';
+  S.mode = mode;
+  syncTools(hasData, mode);
+  els.list.hidden = mode !== 'list';
+  els.geo.hidden = mode !== 'geo';
+  els.map.hidden = mode === 'list' || mode === 'geo';
+  els.note.hidden = !geoFailed;
+  root.classList.toggle('kw-v-list', mode === 'list');
+  root.classList.toggle('kw-v-geo', mode === 'geo');
   if (!d) {
     els.tiles.clear(); els.heads.clear(); els.boxes = null;
     els.map.style.height = '';
@@ -320,9 +338,16 @@ function render() {
     renderBar(d, err); els.legend.replaceChildren(); renderSource(d);
     return;
   }
-  if (els.map.classList.contains('kw-msgmode')) { els.map.classList.remove('kw-msgmode'); els.map.replaceChildren(); }
   renderBar(d, err);
-  if (listMode) renderList(d); else renderMap(d);
+  if (mode === 'geoload') {
+    els.tiles.clear(); els.heads.clear(); els.boxes = null;
+    els.map.style.height = '';
+    els.map.classList.add('kw-msgmode');
+    els.map.replaceChildren(msgBox('세계지도를 불러오는 중이에요…', '나라 경계 자료(Natural Earth)를 처음 한 번 받아 와요.', false, true));
+  } else if (els.map.classList.contains('kw-msgmode')) { els.map.classList.remove('kw-msgmode'); els.map.replaceChildren(); }
+  if (mode === 'list') renderList(d);
+  else if (mode === 'geo') renderGeo(d);
+  else if (mode === 'tiles') renderMap(d);
   renderLegend(d);
   renderRank(d);
   renderOpen(d);
@@ -628,7 +653,15 @@ function renderLegend(d) {
     P.length ? h('span', { class: 'grad', style: `background:linear-gradient(90deg,${P.join(',')})`, 'aria-hidden': 'true' }) : null,
     R ? h('span', { class: 'tk', text: `+${R}%` }) : null)];
   if (d.all.some(isRef)) kids.push(h('span', { class: 'lg' }, h('i', { class: 'sw kw-refsw' }), h('span', { text: 'VIX는 참고 지표라 색칠하지 않아요' })));
-  if (S.view === 'list') {
+  if (S.mode === 'geo') {
+    kids.push(h('span', { class: 'lg' }, h('i', { class: 'sw', style: `background:${GEO_NONE};box-shadow:inset 0 0 0 1px var(--line2)` }), h('span', { text: '지수 없는 나라' })));
+    kids.push(h('span', { class: 'lg' }, h('i', { class: 'kw-sd open', 'aria-hidden': 'true' }), h('span', { text: '장중' }),
+      h('i', { class: 'kw-sd close', 'aria-hidden': 'true' }), h('span', { text: '마감' })));
+    kids.push(h('span', { class: 'lg right' }, h('span', { class: 'k', text: '나라 색' }), h('b', { text: '대표 지수 등락률' }), h('span', { class: 'note', text: '눌러서 그 나라 지수를 모두 봐요' })));
+    els.legend.replaceChildren(...kids);
+    return;
+  }
+  if (S.mode === 'list') {
     kids.push(h('span', { class: 'lg' }, h('i', { class: 'kw-sd open', 'aria-hidden': 'true' }), h('span', { text: '장중' }),
       h('i', { class: 'kw-sd close', 'aria-hidden': 'true' }), h('span', { text: '마감' })));
     if (R) kids.push(h('span', { class: 'lg right' }, h('span', { class: 'k', text: '막대' }), h('b', { text: `가운데가 0 · 끝이 ±${R}%` })));
@@ -919,6 +952,406 @@ function onListKey(e) {
   if (next) { setListFocus(next.dataset.k); next.focus(); }
 }
 
+/* ───────── world map (해외 지수 · 지도, AGENTS §3-4) ─────────
+   Countries filled with KH.colorOf(their representative index), Natural Earth projection, no Antarctica.
+   Geometry: world-atlas 2.0.2 countries-110m (TopoJSON, Natural Earth, public domain), fetched from jsDelivr the first
+   time the map view opens, checked with SRI. If it cannot be had, the list stands in with a note. */
+const ATLAS = {
+  url: 'https://cdn.jsdelivr.net/npm/world-atlas@2.0.2/countries-110m.json',
+  sri: 'sha384-yOCJ+8ShBm8UDqtAVtAvxTDDf4gXo5edxl/YG0FmVC5OTmqVLl7utuVGBDEeZWHf',
+};
+const GEO = { state: 'idle', features: null, err: null };          // idle | loading | ready | failed
+// representative index first (AGENTS list); `at` = where the label or leader line points (lon, lat);
+// `col` = callout column for small or crowded countries, `big` = label inside the country
+const COUNTRIES = [
+  { id: '840', name: '미국', keys: ['INX', 'DJI', 'IXIC', 'NDX', 'SOX', 'DJT', 'RUT'], at: [-99, 39.5], big: true },
+  { id: '484', name: '멕시코', keys: ['MXX'], at: [-102.5, 24], big: true },
+  { id: '076', name: '브라질', keys: ['BVSP'], at: [-51.5, -10], big: true },
+  { id: '372', name: '아일랜드', keys: ['ISEQ'], at: [-8, 53.2], col: 'atl' },
+  { id: '826', name: '영국', keys: ['FTSE'], at: [-1.6, 52.6], col: 'atl' },
+  { id: '528', name: '네덜란드', keys: ['AEX'], at: [5.6, 52.3], col: 'atl' },
+  { id: '056', name: '벨기에', keys: ['BFX'], at: [4.6, 50.6], col: 'atl' },
+  { id: '250', name: '프랑스', keys: ['FCHI'], at: [2.4, 46.8], col: 'atl' },
+  { id: '620', name: '포르투갈', keys: ['PSI20'], at: [-8.1, 39.7], col: 'atl' },
+  { id: '724', name: '스페인', keys: ['IBEX'], at: [-3.6, 40.2], col: 'atl' },
+  { id: '752', name: '스웨덴', keys: ['OMXS30'], at: [15.5, 61], col: 'eur' },
+  { id: '276', name: '독일', keys: ['GDAXI'], at: [10.4, 51], col: 'eur' },
+  { id: '348', name: '헝가리', keys: ['BUX'], at: [19.3, 47.1], col: 'eur' },
+  { id: '380', name: '이탈리아', keys: ['FTMIB'], at: [12.4, 43], col: 'eur' },
+  { id: '356', name: '인도', keys: ['BSESN'], at: [78.5, 21.5], big: true },
+  { id: '156', name: '중국', keys: ['SSEC', 'SZSC', 'CSI300'], at: [101, 32], big: true },
+  { id: '410', name: '한국', keys: ['KOSPI', 'KOSDAQ'], at: [127.8, 36.4], col: 'kor' },
+  { id: '392', name: '일본', keys: ['N225', 'TOPX'], at: [138.6, 36.4], col: 'pac' },
+  { id: '158', name: '대만', keys: ['TWII'], at: [121, 23.7], col: 'pac' },
+  { id: '344', name: '홍콩', keys: ['HSI', 'HSCE'], at: [114.17, 22.3], col: 'pac', marker: true },
+  { id: '704', name: '베트남', keys: ['VNI', 'HNXI'], at: [106.3, 15.2], col: 'pac' },
+  { id: '458', name: '말레이시아', keys: ['KLSE'], at: [101.8, 3.9], col: 'pac' },
+  { id: '360', name: '인도네시아', keys: ['JKSE'], at: [113.6, -1], big: true },
+  { id: '036', name: '호주', keys: ['AXJO'], at: [134, -25], big: true },
+];
+// callout columns: x from a meridian at a reference latitude, chips grow away from the map ('end' = to the left)
+// (pac sits east of Japan's coast, so on narrower maps the clamped column still clears Honshu)
+const GCOLS = { atl: { lon: -22, lat: 48, align: 'end' }, eur: { lon: 32, lat: 50, align: 'start' }, pac: { lon: 153, lat: 25, align: 'start' }, kor: { lon: 121.5, lat: 45, align: 'end', fixY: 44 } };
+const GEO_NONE = '#1f2126', GCHIP_H = 21;
+
+// TopoJSON → GeoJSON features (Polygon / MultiPolygon, quantized delta-encoded arcs), enough for world-atlas
+function topoFeatures(topo, name) {
+  const tf = topo.transform;
+  const arcs = topo.arcs.map(a => {
+    let x = 0, y = 0;
+    return a.map(p => tf ? [(x += p[0]) * tf.scale[0] + tf.translate[0], (y += p[1]) * tf.scale[1] + tf.translate[1]] : [p[0], p[1]]);
+  });
+  const ring = ids => {
+    const out = [];
+    ids.forEach((i, k) => { const a = i < 0 ? arcs[~i].slice().reverse() : arcs[i]; for (let j = k ? 1 : 0; j < a.length; j++) out.push(a[j]); });
+    return out;
+  };
+  const geom = g => g.type === 'Polygon' ? { type: 'Polygon', coordinates: g.arcs.map(ring) }
+    : g.type === 'MultiPolygon' ? { type: 'MultiPolygon', coordinates: g.arcs.map(p => p.map(ring)) } : null;
+  return topo.objects[name].geometries.map(g => ({ type: 'Feature', id: g.id == null ? null : String(g.id), properties: g.properties || {}, geometry: geom(g) }))
+    .filter(f => f.geometry && f.id !== '010')                                       // no Antarctica
+    .map(f => {
+      if (f.id === '250' && f.geometry.type === 'MultiPolygon')                        // France without French Guiana (CAC 40 is Paris)
+        f.geometry.coordinates = f.geometry.coordinates.filter(poly => poly[0][0][0] > -30);
+      return f;
+    });
+}
+async function loadAtlas() {
+  if (GEO.state === 'loading' || GEO.state === 'ready') return;
+  GEO.state = 'loading';
+  const ac = new AbortController();
+  const timer = setTimeout(() => ac.abort(), 15000);
+  try {
+    if (!window.d3 || typeof d3.geoNaturalEarth1 !== 'function') throw new Error('d3-geo가 없어요');
+    const res = await fetch(ATLAS.url, { integrity: ATLAS.sri, mode: 'cors', credentials: 'omit', signal: ac.signal });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const topo = await res.json();
+    if (!topo || !topo.objects || !topo.objects.countries) throw new Error('지도 자료 모양이 달라요');
+    GEO.features = topoFeatures(topo, 'countries');
+    GEO.state = 'ready';
+  } catch (e) {
+    GEO.state = 'failed';
+    GEO.err = e;
+  } finally { clearTimeout(timer); }
+  if (S.shown) render();
+}
+function geoGroups(d) {
+  const used = new Set(), cs = [];
+  for (const c of COUNTRIES) {
+    const items = c.keys.map(k => d.byKey.get(k)).filter(Boolean);
+    items.forEach(it => used.add(it.key));
+    if (items.length) cs.push({ c, items, rep: items[0] });
+  }
+  // every index the Worker files under 미국 belongs to the US
+  const us = cs.find(x => x.c.id === '840');
+  if (us) for (const it of d.all) if (it.gkey === 'us' && !used.has(it.key)) { us.items.push(it); used.add(it.key); }
+  return { cs, off: d.all.filter(it => !used.has(it.key)) };
+}
+// one column of callouts: keep them in anchor order, at least CHIP_H + 3 apart, centred on their anchors, inside the map
+function dodge(list, top, bottom) {
+  const gap = GCHIP_H + 3;
+  list.sort((a, b) => a.y0 - b.y0);
+  let y = -Infinity;
+  for (const it of list) { it.y = Math.max(it.y0, y + gap); y = it.y; }
+  const shift = list.reduce((a, it) => a + it.y - it.y0, 0) / (list.length || 1);
+  for (const it of list) it.y -= shift;
+  if (list.length && list[0].y < top) { const s = top - list[0].y; for (const it of list) it.y += s; }
+  y = -Infinity;
+  for (const it of list) { it.y = Math.max(it.y, y + gap); y = it.y; }
+  if (list.length && list[list.length - 1].y > bottom) { const s = list[list.length - 1].y - bottom; for (const it of list) it.y -= s; }
+}
+function geoProjection(W, narrow) {
+  const P = d3.geoNaturalEarth1();
+  let fit;
+  if (narrow) {
+    // phones: crop to where the indices are (the Americas to Japan), so the shapes are as big as the width allows
+    P.rotate([-14, 0]);
+    const pts = [];
+    for (let lon = -126; lon <= 154; lon += 4) pts.push([lon, 66], [lon, -44]);
+    fit = { type: 'MultiPoint', coordinates: pts };
+  } else fit = { type: 'FeatureCollection', features: GEO.features };
+  P.fitWidth(W, fit);
+  const b = d3.geoPath(P).bounds(fit);
+  const pad = narrow ? 4 : 8;
+  P.translate([P.translate()[0], P.translate()[1] - b[0][1] + pad]);
+  const H = Math.ceil(b[1][1] - b[0][1] + 2 * pad);
+  P.clipExtent([[0, 0], [W, H]]);
+  return { P, H };
+}
+const svgEl = (tag, attrs) => svg(tag, attrs);
+const fx1 = v => v.toFixed(1);
+
+function buildGeo(d, W, narrow, G, sig) {
+  const ae = document.activeElement;
+  const fk = ae && ae.classList && ae.classList.contains('kw-gb') && els.geo.contains(ae) ? ae.dataset.f : null;
+  const { P, H } = geoProjection(W, narrow);
+  const mid = !narrow && W < 880;
+  const path = d3.geoPath(P);
+  const byId = new Map(G.cs.map(x => [x.c.id, x]));
+  const s = svgEl('svg', { class: 'kw-gsvg', width: W, height: H, viewBox: `0 0 ${W} ${H}`, 'aria-hidden': 'true' });
+  s.append(svgEl('path', { class: 'kw-gsea', d: path({ type: 'Sphere' }) }), svgEl('path', { class: 'kw-ggrat', d: path(d3.geoGraticule10()) }));
+  // layers, bottom to top (motion brief (e)): fills → night (day/night shading, empty for now) → borders → open-market outline → selection / hover → leader lines → markers
+  const land = svgEl('g', { class: 'kw-gland' });
+  const paths = new Map(), dOf = new Map(), border = [];
+  for (const f of GEO.features) {
+    const dd = path(f);
+    if (!dd) continue;
+    border.push(dd);
+    const x = byId.get(f.id);
+    const p = svgEl('path', { class: 'kw-cp' + (x ? ' has' : ''), d: dd });
+    if (x) { p.dataset.c = f.id; p.append(svgEl('title', {})); paths.set(f.id, p); dOf.set(f.id, dd); }
+    land.append(p);
+  }
+  const layer = c => svgEl('g', { class: c });
+  const night = layer('kw-gnight'), glow = layer('kw-gglow'), selG = layer('kw-gsel'), hov = layer('kw-ghov'), lines = layer('kw-glines'), marks = layer('kw-gmarks');
+  glow.append(layer('kw-ggl'));
+  s.append(land, night, svgEl('path', { class: 'kw-gbord', d: border.join('') }), glow, selG, hov, lines, marks);
+  const hovP = svgEl('path', {});
+  hov.append(hovP);
+  land.addEventListener('pointerover', e => { const p = e.target.closest('.kw-cp.has'); hovP.setAttribute('d', p ? dOf.get(p.dataset.c) || '' : ''); });
+  land.addEventListener('pointerleave', () => hovP.setAttribute('d', ''));
+  const labs = h('div', { class: 'kw-glabs' });
+  const btns = new Map(), dots = new Map(), inLabs = [], colList = [];
+  const cols = {};
+  // a market marker: a 5 px dot (amber = open, hollow grey = closed)
+  const addDot = (x, ax, ay, big) => {
+    const dot = svgEl('circle', { class: big ? 'kw-gmk' : 'kw-gdot', cx: fx1(ax), cy: fx1(ay), r: big ? (narrow ? 3.5 : 4.5) : narrow ? 2.2 : 2.5 });
+    dot.dataset.c = x.c.id;
+    if (big) dot.append(svgEl('title', {}));
+    marks.append(dot);
+    dots.set(x.c.id, { dot });
+  };
+  for (const x of G.cs) {
+    const [ax, ay] = P(x.c.at) || [NaN, NaN];
+    if (!isFinite(ax) || ax < 0 || ax > W) continue;
+    if (x.c.marker) addDot(x, ax, ay, true);                    // 홍콩: too small for the 110m map, a dot in its colour
+    if (narrow) {
+      // phones: the big markets carry a % on the map, the others a marker; the buttons under the map are the way in
+      if (!x.c.big) { if (!x.c.marker) addDot(x, ax, ay, false); continue; }
+      const b = h('span', { class: 'kw-gl in sm', 'data-c': x.c.id, 'aria-hidden': 'true'}, h('i', { class: 'kw-sd' }), h('span', { class: 'p' }));
+      labs.append(b); btns.set(x.c.id, b); inLabs.push({ el: b, x: ax, y: ay });
+      continue;
+    }
+    if (x.c.big && !(mid && x.c.id === '360')) {
+      const b = h('button', { type: 'button', class: 'kw-gb kw-gl in', 'data-c': x.c.id, 'data-f': 'c' + x.c.id, tabindex: '-1'},
+        h('span', { class: 'n' }, h('i', { class: 'kw-sd' }), h('span', { class: 't' })), h('span', { class: 'p' }));
+      labs.append(b); btns.set(x.c.id, b); inLabs.push({ el: b, x: ax, y: ay });
+      continue;
+    }
+    if (!x.c.marker) addDot(x, ax, ay, false);                  // the leader line starts at the market's marker
+    // narrower maps: Korea (< 980 px, its chip would meet the European ones) and Indonesia (< 880 px) join the Pacific column
+    const ck = (x.c.id === '410' && W < 980) || (mid && x.c.id === '360') ? 'pac' : x.c.col;
+    const C = GCOLS[ck];
+    (cols[ck] = cols[ck] || []).push({ x, ax, ay, y0: C.fixY != null ? P([C.lon, C.fixY])[1] : ay });
+  }
+  for (const k in cols) {
+    const C = GCOLS[k];
+    dodge(cols[k], GCHIP_H / 2 + 4, H - GCHIP_H / 2 - 4);
+    const end = C.align === 'end';
+    for (const it of cols[k]) {
+      it.el = h('button', { type: 'button', class: 'kw-gb kw-gl chip' + (end ? ' end' : ''), 'data-c': it.x.c.id, 'data-f': 'c' + it.x.c.id, tabindex: '-1' },
+        h('i', { class: 'kw-sd' }), h('span', { class: 't' }), h('span', { class: 'p' }));
+      labs.append(it.el); btns.set(it.x.c.id, it.el);
+    }
+    colList.push({ x: P([C.lon, C.lat])[0], end, items: cols[k] });
+  }
+  // indices not tied to one country (US futures, Euro Stoxx 50, VIX): a small box beside the map
+  const offBelow = narrow || mid;
+  const off = h('div', { class: 'kw-goff' + (offBelow ? ' below' : '') }, h('div', { class: 'kw-goh', text: '나라에 묶이지 않는 지수' }),
+    G.off.map(it => h('button', { type: 'button', class: 'kw-gb kw-go', 'data-k': it.key, 'data-f': 'k' + it.key, tabindex: '-1' },
+      h('i', { class: 'kw-sd' }), h('span', { class: 't' }, it.name), h('span', { class: 'kw-pchip sm' }))));
+  const mapBox = h('div', { class: 'kw-gmap', style: `height:${H}px;--gs:${Math.max(1, Math.min(1.22, W / 1150)).toFixed(3)}` }, s, labs, offBelow || !G.off.length ? null : off);
+  // phones: every country as a tap target under the map
+  const grid = narrow ? h('div', { class: 'kw-ggrid', role: 'group', 'aria-label': '나라별 대표 지수' }, G.cs.map(x =>
+    h('button', { type: 'button', class: 'kw-gb kw-gc', 'data-c': x.c.id, 'data-f': 'c' + x.c.id, tabindex: '-1' },
+      h('i', { class: 'sw' }), h('span', { class: 't' }, h('b', { text: x.c.name }), h('small')), h('span', { class: 'p' })))) : null;
+  put(els.geo, mapBox, grid, offBelow && G.off.length ? off : null);
+  els.geo.classList.toggle('narrow', narrow);
+  els.g = { sig, W, H, P, narrow, paths, dOf, btns, dots, night, glow, selG, lines, inLabs, cols: colList, cs: G.cs, off: G.off, openSig: null };
+  if (fk) { const b = els.geo.querySelector(`.kw-gb[data-f="${CSS.escape(fk)}"]`); if (b) b.focus({ preventScroll: true }); }
+}
+function renderGeo(d) {
+  const W = els.geo.clientWidth;
+  if (!W || GEO.state !== 'ready') return;
+  const narrow = W < 560;
+  const G = geoGroups(d);
+  const sig = [W, narrow, G.cs.map(x => x.c.id + ':' + x.items.map(i => i.key).join(',')).join(';'), G.off.map(i => i.key).join(',')].join('|');
+  if (!els.g || els.g.sig !== sig || !els.geo.contains(els.g.night)) buildGeo(d, W, narrow, G, sig);
+  const g = els.g;
+  g.cs = G.cs; g.off = G.off;
+  const selKey = S.detail && S.detail.key;
+  const openIds = [];
+  for (const x of G.cs) {
+    const it = x.rep, col = colorOf(it), open = x.items.some(i => i.status === 'OPEN');
+    if (open) openIds.push(x.c.id);
+    const sel = !!selKey && x.items.some(i => i.key === selKey);
+    const tip = `${x.c.name} · ${it.name} ${pct(it.ratio)}${x.items.length > 1 ? ` 외 ${x.items.length - 1}개` : ''} · ${open ? '장중' : '마감'}`;
+    const p = g.paths.get(x.c.id);
+    if (p) { p.style.fill = col; p.classList.toggle('open', open); p.classList.toggle('sel', sel); p.firstChild.textContent = tip; }
+    const m = g.dots.get(x.c.id);
+    if (m) {
+      if (m.dot.classList.contains('kw-gmk')) { m.dot.style.fill = col; m.dot.firstChild.textContent = tip; }
+      m.dot.classList.toggle('open', open); m.dot.classList.toggle('sel', sel);
+    }
+    const aria = `${x.c.name} ${it.name} ${valText(it)}, ${pct(it.ratio)}, ${open ? '장중' : '마감'}${x.items.length > 1 ? `, 지수 ${x.items.length}개` : ''}`;
+    const b = g.btns.get(x.c.id);
+    if (b) {
+      const t = b.querySelector('.t'), pp = b.querySelector('.p'), dot = b.querySelector('.kw-sd');
+      if (t) t.textContent = x.c.name;
+      pp.textContent = pct(it.ratio);
+      if (b.classList.contains('chip')) { pp.className = 'p ' + (it.ratio == null ? 'flat' : cls(it.ratio)); b.style.setProperty('--c', col); }
+      if (dot) dot.className = 'kw-sd ' + (open ? 'open' : 'close');
+      b.classList.toggle('sel', sel);
+      if (b.tagName === 'BUTTON') { b.setAttribute('aria-label', aria); b.title = tip; }
+    }
+    const c = els.geo.querySelector(`.kw-gc[data-c="${x.c.id}"]`);
+    if (c) {
+      c.querySelector('.sw').style.background = col;
+      c.querySelector('small').textContent = `${shortIdx(x.c, it)}${open ? ' · 장중' : ''}`;
+      const pp = c.querySelector('.p'); pp.textContent = pct(it.ratio); pp.className = 'p ' + (it.ratio == null ? 'flat' : cls(it.ratio));
+      c.classList.toggle('sel', sel);
+      c.setAttribute('aria-label', aria);
+    }
+  }
+  // open markets: a static amber outline, redrawn only when the set changes
+  const osig = openIds.join(',');
+  if (g.openSig !== osig) {
+    g.openSig = osig;
+    const [gl] = g.glow.children;
+    gl.replaceChildren(...openIds.filter(id => g.dOf.has(id)).map(id => svgEl('path', { d: g.dOf.get(id), 'data-c': id })));
+  }
+  syncGeoSel();
+  for (const b of els.geo.querySelectorAll('.kw-go')) {
+    const it = d.byKey.get(b.dataset.k);
+    if (!it) continue;
+    const ref = isRef(it), col = ref ? null : colorOf(it), chip = b.querySelector('.kw-pchip');
+    chip.textContent = pct(it.ratio);
+    chip.className = 'kw-pchip sm' + (ref ? ' ref' : '');
+    chip.style.backgroundColor = col || '';
+    chip.style.color = col ? inkOn(col) : '';
+    b.querySelector('.kw-sd').className = 'kw-sd ' + (it.status === 'OPEN' ? 'open' : 'close');
+    b.classList.toggle('sel', selKey === it.key);
+    b.setAttribute('aria-label', ariaOf(it));
+  }
+  placeLabels();
+  // roving focus over the map's buttons
+  const fs = [...els.geo.querySelectorAll('.kw-gb')];
+  if (!S.geoFocus || !fs.some(b => b.dataset.f === S.geoFocus)) S.geoFocus = fs.length ? fs[0].dataset.f : null;
+  for (const b of fs) b.tabIndex = b.dataset.f === S.geoFocus ? 0 : -1;
+  els.geo.setAttribute('aria-label', '해외 지수 세계지도. 나라마다 대표 지수의 등락률로 칠했어요. 화살표로 옮기고 Enter로 자세히 봐요');
+  els.geo.setAttribute('role', 'group');
+}
+// the selected country's outline sits above the night and the borders
+function syncGeoSel() {
+  const g = els && els.g;
+  if (!g) return;
+  const key = S.detail && S.detail.key;
+  const hit = key ? g.cs.find(x => x.items.some(i => i.key === key)) : null;
+  const dd = hit && g.dOf.get(hit.c.id);
+  g.selG.replaceChildren(...(dd ? [svgEl('path', { d: dd })] : []));
+}
+// labels stay inside the map; a callout column moves in as a block so its widest chip fits; labels that would sit on
+// each other (or on a chip, or on the side box) are nudged apart along the shorter overlap; then the leader lines
+function placeLabels() {
+  const g = els.g, W = g.W, H = g.H, GAP = 3;
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  // reads first (sizes), then the arithmetic, then the writes
+  const ins = g.inLabs.map(L => ({ L, w: L.el.offsetWidth, h: L.el.offsetHeight }));
+  const cols = g.cols.map(col => ({ col, ws: col.items.map(it => [it.el.offsetWidth, it.el.offsetHeight]) }));
+  const offEl = els.geo.querySelector('.kw-gmap > .kw-goff');
+  const fixed = [];
+  if (offEl) fixed.push({ l: offEl.offsetLeft, t: offEl.offsetTop, r: offEl.offsetLeft + offEl.offsetWidth, b: offEl.offsetTop + offEl.offsetHeight });
+  const chipPos = [];
+  for (const { col, ws } of cols) {
+    const maxW = Math.max(...ws.map(x => x[0]));
+    const x = col.end ? Math.max(col.x, maxW + 4) : Math.min(col.x, W - maxW - 4);
+    col.items.forEach((it, i) => {
+      const [w, hh] = ws[i];
+      chipPos.push({ it, x, end: col.end });
+      fixed.push({ l: col.end ? x - w : x, r: col.end ? x : x + w, t: it.y - hh / 2, b: it.y + hh / 2 });
+    });
+  }
+  for (const o of ins) { o.x = clamp(o.L.x, o.w / 2 + 3, W - o.w / 2 - 3); o.y = clamp(o.L.y, o.h / 2 + 2, H - o.h / 2 - 2); }
+  const box = o => ({ l: o.x - o.w / 2, r: o.x + o.w / 2, t: o.y - o.h / 2, b: o.y + o.h / 2 });
+  const over = (a, b) => [Math.min(a.r, b.r) - Math.max(a.l, b.l) + GAP, Math.min(a.b, b.b) - Math.max(a.t, b.t) + GAP];
+  for (let pass = 0; pass < 24; pass++) {
+    let moved = false;
+    for (let i = 0; i < ins.length; i++) {
+      const a = ins[i];
+      const others = ins.filter((x, j) => j !== i).map(x => ({ o: x, r: box(x) })).concat(fixed.map(r => ({ o: null, r })));
+      for (const { o, r } of others) {
+        const A = box(a), [ox, oy] = over(A, r);
+        if (ox <= GAP || oy <= GAP) continue;
+        const share = o ? 0.5 : 1;                         // two labels both give way; a chip or the side box does not move
+        const ac = [(A.l + A.r) / 2, (A.t + A.b) / 2], rc = [(r.l + r.r) / 2, (r.t + r.b) / 2];
+        if (oy <= ox) { const s = (ac[1] <= rc[1] ? -1 : 1) * oy * share; a.y += s; if (o) o.y -= s; }
+        else { const s = (ac[0] <= rc[0] ? -1 : 1) * ox * share; a.x += s; if (o) o.x -= s; }
+        for (const z of o ? [a, o] : [a]) { z.x = clamp(z.x, z.w / 2 + 3, W - z.w / 2 - 3); z.y = clamp(z.y, z.h / 2 + 2, H - z.h / 2 - 2); }
+        moved = true;
+      }
+    }
+    if (!moved) break;
+  }
+  for (const o of ins) { o.L.el.style.left = o.x.toFixed(1) + 'px'; o.L.el.style.top = o.y.toFixed(1) + 'px'; }
+  const kids = [];
+  for (const { it, x, end } of chipPos) {
+    it.el.style.left = x.toFixed(1) + 'px';
+    it.el.style.top = it.y.toFixed(1) + 'px';
+    // marker → elbow → the chip's near edge
+    const ex = x + (end ? 1 : -1), elbow = x + (end ? 9 : -9);
+    kids.push(svgEl('path', { class: 'kw-gld', d: `M${fx1(it.ax)} ${fx1(it.ay)}L${fx1(elbow)} ${fx1(it.y)}L${fx1(ex)} ${fx1(it.y)}` }));
+  }
+  g.lines.replaceChildren(...kids);
+}
+const shortIdx = (c, it) => it.name.startsWith(c.name + ' ') ? it.name.slice(c.name.length + 1) : it.name;
+function setGeoFocus(f) {
+  S.geoFocus = f;
+  for (const b of els.geo.querySelectorAll('.kw-gb')) b.tabIndex = b.dataset.f === f ? 0 : -1;
+}
+function openCountry(id, opener) {
+  const g = els.g;
+  const x = g && g.cs.find(c => c.c.id === id);
+  if (!x) return;
+  openDetail(x.rep.key, opener || g.btns.get(id) || els.geo.querySelector(`.kw-gc[data-c="${id}"]`), x.items.map(i => i.key), x.c.name);
+}
+function onGeoClick(e) {
+  const b = e.target.closest('.kw-gb');
+  if (b) { if (b.dataset.c) openCountry(b.dataset.c, b); else if (b.dataset.k) openDetail(b.dataset.k, b, offPeers(b.dataset.k)); return; }
+  const p = e.target.closest('.kw-cp.has, .kw-gmk, .kw-gdot');
+  if (p) openCountry(p.dataset.c, null);
+}
+function offPeers(key) {
+  const d = S.data[S.kind], it = d && d.byKey.get(key);
+  if (!it || !els.g) return null;
+  const same = els.g.off.filter(o => o.gkey === it.gkey).map(o => o.key);
+  return same.length > 1 ? same : null;
+}
+// arrows: the nearest button in that direction (by the buttons' boxes); Home / End
+function onGeoKey(e) {
+  const cur = e.target.closest('.kw-gb');
+  if (!cur) return;
+  const fs = [...els.geo.querySelectorAll('.kw-gb')].filter(b => b.getClientRects().length);
+  let next = null;
+  if (e.key === 'Home') next = fs[0];
+  else if (e.key === 'End') next = fs[fs.length - 1];
+  else if (/^Arrow/.test(e.key)) {
+    const a = cur.getBoundingClientRect(), ax = a.left + a.width / 2, ay = a.top + a.height / 2;
+    let best = Infinity;
+    for (const b of fs) {
+      if (b === cur) continue;
+      const r = b.getBoundingClientRect(), bx = r.left + r.width / 2, by = r.top + r.height / 2;
+      const dx = bx - ax, dy = by - ay;
+      const main = e.key === 'ArrowRight' ? dx : e.key === 'ArrowLeft' ? -dx : e.key === 'ArrowDown' ? dy : -dy;
+      const cross = e.key === 'ArrowRight' || e.key === 'ArrowLeft' ? Math.abs(dy) : Math.abs(dx);
+      if (main <= 2) continue;
+      const sc = main + cross * 2.2;
+      if (sc < best) { best = sc; next = b; }
+    }
+  } else return;
+  e.preventDefault();
+  if (next) { setGeoFocus(next.dataset.f); next.focus(); }
+}
+
 /* side: biggest movers, open markets, source */
 function rowBtn(it) {
   const u = unitOf(it);
@@ -1007,19 +1440,20 @@ function ensureSheet() {
     }
   });
   document.addEventListener('pointerdown', e => {
-    if (!S.detail || sheet.contains(e.target) || e.target.closest('.kw-tile,.kw-row,.kw-lr')) return;
+    if (!S.detail || sheet.contains(e.target) || e.target.closest('.kw-tile,.kw-row,.kw-lr,.kw-gb,.kw-cp.has,.kw-gmk,.kw-gdot')) return;
     if (!narrowMQ.matches) closeDetail(false);
   }, true);
   addEventListener('resize', () => { if (S.detail && S.detail.chart) drawChart(); });
 }
-function openDetail(key, opener) {
+// peers: the other indices of the same country (world map) — a switcher at the top of the sheet; place: its title
+function openDetail(key, opener, peers, place) {
   const d = S.data[S.kind];
   if (!d || !d.byKey.has(key)) return;
   ensureSheet();
   const same = S.detail && S.detail.key === key;
-  S.detail = { key, kind: S.kind, opener: opener || null, tf: same ? S.detail.tf : '3m', chart: null };
-  for (const [k, el] of els.tiles) el.classList.toggle('sel', k === key);
-  for (const [k, el] of els.rows) el.classList.toggle('sel', k === key);
+  peers = peers && peers.length > 1 && peers.includes(key) ? peers : null;
+  S.detail = { key, kind: S.kind, opener: opener || null, tf: same ? S.detail.tf : '3m', chart: null, peers, place: peers ? place || null : null };
+  markSel(key);
   fillDetail(true);
   sheet.hidden = false;
   sheet.classList.toggle('kw-noanim', reduceMQ.matches);
@@ -1028,25 +1462,47 @@ function openDetail(key, opener) {
   sheet.focus({ preventScroll: true });
   loadChart();
 }
+function markSel(key) {
+  for (const [k, el] of els.tiles) el.classList.toggle('sel', k === key);
+  for (const [k, el] of els.rows) el.classList.toggle('sel', k === key);
+  if (els.g) {
+    const hit = key ? els.g.cs.find(x => x.items.some(i => i.key === key)) : null;
+    for (const el of els.geo.querySelectorAll('.kw-cp.has, .kw-gmk, .kw-gdot, .kw-gl, .kw-gc')) el.classList.toggle('sel', !!hit && el.dataset.c === hit.c.id);
+    for (const el of els.geo.querySelectorAll('.kw-go')) el.classList.toggle('sel', el.dataset.k === key);
+    syncGeoSel();
+  }
+}
 function closeDetail(restore) {
   if (!S.detail || !sheet) return;
   const { key, opener } = S.detail;
   S.detail = null;
   sheet.hidden = true;
   scrim.classList.remove('open');
-  if (els && els.tiles) for (const el of els.tiles.values()) el.classList.remove('sel');
-  if (els && els.rows) for (const el of els.rows.values()) el.classList.remove('sel');
+  if (els && els.tiles) markSel(null);
   if (!restore || !S.shown) return;
   // back to the opener; if it is gone or hidden (the view changed meanwhile), to the same item in what is shown now
   const visible = el => el && el.isConnected && el.getClientRects().length > 0;
   let target = visible(opener) ? opener : null;
   if (!target && opener && opener.classList.contains('kw-row')) target = els.rank.querySelector(`.kw-row[data-k="${CSS.escape(key)}"]`);
-  if (!visible(target)) target = S.view === 'list' && visible(els.rows.get(key)) ? els.rows.get(key) : visible(els.tiles.get(key)) ? els.tiles.get(key) : null;
+  if (!visible(target) && S.mode === 'geo' && els.g) {
+    const hit = els.g.cs.find(x => x.items.some(i => i.key === key));
+    const cand = hit ? els.geo.querySelector(`.kw-gb[data-c="${hit.c.id}"]`) : els.geo.querySelector(`.kw-gb[data-k="${CSS.escape(key)}"]`);
+    if (visible(cand)) target = cand;
+  }
+  if (!visible(target)) target = S.mode === 'list' && visible(els.rows.get(key)) ? els.rows.get(key) : visible(els.tiles.get(key)) ? els.tiles.get(key) : null;
   if (target) {
     if (target.classList.contains('kw-tile')) setRoving(key);
     if (target.classList.contains('kw-lr')) setListFocus(key);
+    if (target.classList.contains('kw-gb')) setGeoFocus(target.dataset.f);
     target.focus({ preventScroll: false });
   }
+}
+function switchPeer(k) {
+  const D = S.detail;
+  if (!D || !D.peers || D.key === k) return;
+  openDetail(k, D.opener, D.peers, D.place);
+  const b = sheet.querySelector(`.kw-peers button[data-k="${CSS.escape(k)}"]`);
+  if (b) b.focus({ preventScroll: true });
 }
 function fillDetail(full) {
   const D = S.detail, d = S.data[D.kind];
@@ -1074,14 +1530,22 @@ function fillDetail(full) {
     isRef(it) ? h('p', { class: 'kw-note', text: 'VIX는 S&P 500 옵션 가격으로 계산한 변동성 기대치예요. 오르면 시장 불안이 커졌다는 뜻이라 지도에서 색칠하지 않았어요.' }) : null,
     it.gkey === 'kr' ? h('p', { class: 'kw-note', text: '비교용으로 함께 보여 줘요. 종목 지도는 코스피·코스닥 탭에서 볼 수 있어요.' }) : null,
     S.kind === 'commodity' ? h('p', { class: 'kw-note', text: '근월물 선물 가격이에요. 거래소 시각 기준으로 하루가 바뀌어요.' }) : null);
+  // a country with several indices: one button each, the shown one pressed
+  const peers = D.peers ? h('div', { class: 'kw-peers', role: 'group', 'aria-label': `${D.place || ''} 지수`.trim() },
+    D.place ? h('b', { class: 'kw-peers-h', text: D.place }) : null,
+    D.peers.map(k => { const p = d.byKey.get(k); return p ? h('button', { type: 'button', 'data-k': k, 'aria-pressed': String(k === D.key), onclick: () => switchPeer(k) },
+      h('span', { class: 'n', text: p.name }), h('span', { class: 'v ' + (isRef(p) || p.ratio == null ? 'flat' : cls(p.ratio)), text: pct(p.ratio) })) : null; })) : null;
   if (full || !sheet.firstChild) {
     const chartBox = h('div', { class: 'kw-chart' });
     sheet.replaceChildren(
       h('div', { class: 'kw-grab', 'aria-hidden': 'true' }),
       h('button', { type: 'button', class: 'kw-x', 'aria-label': '닫기', onclick: () => closeDetail(true) }, '×'),
-      head, chartBox,
+      peers, head, chartBox,
       h('p', { class: 'kw-dsrc', text: `출처: 네이버 증권 · ${delayText(it)} 시세` }));
+    sheet.classList.toggle('has-peers', !!peers);
   } else {
+    const old = $('.kw-peers', sheet);
+    if (old && peers) { const f = old.contains(document.activeElement) ? document.activeElement.dataset.k : null; sheet.replaceChild(peers, old); if (f) { const b = peers.querySelector(`button[data-k="${CSS.escape(f)}"]`); if (b) b.focus({ preventScroll: true }); } }
     sheet.replaceChild(head, $('.kw-dh', sheet));
     const src = $('.kw-dsrc', sheet); if (src) src.textContent = `출처: 네이버 증권 · ${delayText(it)} 시세`;
     if (S.detail.chart && S.detail.chart.bars) drawChart();   // its last point is the live value
@@ -1244,6 +1708,8 @@ document.addEventListener('visibilitychange', () => {
   const age = Date.now() - (S.at[S.kind] || 0);
   if (!S.data[S.kind] || age >= POLL_MS) load(S.kind); else schedule(POLL_MS - age);
 });
+// the clock in the header refreshes everything at once (AGENTS §3-6): fetch now, keep view, scroll and focus
+document.addEventListener('kh:refresh', () => { if (S.shown && LIVE && !document.hidden) load(S.kind); });
 document.addEventListener('kh:palette', () => {
   if (!S.shown || !els || els.snap) return;
   render();
