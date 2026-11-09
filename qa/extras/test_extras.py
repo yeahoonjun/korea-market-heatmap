@@ -332,6 +332,14 @@ def run(b):
         rp = pg.evaluate('() => { const r = document.querySelector(".rp").getBoundingClientRect(); return [r.left, r.right]; }')
         check(f'replay open {w}: no overflow, player inside viewport', ov['sw'] <= ov['cw'] and rp[0] >= -0.5 and rp[1] <= w + 0.5, f'{ov} {rp}')
     pg.set_viewport_size({'width': 1440, 'height': 900}); pg.wait_for_timeout(200)
+    pg.click('#q'); pg.keyboard.type('삼성'); pg.keyboard.press('Space')
+    check('replay: Space in the search box types, does not play', pg.input_value('#q') == '삼성 ' and pg.get_attribute('.rp-play', 'aria-label') == '재생')
+    pg.keyboard.press('Escape'); pg.wait_for_timeout(150)
+    check('replay: Esc in the search box leaves the player open', not pg.evaluate('() => document.querySelector(".rp").hidden'))
+    pg.focus('.rp-speed button[data-v="2"]'); pg.keyboard.press('Space'); pg.wait_for_timeout(250)
+    check('replay: Space on a focused button toggles play only (no click)', pg.get_attribute('.rp-play', 'aria-label') == '멈춤' and pg.get_attribute('.rp-speed button[data-v="2"]', 'aria-pressed') == 'false')
+    pg.keyboard.press('Space'); pg.wait_for_timeout(100)
+    pg.focus('[data-x=replay]')
     pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
     restored = pg.evaluate('() => [...document.querySelectorAll("#map .tile")].slice(0, 40).map(e => e.style.backgroundColor)')
     st = pg.evaluate('() => ({shim: window.__shimReplay, hidden: document.querySelector(".rp").hidden, focus: document.activeElement.dataset.x, crumbs: !!document.querySelector("#crumbs .c")})')
@@ -403,8 +411,12 @@ def run(b):
             check(f'overflow {name} {w}: page 0', ov['sw'] <= ov['cw'] and ov['bw'] <= ov['cw'], str(ov))
             if w >= 1280:
                 check(f'strip {name} {w}: one row, no scrolling', strip[0] <= strip[1], str(strip))
-            if w in (390, 1280):
+            if w in (390, 768, 1280):
                 pg.screenshot(path=str(SHOTS / f'{name}_{w}.png'))
+            if name == 'live' and w == 768:
+                pg.click('#extras-tools [data-x=replay]')
+                pg.wait_for_function('() => document.querySelector(".rp-time") && document.querySelector(".rp-time").textContent === "09:00"', timeout=5000)
+                pg.screenshot(path=str(SHOTS / 'live_768_replay.png'))
             ctx.close()
     ctx, pg, _ = open_page(b, LIVE, 1440, 900)
     pg.screenshot(path=str(SHOTS / 'live_1440.png'))

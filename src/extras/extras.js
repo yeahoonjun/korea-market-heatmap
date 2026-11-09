@@ -60,6 +60,7 @@ let toastEl = null, toastTimer = 0;
 function toast(msg) {
   if (!toastEl) { toastEl = h('div', { class: 'xt-toast', role: 'status', 'aria-live': 'polite' }); document.body.append(toastEl); }
   toastEl.textContent = msg;
+  if (!msg) return;
   toastEl.classList.add('show');
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => toastEl.classList.remove('show'), 3200);
@@ -164,8 +165,9 @@ function stripOverflow() {
   const over = stripEl.scrollWidth > stripEl.clientWidth + 1;
   stripEl.classList.toggle('xs-scroll', over);
   stripEl.classList.toggle('xs-end', !over || stripEl.scrollLeft + stripEl.clientWidth >= stripEl.scrollWidth - 2);
-  if (over) { stripEl.tabIndex = 0; stripEl.setAttribute('aria-label', '시장 지표 (옆으로 넘겨 보세요)'); }
-  else { stripEl.removeAttribute('tabindex'); stripEl.removeAttribute('aria-label'); }
+  // a scrollable strip must be reachable by keyboard: make it a focusable, labelled region only then
+  if (over) { stripEl.tabIndex = 0; stripEl.setAttribute('role', 'region'); stripEl.setAttribute('aria-label', '시장 지표, 옆으로 넘겨 보세요'); }
+  else { stripEl.removeAttribute('tabindex'); stripEl.removeAttribute('role'); stripEl.removeAttribute('aria-label'); }
 }
 
 function snapshotIndex() {
@@ -289,7 +291,18 @@ function tileLabel(ctx, fam, n) {
     showSub = fsSub >= 8 && hh >= fsSub * (nameLines * 1.1 + 1.0);
     if (showSub) fs = fsSub;
   }
-  return { fs, lines: parts || [name], ell, showSub };
+  let price = '';
+  if (showSub && hh >= fs * (nameLines * 1.1 + 1.75) && fs >= 15 && w >= 70) price = priceText(n);
+  return { fs, lines: parts || [name], ell, showSub, price };
+}
+// third line on big tiles: the node's own text if the layout gives one, else the replay frame's or the live price
+function priceText(n) {
+  if (n.px != null && n.px !== '') return String(n.px);
+  if (!n.code) return '';
+  const q = replay.prices && replay.prices.get(n.code);
+  const st = !q && has('stock') ? KH.stock(n.code) : null;
+  const v = q ? q.p : st ? st.p : NaN;
+  return isFinite(v) && v > 0 ? Math.round(v).toLocaleString('ko-KR') : '';
 }
 
 function drawMap(nodes) {
@@ -373,9 +386,9 @@ function drawMap(nodes) {
   for (const n of tiles) {
     const L = tileLabel(ctx, fam, n);
     if (!L) continue;
-    const { fs, lines, ell, showSub } = L;
-    const lh = fs * 1.08, subFs = fs * 0.74;
-    const total = lines.length * lh + (showSub ? subFs * 1.08 + fs * 0.12 : 0);
+    const { fs, lines, ell, showSub, price } = L;
+    const lh = fs * 1.08, subFs = fs * 0.74, pxFs = fs * 0.52;
+    const total = lines.length * lh + (showSub ? subFs * 1.08 + fs * 0.12 : 0) + (price ? pxFs * 1.08 + pxFs * 0.3 : 0);
     let y = n.y + (n.h - total) / 2 + lh / 2;
     const cx = n.x + n.w / 2;
     ctx.save();
@@ -389,6 +402,12 @@ function drawMap(nodes) {
       ctx.font = `500 ${subFs.toFixed(1)}px ${fam}`;
       ctx.globalAlpha = 0.96;
       ctx.fillText(String(n.sub), cx, y);
+      if (price) {
+        y += subFs * 1.08 / 2 + pxFs * 0.3 + pxFs * 1.08 / 2;
+        ctx.font = `500 ${pxFs.toFixed(1)}px ${fam}`;
+        ctx.globalAlpha = 0.78;
+        ctx.fillText(ellipsize(ctx, price, n.w - 6), cx, y);
+      }
     }
     ctx.restore();
   }
@@ -646,6 +665,7 @@ function showFrame(i) {
     if (p == null || r == null || !isFinite(p) || !isFinite(r)) continue;
     prices.set(day.codes[j], { p: +p, r: +r });
   }
+  R.prices = prices;
   cancelAnimationFrame(R.raf);
   R.raf = requestAnimationFrame(() => { try { KH.setReplay({ t: String(f.t), date: day.date, prices }); } catch (e) { /* map keeps its last frame */ } });
   const ui = R.ui, sl = slotOfT(f.t);
@@ -711,7 +731,7 @@ function closeReplay() {
   const R = replay;
   if (!R.open) return;
   pause();
-  R.open = false; R.frameT = null; R.req++;
+  R.open = false; R.frameT = null; R.prices = null; R.req++;
   cancelAnimationFrame(R.raf);
   try { KH.setReplay(null); } catch (e) { /* nothing to undo */ }
   R.el.hidden = true;
@@ -719,22 +739,28 @@ function closeReplay() {
   document.documentElement.style.setProperty('--rp-h', '0px');
   if (R.btn) { R.btn.setAttribute('aria-expanded', 'false'); R.btn.focus(); }
 }
+let spaceTaken = false;
 function rpKeys(e) {
   const R = replay;
+  spaceTaken = false;
   if (!R.open || e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey) return;
-  if (document.querySelector('dialog[open]')) return;
+  // anything layered above the player (dialogs, the heatmap's detail sheet, the stock page) keeps its own keys
+  if (document.querySelector('dialog[open], #sheet.open')) return;
   if (window.KHStock && typeof window.KHStock.isOpen === 'function' && window.KHStock.isOpen()) return;
   const t = e.target;
-  const typing = t && (t.isContentEditable || /^(TEXTAREA|SELECT)$/.test(t.tagName) || (t.tagName === 'INPUT' && t.type !== 'range'));
+  const textField = t && (t.isContentEditable || t.tagName === 'TEXTAREA' || (t.tagName === 'INPUT' && t.type !== 'range'));
+  if (textField) return;                                   // e.g. Esc in the search box clears the search
   if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeReplay(); return; }
-  if (typing || !R.day || !R.ui || R.ui.body.hidden) return;
-  if (e.key === ' ' || e.code === 'Space') { e.preventDefault(); e.stopPropagation(); if (!e.repeat) togglePlay(); }
+  if (t && t.tagName === 'SELECT') return;                 // the date picker uses arrows and Space itself
+  if (!R.day || !R.ui || R.ui.body.hidden) return;
+  if (e.key === ' ' || e.code === 'Space') { e.preventDefault(); e.stopPropagation(); spaceTaken = true; if (!e.repeat) togglePlay(); }
   else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); e.stopPropagation(); step(e.key === 'ArrowLeft' ? -1 : 1); }
 }
 
 /* ═════════════ boot ═════════════ */
 function initTools() {
   if (!toolsEl) return;
+  toast('');                                               // create the live region up front so the first message is announced
   toolsEl.classList.add('xt');
   if (has('layout')) toolsEl.append(toolButton('image', '이미지로 저장', saveImage));
   if (LIVE && has('setReplay')) toolsEl.append(toolButton('replay', '리플레이', openReplay, { 'aria-expanded': 'false' }));
@@ -743,6 +769,6 @@ initStrip();
 initTools();
 initPWA();
 document.addEventListener('keydown', rpKeys);
-// Space on a focused button would also "click" it on keyup; swallow it while the player owns Space
-document.addEventListener('keyup', e => { if (replay.open && (e.key === ' ' || e.code === 'Space') && e.target && e.target.tagName === 'BUTTON' && !document.querySelector('dialog[open]')) e.preventDefault(); });
+// Space on a focused button would also "click" it on keyup: swallow that when the player took the keydown
+document.addEventListener('keyup', e => { if (spaceTaken && (e.key === ' ' || e.code === 'Space')) { e.preventDefault(); spaceTaken = false; } });
 })();
