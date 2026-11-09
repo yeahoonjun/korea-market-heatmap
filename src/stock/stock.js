@@ -28,6 +28,7 @@ const TF_NAME = Object.fromEntries(TFS);
  * Fetch through api(path, key) with a key of the tab's own, so switching and closing abort it. */
 const TABS = [
   { key: 'ob', label: '호가', build: buildOb, show: () => { renderOb(); obStart(); }, hide: obStop, reset: obReset, summary: obSummary },
+  { key: 'info', label: '종목 정보', build: buildInfo, show: infoShow, reset: infoReset, summary: infoSummary },
   { key: 'inv', label: '투자자', show: () => (S.inv || S.invLoading ? renderInv() : loadInv()), reset: invReset },
   { key: 'daily', label: '일별 시세', show: () => (S.daily ? renderDaily() : loadDaily(1)), reset: dailyReset, summary: renderDailyNote },
   { key: 'news', label: '뉴스·공시', build: buildNews, show: newsShow, reset: newsReset },
@@ -129,6 +130,8 @@ const S = {
   inv: null, invErr: null, invLoading: false,     // 투자자 tab
   daily: null,                                    // 일별 시세 tab
   news: { news: null, disc: null },               // 뉴스·공시 tab: per list {loading, err} while fetching (rows live in newsCache)
+  ci: { fa: null, fq: null, res: null },          // 종목 정보 tab: per source {loading, err} while fetching (data lives in ciCache)
+  ciSel: {}, resAll: false, finTbl: false,        //   picked period per 분기/연간, report list expanded, 표로 보기 open
   timers: { sum: 0, chart: 0, ob: 0 },
 };
 const ctrls = {};
@@ -341,35 +344,88 @@ function renderStats() {
   }
   const s = S.sum;
   R.stats.hidden = !s && !!S.sumErr;
+  const lbl = [['시가총액'], ['PER'], ['PBR'], ['배당수익률', 'sp-st-dy'], ['외국인 소진율', 'sp-st-fr']];
   if (!s) {
-    R.stats.replaceChildren(...['시가총액', 'PER', 'PBR', '배당수익률', '외국인 보유율'].map(l => statItem(l, skel('4em', '0.9em'))), statItem('52주 최저·최고', skel('100%', '0.9em'), 'sp-rng'));
+    R.stats.replaceChildren(...lbl.map(([l, c]) => statItem(l, skel('4em', '0.9em'), c)),
+      rangeItem('1일 범위', null, skel('100%', '0.9em'), 'd1'), rangeItem('52주 범위', null, skel('100%', '0.9em'), 'w52'));
     return;
   }
-  const lo = s.low52, hi = s.high52, p = s.price;
-  let rng = '—';
-  if (isNum(lo) && isNum(hi) && hi > lo) {
-    const x = Math.max(0, Math.min(1, (p - lo) / (hi - lo)));
-    rng = [h('span', { class: 'lo', text: int(lo) }),
-      h('span', { class: 'track', role: 'img', 'aria-label': `52주 범위에서 현재가 위치 ${Math.round(x * 100)}%` }, h('i', { style: `left:${(x * 100).toFixed(1)}%` })),
-      h('span', { class: 'hi', text: int(hi) })];
-  }
+  const p = isNum(s.price) ? +s.price : null;
+  const prev = isNum(s.prevClose) && +s.prevClose > 0 ? +s.prevClose : sumRef();
+  const open = isNum(s.open) && +s.open > 0 ? +s.open : null;
+  const d1 = rangeBar('1일', s.low, s.high, p, { ref: prev, open });
+  const w52 = rangeBar('52주', s.low52, s.high52, p, {});
+  const legend = [open != null ? h('span', { class: 'k-open', text: `시가 ${int(open)}` }) : null,
+    prev != null ? h('span', { class: 'k-prev', text: `전일 ${int(prev)}` }) : null].filter(Boolean);
   R.stats.replaceChildren(
     statItem('시가총액', isNum(s.marketCap) ? F.eok(+s.marketCap) : '—'),
     statItem('PER', fixed(s.per, 2, '배')),
     statItem('PBR', fixed(s.pbr, 2, '배')),
-    statItem('배당수익률', fixed(s.dividendYield, 2, '%')),
-    statItem('외국인 보유율', fixed(s.foreignRate, 2, '%')),
-    statItem('52주 최저·최고', rng, 'sp-rng'));
+    statItem('배당수익률', fixed(s.dividendYield, 2, '%'), 'sp-st-dy'),
+    statItem('외국인 소진율', fixed(s.foreignRate, 2, '%'), 'sp-st-fr'),
+    rangeItem('1일 범위', legend.length && d1 ? legend : null, d1 || '—', 'd1'),
+    rangeItem('52주 범위', null, w52 || '—', 'w52'));
+}
+// 1일·52주 범위: low ─ track (current price dot; on 1일 the move from 전일 종가 is filled and 시가 is a notch) ─ high.
+// A price outside the range (NXT after 15:30 against a KRX-only high/low) pins the dot to the end.
+function rangeItem(label, legend, value, kind) {
+  return h('div', { class: 'sp-stat sp-rng ' + kind },
+    h('dt', {}, h('span', { text: label }), legend ? h('small', { class: 'num' }, legend.flatMap((x, i) => (i ? [' · ', x] : [x]))) : null),
+    h('dd', { class: 'num' }, value));
+}
+function rangeBar(name, lo, hi, p, { ref, open }) {
+  if (!isNum(lo) || !isNum(hi) || +lo <= 0 || +hi < +lo || p == null) return null;
+  lo = +lo; hi = +hi;
+  const pos = v => (hi > lo ? Math.max(0, Math.min(1, (v - lo) / (hi - lo))) : 0.5);
+  const at = v => (pos(v) * 100).toFixed(1) + '%';
+  const track = h('span', { class: 'track', role: 'img',
+    'aria-label': `${name} 최저 ${int(lo)}원, 최고 ${int(hi)}원, 현재가 ${int(p)}원은 아래에서 ${Math.round(pos(p) * 100)}% 위치${ref != null ? `, 전일 종가 ${int(ref)}원` : ''}${open != null ? `, 시가 ${int(open)}원` : ''}` });
+  if (ref != null && hi > lo) {
+    const a = pos(ref), b = pos(p);
+    track.append(h('b', { class: 'fill ' + cls(p - ref), style: `left:${(Math.min(a, b) * 100).toFixed(1)}%;width:${(Math.abs(b - a) * 100).toFixed(1)}%` }),
+      h('em', { class: 'tk prev', style: `left:${at(ref)}`, title: `전일 종가 ${int(ref)}` }));
+  }
+  if (open != null) track.append(h('em', { class: 'tk open', style: `left:${at(open)}`, title: `시가 ${int(open)}` }));
+  track.append(h('i', { class: 'dot', style: `left:${at(p)}` }));
+  return [h('span', { class: 'lo', text: int(lo) }), track, h('span', { class: 'hi', text: int(hi) })];
 }
 
-function renderPeers() {
+// 같은 업종: Naver's 동일업종 list from /summary (peers, AGENTS.md §3-3) once it is there; until then, in the snapshot and
+// when the summary has none, the heatmap's own 업종 (largest first).
+function peerItems() {
+  const s = S.sum;
+  if (LIVE && s && s.code === S.code && Array.isArray(s.peers)) {
+    const list = s.peers.filter(x => x && CODE_RE.test(String(x.code || '')) && x.code !== S.code && x.name).slice(0, 6)
+      .map(x => ({ c: String(x.code), n: String(x.name), p: isNum(x.price) ? +x.price : null, r: isNum(x.ratio) ? +x.ratio : null }));
+    if (list.length) return list;
+  }
   const st = KH.stock(S.code);
-  const list = st && st.s ? KH.stocks().filter(x => x.s === st.s && x.i === st.i && x.c !== st.c && x.c.slice(-1) === '0').sort((a, b) => b.cap - a.cap).slice(0, 12) : [];
+  return st && st.s ? KH.stocks().filter(x => x.s === st.s && x.i === st.i && x.c !== st.c && x.c.slice(-1) === '0').sort((a, b) => b.cap - a.cap).slice(0, 12)
+    .map(x => ({ c: x.c, n: x.n, p: isNum(x.p) ? +x.p : null, r: isNum(x.r) ? +x.r : null })) : [];
+}
+function peerFill(b, x) {
+  b.children[1].textContent = x.p != null ? int(x.p) : '';
+  b.children[2].className = 'num pc ' + cls(x.r);
+  b.children[2].textContent = pct(x.r);
+  b.setAttribute('aria-label', `${x.n}${x.p != null ? ` ${int(x.p)}원` : ''} ${pct(x.r)} 보기`);
+}
+function renderPeers() {
+  const list = peerItems();
   R.peers.hidden = !list.length;
-  if (!list.length) { R.peers.replaceChildren(); return; }
-  R.peers.replaceChildren(h('h2', { class: 'sp-peers-t', text: '같은 업종' }),
-    h('div', { class: 'sp-peer-list' }, list.map(x => h('button', { type: 'button', class: 'sp-peer', onclick: () => open(x.c), 'aria-label': `${x.n} ${pct(x.r)} 보기` },
-      h('span', { class: 'nm', text: x.n }), h('span', { class: 'num ' + cls(x.r), text: pct(x.r) })))));
+  const key = list.map(x => x.c).join(',');
+  if (!list.length) { R.peers.replaceChildren(); R.peerKey = ''; return; }
+  if (key === R.peerKey && R.peerList && R.peers.contains(R.peerList)) {   // same stocks: new numbers in place (keeps focus)
+    list.forEach((x, i) => peerFill(R.peerList.children[i], x));
+    return;
+  }
+  R.peerKey = key;
+  R.peerList = h('div', { class: 'sp-peer-list' }, list.map(x => {
+    const b = h('button', { type: 'button', class: 'sp-peer', 'data-code': x.c, onclick: () => open(x.c) },
+      h('span', { class: 'nm', text: x.n }), h('span', { class: 'num pr' }), h('span', { class: 'num pc' }));
+    peerFill(b, x);
+    return b;
+  }));
+  R.peers.replaceChildren(h('h2', { class: 'sp-peers-t', text: '같은 업종' }), R.peerList);
 }
 
 function renderOffline() {
@@ -379,7 +435,7 @@ function renderOffline() {
     svg('svg', { class: 'sp-off-ic', viewBox: '0 0 48 48', 'aria-hidden': 'true', fill: 'none', stroke: 'currentColor', 'stroke-width': '2', 'stroke-linecap': 'round' },
       svg('path', { d: 'M6 40h36' }), svg('path', { d: 'M12 30v-8M12 34v-2M20 26V12M20 30v-2M28 32V20M28 36v-2M36 22v-12M36 26v-2' })),
     h('h2', { text: st ? '차트·호가·투자자 정보는 실시간 버전에서 볼 수 있어요' : '이 종목은 스냅샷에 없어요' }),
-    h('p', { text: st ? `이 화면은 ${asOfLabel(KH.asOf())} 기준 스냅샷이라 새 시세를 받아 오지 않아요. 일별 시세와 뉴스·공시도 실시간 버전에 있어요.` : `코드 ${S.code}의 시세는 실시간 버전에서 확인해 주세요.` }),
+    h('p', { text: st ? `이 화면은 ${asOfLabel(KH.asOf())} 기준 스냅샷이라 새 시세를 받아 오지 않아요. 종목 정보(재무·애널리스트 의견), 일별 시세, 뉴스·공시도 실시간 버전에 있어요.` : `코드 ${S.code}의 시세는 실시간 버전에서 확인해 주세요.` }),
     h('a', { class: 'sp-btn pri', href, target: '_blank', rel: 'noopener', text: '실시간 버전에서 열기' }));
 }
 
@@ -398,7 +454,7 @@ async function loadSummary(quiet) {
   const before = S.phase;
   S.phase = phaseOf(S.sum);
   root.classList.toggle('sp-nf', !!(S.sumErr && S.sumErr.status === 404 && !KH.stock(S.code)));
-  renderHead(); renderMeta(); renderStats();
+  renderHead(); renderMeta(); renderStats(); renderPeers();
   syncChartRef();
   if (before !== S.phase) scheduleIntraday();
   for (const t of TABS) if (t.summary) t.summary(before !== S.phase);
@@ -859,6 +915,20 @@ function sparkline(series, lo, hi) {
     svg('line', { x1: 0, x2: W, y1: y(0).toFixed(1), y2: y(0).toFixed(1), class: 'zero' }),
     svg('path', { d }));
 }
+// "오늘" (or the latest day with data): net buying per group as bars from a centre line, buys right, sells left
+function todayCard(r, when) {
+  const vals = GROUPS.map(([k]) => (isNum(r[k]) ? +r[k] : null));
+  const max = Math.max(1, ...vals.filter(v => v != null).map(Math.abs));
+  return h('section', { class: 'sp-today', 'aria-label': `${when} 투자자별 순매수` },
+    h('div', { class: 'sp-cum-h' }, h('h3', { text: `${when} 순매수` }), h('small', { text: '단위: 주' })),
+    GROUPS.map(([, label], i) => {
+      const v = vals[i], w = v == null ? 0 : Math.max(v ? 1 : 0, Math.abs(v) / max * 50);
+      return h('div', { class: 'sp-today-r' },
+        h('span', { class: 'k', text: label }),
+        h('b', { class: 'num ' + cls(v) }, h('span', { class: 'l', text: v == null ? '—' : signed(v) + '주' }), h('span', { class: 's', text: v == null ? '—' : signedCompact(v) + '주' })),
+        h('span', { class: 'bar', 'aria-hidden': 'true' }, h('i', { class: cls(v), style: (v >= 0 ? 'left' : 'right') + `:50%;width:${w.toFixed(1)}%` })));
+    }));
+}
 function netCell(v) { return h('td', { class: 'num ' + cls(v) }, h('span', { class: 'l', text: signed(v) }), h('span', { class: 's', text: signedCompact(v) })); }
 function renderInv() {
   const P = R.panels.inv;
@@ -866,6 +936,8 @@ function renderInv() {
   if (!S.inv) { P.replaceChildren(h('div', { class: 'sp-skel-rows', role: 'status', 'aria-label': '투자자 정보 불러오는 중' }, skel('100%', '96px'), Array.from({ length: 8 }, () => skel('100%', '26px')))); return; }
   const rows = S.inv;
   if (!rows.length) { P.replaceChildren(msgBox('투자자별 매매 기록이 없어요.', '새로 상장했거나 거래가 적은 종목일 수 있어요.')); return; }
+  const today = kst(new Date()), lp = rows[0].date.split('-').map(Number);
+  const isToday = lp[0] * 10000 + lp[1] * 100 + lp[2] === today.key;
   const recent = rows.slice(0, 20).reverse();
   const cum = GROUPS.map(([k]) => { let a = 0; return recent.map(r => (a += isNum(r[k]) ? +r[k] : 0)); });
   const all = cum.flat().concat(0), lo = Math.min(...all), hi = Math.max(...all);
@@ -878,8 +950,6 @@ function renderInv() {
         h('b', { class: 'num ' + cls(total) }, h('span', { class: 'l', text: signed(total) + '주' }), h('span', { class: 's', text: signedCompact(total) + '주' })));
     }),
     h('p', { class: 'sp-cum-sub', text: `${recent[0].date.replace(/-/g, '.')} ~ ${lastDate.replace(/-/g, '.')}` }));
-  const today = kst(new Date()), lp = lastDate.split('-').map(Number);
-  const isToday = lp[0] * 10000 + lp[1] * 100 + lp[2] === today.key;
   const note = h('p', { class: 'sp-note' }, `순매수는 산 주식 수에서 판 주식 수를 뺀 값(주)이에요. 투자자별 집계는 장이 끝난 뒤 나와서 오늘 기록은 저녁이나 다음 날 아침에 들어와요.${isToday ? '' : ` 마지막 기록은 ${+lp[1]}월 ${+lp[2]}일이에요.`}`);
   const thead = h('thead', {}, h('tr', {},
     h('th', { scope: 'col', text: '날짜' }), h('th', { scope: 'col', text: '종가' }), h('th', { scope: 'col', class: 'c-pct', text: '등락률' }),
@@ -891,7 +961,7 @@ function renderInv() {
     h('td', { class: 'num c-pct ' + cls(r.ratio), text: pct(r.ratio) }),
     netCell(r.individual), netCell(r.foreign), netCell(r.institution),
     h('td', { class: 'num', text: fixed(r.foreignHoldRatio, 2, '%') }))));
-  P.replaceChildren(card, note, h('table', { class: 'sp-tbl sp-inv-t' }, h('caption', { text: '날짜별 순매수 (단위: 주, 만 = 1만 주)' }), thead, tbody));
+  P.replaceChildren(todayCard(rows[0], isToday ? '오늘' : `${lp[1]}월 ${lp[2]}일`), card, note, h('table', { class: 'sp-tbl sp-inv-t' }, h('caption', { text: '날짜별 순매수 (단위: 주, 만 = 1만 주)' }), thead, tbody));
 }
 
 /* ── 일별 시세 ── */
@@ -944,7 +1014,7 @@ function renderDaily() {
     R.dailyTbody = h('tbody');
     R.dailyMore = h('button', { type: 'button', class: 'sp-btn sp-more', onclick: () => loadDaily(S.daily.page + 1) });
     R.dailyErr = h('p', { class: 'sp-inline-err', role: 'status' });
-    R.dailyNote = h('p', { class: 'sp-note', text: '오늘 행은 KRX 정규장 기준이라 위 현재가(NXT·시간외 포함)와 다를 수 있어요.' });
+    R.dailyNote = h('p', { class: 'sp-note', text: '정규장 이후에는 오늘 행에 NXT 거래가 섞여 KRX 종가(15:30)와 다를 수 있어요.' });
     const thead = h('thead', {}, h('tr', {}, [['날짜', ''], ['종가', ''], ['전일 대비', 'c-chg'], ['등락률', 'c-pct2'], ['시가', 'c-o'], ['고가', 'c-o'], ['저가', 'c-o'], ['고가·저가', 'c-hl'], ['거래량', '']]
       .map(([t, c]) => h('th', { scope: 'col', class: c, text: t }))));
     P.replaceChildren(R.dailyNote, h('table', { class: 'sp-tbl sp-daily-t' }, h('caption', { text: '일별 시세 (가격: 원, 거래량: 주)' }), thead, R.dailyTbody), R.dailyErr, R.dailyMore);
@@ -1123,6 +1193,402 @@ function renderNews() {
   R.nw.body.replaceChildren(body);
   R.nw.note.textContent = meta.note;
   R.nw.note.hidden = !(rows && rows.length);
+}
+
+/* ── 종목 정보: 투자 지표 · 재무 · 안정성 · 배당 · 애널리스트 의견 (AGENTS.md §3-3) ── */
+// Three sources load when the tab opens (finance annual + quarter, research) and stay cached per stock for 10 minutes;
+// each fails on its own. 투자 지표 mixes /summary (PER, PBR, …) with finance (ROE, PSR).
+const CI_SRC = { fa: 'finance?period=annual', fq: 'finance?period=quarter', res: 'research' };
+const CI_TTL = 10 * 60e3;
+const ciCache = new Map();   // `${code}|${kind}` → {at, j}
+let finPeriod = store.get('stockFinPeriod', 'quarter') === 'annual' ? 'annual' : 'quarter';
+let stabKey = store.get('stockStab', '부채비율') === '당좌비율' ? '당좌비율' : '부채비율';
+const FIN_SERIES = [{ label: '매출', titles: ['매출액'] }, { label: '영업이익', titles: ['영업이익'] }, { label: '순이익', titles: ['당기순이익', '지배주주순이익'] }];
+const STAB = {
+  부채비율: '자본 대비 부채의 비율이에요.',
+  당좌비율: '유동부채 대비 당좌자산(재고를 뺀 유동자산)의 비율이에요.',
+};
+const OPINIONS = ['적극매도', '매도', '중립', '매수', '적극매수'];
+const RES_SHOW = 5, RES_MONTHS = 3;
+
+function infoReset() {
+  S.ci = { fa: null, fq: null, res: null }; S.ciSel = {}; S.resAll = false;
+  if (R.ci) for (const k of ['met', 'fin', 'stab', 'div', 'ana']) R.ci[k].sig = null;
+}
+function infoShow() { for (const k in CI_SRC) loadCi(k); renderInfo(); }
+function infoSummary() {
+  if (!R.ci || S.tab !== 'info') return;
+  renderMetrics(); renderDiv(); renderTargetGap();
+}
+async function loadCi(kind, force) {
+  const code = S.code, g = S.gen, key = code + '|' + kind, hit = ciCache.get(key);
+  if ((!force && hit && Date.now() - hit.at < CI_TTL) || (S.ci[kind] && S.ci[kind].loading)) return;
+  S.ci[kind] = { loading: true, err: null };
+  try {
+    const j = await api(CI_SRC[kind], 'ci-' + kind);
+    if (g !== S.gen) return;
+    ciCache.set(key, { at: Date.now(), j: j && typeof j === 'object' ? j : {} });
+    S.ci[kind] = null;
+  } catch (e) {
+    if (aborted(e) || g !== S.gen) return;
+    S.ci[kind] = { loading: false, err: e };
+  }
+  if (S.tab === 'info') renderInfo();
+}
+const ciHit = k => ciCache.get(S.code + '|' + k) || null;
+const ciData = k => { const x = ciHit(k); return x ? x.j : null; };
+// 'ok' (data, even if a refresh is under way or failed) / 'err' / 'loading'
+const ciState = k => (ciData(k) ? 'ok' : S.ci[k] && S.ci[k].err ? 'err' : 'loading');
+const ciSig = (...k) => k.map(x => { const t = ciHit(x); return x + ':' + ciState(x) + ':' + (t ? t.at : ''); }).join('|');
+function retryCi(...kinds) { for (const k of kinds) { S.ci[k] = null; loadCi(k, true); } renderInfo(); }
+
+// finance helpers: cols oldest first; values in cols order; '-' arrives as null
+const finCols = fin => (fin && Array.isArray(fin.cols) ? fin.cols.filter(c => c && c.key != null) : []);
+function finRow(fin, ...titles) {
+  const rows = fin && Array.isArray(fin.rows) ? fin.rows : [];
+  for (const t of titles) {
+    const r = rows.find(x => x && x.title === t);
+    if (r && Array.isArray(r.values)) return finCols(fin).map((_, i) => (isNum(r.values[i]) ? +r.values[i] : null));
+  }
+  return null;
+}
+function latestActual(fin, title) {
+  const cols = finCols(fin), v = finRow(fin, title);
+  if (!v) return null;
+  for (let i = cols.length - 1; i >= 0; i--) if (!cols[i].estimate && v[i] != null) return { v: v[i], col: cols[i] };
+  return null;
+}
+// '2026.06' → {y: 2026, m: 6}
+function ym(col) { const m = /^(\d{4})\D?(\d{1,2})/.exec(String((col && (col.label || col.key)) || '')); return m ? { y: +m[1], m: +m[2] } : null; }
+function periodLong(col, period) {
+  const p = ym(col);
+  if (!p) return String(col.label || col.key);
+  return period === 'annual' && p.m === 12 ? `${p.y}년` : `${String(p.y).slice(2)}년 ${p.m}월`;
+}
+function periodShort(col, period) {
+  const p = ym(col);
+  if (!p) return String(col.label || col.key);
+  return period === 'annual' && p.m === 12 ? String(p.y) : `${String(p.y).slice(2)}.${pad(p.m)}`;
+}
+// 억원 → 171조 4,995억원 / 1,065억원 / −67억원
+function eokFull(v) {
+  if (!isNum(v)) return '—';
+  const sg = v < 0 ? MINUS : '', a = Math.round(Math.abs(v));
+  if (a >= 10000) { const jo = Math.floor(a / 10000), r = a % 10000; return sg + jo.toLocaleString('ko-KR') + '조' + (r ? ' ' + r.toLocaleString('ko-KR') + '억' : '') + '원'; }
+  return sg + a.toLocaleString('ko-KR') + '억원';
+}
+// 억원 → 171.5조 / 1,065억 (tables)
+function eokShort(v) {
+  if (!isNum(v)) return '—';
+  const sg = v < 0 ? MINUS : '', a = Math.abs(v);
+  return sg + (a >= 10000 ? (a / 10000).toLocaleString('ko-KR', { maximumFractionDigits: 1 }) + '조' : Math.round(a).toLocaleString('ko-KR') + '억');
+}
+
+// ROE: the latest actual year. PSR: 시가총액 ÷ the last 4 actual quarters' 매출 (else the latest actual year's 매출).
+function roeOf() { return latestActual(ciData('fa'), 'ROE'); }
+function psrOf() {
+  const cap = S.sum && S.sum.code === S.code && isNum(S.sum.marketCap) ? +S.sum.marketCap : null;
+  if (!cap) return null;
+  const q = ciData('fq'), qv = finRow(q, '매출액');
+  if (qv) {
+    const act = finCols(q).map((c, i) => [c, qv[i]]).filter(([c, v]) => !c.estimate && v != null).slice(-4);
+    const sum = act.reduce((a, [, v]) => a + v, 0);
+    if (act.length === 4 && sum > 0) return { v: cap / sum, basis: '최근 4분기 매출 기준' };
+  }
+  const a = latestActual(ciData('fa'), '매출액');
+  return a && a.v > 0 ? { v: cap / a.v, basis: `${periodLong(a.col, 'annual')} 매출 기준` } : null;
+}
+
+function buildInfo(panel) {
+  const sec = (key, title, extra) => {
+    const id = 'sp-ci-' + key;
+    const body = h('div', { class: 'sp-ci-body' });
+    const el = h('section', { class: 'sp-ci sp-ci-' + key, 'aria-labelledby': id }, h('div', { class: 'sp-ci-hd' }, h('h3', { id, text: title }), extra || null), body);
+    return { el, body, sig: null };
+  };
+  const periodSeg = () => h('div', { class: 'sp-mseg', role: 'group', 'aria-label': '재무 기간' },
+    [['quarter', '분기'], ['annual', '연간']].map(([k, l]) => h('button', { type: 'button', 'data-p': k, 'aria-pressed': 'false', onclick: () => setFinPeriod(k), text: l })));
+  R.ci = {
+    met: sec('met', '투자 지표'),
+    fin: sec('fin', '재무', periodSeg()),
+    stab: sec('stab', '안정성', periodSeg()),
+    div: sec('div', '배당'),
+    ana: sec('ana', '애널리스트 의견'),
+  };
+  R.ci.stabSeg = h('div', { class: 'sp-seg sp-stabseg', role: 'group', 'aria-label': '안정성 지표' },
+    Object.keys(STAB).map(k => h('button', { type: 'button', 'data-k': k, 'aria-pressed': 'false', onclick: () => setStab(k), text: k })));
+  R.ci.stabBody = h('div');
+  R.ci.stab.body.append(R.ci.stabSeg, R.ci.stabBody);
+  R.ci.stab.body = R.ci.stabBody;
+  panel.append(R.ci.met.el, R.ci.fin.el, R.ci.stab.el, R.ci.div.el, R.ci.ana.el,
+    h('p', { class: 'sp-note sp-ci-src', text: '출처: 네이버 증권 · 컨센서스는 증권사 추정치예요' }));
+}
+function setFinPeriod(k) { finPeriod = k; store.set('stockFinPeriod', k); renderFin(); renderStab(); }
+function setStab(k) { stabKey = k; store.set('stockStab', k); renderStab(); }
+function renderInfo() { if (!R.ci) return; renderMetrics(); renderFin(); renderStab(); renderDiv(); renderAna(); }
+const ciSkel = (n, hgt) => h('div', { class: 'sp-skel-rows', role: 'status', 'aria-label': '불러오는 중' }, Array.from({ length: n }, () => skel('100%', hgt)));
+
+/* 투자 지표 */
+function metric(label, value, sub) {
+  return h('div', { class: 'sp-m' }, h('dt', { text: label }), h('dd', { class: 'num' }, value), sub ? h('dd', { class: 'sub', text: sub }) : null);
+}
+function renderMetrics() {
+  const s = S.sum && S.sum.code === S.code ? S.sum : null;
+  const wait = skel('3.6em', '1em');
+  const faWait = ciState('fa') === 'loading', fqWait = ciState('fq') === 'loading';
+  const roe = faWait ? null : roeOf(), psr = faWait || fqWait ? null : psrOf();
+  const v = (x, fmt) => (!s ? (S.sumErr ? '—' : wait) : fmt(x));
+  R.ci.met.body.replaceChildren(h('dl', { class: 'sp-mgrid' },
+    metric('시가총액', v(s && s.marketCap, x => (isNum(x) ? F.eok(+x) + '원' : '—'))),
+    metric('PER', v(s && s.per, x => fixed(x, 2, '배'))),
+    metric('추정PER', v(s && s.cnsPer, x => fixed(x, 2, '배')), s && isNum(s.cnsPer) ? '증권사 예상' : ''),
+    metric('PBR', v(s && s.pbr, x => fixed(x, 2, '배'))),
+    metric('ROE', faWait ? wait : roe ? fixed(roe.v, 2, '%') : '—', roe ? `${periodLong(roe.col, 'annual')} 기준` : ''),
+    metric('PSR', !s || faWait || fqWait ? (S.sumErr ? '—' : wait) : psr ? fixed(psr.v, 2, '배') : '—', psr ? psr.basis : ''),
+    metric('배당수익률', v(s && s.dividendYield, x => fixed(x, 2, '%'))),
+    metric('외국인 소진율', v(s && s.foreignRate, x => fixed(x, 2, '%')))));
+}
+
+/* 재무: grouped bars per period, estimates hatched, zero line with losses below */
+function syncSegs() {
+  for (const b of R.panels.info.querySelectorAll('.sp-mseg [data-p]')) b.setAttribute('aria-pressed', String(b.dataset.p === finPeriod));
+  for (const b of R.ci.stabSeg.children) b.setAttribute('aria-pressed', String(b.dataset.k === stabKey));
+}
+function finView(fin) {
+  const ser = FIN_SERIES.map(x => finRow(fin, ...x.titles) || []);
+  const opm = finRow(fin, '영업이익률') || [], npm = finRow(fin, '순이익률') || [];
+  const out = [];
+  finCols(fin).forEach((c, i) => {
+    const v = ser.map(a => (a[i] != null ? a[i] : null));
+    if (v.some(x => x != null)) out.push({ c, v, opm: opm[i] != null ? opm[i] : null, npm: npm[i] != null ? npm[i] : null });
+  });
+  return out;
+}
+function renderFin() {
+  syncSegs();
+  const k = finPeriod === 'annual' ? 'fa' : 'fq', st = ciState(k), F0 = R.ci.fin;
+  const sig = finPeriod + '|' + ciSig(k);
+  if (F0.sig === sig) return;
+  F0.sig = sig;
+  if (st === 'loading') { F0.body.replaceChildren(h('div', { class: 'sp-fin-skel', role: 'status', 'aria-label': '재무 정보 불러오는 중' }, Array.from({ length: 18 }, (_, i) => h('i', { style: `height:${20 + Math.round(Math.abs(Math.sin(i * 1.3)) * 60)}%` })))); return; }
+  if (st === 'err') { F0.body.replaceChildren(msgBox('재무 정보를 불러오지 못했어요.', errSub(S.ci[k].err), () => retryCi('fa', 'fq'))); return; }
+  const fin = ciData(k), list = finView(fin), period = finPeriod;
+  if (!list.length) { F0.body.replaceChildren(msgBox('재무 정보가 없어요.', '새로 상장했거나 실적을 내지 않는 종목일 수 있어요.')); return; }
+  const hasEst = list.some(x => x.c.estimate), estCols = finCols(fin).some(c => c.estimate);
+  const all = list.flatMap(x => x.v).filter(v => v != null);
+  const max = Math.max(0, ...all), min = Math.min(0, ...all), span = max - min || 1;
+  const z = (max / span) * 100;   // zero line, % from the top of the bar area
+  const pc = v => ((Math.abs(v) / span) * 100).toFixed(2) + '%';
+  const unitName = period === 'annual' ? '연간' : '분기';
+  const cols = list.map((x, i) => {
+    const name = periodLong(x.c, period) + (x.c.estimate ? ' 예상' : '');
+    const b = h('button', { type: 'button', role: 'radio', class: 'sp-fin-col' + (x.c.estimate ? ' est' : ''), 'data-key': x.c.key, tabindex: '-1',
+      'aria-label': `${name}: ` + FIN_SERIES.map((s, j) => `${s.label} ${eokFull(x.v[j])}`).join(', '), onclick: () => pickFin(i, true) },
+      h('span', { class: 'grp', 'aria-hidden': 'true' }, x.v.map((v, j) => h('span', { class: 'slot' },
+        v == null ? null : h('i', { class: 'b s' + j + (v < 0 ? ' neg' : ''), style: v < 0 ? `top:${z.toFixed(2)}%;height:${pc(v)}` : `bottom:${(100 - z).toFixed(2)}%;height:${pc(v)}` })))));
+    return b;
+  });
+  const radios = h('div', { class: 'sp-fin-cols', role: 'radiogroup', 'aria-label': `${unitName} 실적 기간` }, cols);
+  radios.addEventListener('keydown', e => {
+    let i = list.findIndex(x => x.c.key === F0.cur);
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') i = Math.min(list.length - 1, i + 1);
+    else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') i = Math.max(0, i - 1);
+    else if (e.key === 'Home') i = 0;
+    else if (e.key === 'End') i = list.length - 1;
+    else return;
+    e.preventDefault();
+    pickFin(i, true, true);
+  });
+  const xs = h('div', { class: 'sp-fin-x', 'aria-hidden': 'true' }, list.map(x => h('span', {}, periodLong(x.c, period), x.c.estimate ? h('small', { text: '예상' }) : null)));
+  const legend = h('div', { class: 'sp-fin-lg', 'aria-hidden': 'true' }, FIN_SERIES.map((s, j) => h('span', {}, h('i', { class: 'dot s' + j }), s.label)),
+    hasEst ? h('span', {}, h('i', { class: 'dot hatch' }), '예상') : null);
+  F0.vals = h('div', { class: 'sp-fin-sel', 'aria-live': 'polite' });
+  F0.list = list; F0.cols = cols; F0.xs = xs; F0.period = period;
+  const tbl = h('details', { class: 'sp-fin-tbl', open: S.finTbl, ontoggle: e => { S.finTbl = e.currentTarget.open; } },
+    h('summary', { text: '표로 보기' }),
+    h('table', { class: 'sp-tbl sp-fin-t' },
+      h('caption', { text: `${unitName} 실적 (금액: 조·억원, 이익률: %)` }),
+      h('thead', {}, h('tr', {}, ['기간', '매출', '영업이익', '순이익', '영업이익률'].map(t => h('th', { scope: 'col', text: t })))),
+      h('tbody', {}, list.slice().reverse().map(x => h('tr', {},
+        h('th', { scope: 'row' }, periodShort(x.c, period), x.c.estimate ? h('small', { text: '예상' }) : null),
+        x.v.map(v => h('td', { class: v != null && v < 0 ? 'neg' : '', text: eokShort(v) })),
+        h('td', { text: x.opm != null ? fixed(x.opm, 1, '%') : '—' }))))));
+  F0.body.replaceChildren(legend,
+    h('div', { class: 'sp-fin' }, h('div', { class: 'sp-fin-plot' },
+      h('div', { class: 'sp-fin-area' }, h('i', { class: 'gl', style: 'top:0' }), h('i', { class: 'gl', style: 'top:50%' }), h('i', { class: 'zero', style: `top:${z.toFixed(2)}%` }), radios)), xs),
+    F0.vals,
+    h('p', { class: 'sp-note' }, hasEst ? '빗금 막대는 증권사 예상치(컨센서스)예요. ' : estCols ? '증권사 예상치가 없어요. ' : '', '막대를 누르면 그 기간 숫자를 볼 수 있어요.'),
+    tbl);
+  // keep the period the reader picked; otherwise the latest actual one
+  let sel = list.findIndex(x => x.c.key === S.ciSel[period]);
+  if (sel < 0) { sel = list.map(x => !x.c.estimate).lastIndexOf(true); if (sel < 0) sel = list.length - 1; }
+  pickFin(sel, false);
+}
+function pickFin(i, user, focus) {
+  const F0 = R.ci.fin, x = F0.list && F0.list[i];
+  if (!x) return;
+  F0.cur = x.c.key;
+  if (user) S.ciSel[F0.period] = x.c.key;
+  F0.cols.forEach((b, j) => { b.setAttribute('aria-checked', String(j === i)); b.tabIndex = j === i ? 0 : -1; b.classList.toggle('on', j === i); });
+  [...F0.xs.children].forEach((el, j) => el.classList.toggle('on', j === i));
+  if (focus) F0.cols[i].focus();
+  F0.vals.replaceChildren(
+    h('p', { class: 'sp-fin-when' }, h('b', { text: periodLong(x.c, F0.period) }), x.c.estimate ? h('span', { class: 'sp-tag', text: '예상' }) : h('span', { text: F0.period === 'annual' ? '연간 실적' : '분기 실적' })),
+    h('dl', { class: 'sp-fin-vals' }, FIN_SERIES.map((s, j) => h('div', {}, h('dt', {}, h('i', { class: 'dot s' + j + (x.c.estimate ? ' hatch' : '') }), s.label), h('dd', { class: 'num', text: eokFull(x.v[j]) })))),
+    x.opm != null || x.npm != null ? h('p', { class: 'sp-fin-m num' }, [x.opm != null ? `영업이익률 ${fixed(x.opm, 1, '%')}` : null, x.npm != null ? `순이익률 ${fixed(x.npm, 1, '%')}` : null].filter(Boolean).join(' · ')) : null);
+}
+
+/* 안정성: 부채비율 / 당좌비율 line with a label on every point */
+function lineChart(pts, period, fmt, label) {
+  // the domain hugs the data (every point carries its own label), never below 0 for positive ratios
+  const n = pts.length, vs = pts.map(p => p.v), mn = Math.min(...vs), mx = Math.max(...vs);
+  const pad = Math.max(mx - mn, Math.abs(mx) * 0.15, 1);
+  const lo = mn >= 0 ? Math.max(0, mn - pad * 0.8) : mn - pad * 0.3, hi = mx + pad * 0.2;
+  const X = i => ((i + 0.5) / n) * 100, Y = v => 24 + (1 - (v - lo) / (hi - lo)) * 64;
+  const segs = [];
+  for (let i = 1; i < n; i++) segs.push(svg('line', { x1: X(i - 1), y1: Y(pts[i - 1].v), x2: X(i), y2: Y(pts[i].v), class: pts[i].c.estimate || pts[i - 1].c.estimate ? 'est' : '' }));
+  return h('figure', { class: 'sp-ln', role: 'img', 'aria-label': `${label}: ` + pts.map(p => `${periodLong(p.c, period)}${p.c.estimate ? ' 예상' : ''} ${fmt(p.v)}`).join(', ') },
+    h('div', { class: 'plot' },
+      svg('svg', { viewBox: '0 0 100 100', preserveAspectRatio: 'none', 'aria-hidden': 'true' }, svg('line', { x1: 0, x2: 100, y1: Y(lo), y2: Y(lo), class: 'base' }), ...segs),
+      pts.map((p, i) => h('span', { class: 'pt' + (p.c.estimate ? ' est' : ''), style: `left:${X(i).toFixed(2)}%;top:${Y(p.v).toFixed(2)}%` })),
+      pts.map((p, i) => h('span', { class: 'lb num' + (i === n - 1 ? ' last' : ''), style: `left:${X(i).toFixed(2)}%;top:${Y(p.v).toFixed(2)}%`, text: fmt(p.v) }))),
+    h('div', { class: 'sp-ln-x', 'aria-hidden': 'true' }, pts.map(p => h('span', {}, periodLong(p.c, period), p.c.estimate ? h('small', { text: '예상' }) : null))));
+}
+function renderStab() {
+  syncSegs();
+  const k = finPeriod === 'annual' ? 'fa' : 'fq', st = ciState(k), B = R.ci.stab;
+  const sig = finPeriod + '|' + stabKey + '|' + ciSig(k);
+  if (B.sig === sig) return;
+  B.sig = sig;
+  const fin = ciData(k), v = st === 'ok' ? finRow(fin, stabKey) : null;
+  const pts = v ? finCols(fin).map((c, i) => ({ c, v: v[i] })).filter(p => p.v != null) : [];
+  const any = st === 'ok' && Object.keys(STAB).some(t => (finRow(fin, t) || []).some(x => x != null));
+  B.el.hidden = st === 'err' || (st === 'ok' && !any);   // the 재무 section above already says what went wrong
+  if (st === 'loading') { B.body.replaceChildren(ciSkel(1, '150px')); return; }
+  if (!pts.length) { B.body.replaceChildren(msgBox(`${stabKey} 기록이 없어요.`, '다른 지표나 기간을 골라 보세요.')); return; }
+  B.body.replaceChildren(lineChart(pts, finPeriod, x => fixed(x, 1, '%'), stabKey), h('p', { class: 'sp-note', text: STAB[stabKey] }));
+}
+
+/* 배당: 주당배당금 by year (annual finance) + 배당수익률 (summary) */
+function renderDiv() {
+  const st = ciState('fa'), s = S.sum && S.sum.code === S.code ? S.sum : null, D = R.ci.div;
+  const sig = ciSig('fa') + '|' + (s ? `${s.dps}|${s.dividendYield}` : S.sumErr ? 'err' : '');
+  if (D.sig === sig) return;
+  D.sig = sig;
+  if (st === 'loading' && !s) { D.body.replaceChildren(ciSkel(3, '28px')); return; }
+  const fa = ciData('fa'), dv = st === 'ok' ? finRow(fa, '주당배당금') : null;
+  const pts = dv ? finCols(fa).map((c, i) => ({ c, v: dv[i] })).filter(p => p.v != null && p.v >= 0) : [];
+  const last = latestActual(fa, '주당배당금');
+  const dps = s && isNum(s.dps) ? +s.dps : last ? last.v : null;
+  const yld = s && isNum(s.dividendYield) ? +s.dividendYield : null;
+  if (st !== 'loading' && !pts.some(p => p.v > 0) && !(dps > 0) && !(yld > 0)) {
+    D.body.replaceChildren(msgBox('최근 배당 기록이 없어요.', '최근 결산에서 배당하지 않았거나 정보가 없는 종목이에요.'));
+    return;
+  }
+  const max = Math.max(1, ...pts.map(p => p.v));
+  D.body.replaceChildren(
+    h('dl', { class: 'sp-kv' },
+      h('div', {}, h('dt', {}, '1주당 배당금', last ? h('small', { text: `${periodLong(last.col, 'annual')} 결산` }) : null), h('dd', { class: 'num', text: dps != null ? int(dps) + '원' : '—' })),
+      h('div', {}, h('dt', {}, '배당수익률', h('small', { text: '주당배당금 ÷ 현재가' })), h('dd', { class: 'num', text: fixed(yld, 2, '%') }))),
+    st === 'loading' ? ciSkel(1, '96px')
+      : pts.length ? h('figure', { class: 'sp-dbars', role: 'img', 'aria-label': '연도별 주당배당금: ' + pts.map(p => `${periodLong(p.c, 'annual')}${p.c.estimate ? ' 예상' : ''} ${int(p.v)}원`).join(', ') },
+        pts.map(p => h('div', { class: 'col' + (p.c.estimate ? ' est' : '') },
+          h('span', { class: 'v num', text: int(p.v) + '원' }),
+          h('span', { class: 'well' }, h('i', { style: `height:${Math.max(p.v > 0 ? 3 : 0, (p.v / max) * 100).toFixed(1)}%` })),
+          h('span', { class: 'x' }, periodShort(p.c, 'annual'), p.c.estimate ? h('small', { text: '예상' }) : null))))
+        : st === 'err' ? h('p', { class: 'sp-inline-err', text: '연도별 배당 기록을 불러오지 못했어요.' }) : null);
+}
+
+/* 애널리스트 의견: last 3 months' opinions, consensus target, report list */
+function opinionBucket(o) {
+  const s = String(o || '').replace(/\s+/g, '').toLowerCase();
+  if (!s) return -1;
+  if (/^(strongbuy|적극매수|강력매수)/.test(s)) return 4;
+  if (/^(strongsell|적극매도|강력매도)/.test(s)) return 0;
+  if (/^(buy|매수|tradingbuy|단기매수|outperform|overweight|비중확대|accumulate|add|시장수익률상회)/.test(s)) return 3;
+  if (/^(sell|매도|underperform|underweight|비중축소|reduce|시장수익률하회)/.test(s)) return 1;
+  if (/^(hold|중립|neutral|marketperform|보유|시장수익률|equalweight|marketweight|inline)/.test(s)) return 2;
+  return -1;
+}
+function monthsAgo(n) { const t = kst(new Date()); return new Date(Date.UTC(t.y, t.m - 1 - n, t.d)).toISOString().slice(0, 10); }
+function shortDate(ymd) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(ymd || ''));
+  if (!m) return '';
+  return +m[1] === kst(new Date()).y ? `${+m[2]}월 ${+m[3]}일` : `${m[1].slice(2)}.${m[2]}.${m[3]}`;
+}
+function renderTargetGap() {
+  const el = R.ci && R.ci.gap, t = el && +el.dataset.t;
+  if (!el || !t) return;
+  const p = S.sum && S.sum.code === S.code && isNum(S.sum.price) ? +S.sum.price : null;
+  el.hidden = p == null;
+  if (p == null) return;
+  const r = (t / p - 1) * 100;
+  el.className = 'sp-gap num ' + cls(r);
+  el.textContent = `현재가 대비 ${pct(r, 1)}`;
+}
+function renderAna() {
+  const st = ciState('res'), A = R.ci.ana;
+  const sig = ciSig('res') + '|' + S.resAll;
+  if (A.sig === sig) return;
+  A.sig = sig;
+  R.ci.gap = null;
+  if (st === 'loading') { A.body.replaceChildren(ciSkel(4, '40px')); return; }
+  if (st === 'err') { A.body.replaceChildren(msgBox('애널리스트 의견을 불러오지 못했어요.', errSub(S.ci.res.err), () => retryCi('res'))); return; }
+  const j = ciData('res'), rows = (Array.isArray(j.rows) ? j.rows : []).filter(r => r && r.title);
+  const cons = j.consensus && typeof j.consensus === 'object' ? j.consensus : null;
+  const tgt = cons && isNum(cons.targetMean) && +cons.targetMean > 0 ? +cons.targetMean : null;
+  const om = cons && isNum(cons.opinionMean) && +cons.opinionMean >= 1 ? +cons.opinionMean : null;
+  if (!rows.length && tgt == null && om == null) {
+    A.body.replaceChildren(msgBox('최근 증권사 리포트가 없어요.', '증권사 분석이 드문 종목이에요. 리포트가 나오면 여기에 보여요.'));
+    return;
+  }
+  const kids = [];
+  // opinion spread over the last 3 months
+  const cutoff = monthsAgo(RES_MONTHS), recent = rows.filter(r => String(r.date || '') >= cutoff);
+  const counts = [0, 0, 0, 0, 0];
+  let unknown = 0;
+  for (const r of recent) { const b = opinionBucket(r.opinion); if (b < 0) unknown++; else counts[b]++; }
+  const counted = recent.length - unknown, capped = rows.length >= 20 && String(rows[rows.length - 1].date || '') >= cutoff;
+  const top = Math.max(...counts);
+  kids.push(h('p', { class: 'sp-ana-h' }, h('b', { text: `최근 ${RES_MONTHS}개월 리포트 ${recent.length}건` }), capped ? h('small', { text: '최근 20건까지만 셌어요' }) : null));
+  if (!recent.length) kids.push(h('p', { class: 'sp-ana-empty', text: `최근 ${RES_MONTHS}개월 동안 나온 리포트가 없어요.` }));
+  else if (!counted) kids.push(h('p', { class: 'sp-ana-empty', text: `최근 ${RES_MONTHS}개월 리포트 ${recent.length}건에서 투자의견을 찾지 못했어요.` }));
+  else {
+    kids.push(h('figure', { class: 'sp-op', role: 'img', 'aria-label': '의견 분포: ' + OPINIONS.map((o, i) => `${o} ${counts[i]}건`).join(', ') },
+      OPINIONS.map((o, i) => h('div', { class: 'col' + (counts[i] && counts[i] === top ? ' max' : '') + (counts[i] ? '' : ' zero') },
+        h('span', { class: 'n num', text: `${counts[i]}건` }),
+        h('span', { class: 'well' }, h('i', { style: `height:${counts[i] ? Math.max(8, (counts[i] / top) * 100).toFixed(1) : 0}%` })),
+        h('span', { class: 'x', text: o })))));
+    if (unknown) kids.push(h('p', { class: 'sp-note sp-op-note', text: `의견을 찾지 못한 리포트 ${unknown}건은 세지 않았어요.` }));
+  }
+  // consensus
+  if (tgt != null || om != null) {
+    const gap = tgt != null ? h('span', { class: 'sp-gap num', 'data-t': String(tgt) }) : null;
+    R.ci.gap = gap;
+    const when = cons.date ? shortDate(cons.date) + ' 기준 · ' : '';
+    kids.push(h('dl', { class: 'sp-kv sp-cons' },
+      tgt != null ? h('div', {}, h('dt', {}, '평균 목표주가', h('small', { text: `${when}증권사 평균` })), h('dd', {}, h('span', { class: 'num', text: int(tgt) + '원' }), gap)) : null,
+      om != null ? h('div', {}, h('dt', {}, '평균 투자의견', h('small', { text: '1 적극매도 ~ 5 적극매수' })),
+        h('dd', {}, h('span', { class: 'num', text: `${om.toFixed(2)}점` }), h('span', { class: 'sp-tag', text: OPINIONS[Math.max(0, Math.min(4, Math.round(om) - 1))] }))) : null));
+  }
+  // reports
+  if (rows.length) {
+    const shown = S.resAll ? rows : rows.slice(0, RES_SHOW);
+    kids.push(h('h4', { class: 'sp-rp-h' }, '리포트', h('small', { class: 'num', text: String(rows.length) })),
+      h('ul', { class: 'sp-rp-list' }, shown.map(r => {
+        const url = safeUrl(r.url), b = opinionBucket(r.opinion);
+        const meta = [h('time', { datetime: String(r.date || ''), text: shortDate(r.date) }), r.broker ? h('span', { class: 'br', text: String(r.broker) }) : null,
+          isNum(r.target) && +r.target > 0 ? h('span', { class: 'num', text: `목표가 ${int(r.target)}원` }) : null,
+          r.opinion ? h('span', { class: 'sp-tag', text: b >= 0 ? OPINIONS[b] : String(r.opinion) }) : null];
+        const kidsA = [h('span', { class: 'sp-rp-t', text: String(r.title) }), h('span', { class: 'sp-rp-m' }, meta)];
+        return h('li', {}, url ? h('a', { class: 'sp-rp', href: url, target: '_blank', rel: 'noopener' }, kidsA, h('span', { class: 'sp-vh', text: ' (새 탭)' })) : h('div', { class: 'sp-rp' }, kidsA));
+      })),
+      rows.length > RES_SHOW ? h('button', { type: 'button', class: 'sp-btn sp-more', 'aria-expanded': String(S.resAll),
+        onclick: () => { S.resAll = !S.resAll; renderAna(); const m = R.ci.ana.body.querySelector('.sp-more'); if (m) m.focus(); }, text: S.resAll ? '접기' : `리포트 ${rows.length - RES_SHOW}건 더 보기` }) : null,
+      h('p', { class: 'sp-note', text: '리포트 본문은 증권사 원문에서 볼 수 있어요. 누르면 새 탭에서 열려요.' }));
+  } else kids.push(h('p', { class: 'sp-ana-empty', text: '최근 리포트 목록이 없어요.' }));
+  A.body.replaceChildren(...kids);
+  renderTargetGap();
 }
 
 /* ───────────────── open / close ───────────────── */

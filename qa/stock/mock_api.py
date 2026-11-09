@@ -7,7 +7,8 @@ chart.prevClose = close before the first bar, interval '1m|5m|1d|1w|1mo', orderb
 
 Fixtures: qa/stock/fixtures/raw/<code>/*.json (fetch with qa/stock/fetch_fixtures.py).
 Codes
-  005930, 196170   real data
+  005930, 196170   real data (finance with estimates, research with opinions)
+  406820           real data, small cap: no research, no consensus, estimate columns empty
   other codes in data/snapshot.json   005930's data scaled to that stock's price (so peer links work); no news
   999980           summary only; chart/orderbook/investors/daily/news/disclosures come back empty
   999990           every endpoint answers 502 {error}
@@ -16,6 +17,8 @@ Control (test helpers, not part of the contract)
   /__stats                       request counts per route  {"orderbook": 3, ...} and per full path
   /__reset                       clear counts and config
   /__config?delay=800&fail=chart,orderbook&status=OPEN&asof=2026-11-09T10:30:00%2B09:00&dsrc=naver
+                                 fail also takes finance:annual / finance:quarter (one period only)
+                                 &nosum=1 → summary without the §3-3 fields (an older Worker)
 """
 import datetime as dt, html, json, pathlib, random, re, sys, threading, time
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
@@ -72,11 +75,88 @@ def summary(code):
         'marketCap': round(num(p['marketValueFullRaw']) / 1e8), 'foreignRate': num(info.get('foreignRate')),
         'asOf': p['localTradedAt'][:19] + '+09:00',
     }
+    if not CONFIG.get('nosum'):
+        out.update(summary_extra(integ, info))
     if CONFIG.get('status'):
         out['marketStatus'] = CONFIG['status']
     if CONFIG.get('asof'):
         out['asOf'] = CONFIG['asof']
     return out
+
+
+def eok_text(v):
+    """'5조 3,143억' → 53143, '1.08억' → 1.08, '224억' → 224 (억원)"""
+    s = str(v or '').replace(',', '')
+    jo, eok = re.search(r'([\d.]+)조', s), re.search(r'([\d.]+)억', s)
+    if not jo and not eok:
+        return None
+    f = (float(jo.group(1)) * 10000 if jo else 0) + (float(eok.group(1)) if eok else 0)
+    return int(f) if f.is_integer() else f
+
+
+def summary_extra(integ, info):
+    # AGENTS.md §3-3: integration totalInfos + industryCompareInfo (marketValue in 백만원 → 억원)
+    peers = []
+    for x in (integ.get('industryCompareInfo') or [])[:6]:
+        ex = (x.get('stockExchangeType') or {}).get('code')
+        mv = num(x.get('marketValue'))
+        peers.append({'code': x['itemCode'], 'name': x['stockName'], 'market': 'K' if ex == 'KS' else 'Q',
+                      'price': num(x.get('closePrice')), 'ratio': num(x.get('fluctuationsRatio')), 'cap': round(mv / 100) if mv is not None else None})
+    return {'open': num(info.get('openPrice')), 'high': num(info.get('highPrice')), 'low': num(info.get('lowPrice')),
+            'prevClose': num(info.get('lastClosePrice')), 'volume': num(info.get('accumulatedTradingVolume')),
+            'tradingValue': eok_text(info.get('accumulatedTradingValue')), 'cnsPer': num(info.get('cnsPer')), 'cnsEps': num(info.get('cnsEps')),
+            'dps': num(info.get('dividend')), 'peers': peers}
+
+
+FIN_UNIT = {'매출액': '억원', '영업이익': '억원', '당기순이익': '억원', '지배주주순이익': '억원', '비지배주주순이익': '억원',
+            '영업이익률': '%', '순이익률': '%', 'ROE': '%', '부채비율': '%', '당좌비율': '%', '유보율': '%',
+            'EPS': '원', 'BPS': '원', '주당배당금': '원', 'PER': '배', 'PBR': '배'}
+
+
+def finance(code, period):
+    # AGENTS.md §3-3: cols oldest first, estimate = isConsensus 'Y', values in cols order, '-' → null
+    fi = (raw(code, f'finance_{period}') or {}).get('financeInfo') or {}
+    cols = [{'key': t['key'], 'label': t['title'].rstrip('.'), 'estimate': t.get('isConsensus') == 'Y'} for t in fi.get('trTitleList', [])]
+    cols.sort(key=lambda c: c['key'])
+    rows = [{'title': r['title'], 'unit': FIN_UNIT.get(r['title'], ''),
+             'values': [num((r['columns'].get(c['key']) or {}).get('value')) for c in cols]} for r in fi.get('rowList', [])]
+    return {'period': period, 'cols': cols, 'rows': rows}
+
+
+OPINION_RES = [
+    re.compile(r'투자\s*의견\s*(?:을|를|은|는|:)?\s*[‘\'"]?(Strong\s*Buy|Trading\s*Buy|Buy|Outperform|Overweight|Market\s*Perform|Marketperform|Neutral|Hold|Underperform|Sell|Not\s*Rated|적극\s*매수|강력\s*매수|매수|중립|매도|비중\s*확대|비중\s*축소)', re.I),
+    re.compile(r'(적극\s*매수|매수|중립|매도)\s*의견'),
+    re.compile(r'(비중\s*확대|비중\s*축소)'),
+]
+TARGET_RE = re.compile(r'목표\s*주가\s*(?:를|은|는|:)?\s*([\d][\d,.]*)\s*(만\s*원|원)')
+
+
+def research_fields(preview):
+    """target (원) and opinion as written, from the preview text; None when not found (the Worker does the same)."""
+    t = TARGET_RE.search(preview or '')
+    target = None
+    if t:
+        n = float(t.group(1).replace(',', ''))
+        target = int(round(n * 10000 if '만' in t.group(2) else n))
+    opinion = None
+    for rx in OPINION_RES:
+        m = rx.search(preview or '')
+        if m:
+            opinion = re.sub(r'\s+', ' ', m.group(1)).strip()
+            break
+    return target, opinion
+
+
+def research(code):
+    integ = raw(code, 'integration') or {}
+    ci = integ.get('consensusInfo')
+    consensus = {'targetMean': num(ci.get('priceTargetMean')), 'opinionMean': num(ci.get('recommMean')), 'date': ci.get('createDate')} if ci else None
+    rows = []
+    for r in raw(code, 'research') or []:
+        target, opinion = research_fields(r.get('previewContent'))
+        rows.append({'date': r['writeDate'], 'broker': r['brokerName'], 'title': html.unescape(r['title']), 'target': target, 'opinion': opinion,
+                     'url': f"https://m.stock.naver.com/research/company/{r['researchId']}"})
+    return {'consensus': consensus, 'rows': rows}
 
 
 def minute_bars(rows):
@@ -206,6 +286,8 @@ EMPTY = {
     'daily': lambda page: {'page': page, 'rows': [], 'hasMore': False},
     'news': lambda: {'rows': []},
     'disclosures': lambda: {'source': 'dart', 'rows': []},
+    'finance': lambda period: {'period': period, 'cols': [], 'rows': []},
+    'research': lambda: {'consensus': None, 'rows': []},
 }
 
 SNAP_ROWS = {r['c']: r for r in json.loads((ROOT / 'data/snapshot.json').read_text(encoding='utf-8'))['stocks']}
@@ -225,10 +307,12 @@ def alias_summary(code):
     r = SNAP_ROWS[code]
     return {'code': code, 'name': r['n'], 'market': r['m'], 'price': r['p'], 'change': r['d'], 'ratio': r['r'], 'marketStatus': CONFIG.get('status', 'CLOSE'),
             'per': None, 'eps': None, 'pbr': None, 'bps': None, 'dividendYield': None, 'high52': None, 'low52': None,
-            'marketCap': r['cap'], 'foreignRate': None, 'asOf': CONFIG.get('asof', '2026-11-09T15:30:00+09:00')}
+            'marketCap': r['cap'], 'foreignRate': None, 'asOf': CONFIG.get('asof', '2026-11-09T15:30:00+09:00'),
+            'open': None, 'high': None, 'low': None, 'prevClose': r['p'] - r['d'], 'volume': r.get('v'), 'tradingValue': r.get('tv'),
+            'cnsPer': None, 'cnsEps': None, 'dps': None, 'peers': []}
 
 
-ROUTE = re.compile(r'^/api/stock/([0-9A-Z]{6})/(summary|chart|orderbook|investors|daily|news|disclosures)$')
+ROUTE = re.compile(r'^/api/stock/([0-9A-Z]{6})/(summary|chart|orderbook|investors|daily|news|disclosures|finance|research)$')
 
 
 class Handler(SimpleHTTPRequestHandler):
@@ -301,8 +385,14 @@ class Handler(SimpleHTTPRequestHandler):
         code, kind = m.groups()
         self.count(kind)
         self.count(f'{kind}:{code}')
-        if kind in (CONFIG.get('fail') or '').split(','):
+        period = q.get('period', '')
+        fails = (CONFIG.get('fail') or '').split(',')
+        if kind in fails or (kind == 'finance' and f'finance:{period}' in fails):
             return self.send_json({'error': f'naver 503 (mock fail {kind})'}, 502)
+        if kind == 'finance' and period not in ('annual', 'quarter'):
+            return self.send_json({'error': 'bad period'}, 400)
+        if kind == 'finance':
+            self.count(f'finance:{period}')
         if code == '999990':
             return self.send_json({'error': 'naver 500 (mock)'}, 502)
         tf = q.get('tf', '1d')
@@ -311,7 +401,7 @@ class Handler(SimpleHTTPRequestHandler):
             return self.send_json({'error': 'bad tf'}, 400)
         if code == '999980':
             f = EMPTY[kind]
-            return self.send_json(f(tf) if kind == 'chart' else f(page) if kind == 'daily' else f())
+            return self.send_json(f(tf) if kind == 'chart' else f(page) if kind == 'daily' else f(period) if kind == 'finance' else f())
         if not (RAW / code).exists():
             if code not in SNAP_ROWS:
                 return self.send_json({'error': f'unknown code {code}'}, 404)
@@ -319,12 +409,14 @@ class Handler(SimpleHTTPRequestHandler):
             f = (SNAP_ROWS[code]['p'] or base) / base
             fn = {'summary': lambda: alias_summary(code), 'chart': lambda: scaled(chart('005930', tf), f), 'orderbook': lambda: scaled(orderbook('005930'), f),
                   'investors': lambda: scaled(investors('005930'), f), 'daily': lambda: scaled(daily('005930', page), f),
-                  'news': lambda: {'rows': []}, 'disclosures': lambda: {'source': 'naver', 'rows': []}}[kind]
+                  'news': lambda: {'rows': []}, 'disclosures': lambda: {'source': 'naver', 'rows': []},
+                  'finance': lambda: EMPTY['finance'](period), 'research': lambda: EMPTY['research']()}[kind]
             return self.send_json(fn())
         try:
             body = {'summary': lambda: summary(code), 'chart': lambda: chart(code, tf), 'orderbook': lambda: orderbook(code),
                     'investors': lambda: investors(code), 'daily': lambda: daily(code, page),
-                    'news': lambda: news(code), 'disclosures': lambda: disclosures(code)}[kind]()
+                    'news': lambda: news(code), 'disclosures': lambda: disclosures(code),
+                    'finance': lambda: finance(code, period), 'research': lambda: research(code)}[kind]()
         except Exception as e:   # noqa: BLE001
             return self.send_json({'error': repr(e)}, 500)
         return self.send_json(body)
