@@ -3580,7 +3580,7 @@ html.sp-on, html.sp-on body { overflow: hidden; }
 .sp-code:empty + .sp-mkt::before { content: none; }
 .sp-path { flex: 0 1 auto; min-width: 0; font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* phones: 상한가 sits on the price line, right above the change, so the quote stays narrow and the name keeps its room */
-.sp-quote { flex: none; display: grid; grid-template-columns: auto auto; grid-template-areas: "lim price" "chg chg"; justify-content: end; align-items: center; text-align: right; padding-left: 8px; }
+.sp-quote { flex: none; display: grid; grid-template-columns: auto auto; grid-template-areas: "lim price" "chg chg" "nxt nxt"; justify-content: end; align-items: center; text-align: right; padding-left: 8px; }
 .sp-price { grid-area: price; font-size: 20px; font-weight: 700; letter-spacing: -.01em; line-height: 1.2; white-space: nowrap; }
 .sp-price, .sp-chg { --od-lh: 1.2; line-height: var(--od-lh); font-variant-numeric: tabular-nums; }
 /* odometer (fancy only): a column holds the old glyph in ::before/::after and the new one as text; the strip slides */
@@ -3589,6 +3589,12 @@ html.sp-on, html.sp-on body { overflow: hidden; }
 .od-s::before, .od-s::after { display: block; height: calc(var(--od-lh, 1.2) * 1em); content: attr(data-o) "\200b"; white-space: pre; }
 .od-s.up::after, .od-s.dn::before { content: none; }
 .sp-chg { grid-area: chg; justify-self: end; font-size: 13px; font-weight: 600; white-space: pre; margin-top: 1px; }
+/* NXT line under the price: coloured by the NXT move */
+.sp-nxt { grid-area: nxt; justify-self: end; margin-top: 2px; font-size: 11.5px; font-weight: 600; white-space: nowrap; color: var(--fg2); }
+.sp-nxt[hidden] { display: none; }
+.sp-nxt .k { font-weight: 500; color: var(--muted); }
+.sp-nxt.up .pv, .sp-nxt.up .pr { color: var(--up-text); } .sp-nxt.dn .pv, .sp-nxt.dn .pr { color: var(--dn-text); }
+.sp-nxt .t { font-weight: 500; color: var(--muted); }
 /* 상한가·하한가: a data label, so it takes the rise/fall text colours */
 .sp-lim { grid-area: lim; justify-self: end; flex: none; margin-right: 6px; font-size: 11px; font-weight: 700; line-height: 1; padding: 3px 5px; border-radius: 4px; white-space: nowrap; }
 .sp-lim[hidden] { display: none; }
@@ -3986,7 +3992,7 @@ a.sp-nw-a:visited .sp-nw-t { color: var(--fg2); }
   .sp-code { grid-area: code; } .sp-mkt { grid-area: mkt; }
   .sp-path { grid-area: path; margin-top: 1px; }
   .sp-path::before { content: none; }
-  .sp-quote { grid-template-areas: "price price" "chg lim"; }
+  .sp-quote { grid-template-areas: "price price" "chg lim" "nxt nxt"; }
   .sp-lim { margin: 1px 0 0 6px; }
   .sp-price { font-size: 24px; }
   .sp-chg { font-size: 14px; }
@@ -4016,6 +4022,7 @@ a.sp-nw-a:visited .sp-nw-t { color: var(--fg2); }
   .sp-price { font-size: 26px; }
   .sp-chg { font-size: 15px; margin-top: 0; }
   .sp-lim { margin: 0; align-self: center; }
+  .sp-nxt { margin: 0 0 0 6px; }
   .sp-star { margin-left: auto; }
   .sp-stats { grid-template-columns: repeat(5, minmax(0, auto)) repeat(2, minmax(200px, 1fr)); }
   .sp-stat, .sp-rng { grid-column: auto; }
@@ -4246,11 +4253,12 @@ function build() {
   R.price = h('div', { class: 'sp-price num' });
   R.chg = h('div', { class: 'sp-chg num' });
   R.lim = h('span', { class: 'sp-lim', hidden: true });
+  R.nxt = h('div', { class: 'sp-nxt num', hidden: true }, h('span', { class: 'k' }), ' ', h('span', { class: 'pv' }), ' ', h('span', { class: 'pr' }), h('span', { class: 't' }));
   R.star = h('button', { class: 'sp-star', type: 'button', 'aria-label': '관심종목', 'aria-pressed': 'false', hidden: true, onclick: toggleWatch },
     svg('svg', { viewBox: '0 0 24 24', 'aria-hidden': 'true' }, svg('path', { d: 'M12 3.4l2.6 5.5 6 .8-4.4 4.2 1.1 6-5.3-2.9-5.3 2.9 1.1-6-4.4-4.2 6-.8z' })));
   R.head = h('header', { class: 'sp-head' }, h('div', { class: 'sp-head-in' }, R.back,
     h('div', { class: 'sp-id' }, R.name, h('div', { class: 'sp-sub' }, R.code, R.mkt, R.path)),
-    h('div', { class: 'sp-quote', 'aria-live': 'polite' }, R.price, R.chg, R.lim),
+    h('div', { class: 'sp-quote', 'aria-live': 'polite' }, R.price, R.chg, R.lim, R.nxt),
     R.star));
   R.meta = h('div', { class: 'sp-meta' });
   R.stats = h('dl', { class: 'sp-stats' });
@@ -4372,6 +4380,7 @@ function renderHead() {
     R.chg.setAttribute('aria-label', `전일 대비 ${signed(chg)}원, ${pct(ratio)}`);
   }
   renderLim();
+  renderNxt();
   renderStar();
   if (name) document.title = `${name} ${price != null ? int(price) : ''} ${price != null ? pct(ratio) : ''} · 한국 증시 히트맵`.replace(/\s+/g, ' ');
 }
@@ -4383,6 +4392,25 @@ function limitOf() {
   if (st && st.lim != null) return st.lim === 1 || st.lim === -1 ? st.lim : 0;
   const r = st && isNum(st.r) ? +st.r : S.sum && S.sum.code === S.code && isNum(S.sum.ratio) ? +S.sum.ratio : null;
   return r == null ? 0 : r >= 29.5 ? 1 : r <= -29.5 ? -1 : 0;
+}
+// NXT line (AGENTS.md §3-8): summary.nxt {p,d,r,s:'pre'|'after',o:1|0,t}; null/missing = the stock has no NXT trading, no line
+let nxtPrev = null;
+function renderNxt() {
+  const x = S.sum && S.sum.code === S.code && S.sum.nxt && isNum(S.sum.nxt.p) ? S.sum.nxt : null, n = R.nxt;
+  n.hidden = !x;
+  if (!x) { nxtPrev = null; return; }
+  const K = n.querySelector('.k'), PV = n.querySelector('.pv'), PR = n.querySelector('.pr'), T = n.querySelector('.t');
+  const pre = x.s === 'pre', open = !!x.o, c = cls(+x.d);
+  n.className = 'sp-nxt num ' + c;
+  K.textContent = `NXT ${pre ? (open ? '프리마켓' : '프리마켓 마감') : (open ? '애프터마켓' : '애프터 종가')}`;
+  const d = toDate(x.t), tm = d ? clock(d).slice(0, 5) : '';
+  const dir = nxtPrev && nxtPrev.code === S.code ? Math.sign(+x.p - nxtPrev.p) : 0;
+  nxtPrev = { code: S.code, p: +x.p };
+  const pv = int(x.p), pr = pct(x.r);
+  if (fancy() && dir) { setRoll(PV, pv, dir); setRoll(PR, pr, dir); }
+  else for (const [el, t] of [[PV, pv], [PR, pr]]) if (el.dataset.v !== t) { settleRoll(el); el.textContent = t; el.dataset.v = t; }
+  T.textContent = tm ? ` · ${tm}` : '';
+  n.setAttribute('aria-label', `${K.textContent} ${pv}원 ${pr}${tm ? ' ' + tm : ''}`);
 }
 function renderLim() {
   const lim = limitOf();
