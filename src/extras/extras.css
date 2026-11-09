@@ -170,45 +170,43 @@ section.rp-player[hidden]{display:none}
 .od-s i{display:block;font-style:normal;height:1.2em;line-height:1.2}
 
 /* ── clock (#clock) + session progress bar ── */
-#clock{display:flex;flex-direction:column;align-items:flex-start;gap:3px;min-width:0}
+#clock{display:flex;flex-direction:column;align-items:flex-start;gap:2px;min-width:0}
 #clock[hidden]{display:none}
 .xc-btn{display:block;padding:2px 4px;margin:-2px -4px;border-radius:8px;color:var(--fg);text-align:left;cursor:pointer;-webkit-tap-highlight-color:transparent}
 .xc-btn:hover{background:rgba(255,255,255,.04)}
 .xc-btn:focus-visible{outline:2px solid var(--amber);outline-offset:1px}
 .xc-btn[aria-busy="true"]{cursor:progress}
 .xc-face{display:flex;align-items:center;gap:8px}
-.xc-flap{display:inline-flex;align-items:center;gap:3px}
-.xf{position:relative;display:inline-block;width:21px;height:30px;perspective:160px;font:750 24px/30px var(--sans,inherit);letter-spacing:0;font-variant-numeric:tabular-nums;color:#f1eee4}
-.xh{position:absolute;left:0;right:0;height:50%;overflow:hidden;background:linear-gradient(#34363e,#2a2c33);backface-visibility:hidden}
-.xh i{position:absolute;left:0;right:0;height:200%;font-style:normal;text-align:center}
-.xh.u{top:0;border-radius:4px 4px 0 0;transform-origin:50% 100%;box-shadow:inset 0 -1px 0 rgba(0,0,0,.55)}
-.xh.u i{top:0}
-.xh.d{bottom:0;border-radius:0 0 4px 4px;transform-origin:50% 0;background:linear-gradient(#2a2c33,#25272d);box-shadow:inset 0 1px 0 rgba(255,255,255,.04)}
-.xh.d i{top:-100%}
-.xh.fl{z-index:2}
-.xf::after{content:"";position:absolute;left:0;right:0;top:calc(50% - .5px);height:1px;background:#0c0d10;z-index:3}
-.xc-colon{font:700 20px/30px var(--sans,inherit);color:#8d919c;padding:0 1px;transform:translateY(-1px)}
-.xc-sec{font:600 12px/1 var(--sans,inherit);font-variant-numeric:tabular-nums;color:var(--muted);align-self:flex-end;margin-bottom:4px;min-width:1.4em}
-.xa{width:40px;height:40px;flex:none;overflow:visible}
+.xc-digits{display:inline-flex;align-items:center;font:650 30px/1 var(--sans,inherit);letter-spacing:-.02em;font-variant-numeric:tabular-nums;color:var(--fg)}
+.xdg{position:relative;display:inline-block;width:.6em;height:1.15em;overflow:hidden;text-align:center}
+.xdg i{display:block;font-style:normal;line-height:1.15em;text-align:center}
+.xdg-n{position:absolute;left:0;right:0;top:0}
+.xdg-blink{animation:xdgBlink .3s ease-out}
+@keyframes xdgBlink{40%{opacity:.35}}
+.xc-colon{font:600 26px/1 var(--sans,inherit);color:var(--muted);padding:0 1px;transform:translateY(-2px)}
+.xc-sec{font:500 12px/1 var(--sans,inherit);font-variant-numeric:tabular-nums;color:var(--muted);align-self:flex-end;margin-bottom:4px;min-width:1.4em}
+.xa{width:56px;height:56px;flex:none;overflow:visible}
 .xa-g{transform-origin:50px 50px}
 .xa-wig{transform-origin:50px 50px}
 .xa-wig.xa-do{animation:xaWig .45s ease-out}
 @keyframes xaWig{0%{transform:rotate(0)}25%{transform:rotate(-4deg)}55%{transform:rotate(3deg)}80%{transform:rotate(-1deg)}100%{transform:rotate(0)}}
 .xc-dig{font:700 15px/1 var(--sans,inherit);font-variant-numeric:tabular-nums;color:var(--fg2)}
-.xc-bar{position:relative;width:100%;min-width:118px;height:4px;border-radius:2px;background:#22242a;overflow:hidden}
+.xc-bar{position:relative;width:100%;min-width:118px;height:3px;border-radius:2px;background:#22242a;overflow:hidden}
 .xc-segs,.xc-fill{position:absolute;inset:0;border-radius:2px}
-.xc-txt{font-size:11.5px;line-height:1.2;font-weight:600;white-space:nowrap;font-variant-numeric:tabular-nums}
+.xc-txt{font-size:11.5px;line-height:1.1;font-weight:600;white-space:nowrap;font-variant-numeric:tabular-nums}
+@media (max-width:900px){.xa{width:48px;height:48px}}
 @media (max-width:760px){
-  .xf{width:15px;height:22px;font-size:17px;line-height:22px;perspective:120px}
-  .xc-colon{font-size:15px;line-height:22px}
+  .xc-digits{font-size:26px}
+  .xc-colon{font-size:22px}
   .xc-sec{display:none}
+  .xa{width:38px;height:38px}
+  .xa-in{display:none}
+  .xc-face{gap:6px}
   #clock{position:relative;gap:0;height:40px}
   .xc-btn{height:40px;display:flex;align-items:center;margin:0;padding:0 4px 3px}
   .xc-bar{position:absolute;left:4px;right:4px;bottom:1px;height:2px;min-width:0}
   .xc-txt{display:none}
 }
-@media (max-width:760px){.xc-both .xa{width:28px;height:28px}.xc-both{gap:6px}}
-.xc-both .xa{width:36px;height:36px}
 @media (prefers-reduced-motion:reduce){.xc-fill{transition:none!important}}
 
 /* ── timelapse: big time readout in a corner of the map ── */

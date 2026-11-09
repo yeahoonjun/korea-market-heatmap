@@ -981,7 +981,7 @@ const two = n => String(n).padStart(2, '0');
 const hm2m = t => +String(t).slice(0, 2) * 60 + +String(t).slice(2, 4);
 const PH = { pre: '#6f78e6', am: '#5cc0f2', pm: '#ffb547', auc: '#ee7a2c', nxt: '#a97bf2', night: '#4a5f9c' };
 const PHN = { pre: '장 시작 전', am: '오전장', pm: '오후장', auc: '마감 동시호가', nxt: 'NXT 애프터마켓', night: '밤·휴장' };
-const ck = { on: false, style: 'flap', cells: [], timer: 0, raf: 0, busy: false, shown: '', lastMin: -1, key: '' };
+const ck = { on: false, style: 'digital', cells: [], timer: 0, raf: 0, busy: false, shown: '', lastMin: -1, key: '' };
 
 function ckSession() {
   const s = strip.session;
@@ -1018,28 +1018,24 @@ function ckPhase(n) {
   return { key: 'night', text: '장 마감', fill: 0, mode: 'solid', seg };
 }
 
-/* split-flap digit: static top (new) + static bottom (old) + two flipping halves */
+/* clean digital digit: a plain tabular numeral; 'fancy' slides the old one up and out and the new one in (<= 220 ms) */
 function flapCell(ch) {
-  const half = (cls, c) => h('span', { class: 'xh ' + cls }, h('i', { text: c }));
-  const el = h('span', { class: 'xf' }, half('u', ch), half('d', ch));
+  const el = h('span', { class: 'xdg' }, h('i', { text: ch }));
   el.cur = ch; el.want = ch; el.busy = false;
   return el;
 }
-async function flipOnce(cell, from, to, dur, fancy) {
-  const u = cell.querySelector('.u'), d = cell.querySelector('.d');
-  u.firstChild.textContent = to;
-  const half = (cls, c) => h('span', { class: 'xh ' + cls }, h('i', { text: c }));
-  const fu = half('u fl', from), fd = half('d fl', to);
-  cell.append(fu, fd);
+async function slideOnce(cell, to) {
+  const old = cell.firstChild;
+  const nw = h('i', { class: 'xdg-n', text: to });
+  cell.append(nw);
+  const dur = 220, ease = 'cubic-bezier(.2,.7,.2,1)';
   try {
-    const sh = fancy ? { filter: ['brightness(1)', 'brightness(.5)'] } : {};
-    await fu.animate([Object.assign({ transform: 'rotateX(0deg)' }, fancy ? { filter: 'brightness(1)' } : {}), Object.assign({ transform: 'rotateX(-90deg)' }, sh.filter ? { filter: sh.filter[1] } : {})], { duration: dur / 2, easing: 'ease-in', fill: 'forwards' }).finished;
-    fu.remove();
-    fd.style.transform = 'rotateX(90deg)';
-    await fd.animate([{ transform: 'rotateX(90deg)', filter: fancy ? 'brightness(.5)' : 'none' }, { transform: 'rotateX(0deg)', filter: 'brightness(1)' }], { duration: dur / 2, easing: 'cubic-bezier(.3,1.5,.5,1)', fill: 'forwards' }).finished;
+    old.style.position = 'absolute'; old.style.left = '0'; old.style.right = '0';
+    old.animate([{ transform: 'translateY(0)', opacity: 1 }, { transform: 'translateY(-45%)', opacity: 0 }], { duration: dur, easing: ease, fill: 'forwards' });
+    await nw.animate([{ transform: 'translateY(45%)', opacity: 0 }, { transform: 'translateY(0)', opacity: 1 }], { duration: dur, easing: ease, fill: 'both' }).finished;
   } catch (e) { /* cancelled: settle below */ }
-  d.firstChild.textContent = to;
-  fu.remove(); fd.remove();
+  old.remove();
+  nw.className = ''; nw.getAnimations().forEach(x => x.cancel());
   cell.cur = to;
 }
 async function cellSet(cell, ch, force) {
@@ -1048,18 +1044,11 @@ async function cellSet(cell, ch, force) {
   cell.busy = true;
   try {
     while (cell.cur !== cell.want || force) {
-      const lvl = motion(), to = cell.want, from = cell.cur;
-      const num = /^\d$/.test(from) && /^\d$/.test(to);
-      if (lvl === 'reduced' || document.hidden || !num && !force) {
-        cell.querySelectorAll('.xh i').forEach(i => { i.textContent = to; }); cell.cur = to;
-      } else if (lvl === 'fancy') {
-        // like a real board: the flaps between the old and the new digit fall one by one (at most four)
-        const steps = from === to ? 3 : Math.min(4, (+to - +from + 10) % 10 || 10);
-        let c = from;
-        for (let k = steps - 1; k >= 0; k--) { const nx = String((+to - k + 100) % 10); await flipOnce(cell, c, nx, 150, true); c = nx; }
-      } else {
-        await flipOnce(cell, from, to, from === to ? 300 : 260, false);
-      }
+      const lvl = motion(), to = cell.want;
+      if (lvl !== 'fancy' || document.hidden) {
+        cell.firstChild.textContent = to; cell.cur = to;
+        if (force && lvl === 'standard') { cell.classList.remove('xdg-blink'); void cell.offsetWidth; cell.classList.add('xdg-blink'); }
+      } else await slideOnce(cell, to);
       force = false;
     }
   } finally { cell.busy = false; }
@@ -1072,12 +1061,12 @@ function ckAnalogSvg() {
   for (let i = 0; i < 60; i++) {
     const a = i * 6 * Math.PI / 180, big = i % 5 === 0, r1 = 45, r2 = big ? 36.5 : 42.6;
     if (big) root.append(S('line', { x1: 50 + Math.sin(a) * r1, y1: 50 - Math.cos(a) * r1, x2: 50 + Math.sin(a) * r2, y2: 50 - Math.cos(a) * r2, stroke: '#17181c', 'stroke-width': i % 15 === 0 ? 3.8 : 2.8, 'stroke-linecap': 'butt' }));
-    else root.append(S('circle', { cx: 50 + Math.sin(a) * 43.6, cy: 50 - Math.cos(a) * 43.6, r: 0.55, fill: '#6b6a64' }));
+    else root.append(S('circle', { cx: 50 + Math.sin(a) * 43.6, cy: 50 - Math.cos(a) * 43.6, r: 0.8, fill: '#6b6a64' }));
   }
   const gw = S('g', { class: 'xa-wig' });
-  const hh = S('g', { class: 'xa-g xa-hh' }, S('polygon', { points: '47.2,57 52.8,57 51.9,27 48.1,27', fill: '#17181c' }), S('rect', { x: 49.2, y: 33, width: 1.6, height: 15, fill: '#f4f1e8', opacity: 0.9 }));
-  const mh = S('g', { class: 'xa-g xa-mh' }, S('polygon', { points: '47.6,58 52.4,58 51.5,10 48.5,10', fill: '#17181c' }), S('rect', { x: 49.35, y: 17, width: 1.3, height: 24, fill: '#f4f1e8', opacity: 0.9 }));
-  const sh = S('g', { class: 'xa-g xa-sh' }, S('rect', { x: 49.35, y: 8, width: 1.3, height: 52, fill: '#ffb547' }), S('rect', { x: 48.4, y: 56, width: 3.2, height: 8.5, fill: '#ffb547' }));
+  const hh = S('g', { class: 'xa-g xa-hh' }, S('polygon', { points: '47.2,57 52.8,57 51.9,27 48.1,27', fill: '#17181c' }), S('rect', { class: 'xa-in', x: 49.2, y: 33, width: 1.6, height: 15, fill: '#f4f1e8', opacity: 0.9 }));
+  const mh = S('g', { class: 'xa-g xa-mh' }, S('polygon', { points: '47.6,58 52.4,58 51.5,10 48.5,10', fill: '#17181c' }), S('rect', { class: 'xa-in', x: 49.35, y: 17, width: 1.3, height: 24, fill: '#f4f1e8', opacity: 0.9 }));
+  const sh = S('g', { class: 'xa-g xa-sh' }, S('rect', { x: 49.2, y: 8, width: 1.6, height: 52, fill: '#ffb547' }), S('rect', { x: 48.2, y: 56, width: 3.6, height: 9, fill: '#ffb547' }));
   gw.append(hh, mh, sh, S('circle', { cx: 50, cy: 50, r: 2.2, fill: '#ffb547', stroke: '#17181c', 'stroke-width': 0.8 }));
   root.append(gw);
   root._h = hh; root._m = mh; root._s = sh; root._w = gw;
@@ -1111,18 +1100,19 @@ function ckSweep() {
 
 function ckBuild() {
   const narrow = matchMedia('(max-width: 760px)').matches;
-  const want = getSet('clockStyle', 'flap');
-  const style = want === 'both' ? 'both' : want === 'analog' && !narrow ? 'analog' : 'flap';   // phones: analog alone gives way to the flap digits
+  let want = getSet('clockStyle', 'digital');
+  if (want === 'flap') want = 'digital';
+  const style = want === 'both' ? 'both' : want === 'analog' && !narrow ? 'analog' : 'digital';   // phones: analog alone gives way to the flap digits
   ck.style = style; ck.cells = []; ck.analog = null; ck.mAng = null; ck.shown = '';
   const face = h('span', { class: 'xc-face xc-' + style });
-  if (style !== 'flap') { ck.analog = ckAnalogSvg(); face.append(ck.analog); }
+  if (style !== 'digital') { ck.analog = ckAnalogSvg(); face.append(ck.analog); }
   if (style === 'analog') { ck.dig = h('span', { class: 'xc-dig', text: '' }); face.append(ck.dig); }
   else {
     const n = kstNow();
     const cells = [...(two(n.h) + two(n.m))].map(flapCell);
     ck.cells = cells;
     ck.sec = h('span', { class: 'xc-sec', text: two(n.s) });
-    face.append(h('span', { class: 'xc-flap' }, cells[0], cells[1], h('span', { class: 'xc-colon', text: ':' }), cells[2], cells[3]), ck.sec);
+    face.append(h('span', { class: 'xc-digits' }, cells[0], cells[1], h('span', { class: 'xc-colon', text: ':' }), cells[2], cells[3]), ck.sec);
   }
   ck.btn = h('button', { type: 'button', class: 'xc-btn', onclick: ckClick }, face);
   ck.fill = h('div', { class: 'xc-fill' });
@@ -1215,7 +1205,7 @@ function initClock() {
   if (has('addSetting')) {
     try {
       KH.addSetting({ key: 'clock', label: '시계·장 진행률', default: true, onChange: () => ckApply() });
-      KH.addSetting({ key: 'clockStyle', label: '시계 모양', options: [{ v: 'flap', label: '플랩' }, { v: 'analog', label: '아날로그' }, { v: 'both', label: '둘 다' }], default: 'flap', onChange: () => ckApply() });
+      KH.addSetting({ key: 'clockStyle', label: '시계 모양', options: [{ v: 'digital', label: '숫자' }, { v: 'analog', label: '아날로그' }, { v: 'both', label: '둘 다' }], default: 'digital', onChange: () => ckApply() });
     } catch (e) { /* settings are optional */ }
   }
   ckApply();
