@@ -5,10 +5,10 @@ compatibility_date = "2026-11-01"
 # Free plan is enough: each /api/quotes cache miss makes 2 subrequests (one batch quote call for
 # 600 stocks + one index call), and the edge cache absorbs repeat hits for 8 seconds.
 
-# Intraday replay recorder: scheduled() appends one frame per 5 minutes to KV key frames:YYYYMMDD.
+# Intraday replay recorder: scheduled() appends one frame per 5 minutes (09:00 to session end) to KV key replay:YYYYMMDD:HHMM; no list() calls.
 [[kv_namespaces]]
 binding = "REPLAY"
 id = "bfdaeef6e5204d0ba223a568f76d3c85"
 
 [triggers]
-crons = ["*/5 0-6 * * 1-5"]
+crons = ["*/5 0-7 * * 1-5"]

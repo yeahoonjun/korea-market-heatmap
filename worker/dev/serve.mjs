@@ -2,6 +2,7 @@
 // Dev-only extras (never part of the Worker):
 //   GET /__dev/scheduled?at=2026-11-10T10:05[&open=1]  fires worker.scheduled() with a fake clock (KST wall time unless a zone is given).
 //                                                       open=1 makes the index call report OPEN so the holiday guard lets the frame through.
+//                                                       endtime=1630 rewrites stockExchangeType.endTime in the stock polling data (수능 day).
 //   GET /__dev/kv[?prefix=replay:]                     lists the in-memory KV (key + byte size)
 //   GET /__dev/count?reset=1                           upstream fetch counter since the last reset (per hostname+path)
 import http from 'node:http';
@@ -25,14 +26,14 @@ globalThis.caches = {
 };
 
 // in-memory KV mock (get / put / list / delete), same surface the Worker uses
-let kvStats = { ops: 0, parsedBytes: 0, putBytes: 0 };
+let kvStats = { ops: 0, lists: 0, gets: 0, puts: 0, parsedBytes: 0, putBytes: 0 };
 function makeKV() {
   const m = new Map();                       // key → { value: string, exp: ms|null }
   const live = () => { const now = Date.now(); for (const [k, v] of m) if (v.exp && v.exp < now) m.delete(k); };
   return {
     _m: m,
     async get(key, opt) {
-      live(); kvStats.ops++;
+      live(); kvStats.ops++; kvStats.gets++;
       const e = m.get(key);
       if (!e) return null;
       kvStats.parsedBytes += e.value.length;
@@ -40,12 +41,12 @@ function makeKV() {
       return type === 'json' ? JSON.parse(e.value) : e.value;
     },
     async put(key, value, opt) {
-      kvStats.ops++; kvStats.putBytes += String(value).length;
+      kvStats.ops++; kvStats.puts++; kvStats.putBytes += String(value).length;
       m.set(key, { value: String(value), exp: opt && opt.expirationTtl ? Date.now() + opt.expirationTtl * 1000 : null });
     },
     async delete(key) { m.delete(key); },
     async list(opt = {}) {
-      live(); kvStats.ops++;
+      live(); kvStats.ops++; kvStats.lists++;
       const names = [...m.keys()].filter(k => k.startsWith(opt.prefix || '')).sort();
       const start = opt.cursor ? names.findIndex(n => n > opt.cursor) : 0;
       const limit = opt.limit || 1000;
@@ -58,7 +59,7 @@ function makeKV() {
 
 // upstream fetch counter (+ optional forced-OPEN index for scheduled tests)
 const realFetch = globalThis.fetch;
-let counts = {}, forceOpen = false;
+let counts = {}, forceOpen = false, forceEnd = '';
 globalThis.fetch = async (input, init) => {
   const u = new URL(typeof input === 'string' ? input : input.url);
   const key = u.host + u.pathname.replace(/\/[0-9A-Z]{6}(,[0-9A-Z]{6})+$/, '/{codes}');
@@ -67,6 +68,11 @@ globalThis.fetch = async (input, init) => {
   if (forceOpen && u.pathname.includes('/realtime/domestic/index/')) {
     const j = await r.json();
     for (const x of j.datas || []) x.marketStatus = 'OPEN';
+    return new Response(JSON.stringify(j), { status: r.status, headers: { 'content-type': 'application/json' } });
+  }
+  if (forceEnd && u.pathname.includes('/realtime/domestic/stock/')) {
+    const j = await r.json();
+    for (const x of j.datas || []) if (x.stockExchangeType) x.stockExchangeType.endTime = forceEnd;
     return new Response(JSON.stringify(j), { status: r.status, headers: { 'content-type': 'application/json' } });
   }
   return r;
@@ -83,19 +89,20 @@ http.createServer(async (req, res) => {
       const ms = Date.parse(/[zZ]|[+-]\d\d:?\d\d$/.test(at) ? at : at + '+09:00');
       if (!Number.isFinite(ms)) return send(400, { error: 'at=YYYY-MM-DDTHH:mm (KST) required' });
       forceOpen = u.searchParams.get('open') === '1';
-      counts = {}; kvStats = { ops: 0, parsedBytes: 0, putBytes: 0 };
+      forceEnd = u.searchParams.get('endtime') || '';
+      counts = {}; kvStats = { ops: 0, lists: 0, gets: 0, puts: 0, parsedBytes: 0, putBytes: 0 };
       try {
         const pending = [];
-        await worker.scheduled({ scheduledTime: ms, cron: '*/5 0-6 * * 1-5', type: 'scheduled' }, env, { waitUntil: p => pending.push(p) });
+        await worker.scheduled({ scheduledTime: ms, cron: '*/5 0-7 * * 1-5', type: 'scheduled' }, env, { waitUntil: p => pending.push(p) });
         await Promise.all(pending);
-      } finally { forceOpen = false; }
+      } finally { forceOpen = false; forceEnd = ''; }
       return send(200, { fired: new Date(ms).toISOString(), upstream: Object.keys(counts).length ? Object.values(counts).reduce((a, b) => a + b, 0) : 0, kv: kvStats, kvKeys: [...env.REPLAY._m.keys()] });
     }
     if (u.pathname === '/__dev/kv') {
       const out = [...env.REPLAY._m].filter(([k]) => k.startsWith(u.searchParams.get('prefix') || '')).map(([k, v]) => ({ key: k, bytes: v.value.length }));
       return send(200, out);
     }
-    if (u.pathname === '/__dev/kvstats') { const c = kvStats; if (u.searchParams.get('reset')) kvStats = { ops: 0, parsedBytes: 0, putBytes: 0 }; return send(200, c); }
+    if (u.pathname === '/__dev/kvstats') { const c = kvStats; if (u.searchParams.get('reset')) kvStats = { ops: 0, lists: 0, gets: 0, puts: 0, parsedBytes: 0, putBytes: 0 }; return send(200, c); }
     if (u.pathname === '/__dev/count') {
       const c = counts;
       if (u.searchParams.get('reset')) counts = {};

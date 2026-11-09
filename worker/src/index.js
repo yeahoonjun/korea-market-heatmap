@@ -15,8 +15,10 @@
 //   GET /api/themes                    → theme list with ratio / up / flat / down
 //   GET /api/market                    → market strip (indices + spark, USDKRW, US futures, WTI, gold, BTC)
 //   GET /api/replay/dates, /api/replay?date=YYYY-MM-DD → intraday replay frames recorded in KV (env.REPLAY, one key per frame)
-//   GET /data/{themes,periods,flows}.json, PWA files   → static from ASSET_BASE (whitelist)
-//   scheduled()                        → cron: appends a replay frame every 5 min on weekdays 09:00–15:30 KST
+//   GET /api/stock/:code/finance?period=annual|quarter → financial statements (cols oldest→newest)
+//   GET /api/stock/:code/research      → broker reports (target / opinion parsed from the preview) + consensus
+//   GET /data/{themes,periods,flows,names,close}.json, PWA files → static from ASSET_BASE (whitelist)
+//   scheduled()                        → cron: appends a replay frame every 5 min on weekdays 09:00 → session end (stockExchangeType.endTime) KST
 //   GET /api/health                    → {ok:true}
 // Contract: AGENTS.md §3, sources and pitfalls: data/ENDPOINTS_DETAIL.md.
 // The Worker has no build-generated modules: page and stock universe come from ASSET_BASE.
@@ -26,6 +28,7 @@ const QUOTES_TTL = 8;                // seconds
 const CHART_TTL = 30;
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36';
 const CODE_RE = /^[0-9A-Z]{6}$/;
+const ORIGIN = 'https://kospimap.pages.dev';
 const TFS = ['1d', '5d', '3m', '1y', '3y', '10y'];
 
 export default {
@@ -34,7 +37,7 @@ export default {
     const path = url.pathname;
     env = env || {};
     try {
-      if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: { 'access-control-allow-origin': '*', 'access-control-allow-methods': 'GET, OPTIONS' } });
+      if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: { 'access-control-allow-origin': ORIGIN, 'access-control-allow-methods': 'GET, OPTIONS', vary: 'origin' } });
       if (path === '/' || path === '/index.html') return await getPage(request, env, ctx);
       if (path === '/api/health') return json({ ok: true });
       if (path === '/api/quotes') {
@@ -43,6 +46,14 @@ export default {
         const codes = [...new Set(raw.split(',').map(x => x.trim().toUpperCase()))].sort();
         if (!codes.length || codes.length > 300 || !codes.every(c => CODE_RE.test(c))) return fail(400, 'codes는 6자 종목 코드를 쉼표로 이어 300개까지 보낼 수 있어요');
         return await edgeCached(request, ctx, 'quotes-' + codes.join(','), QUOTES_TTL, () => getQuotes(env, codes));
+      }
+      if (path === '/api/breadth') {
+        const mk = url.searchParams.get('m'), pr = url.searchParams.get('part') || '1';
+        if (mk !== 'K' && mk !== 'Q') return fail(400, 'm은 K 또는 Q여야 해요');
+        if (!/^\d{1,2}$/.test(pr) || +pr < 1) return fail(400, 'part는 1 이상의 정수여야 해요');
+        const k = kstNow(), hhmm = pad(k.getUTCHours()) + pad(k.getUTCMinutes()), wd = k.getUTCDay();
+        const live = wd >= 1 && wd <= 5 && hhmm >= '0900' && hhmm < lastEndTime;
+        return await edgeCached(request, ctx, `breadth-${mk}-${+pr}`, live ? 30 : 600, () => getBreadth(env, mk, +pr));
       }
       if (path === '/api/themes') return await edgeCached(request, ctx, 'themes', 30, () => getThemes());
       if (path === '/api/market') return await edgeCached(request, ctx, 'market', 30, () => getMarket());
@@ -59,12 +70,18 @@ export default {
         if (!CODE_RE.test(m[1])) return fail(400, '종목 코드가 올바르지 않아요');
         return await edgeCached(request, ctx, 'chart-' + m[1], CHART_TTL, () => getChart(m[1]));
       }
-      m = path.match(/^\/api\/stock\/([^/]+)\/(summary|chart|orderbook|investors|daily|news|disclosures)$/);
+      m = path.match(/^\/api\/stock\/([^/]+)\/(summary|chart|orderbook|investors|daily|news|disclosures|finance|research)$/);
       if (m) {
         const code = m[1], kind = m[2];
         if (!CODE_RE.test(code)) return fail(400, '종목 코드가 올바르지 않아요');
         if (kind === 'summary') return await edgeCached(request, ctx, `sum-${code}`, 30, () => getSummary(code));
         if (kind === 'orderbook') return await edgeCached(request, ctx, `ob-${code}`, 2, () => getOrderbook(code));
+        if (kind === 'research') return await edgeCached(request, ctx, `res-${code}`, 1800, () => getResearch(code));
+        if (kind === 'finance') {
+          const period = url.searchParams.get('period') || 'annual';
+          if (period !== 'annual' && period !== 'quarter') return fail(400, 'period는 annual 또는 quarter여야 해요');
+          return await edgeCached(request, ctx, `fin-${code}-${period}`, 21600, () => getFinance(code, period));
+        }
         if (kind === 'news') return await edgeCached(request, ctx, `news-${code}`, 300, () => getNews(code));
         if (kind === 'disclosures') return await edgeCached(request, ctx, `dis-${code}`, 300, () => getDisclosures(code, env));
         if (kind === 'investors') return await edgeCached(request, ctx, `inv-${code}`, 600, () => getInvestors(code));
@@ -96,7 +113,7 @@ function json(body, status = 200, maxAge = 0) {
     headers: {
       'content-type': 'application/json; charset=utf-8',
       'cache-control': maxAge ? `public, max-age=${maxAge}` : 'no-store',
-      'access-control-allow-origin': '*',
+      'access-control-allow-origin': ORIGIN,
     },
   });
 }
@@ -192,6 +209,7 @@ async function getPage(request, env, ctx) {
 
 /* ── stock universe (ASSET_BASE/universe.json) ─────────────────────────────── */
 // {K, Q, I}: K/Q = 8 chars per stock = 6-char code + 2-char base36 index into I ([업종, 섹터]).
+let lastEndTime = '1530';               // session end seen in the latest polling data
 let universeMem = null;                 // { at, map }
 async function getUniverse(env) {
   const now = Date.now();
@@ -236,15 +254,16 @@ async function getUniverse(env) {
 // One polling call returns live rows for up to 1000 codes; we send the top 300 per market
 // (from ASSET_BASE/universe.json) to keep the response small and CPU time low on the free plan.
 // `only` (array of codes) → those codes instead of the universe; stocks outside the universe get s/i '기타'.
-async function getQuotes(env, only) {
+async function getQuotes(env, only) { return (await quotesCore(env, only)).body; }
+async function quotesCore(env, only) {
   const STOCKS = only ? await getUniverse(env).catch(() => new Map()) : await getUniverse(env);
-  const codes = only || [...STOCKS.keys()];
+  const codes = only || (universeMem.codes || (universeMem.codes = [...STOCKS.keys()]));
   const [live, idx] = await Promise.all([
     naver(`https://polling.finance.naver.com/api/realtime/domestic/stock/${codes.join(',')}`),
     naver('https://polling.finance.naver.com/api/realtime/domestic/index/KOSPI,KOSDAQ').catch(() => null),
   ]);
   const stocks = [];
-  let asOf = '', stockOpen = false;
+  let asOf = '', stockOpen = false, endTime = '';
   for (const s of live.datas || []) {
     let meta = STOCKS.get(s.itemCode) || (only && universeMem && universeMem.extra && universeMem.extra.get(s.itemCode));
     if (!meta) {
@@ -253,6 +272,7 @@ async function getQuotes(env, only) {
       meta = { m: ex === 'KQ' ? 'Q' : 'K', s: '기타', i: '기타' };
     }
     if (s.marketStatus === 'OPEN') stockOpen = true;
+    if (!endTime && s.stockExchangeType && s.stockExchangeType.endTime) endTime = String(s.stockExchangeType.endTime);
     if (s.localTradedAt && s.localTradedAt > asOf) asOf = s.localTradedAt;
     const limName = s.compareToPreviousPrice && s.compareToPreviousPrice.name;
     const row = {
@@ -279,18 +299,51 @@ async function getQuotes(env, only) {
   }
   if (!Object.keys(marketStatus).length) {                  // index call failed → judge the regular session by the KST clock
     const k = kstNow(), hhmm = pad(k.getUTCHours()) + pad(k.getUTCMinutes()), wd = k.getUTCDay();
-    const st = stockOpen && wd >= 1 && wd <= 5 && hhmm >= '0900' && hhmm < '1530' ? 'OPEN' : 'CLOSE';
+    const st = stockOpen && wd >= 1 && wd <= 5 && hhmm >= '0900' && hhmm < (endTime || '1530') ? 'OPEN' : 'CLOSE';
     marketStatus.KOSPI = marketStatus.KOSDAQ = st;
   }
   const regularOpen = Object.values(marketStatus).includes('OPEN');
   return {
-    asOf,
-    source: '네이버 증권 (polling.finance.naver.com)',
-    marketStatus,
-    afterHours: !regularOpen && stockOpen,                   // NXT/시간외 prices are moving after 15:30
-    index,
-    stocks,
+    endTime: /^\d{4}$/.test(endTime) ? (lastEndTime = endTime) : '1530',
+    body: {
+      asOf,
+      source: '네이버 증권 (polling.finance.naver.com)',
+      marketStatus,
+      afterHours: !regularOpen && stockOpen,                 // NXT/시간외 prices are moving after the regular session
+      index,
+      stocks,
+    },
   };
+}
+
+/* ── /api/breadth ─────────────────────────────── */
+// All stocks of one market (universe K/Q top 300 + every X entry of that market, preferreds included), sorted by code,
+// chunked by 600 → one polling call per request. Rows are tiny: [code, ratio, lim?].
+const BREADTH_CHUNK = 600;
+async function getBreadth(env, m, part) {
+  await getUniverse(env);
+  const U = universeMem;
+  if (!U.byMkt) {
+    U.byMkt = { K: [], Q: [] };
+    for (const [c, v] of U.map) U.byMkt[v.m].push(c);
+    for (const [c, v] of U.extra) if (U.byMkt[v.m]) U.byMkt[v.m].push(c);
+    for (const k of ['K', 'Q']) U.byMkt[k] = [...new Set(U.byMkt[k])].sort();
+  }
+  const all = U.byMkt[m], parts = Math.max(1, Math.ceil(all.length / BREADTH_CHUNK));
+  if (part > parts) throw new HttpError(400, `part는 1~${parts} 범위여야 해요`);
+  const codes = all.slice((part - 1) * BREADTH_CHUNK, part * BREADTH_CHUNK);
+  const live = await naver(`https://polling.finance.naver.com/api/realtime/domestic/stock/${codes.join(',')}`);
+  let asOf = '', seenEnd = false;
+  const rows = [];
+  for (const s of live.datas || []) {
+    if (s.localTradedAt && s.localTradedAt > asOf) asOf = s.localTradedAt;
+    const row = [s.itemCode, num(s.fluctuationsRatioRaw)];
+    const ln = s.compareToPreviousPrice && s.compareToPreviousPrice.name;
+    if (ln === 'UPPER_LIMIT') row.push(1); else if (ln === 'LOWER_LIMIT') row.push(-1);
+    rows.push(row);
+    if (!seenEnd && s.stockExchangeType && /^\d{4}$/.test(s.stockExchangeType.endTime)) { seenEnd = true; lastEndTime = s.stockExchangeType.endTime; }
+  }
+  return { m, part, parts, asOf, rows };
 }
 
 /* ── /api/chart/:code ─────────────────────────────── */
@@ -337,7 +390,36 @@ async function getSummary(code) {
     marketCap: parseEok(t.marketValue),
     foreignRate: pn(t.foreignRate),
     asOf: b.localTradedAt || null,
+    open: pn(t.openPrice),
+    high: pn(t.highPrice),
+    low: pn(t.lowPrice),
+    prevClose: pn(t.lastClosePrice),
+    volume: pn(t.accumulatedTradingVolume),
+    tradingValue: parseEok(t.accumulatedTradingValue),
+    cnsPer: pn(t.cnsPer),
+    cnsEps: pn(t.cnsEps),
+    dps: pn(t.dividend),
+    peers: peersOf(g, b.itemCode || code),
   };
+}
+
+// 같은 업종 비교: marketValue is in 백만원 (SK하이닉스 "814,498,986" = 814조 → 억원 = ÷100)
+function peersOf(g, self) {
+  const out = [];
+  for (const x of g.industryCompareInfo || []) {
+    if (!x || x.itemCode === self || !x.itemCode) continue;
+    const mv = pn(x.marketValue);
+    out.push({
+      code: x.itemCode,
+      name: x.stockName || null,
+      market: x.sosok === '1' ? 'Q' : 'K',
+      price: pn(x.closePrice),
+      ratio: sgn(x.fluctuationsRatio, x.compareToPreviousPrice),
+      cap: mv == null ? null : Math.round(mv / 100),
+    });
+    if (out.length >= 6) break;
+  }
+  return out;
 }
 
 /* ── /api/stock/:code/chart ─────────────────────────────── */
@@ -616,12 +698,82 @@ async function getDartList(corp, key) {
   return { source: 'dart', rows };
 }
 
+/* ── /api/stock/:code/finance, /research ─────────────────────────────── */
+const FIN_UNIT = {
+  '매출액': '억원', '영업이익': '억원', '당기순이익': '억원', '지배주주순이익': '억원', '비지배주주순이익': '억원',
+  '영업이익률': '%', '순이익률': '%', 'ROE': '%', '부채비율': '%', '당좌비율': '%', '유보율': '%',
+  'EPS': '원', 'BPS': '원', '주당배당금': '원', 'PER': '배', 'PBR': '배',
+};
+async function getFinance(code, period) {
+  const raw = await naver(`https://m.stock.naver.com/api/stock/${code}/finance/${period}`);
+  const fi = (raw && raw.financeInfo) || {};
+  const cols = (fi.trTitleList || []).map(c => ({ key: String(c.key), label: String(c.title || c.key).replace(/\.$/, ''), estimate: c.isConsensus === 'Y' }));
+  cols.sort((a, b) => a.key.localeCompare(b.key));              // oldest → newest
+  const rows = (fi.rowList || []).map(r => ({
+    title: r.title,
+    unit: FIN_UNIT[r.title] || null,
+    values: cols.map(c => { const x = r.columns && r.columns[c.key]; return x ? pn(x.value) : null; }),
+  }));
+  if (!cols.length && !rows.length) throw new HttpError(404, '종목을 찾을 수 없어요');   // unknown code answers 200 with empty lists
+  return { period, cols, rows };
+}
+
+// "목표주가 37만원", "목표주가를 40만원으로", "TP 40만원", "목표가 472,000원", "목표주가를 35만원에서 40만원으로 상향" (→ the new one)
+const TARGET_RE = /(?:목표\s*주가|목표\s*가|목표\s*주가\s*는|\bTP\b|\bTarget\s*Price\b)\s*[:：]?\s*(?:[을를은는]\s*)?(?:약\s*)?(\d[\d,]*(?:\.\d+)?)\s*(만\s*원|원)/gi;
+const MONEY_RE = /^\s*에서\s*(?:약\s*)?(\d[\d,]*(?:\.\d+)?)\s*(만\s*원|원)/;
+function toWon(num, unit) {
+  const n = parseFloat(String(num).replace(/,/g, ''));
+  if (!Number.isFinite(n)) return null;
+  const won = /만/.test(unit) ? Math.round(n * 10000) : Math.round(n);
+  return won >= 1000 && won <= 10000000 ? won : null;           // not sure → null
+}
+function parseTarget(text) {
+  const t = String(text || '');
+  TARGET_RE.lastIndex = 0;
+  let m;
+  while ((m = TARGET_RE.exec(t))) {
+    let w = toWon(m[1], m[2]);
+    const next = MONEY_RE.exec(t.slice(m.index + m[0].length));
+    if (next) w = toWon(next[1], next[2]) ?? w;
+    if (w != null) return w;
+  }
+  return null;
+}
+const OPINION_TOK = 'Strong\\s*Buy|Trading\\s*Buy|Market\\s*perform|Outperform|Underperform|Buy|Hold|Neutral|Sell|매수|매도|중립';
+const OPINION_CTX = new RegExp('(?:투자\\s*의견|의견|Rating)\\s*[:：]?\\s*(?:은|는|을|를)?\\s*[\'"‘“]?\\s*(' + OPINION_TOK + ')', 'i');
+const OPINION_ANY = new RegExp('(?<![A-Za-z순])(' + OPINION_TOK + ')(?![A-Za-z])', 'i');
+function parseOpinion(text) {
+  const t = String(text || '');
+  const m = OPINION_CTX.exec(t) || OPINION_ANY.exec(t);
+  return m ? m[1].replace(/\s+/g, ' ').trim() : null;
+}
+async function getResearch(code) {
+  const [list, g] = await Promise.all([
+    naver(`https://m.stock.naver.com/api/research/stock/${code}?pageSize=20`),
+    naver(`https://m.stock.naver.com/api/stock/${code}/integration`).catch(e => { if (e && e.status === 404) throw e; return null; }),
+  ]);
+  const ci = g && g.consensusInfo;
+  const tm = ci ? pn(ci.priceTargetMean) : null, om = ci ? pn(ci.recommMean) : null;
+  const consensus = ci && (tm != null || om != null) ? { targetMean: tm, opinionMean: om, date: ci.createDate || null } : null;
+  const rows = (Array.isArray(list) ? list : []).map(r => ({
+    date: r.writeDate || null,
+    broker: r.brokerName || null,
+    title: decodeEntities(r.title),
+    target: parseTarget(r.previewContent),
+    opinion: parseOpinion(r.previewContent),
+    url: `https://m.stock.naver.com/research/company/${r.researchId}`,
+  }));
+  return { consensus, rows };
+}
+
 /* ── static assets (whitelist, binary-safe) ─────────────────────────────── */
 const JSON_T = 'application/json; charset=utf-8';
 const ASSETS = {
   '/data/themes.json': { file: 'themes.json', type: JSON_T, ttl: 600, cors: true },
   '/data/periods.json': { file: 'periods.json', type: JSON_T, ttl: 600, cors: true },
   '/data/flows.json': { file: 'flows.json', type: JSON_T, ttl: 600, cors: true },
+  '/data/names.json': { file: 'names.json', type: JSON_T, ttl: 600, cors: true },
+  '/data/close.json': { file: 'close.json', type: JSON_T, ttl: 600, cors: true },
   '/manifest.webmanifest': { file: 'manifest.webmanifest', type: 'application/manifest+json', ttl: 3600 },
   '/sw.js': { file: 'sw.js', type: 'text/javascript; charset=utf-8', ttl: 3600, extra: { 'service-worker-allowed': '/' } },
   '/icon.svg': { file: 'icon.svg', type: 'image/svg+xml', ttl: 3600 },
@@ -637,50 +789,40 @@ async function getAsset(request, env, ctx, path) {
   if (hit) return hit;
   const r = await fetch(assetBase(env) + spec.file);
   if (!r.ok) return fail(r.status === 404 ? 404 : 502, r.status === 404 ? '아직 만들어지지 않은 파일이에요' : '원본을 불러오지 못했어요');
-  const headers = { 'content-type': spec.type, 'cache-control': `public, max-age=${spec.ttl}`, ...(spec.cors ? { 'access-control-allow-origin': '*' } : {}), ...(spec.extra || {}) };
+  const headers = { 'content-type': spec.type, 'cache-control': `public, max-age=${spec.ttl}`, ...(spec.cors ? { 'access-control-allow-origin': ORIGIN } : {}), ...(spec.extra || {}) };
   const res = new Response(await r.arrayBuffer(), { headers });
   ctx.waitUntil(cache.put(cacheKey, res.clone()));
   return res;
 }
 
 /* ── intraday replay (KV env.REPLAY) ─────────────────────────────── */
+// KV free plan: 1,000 list ops/day → this code never calls list().
+// replay:days           → ["20261109", …] newest first, ≤ 40 (no TTL)
 // replay:YYYYMMDD:codes → ["005930",…] (written with the day's first frame)
-// replay:YYYYMMDD:HHMM  → {p:[int|null,…], r:[2-decimals|null,…], i:[KOSPI, KOSDAQ]}   (~10 KB each, TTL 40 days)
+// replay:YYYYMMDD:HHMM  → {p:[int|null,…], r:[2-decimals|null,…], i:[KOSPI, KOSDAQ], b:[prev closes], e:'1530'}   (~10 KB each, TTL 40 days)
 const REPLAY_TTL = 40 * 86400;
-async function kvKeys(env, prefix, max = 5) {
-  const names = [];
-  let cursor;
-  for (let n = 0; n < max; n++) {
-    const l = await env.REPLAY.list({ prefix, cursor });
-    for (const k of l.keys) names.push(k.name);
-    if (l.list_complete) break;
-    cursor = l.cursor;
-  }
-  return names;
-}
-async function listReplayDates(env) {
-  const names = await kvKeys(env, 'replay:', 10);
-  return names.map(n => /^replay:(\d{8}):codes$/.exec(n)).filter(Boolean).map(m => dash(m[1])).sort().reverse();
-}
+const DAYS_KEY = 'replay:days';
 async function getReplayDates(env) {
   if (!env.REPLAY) throw new HttpError(503, '리플레이 저장소가 연결되지 않았어요');
-  return { dates: await listReplayDates(env) };
+  const days = await env.REPLAY.get(DAYS_KEY, 'json');
+  return { dates: (Array.isArray(days) ? days : []).filter(d => /^\d{8}$/.test(d)).map(dash) };
 }
+// every 5-minute key of a day: 09:00 → 16:30 (the longest session end); keys past the real end simply don't exist
+const FRAME_TS = (() => { const a = []; for (let m = 540; m <= 990; m += 5) a.push(pad(Math.floor(m / 60)) + pad(m % 60)); return a; })();
 async function getReplay(env, date) {
   if (!env.REPLAY) throw new HttpError(503, '리플레이 저장소가 연결되지 않았어요');
   if (!date) {
-    date = (await listReplayDates(env))[0];
+    date = (await getReplayDates(env)).dates[0];
     if (!date) throw new HttpError(404, '기록된 날이 아직 없어요');
   }
   const day = date.replace(/-/g, '');
-  const [codes, names] = await Promise.all([env.REPLAY.get(`replay:${day}:codes`, 'json'), kvKeys(env, `replay:${day}:`, 2)]);
+  const codes = await env.REPLAY.get(`replay:${day}:codes`, 'json');
   if (!codes) throw new HttpError(404, '그날 기록이 없어요');
-  const ts = names.map(n => n.slice(16)).filter(t => /^\d{4}$/.test(t)).sort();
   const vals = [];
-  for (let i = 0; i < ts.length; i += 20) vals.push(...await Promise.all(ts.slice(i, i + 20).map(t => env.REPLAY.get(`replay:${day}:${t}`, 'json'))));
+  for (let i = 0; i < FRAME_TS.length; i += 20) vals.push(...await Promise.all(FRAME_TS.slice(i, i + 20).map(t => env.REPLAY.get(`replay:${day}:${t}`, 'json'))));
   const frames = [], ix = { KOSPI: [], KOSDAQ: [] };
   let base = null;                                                     // previous close of each index (from the first frame that has it)
-  ts.forEach((t, n) => {
+  FRAME_TS.forEach((t, n) => {
     const f = vals[n];
     if (!f) return;
     frames.push({ t, p: f.p, r: f.r });
@@ -692,24 +834,35 @@ async function getReplay(env, date) {
 }
 
 // Cron entry. event.scheduledTime (ms) is the cron's nominal time; the dev harness passes a fake one.
+// Outside 09:00–16:30 KST or on weekends it returns before touching KV or the network.
 async function recordFrame(event, env) {
   if (!env.REPLAY) return { skipped: 'no-kv' };
   const at = new Date((event && event.scheduledTime) || Date.now());
   const k = new Date(at.getTime() + 9 * 3600e3);                       // KST wall clock via getUTC*
   const wd = k.getUTCDay(), mins = k.getUTCHours() * 60 + k.getUTCMinutes();
-  if (wd < 1 || wd > 5 || mins < 540 || mins > 930) return { skipped: 'outside-hours' };
+  if (wd < 1 || wd > 5 || mins < 540 || mins > 990) return { skipped: 'outside-hours' };
   const bucket = mins - (mins % 5);
   const t = pad(Math.floor(bucket / 60)) + pad(bucket % 60);
   const day = ymd(k), fkey = `replay:${day}:${t}`, ckey = `replay:${day}:codes`;
-  if ((await env.REPLAY.list({ prefix: fkey, limit: 1 })).keys.some(x => x.name === fkey)) return { skipped: 'duplicate', t };
-  const q = await getQuotes(env);
+  if (await env.REPLAY.get(fkey)) return { skipped: 'duplicate', t };
+  if (t > '1530') {                                                    // a normal day ended at 15:30: its frame says so → no fetch needed
+    const f = await env.REPLAY.get(`replay:${day}:1530`, 'json');
+    if (f && (f.e || '1530') <= '1530') return { skipped: 'after-end', t };
+  }
+  const { body: q, endTime } = await quotesCore(env);
+  if (t > endTime) return { skipped: 'after-end', t };
   const closed = q.marketStatus.KOSPI !== 'OPEN' && q.marketStatus.KOSDAQ !== 'OPEN';
-  // Holiday guard: both indices CLOSE. The 15:30 frame is allowed when the data is stamped today (the close may already have flipped).
-  if (closed && !(t === '1530' && (q.asOf || '').slice(0, 10) === dash(day))) return { skipped: 'closed', t };
+  // Holiday guard: both indices CLOSE. The last frame (endTime) is allowed when the data is stamped today (the close may already have flipped).
+  if (closed && !(t === endTime && (q.asOf || '').slice(0, 10) === dash(day))) return { skipped: 'closed', t };
   let codes = await env.REPLAY.get(ckey, 'json');
   if (!codes) {
     codes = q.stocks.map(s => s.c);
     await env.REPLAY.put(ckey, JSON.stringify(codes), { expirationTtl: REPLAY_TTL });
+  }
+  const days = await env.REPLAY.get(DAYS_KEY, 'json');
+  if (!Array.isArray(days) || !days.includes(day)) {
+    const next = [...new Set([day, ...(Array.isArray(days) ? days : [])])].sort().reverse().slice(0, 40);
+    await env.REPLAY.put(DAYS_KEY, JSON.stringify(next));
   }
   const by = new Map(q.stocks.map(s => [s.c, s]));
   const ix = x => (q.index[x] ? round2(q.index[x].value) : null);
@@ -719,6 +872,7 @@ async function recordFrame(event, env) {
     r: codes.map(c => (by.has(c) ? round2(by.get(c).r) : null)),
     i: [ix('KOSPI'), ix('KOSDAQ')],
     b: [bx('KOSPI'), bx('KOSDAQ')],
+    e: endTime,
   }), { expirationTtl: REPLAY_TTL });
   return { wrote: t };
 }
