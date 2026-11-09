@@ -1,12 +1,13 @@
 """Horizontal overflow, tile label overflow and console errors for every main view at 360/390/768/1280/1920.
 usage: sweep.py [snapshot|live]   (also writes 390 and 1440 screenshots of the main views to qa/heatmap2/shots/)"""
+import os; HM_BASE = 'http://127.0.0.1:%s/' % os.environ.get('HM_PORT', '8806')   # dev Worker (harness) port
 import sys, json
 sys.path.insert(0, '/home/claude/hm-heatmap/qa/heatmap')
 from common import launch, Log, LABEL_CHECK_JS, VIEWPORTS
 from playwright.sync_api import sync_playwright
 build = sys.argv[1] if len(sys.argv) > 1 else 'snapshot'
 LIVE = build == 'live'
-URL = 'http://127.0.0.1:8798/' if LIVE else 'file:///home/claude/hm-heatmap/dist/index.html'
+URL = HM_BASE if LIVE else 'file:///home/claude/hm-heatmap/dist/index.html'
 WAIT = 3800 if LIVE else 1400
 SHOTS = '/home/claude/hm-heatmap/qa/heatmap2/shots/'
 WATCH = ['005930', '000660', '035420', '005380', '900300', '179530', '247540', '196170', '068270', '105560', '323990', '035720']

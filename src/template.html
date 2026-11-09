@@ -15,6 +15,11 @@
   --up-text:#ff5c66; --dn-text:#2fd67a;
   --nodata:#26282e;
   --sans:'Pretendard Variable',Pretendard,-apple-system,BlinkMacSystemFont,system-ui,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;
+  /* motion tokens (docs/motion-brief.md 2-0): the '화려하게' effects read these; JS mirrors them in MT */
+  --m-1:120ms; --m-2:240ms; --m-3:480ms;
+  --m-flash:700ms; --m-roll:420ms; --m-fly:700ms; --m-stagger:40ms;
+  --m-out:cubic-bezier(.2,.7,.2,1); --m-quint:cubic-bezier(.22,1,.36,1); --m-inout:cubic-bezier(.6,0,.2,1);
+  --m-exit:cubic-bezier(.4,0,.2,1); --m-fly-ease:cubic-bezier(.83,0,.17,1);
 }
 *{box-sizing:border-box}
 html,body{margin:0;background:var(--page);color:var(--fg);font-family:var(--sans);-webkit-font-smoothing:antialiased;-webkit-text-size-adjust:100%}
@@ -27,9 +32,14 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 
 /* ── Top bar ───────────────────────────── */
 .top{display:flex;align-items:center;gap:20px;padding:12px 18px 10px;flex-wrap:wrap}
-.brand{font-weight:700;font-size:17px;letter-spacing:-.02em;white-space:nowrap;display:flex;align-items:center;gap:8px}
-.brand i{width:14px;height:14px;display:inline-grid;grid-template-columns:1fr 1fr;gap:1.5px}
+.brand{font-weight:700;font-size:17px;letter-spacing:-.02em;white-space:nowrap;display:flex;align-items:center;gap:8px;min-width:0}
+.brand i{width:14px;height:14px;display:inline-grid;grid-template-columns:1fr 1fr;gap:1.5px;flex:none}
 .brand i b{display:block;border-radius:1px}
+/* §3-6 the clock (src/extras) takes the title's place while <html class="has-clock">; the title stays for screen readers */
+#clock{display:none;align-items:center;min-width:0;font-weight:500;font-size:13px;letter-spacing:0}
+.has-clock #clock{display:flex}
+.has-clock #clock:empty{display:none}
+.has-clock #clock:not(:empty) ~ .ttl{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .tabs{display:flex;gap:2px;background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:3px}
 .tabs button{padding:6px 14px;border-radius:6px;font-size:14px;font-weight:600;color:var(--muted);transition:background .15s,color .15s;white-space:nowrap}
 .tabs button[aria-pressed="true"]{background:var(--panel2);color:var(--fg);box-shadow:inset 0 -2px 0 var(--amber)}
@@ -51,7 +61,7 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 /* 정규장 종가 · NXT 포함 (live, after the close when close.json covers that day) */
 .basis[hidden]{display:none}
 .basis button{font-size:12.5px;padding:4px 9px;font-variant-numeric:tabular-nums}
-.basis .bs{display:none}
+.basis .bs,.basis .ks{display:none}
 @media (max-width:1279px){ .basis .bl{display:none} .basis .bs{display:inline} .status.has-basis .txt{display:none} }
 @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(255,181,71,.55)}70%{box-shadow:0 0 0 7px rgba(255,181,71,0)}100%{box-shadow:0 0 0 0 rgba(255,181,71,0)}}
 
@@ -80,6 +90,7 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 .ctl.off .seg button{cursor:not-allowed}
 .seg{display:flex;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:2px}
 .seg button{padding:5px 9px;border-radius:6px;font-size:13px;color:var(--fg2);white-space:nowrap}
+.seg button[hidden]{display:none!important}
 .seg button:hover{color:var(--fg)}
 .seg button[aria-pressed="true"]{background:var(--panel2);color:var(--fg);box-shadow:inset 0 0 0 1px var(--line2)}
 .seg .pal{display:inline-flex;gap:1px;margin-right:6px;vertical-align:-1px}
@@ -94,6 +105,24 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 #extras-tools{display:flex;align-items:center;gap:8px;margin-left:auto}
 #extras-tools:empty{display:none}
 .scrim2{display:none}
+/* 화면 settings (효과 + module switches from KH.addSetting): a section of the 표시 설정 sheet below 1280px, a small popover above */
+.morebtn{display:none}
+.morep{display:flex;flex-direction:column;gap:13px}
+.morehd{font-size:12.5px;font-weight:700;color:var(--fg)}
+.morep .ctl{flex-direction:column;align-items:stretch;gap:6px}
+.morep .seg button{flex:1 1 auto}
+.morep .hint{font-size:11.5px;color:var(--muted);line-height:1.45}
+.morep .hint[hidden]{display:none}
+.swbtn{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;min-height:36px;padding:6px 10px;border-radius:8px;background:var(--panel);border:1px solid var(--line);font-size:13px;color:var(--fg);text-align:left}
+.swbtn:hover{border-color:var(--line2)}
+.swbtn .swt{position:relative;flex:none;width:34px;height:20px;border-radius:10px;background:var(--line2);transition:background-color .15s}
+.swbtn .swt::after{content:"";position:absolute;left:2px;top:2px;width:16px;height:16px;border-radius:50%;background:#c9ccd3;transition:transform .15s}
+.swbtn[aria-checked="true"] .swt{background:var(--amber)}
+.swbtn[aria-checked="true"] .swt::after{transform:translateX(14px);background:#1b1404}
+/* a short message at the bottom (3D unavailable …); sits above the replay player (--rp-h) */
+.kh-toast{position:fixed;left:50%;bottom:calc(24px + var(--rp-h, 0px));z-index:96;max-width:min(440px,calc(100vw - 32px));transform:translateX(-50%);padding:10px 14px;border-radius:10px;background:rgba(32,34,40,.98);border:1px solid var(--line2);box-shadow:0 18px 50px rgba(0,0,0,.55);font-size:13px;line-height:1.5;color:var(--fg);pointer-events:none;opacity:0;transition:opacity .15s}
+.kh-toast.show{opacity:1}
+.kh-toast:empty{display:none}
 /* wide desktop: every control in one row; 색 기준 and 순매수 기간 open as small popovers; palette names from 1800px */
 @media (min-width:1280px){
   .ctls{display:contents}
@@ -112,6 +141,21 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
   .ctl.dd.open > .seg{display:flex}
   .ctl.dd > .seg button{text-align:left;padding:8px 11px}
   .ctl.dd > .seg button[aria-pressed="true"]{color:var(--amber);box-shadow:none}
+  .ctl.more{position:relative}
+  .morebtn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:32px;padding:0 10px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--fg2);font-size:13px;white-space:nowrap}
+  .morebtn svg{width:16px;height:16px;color:var(--muted);flex:none}
+  .morebtn:hover{color:var(--fg);border-color:var(--line2)}
+  .morebtn[aria-expanded="true"]{color:var(--amber);border-color:rgba(255,181,71,.45);background:var(--amber-soft)}
+  .morebtn[aria-expanded="true"] svg{color:var(--amber)}
+  .morep{display:none;position:absolute;top:calc(100% + 6px);right:0;z-index:75;width:300px;padding:12px 14px 14px;background:var(--panel2);border:1px solid var(--line2);border-radius:12px;box-shadow:0 18px 50px rgba(0,0,0,.55)}
+  .ctl.more.open .morep{display:flex}
+  .morep .seg{background:var(--panel)}
+}
+/* 1280–1439: the toolbar (with the 화면 button and the extras icons) still fits on one row */
+@media (min-width:1280px) and (max-width:1439px){ .tools{gap:10px} .search{flex-basis:172px} }
+@media (min-width:1280px) and (max-width:1599px){
+  .morebtn{width:34px;padding:0}
+  .morebtn .mbl{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 }
 @media (min-width:1600px){ .tools{gap:16px} }
 @media (min-width:1800px){
@@ -130,6 +174,7 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
   .ctls .seg{flex-wrap:wrap}
   .ctls .seg button{flex:1 1 auto}
   .ctls .seg[data-key="palette"]{display:grid;grid-template-columns:1fr 1fr}
+  .ctls .morep{border-top:1px solid var(--line);padding-top:13px}
 }
 @media (min-width:761px) and (max-width:1279px){
   .ctls{position:absolute;z-index:70;top:42px;width:410px;max-width:calc(100vw - 36px);background:var(--panel2);border:1px solid var(--line2);border-radius:12px;padding:12px 14px 15px;box-shadow:0 18px 50px rgba(0,0,0,.55)}
@@ -154,6 +199,11 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 .crumbs .hint{color:var(--faint);font-size:12.5px;margin-left:8px}
 
 .map{position:relative;background:#000;border-radius:6px;overflow:hidden;height:calc(100vh - 200px);min-height:520px;touch-action:manipulation;user-select:none;-webkit-user-select:none}
+/* 3D view (§3-5): #map keeps its layout (KH.layout() reads it) but is not shown; src/map3d draws into #map3d over the same box */
+.mapbox{position:relative;min-width:0}
+#map3d{position:absolute;inset:0;z-index:1;background:#000;border-radius:6px;overflow:hidden}
+#map3d[hidden]{display:none}
+.v3d #map{visibility:hidden}
 .node{position:absolute;overflow:hidden}
 .map.anim .node{transition:opacity .3s,background-color .6s}
 .node.entering{opacity:0}
@@ -202,6 +252,19 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 .tile.flash-up::after{background:rgba(255,255,255,.38)}
 .tile.flash-dn::after{background:rgba(0,0,0,.45)}
 @keyframes flash{from{opacity:1}to{opacity:0}}
+/* 화려하게 (motion-brief a): a tick-direction ring on ::after, only its opacity animates (JS drives it); short side < 24px → 1px ring */
+.tile.fl-u::after,.tile.fl-d::after{content:"";position:absolute;inset:0;pointer-events:none;opacity:0;z-index:2}
+.tile.fl-u::after{box-shadow:inset 0 0 0 2px var(--up-text),inset 0 0 14px color-mix(in srgb,var(--up-text) 45%,transparent)}
+.tile.fl-d::after{box-shadow:inset 0 0 0 2px var(--dn-text),inset 0 0 14px color-mix(in srgb,var(--dn-text) 45%,transparent)}
+.tile.fl-sm.fl-u::after{box-shadow:inset 0 0 0 1px var(--up-text)}
+.tile.fl-sm.fl-d::after{box-shadow:inset 0 0 0 1px var(--dn-text)}
+.tile.fl-css::after{animation:fx-flash var(--m-flash) var(--m-out) var(--dl,0ms)}
+@keyframes fx-flash{0%{opacity:0}12%{opacity:1}100%{opacity:0}}
+/* 화려하게 (motion-brief c): first entry, once per session — tiles open sector by sector (--dl per node), ≤ 700 ms in all */
+.map.fx-intro .tile{animation:fx-in 220ms var(--m-out) var(--dl,0ms) both}
+.map.fx-intro .sec,.map.fx-intro .ind{animation:fx-fade var(--m-2) var(--m-out) var(--dl,0ms) both}
+@keyframes fx-in{from{opacity:0;transform:scale(.94)}}
+@keyframes fx-fade{from{opacity:0}}
 .tstar{position:absolute;z-index:7;width:24px;height:24px;display:grid;place-items:center;border-radius:6px;background:rgba(0,0,0,.6);color:#fff;font-size:14px;line-height:1;box-shadow:0 0 0 1px rgba(255,255,255,.35)}
 .tstar:hover{background:rgba(0,0,0,.85)}
 .tstar[aria-pressed="true"]{color:var(--amber)}
@@ -258,6 +321,11 @@ table.list{width:100%;border-collapse:collapse;font-size:13.5px}
 .wbtn:hover{color:var(--fg);background:rgba(255,255,255,.06)}
 .wbtn[aria-pressed="true"]{color:var(--amber)}
 .limtag{display:inline-block;flex:none;font-size:11px;font-weight:700;line-height:16px;padding:0 5px;border-radius:4px;border:1px solid currentColor;font-variant-numeric:normal}
+/* 화려하게: the 현재가 / 등락률 cells of a row whose price just moved */
+.list td.fl-u,.list td.fl-d{position:relative}
+.list td.fl-u::after,.list td.fl-d::after{content:"";position:absolute;inset:0;pointer-events:none;opacity:0;animation:fx-flash var(--m-flash) var(--m-out) var(--dl,0ms)}
+.list td.fl-u::after{background:color-mix(in srgb,var(--up-text) 22%,transparent)}
+.list td.fl-d::after{background:color-mix(in srgb,var(--dn-text) 22%,transparent)}
 
 /* ── Side ───────────────────────────── */
 .side{display:flex;flex-direction:column;gap:12px;min-width:0;padding-top:42px}
@@ -432,8 +500,13 @@ footer a{color:var(--muted)}
   .crumbs .stat .capx{display:none}
   .viewseg button{min-width:44px}
   .sheet .acts button,.sheet .acts a{height:44px}
+  .swbtn{min-height:44px}
   .status .tshort{display:inline}
   .status.has-basis .tshort{display:none}
+  /* the clock (title spot) needs the room: shorter 정규장 종가, and no second "last update" time while the session is live */
+  .has-clock .basis .kl{display:none}
+  .has-clock .basis .ks{display:inline}
+  .has-clock .status.live .tshort{display:none}
 }
 /* phones: the table keeps a readable name column (two lines) and drops 거래대금 (and 시가총액 when a 7th column is shown) */
 @media (max-width:430px){
@@ -445,19 +518,22 @@ footer a{color:var(--muted)}
   .list .nmt{min-width:5.6em;white-space:normal;word-break:keep-all;overflow-wrap:anywhere;line-height:1.25;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
   .list .limtag{font-size:10.5px;padding:0 3px}
 }
-@media (prefers-reduced-motion: reduce){
-  .map.anim .node,.map.anim .tile{transition:none}
-  .status.live .dot{animation:none}
-  .tile.flash-up::after,.tile.flash-dn::after{animation:none}
-  .sheet.open{animation:none}
-  .tip{transition:none}
-}
+/* 화려하게: the live dot beats once per quote update instead of pulsing on its own (motion-brief g) */
+html[data-motion="fancy"] .status.live .dot{animation:none}
+html[data-motion="fancy"] .status.live .dot.beat{animation:pulse 1.2s var(--m-out) 1}
+/* 효과 '줄이기' (KH.motion() 'reduced': the device's reduced-motion setting, or the user's pick) turns transitions and flashes off */
+html[data-motion="reduced"] .map.anim .node,html[data-motion="reduced"] .map.anim .tile{transition:none}
+html[data-motion="reduced"] .status.live .dot{animation:none}
+html[data-motion="reduced"] .tile.flash-up::after,html[data-motion="reduced"] .tile.flash-dn::after{animation:none}
+html[data-motion="reduced"] .sheet.open{animation:none}
+html[data-motion="reduced"] .tip{transition:none}
+html[data-motion="reduced"] .kh-toast,html[data-motion="reduced"] .swbtn .swt,html[data-motion="reduced"] .swbtn .swt::after{transition:none}
 </style>
 </head>
 <body>
 
 <header class="top">
-  <div class="brand"><i aria-hidden="true"><b style="background:#ef3e4a"></b><b style="background:#1f5a41"></b><b style="background:#383c46"></b><b style="background:#12a15b"></b></i>한국 증시 히트맵</div>
+  <div class="brand"><i aria-hidden="true"><b style="background:#ef3e4a"></b><b style="background:#1f5a41"></b><b style="background:#383c46"></b><b style="background:#12a15b"></b></i><div id="clock"></div><span class="ttl">한국 증시 히트맵</span></div>
   <div class="tabs" role="group" aria-label="시장">
     <button data-mkt="K">코스피</button>
     <button data-mkt="Q">코스닥</button>
@@ -470,7 +546,7 @@ footer a{color:var(--muted)}
   </div>
   <div class="idx" id="idx"></div>
   <div class="status" id="status"><span class="dot"></span><span class="txt"></span><span class="tshort"></span>
-    <div class="seg basis" id="basis" role="group" aria-label="가격 기준" hidden><button type="button" data-v="krx" title="KRX 정규장 종가(15:30)로 그려요">정규장 종가</button><button type="button" data-v="nxt"><span class="bl"></span><span class="bs"></span></button></div>
+    <div class="seg basis" id="basis" role="group" aria-label="가격 기준" hidden><button type="button" data-v="krx" title="KRX 정규장 종가(15:30)로 그려요" aria-label="정규장 종가"><span class="kl">정규장 종가</span><span class="ks" aria-hidden="true">종가</span></button><button type="button" data-v="nxt"><span class="bl"></span><span class="bs"></span></button></div>
     <span class="badge"></span></div>
 </header>
 <div id="strip"></div>
@@ -491,6 +567,13 @@ footer a{color:var(--muted)}
     <div class="ctl" data-ctl="topN"><span>종목 수</span><div class="seg" data-key="topN"><button data-v="100">100</button><button data-v="200">200</button><button data-v="300">300</button><button data-v="500">500</button></div></div>
     <div class="ctl" data-ctl="range"><span>색 범위</span><div class="seg" data-key="range" id="rangeseg"></div></div>
     <div class="ctl" data-ctl="palette"><span>색상</span><div class="seg" data-key="palette" id="palseg"></div></div>
+    <div class="ctl more" data-ctl="more">
+      <button type="button" class="morebtn" id="moreBtn" aria-expanded="false" aria-controls="morePanel" title="화면 설정"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10" cy="10" r="2.6"/><path d="M10 2.8v1.9M10 15.3v1.9M17.2 10h-1.9M4.7 10H2.8M15.1 4.9l-1.35 1.35M6.25 13.75 4.9 15.1M15.1 15.1l-1.35-1.35M6.25 6.25 4.9 4.9"/></svg><span class="mbl">화면</span></button>
+      <div class="morep" id="morePanel" role="group" aria-label="화면 설정">
+        <span class="morehd" aria-hidden="true">화면</span>
+        <div class="ctl" data-ctl="motion"><span id="motionLbl">효과</span><div class="seg" id="motionseg" role="group" aria-labelledby="motionLbl"><button type="button" data-mo="reduced" title="움직임을 줄여요: 전환·반짝임 없이 바로 그려요">줄이기</button><button type="button" data-mo="standard" title="지금까지의 움직임 그대로">기본</button><button type="button" data-mo="fancy" title="시세 반짝임·첫 화면 연출·리플레이 이어 그리기를 켜요">화려하게</button></div><small class="hint" id="motionHint" hidden></small></div>
+      </div>
+    </div>
   </div>
   <div id="extras-tools"></div>
 </div>
@@ -500,9 +583,9 @@ footer a{color:var(--muted)}
   <section class="stage">
     <div class="stagebar">
       <nav class="crumbs" id="crumbs" aria-label="위치"></nav>
-      <div class="seg viewseg" data-key="view" role="group" aria-label="보기"><button data-v="map">지도</button><button data-v="table">표</button></div>
+      <div class="seg viewseg" data-key="view" role="group" aria-label="보기"><button data-v="map">지도</button><button data-v="3d" title="3D로 보기">3D</button><button data-v="table">표</button></div>
     </div>
-    <div class="map" id="map" role="group" aria-label="종목별 등락률 트리맵"></div>
+    <div class="mapbox"><div class="map" id="map" role="group" aria-label="종목별 등락률 트리맵"></div><div id="map3d" hidden></div></div>
     <div class="tablewrap" id="tablewrap" hidden></div>
     <div class="legend" id="legend" aria-live="polite"></div>
   </section>
@@ -534,6 +617,7 @@ footer a{color:var(--muted)}
 <div class="tip" id="tip" aria-hidden="true"></div>
 <div class="scrim" id="scrim"></div>
 <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-label="종목 상세" tabindex="-1"></div>
+<div class="kh-toast" id="khToast" role="status" aria-live="polite"></div>
 
 <script id="snapshot" type="application/json">__SNAPSHOT__</script>
 <script>
@@ -564,7 +648,27 @@ footer a{color:var(--muted)}
         index()          → {KOSPI:{value,change,ratio}, KOSDAQ:…} from the current quotes.
         market()         → the current view: 'K'|'Q'|'ALL'|'theme'|'watch' (§3-4 also 'world'|'cmdty').
    §3-3 loadData also serves 'names' (search beyond the stream) and 'close' (정규장 종가 after the close); KH.layout() tiles carry px
-        (the price as drawn). §3-4 the 해외 / 원자재 tabs hand <div id="world"> to window.KHWorld.show(kind) / hide(). */
+        (the price as drawn). §3-4 the 해외 / 원자재 tabs hand <div id="world"> to window.KHWorld.show(kind) / hide().
+   §3-5 motion()         → 'reduced'|'standard'|'fancy' (localStorage khm.motion; <html data-motion>); 'kh:motion' {motion} on change.
+        setReplay(frame, {tween: ms, easing?: 'out'}) — 'fancy' + map view: colour (Lab), value text and boxes (FLIP) move from the
+                         current picture to the frame over ms (linear unless easing 'out'); otherwise drawn at once as before.
+        view()           → 'map'|'3d'|'table'. 3D: #map keeps rendering invisibly, <div id="map3d"> covers it, window.KH3D.show() /
+                         hide() (hide may return a promise for its exit animation); 'kh:3d-unavailable' {reason?} sends the view back
+                         to 지도 with a message. kh:render detail gains is3d; KH.layout() tiles gain dim (true when dimmed).
+        'kh:data' detail {changed: [[code, ±1], …]} — the ticks since the previous quotes ([] in a replay or under 정규장 종가).
+   §3-6 <div id="clock"> sits in the title spot; <html class="has-clock"> (set by src/extras) hides the title text visually.
+        addSetting({key, label, hint?, default, onChange, options?:[{v,label}]}) → value, getSetting(key) — rows in 화면 (the
+        표시 설정 sheet / the 화면 popover), localStorage khm.set.<key>, 'kh:setting' {key, value}.
+        refresh() → Promise<boolean>: quotes now (waits for one under way), fires 'kh:refresh' for the other modules.
+        marketStatus() → {KOSPI, KOSDAQ} regular-session status of the current quotes ('OPEN' | 'CLOSE' | …). */
+
+/* ───────────────── 효과 level (AGENTS §3-5): 'reduced' | 'standard' | 'fancy', localStorage khm.motion ─────────────────
+   No stored choice: the device's reduced-motion setting picks 'reduced', otherwise 'standard'. <html data-motion> mirrors it for CSS. */
+const MOTIONS = ['reduced', 'standard', 'fancy'];
+const deviceReducedMQ = matchMedia('(prefers-reduced-motion: reduce)');
+const storedMotion = () => { try { const v = JSON.parse(localStorage.getItem('khm.motion')); return MOTIONS.includes(v) ? v : null; } catch (e) { return null; } };
+let MOTION = storedMotion() || (deviceReducedMQ.matches ? 'reduced' : 'standard');
+document.documentElement.dataset.motion = MOTION;
 
 /* ───────────────── d3 guard: the live page loads d3 from cdnjs; if that is blocked, say so instead of a blank map ───────────────── */
 if (typeof d3 === 'undefined' || !d3 || typeof d3.treemap !== 'function') {
@@ -620,7 +724,24 @@ const FLOW_IX = { fgn: { 1: 0, 5: 3, 20: 5 }, inst: { 1: 1, 5: 4, 20: 6 } };
 const RANGES = { day: [3, 5, 10], period: [10, 20, 50], flow: { 1: [0.1, 0.3, 1], 5: [0.3, 1, 3], 20: [1, 3, 10] } };
 const NODATA = '#26282e';
 const CODE_RE = /^[0-9A-Z]{6}$/;
-const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const reduced = () => MOTION === 'reduced';
+const fancy = () => MOTION === 'fancy';
+// motion-brief 2-0 in JS (ms / cubic-bezier control points); the CSS tokens in :root carry the same values
+const MT = { m1: 120, m2: 240, m3: 480, flash: 700, out: [.2, .7, .2, 1] };
+function bezier([x1, y1, x2, y2]) {
+  // cubic-bezier(x1,y1,x2,y2) as t → y (Newton steps on x, then bisection)
+  const cx = 3 * x1, bx = 3 * (x2 - x1) - cx, ax = 1 - cx - bx, cy = 3 * y1, by = 3 * (y2 - y1) - cy, ay = 1 - cy - by;
+  const X = t => ((ax * t + bx) * t + cx) * t, Y = t => ((ay * t + by) * t + cy) * t, dX = t => (3 * ax * t + 2 * bx) * t + cx;
+  return x => {
+    if (x <= 0) return 0; if (x >= 1) return 1;
+    let t = x;
+    for (let i = 0; i < 6; i++) { const e = X(t) - x, d = dX(t); if (Math.abs(e) < 1e-5) return Y(t); if (Math.abs(d) < 1e-6) break; t -= e / d; }
+    let lo = 0, hi = 1; t = x;
+    for (let i = 0; i < 24; i++) { const v = X(t); if (Math.abs(v - x) < 1e-5) break; if (v < x) lo = t; else hi = t; t = (lo + hi) / 2; }
+    return Y(t);
+  };
+}
+const easeOut = bezier(MT.out);
 const narrowMQ = matchMedia('(max-width: 760px)');
 const collapsedMQ = matchMedia('(max-width: 1279px)');
 const hoverMQ = matchMedia('(hover: hover) and (pointer: fine)');
@@ -841,11 +962,13 @@ function setData(raw) {
   const stocks = (raw.stocks || []).map(norm);
   const byCode = new Map(stocks.map(s => [s.c, s]));
   const changed = [];
-  if (prev) for (const s of stocks) { const o = prev.get(s.c); if (o && o.p !== s.p) changed.push([s.c, s.p > o.p ? 1 : -1]); }
+  // [code, tick direction, |Δp/p|] for every streamed row whose price moved since the last quotes
+  if (prev) for (const s of stocks) { const o = prev.get(s.c); if (o && o.p !== s.p && o.p > 0) changed.push([s.c, s.p > o.p ? 1 : -1, Math.abs(s.p - o.p) / o.p]); }
   DATA = { asOf: raw.asOf, k: kst(raw.asOf), source: raw.source, marketStatus: raw.marketStatus || {}, afterHours: !!raw.afterHours, index: raw.index || {}, stocks, byCode };
   syncBasis();
   bump();
-  document.dispatchEvent(new CustomEvent('kh:data'));
+  // detail.changed: the ticks a flash may show ([] while a replay frame or the 정규장 종가 is drawn — those prices do not move)
+  document.dispatchEvent(new CustomEvent('kh:data', { detail: { changed: REPLAY || CLOSE_ON ? [] : changed.map(x => x.slice(0, 2)) } }));
   return changed;
 }
 const marketOpen = () => Object.values(DATA.marketStatus || {}).some(v => v === 'OPEN');
@@ -1197,6 +1320,7 @@ function paintTile(el, d, w, hh) {
     }
   }
   if (chip) { chip.hidden = !chipOn; if (d.lim) chip.textContent = d.lim > 0 ? '상' : '하'; }
+  el.__vtxt = L.hidden || !L.showPct ? null : L.pcText;     // the value text as drawn (the replay tween counts towards it)
   if (L.hidden) { lab.hidden = true; return; }
   lab.hidden = false;
   lab.style.fontSize = L.fs.toFixed(1) + 'px';
@@ -1218,7 +1342,7 @@ function placeNode(el, n, mdl) {
   el.__hd = H;
   hd.style.height = H + 'px';
   hd.style.display = H ? 'flex' : 'none';
-  if (!H) return;
+  if (!H) { el.__vtxt = null; return; }
   const name = n.data.kind === 'sector' ? n.data.s : n.data.i;
   // a sector header always shows the whole sector's value, even while zoomed into one of its industries
   const grp = n.data.kind === 'sector' && mdl.secGroups && mdl.secGroups.get(n.data.s) ? mdl.secGroups.get(n.data.s) : n.leaves().map(l => l.data.st);
@@ -1227,19 +1351,22 @@ function placeNode(el, n, mdl) {
   const room = w - textUnits(name) * (n.data.kind === 'sector' ? 12 : 10.5) - 12;
   v.textContent = room > 44 ? grpText(grp, 1) : '';
   v.className = 'v ' + grpCls(grp);
+  el.__vtxt = v.textContent || null;
 }
 
 // FLIP: nodes jump to their new box at once and a transform animates them from the old one (compositor only, no layout per frame);
 // labels / headers get the inverse scale so the type keeps its size while the box grows or shrinks
+// ms / easing: the replay tween passes its own; el.__mv remembers the move so a tween can start from where the box is drawn now
 const FLIP_MS = 450, FLIP_EASE = 'cubic-bezier(.2,.7,.2,1)';
-function flip(el, o, nw) {
+function flip(el, o, nw, ms = FLIP_MS, easing = FLIP_EASE) {
   if (el.__fa) for (const a of el.__fa) a.cancel();
-  el.__fa = null;
+  el.__fa = null; el.__mv = null;
   if (!o) return;
   const dx = o[0] - nw[0], dy = o[1] - nw[1];
   if (Math.abs(dx) + Math.abs(dy) + Math.abs(o[2] - nw[2]) + Math.abs(o[3] - nw[3]) < 1.5) return;
   const sx = Math.max(o[2], 1) / Math.max(nw[2], 1), sy = Math.max(o[3], 1) / Math.max(nw[3], 1);
-  const opt = { duration: FLIP_MS, easing: FLIP_EASE };
+  const opt = { duration: ms, easing };
+  el.__mv = { o, nw, t0: performance.now(), ms, ease: easing === 'linear' ? null : easeOut };
   const anims = [el.animate([{ transformOrigin: '0 0', transform: `translate(${dx}px,${dy}px) scale(${sx},${sy})` }, { transformOrigin: '0 0', transform: 'none' }], opt)];
   const kid = el.firstChild;
   if (kid && !kid.hidden && kid.style.display !== 'none') {
@@ -1248,6 +1375,210 @@ function flip(el, o, nw) {
   }
   el.__fa = anims;
 }
+const sameBox = (a, b) => !!a && !!b && Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]) + Math.abs(a[2] - b[2]) + Math.abs(a[3] - b[3]) < 0.5;
+// where a node is drawn at `now`: its box, or the in-between box while a FLIP / tween move runs
+function curBox(el, now) {
+  const m = el.__mv;
+  if (!m || now >= m.t0 + m.ms || !el.__fa) return el.__g;
+  const t = Math.max(0, (now - m.t0) / m.ms), p = m.ease ? m.ease(t) : t;
+  return m.o.map((v, i) => v + (m.nw[i] - v) * p);
+}
+/* ───────────────── 화려하게 effects (docs/motion-brief.md a·c·d) — only when KH.motion() is 'fancy' ─────────────────
+   intro: first map render with tiles, once per session; count-up of the header indices; tick flashes on tiles / table cells;
+   the replay tween (colour in Lab, value text, FLIP). Leaving 'fancy' finishes whatever runs. */
+let introLeft = (() => { try { return sessionStorage.getItem('khm.intro') !== '1'; } catch (e) { return false; } })();
+let introOn = false, introTimer = 0;
+function runIntro(root) {
+  try { sessionStorage.setItem('khm.intro', '1'); } catch (e) { /* private mode: it may run again */ }
+  const kids = root.children || [];
+  const flat = kids.length && !kids[0].children;          // theme overview / theme members: no sector level
+  const set = (id, ms) => { const el = nodes.get(id); if (el) el.style.setProperty('--dl', Math.round(ms) + 'ms'); };
+  let last = 0;
+  if (flat) {
+    const step = Math.min(40, 480 / kids.length);
+    kids.forEach((n, i) => { set(n.data.id, i * step); last = Math.max(last, i * step); });
+  } else {
+    // sectors in drawn order (largest first): i × min(40, 400 / sectors); inside a sector by size rank × 6 ms (≤ 80 ms)
+    const step = Math.min(40, 400 / kids.length);
+    kids.forEach((sn, i) => {
+      const d0 = i * step;
+      set(sn.data.id, d0);
+      for (const c of sn.children || []) if (c.data.kind === 'ind') set(c.data.id, d0);
+      sn.leaves().sort((a, b) => b.value - a.value).forEach((l, r) => { const d = d0 + Math.min(80, r * 6); set(l.data.id, d); last = Math.max(last, d); });
+    });
+  }
+  introOn = true;
+  mapEl.classList.add('fx-intro');
+  clearTimeout(introTimer);
+  introTimer = setTimeout(finishIntro, last + 220 + 60);
+  for (const t of ['pointerdown', 'keydown', 'wheel']) addEventListener(t, finishIntro, { once: true, passive: true, capture: true });
+  requestAnimationFrame(countUpIdx);
+}
+function finishIntro() {
+  if (!introOn) return;
+  introOn = false;
+  clearTimeout(introTimer);
+  mapEl.classList.remove('fx-intro');
+  for (const el of nodes.values()) el.style.removeProperty('--dl');
+  for (const t of ['pointerdown', 'keydown', 'wheel']) removeEventListener(t, finishIntro, { capture: true });
+  if (countUp) countUp.stop();
+}
+// header indices: the value counts from the previous close (value − change) to now, the % from 0; colours are final from the start
+let countUp = null;
+function countUpIdx() {
+  if (countUp) countUp.stop();
+  const rows = [...$('#idx').children].filter(r => r.__x);
+  if (!rows.length || !fancy()) return;
+  const fmtV = v => v.toLocaleString('ko-KR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const t0 = performance.now(), DUR = MT.m3 + MT.m1;
+  let raf = 0;
+  const done = () => { cancelAnimationFrame(raf); for (const r of rows) if (r.isConnected) { r.__v.textContent = fmtV(r.__x.value); r.__p.textContent = fmtPct(r.__x.ratio); } countUp = null; };
+  const step = now => {
+    const t = Math.min(1, (now - t0) / DUR), e = easeOut(t);
+    if (t >= 1 || !rows.some(r => r.isConnected)) { done(); return; }
+    for (const r of rows) {
+      const x = r.__x, from = isFinite(x.change) ? x.value - x.change : x.value;
+      r.__v.textContent = fmtV(from + (x.value - from) * e);
+      r.__p.textContent = fmtPct(x.ratio * e);
+    }
+    raf = requestAnimationFrame(step);
+  };
+  raf = requestAnimationFrame(step);
+  countUp = { stop: done };
+}
+
+/* tick flashes: a ring in the tick's direction (vs the previous quote, not the day's sign) on ::after, opacity only, ≤ 60 at once
+   (biggest |Δp/p| × area first), each delayed 0–200 ms by a hash of the code so a poll does not blink all at once */
+const FLASH_MAX = 60;
+const PSEUDO_ANIM = typeof KeyframeEffect !== 'undefined' && 'pseudoElement' in KeyframeEffect.prototype;
+const flashing = new Set();
+const codeDelay = c => { let x = 0; for (let i = 0; i < c.length; i++) x = (x * 31 + c.charCodeAt(i)) | 0; return Math.abs(x) % 201; };
+const FLASH_KF = [{ opacity: 0, offset: 0 }, { opacity: 1, offset: 0.12 }, { opacity: 0, offset: 1 }];
+function flashTile(el, dir, delay) {
+  if (el.__fl) el.__fl.cancel();
+  el.classList.remove('fl-u', 'fl-d', 'fl-css');
+  el.classList.add(dir > 0 ? 'fl-u' : 'fl-d');
+  el.classList.toggle('fl-sm', Math.min(el.__g[2], el.__g[3]) < 24);
+  flashing.add(el);
+  if (PSEUDO_ANIM) {
+    const a = el.animate(FLASH_KF, { duration: MT.flash, delay, easing: FLIP_EASE, pseudoElement: '::after' });
+    el.__fl = a;
+    const end = () => { if (el.__fl !== a) return; el.__fl = null; flashing.delete(el); el.classList.remove('fl-u', 'fl-d', 'fl-sm'); };
+    a.onfinish = end; a.oncancel = end;
+  } else {
+    // no ::after animations (older engines): the CSS keyframes, restarted on the next frame
+    el.style.setProperty('--dl', delay + 'ms');
+    requestAnimationFrame(() => { el.classList.add('fl-css'); setTimeout(() => { flashing.delete(el); el.classList.remove('fl-u', 'fl-d', 'fl-sm', 'fl-css'); }, MT.flash + delay + 50); });
+  }
+}
+function flashChanged(changed) {
+  if (!changed.length || reduced() || V3D || isWorld() || REPLAY || CLOSE_ON || document.hidden) return;
+  if (!fancy()) {
+    // '기본': the original white / black overlay
+    if (state.market === 'THEME') return;
+    for (const [c, dir] of changed) {
+      const el = nodes.get('T|' + c);
+      if (!el) continue;
+      el.classList.remove('flash-up', 'flash-dn'); void el.offsetWidth;
+      el.classList.add(dir > 0 ? 'flash-up' : 'flash-dn');
+      setTimeout(() => el.classList.remove('flash-up', 'flash-dn'), 950);
+    }
+    return;
+  }
+  if (introOn) return;                 // the first picture never flashes
+  if (state.view === 'table') { flashRows(changed); return; }
+  const cand = [];
+  for (const [c, dir, rel] of changed) {
+    const el = nodes.get('T|' + c);
+    if (!el || !el.__g || el.classList.contains('leaving') || el.__g[2] < 3 || el.__g[3] < 3) continue;
+    cand.push([el, dir, (rel || 0) * el.__g[2] * el.__g[3], c]);
+  }
+  cand.sort((a, b) => b[2] - a[2]);
+  let room = FLASH_MAX - flashing.size;
+  for (const [el, dir, , c] of cand) {
+    if (room <= 0 && !flashing.has(el)) continue;
+    if (!flashing.has(el)) room--;
+    flashTile(el, dir, codeDelay(c));
+  }
+}
+// table view: the 현재가 / 등락률 cells of rows on screen (rows are rebuilt on every render, so the CSS animation just starts)
+function flashRows(changed) {
+  const wrap = $('#tablewrap');
+  const rows = new Map();
+  for (const tr of wrap.querySelectorAll('tbody tr[data-c]')) rows.set(tr.dataset.c, tr);
+  const top = wrap.scrollTop, bottom = top + wrap.clientHeight;
+  let n = 0;
+  for (const [c, dir] of changed) {
+    const tr = rows.get(c);
+    if (!tr) continue;
+    const y = tr.offsetTop;
+    if (y + tr.offsetHeight < top || y > bottom) continue;
+    for (const td of tr.querySelectorAll('td[data-f]')) { td.style.setProperty('--dl', codeDelay(c) + 'ms'); td.classList.add(dir > 0 ? 'fl-u' : 'fl-d'); }
+    if (++n >= FLASH_MAX) break;
+  }
+}
+
+/* replay tween: from what is drawn now to the new frame over `ms` — boxes by FLIP (one move per frame), fills by d3.interpolateLab
+   (≤ 30 Hz, unchanged tiles skipped), % text rounded at 10 Hz. 'linear' by default (timelapse frames chain without a stop),
+   {easing:'out'} for a single step. A render in between keeps it running; a zoom / market switch or a jump ends it. */
+let TW = null;
+const PCT_RE = /^([+−-]?)(\d+(?:\.(\d+))?)%$/;
+const parsePct = t => { const m = PCT_RE.exec(t || ''); return m ? { v: (m[1] && m[1] !== '+' ? -1 : 1) * +m[2], dec: m[3] ? m[3].length : 0 } : null; };
+const intDigits = v => String(Math.floor(Math.abs(v))).length;
+function captureMap() {
+  const now = performance.now(), out = new Map();
+  for (const [id, el] of nodes) {
+    if (!el.__g || el.classList.contains('leaving')) continue;
+    const span = el.firstChild && el.firstChild.children ? el.firstChild.children[1] : null;
+    out.set(id, { g: curBox(el, now), col: el.__colNow || el.__col || null, txt: el.__vtxt != null && span ? span.textContent : null });
+  }
+  return out;
+}
+function tweenStop() {
+  if (!TW) return;
+  const T = TW; TW = null;
+  cancelAnimationFrame(T.raf);
+  for (const c of T.cols) { c.el.__colNow = null; if (c.el.__col) c.el.style.backgroundColor = c.el.__col; }
+  for (const n of T.nums) { const fin = n.el.__vtxt; if (fin != null && n.span.textContent !== fin) n.span.textContent = fin; }
+}
+function startTween(before, ms, eased) {
+  tweenStop();
+  const easing = eased ? FLIP_EASE : 'linear', ease = eased ? easeOut : (t => t);
+  const cols = [], nums = [];
+  for (const [id, el] of nodes) {
+    if (!el.__g || el.classList.contains('leaving')) continue;
+    const b = before.get(id);
+    if (!b) { el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: ms, easing }); continue; }
+    flip(el, b.g, el.__g, ms, easing);
+    if (el.classList.contains('tile') && b.col && el.__col && b.col !== el.__col) {
+      cols.push({ el, f: d3.interpolateLab(b.col, el.__col) });
+      el.style.backgroundColor = b.col; el.__colNow = b.col;
+    }
+    const fin = el.__vtxt;
+    if (b.txt != null && fin != null && b.txt !== fin) {
+      const A = parsePct(b.txt), B = parsePct(fin), span = el.firstChild.children[1];
+      // count only when no in-between value is wider than the final text (the label was fitted to it)
+      if (A && B && B.v !== 0 && intDigits(Math.max(Math.abs(A.v), Math.abs(B.v))) <= intDigits(B.v)) {
+        span.textContent = b.txt;
+        nums.push({ el, span, a: A.v, b: B.v, dec: B.dec, last: b.txt });
+      }
+    }
+  }
+  if (!cols.length && !nums.length) return;
+  TW = { t0: performance.now(), ms, ease, cols, nums, lc: -1e9, ln: -1e9, raf: 0 };
+  TW.raf = requestAnimationFrame(tweenFrame);
+}
+function tweenFrame(now) {
+  const T = TW;
+  if (!T) return;
+  const t = (now - T.t0) / T.ms;
+  if (t >= 1) { tweenStop(); return; }
+  const e = T.ease(Math.max(0, t));
+  if (now - T.lc >= 33) { T.lc = now; for (const c of T.cols) { const v = c.f(e); c.el.style.backgroundColor = v; c.el.__colNow = v; } }
+  if (now - T.ln >= 100) { T.ln = now; for (const n of T.nums) { const s = fmtPct(n.a + (n.b - n.a) * e, n.dec); if (s !== n.last) { n.span.textContent = s; n.last = s; } } }
+  T.raf = requestAnimationFrame(tweenFrame);
+}
+
 // what the map shows now
 function model() {
   const m = state.market;
@@ -1264,16 +1595,21 @@ function model() {
   return { type: 'market', list, uni, secGroups, root: buildRoot(list, true) };
 }
 function emitRender() {
-  document.dispatchEvent(new CustomEvent('kh:render', { detail: { view: state.view, market: state.market, theme: state.theme, replay: REPLAY ? REPLAY.t : null } }));
+  document.dispatchEvent(new CustomEvent('kh:render', { detail: { view: state.view, market: state.market, theme: state.theme, replay: REPLAY ? REPLAY.t : null, is3d: V3D } }));
 }
 function render({ animate = false } = {}) {
   if (isWorld()) { emitRender(); return; }
-  if (state.view !== 'map') { renderTableFor(); emitRender(); return; }
+  if (state.view !== 'map') { if (DATA.stocks.length) introLeft = false; renderTableFor(); emitRender(); return; }
   const W = mapEl.clientWidth, H = mapEl.clientHeight;
-  if (!W || !H) return;
+  if (!W || !H) { emitRender(); return; }
   const mdl = model();
   const root = layout(mdl.root, W, H, mdl.type);
-  const anim = animate && !reduceMotion;
+  // first entry (화려하게, once per session): the first render that has tiles
+  let intro = false;
+  if (introLeft && root.children && root.children.length) { introLeft = false; intro = fancy() && !REPLAY && !V3D && !document.hidden; }
+  if (animate && introOn) finishIntro();
+  if (animate) tweenStop();
+  const anim = animate && !reduced() && !intro;
   // geometry animation only while the map is small: above ~350 nodes just jump and fade (fewer long tasks)
   const geo = anim && root.descendants().length <= 350;
   mapEl.classList.toggle('anim', anim);
@@ -1297,7 +1633,9 @@ function render({ animate = false } = {}) {
     placeNode(el, n, mdl);
     const nw = [n.x0, n.y0, n.x1 - n.x0, n.y1 - n.y0];
     el.__g = nw;
-    flip(el, geo && !fresh ? old : null, nw);
+    // a move only when animating; a box that did not change keeps a move already under way (it ends at the same place)
+    if (geo && !fresh) flip(el, old, nw);
+    else if (!sameBox(old, nw)) flip(el, null, nw);
   }
   for (const [id, el] of nodes) {
     if (seen.has(id)) continue;
@@ -1305,6 +1643,7 @@ function render({ animate = false } = {}) {
     if (anim) { el.classList.add('leaving'); setTimeout(() => el.remove(), 320); } else el.remove();
   }
   if (entering.length) requestAnimationFrame(() => requestAnimationFrame(() => entering.forEach(el => el.classList.remove('entering'))));
+  if (intro) runIntro(root);
   renderEmpty(mdl);
   syncRoving();
   applyHighlights();
@@ -1764,7 +2103,7 @@ function zoomTo(f) {
 function showStage() {
   if (!narrowMQ.matches) return;
   const st = $('.stage');
-  if (st) st.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
+  if (st) st.scrollIntoView({ behavior: reduced() ? 'auto' : 'smooth', block: 'start' });
 }
 function zoomOut() {
   if (!state.focus) { if (state.market === 'THEME' && state.theme != null) openTheme(null, { focusAfter: true }); return; }
@@ -2214,10 +2553,10 @@ function renderTable() {
     const cells = [
       h('td', {}, h('div', { class: 'nmcell' }, starBtn(s.c, 'wbtn'), h('i', { class: v == null ? 'nod' : null, style: `background:${colorOf(v)}` }), h('span', { class: 'nmt', text: s.n }), h('small', { text: s.c }), limTag(s))),
       h('td', { class: 'indc', text: `${s.s} · ${s.i}` }),
-      h('td', { text: s.p > 0 ? fmtInt(s.p) : '—' }),
+      h('td', { 'data-f': '', text: s.p > 0 ? fmtInt(s.p) : '—' }),
     ];
     if (k === 'period') cells.push(h('td', { class: v == null ? 'nd' : cls(v), text: v == null ? '데이터 없음' : fmtPct(v) }));
-    cells.push(h('td', { class: cls(s.r), text: fmtPct(s.r) }));
+    cells.push(h('td', { class: cls(s.r), 'data-f': '', text: fmtPct(s.r) }));
     if (k === 'flow') { const a = amt(s); cells.push(h('td', { class: a == null ? 'nd' : cls(a), text: a == null ? '데이터 없음' : fmtAmt(a) })); }
     cells.push(h('td', { text: fmtEok(s.cap) }), h('td', { text: fmtEok(s.tv) }));
     return h('tr', { class: s.c === state.selected ? 'sel' : '', 'data-c': s.c, tabindex: '0',
@@ -2269,12 +2608,16 @@ function renderHeader() {
   for (const [k, label] of [['KOSPI', '코스피'], ['KOSDAQ', '코스닥']]) {
     const x = DATA.index && DATA.index[k];
     if (!x || !isFinite(+x.value)) continue;
-    kids.push(h('div', {}, h('span', { class: 'k', text: label }), h('span', { class: 'v num', text: (+x.value).toLocaleString('ko-KR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }),
-      h('span', { class: 'num ' + cls(+x.ratio), text: fmtPct(+x.ratio) })));
+    const v = h('span', { class: 'v num', text: (+x.value).toLocaleString('ko-KR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) });
+    const pc = h('span', { class: 'num ' + cls(+x.ratio), text: fmtPct(+x.ratio) });
+    const row = h('div', {}, h('span', { class: 'k', text: label }), v, pc);
+    row.__x = { value: +x.value, change: +x.change, ratio: +x.ratio || 0 }; row.__v = v; row.__p = pc;   // for the 화려하게 count-up
+    kids.push(row);
   }
+  if (countUp) countUp.stop();
   idx.replaceChildren(...kids);
 }
-let liveState = { ok: true, last: null, timer: null };
+let liveState = { ok: true, last: null, timer: null, inflight: null };
 const kstDayFmt = new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul', month: 'long', day: 'numeric', weekday: 'short' });
 const shortDay = k => k ? `${+k.date.slice(5, 7)}/${+k.date.slice(8, 10)} ${k.hhmm}` : '';
 function renderStatus() {
@@ -2385,6 +2728,7 @@ function syncControls() {
     const k = seg.dataset.key;
     for (const b of seg.children) b.setAttribute('aria-pressed', String(k === 'range' ? +b.dataset.v === curRange() : String(state[k]) === b.dataset.v));
   }
+  syncViewSeg();
   $('.ctl[data-ctl="flowWin"]').hidden = !isFlow();
   $('.ctl[data-ctl="colorBy"] .ddv').textContent = COLOR_METRICS[state.colorBy].label;
   $('.ctl[data-ctl="flowWin"] .ddv').textContent = `${state.flowWin}일`;
@@ -2414,6 +2758,7 @@ document.addEventListener('click', e => {
   const k = b.closest('.seg').dataset.key;
   if (b.getAttribute('aria-disabled') === 'true') return;
   if (k === 'range') { setRange(+b.dataset.v); return; }
+  if (k === 'view') { setView(b.dataset.v); return; }
   let v = b.dataset.v;
   if (k === 'topN' || k === 'flowWin') v = +v;
   if (state[k] === v) return;
@@ -2427,16 +2772,9 @@ document.addEventListener('click', e => {
     if (k === 'palette' || kind() !== prevKind) state.bucket = state.bucket && k === 'palette' ? state.bucket : null;
     if (k === 'palette') document.dispatchEvent(new CustomEvent('kh:palette'));
   }
-  if (k === 'view') {
-    $('#map').hidden = v !== 'map';
-    $('#tablewrap').hidden = v !== 'table';
-    tip.classList.remove('show');
-    tstar.hidden = true;
-  }
   syncControls();
   render({ animate: k === 'sizeBy' || k === 'topN' || k === 'flowWin' || k === 'colorBy' });
   renderCrumbs(); renderSide(); renderFooter(); renderLegend();
-  if (k === 'view') fitMapHeight();
 });
 // phones: the tab row scrolls sideways; the active tab stays in view
 function keepTabInView() {
@@ -2452,6 +2790,7 @@ let worldShown = null;     // the kind KHWorld is showing
 if (/^#(world|cmdty)$/.test(location.hash)) addEventListener('load', () => setTimeout(() => { if (scrollY) scrollTo(0, 0); }, 0), { once: true });
 function syncWorld(boot) {
   const want = isWorld() ? WORLD_KIND[state.market] : null;
+  if (want && V3D) set3D(false);
   const box = $('#world');
   document.documentElement.classList.toggle('is-world', !!want);
   box.hidden = !want;
@@ -2565,6 +2904,173 @@ ctlsEl.addEventListener('keydown', e => {
     else if (!e.shiftKey && document.activeElement === f[f.length - 1]) { e.preventDefault(); f[0].focus(); }
   }
 });
+
+/* ───────────────── 화면 settings: 효과 (KH.motion) + module switches (KH.addSetting) ─────────────────
+   Below 1280px they are the last section of the 표시 설정 sheet; above, a small popover from the 화면 button next to 색상. */
+const moreEl = $('.ctl.more'), moreBtn = $('#moreBtn'), morePanel = $('#morePanel');
+const moreOpen = () => moreEl.classList.contains('open');
+function openMore() {
+  if (collapsedMQ.matches) return;
+  closeDD(false);
+  moreEl.classList.add('open'); moreBtn.setAttribute('aria-expanded', 'true');
+  const f = morePanel.querySelector('button[aria-pressed="true"]:not([hidden])') || morePanel.querySelector('button:not([hidden])');
+  if (f) f.focus({ preventScroll: true });
+}
+function closeMore(restore) {
+  if (!moreOpen()) return;
+  moreEl.classList.remove('open'); moreBtn.setAttribute('aria-expanded', 'false');
+  if (restore) moreBtn.focus({ preventScroll: true });
+}
+moreBtn.addEventListener('click', () => moreOpen() ? closeMore(true) : openMore());
+moreEl.addEventListener('keydown', e => { if (e.key === 'Escape' && moreOpen()) { e.preventDefault(); e.stopPropagation(); closeMore(true); } });
+moreEl.addEventListener('focusout', e => { if (moreOpen() && e.relatedTarget && !moreEl.contains(e.relatedTarget)) closeMore(false); });
+document.addEventListener('pointerdown', e => { if (moreOpen() && !moreEl.contains(e.target)) closeMore(false); });
+collapsedMQ.addEventListener('change', () => closeMore(false));
+
+// 효과: '줄이기' is offered when the device asks for less motion (or it is the current pick)
+const motionSeg = $('#motionseg'), motionHint = $('#motionHint');
+function syncMotionSeg() {
+  const offerReduced = deviceReducedMQ.matches || MOTION === 'reduced';
+  for (const b of motionSeg.children) { b.setAttribute('aria-pressed', String(b.dataset.mo === MOTION)); if (b.dataset.mo === 'reduced') b.hidden = !offerReduced; }
+  motionHint.hidden = !deviceReducedMQ.matches;
+  motionHint.textContent = '기기에서 동작 줄이기를 켜 둬서 줄이기로 시작해요. 여기서 바꿀 수 있어요.';
+}
+function applyMotion(m, persist) {
+  if (!MOTIONS.includes(m)) return;
+  if (persist) store.set('motion', m);
+  if (m === MOTION) { syncMotionSeg(); return; }
+  MOTION = m;
+  document.documentElement.dataset.motion = m;
+  if (m !== 'fancy') {
+    // whatever 화려하게 started ends in its final state
+    finishIntro(); tweenStop();
+    for (const el of [...flashing]) if (el.__fl) el.__fl.finish();
+  }
+  syncMotionSeg();
+  document.dispatchEvent(new CustomEvent('kh:motion', { detail: { motion: m } }));
+}
+motionSeg.addEventListener('click', e => { const b = e.target.closest('button[data-mo]'); if (b) applyMotion(b.dataset.mo, true); });
+deviceReducedMQ.addEventListener('change', () => { if (!storedMotion()) applyMotion(deviceReducedMQ.matches ? 'reduced' : 'standard', false); else syncMotionSeg(); });
+
+/* KH.addSetting({key, label, hint?, default, onChange(value), options?:[{v, label}]}) — a switch (default: boolean) or, with ≥ 2
+   options, a choice; drawn in 화면, kept in localStorage khm.set.<key>, onChange called once now and after every change.
+   The same key again replaces the row (and its onChange). → the current value. KH.getSetting(key) → value (stored value if not
+   registered, undefined if neither). Every change also fires 'kh:setting' {key, value}. */
+const SETTINGS = new Map();
+const SET_KEY_RE = /^[A-Za-z][\w-]{0,39}$/;
+function callSetting(o) {
+  if (typeof o.onChange !== 'function') return;
+  try { o.onChange(o.value); } catch (e) { if (typeof reportError === 'function') reportError(e); else setTimeout(() => { throw e; }); }
+}
+function settingRow(o) {
+  const id = 'set-' + o.key;
+  const hint = o.hint ? h('small', { class: 'hint', id: id + '-h', text: o.hint }) : null;
+  if (!o.options) {
+    return h('div', { class: 'ctl', 'data-set': o.key },
+      h('button', { type: 'button', class: 'swbtn', role: 'switch', 'aria-checked': String(o.value), 'aria-describedby': hint ? id + '-h' : null, onclick: () => changeSetting(o, !o.value) },
+        h('span', { class: 'swl', text: o.label }), h('span', { class: 'swt', 'aria-hidden': 'true' })), hint);
+  }
+  return h('div', { class: 'ctl', 'data-set': o.key }, h('span', { id: id + '-l', text: o.label }),
+    h('div', { class: 'seg', role: 'group', 'aria-labelledby': id + '-l' },
+      o.options.map((x, i) => h('button', { type: 'button', 'data-si': String(i), 'aria-pressed': String(x.v === o.value), onclick: () => changeSetting(o, x.v), text: x.label }))), hint);
+}
+function syncSettingRow(o) {
+  if (!o.options) o.el.querySelector('.swbtn').setAttribute('aria-checked', String(o.value));
+  else for (const b of o.el.querySelectorAll('.seg button')) b.setAttribute('aria-pressed', String(o.options[+b.dataset.si].v === o.value));
+}
+function changeSetting(o, v) {
+  if (v === o.value) return;
+  o.value = v;
+  store.set('set.' + o.key, v);
+  syncSettingRow(o);
+  callSetting(o);
+  document.dispatchEvent(new CustomEvent('kh:setting', { detail: { key: o.key, value: v } }));
+}
+function addSetting(spec) {
+  if (!spec || !SET_KEY_RE.test(String(spec.key || ''))) return undefined;
+  const key = String(spec.key);
+  const options = Array.isArray(spec.options) ? spec.options.filter(x => x && x.v != null).map(x => ({ v: x.v, label: String(x.label != null ? x.label : x.v) })) : [];
+  const o = { key, label: String(spec.label || key), hint: spec.hint ? String(spec.hint) : '', options: options.length >= 2 ? options : null, onChange: spec.onChange, el: null };
+  o.def = o.options ? (o.options.some(x => x.v === spec.default) ? spec.default : o.options[0].v) : !!spec.default;
+  const saved = store.get('set.' + key, undefined);
+  o.value = o.options ? (o.options.some(x => x.v === saved) ? saved : o.def) : (typeof saved === 'boolean' ? saved : o.def);
+  o.el = settingRow(o);
+  const old = SETTINGS.get(key);
+  if (old && old.el && old.el.isConnected) old.el.replaceWith(o.el); else morePanel.append(o.el);
+  SETTINGS.set(key, o);
+  callSetting(o);
+  return o.value;
+}
+function getSetting(key) {
+  const o = SETTINGS.get(String(key));
+  return o ? o.value : store.get('set.' + key, undefined);
+}
+
+/* a short message at the bottom (polite live region) */
+const toastEl = $('#khToast');
+let toastT = 0;
+function toast(msg) {
+  clearTimeout(toastT);
+  toastEl.textContent = msg;
+  toastEl.classList.add('show');
+  toastT = setTimeout(() => { toastEl.classList.remove('show'); toastT = setTimeout(() => { toastEl.textContent = ''; }, 200); }, 4000);
+}
+
+/* ───────────────── 3D view (§3-5): window.KH3D draws into #map3d over the map's box ─────────────────
+   #map keeps rendering (invisible) so KH.layout() / kh:render stay exact. Never remembered: every visit starts in 2D. KH3D missing,
+   show() throwing, or 'kh:3d-unavailable' → a message and back to the map. KH3D.hide() may return a promise (its fold-back
+   animation); #map3d stays up until it settles (≤ 600 ms). */
+let V3D = false;
+const map3dEl = $('#map3d');
+const viewBtns = () => document.querySelectorAll('.viewseg button');
+function syncViewSeg() { const cur = V3D ? '3d' : state.view; for (const b of viewBtns()) b.setAttribute('aria-pressed', String(b.dataset.v === cur)); }
+function set3D(on) {
+  if (on === V3D) { syncViewSeg(); return; }
+  const K = window.KH3D;
+  if (on) {
+    if (!K || typeof K.show !== 'function' || typeof K.hide !== 'function') { toast('3D 보기를 불러오지 못했어요. 지도로 볼게요.'); syncViewSeg(); return; }
+    if (state.view !== 'map') setView('map');
+    finishIntro(); tweenStop();
+    V3D = true;
+    document.documentElement.classList.add('v3d');
+    map3dEl.hidden = false;
+    setHover(null); syncHoverStar(); tip.classList.remove('show');
+    syncViewSeg();
+    try { K.show(); } catch (e) { exit3D('3D 보기를 열지 못했어요. 지도로 돌아왔어요.'); return; }
+    emitRender();
+    return;
+  }
+  V3D = false;
+  const hadFocus = map3dEl.contains(document.activeElement);
+  let r = null;
+  try { if (K && typeof K.hide === 'function') r = K.hide(); } catch (e) { /* the module cleans up itself */ }
+  const done = () => { if (V3D) return; document.documentElement.classList.remove('v3d'); map3dEl.hidden = true; };
+  if (r && typeof r.then === 'function') Promise.race([r, new Promise(res => setTimeout(res, 600))]).then(done, done); else done();
+  syncViewSeg();
+  if (hadFocus) { const b = document.querySelector('.viewseg button[data-v="map"]'); if (b) b.focus({ preventScroll: true }); }
+  emitRender();
+}
+function exit3D(msg) { set3D(false); if (msg) toast(msg); }
+document.addEventListener('kh:3d-unavailable', e => {
+  if (!V3D) return;
+  const why = e.detail && e.detail.reason;
+  exit3D(why === 'webgl' ? '이 기기에서는 3D 보기를 쓸 수 없어요. 지도로 돌아왔어요.' : '3D 보기를 불러오지 못했어요. 지도로 돌아왔어요.');
+});
+// 지도 · 3D · 표
+function setView(v) {
+  if (v === '3d') { set3D(true); return; }
+  if (v !== 'map' && v !== 'table') return;
+  if (V3D) set3D(false);
+  if (state.view === v) { syncViewSeg(); return; }
+  state.view = v;
+  $('#map').hidden = v !== 'map';
+  $('#tablewrap').hidden = v !== 'table';
+  tip.classList.remove('show');
+  tstar.hidden = true;
+  syncControls();
+  render(); renderCrumbs(); renderSide(); renderFooter(); renderLegend();
+  fitMapHeight();
+}
 
 /* search: the current map's stocks first, then every other listed stock (names.json live, the embedded rows in the snapshot) —
    other markets and preferred shares outside the stream. Picking one that is not on the map opens its stock page. */
@@ -2707,6 +3213,7 @@ if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitMapHeig
 // the market strip and the extras buttons arrive after boot and change the header height
 new ResizeObserver(() => { cancelAnimationFrame(fh); fh = requestAnimationFrame(fitMapHeight); }).observe($('.tools'));
 new ResizeObserver(() => { cancelAnimationFrame(fh); fh = requestAnimationFrame(fitMapHeight); }).observe($('#strip'));
+new ResizeObserver(() => { cancelAnimationFrame(fh); fh = requestAnimationFrame(fitMapHeight); }).observe($('header.top'));
 // the replay player opening / closing / changing height (it writes --rp-h into <html style>)
 let lastRp = -1;
 new MutationObserver(() => { const v = playerH(); if (v === lastRp) return; lastRp = v; cancelAnimationFrame(fh); fh = requestAnimationFrame(fitMapHeight); })
@@ -2739,7 +3246,14 @@ function maybeReloadClose() {
   if (CLOSE && CLOSE.date === DATA.k.date) return;
   if (Date.now() - closeLoad.at > (CLOSE ? 600000 : 300000)) loadClose(true);
 }
-async function poll() {
+// one quotes request; liveState.inflight is the promise while it runs (KH.refresh waits for it instead of starting another)
+function poll() {
+  const p = pollOnce();
+  liveState.inflight = p;
+  p.then(() => { if (liveState.inflight === p) liveState.inflight = null; });
+  return p;
+}
+async function pollOnce() {
   const seq = ++pollSeq;
   clearTimeout(liveState.timer); liveState.timer = null;
   let open = false;
@@ -2759,13 +3273,8 @@ async function poll() {
     if (hadBasis !== basisAvail()) renderFooter();
     maybeReloadClose();
     // flashes follow the live quotes; under 정규장 종가 the drawn prices do not move
-    if (!reduceMotion && !REPLAY && !CLOSE_ON && state.market !== 'THEME') for (const [c, dir] of changed) {
-      const el = nodes.get('T|' + c);
-      if (!el) continue;
-      el.classList.remove('flash-up', 'flash-dn'); void el.offsetWidth;
-      el.classList.add(dir > 0 ? 'flash-up' : 'flash-dn');
-      setTimeout(() => el.classList.remove('flash-up', 'flash-dn'), 950);
-    }
+    flashChanged(changed);
+    if (fancy()) { const dot = $('#status .dot'); if (dot) { dot.classList.remove('beat'); void dot.offsetWidth; dot.classList.add('beat'); } }
     if (state.hover && tip.classList.contains('show') && !String(state.hover).startsWith('#')) { const st = get(state.hover); if (st) fillTip(st); }
     if (extraWanted().length && !EXTRA.size) pollExtra();
   } catch (e) {
@@ -2779,6 +3288,28 @@ async function poll() {
       if (!document.hidden) liveState.timer = setTimeout(poll, !liveState.ok ? 15000 : open ? 10000 : 60000);
     }
   }
+}
+/* KH.refresh(): new quotes now (the clock is a refresh button). Waits for a quotes request already under way instead of starting
+   another; also theme / 관심 quotes, theme rates and the 등락 분포 parts. Fires 'kh:refresh' so the other modules refetch too.
+   → Promise<boolean>: true when fresh quotes arrived (false when the request failed; the snapshot resolves false, no event). */
+let refreshP = null;
+function refresh() {
+  if (refreshP) return refreshP;
+  if (MODE !== 'live') {
+    // the snapshot has nothing to fetch (and no kh:refresh: the modules would try the network)
+    refreshP = Promise.resolve(false);
+    refreshP.then(() => { refreshP = null; });
+    return refreshP;
+  }
+  document.dispatchEvent(new CustomEvent('kh:refresh'));
+  const jobs = [liveState.inflight || poll()];
+  if (extraWanted().length) jobs.push(pollExtra());
+  if (state.market === 'THEME') jobs.push(pollThemes());
+  for (const m of brWanted()) if (BR[m] && !BR[m].busy) BR[m].at = 0;
+  syncBreadth();
+  const p = Promise.allSettled(jobs).then(() => { refreshP = null; return !!liveState.ok; });
+  refreshP = p;
+  return p;
 }
 // quotes for theme members / watched codes outside the main stream (≤300 per call), every 10 s while that map is shown
 const extra = { timer: null, busy: false, ok: true, seq: 0 };
@@ -2862,17 +3393,24 @@ document.addEventListener('visibilitychange', () => {
 });
 
 /* ───────────────── replay (src/extras drives it) ───────────────── */
-function setReplay(frame) {
+// opts.tween (ms, 화려하게 only): draw the way from the current picture to this frame (see startTween); opts.easing 'out' for a
+// single step, else linear. Without it (or in 기본 / 줄이기, the table, 3D or a hidden tab) the frame is drawn at once, as before.
+function setReplay(frame, opts) {
   let next = null;
   if (frame && frame.prices) {
     const pr = frame.prices instanceof Map ? frame.prices : new Map(Object.entries(frame.prices));
     next = { t: frame.t == null ? '' : String(frame.t), date: frame.date || null, prices: pr };
   }
+  const ms = opts && +opts.tween > 0 ? Math.min(+opts.tween, 5000) : 0;
+  const tw = ms && fancy() && state.view === 'map' && !isWorld() && !V3D && !document.hidden && !introOn && nodes.size ? ms : 0;
+  const before = tw ? captureMap() : null;
+  if (!tw) tweenStop();
   const was = !!REPLAY;
   REPLAY = next;
   bump();
   if (was !== !!REPLAY && sheet.classList.contains('open')) closeSheet({ restore: false });
   render(); renderSide(); renderCrumbs(); renderStatus(); renderLegend(); renderFooter();
+  if (before) startTween(before, tw, opts.easing === 'out');
   refreshOpenViews();
 }
 // the tooltip and the quick-view sheet show the values as drawn now (replay frame, 정규장 종가)
@@ -2897,6 +3435,7 @@ function khLayout() {
     if (el.classList.contains('tile')) {
       const t = { kind: 'tile', x, y, w, h: hh, color: el.__col || NODATA, label: el.__name || '', sub: el.__sub || '' };
       if (el.dataset.c) { t.code = el.dataset.c; if (el.__px) t.px = el.__px; }   // px: the price as drawn (정규장 종가 / replay)
+      if (el.classList.contains('dim')) t.dim = true;                              // dimmed by search / 등락 분포 bucket / sector hover
       out.push(t);
     } else {
       const sec = el.classList.contains('sec'), hd = el.firstChild, H = el.__hd || 0;
@@ -2924,6 +3463,12 @@ window.KH = {
   layout: khLayout,
   setReplay,
   index: () => (DATA ? DATA.index : null),
+  marketStatus: () => (DATA ? Object.assign({}, DATA.marketStatus) : {}),
+  motion: () => MOTION,
+  addSetting,
+  getSetting,
+  refresh,
+  view: () => (V3D ? '3d' : state.view),
   market: () => ({ THEME: 'theme', WATCH: 'watch', WORLD: 'world', CMDTY: 'cmdty' })[state.market] || state.market,
 };
 
@@ -2949,6 +3494,7 @@ syncWorld(true);
 if (isWorld()) domReady().then(() => syncWorld());
 rebuildColor();
 buildPaletteSeg();
+syncMotionSeg();
 trimControlsForMode();
 syncControls();
 needForMetric();
