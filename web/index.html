@@ -4008,6 +4008,17 @@ onHash();
 .xs-t{display:flex;flex-direction:column;gap:1px;margin-left:auto;flex:none;color:var(--muted);font-size:11.5px;line-height:1.2;text-align:right;font-variant-numeric:tabular-nums}
 .xs-t span + span{font-size:12px}
 .xs-t.xs-stale span:first-child{color:var(--amber)}
+.xs-vp{flex:1 1 0;min-width:0;overflow:hidden;-webkit-mask-image:linear-gradient(90deg,transparent,#000 26px,#000 calc(100% - 26px),transparent);mask-image:linear-gradient(90deg,transparent,#000 26px,#000 calc(100% - 26px),transparent)}
+#strip.xs.xs-tk{overflow:hidden}
+.xs-track{display:flex;width:max-content;will-change:transform;animation:xs-run var(--xs-dur,30s) linear infinite}
+@keyframes xs-run{to{transform:translateX(var(--xs-shift,-100%))}}
+.xs-tk .xs-item:first-child{padding-left:11px;border-left:1px solid var(--line)}
+.xs-off .xs-track,.xs-hold .xs-track,.xs-vp:focus-within .xs-track{animation-play-state:paused}
+@media (hover:hover){.xs-vp:hover .xs-track{animation-play-state:paused}}
+.xs-pp{flex:none;display:grid;place-items:center;width:28px;height:28px;border-radius:50%;border:1px solid var(--line);background:transparent;color:var(--muted);cursor:pointer;padding:0}
+.xs-pp svg{width:12px;height:12px}
+.xs-pp:hover{color:var(--fg);border-color:var(--line2)}
+.xs-pp:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
 .xs-msg{color:var(--muted);font-size:12.5px}
 .xs-live{margin-left:auto;flex:none;color:var(--muted);font-size:12px;text-decoration:underline;text-decoration-color:var(--line2);text-underline-offset:3px}
 .xs-live:hover{color:var(--fg)}
@@ -4106,6 +4117,9 @@ dialog.xp{width:min(400px,calc(100% - 24px))}
 @media (max-width:760px){
   #strip.xs{padding:0 12px 8px;gap:12px}
   .xs-item{padding:0 10px}
+  .xs-tk .xs-item:first-child{padding-left:10px}
+  .xs-pp{width:40px;height:40px}
+  .xs-pp svg{width:14px;height:14px}
   .tools > #extras-tools.xt{margin-left:0;flex:1 1 100%}
   .tools > #extras-tools.xt .xt-btn{flex:1;min-width:0}
   .xt-btn{height:40px}
@@ -4116,6 +4130,8 @@ dialog.xp{width:min(400px,calc(100% - 24px))}
   .rp{animation:none}
   .xt-toast,.xt-btn,.xt-btn svg{transition:none}
 }
+
+@media (prefers-reduced-motion:reduce){.xs-track{animation:none}}
 
 </style>
 <script>
@@ -4250,6 +4266,93 @@ function stripItem(it) {
   return h('div', { class: 'xs-item', role: 'listitem', 'data-k': it.key, title: desc, 'aria-label': desc }, kids);
 }
 
+/* ── ticker: [viewport (mask) > track > N copies of the item list] + fixed tail + pause button ── */
+const tk = { sig: '', list: null, track: null, vp: null, tail: null, ro: null, W: 0, dur: 0 };
+let tkPaused = false;
+try { tkPaused = localStorage.getItem('khm.tickerPaused') === '1'; } catch (e) { /* storage blocked */ }
+const tkOn = () => stripEl.classList.contains('xs-tk');
+
+function stripTail() {
+  if (LIVE) {
+    const at = strip.asOf ? new Date(strip.asOf) : null;
+    const t = at && !isNaN(at) ? fmtHM.format(at) : '';
+    return h('span', { class: 'xs-t' + (strip.failed ? ' xs-stale' : ''), title: strip.failed ? '최근 갱신에 실패해서 마지막으로 받은 값이에요' : '30초마다 갱신해요' },
+      h('span', { text: strip.failed ? '갱신 실패' : '네이버 증권' }), h('span', { text: `${t} 기준` }));
+  }
+  if (KH.LIVE_URL) return h('a', { class: 'xs-live', href: KH.LIVE_URL, target: '_blank', rel: 'noopener', text: '환율·미국 선물은 실시간 버전에서 볼 수 있어요' });
+  return null;
+}
+function tkCopy() {
+  const c = tk.list.cloneNode(true);
+  c.removeAttribute('role'); c.removeAttribute('aria-label');
+  c.setAttribute('aria-hidden', 'true'); c.setAttribute('inert', ''); c.inert = true;
+  return c;
+}
+// measure one loop period W; full=true (build / resize) also sets copies and duration, otherwise only --xs-shift
+function tkSize(full) {
+  if (!tk.list || !tk.list.isConnected) return;
+  const W = tk.list.getBoundingClientRect().width, vw = tk.vp.clientWidth;
+  if (!(W > 0)) return;
+  const need = Math.max(2, Math.ceil(vw / W) + 1);
+  let n = tk.track.children.length;
+  while (n < need) { tk.track.append(tkCopy()); n++; }
+  if (full) while (n > need) { tk.track.lastChild.remove(); n--; }
+  if (Math.abs(W - tk.W) > 0.01) { tk.W = W; tk.track.style.setProperty('--xs-shift', (-W).toFixed(2) + 'px'); }
+  if (full) {
+    tk.dur = W / (narrowMQ.matches ? 38 : 45);
+    tk.track.style.setProperty('--xs-dur', tk.dur.toFixed(2) + 's');
+  }
+}
+function tkButton() {
+  const btn = h('button', { type: 'button', class: 'xs-pp', 'aria-pressed': String(tkPaused) });
+  const draw = () => {
+    btn.setAttribute('aria-pressed', String(tkPaused));
+    const l = tkPaused ? '시장 띠 다시 움직이기' : '시장 띠 멈추기';
+    btn.setAttribute('aria-label', l); btn.title = l;
+    btn.replaceChildren(icon(tkPaused ? ICON.play : ICON.pause, true));
+    stripEl.classList.toggle('xs-off', tkPaused);
+  };
+  btn.addEventListener('click', () => {
+    tkPaused = !tkPaused;
+    try { localStorage.setItem('khm.tickerPaused', tkPaused ? '1' : '0'); } catch (e) { /* ignore */ }
+    draw();
+  });
+  draw();
+  return btn;
+}
+function buildTicker(kids) {
+  tk.list = h('div', { class: 'xs-list', role: 'list', 'aria-label': '시장 지표' }, kids);
+  tk.track = h('div', { class: 'xs-track' }, tk.list);
+  tk.vp = h('div', { class: 'xs-vp' }, tk.track);
+  tk.tail = stripTail();
+  tk.W = 0;
+  const hold = on => () => stripEl.classList.toggle('xs-hold', on);
+  tk.vp.addEventListener('pointerdown', hold(true));
+  for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) tk.vp.addEventListener(ev, hold(false));
+  stripEl.classList.add('xs-tk'); stripEl.classList.remove('xs-hold', 'xs-scroll', 'xs-end');
+  stripEl.hidden = false;
+  stripEl.replaceChildren(...[tk.vp, tk.tail, tkButton()].filter(Boolean));
+  tkSize(true);
+  if (tk.ro) tk.ro.disconnect();
+  if (typeof ResizeObserver === 'function') { tk.ro = new ResizeObserver(() => tkSize(false)); tk.ro.observe(tk.list); }   // fonts / in-place value changes
+}
+// 30 s refresh: touch only the nodes, never the track's animation
+function updateTicker(kids) {
+  const fresh = new Map(kids.map(k => [k.dataset.k, k]));
+  for (const list of tk.track.children) {
+    for (const node of list.children) {
+      const f = fresh.get(node.dataset.k);
+      if (!f) continue;
+      node.className = f.className;
+      node.title = f.title; node.setAttribute('aria-label', f.getAttribute('aria-label'));
+      node.replaceChildren(...[...f.childNodes].map(c => c.cloneNode(true)));
+    }
+  }
+  const t = stripTail();
+  if (tk.tail && t) { tk.tail.replaceWith(t); tk.tail = t; }
+  tkSize(false);
+}
+
 function renderStrip() {
   if (!stripEl) return;
   const items = strip.items;
@@ -4258,31 +4361,44 @@ function renderStrip() {
     for (const it of items) { const el = stripItem(it); if (el) kids.push(el); }
   }
   if (!kids.length) {
+    tk.sig = '';
+    stripEl.classList.remove('xs-tk', 'xs-hold');
+    if (tk.ro) { tk.ro.disconnect(); tk.ro = null; }
     if (!LIVE) { stripEl.hidden = true; document.documentElement.classList.remove('xs-on'); return; }
     const msg = items && !items.length ? '시장 지표가 아직 없어요.' : strip.failed ? '시장 지표를 불러오지 못했어요. 30초 뒤 다시 시도해요.' : '시장 지표를 불러오는 중이에요…';
     stripEl.hidden = false;
     stripEl.replaceChildren(h('div', { class: 'xs-msg', role: 'status', text: msg }));
+    stripOverflow();
     document.documentElement.classList.remove('xs-on');
     return;
   }
-  const list = h('div', { class: 'xs-list', role: 'list', 'aria-label': '시장 지표' }, kids);
-  const tail = [];
-  if (LIVE) {
-    const at = strip.asOf ? new Date(strip.asOf) : null;
-    const t = at && !isNaN(at) ? fmtHM.format(at) : '';
-    tail.push(h('span', { class: 'xs-t' + (strip.failed ? ' xs-stale' : ''), title: strip.failed ? '최근 갱신에 실패해서 마지막으로 받은 값이에요' : '30초마다 갱신해요' },
-      h('span', { text: strip.failed ? '갱신 실패' : '네이버 증권' }), h('span', { text: `${t} 기준` })));
-  } else if (KH.LIVE_URL) {
-    tail.push(h('a', { class: 'xs-live', href: KH.LIVE_URL, target: '_blank', rel: 'noopener', text: '환율·미국 선물은 실시간 버전에서 볼 수 있어요' }));
+  const animate = kids.length >= 3 && !reduceMQ.matches;
+  const sig = animate ? kids.map(k => k.dataset.k).join(',') : '';
+  if (animate && sig === tk.sig && tkOn() && tk.track && tk.track.isConnected) {
+    updateTicker(kids);
+  } else if (animate) {
+    tk.sig = sig;
+    buildTicker(kids);
+  } else {
+    tk.sig = '';
+    stripEl.classList.remove('xs-tk', 'xs-hold');
+    if (tk.ro) { tk.ro.disconnect(); tk.ro = null; }
+    const list = h('div', { class: 'xs-list', role: 'list', 'aria-label': '시장 지표' }, kids);
+    const tail = stripTail();
+    stripEl.hidden = false;
+    stripEl.replaceChildren(list, ...(tail ? [tail] : []));
   }
-  stripEl.hidden = false;
-  stripEl.replaceChildren(list, ...tail);
   // the header's own 코스피/코스닥 readout (#idx) duplicates the strip
   document.documentElement.classList.toggle('xs-on', items.some(it => it.key === 'KOSPI' || it.key === 'KOSDAQ'));
   stripOverflow();
 }
 function stripOverflow() {
   if (!stripEl || stripEl.hidden) return;
+  if (tkOn()) {        // the ticker moves by itself: no scroll region
+    stripEl.classList.remove('xs-scroll', 'xs-end');
+    stripEl.removeAttribute('tabindex'); stripEl.removeAttribute('role'); stripEl.removeAttribute('aria-label');
+    return;
+  }
   const over = stripEl.scrollWidth > stripEl.clientWidth + 1;
   stripEl.classList.toggle('xs-scroll', over);
   stripEl.classList.toggle('xs-end', !over || stripEl.scrollLeft + stripEl.clientWidth >= stripEl.scrollWidth - 2);
@@ -4334,7 +4450,9 @@ function initStrip() {
   }
   stripEl.addEventListener('scroll', () => stripEl.classList.toggle('xs-end', stripEl.scrollLeft + stripEl.clientWidth >= stripEl.scrollWidth - 2), { passive: true });
   let rz = 0;
-  addEventListener('resize', () => { cancelAnimationFrame(rz); rz = requestAnimationFrame(stripOverflow); });
+  addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => { if (tkOn()) tkSize(true); stripOverflow(); }, 150); });
+  const rm = () => renderStrip();            // motion preference flipped: rebuild as ticker or static strip
+  if (reduceMQ.addEventListener) reduceMQ.addEventListener('change', rm); else if (reduceMQ.addListener) reduceMQ.addListener(rm);
 }
 
 /* ═════════════ tools row ═════════════ */
