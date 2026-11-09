@@ -247,3 +247,14 @@ python3 tmp/shot.py /home/claude/heatmap/dist/index.html    # 1440×900 / 390×8
 **시계가 제목 자리로** (사용자 2026-11-10 01:18: "시계를 켜면 제목이 사라지고 시계가 제목이 되어서, 시계를 누르면 새로고침")
 - `#clock` 마운트는 머리글 **제목 자리**(로고 옆 "한국 증시 히트맵" 위치)에 있어요. 시계가 켜져 있으면 `<html class="has-clock">` — 템플릿은 이 클래스일 때 제목 글자를 화면에서 숨기고(스크린 리더용으로는 남김) 시계가 그 자리를 차지해요. 꺼지면 제목이 돌아와요. 진행 막대는 시계 바로 아래.
 - 시계는 버튼이에요(`aria-label`: "한국 증시 히트맵 · 지금 13:05 · 눌러서 새로고침"). 누르면 `KH.refresh()` — 템플릿이 시세를 즉시 다시 받고 document 이벤트 `kh:refresh`를 내보내요. extras(시장 띠·시계)·world·등락 분포 등은 이 이벤트에 맞춰 바로 다시 받아요. 페이지 전체를 다시 불러오지는 않아요(상태·스크롤 유지). 누르는 순간 짧은 피드백(플랩이 한 번 섞이듯 넘어감 / 아날로그는 바늘 미세 흔들림, `reduced`면 없음)과 갱신 중 표시.
+
+## 3-7. 실제로 들어간 확장 API (2026-11-10 새벽, 구현 기준)
+
+- `KH.motion()` → `'reduced'|'standard'|'fancy'`, `<html data-motion>`, 이벤트 `kh:motion`. 설정 UI: `화면`(1280px 이상은 색상 옆 팝오버, 그 아래는 `표시 설정` 시트) → `효과: 기본 · 화려하게`(기기가 동작 줄이기면 `줄이기`도 보임). 기기 설정보다 사용자 선택이 우선이라 모듈은 `prefers-reduced-motion` 대신 `html[data-motion]`/`KH.motion()`을 봐요.
+- `KH.addSetting({key,label,hint?,default, options?:[{v,label}], onChange})`, `KH.getSetting(key)`, 이벤트 `kh:setting`. 값은 `khm.set.<key>`.
+- `KH.refresh()` → `Promise<boolean>`(진행 중 요청을 기다렸다가 새로 받음) + 이벤트 `kh:refresh`(스냅샷에서는 내보내지 않아요).
+- `KH.marketStatus()` → `{KOSPI,KOSDAQ}`, `KH.view()` → `'map'|'3d'|'table'`, `KH.range()` → 지금 색 범위(숫자).
+- `kh:data`의 `detail.changed`(바뀐 종목 코드), `KH.layout()` 타일의 `dim`.
+- `KH.setReplay(frame, {tween:ms, easing?:'out'})` — `fancy`에서만 보간, 아니면 즉시.
+- `KH3D.show()`, `KH3D.hide()` → `Promise`(fancy면 접히는 0.36초 뒤 끝남), `KH3D.isOn()`, `KH3D.stats()`. `#map3d`는 템플릿이 `#map` 위에 놓고(`#map`은 visibility:hidden으로 계속 배치), 실패 시 `kh:3d-unavailable {reason,message}`.
+- `/api/market`의 `session:{start,end}`.
