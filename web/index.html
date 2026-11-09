@@ -10,7 +10,7 @@
 <style>
 :root{
   --page:#131418; --panel:#191a1f; --panel2:#202228; --line:#2b2d34; --line2:#373a42;
-  --fg:#eef0f3; --fg2:#bcc0c8; --muted:#8a8f99; --faint:#61656f;
+  --fg:#eef0f3; --fg2:#bcc0c8; --muted:#8a8f99; --faint:#858993;
   --amber:#ffb547; --amber-soft:rgba(255,181,71,.14);
   --up-text:#ff5c66; --dn-text:#2fd67a;
   --sans:'Pretendard Variable',Pretendard,-apple-system,BlinkMacSystemFont,system-ui,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;
@@ -58,7 +58,8 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 .sugg button[aria-selected="true"],.sugg button:hover{background:rgba(255,255,255,.06)}
 .sugg .sw{width:10px;height:10px;border-radius:2px}
 .sugg .meta{color:var(--muted);font-size:12px}
-.sugg .empty{padding:10px;color:var(--muted);font-size:13px}
+.sugg .empty{padding:10px;color:var(--muted);font-size:13px;line-height:1.5}
+.sugg .empty small{display:block;font-size:12px;color:var(--faint);margin-top:2px}
 .ctl{display:flex;align-items:center;gap:8px}
 .ctl > span{font-size:12.5px;color:var(--muted);white-space:nowrap}
 .seg{display:flex;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:2px}
@@ -79,6 +80,7 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 .crumbs button.c:hover{background:var(--panel2);color:var(--fg)}
 .crumbs button.c.cur{color:var(--fg);font-weight:600;cursor:default;background:none}
 .crumbs .sep{color:var(--faint)}
+.crumbs .ci{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
 .crumbs .back{margin-right:4px;display:inline-flex;align-items:center;gap:4px;font-size:12.5px;color:var(--amber);border:1px solid rgba(255,181,71,.35);background:var(--amber-soft);padding:3px 9px;border-radius:6px}
 .crumbs .stat{margin-left:auto;color:var(--muted);font-size:12.5px;white-space:nowrap}
 .crumbs .stat b{font-weight:600}
@@ -86,13 +88,15 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 
 .map{position:relative;background:#000;border-radius:6px;overflow:hidden;height:calc(100vh - 168px);min-height:520px;touch-action:manipulation;user-select:none;-webkit-user-select:none}
 .node{position:absolute;overflow:hidden}
-.map.anim .node{transition:left .45s cubic-bezier(.2,.7,.2,1),top .45s cubic-bezier(.2,.7,.2,1),width .45s cubic-bezier(.2,.7,.2,1),height .45s cubic-bezier(.2,.7,.2,1),opacity .3s,background-color .6s}
+.map.anim .node{transition:opacity .3s,background-color .6s}
 .node.entering{opacity:0}
 .node.leaving{opacity:0!important;pointer-events:none}
+.node.leaving .hd{pointer-events:none}
 .sec,.ind{pointer-events:none}
 .sec{z-index:1}
 .ind{z-index:2}
-.sec .hd,.ind .hd{position:absolute;left:0;right:0;top:0;display:flex;align-items:center;gap:6px;padding:0 5px;pointer-events:auto;cursor:zoom-in;white-space:nowrap;overflow:hidden}
+.sec .hd,.ind .hd{position:absolute;left:0;right:0;top:0;display:flex;align-items:center;gap:6px;padding:0 5px;pointer-events:auto;cursor:zoom-in;white-space:nowrap;overflow:hidden;text-align:left;border-radius:0;width:100%}
+.sec .hd:focus-visible,.ind .hd:focus-visible{outline-offset:-2px;z-index:5}
 .sec .hd{background:#000;font-size:12px;font-weight:700;color:#f2f3f5}
 .ind .hd{background:#0d0e11;font-size:10.5px;font-weight:500;color:#a6abb5}
 .sec .hd .t,.ind .hd .t{overflow:hidden;text-overflow:ellipsis;min-width:0}
@@ -113,7 +117,7 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 .tile:hover,.tile.hov{box-shadow:inset 0 0 0 2px rgba(255,255,255,.92);z-index:5}
 .tile.sel{box-shadow:inset 0 0 0 3px var(--amber),0 0 0 1px #000;z-index:6}
 .tile.dim{filter:saturate(.25) brightness(.38)}
-.map.anim .tile{transition:left .45s cubic-bezier(.2,.7,.2,1),top .45s cubic-bezier(.2,.7,.2,1),width .45s cubic-bezier(.2,.7,.2,1),height .45s cubic-bezier(.2,.7,.2,1),opacity .3s,background-color .6s,filter .2s}
+.map.anim .tile{transition:opacity .3s,background-color .6s,filter .2s}
 .tile{transition:filter .2s}
 .tile.flash-up::after,.tile.flash-dn::after{content:"";position:absolute;inset:0;pointer-events:none;animation:flash .9s ease-out}
 .tile.flash-up::after{background:rgba(255,255,255,.38)}
@@ -124,7 +128,10 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 /* table view */
 .tablewrap{background:var(--panel);border:1px solid var(--line);border-radius:8px;overflow:auto;height:calc(100vh - 168px);min-height:520px}
 table.list{width:100%;border-collapse:collapse;font-size:13.5px}
-.list th{position:sticky;top:0;background:var(--panel2);color:var(--muted);font-weight:500;font-size:12.5px;text-align:right;padding:9px 12px;border-bottom:1px solid var(--line);white-space:nowrap;cursor:pointer;user-select:none}
+.list th{position:sticky;top:0;background:var(--panel2);color:var(--muted);font-weight:500;font-size:12.5px;text-align:right;padding:0;border-bottom:1px solid var(--line);white-space:nowrap;user-select:none}
+.list th button{display:block;width:100%;padding:9px 12px;font-size:inherit;font-weight:inherit;color:inherit;text-align:inherit;white-space:nowrap}
+.list th button:hover{color:var(--fg)}
+.list th button:focus-visible,.list tbody tr:focus-visible{outline-offset:-2px}
 .list th:first-child,.list td:first-child,.list th:nth-child(2),.list td:nth-child(2){text-align:left}
 .list th[aria-sort]{color:var(--fg)}
 .list th[aria-sort="descending"]::after{content:" ▾"} .list th[aria-sort="ascending"]::after{content:" ▴"}
@@ -188,7 +195,8 @@ footer a{color:var(--muted)}
 .card-head{padding:11px 13px 10px;border-bottom:1px solid var(--line)}
 .card-head .path{font-size:11.5px;color:var(--muted);margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .card-head .nmrow{display:flex;align-items:baseline;gap:7px}
-.card-head .nmrow b{font-size:17px;font-weight:700;letter-spacing:-.02em}
+.card-head .nmrow b,.card-head .nmrow .nmbtn{font-size:17px;font-weight:700;letter-spacing:-.02em;text-align:left}
+.card-head .nmrow .nmbtn{text-decoration:underline;text-decoration-color:var(--amber);text-underline-offset:3px;border-radius:4px}
 .card-head .nmrow small{color:var(--faint);font-size:11.5px}
 .card-head .px{display:flex;align-items:baseline;gap:9px;margin-top:4px;font-variant-numeric:tabular-nums}
 .card-head .px b{font-size:21px;font-weight:700;letter-spacing:-.01em}
@@ -207,13 +215,14 @@ footer a{color:var(--muted)}
 
 .sheet{position:fixed;z-index:90;right:18px;bottom:18px;width:340px;max-height:min(640px,calc(100vh - 36px));overflow:auto;background:rgba(24,25,30,.98);border:1px solid var(--line2);border-radius:12px;box-shadow:0 24px 70px rgba(0,0,0,.6);display:none;font-size:13px}
 .sheet.open{display:block;animation:sheetIn .2s ease-out}
+.sheet:focus{outline:none}
 @keyframes sheetIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
 .sheet .grab{display:none}
 .sheet .x{position:absolute;right:8px;top:8px;width:30px;height:30px;border-radius:8px;display:grid;place-items:center;color:var(--muted);font-size:18px}
 .sheet .x:hover{background:rgba(255,255,255,.07);color:var(--fg)}
-.sheet .acts{display:flex;gap:8px;padding:10px 13px 13px;border-top:1px solid var(--line)}
+.sheet .acts{display:flex;flex-wrap:wrap;gap:8px;padding:10px 13px 13px;border-top:1px solid var(--line)}
 .sheet .acts button,.sheet .acts a{flex:1;display:inline-flex;justify-content:center;align-items:center;height:36px;border-radius:8px;font-size:13px;font-weight:600;text-decoration:none}
-.sheet .acts .pri{background:var(--amber);color:#1b1404}
+.sheet .acts .pri{background:var(--amber);color:#1b1404;flex:1 1 100%}
 .sheet .acts .sec2{border:1px solid var(--line2);color:var(--fg)}
 .spark{padding:8px 13px 0}
 .spark svg{display:block;width:100%;height:70px}
@@ -248,6 +257,19 @@ footer a{color:var(--muted)}
   .sheet .grab{display:block;width:38px;height:4px;border-radius:2px;background:var(--line2);margin:8px auto 0}
   .scrim.open{display:block;position:fixed;inset:0;z-index:85;background:rgba(0,0,0,.45)}
   footer{padding:4px 12px 24px}
+  .tabs button,.seg button,.movers-tabs button,.crumbs button.c,.crumbs .back{min-height:40px;display:inline-flex;align-items:center;justify-content:center}
+  .crumbs .back{padding:3px 12px}
+  .secs button,.movers button{min-height:40px}
+  .sheet .x{width:40px;height:40px;right:6px;top:6px}
+  .list th:nth-child(2),.list td:nth-child(2){display:none}
+  table.list{font-size:12.5px}
+  .list th{font-size:12px}
+  .list th button{min-height:40px;padding:0 6px}
+  .list td{padding:10px 6px}
+  .list .nmcell{gap:6px}
+  .list .nmcell small{display:none}
+  .list td:first-child{width:100%;max-width:0}
+  .list .nmt{min-width:0;overflow:hidden;text-overflow:ellipsis}
 }
 .ctls{display:contents}
 @media (max-width:760px){.ctls{display:flex}}
@@ -255,6 +277,8 @@ footer a{color:var(--muted)}
   .map.anim .node,.map.anim .tile{transition:none}
   .status.live .dot{animation:none}
   .tile.flash-up::after,.tile.flash-dn::after{animation:none}
+  .sheet.open{animation:none}
+  .tip{transition:none}
 }
 </style>
 </head>
@@ -274,7 +298,7 @@ footer a{color:var(--muted)}
 <div class="tools">
   <div class="search">
     <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="8.5" cy="8.5" r="6"/><path d="m13 13 4.5 4.5" stroke-linecap="round"/></svg>
-    <input id="q" type="search" placeholder="종목명·코드 검색" autocomplete="off" spellcheck="false" aria-label="종목 검색" aria-controls="sugg" aria-expanded="false">
+    <input id="q" type="search" placeholder="종목명·코드 검색" autocomplete="off" spellcheck="false" aria-label="종목 검색" role="combobox" aria-autocomplete="list" aria-controls="sugg" aria-expanded="false">
     <kbd>/</kbd>
     <div class="sugg" id="sugg" role="listbox"></div>
   </div>
@@ -292,7 +316,7 @@ footer a{color:var(--muted)}
       <nav class="crumbs" id="crumbs" aria-label="위치"></nav>
       <div class="seg viewseg" data-key="view" role="group" aria-label="보기"><button data-v="map">지도</button><button data-v="table">표</button></div>
     </div>
-    <div class="map" id="map" role="img" aria-label="종목별 등락률 트리맵"></div>
+    <div class="map" id="map" role="group" aria-label="종목별 등락률 트리맵"></div>
     <div class="tablewrap" id="tablewrap" hidden></div>
   </section>
   <aside class="side">
@@ -321,7 +345,7 @@ footer a{color:var(--muted)}
 
 <div class="tip" id="tip" aria-hidden="true"></div>
 <div class="scrim" id="scrim"></div>
-<div class="sheet" id="sheet" role="dialog" aria-label="종목 상세"></div>
+<div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-label="종목 상세" tabindex="-1"></div>
 
 <script id="snapshot" type="application/json">{"asOf": null, "source": "네이버 증권", "marketStatus": {}, "index": {}, "stocks": []}</script>
 <script>
@@ -343,6 +367,9 @@ const PALETTES = {
 };
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const narrowMQ = matchMedia('(max-width: 760px)');
+const hoverMQ = matchMedia('(hover: hover) and (pointer: fine)');
+const stockApi = () => (window.KHStock && typeof window.KHStock.open === 'function') ? window.KHStock : null;
+const stockOpen = () => { const k = window.KHStock; return !!(k && typeof k.isOpen === 'function' && k.isOpen()); };
 
 /* ───────────────── helpers ───────────────── */
 const $ = (s, el = document) => el.querySelector(s);
@@ -426,7 +453,15 @@ setData(SNAP);
 const val = st => state.sizeBy === 'tv' ? st.tv : st.cap;
 const inMarket = st => state.market === 'ALL' || st.m === state.market;
 const isPreferred = st => st.c.slice(-1) !== '0';   // 우선주: KRX short codes of common stock end in 0
+let uniCache = { data: null, key: '', out: null };
 function universe() {
+  const ck = state.market + '|' + state.sizeBy + '|' + state.topN + '|' + [...state.forced].join(',');
+  if (uniCache.data === DATA && uniCache.key === ck) return uniCache.out;
+  const out = buildUniverse();
+  uniCache = { data: DATA, key: ck, out };
+  return out;
+}
+function buildUniverse() {
   const key = state.sizeBy;
   const list = DATA.stocks.filter(s => inMarket(s) && s[key] > 0 && !isPreferred(s)).sort((a, b) => b[key] - a[key]);
   const out = list.slice(0, state.topN);
@@ -501,8 +536,10 @@ function textUnits(str) {
     const c = ch.codePointAt(0);
     if (c >= 0xAC00 && c <= 0xD7A3 || c >= 0x3130 && c <= 0x318F || c >= 0x4E00 && c <= 0x9FFF) u += 1.0;
     else if (ch === ' ') u += 0.3;
-    else if (ch >= 'A' && ch <= 'Z') u += 0.66;
     else if (ch === '&' || ch === 'W' || ch === 'M') u += 0.8;
+    else if (ch >= 'A' && ch <= 'Z') u += 0.66;
+    else if (ch >= '0' && ch <= '9') u += 0.62;
+    else if (ch === '%' || ch === '−' || ch === '+') u += 0.8;
     else u += 0.55;
   }
   return Math.max(u, 1) * 1.02;
@@ -511,12 +548,13 @@ function textUnits(str) {
 function createNode(n) {
   const k = n.data.kind;
   if (k === 'tile') {
-    return h('div', { class: 'node tile', 'data-c': n.data.st.c },
+    return h('div', { class: 'node tile', 'data-c': n.data.st.c, tabindex: '-1' },
       h('div', { class: 'lab' }, h('span', { class: 'nm' }), h('span', { class: 'pc' }), h('span', { class: 'px' })));
   }
   const attrs = { class: 'node ' + (k === 'sector' ? 'sec' : 'ind'), 'data-s': n.data.s };
   if (k === 'ind') attrs['data-i'] = n.data.i;
-  return h('div', attrs, h('div', { class: 'hd', title: k === 'sector' ? n.data.s + ' 확대' : n.data.i + ' 확대' }, h('span', { class: 't' }), h('span', { class: 'v' })));
+  const lbl = (k === 'sector' ? n.data.s : n.data.i) + ' 확대';
+  return h('div', attrs, h('button', { class: 'hd', type: 'button', title: lbl, 'aria-label': lbl }, h('span', { class: 't' }), h('span', { class: 'v' })));
 }
 const isHangul = ch => { const c = ch.codePointAt(0); return c >= 0xAC00 && c <= 0xD7A3; };
 // where to break a long name onto two lines: at a space, at a Korean/Latin boundary, or mid-word for all-Korean names
@@ -565,11 +603,11 @@ function paintTile(el, st, w, hh) {
   else nm.textContent = st.n;
   nm.classList.toggle('ell', ell);
   pc.hidden = !showPct;
-  const three = showPct && hh >= fs * (nameH + 1.75) && fs >= 15 && w >= 70;
+  const three = showPct && hh >= fs * (nameH + 1.75) && fs >= 15 && w >= 70 && W >= textUnits(fmtInt(st.p)) * 0.52 * fs;
   px.hidden = !three;
   if (three) px.textContent = fmtInt(st.p);
 }
-function placeNode(el, n) {
+function placeNode(el, n, secGroups) {
   const x = n.x0, y = n.y0, w = Math.max(0, n.x1 - n.x0), hh = Math.max(0, n.y1 - n.y0);
   el.style.left = x + 'px'; el.style.top = y + 'px'; el.style.width = w + 'px'; el.style.height = hh + 'px';
   if (n.data.kind === 'tile') { paintTile(el, n.data.st, w, hh); return; }
@@ -578,7 +616,8 @@ function placeNode(el, n) {
   hd.style.display = H ? 'flex' : 'none';
   if (!H) return;
   const name = n.data.kind === 'sector' ? n.data.s : n.data.i;
-  const r = groupChange(n.leaves().map(l => l.data.st));
+  // a sector header always shows the whole sector's change, even while zoomed into one of its industries
+  const r = groupChange(n.data.kind === 'sector' && secGroups.get(n.data.s) ? secGroups.get(n.data.s) : n.leaves().map(l => l.data.st));
   hd.children[0].textContent = name;
   const v = hd.children[1];
   const room = w - textUnits(name) * (n.data.kind === 'sector' ? 12 : 10.5) - 12;
@@ -587,14 +626,37 @@ function placeNode(el, n) {
 }
 
 let lastFocusKey = '';
+// FLIP: nodes jump to their new box at once and a transform animates them from the old one (compositor only, no layout per frame);
+// labels / headers get the inverse scale so the type keeps its size while the box grows or shrinks
+const FLIP_MS = 450, FLIP_EASE = 'cubic-bezier(.2,.7,.2,1)';
+function flip(el, o, nw) {
+  if (el.__fa) for (const a of el.__fa) a.cancel();
+  el.__fa = null;
+  if (!o) return;
+  const dx = o[0] - nw[0], dy = o[1] - nw[1];
+  if (Math.abs(dx) + Math.abs(dy) + Math.abs(o[2] - nw[2]) + Math.abs(o[3] - nw[3]) < 1.5) return;
+  const sx = Math.max(o[2], 1) / Math.max(nw[2], 1), sy = Math.max(o[3], 1) / Math.max(nw[3], 1);
+  const opt = { duration: FLIP_MS, easing: FLIP_EASE };
+  const anims = [el.animate([{ transformOrigin: '0 0', transform: `translate(${dx}px,${dy}px) scale(${sx},${sy})` }, { transformOrigin: '0 0', transform: 'none' }], opt)];
+  const kid = el.firstChild;
+  if (kid && !kid.hidden && kid.style.display !== 'none') {
+    const org = el.classList.contains('tile') ? '50% 50%' : '0 0';
+    anims.push(kid.animate([{ transformOrigin: org, transform: `scale(${1 / sx},${1 / sy})` }, { transformOrigin: org, transform: 'none' }], opt));
+  }
+  el.__fa = anims;
+}
 function render({ animate = false } = {}) {
-  if (state.view !== 'map') return;
+  if (state.view !== 'map') { renderTableFor(); return; }
   const W = mapEl.clientWidth, H = mapEl.clientHeight;
   if (!W || !H) return;
-  let list = universe().filter(inFocus);
-  if (!list.length && state.focus) { state.focus = null; list = universe(); }
+  const uni = universe();
+  let list = uni.filter(inFocus);
+  if (!list.length && state.focus) { state.focus = null; list = uni; }
+  const secGroups = d3.group(uni, s => s.s);
   const root = layout(buildRoot(list), W, H);
   const anim = animate && !reduceMotion;
+  // geometry animation only while the map is small: above ~350 nodes just jump and fade (fewer long tasks)
+  const geo = anim && root.descendants().length <= 350;
   mapEl.classList.toggle('anim', anim);
   mapEl.classList.toggle('focus-leaf', !!(state.focus && state.focus.i));
   const seen = new Set();
@@ -603,14 +665,19 @@ function render({ animate = false } = {}) {
     if (n.depth === 0) continue;
     const id = n.data.id;
     seen.add(id);
-    let el = nodes.get(id);
+    let el = nodes.get(id), fresh = false;
     if (!el) {
+      fresh = true;
       el = createNode(n);
       nodes.set(id, el);
       if (anim) { el.classList.add('entering'); entering.push(el); }
       mapEl.append(el);
     }
-    placeNode(el, n);
+    const old = el.__g;
+    placeNode(el, n, secGroups);
+    const nw = [n.x0, n.y0, n.x1 - n.x0, n.y1 - n.y0];
+    el.__g = nw;
+    flip(el, geo && !fresh ? old : null, nw);
   }
   for (const [id, el] of nodes) {
     if (seen.has(id)) continue;
@@ -625,6 +692,12 @@ function render({ animate = false } = {}) {
   applyHighlights();
 }
 
+// table view: same focus / empty-focus rules as the map
+function renderTableFor() {
+  const uni = universe();
+  if (state.focus && !uni.some(inFocus)) state.focus = null;
+  renderTable();
+}
 function matchQuery(st, q) {
   if (!q) return true;
   const ql = q.toLowerCase();
@@ -652,7 +725,9 @@ function applyHighlights() {
 const tip = $('#tip'), sheet = $('#sheet'), scrim = $('#scrim');
 
 function peerRows(st, limit) {
-  const peers = DATA.stocks.filter(s => s.i === st.i && s.s === st.s && (state.market === 'ALL' || s.m === st.m)).sort((a, b) => b.cap - a.cap);
+  // same set the map header uses: the on-screen universe (preferred shares only when forced), so counts and % agree with the map
+  const peers = universe().filter(s => s.i === st.i && s.s === st.s).sort((a, b) => b.cap - a.cap);
+  if (!peers.includes(st)) peers.push(st);
   let rows = peers.slice(0, limit);
   if (!rows.includes(st)) rows = rows.slice(0, limit - 1).concat(st);
   const R = state.range;
@@ -663,17 +738,18 @@ function peerRows(st, limit) {
       h('i', { style: `background:${colorOf(p.r)}` }), h('span', { class: 'nm', text: p.n }), bar, h('span', { class: 'v ' + cls(p.r), text: fmtPct(p.r) }));
   }) };
 }
-function headBlock(st) {
+function headBlock(st, nameBtn) {
   return h('div', { class: 'card-head' },
     h('div', { class: 'path', text: `${MKT_NAME[st.m]}  ›  ${st.s}  ›  ${st.i}` }),
-    h('div', { class: 'nmrow' }, h('b', { text: st.n }), h('small', { text: st.c })),
+    h('div', { class: 'nmrow' }, nameBtn ? h('button', { class: 'nmbtn', type: 'button', title: '차트·호가 보기', onclick: () => openStockFromSheet(st.c), text: st.n }) : h('b', { text: st.n }), h('small', { text: st.c })),
     h('div', { class: 'px' }, h('b', { text: fmtInt(st.p) }), h('span', { class: cls(st.r), text: `${fmtChg(st.d)}  (${fmtPct(st.r)})` })),
     h('div', { class: 'meta' }, h('span', {}, '시가총액 ', h('em', { text: fmtEok(st.cap) })), h('span', {}, '거래대금 ', h('em', { text: fmtEok(st.tv) }))));
 }
+const peerTitle = pr => `지도에 표시된 같은 업종 ${pr.total}종목  ·  업종 등락 ${fmtPct(pr.wavg, 1)}`;
 function fillTip(st) {
   const pr = peerRows(st, 10);
   tip.replaceChildren(headBlock(st), h('div', { class: 'peers' },
-    h('div', { class: 'ttl', text: `같은 업종 ${pr.total}종목  ·  업종 ${fmtPct(pr.wavg, 1)}` }), pr.rows));
+    h('div', { class: 'ttl', text: peerTitle(pr) }), pr.rows));
 }
 let tipW = 300, tipH = 0;
 function placeTip(x, y) {
@@ -711,34 +787,67 @@ mapEl.addEventListener('click', e => {
     return;
   }
   const t = e.target.closest('.tile');
-  if (t) select(t.dataset.c);
+  if (!t || t.classList.contains('leaving')) return;
+  // desktop (hover-capable pointer): straight to the stock page when it exists; touch keeps the quick-view sheet
+  if (hoverMQ.matches && stockApi()) { tip.classList.remove('show'); stockApi().open(t.dataset.c, { opener: t }); return; }
+  select(t.dataset.c, t);
 });
 
-let sparkReq = 0;
-function openSheet(st) {
+let sparkReq = 0, sheetOpener = null, sheetCode = null;
+function openSheet(st, opener) {
   const pr = peerRows(st, 12);
-  const kids = [h('div', { class: 'grab' }), h('button', { class: 'x', 'aria-label': '닫기', onclick: closeSheet, text: '×' }), headBlock(st)];
+  const canStock = !!stockApi();
+  if (!sheet.classList.contains('open')) sheetOpener = opener || (document.activeElement !== document.body ? document.activeElement : null);
+  sheetCode = st.c;
+  const kids = [h('div', { class: 'grab' }), h('button', { class: 'x', 'aria-label': '닫기', onclick: () => closeSheet(), text: '×' }), headBlock(st, canStock)];
   if (MODE === 'live') kids.push(h('div', { class: 'spark', id: 'spark' }, h('div', { class: 'note', text: '오늘 흐름 불러오는 중…' })));
-  kids.push(h('div', { class: 'peers' }, h('div', { class: 'ttl', text: `같은 업종 ${pr.total}종목  ·  업종 ${fmtPct(pr.wavg, 1)}` }), pr.rows));
-  const zoomBtn = h('button', { class: 'sec2', onclick: () => { closeSheet(); zoomTo({ s: st.s, i: st.i }); }, text: '업종 확대' });
-  kids.push(h('div', { class: 'acts' }, zoomBtn, h('a', { class: 'pri', href: `https://m.stock.naver.com/domestic/stock/${encodeURIComponent(st.c)}`, target: '_blank', rel: 'noopener', text: '네이버 증권에서 보기' })));
+  kids.push(h('div', { class: 'peers' }, h('div', { class: 'ttl', text: peerTitle(pr) }), pr.rows));
+  const zoomBtn = h('button', { class: 'sec2', type: 'button', onclick: () => { closeSheet(); zoomTo({ s: st.s, i: st.i }); }, text: '업종 확대' });
+  kids.push(h('div', { class: 'acts' },
+    canStock ? h('button', { class: 'pri', type: 'button', onclick: () => openStockFromSheet(st.c), text: '차트·호가 보기' }) : null,
+    zoomBtn, h('a', { class: 'sec2', href: `https://m.stock.naver.com/domestic/stock/${encodeURIComponent(st.c)}`, target: '_blank', rel: 'noopener', text: '네이버 증권에서 보기' })));
   sheet.replaceChildren(...kids);
+  sheet.setAttribute('aria-label', `${st.n} 상세`);
   sheet.classList.add('open');
+  sheet.scrollTop = 0;
+  sheet.focus({ preventScroll: true });
   if (narrowMQ.matches) scrim.classList.add('open');
   if (MODE === 'live') loadSpark(st);
 }
-function closeSheet() {
+function closeSheet({ restore = true } = {}) {
+  const was = sheet.classList.contains('open');
   sheet.classList.remove('open'); scrim.classList.remove('open');
+  const code = sheetCode, op = sheetOpener;
+  sheetOpener = null; sheetCode = null;
   state.selected = null; applyHighlights();
+  if (!was || !restore) return;
+  // give focus back to what opened the sheet; table rows are rebuilt on every refresh, so look the row up again
+  let target = op && op.isConnected ? op : null;
+  if (!target && code) target = $(`#tablewrap tr[data-c="${code}"]`) || nodes.get('T|' + code) || null;
+  if (target && target.focus) target.focus({ preventScroll: true });
 }
-scrim.addEventListener('click', closeSheet);
-function select(code) {
+scrim.addEventListener('click', () => closeSheet());
+function select(code, opener) {
   const st = DATA.byCode.get(code);
   if (!st) return;
   state.selected = code;
   tip.classList.remove('show');
   applyHighlights();
-  openSheet(st);
+  openSheet(st, opener);
+}
+// the stock page when it exists, otherwise the quick-view sheet
+function openStock(code, opener) {
+  const k = stockApi();
+  if (!k) { select(code, opener); return; }
+  tip.classList.remove('show');
+  k.open(code, { opener: opener || null });
+}
+function openStockFromSheet(code) {
+  const k = stockApi();
+  if (!k) return;
+  const op = sheetOpener && sheetOpener.isConnected ? sheetOpener : (nodes.get('T|' + code) || null);
+  closeSheet({ restore: false });
+  k.open(code, { opener: op });
 }
 
 async function loadSpark(st) {
@@ -782,6 +891,12 @@ function zoomTo(f) {
   render({ animate: true });
   renderCrumbs(); renderSide();
 }
+// on a phone the side lists sit below the map: bring the map back into view after they change it
+function showStage() {
+  if (!narrowMQ.matches) return;
+  const st = $('.stage');
+  if (st) st.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
+}
 function zoomOut() {
   if (!state.focus) return;
   zoomTo(state.focus.i ? { s: state.focus.s } : null);
@@ -791,11 +906,12 @@ function renderCrumbs() {
   const f = state.focus;
   const kids = [];
   if (f) kids.push(h('button', { class: 'back', onclick: zoomOut, text: '‹ 상위로' }));
-  kids.push(h('button', { class: 'c' + (f ? '' : ' cur'), onclick: () => zoomTo(null), text: `${MKT_NAME[state.market]} 전체` }));
+  kids.push(h('button', { class: 'c' + (f ? '' : ' cur'), onclick: () => zoomTo(null), text: state.market === 'ALL' ? '전체 시장' : `${MKT_NAME[state.market]} 전체` }));
+  // a separator and the item after it never split across lines
+  const item = (btn) => h('span', { class: 'ci' }, h('span', { class: 'sep', 'aria-hidden': 'true', text: '›' }), btn);
   if (f) {
-    kids.push(h('span', { class: 'sep', text: '›' }));
-    kids.push(h('button', { class: 'c' + (f.i ? '' : ' cur'), onclick: () => zoomTo({ s: f.s }), text: f.s }));
-    if (f.i) { kids.push(h('span', { class: 'sep', text: '›' })); kids.push(h('button', { class: 'c cur', text: f.i })); }
+    kids.push(item(h('button', { class: 'c' + (f.i ? '' : ' cur'), onclick: () => zoomTo({ s: f.s }), text: f.s })));
+    if (f.i) kids.push(item(h('button', { class: 'c cur', 'aria-current': 'location', text: f.i })));
   } else if (state.view === 'map') {
     kids.push(h('span', { class: 'hint', text: '섹터·업종 이름을 누르면 확대돼요' }));
   }
@@ -833,7 +949,7 @@ function renderSide() {
   hist.replaceChildren(...counts.map((c, b) => {
     const label = b === 4 ? '보합' : b === 0 ? `${MINUS}${state.range}% 이하` : b === 8 ? `+${state.range}% 이상` : '';
     return h('button', { 'aria-pressed': String(state.bucket === b), title: label || bucketTitle(b), 'aria-label': `${label || bucketTitle(b)} ${c}종목`,
-      onclick: () => { state.bucket = state.bucket === b ? null : b; applyHighlights(); renderSide(); } },
+      onclick: () => { state.bucket = state.bucket === b ? null : b; applyHighlights(); renderSide(); if (state.bucket != null) showStage(); } },
       h('span', { class: 'cnt', text: c }),
       h('span', { class: 'bar', style: `height:${Math.max(2, c / max * 62)}px;background:${b === 4 ? P[3] : colorOf(bucketMid(b))}` }));
   }));
@@ -846,7 +962,7 @@ function renderSide() {
     const frac = Math.min(Math.abs(x.r) / maxAbs, 1) * 50;
     return h('button', {
       class: state.focus && state.focus.s === x.s ? 'cur' : '',
-      onclick: () => zoomTo({ s: x.s }),
+      onclick: () => { zoomTo({ s: x.s }); showStage(); },
       onmouseenter: () => { if (!state.focus) { state.hoverSector = x.s; applyHighlights(); } },
       onmouseleave: () => { if (state.hoverSector) { state.hoverSector = null; applyHighlights(); } },
     }, h('span', { class: 'nm' }, x.s, h('small', { text: x.n })),
@@ -856,7 +972,7 @@ function renderSide() {
   // movers
   for (const b of $('#moverTabs').children) b.setAttribute('aria-pressed', String(b.dataset.v === state.movers));
   const mv = list.slice().sort(state.movers === 'up' ? (a, b) => b.r - a.r : state.movers === 'dn' ? (a, b) => a.r - b.r : (a, b) => b.tv - a.tv).slice(0, 8);
-  $('#movers').replaceChildren(...mv.map(s => h('button', { onclick: () => select(s.c) },
+  $('#movers').replaceChildren(...mv.map(s => h('button', { 'data-c': s.c, onclick: ev => openStock(s.c, ev.currentTarget) },
     h('i', { style: `background:${colorOf(s.r)}` }), h('span', { class: 'nm', text: s.n }),
     h('span', { class: 'px', text: state.movers === 'tv' ? fmtEok(s.tv) : fmtInt(s.p) }),
     h('span', { class: 'v ' + cls(s.r), text: fmtPct(s.r) }))));
@@ -876,18 +992,30 @@ function renderTable() {
   let list = universe().filter(inFocus).filter(s => matchQuery(s, q) && (state.bucket == null || bucketOf(s.r) === state.bucket));
   const { key, dir } = state.sort;
   list.sort((a, b) => key === 'n' ? dir * a.n.localeCompare(b.n, 'ko') : key === 'i' ? dir * a.i.localeCompare(b.i, 'ko') : dir * (a[key] - b[key]));
+  const prevTop = wrap.scrollTop;
   const cols = [['n', '종목'], ['i', '업종'], ['p', '현재가'], ['r', '등락률'], ['cap', '시가총액'], ['tv', '거래대금']];
-  const thead = h('thead', {}, h('tr', {}, cols.map(([k, label]) => h('th', {
-    'aria-sort': key === k ? (dir < 0 ? 'descending' : 'ascending') : null,
-    onclick: () => { state.sort = { key: k, dir: key === k ? -dir : (k === 'n' || k === 'i' ? 1 : -1) }; renderTable(); }, text: label }))));
-  const tbody = h('tbody', {}, list.map(s => h('tr', { class: s.c === state.selected ? 'sel' : '', onclick: () => select(s.c) },
-    h('td', {}, h('div', { class: 'nmcell' }, h('i', { style: `background:${colorOf(s.r)}` }), s.n, h('small', { text: s.c }))),
+  const thead = h('thead', {}, h('tr', {}, cols.map(([k, label]) => h('th', { 'data-k': k, 'aria-sort': key === k ? (dir < 0 ? 'descending' : 'ascending') : null },
+    h('button', { type: 'button', onclick: () => {
+      state.sort = { key: k, dir: key === k ? -dir : (k === 'n' || k === 'i' ? 1 : -1) };
+      renderTable();
+      const b = $(`#tablewrap th[data-k="${k}"] button`); if (b) b.focus();
+    }, text: label })))));
+  const rowOpen = (s, tr) => openStock(s.c, tr);
+  const tbody = h('tbody', {}, list.map(s => h('tr', { class: s.c === state.selected ? 'sel' : '', 'data-c': s.c, tabindex: '0',
+    'aria-label': `${s.n} ${fmtPct(s.r)}`,
+    onclick: ev => rowOpen(s, ev.currentTarget),
+    onkeydown: ev => { if ((ev.key === 'Enter' || ev.key === ' ') && ev.target === ev.currentTarget) { ev.preventDefault(); rowOpen(s, ev.currentTarget); } } },
+    h('td', {}, h('div', { class: 'nmcell' }, h('i', { style: `background:${colorOf(s.r)}` }), h('span', { class: 'nmt', text: s.n }), h('small', { text: s.c }))),
     h('td', { class: 'indc', text: `${s.s} · ${s.i}` }),
     h('td', { text: fmtInt(s.p) }),
     h('td', { class: cls(s.r), text: fmtPct(s.r) }),
     h('td', { text: fmtEok(s.cap) }),
     h('td', { text: fmtEok(s.tv) }))));
+  const hadFocus = wrap.contains(document.activeElement) && document.activeElement.closest('tr[data-c]');
+  const fc = hadFocus ? hadFocus.dataset.c : null;
   wrap.replaceChildren(h('table', { class: 'list' }, thead, tbody));
+  wrap.scrollTop = prevTop;
+  if (fc) { const tr = $(`#tablewrap tr[data-c="${fc}"]`); if (tr) tr.focus({ preventScroll: true }); }
 }
 
 /* ───────────────── header bits ───────────────── */
@@ -918,15 +1046,16 @@ function renderStatus() {
     txt.textContent = '연결이 끊겼어요. 다시 시도하는 중';
     badge.textContent = '재연결';
   } else {
-    txt.textContent = liveState.last ? `${kstClock.format(liveState.last)} 갱신` : '';
+    // while quotes are moving show when we fetched; once the market is closed show the data's own time
+    txt.textContent = (open || DATA.afterHours) ? (liveState.last ? `${kstClock.format(liveState.last)} 갱신` : '') : (asOf && !isNaN(asOf) ? `${kstFmt.format(asOf)} 기준` : (liveState.last ? `${kstClock.format(liveState.last)} 갱신` : ''));
     badge.textContent = open ? '실시간' : DATA.afterHours ? '시간외 가격' : '장 마감';
-    badge.title = DATA.afterHours ? '정규장(15:30) 이후라 NXT·시간외 거래 가격이 반영돼요' : '';
+    badge.title = DATA.afterHours ? '정규장 밖 시간이라 NXT·시간외 가격이 반영돼요' : '';
   }
 }
 function renderFooter() {
   const asOf = DATA.asOf ? kstFmt.format(new Date(DATA.asOf)) : '';
   const parts = [h('p', {}, `데이터: ${DATA.source || '네이버 증권'}. 크기는 ${state.sizeBy === 'tv' ? '거래대금' : '시가총액'}, 색은 전일 대비 등락률이에요. 섹터 분류는 네이버 업종(WICS 기준)을 따랐어요. 투자 판단의 근거로 쓰지 마세요.`)];
-  if (MODE === 'live') parts.push(h('p', {}, '정규장 중에는 10초마다 새 시세를 받아 와요. 15:30 이후에는 NXT·시간외 거래 가격이 반영될 수 있어요.'));
+  if (MODE === 'live') parts.push(h('p', {}, '정규장 중에는 10초마다 새 시세를 받아 와요. 정규장 밖 시간에는 NXT·시간외 가격이 반영될 수 있어요.'));
   if (MODE === 'snapshot') parts.push(h('p', {}, `이 화면은 ${asOf} 시세를 담은 스냅샷이라 자동으로 갱신되지 않아요. 같은 코드를 Cloudflare Worker로 배포하면 10초마다 새 시세를 받아 와요.`));
   $('#foot').replaceChildren(...parts);
 }
@@ -960,7 +1089,6 @@ document.addEventListener('click', e => {
     $('#map').hidden = v !== 'map';
     $('#tablewrap').hidden = v !== 'table';
     tip.classList.remove('show');
-    if (v === 'table') renderTable();
   }
   syncControls();
   render({ animate: k !== 'palette' && k !== 'range' && k !== 'view' });
@@ -981,7 +1109,7 @@ function setMarket(m, writeHash) {
   renderHeader(); render({ animate: true }); renderCrumbs(); renderSide();
 }
 const bootMarket = state.market;   // what an address without #kospi/#kosdaq/#all shows
-addEventListener('hashchange', () => { const hsh = location.hash.slice(1); const m = HASH_TO[hsh] || (!hsh ? bootMarket : null); if (m) setMarket(m, false); });
+addEventListener('hashchange', () => { const hsh = location.hash.slice(1); if (stockOpen() || hsh.startsWith('s-')) return; const m = HASH_TO[hsh] || (!hsh ? bootMarket : null); if (m) setMarket(m, false); });
 
 /* search */
 const qEl = $('#q'), sugg = $('#sugg');
@@ -1001,12 +1129,14 @@ function searchList(q) {
 function renderSugg() {
   const q = qEl.value.trim();
   suggList = searchList(q);
-  if (!q) { sugg.classList.remove('open'); qEl.setAttribute('aria-expanded', 'false'); return; }
-  sugg.replaceChildren(...(suggList.length ? suggList.map((s, i) => h('button', { role: 'option', 'aria-selected': String(i === suggIdx), onmousedown: ev => { ev.preventDefault(); pick(s); } },
+  if (!q) { sugg.classList.remove('open'); qEl.setAttribute('aria-expanded', 'false'); qEl.removeAttribute('aria-activedescendant'); return; }
+  sugg.replaceChildren(...(suggList.length ? suggList.map((s, i) => h('button', { role: 'option', id: 'sg-' + i, type: 'button', tabindex: '-1', 'aria-selected': String(i === suggIdx), onmousedown: ev => { ev.preventDefault(); pick(s); } },
     h('i', { class: 'sw', style: `background:${colorOf(s.r)}` }), h('span', {}, s.n, ' ', h('span', { class: 'meta', text: `${s.c} · ${s.i}` })),
     h('span', { class: 'meta num', text: fmtInt(s.p) }), h('span', { class: 'num ' + cls(s.r), text: fmtPct(s.r) })))
-    : [h('div', { class: 'empty', text: `'${q}'와 맞는 ${MKT_NAME[state.market]} 종목이 없어요.` })]));
+    : [h('div', { class: 'empty' }, `'${q}'와 맞는 ${MKT_NAME[state.market]} 종목이 없어요.`,
+        MODE === 'live' ? h('small', { text: '실시간 대상(시장별 시총 상위 300종목) 안에서만 찾을 수 있어요' }) : null)]));
   sugg.classList.add('open'); qEl.setAttribute('aria-expanded', 'true');
+  if (suggList.length) qEl.setAttribute('aria-activedescendant', 'sg-' + suggIdx); else qEl.removeAttribute('aria-activedescendant');
 }
 function pick(s) {
   qEl.value = ''; state.query = ''; suggIdx = 0;
@@ -1014,7 +1144,7 @@ function pick(s) {
   state.forced.add(s.c);
   state.focus = { s: s.s };
   render({ animate: true }); renderCrumbs(); renderSide();
-  select(s.c);
+  openStock(s.c, nodes.get('T|' + s.c) || null);
 }
 qEl.addEventListener('input', () => { state.query = qEl.value; suggIdx = 0; renderSugg(); applyHighlights(); });
 qEl.addEventListener('keydown', e => {
@@ -1025,6 +1155,7 @@ qEl.addEventListener('keydown', e => {
 qEl.addEventListener('blur', () => setTimeout(() => sugg.classList.remove('open'), 120));
 qEl.addEventListener('focus', () => { if (qEl.value.trim()) renderSugg(); });
 addEventListener('keydown', e => {
+  if (stockOpen() || e.defaultPrevented) return;   // the stock page owns / and Esc while it is open
   if (e.key === '/' && document.activeElement !== qEl && !e.metaKey && !e.ctrlKey) { e.preventDefault(); qEl.focus(); }
   else if (e.key === 'Escape' && document.activeElement !== qEl) {
     if (sheet.classList.contains('open')) closeSheet();
@@ -1054,8 +1185,10 @@ new ResizeObserver(() => { cancelAnimationFrame(rz); rz = requestAnimationFrame(
 /* ───────────────── live mode ───────────────── */
 async function poll() {
   let open = false;
+  const ac = new AbortController();
+  const killer = setTimeout(() => ac.abort(), 8000);   // a stalled request must not stop the polling loop
   try {
-    const res = await fetch('api/quotes', { cache: 'no-store' });
+    const res = await fetch('api/quotes', { cache: 'no-store', signal: ac.signal });
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const raw = await res.json();
     if (!raw || !Array.isArray(raw.stocks) || !raw.stocks.length) throw new Error('empty');
@@ -1063,7 +1196,6 @@ async function poll() {
     liveState.ok = true; liveState.last = new Date();
     open = Object.values(DATA.marketStatus || {}).some(v => v === 'OPEN');
     render({ animate: true }); renderSide(); renderCrumbs(); renderHeader();
-    if (state.view === 'table') renderTable();
     if (!reduceMotion) for (const [c, dir] of changed) {
       const el = nodes.get('T|' + c);
       if (!el) continue;
@@ -1074,11 +1206,13 @@ async function poll() {
     if (state.hover && tip.classList.contains('show')) { const st = DATA.byCode.get(state.hover); if (st) fillTip(st); }
   } catch (e) {
     liveState.ok = false;
-    if (!DATA.stocks.length) render();
+    try { if (!DATA.stocks.length) render(); } catch (e2) {}
+  } finally {
+    clearTimeout(killer);
+    try { renderStatus(); } catch (e3) {}
+    clearTimeout(liveState.timer);
+    liveState.timer = setTimeout(poll, !liveState.ok ? 15000 : open ? 10000 : 60000);
   }
-  renderStatus();
-  clearTimeout(liveState.timer);
-  liveState.timer = setTimeout(poll, !liveState.ok ? 15000 : open ? 10000 : 60000);
 }
 document.addEventListener('visibilitychange', () => { if (MODE === 'live' && !document.hidden) { clearTimeout(liveState.timer); poll(); } });
 
