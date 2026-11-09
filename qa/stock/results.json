@@ -129,14 +129,14 @@
   "ok": true,
   "detail": {
    "before_up_dn": [
-    1538,
-    2547
+    1558,
+    2567
    ],
    "after_old_up_dn_new_up_dn": [
-    4,
+    5,
     0,
-    1538,
-    2548
+    1558,
+    2569
    ]
   }
  },
@@ -243,7 +243,7 @@
  "empty_states": {
   "ok": true,
   "detail": {
-   "chart": "이 기간에는 거래 기록이 없어요.다른 기간을 골라 보세요.",
+   "chart": "오늘은 아직 거래가 없어요.9시에 정규장이 열리면 차트가 그려져요.",
    "ob": "지금은 호가가 없어요.거래가 멈췄거나 장이 열리지 않은 시간일 수 있어요.",
    "inv": "투자자별 매매 기록이 없어요.새로 상장했거나 거래가 적은 종목일 수 있어요.",
    "daily": "일별 시세가 없어요.새로 상장한 종목이면 거래가 쌓인 뒤에 보여요."
@@ -1649,5 +1649,77 @@
     "err": []
    }
   }
+ },
+ "nxt_line_texts_and_hidden_without_nxt": {
+  "ok": true,
+  "detail": {
+   "pre": "NXT 프리마켓 200,200 +6.09% · 08:12",
+   "after": "NXT 애프터마켓 200,200 +6.09% · 08:12",
+   "preclosed": "NXT 프리마켓 마감 200,200 +6.09% · 08:12",
+   "afterclosed": "NXT 애프터 종가 200,200 +6.09% · 08:12",
+   "none": "  "
+  }
+ },
+ "nxt_up_colour_from_palette": {
+  "ok": true,
+  "detail": {
+   "c": "rgb(255, 92, 102)",
+   "v": "#ff5c66"
+  }
+ },
+ "nxt_line_refreshes_with_summary": {
+  "ok": true,
+  "detail": "NXT 프리마켓 183,039 −3.00% · 08:12"
+ },
+ "nxt_roll_fancy_only": {
+  "ok": true,
+  "detail": {
+   "standard": false,
+   "fancy": true
+  }
+ },
+ "nxt_no_overflow_all_widths": {
+  "ok": true,
+  "detail": {
+   "360": {
+    "doc": 0,
+    "root": 0,
+    "n": 0,
+    "inside": true,
+    "err": []
+   },
+   "390": {
+    "doc": 0,
+    "root": 0,
+    "n": 0,
+    "inside": true,
+    "err": []
+   },
+   "768": {
+    "doc": 0,
+    "root": 0,
+    "n": 0,
+    "inside": true,
+    "err": []
+   },
+   "1280": {
+    "doc": 0,
+    "root": 0,
+    "n": 0,
+    "inside": true,
+    "err": []
+   },
+   "1440": {
+    "doc": 0,
+    "root": 0,
+    "n": 0,
+    "inside": true,
+    "err": []
+   }
+  }
+ },
+ "nxt_no_console_errors": {
+  "ok": true,
+  "detail": null
  }
 }
