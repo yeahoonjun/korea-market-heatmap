@@ -274,7 +274,13 @@ function nxtOf(i) {
   if (!st || (ts && ts !== 'TRADING')) return null;
   const p = pn(i.overPrice);
   if (p == null) return null;
-  return { p, d: sgn(i.compareToPreviousClosePrice, i.compareToPreviousPrice) ?? 0, r: sgn(i.fluctuationsRatio, i.compareToPreviousPrice) ?? 0, s: st, o: i.overMarketStatus === 'OPEN' ? 1 : 0, t: i.localTradedAt || null, v: pn(i.accumulatedTradingVolumeRaw ?? i.accumulatedTradingVolume), tv: i.accumulatedTradingValueRaw != null && i.accumulatedTradingValueRaw !== '' ? Math.round(num(i.accumulatedTradingValueRaw) / 1e8) : parseEok(i.accumulatedTradingValue) };
+  const x = { p, d: sgn(i.compareToPreviousClosePrice, i.compareToPreviousPrice) ?? 0, r: sgn(i.fluctuationsRatio, i.compareToPreviousPrice) ?? 0, s: st, o: i.overMarketStatus === 'OPEN' ? 1 : 0, t: i.localTradedAt || null, v: pn(i.accumulatedTradingVolumeRaw ?? i.accumulatedTradingVolume), tv: i.accumulatedTradingValueRaw != null && i.accumulatedTradingValueRaw !== '' ? Math.round(num(i.accumulatedTradingValueRaw) / 1e8) : parseEok(i.accumulatedTradingValue) };
+  ohlcInto(x, pn(i.openPrice), pn(i.highPrice), pn(i.lowPrice));   // NXT day candle (§3-13)
+  return x;
+}
+// §3-13: today's open/high/low (원) — only when all three are real trades (0/blank before the first trade → omitted)
+function ohlcInto(row, op, hi, lo) {
+  if (op > 0 && hi > 0 && lo > 0 && lo <= hi) { row.op = op; row.hi = hi; row.lo = lo; }
 }
 
 /* ── /api/quotes ─────────────────────────────── */
@@ -315,6 +321,7 @@ async function quotesCore(env, only) {
       tv: Math.round(num(s.accumulatedTradingValueRaw) / 1e8),  // 원 → 억원
       v: num(s.accumulatedTradingVolumeRaw),
     };
+    ohlcInto(row, num(s.openPriceRaw), num(s.highPriceRaw), num(s.lowPriceRaw));   // KRX day candle (§3-13)
     if (limName === 'UPPER_LIMIT') row.lim = 1;
     else if (limName === 'LOWER_LIMIT') row.lim = -1;
     if (s.overMarketPriceInfo) {
