@@ -42,10 +42,23 @@ def nxvol(q, rnd):
             x['tv'] = round(x['v'] * x['p'] / 1e8)
 
 
+def ohlc(q, phase, rnd):
+    """§3-13 today's open / high / low: KRX rows once KRX has traded that day (regular / reg / evening phases), nx rows always"""
+    krx = phase in ('regular', 'reg', 'after', 'night', 'legacy')
+    for s in q['stocks']:
+        base = s['p'] - s['d']
+        def put(o, p):
+            op = round(base * (1 + rnd.uniform(-2, 2) / 100))
+            o['op'], o['hi'], o['lo'] = op, max(op, p) + round(base * rnd.uniform(0, 1.5) / 100), min(op, p) - round(base * rnd.uniform(0, 1.5) / 100)
+        if krx: put(s, s['p'])
+        if s.get('nx'): put(s['nx'], s['nx']['p'])
+
+
 def build(phase):
     """→ (quotes dict, {(m, part): breadth dict})"""
     q, br = _build(phase)
     if phase != 'legacy': nxvol(q, random.Random(11 + len(phase)))
+    ohlc(q, phase, random.Random(23 + len(phase)))
     return q, br
 
 
