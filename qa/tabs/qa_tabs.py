@@ -29,7 +29,7 @@ GEOM = r"""() => {
   const tabs = document.querySelector('.tabs'), btns = [...tabs.querySelectorAll('button')];
   const ico = document.querySelector('.sb-ico'), ir = ico && ico.offsetParent !== null ? R(ico) : null;
   // ink bottom of the numbers (≈ line box minus the font's descent below the digits)
-  let lineBot = 0; for (const t of tabs.querySelectorAll('.tp')) { if (!t.textContent) continue; const rg = document.createRange(); rg.selectNodeContents(t); lineBot = Math.max(lineBot, rg.getBoundingClientRect().bottom); }
+  let lineBot = 0, lineTop = 1e9; for (const t of tabs.querySelectorAll('.tp, .tn')) { if (!t.textContent) continue; const rg = document.createRange(); rg.selectNodeContents(t); const rr = rg.getBoundingClientRect(); lineBot = Math.max(lineBot, rr.bottom); lineTop = Math.min(lineTop, rr.top); }
   const vis = e => e && e.getClientRects().length && getComputedStyle(e).visibility !== 'hidden';
   const st = document.querySelector('#status'), br = document.querySelector('.brand');
   return {
@@ -38,7 +38,7 @@ GEOM = r"""() => {
     heights: btns.map(b => Math.round(R(b).height)),
     tabsRow: [Math.round(R(tabs).top), Math.round(R(tabs).bottom)],
     statusTop: vis(st) ? Math.round(R(st).top) : null, brandTop: Math.round(R(br).top),
-    icoTop: ir ? +ir.top.toFixed(1) : null, numLineBot: +lineBot.toFixed(1),
+    icoTop: ir ? +ir.top.toFixed(1) : null, icoBot: ir ? +ir.bottom.toFixed(1) : null, numLineBot: +lineBot.toFixed(1), nameLineTop: +lineTop.toFixed(1),
     tabScroll: [tabs.scrollWidth, tabs.clientWidth],
   };
 }"""
@@ -96,9 +96,11 @@ def layout_sweep(b):
                 one = g['statusTop'] is not None and g['statusTop'] < g['tabsRow'][1] and g['brandTop'] < g['tabsRow'][1]
                 check(one, f'{name} {vk} header one row', g)
             if g['icoTop'] is not None and g['numLineBot']:
-                # the line box bottom sits ~2px under the digits' ink (font descent 3px vs digit descent ~1px at 11px)
-                check(g['icoTop'] >= g['numLineBot'] - 2.5, f'{name} {vk} numbers clear of session icon', g)
-            rows.append(dict(build=name, vp=vk, **{k: g[k] for k in ('mapTop', 'heights', 'icoTop', 'numLineBot', 'tabScroll')}))
+                # the session icon is either under the tab row (desktop) or above it (phones: the bar sits between the clock row and
+                # the tabs); line boxes carry ~2px of leading beyond the ink, hence the tolerance
+                clear = g['icoTop'] >= g['numLineBot'] - 2.5 or g['icoBot'] <= g['nameLineTop'] + 2.5
+                check(clear, f'{name} {vk} tab text clear of session icon', g)
+            rows.append(dict(build=name, vp=vk, **{k: g[k] for k in ('mapTop', 'heights', 'icoTop', 'icoBot', 'nameLineTop', 'numLineBot', 'tabScroll')}))
             ctx.close()
     for r in rows:
         print(json.dumps(r, ensure_ascii=False))
