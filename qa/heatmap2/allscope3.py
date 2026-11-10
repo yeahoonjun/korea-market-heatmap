@@ -33,7 +33,7 @@ def fresh(b, vp, store=None, mock=False, url=URL, wait=4000):
         pg.clock.set_fixed_time('2026-11-10T10:47:20+09:00')
         def on_q(r):
             u = r.request.url
-            if '?codes=' in u: r.continue_(); return
+            if '?codes=' in u: reqs.append((time.time(), 'codes')); r.continue_(); return
             reqs.append((time.time(), 'all' if 'scope=all' in u else 'top'))
             r.fulfill(status=200, content_type='application/json', body=json.dumps(ALL if 'scope=all' in u else TOP, ensure_ascii=False))
         pg.route('**/api/quotes*', on_q)
@@ -57,7 +57,7 @@ with sync_playwright() as p:
         ok('live 종목 수: 100 · 200 · 300* · 전체 (500 is snapshot-only)', pg.evaluate(SEG) == ['100', '200', '300*', 'all'], pg.evaluate(SEG))
         n0 = len(reqs)
         pg.click('.seg[data-key="topN"] button[data-v="all"]'); pg.wait_for_timeout(2500)
-        kinds = [k for _, k in reqs[n0:]]
+        kinds = [k for _, k in reqs[n0:] if k != 'codes']
         ok(f"전체 → the next quotes come from scope=all at once; 코스피 map = {mapcount('K')} tiles (every common stock with a cap), stored",
            kinds[:1] == ['all'] and pg.evaluate(TILES) == mapcount('K') and pg.evaluate("localStorage.getItem('khm.topN')") == '"all"', (kinds, pg.evaluate(TILES)))
         pg.click('.tabs button[data-mkt="ALL"]'); pg.wait_for_timeout(1500)
@@ -67,14 +67,32 @@ with sync_playwright() as p:
         # the 15 s refresh
         # measured from the last quotes request: none for 11 s, the next one by 16.5 s
         pg.wait_for_timeout(16500)
-        t0 = reqs[-1][0]; n1 = len(reqs)
-        pg.wait_for_timeout(max(0, int((t0 + 11 - time.time()) * 1000))); a = len(reqs) - n1
-        pg.wait_for_timeout(max(0, int((t0 + 16.5 - time.time()) * 1000))); b2 = len(reqs) - n1
-        gaps = [round(reqs[i][0] - reqs[i - 1][0], 1) for i in range(max(1, len(reqs) - 2), len(reqs))]
-        ok(f'refresh every 15 s in 전체 (none within 11 s, one by 17 s; last gaps {gaps})', a == 0 and b2 == 1 and all(k == 'all' for _, k in reqs[n1:]), (a, b2, gaps))
+        Q = lambda: [x for x in reqs if x[1] != 'codes']
+        t0 = Q()[-1][0]; n1 = len(Q())
+        pg.wait_for_timeout(max(0, int((t0 + 11 - time.time()) * 1000))); a = len(Q()) - n1
+        pg.wait_for_timeout(max(0, int((t0 + 16.5 - time.time()) * 1000))); b2 = len(Q()) - n1
+        q = Q(); gaps = [round(q[i][0] - q[i - 1][0], 1) for i in range(max(1, len(q) - 2), len(q))]
+        ok(f'refresh every 15 s in 전체 (none within 11 s, one by 17 s; last gaps {gaps})', a == 0 and b2 == 1 and all(k == 'all' for _, k in q[n1:]), (a, b2, gaps))
         pg.click('.seg[data-key="topN"] button[data-v="300"]'); pg.wait_for_timeout(1500)
-        ok('back to 300: the next quotes are the top-300 stream again, map 300', reqs[-1][1] == 'top' and pg.evaluate(TILES) == 300, (reqs[-3:], pg.evaluate(TILES)))
+        ok('back to 300: the next quotes are the top-300 stream again, map 300', [k for _, k in reqs if k != 'codes'][-1] == 'top' and pg.evaluate(TILES) == 300, (reqs[-3:], pg.evaluate(TILES)))
         ok('mock: console errors 0', not errs(log), errs(log)[:3])
+        ctx.close()
+        # off-stream 관심 codes (§3-16 tab number) are fetched with ?codes= at 300, never twice under 전체, and again after 전체 → 300
+        top = {s['c'] for s in TOP['stocks']}
+        off = [s['c'] for s in ALL['stocks'] if s['m'] == 'K' and s['c'][-1] == '0' and s['c'] not in top][:3]
+        wg = {'v': 1, 'groups': [{'id': 'g1', 'name': '기본', 'codes': off + ['005930']}], 'active': 'all'}
+        ctx, pg, log, reqs = fresh(b, 'd1440', store={'watchGroups': wg}, mock=True)
+        c300 = sum(1 for _, k in reqs if k == 'codes')
+        pg.click('.seg[data-key="topN"] button[data-v="all"]')
+        pg.wait_for_function("document.querySelectorAll('#map .tile').length > 500", timeout=15000)
+        ta = next(t for t, k in reversed(reqs) if k == 'all')
+        pg.wait_for_timeout(12500)
+        call = [round(t - ta, 1) for t, k in reqs if k == 'codes' and t > ta + 0.3]
+        pg.click('.seg[data-key="topN"] button[data-v="300"]'); tb = time.time(); pg.wait_for_timeout(3000)
+        cback = [round(t - tb, 1) for t, k in reqs if k == 'codes' and t > tb]
+        ok(f"관심 codes outside the stream ({', '.join(off)}): ?codes= at 300 ({c300}×), none in 12 s of 전체 (scope=all holds them), again within 3 s of 300 ({cback})",
+           c300 >= 1 and not call and len(cback) >= 1 and pg.evaluate(TILES) == 300, (c300, call, cback))
+        ok('extras: console errors 0', not errs(log), errs(log)[:3])
         ctx.close()
         # the snapshot: 전체 = every embedded stock
         ctx, pg, log, _ = fresh(b, 'd1440', store={'topN': 'all'}, url=SNAP, wait=2500)
