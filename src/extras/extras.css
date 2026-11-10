@@ -29,7 +29,7 @@
 .xs-track{display:flex;width:max-content;will-change:transform;animation:xs-run var(--xs-dur,30s) linear infinite}
 @keyframes xs-run{to{transform:translateX(var(--xs-shift,-100%))}}
 .xs-tk .xs-item:first-child{padding-left:11px;border-left:1px solid var(--line)}
-.xs-off .xs-track,.xs-hold .xs-track,.xs-vp:focus-within .xs-track{animation-play-state:paused}
+.xs-off .xs-track,.xs-hold .xs-track,.xs-vp:has(.xs-item:focus-visible) .xs-track{animation-play-state:paused}
 @media (hover:hover){.xs-vp:hover .xs-track{animation-play-state:paused}}
 .xs-pp{flex:none;display:grid;place-items:center;width:28px;height:28px;border-radius:50%;border:1px solid var(--line);background:transparent;color:var(--muted);cursor:pointer;padding:0}
 .xs-pp svg{width:12px;height:12px}
@@ -248,3 +248,42 @@ html.sb-mid .sb{height:calc(var(--sbh) + 2px)}
 html.sb-mid .sb-tip{bottom:auto;top:calc(100% + 8px)}
 
 .xc-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+/* §3-22 ticker: tap opens detail, drag scrubs, picker */
+.xs-vp{touch-action:pan-y}
+.xs-item{cursor:pointer;-webkit-tap-highlight-color:transparent}
+.xs-item:focus{outline:none}
+.xs-item:focus-visible{outline:2px solid var(--accent,#8ab4ff);outline-offset:-2px;border-radius:8px}
+.xs-item.xs-none .xs-v,.xs-item.xs-none .xs-k{color:var(--faint,#6b7079)}
+@media (hover:hover){.xs-item:hover{background:rgba(255,255,255,.04)}}
+dialog.xk-info{width:min(360px,calc(100% - 24px))}
+.xk-v{margin:0 0 8px;font-size:18px;font-weight:700;font-variant-numeric:tabular-nums}
+.xk-v.up{color:var(--up-text)} .xk-v.dn{color:var(--dn-text)}
+.xk-link,.xk-open,.xk-reset,.xk-done{display:inline-flex;align-items:center;justify-content:center;min-height:40px;padding:0 16px;border-radius:9px;border:1px solid var(--line2);background:var(--panel2,#202228);color:var(--fg);font-size:13.5px;font-weight:600;text-decoration:none;cursor:pointer}
+.xk-done{background:var(--fg);color:#111;border-color:var(--fg)}
+dialog.xk{width:min(560px,calc(100% - 24px));max-height:min(760px,calc(100% - 24px))}
+.xk-body{display:flex;flex-direction:column;gap:10px}
+.xk-h3{margin:4px 0 6px;font-size:13px;font-weight:700;color:var(--fg2)} .xk-h3 small{color:var(--muted);font-weight:500}
+.xk-h4{margin:10px 0 2px;font-size:12px;color:var(--muted);font-weight:600}
+.xk-sel{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px;max-height:30svh;overflow:auto;border:1px solid var(--line);border-radius:10px}
+.xk-sel li{display:flex;align-items:center;gap:2px;min-height:40px;padding:0 2px 0 12px;border-bottom:1px solid var(--line)}
+.xk-sel li:last-child{border-bottom:0}
+.xk-nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13.5px}
+.xk-sel li button{width:40px;height:40px;border-radius:8px;color:var(--fg2);font-size:16px}
+.xk-sel li button:disabled{opacity:.25}
+.xk-sel li button:hover:not(:disabled){background:rgba(255,255,255,.07)}
+.xk-cats{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}
+.xk-cat{flex:none;min-height:40px;padding:0 14px;border-radius:20px;border:1px solid var(--line2);color:var(--fg2);font-size:13px;white-space:nowrap}
+.xk-cat[aria-selected="true"]{background:var(--fg);color:#111;border-color:var(--fg);font-weight:700}
+.xk-pane{display:flex;flex-direction:column;max-height:34svh;overflow:auto}
+.xk-row{display:flex;align-items:center;gap:8px;min-height:44px;padding:0 12px;border-bottom:1px solid var(--line);text-align:left;color:var(--fg);font-size:13.5px}
+.xk-row small{color:var(--muted)}
+.xk-chk{margin-left:auto;flex:none;font-size:12px;padding:3px 9px;border-radius:12px;border:1px solid var(--line2);color:var(--fg2)}
+.xk-row[aria-pressed="true"] .xk-chk{background:rgba(138,180,255,.16);border-color:rgba(138,180,255,.5);color:var(--fg)}
+.xk-q{height:44px;margin-bottom:6px;padding:0 12px;border-radius:9px;border:1px solid var(--line2);background:var(--panel2,#202228);color:var(--fg);font-size:16px}
+.xk-foot{display:flex;justify-content:space-between;gap:8px;margin-top:12px}
+.xk-setrow{display:flex;align-items:center;justify-content:space-between;gap:10px}
+@media (max-width:600px){
+  dialog.xk{width:100%;max-width:100%;margin:auto 0 0;border-radius:16px 16px 0 0;max-height:90svh;padding-bottom:calc(16px + env(safe-area-inset-bottom))}
+  .xk-pane{max-height:38svh}
+}

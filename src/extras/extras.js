@@ -113,8 +113,13 @@ function krwShort(v) {
   return eok.toLocaleString('ko-KR') + '억' + (rest ? ' ' + rest.toLocaleString('ko-KR') + '만' : '');
 }
 function stripItem(it) {
-  const def = STRIP[it.key] || { label: it.name || it.key, dp: 2 };
+  const def = it.def || STRIP[it.key] || { label: it.name || it.key, dp: 2 };
   const v = +it.value, c = +it.change, r = +it.ratio;
+  if (it.none) {          // a picked item whose data did not arrive: grey "—" (§3-22)
+    const d = `${def.label} 시세를 불러오지 못했어요`;
+    return h('div', { class: 'xs-item xs-none', role: 'button', tabindex: '0', 'data-k': it.key, title: d, 'aria-label': d },
+      h('span', { class: 'xs-txt' }, h('span', { class: 'xs-l1' }, h('span', { class: 'xs-k', text: def.label })), h('span', { class: 'xs-l2' }, h('span', { class: 'xs-v', text: '—' }))));
+  }
   if (it.value == null || !isFinite(v)) return null;
   // two lines: name (+ change or delay) on top, value + % below; indices get a sparkline on the right
   const top = [h('span', { class: 'xs-k', text: def.label })];
@@ -129,7 +134,281 @@ function stripItem(it) {
   const desc = `${name} ${fixed(v, def.dp)}${def.unit ? ' ' + def.unit : ''}` +
     (isFinite(c) ? `, 전일 대비 ${sgn(c)}${fixed(c, def.dp)}` : '') + (isFinite(r) ? ` (${pct(r)})` : '') +
     (it.delayed ? `, ${it.delayed}분 지연 시세` : '');
-  return h('div', { class: 'xs-item', role: 'listitem', 'data-k': it.key, title: desc, 'aria-label': desc }, kids);
+  return h('div', { class: 'xs-item', role: 'button', tabindex: '0', 'aria-haspopup': 'dialog', 'data-k': it.key, title: desc + ' · 누르면 자세히 봐요', 'aria-label': desc }, kids);
+}
+
+/* ── §3-22 ticker: what flows, what a tap opens, how it pauses ── */
+const TKI_KEY = 'khm.tickerItems';
+const TK_WORLD = { SPX_F: 'EScv1', NDX_F: 'NQcv1', WTI: 'CLcv1', GOLD: 'GCcv1', KOSPI: 'KOSPI', KOSDAQ: 'KOSDAQ' };   // strip key → /api/world key
+const TK_SEARCH = { USDKRW: '원달러 환율', BTC: '비트코인 시세' };
+const tkn = id => (String(id).includes(':') ? String(id) : 'm:' + id);
+function tkiGet() {
+  try { const a = JSON.parse(localStorage.getItem(TKI_KEY)); return Array.isArray(a) && a.length && a.every(x => typeof x === 'string') ? a.map(tkn) : null; } catch (e) { return null; }
+}
+function tkiSave(a) {
+  try { if (a && a.length) localStorage.setItem(TKI_KEY, JSON.stringify(a)); else localStorage.removeItem(TKI_KEY); } catch (e) { /* kept for this page only */ }
+  tkiMem = a && a.length ? a.slice() : null;
+  document.dispatchEvent(new CustomEvent('kh:tkitems'));
+}
+let tkiMem = undefined;
+const tkIds = () => (tkiMem !== undefined ? tkiMem : (tkiMem = tkiGet()));
+const tkx = { w: new Map(), q: new Map(), names: new Map(), groups: new Map() };            // world key → item, code → quote row
+const watchCodes = gid => { try { return has('watch') || (KH.watch && KH.watch.list) ? (KH.watch.list(gid === 'all' ? undefined : gid) || []).map(String) : []; } catch (e) { return []; } };
+function tkCodes(ids) {
+  const out = [];
+  for (const id of ids) {
+    if (id.startsWith('s:')) out.push(id.slice(2));
+    else if (id.startsWith('g:')) out.push(...watchCodes(id.slice(2)));
+  }
+  return [...new Set(out)];
+}
+// the data the picked items need beyond /api/market (every poll, 30 s)
+const tkWorldWanted = ids => ids.some(x => x.startsWith('w:'));
+async function tkAux(force) {
+  const ids = Array.isArray(force) ? force : (tkIds() || []);
+  if (force !== true && !tkIds() && !Array.isArray(force)) return;
+  if (!LIVE) return;
+  const jobs = [];
+  if (force === true || tkWorldWanted(ids)) {
+    jobs.push(Promise.all(['index', 'commodity'].map(k => getJSON('api/world?kind=' + k).then(j => {
+      for (const g of (j && j.groups) || []) for (const it of g.items || []) if (it && it.key != null) { tkx.w.set(String(it.key), it); tkx.names.set(String(it.key), it.name); }
+      tkx.groups.set(k, ((j && j.groups) || []).map(g => ({ key: g.key, name: g.name, items: (g.items || []).map(i => ({ key: String(i.key), name: i.name })) })));
+      return true;
+    }).catch(() => false))));
+  }
+  const codes = tkCodes(ids);
+  for (let i = 0; i < codes.length; i += 300) {
+    const part = codes.slice(i, i + 300);
+    jobs.push(getJSON('api/quotes?codes=' + part.join(',')).then(j => { for (const r of (j && j.stocks) || []) { tkx.q.set(String(r.c), r); tkx.names.set('s:' + r.c, r.n); } }).catch(() => { /* "—" */ }));
+  }
+  await Promise.all(jobs);
+}
+function tkStockItem(code) {
+  const r = tkx.q.get(code), nm = (r && r.n) || tkx.names.get('s:' + code) || code;
+  if (!r || r.p == null || !isFinite(+r.p)) return { key: 's:' + code, name: nm, none: true, def: { label: nm, dp: 0 } };
+  return { key: 's:' + code, name: nm, value: +r.p, change: +r.d, ratio: +r.r, def: { label: nm, dp: 0, unit: '원', full: nm } };
+}
+function tkSource() {
+  const ids = tkIds();
+  if (!ids || !strip.items) return strip.items;                                      // the Worker's own set, in its order
+  const byKey = new Map(strip.items.map(i => [i.key, i]));
+  const out = [], seen = new Set();
+  const push = it => { if (!seen.has(it.key)) { seen.add(it.key); out.push(it); } };
+  for (const id of ids) {
+    if (id.startsWith('m:')) { const k = id.slice(2); push(byKey.get(k) || { key: k, name: (STRIP[k] || {}).label || k, none: true, def: { label: (STRIP[k] || {}).label || k, dp: 2 } }); }
+    else if (id.startsWith('w:')) {
+      const k = id.slice(2), it = tkx.w.get(k), nm = (it && it.name) || tkx.names.get(k) || k;
+      push(it && it.value != null ? { key: id, name: nm, value: +it.value, change: +it.change, ratio: +it.ratio, def: { label: nm, dp: 2, full: nm } } : { key: id, name: nm, none: true, def: { label: nm, dp: 2 } });
+    } else if (id.startsWith('s:')) push(tkStockItem(id.slice(2)));
+    else if (id.startsWith('g:')) for (const c of watchCodes(id.slice(2))) push(tkStockItem(c));
+  }
+  return out;
+}
+
+// pause: only while a finger / button is down (+2 s), while a detail window is open, or by the ⏸ button (persistent)
+const tkHold = { down: false, detail: false, timer: 0, moved: false };
+function tkHoldApply() { stripEl.classList.toggle('xs-hold', tkHold.down || tkHold.detail || !!tkHold.timer); }
+function tkRelease() {
+  if (!tkHold.down) return;
+  tkHold.down = false;
+  clearTimeout(tkHold.timer);
+  tkHold.timer = setTimeout(() => { tkHold.timer = 0; tkHoldApply(); }, 2000);
+  tkHoldApply();
+}
+function tkBindPointer(vp) {
+  let x0 = 0, p0 = 0, id = null, anim = null, startX = 0;
+  const curX = () => { try { return new DOMMatrix(getComputedStyle(tk.track).transform).m41; } catch (e) { return 0; } };
+  vp.addEventListener('pointerdown', e => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    tkHold.down = true; tkHold.moved = false; clearTimeout(tkHold.timer); tkHold.timer = 0; tkHoldApply();
+    id = e.pointerId; startX = e.clientX; x0 = curX();
+    anim = tk.track.getAnimations ? tk.track.getAnimations()[0] : null;
+  });
+  vp.addEventListener('pointermove', e => {
+    if (!tkHold.down || e.pointerId !== id) return;
+    const dx = e.clientX - startX;
+    if (!tkHold.moved && Math.abs(dx) < 8) return;
+    tkHold.moved = true;
+    if (!anim || !tk.W) return;
+    // drag = scrub: the loop's time follows the finger (negative x runs forward)
+    const p = ((((-(x0 + dx)) % tk.W) + tk.W) % tk.W) / tk.W;
+    try { anim.currentTime = p * tk.dur * 1000; } catch (err) { /* stays put */ }
+  });
+  for (const ev of ['pointerup', 'pointercancel']) vp.addEventListener(ev, () => { id = null; tkRelease(); });
+  vp.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse') tkRelease(); });
+}
+
+// tap / Enter → the item's detail
+let tkWatch = 0, tkOpener = null;
+function tkDetailOpen() {
+  const k = window.KHStock, w = window.KHWorld;
+  return !!((k && k.isOpen && k.isOpen()) || (w && w.detailOpen && w.detailOpen()) || document.querySelector('dialog.xk-info[open]'));
+}
+function tkDetailHold(on) {
+  tkHold.detail = on; tkHoldApply();
+  clearInterval(tkWatch); tkWatch = 0;
+  if (!on) return;
+  const t0 = Date.now();
+  tkWatch = setInterval(() => {
+    if (Date.now() - t0 < 1200 || tkDetailOpen()) return;           // the sheet / page needs a moment to appear
+    tkDetailHold(false);
+    const op = tkOpener && tkOpener.isConnected ? tkOpener : tkOpener && stripEl.querySelector(`.xs-list:first-child .xs-item[data-k="${CSS.escape(tkOpener.dataset.k)}"]`);
+    tkOpener = null;
+    if (op && op.focus && document.activeElement === document.body) { try { op.focus({ preventScroll: true }); } catch (e) { /* ignore */ } }
+  }, 250);
+}
+function tkInfo(id, name, it, opener) {
+  const k = id.slice(2);
+  const url = id.startsWith('s:') ? `https://m.stock.naver.com/domestic/stock/${encodeURIComponent(k)}` : `https://m.search.naver.com/search.naver?query=${encodeURIComponent(TK_SEARCH[k] || name)}`;
+  const vtxt = it && it.value != null ? `${fixed(+it.value, (it.def && it.def.dp != null ? it.def.dp : 2))}${isFinite(+it.ratio) ? ' (' + pct(+it.ratio) + ')' : ''}` : '';
+  makeDialog('xk-info', name, opener, [
+    h('h2', { class: 'xd-h', text: name }),
+    vtxt ? h('p', { class: 'xk-v ' + dir(+it.ratio), text: vtxt }) : null,
+    h('p', { class: 'xd-p', text: '이 항목은 앱 안에 자세한 화면이 없어요. 네이버 증권에서 볼 수 있어요.' }),
+    h('a', { class: 'xk-link', href: url, target: '_blank', rel: 'noopener', text: '네이버 증권에서 보기' }),
+  ].filter(Boolean));
+}
+async function tkOpen(rawId, el) {
+  const id = tkn(rawId), key = id.slice(2);
+  const src = (tkSource() || []).find(i => tkn(i.key) === id) || null;
+  const name = (src && (src.name || (src.def && src.def.label))) || (STRIP[key] || {}).label || key;
+  tkOpener = el; tkDetailHold(true);
+  try {
+    if (id.startsWith('s:')) {
+      if (window.KHStock && window.KHStock.open) { window.KHStock.open(key, { opener: el }); return; }
+      tkInfo(id, name, src, el); return;
+    }
+    const wk = id.startsWith('w:') ? key : TK_WORLD[key];
+    if (wk && window.KHWorld && typeof window.KHWorld.openDetail === 'function') {
+      let today = null;
+      if (id.startsWith('m:') && (key === 'KOSPI' || key === 'KOSDAQ')) {
+        const it = (strip.items || []).find(x => x.key === key);
+        if (it && Array.isArray(it.spark) && it.spark.length > 1) today = { pts: it.spark.map(p => [+p[0], +p[1]]), base: isFinite(+it.change) ? +it.value - +it.change : null };
+      }
+      const ok = await window.KHWorld.openDetail(wk, { opener: el, today });
+      if (ok) return;
+    }
+    tkInfo(id.startsWith('m:') || id.startsWith('w:') ? id : 'm:' + key, name, src, el);
+  } catch (e) { tkDetailHold(false); }
+}
+function tkBindClicks() {
+  stripEl.addEventListener('click', e => {
+    const it = e.target.closest && e.target.closest('.xs-item');
+    if (!it || !stripEl.contains(it)) return;
+    if (tkHold.moved) { tkHold.moved = false; return; }               // that was a drag, not a tap
+    tkOpen(it.dataset.k, it);
+  });
+  stripEl.addEventListener('keydown', e => {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    const it = e.target.closest && e.target.closest('.xs-item');
+    if (!it || e.target !== it) return;
+    e.preventDefault(); tkOpen(it.dataset.k, it);
+  });
+}
+
+/* ── §3-22 picker: 표시 설정 → 티커 항목 (bottom sheet on phones) ── */
+const TK_FIXED = {
+  dom: [['m:KOSPI', '코스피'], ['m:KOSDAQ', '코스닥']],
+  fx: [['m:USDKRW', '원/달러']],
+  fut: [['m:SPX_F', 'S&P 500 선물'], ['m:NDX_F', '나스닥 100 선물']],
+  cr: [['m:BTC', '비트코인']],
+};
+const TK_CATS = [['dom', '국내 지수'], ['wi', '해외 지수'], ['fx', '환율'], ['fut', '선물'], ['cm', '원자재'], ['cr', '가상자산'], ['st', '개별 종목'], ['wl', '관심종목']];
+const tkDefaultIds = () => (strip.items || []).map(i => 'm:' + i.key);
+function tkLabel(id) {
+  if (id.startsWith('m:')) { const k = id.slice(2), f = Object.values(TK_FIXED).flat().find(x => x[0] === id); return f ? f[1] : (STRIP[k] || {}).label || k; }
+  if (id.startsWith('w:')) return tkx.names.get(id.slice(2)) || id.slice(2);
+  if (id.startsWith('s:')) return tkx.names.get(id) || id.slice(2);
+  if (id.startsWith('g:')) { const g = id.slice(2); if (g === 'all') return '관심종목 전체'; try { const x = (KH.watch.groups() || []).find(y => y.id === g); return x ? `관심종목 · ${x.name}` : '관심종목 그룹'; } catch (e) { return '관심종목'; } }
+  return id;
+}
+function tkPicker(opener) {
+  let list = (tkIds() || tkDefaultIds()).slice();
+  let cat = 'dom', names = null, q = '';
+  const commit = () => { tkiSave(list); tk.sig = ''; renderStrip(); tkAux().then(() => renderStrip()).catch(() => {}); };
+  const has_ = id => list.includes(id);
+  const toggle = id => { const i = list.indexOf(id); if (i >= 0) list.splice(i, 1); else list.push(id); commit(); draw(); };
+  const move = (i, d) => { const j = i + d; if (j < 0 || j >= list.length) return; [list[i], list[j]] = [list[j], list[i]]; commit(); draw(); const b = body.querySelector(`.xk-sel li:nth-child(${j + 1}) button[data-mv="${d}"]`); if (b) b.focus(); };
+  const body = h('div', { class: 'xk-body' });
+  const chips = h('div', { class: 'xk-cats', role: 'tablist', 'aria-label': '분류' });
+  const pane = h('div', { class: 'xk-pane', role: 'tabpanel' });
+  const selBox = h('div', { class: 'xk-selbox' });
+  const pick = (id, label, sub) => h('button', { type: 'button', class: 'xk-row', 'aria-pressed': String(has_(id)), onclick: () => toggle(id) },
+    h('span', { class: 'xk-nm', text: label }), sub ? h('small', { text: sub }) : null, h('span', { class: 'xk-chk', 'aria-hidden': 'true', text: has_(id) ? '추가됨' : '추가' }));
+  function drawSel() {
+    selBox.replaceChildren(
+      h('h3', { class: 'xk-h3' }, '지금 흐르는 항목 ', h('small', { text: `${list.length}개` })),
+      list.length ? h('ol', { class: 'xk-sel' }, list.map((id, i) => h('li', {},
+        h('span', { class: 'xk-nm', text: tkLabel(id) }),
+        h('button', { type: 'button', 'data-mv': '-1', 'aria-label': `${tkLabel(id)} 위로`, disabled: i === 0, onclick: () => move(i, -1) }, '↑'),
+        h('button', { type: 'button', 'data-mv': '1', 'aria-label': `${tkLabel(id)} 아래로`, disabled: i === list.length - 1, onclick: () => move(i, 1) }, '↓'),
+        h('button', { type: 'button', 'aria-label': `${tkLabel(id)} 빼기`, onclick: () => toggle(id) }, '✕')))) : h('p', { class: 'xd-p', text: '비어 있어요. 아래에서 골라 주세요. 모두 빼면 기본 구성으로 돌아가요.' }));
+  }
+  function drawPane() {
+    const rows = [];
+    if (cat === 'wi') {
+      const gs = (tkx.groups.get('index') || []).filter(g => ['us', 'eu', 'asia', 'am', 'ref'].includes(g.key));
+      if (!gs.length) rows.push(h('p', { class: 'xd-p', text: tkx.groups.size ? '목록을 불러오지 못했어요.' : '목록을 불러오는 중이에요…' }));
+      for (const g of gs) { rows.push(h('h4', { class: 'xk-h4', text: g.name })); for (const it of g.items) rows.push(pick('w:' + it.key, it.name)); }
+    } else if (cat === 'fut') {
+      for (const [id, n] of TK_FIXED.fut) rows.push(pick(id, n));
+      const g = (tkx.groups.get('index') || []).find(x => x.key === 'usf');
+      for (const it of (g ? g.items : [])) if (!['EScv1', 'NQcv1'].includes(it.key)) rows.push(pick('w:' + it.key, it.name));
+    } else if (cat === 'cm') {
+      rows.push(pick('m:WTI', 'WTI'), pick('m:GOLD', '국제 금'));
+      for (const g of tkx.groups.get('commodity') || []) { const its = g.items.filter(i => !['CLcv1', 'GCcv1'].includes(i.key)); if (its.length) { rows.push(h('h4', { class: 'xk-h4', text: g.name })); for (const it of its) rows.push(pick('w:' + it.key, it.name)); } }
+      if (!tkx.groups.get('commodity')) rows.push(h('p', { class: 'xd-p', text: '다른 원자재 목록을 불러오는 중이에요…' }));
+    } else if (cat === 'st') {
+      const inp = h('input', { type: 'search', class: 'xk-q', placeholder: '종목명·코드로 찾기', value: q, 'aria-label': '종목 검색', autocomplete: 'off', oninput: e => { q = e.target.value; drawResults(); } });
+      const res = h('div', { class: 'xk-res' });
+      pane.replaceChildren(inp, res);
+      const drawResults = () => {
+        const t = q.trim().toLowerCase();
+        if (!t) { res.replaceChildren(h('p', { class: 'xd-p', text: '이름이나 코드를 입력하면 종목이 나와요.' })); return; }
+        if (!names) { res.replaceChildren(h('p', { class: 'xd-p', text: '종목 목록을 불러오는 중이에요…' })); return; }
+        const hit = [];
+        for (const c in names) { const n = names[c][0]; if (n.toLowerCase().includes(t) || c.includes(t)) { hit.push(c); if (hit.length >= 30) break; } }
+        res.replaceChildren(...(hit.length ? hit.map(c => { tkx.names.set('s:' + c, names[c][0]); return pick('s:' + c, names[c][0], c); }) : [h('p', { class: 'xd-p', text: '찾는 종목이 없어요.' })]));
+      };
+      if (!names) { const done = j => { names = (j && j.n) || {}; if (cat === 'st') drawResults(); }; try { Promise.resolve(KH.loadData('names')).then(done, () => done(null)); } catch (e) { done(null); } }
+      drawResults();
+      return;
+    } else if (cat === 'wl') {
+      let gs = []; try { gs = KH.watch.groups() || []; } catch (e) { /* none */ }
+      rows.push(pick('g:all', '관심종목 전체', '모든 그룹의 종목이 차례로 흘러요'));
+      for (const g of gs) rows.push(pick('g:' + g.id, g.name, `${g.count}종목`));
+      if (!gs.length) rows.push(h('p', { class: 'xd-p', text: '관심종목이 아직 없어요. ★관심 탭에서 종목에 별을 달아 보세요.' }));
+    } else for (const [id, n] of TK_FIXED[cat] || []) rows.push(pick(id, n));
+    pane.replaceChildren(...rows);
+  }
+  function drawChips() {
+    chips.replaceChildren(...TK_CATS.map(([k, l]) => h('button', { type: 'button', role: 'tab', class: 'xk-cat', 'aria-selected': String(cat === k), onclick: () => { cat = k; drawChips(); drawPane(); } , text: l })));
+  }
+  function draw() { drawSel(); drawChips(); drawPane(); }
+  const reset = h('button', { type: 'button', class: 'xk-reset', onclick: () => { list = tkDefaultIds(); tkiSave(null); tk.sig = ''; renderStrip(); draw(); }, text: '기본값으로' });
+  body.append(selBox, chips, pane);
+  const dlg = makeDialog('xk', '티커 항목', opener, [
+    h('h2', { class: 'xd-h', text: '티커 항목' }),
+    h('p', { class: 'xd-p', text: '위쪽 시장 띠에 흐를 항목을 고르고 순서를 바꿔요. 이 기기에만 저장돼요.' }),
+    body,
+    h('div', { class: 'xk-foot' }, reset, h('button', { type: 'button', class: 'xk-done', onclick: () => dlg.close(), text: '완료' })),
+  ]);
+  draw();
+  tkAux(true).then(() => { if (dlg.isConnected) { drawSel(); if (cat === 'wi' || cat === 'fut' || cat === 'cm') drawPane(); } }).catch(() => {});
+}
+function initTickerSetting() {
+  if (!LIVE || !has('addSetting')) return;
+  try {
+    KH.addSetting({ key: 'tickerEdit', label: '티커 항목', default: true });
+    const row = document.querySelector('[data-set="tickerEdit"]');
+    if (!row) return;
+    const sum = h('small', { class: 'hint' });
+    const btn = h('button', { type: 'button', class: 'xk-open', onclick: e => tkPicker(e.currentTarget) }, '고르기');
+    const upd = () => { const a = tkIds(); sum.textContent = a ? `직접 고른 ${a.length}개` : '기본 구성'; };
+    row.replaceChildren(h('div', { class: 'xk-setrow' }, h('span', { text: '티커 항목' }), btn), sum);
+    row.classList.add('xk-set'); upd();
+    document.addEventListener('kh:tkitems', upd);
+  } catch (e) { /* the picker is optional */ }
 }
 
 /* ── ticker: [viewport (mask) > track > N copies of the item list] + fixed tail + pause button ── */
@@ -176,7 +455,8 @@ function syncTail() {
 function tkCopy() {
   const c = tk.list.cloneNode(true);
   c.removeAttribute('role'); c.removeAttribute('aria-label');
-  c.setAttribute('aria-hidden', 'true'); c.setAttribute('inert', ''); c.inert = true;
+  c.setAttribute('aria-hidden', 'true');
+  for (const it of c.children) { it.removeAttribute('tabindex'); it.removeAttribute('role'); }      // taps work on the copies, the keyboard only meets the originals
   return c;
 }
 // measure one loop period W; full=true (build / resize) also sets copies and duration, otherwise only --xs-shift
@@ -212,15 +492,13 @@ function tkButton() {
   return btn;
 }
 function buildTicker(kids) {
-  tk.list = h('div', { class: 'xs-list', role: 'list', 'aria-label': '시장 지표' }, kids);
+  tk.list = h('div', { class: 'xs-list', role: 'group', 'aria-label': '시장 지표' }, kids);
   tk.track = h('div', { class: 'xs-track' }, tk.list);
   tk.vp = h('div', { class: 'xs-vp' }, tk.track);
   tk.tail = stripTail();
   tk.W = 0;
-  const hold = on => () => stripEl.classList.toggle('xs-hold', on);
-  tk.vp.addEventListener('pointerdown', hold(true));
-  for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) tk.vp.addEventListener(ev, hold(false));
-  stripEl.classList.add('xs-tk'); stripEl.classList.remove('xs-hold', 'xs-scroll', 'xs-end');
+  tkBindPointer(tk.vp);
+  stripEl.classList.add('xs-tk'); stripEl.classList.remove('xs-scroll', 'xs-end'); tkHoldApply();
   stripEl.hidden = false;
   stripEl.replaceChildren(...[tk.vp, tk.tail, tkButton()].filter(Boolean));
   tkSize(true);
@@ -282,6 +560,7 @@ function rollChanged(items) {
   for (const it of items || []) {
     const v = +it.value, r = +it.ratio, key = it.key;
     seen.add(key);
+    if (String(key).includes(':')) continue;
     const prev = stripPrev.get(key);
     const cur = { v, r };
     stripPrev.set(key, cur);
@@ -299,7 +578,7 @@ function rollChanged(items) {
 
 function renderStrip() {
   if (!stripEl) return;
-  const items = strip.items;
+  const items = tkSource();
   const kids = [];
   if (items && items.length) {
     for (const it of items) { const el = stripItem(it); if (el) kids.push(el); }
@@ -327,13 +606,13 @@ function renderStrip() {
     tk.sig = '';
     stripEl.classList.remove('xs-tk', 'xs-hold');
     if (tk.ro) { tk.ro.disconnect(); tk.ro = null; }
-    const list = h('div', { class: 'xs-list', role: 'list', 'aria-label': '시장 지표' }, kids);
+    const list = h('div', { class: 'xs-list', role: 'group', 'aria-label': '시장 지표' }, kids);
     const tail = stripTail();
     stripEl.hidden = false;
     stripEl.replaceChildren(list, ...(tail ? [tail] : []));
   }
   // the header's own 코스피/코스닥 readout (#idx) duplicates the strip
-  document.documentElement.classList.toggle('xs-on', items.some(it => it.key === 'KOSPI' || it.key === 'KOSDAQ'));
+  document.documentElement.classList.toggle('xs-on', (strip.items || []).some(it => it.key === 'KOSPI' || it.key === 'KOSDAQ'));
   stripOverflow();
   rollChanged(items);
 }
@@ -372,6 +651,7 @@ async function pollStrip() {
   } catch (e) {
     strip.failed = true;
   }
+  if (!strip.failed) { try { await tkAux(); } catch (e) { /* those items show "—" */ } }
   strip.busy = false;
   strip.at = Date.now();
   renderStrip();
@@ -381,11 +661,13 @@ async function pollStrip() {
 function initStrip() {
   if (!stripEl) return;
   stripEl.classList.add('xs');
+  tkBindClicks();
   if (LIVE) {
     renderStrip();
     pollStrip();
     setInterval(() => { if (!document.hidden) syncTail(); }, 15000);        // the minute passes without a poll changing anything
     document.addEventListener('kh:data', () => syncTail());
+    document.addEventListener('kh:watch', () => { const a = tkIds(); if (a && a.some(x => x.startsWith('g:'))) tkAux().then(() => renderStrip()).catch(() => {}); });
     document.addEventListener('visibilitychange', () => {
       if (document.hidden) { clearTimeout(strip.timer); return; }
       const age = Date.now() - strip.at;
@@ -1657,6 +1939,7 @@ function ckApply() {
 }
 function initClock() {
   if (!clockEl) return;
+  initTickerSetting();
   if (has('addSetting')) {
     try {
       KH.addSetting({ key: 'clock', label: '시계·장 진행률', hint: '서버 시각으로 맞춘 한국 시각(KST)이에요. 시계를 누르면 새로고침해요.', default: true, onChange: () => ckApply() });

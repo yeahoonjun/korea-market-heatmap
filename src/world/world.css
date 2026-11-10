@@ -325,3 +325,12 @@
 .kw-rm .kw-fl,.kw-rm .kw-pchip.kw-fl,.kw-rm .kw-gin *{animation:none!important}
 .kw-rm .kw-tile,.kw-rm .kw-cp.has{transition:none}
 .kw-rm .kw-msg.busy b::after{animation:none;opacity:.8}
+
+/* ticker → 코스피 / 코스닥: today's line in the detail sheet */
+.kw-today{padding:8px 14px 2px}
+.kw-today .kw-ctop{display:flex;align-items:baseline;justify-content:space-between;gap:8px;font-size:12px}
+.kw-today-svg{display:block;width:100%;height:64px;margin-top:4px;overflow:visible}
+.kw-today-svg .kw-tb{stroke:#5b5f69;stroke-width:1;stroke-dasharray:3 3;vector-effect:non-scaling-stroke}
+.kw-today-svg .kw-tl{fill:none;stroke:currentColor;stroke-width:1.6;stroke-linejoin:round;vector-effect:non-scaling-stroke}
+.kw-today-svg .kw-td{fill:currentColor}
+.kw-today-svg.up{color:var(--up-text)} .kw-today-svg.dn{color:var(--dn-text)} .kw-today-svg.flat{color:var(--muted)}
