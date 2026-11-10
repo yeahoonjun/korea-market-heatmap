@@ -497,7 +497,123 @@ function priceText(n) {
   return isFinite(v) && v > 0 ? Math.round(v).toLocaleString('ko-KR') : '';
 }
 
-function drawMap(nodes) {
+
+/* ── the screen's chrome, read from its DOM (nothing in the template changes) ── */
+const rgbOf = el => getComputedStyle(el).color;
+function readChrome(world) {
+  const { title: t0, when } = titleParts();
+  const out = { title: t0, stat: null, ix: null, legend: [], footer: (when ? when + ' · ' : '') + '네이버 증권' };
+  if (!world) {
+    const crumbs = [...document.querySelectorAll('#crumbs .c')].map(b => b.textContent.trim()).filter(Boolean);
+    if (crumbs.length) out.title = crumbs.join(' › ');
+    const st = document.querySelector('#crumbs .stat'), b = st && st.querySelector('b');
+    if (st && b && st.firstChild) out.stat = { n: String(st.firstChild.textContent).trim(), pct: b.textContent.trim(), color: rgbOf(b) };
+    out.ix = readIxLine();
+  }
+  out.legend = readLegend(document.querySelector(world ? '.kw-legend' : '#legend'));
+  return out;
+}
+// the index line the template already drew (§3-20): its path data and the colours it resolved to
+function readIxLine() {
+  const el = document.querySelector('.stagebar .ixl');
+  const svg = el && !el.hidden && el.querySelector('svg');
+  if (!svg || !svg.viewBox || !svg.viewBox.baseVal || svg.viewBox.baseVal.width < 20) return null;
+  const vb = svg.viewBox.baseVal, g = [];
+  for (const grp of svg.querySelectorAll(':scope > g')) {
+    const ln = grp.querySelector('path.ln'), dt = grp.querySelector('circle.dt');
+    if (!ln) continue;
+    g.push({ d: ln.getAttribute('d'), color: getComputedStyle(ln).stroke, k2: grp.classList.contains('k2'), dot: dt ? [+dt.getAttribute('cx'), +dt.getAttribute('cy')] : null });
+  }
+  const bl = svg.querySelector('line.bl');
+  return g.length ? { w: vb.width, h: vb.height, g, y0: bl ? +bl.getAttribute('y1') : null } : null;
+}
+function drawIxLine(ctx, ix, W, TH) {
+  const m = new DOMMatrix([W / ix.w, 0, 0, TH / ix.h, 0, 0]);
+  const y0 = ix.y0 == null ? TH / 2 : ix.y0 * TH / ix.h;
+  ctx.save();
+  ctx.setLineDash([3, 4]); ctx.strokeStyle = 'rgba(255,255,255,.22)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(0, y0); ctx.lineTo(W, y0); ctx.stroke(); ctx.setLineDash([]);
+  ix.g.forEach((g, i) => {
+    const path = new Path2D(); path.addPath(new Path2D(g.d), m);
+    const first = g.d.match(/^M\s*([\d.]+)/), last = g.d.match(/L\s*([\d.]+)\s+[\d.]+\s*$/);
+    ctx.globalAlpha = g.k2 ? .32 : .42; ctx.strokeStyle = g.color; ctx.lineWidth = 1.4; ctx.lineJoin = 'round'; ctx.stroke(path);
+    if (first && last) {                                                  // the area between the line and 전일 종가, fading toward it
+      const area = new Path2D(path); area.lineTo(+last[1] * W / ix.w, y0); area.lineTo(+first[1] * W / ix.w, y0); area.closePath();
+      const ly = g.dot ? g.dot[1] * TH / ix.h : TH / 2, gr = ctx.createLinearGradient(0, ly, 0, y0 + (y0 === ly ? 1 : 0));
+      gr.addColorStop(0, g.color); gr.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.globalAlpha = i ? .12 : .2; ctx.fillStyle = gr; ctx.fill(area);
+    }
+    if (g.dot) { ctx.globalAlpha = .7; ctx.fillStyle = g.color; ctx.beginPath(); ctx.arc(g.dot[0] * W / ix.w, g.dot[1] * TH / ix.h, 2.2, 0, 7); ctx.fill(); }
+  });
+  ctx.restore();
+}
+// the legend row as atoms per group: {t,font,color} text | {grad:[colors]} | {box:color,lim} | pill for the 리플레이 chip
+function readLegend(el) {
+  const groups = [];
+  if (!el) return groups;
+  const walk = (node, atoms) => {
+    for (const c of node.childNodes) {
+      if (c.nodeType === 3) { const t = c.textContent.trim(); if (t) atoms.push({ t, w: 400 }); continue; }
+      if (c.nodeType !== 1 || c.hidden || c.getAttribute('aria-hidden') === 'true' && !/\b(grad|sw|limsw)\b/.test(c.className)) continue;
+      const cl = c.classList;
+      if (cl.contains('grad')) { const m = (c.style.background || c.style.backgroundImage || '').match(/linear-gradient\(\s*[^,]+,(.*)\)\s*$/); atoms.push({ grad: m ? m[1].split(/,(?![^(]*\))/).map(x => x.trim()) : ['#444', '#aaa'] }); }
+      else if (cl.contains('sw') || cl.contains('limsw')) atoms.push({ box: getComputedStyle(c).backgroundColor, lim: cl.contains('u') ? 1 : cl.contains('d') ? -1 : 0, hatch: cl.contains('nxsw') || cl.contains('nodsw') });
+      else if (c.children.length) walk(c, atoms);
+      else { const t = c.textContent.trim(); if (t) atoms.push({ t, w: parseInt(getComputedStyle(c).fontWeight, 10) || 400, color: rgbOf(c) }); }
+    }
+  };
+  for (const g of el.children) {
+    const atoms = []; walk(g, atoms);
+    if (atoms.length) groups.push({ atoms, right: g.classList.contains('right'), pill: g.classList.contains('lg-replay'), color: rgbOf(g) });
+  }
+  return groups;
+}
+function layoutLegend(ctx, fam, groups, W, pad) {
+  if (!groups.length) return { h: 0, draw() {} };
+  const GX = W < 600 ? 14 : 18, GAP = 7, RH = 18, FS = 12;
+  const wide = W >= 600;
+  const measure = a => { if (a.grad) return 140; if (a.box) return a.lim ? 12 : 10; ctx.font = `${a.w} ${FS}px ${fam}`; return ctx.measureText(a.t).width; };
+  const gw = g => g.atoms.reduce((n, a, i) => n + measure(a) + (i ? GAP : 0), 0) + (g.pill ? 14 : 0);
+  const rows = []; let cur = null;
+  for (const g of groups) {
+    const w = gw(g);
+    if (!cur || cur.w + GX + w > W - 2 * pad) { cur = { items: [], w: 0 }; rows.push(cur); }
+    cur.items.push({ g, w }); cur.w += (cur.items.length > 1 ? GX : 0) + w;
+  }
+  const h = 8 + rows.length * RH + (rows.length - 1) * 4 + 4;
+  const draw = (c, y0) => {
+    rows.forEach((r, ri) => {
+      const cy = y0 + 8 + ri * (RH + 4) + RH / 2;
+      let x = pad;
+      r.items.forEach(({ g, w }, ii) => {
+        if (g.right && wide && ii === r.items.length - 1) x = Math.max(x, W - pad - w);
+        let ax = x + (g.pill ? 7 : 0);
+        if (g.pill) { c.strokeStyle = 'rgba(255,181,71,.45)'; c.fillStyle = 'rgba(255,181,71,.12)'; c.lineWidth = 1; c.beginPath(); c.roundRect(x + .5, cy - 9, w - 1, 18, 5); c.fill(); c.stroke(); }
+        g.atoms.forEach((a, i) => {
+          if (i) ax += GAP;
+          if (a.grad) {
+            const gr = c.createLinearGradient(ax, 0, ax + 140, 0);
+            a.grad.forEach((col, k) => gr.addColorStop(k / Math.max(1, a.grad.length - 1), col));
+            c.fillStyle = gr; c.beginPath(); c.roundRect(ax, cy - 4, 140, 8, 2); c.fill(); ax += 140;
+          } else if (a.box) {
+            const bw = a.lim ? 12 : 10;
+            c.fillStyle = a.box; c.beginPath(); c.roundRect(ax, cy - 5, bw, 10, a.lim ? 1 : 2); c.fill();
+            if (a.hatch) { c.strokeStyle = 'rgba(255,255,255,.3)'; c.lineWidth = 1; c.strokeRect(ax + .5, cy - 4.5, bw - 1, 9); }
+            if (a.lim) { c.fillStyle = '#fff'; c.fillRect(ax, a.lim > 0 ? cy - 5 : cy + 2, bw, 3); }
+            ax += bw;
+          } else {
+            c.font = `${a.w} ${FS}px ${fam}`; c.textAlign = 'left'; c.textBaseline = 'middle';
+            c.fillStyle = g.pill ? '#ffb547' : (a.color || g.color || '#9aa0ab'); c.fillText(a.t, ax, cy + .5); ax += c.measureText(a.t).width;
+          }
+        });
+        x += w + GX;
+      });
+    });
+  };
+  return { h, draw };
+}
+
+function drawMap(nodes, wt) {
   const pal = has('palette') ? KH.palette() : {};
   const upC = pal.upText || '#ff5c66', dnC = pal.dnText || '#2fd67a';
   const fam = getComputedStyle(document.body).fontFamily || 'sans-serif';
@@ -507,34 +623,37 @@ function drawMap(nodes) {
   const pad = W < 520 ? 10 : 14;
   const cnv = document.createElement('canvas');
   const ctx = cnv.getContext('2d');
-  // header: title + time on the left, source on the right; wraps to two lines on narrow maps
-  const { title, when } = titleParts();
-  const src = '출처: 네이버 증권';
-  const tSize = W < 520 ? 14 : 16, mSize = W < 520 ? 11.5 : 12.5;
-  ctx.font = `700 ${tSize}px ${fam}`; const tW = ctx.measureText(title).width;
-  ctx.font = `500 ${mSize}px ${fam}`; const wW = ctx.measureText(when).width, sW = ctx.measureText(src).width;
-  const oneLine = pad + tW + 12 + wW + 24 + sW + pad <= W;
-  const TH = oneLine ? Math.round(tSize * 2.6) : Math.round(tSize * 1.9 + mSize * 1.9);
-  const H = TH + MH;
+  // the screen's own header row (title, today's index line behind it, N종목 · ±%), the whole map, the legend row, a small footer
+  const chrome = readChrome(wt);
+  const tSize = W < 520 ? 14 : 16, TH = Math.round(tSize * 2.7);
+  ctx.font = `500 12px ${fam}`;
+  const lg = layoutLegend(ctx, fam, chrome.legend, W, pad);
+  const FH = 24;
+  const H = TH + MH + lg.h + FH;
   let s = Math.min(3, Math.max(2, window.devicePixelRatio || 1));
-  while (W * H * s * s > 16e6 && s > 1) s -= 0.25;                     // stay under the iOS canvas area limit
+  while (W * H * s * s > 16e6 && s > 1) s -= 0.25;                     // stay under the canvas area limit (iOS ≈ 16.7M px)
   cnv.width = Math.round(W * s); cnv.height = Math.round(H * s);
   ctx.scale(s, s);
-  ctx.fillStyle = '#131418'; ctx.fillRect(0, 0, W, TH);
+  ctx.fillStyle = '#131418'; ctx.fillRect(0, 0, W, H);
   ctx.fillStyle = '#000'; ctx.fillRect(0, TH, W, MH);
   ctx.textBaseline = 'middle';
-  if (oneLine) {
+  if (chrome.ix) drawIxLine(ctx, chrome.ix, W, TH);
+  {
     const cy = TH / 2;
+    let right = W - pad;
+    ctx.textAlign = 'right';
+    if (chrome.stat) {
+      ctx.font = `600 ${W < 520 ? 12 : 13}px ${fam}`;
+      const pw = ctx.measureText(chrome.stat.pct).width;
+      ctx.fillStyle = chrome.stat.color; ctx.fillText(chrome.stat.pct, right, cy);
+      ctx.fillStyle = '#8a8f99'; ctx.font = `500 ${W < 520 ? 12 : 13}px ${fam}`; ctx.fillText(chrome.stat.n + ' · ', right - pw, cy);
+      right -= pw + ctx.measureText(chrome.stat.n + ' · ').width + 12;
+    }
     ctx.textAlign = 'left';
-    ctx.font = `700 ${tSize}px ${fam}`; ctx.fillStyle = '#eef0f3'; ctx.fillText(title, pad, cy);
-    ctx.font = `500 ${mSize}px ${fam}`; ctx.fillStyle = '#bcc0c8'; ctx.fillText(when, pad + tW + 12, cy);
-    ctx.textAlign = 'right'; ctx.fillStyle = '#8a8f99'; ctx.fillText(src, W - pad, cy);
-  } else {
-    const y1 = tSize * 1.15, y2 = tSize * 1.9 + mSize * 0.75;
-    ctx.textAlign = 'left';
-    ctx.font = `700 ${tSize}px ${fam}`; ctx.fillStyle = '#eef0f3'; ctx.fillText(ellipsize(ctx, title, W - 2 * pad), pad, y1);
-    ctx.font = `500 ${mSize}px ${fam}`; ctx.fillStyle = '#bcc0c8'; ctx.fillText(ellipsize(ctx, when, W - 2 * pad - sW - 16), pad, y2);
-    ctx.textAlign = 'right'; ctx.fillStyle = '#8a8f99'; ctx.fillText(src, W - pad, y2);
+    ctx.font = `700 ${tSize}px ${fam}`;
+    ctx.save(); ctx.shadowColor = '#131418'; ctx.shadowBlur = 6;
+    ctx.fillStyle = '#eef0f3'; ctx.fillText(ellipsize(ctx, chrome.title, Math.max(40, right - pad)), pad, cy);
+    ctx.restore();
   }
   ctx.translate(0, TH);
   // group headers: the header height is the gap between a group's top and its first child (d3 paddingTop), unless given
@@ -603,6 +722,12 @@ function drawMap(nodes) {
     }
     ctx.restore();
   }
+  ctx.translate(0, MH);
+  lg.draw(ctx, 0);
+  ctx.translate(0, lg.h);
+  ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  ctx.font = `500 10.5px ${fam}`; ctx.fillStyle = '#8a8f99';
+  ctx.fillText(ellipsize(ctx, chrome.footer, W - 2 * pad), pad, FH / 2 - 1);
   return cnv;
 }
 
@@ -621,7 +746,7 @@ async function saveImage(ev) {
     if (document.fonts && document.fonts.load) {
       await Promise.race([Promise.all([document.fonts.load(`700 16px ${fam}`, '가A1'), document.fonts.load(`500 12px ${fam}`, '가A1')]), new Promise(r => setTimeout(r, 1500))]).catch(() => {});
     }
-    const cnv = drawMap(nodes);
+    const cnv = drawMap(nodes, wt);
     const name = fileName(titleParts().m);
     if (LIVE) {
       const blob = await new Promise(res => cnv.toBlob(res, 'image/png'));
