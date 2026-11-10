@@ -1,5 +1,5 @@
 """§3-5 / §3-6 hooks and 화려하게 effects in src/template.html (numbers, not eyeballing). usage: motion3.py [snapshot|live] [section…]
-sections: hooks, view3d (stub KH3D), real3d (src/map3d on SwiftShader), flash (live), intro, tween, quality (default: all)."""
+sections: hooks, view (지도 · 표 — §3-9 removed the 3D view), flash (live), intro, tween, quality (default: all)."""
 import sys, os, json, re
 sys.path.insert(0, '/home/claude/hm-heatmap/qa/heatmap')
 from common import launch, Log, LABEL_CHECK_JS, VIEWPORTS
@@ -8,7 +8,7 @@ VIEWPORTS = dict(VIEWPORTS, d1440=dict(viewport={'width': 1440, 'height': 900}))
 
 build = sys.argv[1] if len(sys.argv) > 1 else 'snapshot'
 LIVE = build == 'live'
-WANT = set(sys.argv[2:]) or {'hooks', 'view3d', 'real3d', 'flash', 'intro', 'tween', 'quality'}
+WANT = set(sys.argv[2:]) or {'hooks', 'view', 'flash', 'intro', 'tween', 'quality'}
 HM_BASE = 'http://127.0.0.1:%s/' % os.environ.get('HM_PORT', '8806')
 URL = HM_BASE if LIVE else 'file:///home/claude/hm-heatmap/dist/index.html'
 ROOT = '/home/claude/hm-heatmap/'
@@ -39,16 +39,10 @@ def errs(log):
     return [c for c in log.console if c.startswith('error') or c.startswith('pageerror')]
 
 
-# a stand-in for src/map3d (another owner builds it): records calls, draws a canvas, can refuse
-KH3D_STUB = """window.__k3 = []; window.KH3D = { on: false,
-  show() { window.__k3.push('show'); this.on = true; const m = document.getElementById('map3d'); const c = document.createElement('canvas'); c.width = m.clientWidth; c.height = m.clientHeight; c.tabIndex = 0; c.setAttribute('aria-label', '3D'); m.replaceChildren(c);
-    window.__k3.push('rect:' + Math.round(m.getBoundingClientRect().width) + 'x' + Math.round(m.getBoundingClientRect().height)); if (window.__k3fail) setTimeout(() => document.dispatchEvent(new CustomEvent('kh:3d-unavailable', { detail: { reason: 'webgl' } })), 50); },
-  hide() { window.__k3.push('hide'); this.on = false; document.getElementById('map3d').replaceChildren(); },
-  isOn() { return this.on; } };"""
 # quotes that move: every poll shifts ~40 % of the prices by one tick so the live flash has something to show. The quotes say the
-# KRX regular session is open (§3-8: outside it the map may draw fixed KRX closes or NXT prices, whatever the hour of the run)
+# KRX regular session is open and carry no NXT fields (§3-8 / §3-10: the map draws KRX live, whatever the hour of the run)
 MOVER = """(() => { const f0 = window.fetch; let n = 0; window.fetch = async function (u, o) { const r = await f0.apply(this, arguments);
-  if (typeof u === 'string' && /api\\/quotes$/.test(u)) { const j = await r.clone().json(); j.marketStatus = { KOSPI: 'OPEN', KOSDAQ: 'OPEN' };
+  if (typeof u === 'string' && /api\\/quotes$/.test(u)) { const j = await r.clone().json(); j.marketStatus = { KOSPI: 'OPEN', KOSDAQ: 'OPEN' }; delete j.nxt; for (const s of j.stocks) delete s.nx;
     if (window.__move) { n++; for (const [i, s] of j.stocks.entries()) if ((i + n) % 5 < 2) { const d = ((i + n) % 2 ? 1 : -1) * Math.max(1, Math.round(s.p * 0.002)); s.p += d; s.d += d; s.r = +(s.r + d / s.p * 100).toFixed(2); } }
     return new Response(JSON.stringify(j), { headers: { 'content-type': 'application/json' } }); } return r; }; })();"""
 
@@ -125,80 +119,24 @@ with sync_playwright() as p:
         ok('…and 기본 can be picked again (stored; transitions back)', pg.evaluate("[KH.motion(), localStorage.getItem('khm.motion'), getComputedStyle(document.querySelector('.tip')).transitionDuration]") [:2] == ['standard', '"standard"'])
         ctx.close()
 
-    # ───── 지도 · 3D · 표 (stub KH3D) ─────
-    if 'view3d' in WANT:
-        ctx, pg, log = fresh(b, 'd1440', store={'market': 'K'}, init=[KH3D_STUB])
-        lay0 = pg.evaluate("KH.layout().filter(n => n.kind === 'tile').map(n => [n.code, n.x, n.y, n.w, n.h].join()).sort().join('|')")
+    # ───── 지도 · 표 (§3-9: no 3D view, no #map3d, kh:render without is3d) ─────
+    if 'view' in WANT:
+        ctx, pg, log = fresh(b, 'd1440', store={'market': 'K'})
         pg.evaluate("window.__kr = []; document.addEventListener('kh:render', e => window.__kr.push(e.detail))")
-        pg.click('.viewseg button[data-v="3d"]'); pg.wait_for_timeout(200)
-        r = pg.evaluate("""() => { const m = document.getElementById('map').getBoundingClientRect(), t = document.getElementById('map3d').getBoundingClientRect();
-          return { k3: window.__k3, view: KH.view(), pressed: [...document.querySelectorAll('.viewseg button')].map(b => b.dataset.v + ':' + b.getAttribute('aria-pressed')).join(' '),
-            mapVis: getComputedStyle(document.getElementById('map')).visibility, same: [m.left, m.top, m.width, m.height].map(Math.round).join() === [t.left, t.top, t.width, t.height].map(Math.round).join(),
-            rect: [t.width, t.height].map(Math.round), hidden3: document.getElementById('map3d').hidden, kr: window.__kr.map(d => d.is3d), tiles: document.querySelectorAll('#map .tile').length }; }""")
-        lay1 = pg.evaluate("KH.layout().filter(n => n.kind === 'tile').map(n => [n.code, n.x, n.y, n.w, n.h].join()).sort().join('|')")
-        ok('3D: KH3D.show() with #map3d visible over exactly the map box; #map laid out but invisible; 3D pressed; KH.view() 3d; kh:render is3d',
-           r['k3'][0] == 'show' and r['view'] == '3d' and 'map:false 3d:true table:false' == r['pressed'] and r['mapVis'] == 'hidden' and r['same'] and not r['hidden3'] and r['rect'][0] > 900 and r['kr'] and r['kr'][-1] is True, r)
-        ok('3D: KH.layout() still returns the drawn map (same tiles and boxes as in 2D)', lay1 == lay0 and len(lay0) > 1000, (len(lay0), len(lay1)))
-        # map work keeps going in 3D: a market switch renders and fires kh:render; layout follows
-        pg.click('.tabs button[data-mkt="Q"]'); pg.wait_for_timeout(700)
-        r = pg.evaluate("({kr: window.__kr.length, lay: KH.layout().filter(n => n.kind === 'tile').length, still: KH.view(), m: KH.market()})")
-        ok('3D stays on across a market switch; kh:render fires and KH.layout() follows the new map', r['still'] == '3d' and r['m'] == 'Q' and r['lay'] > 50 and r['kr'] >= 2, r)
-        pg.keyboard.press('Escape'); pg.wait_for_timeout(100)
+        r = pg.evaluate("""() => ({ btns: [...document.querySelectorAll('.viewseg button')].map(b => b.dataset.v), map3d: !!document.getElementById('map3d'),
+          v3d: document.documentElement.classList.contains('v3d'), view: KH.view() })""")
+        ok('지도 · 표 only: two buttons, no #map3d, KH.view() map', r == {'btns': ['map', 'table'], 'map3d': False, 'v3d': False, 'view': 'map'}, r)
         pg.click('.viewseg button[data-v="table"]'); pg.wait_for_timeout(300)
-        r = pg.evaluate("({k3: window.__k3.slice(-1)[0], view: KH.view(), map3d: document.getElementById('map3d').hidden, table: !document.getElementById('tablewrap').hidden, cls: document.documentElement.classList.contains('v3d')})")
-        ok('3D → 표: KH3D.hide(), #map3d hidden, table shown', r == {'k3': 'hide', 'view': 'table', 'map3d': True, 'table': True, 'cls': False}, r)
-        pg.click('.viewseg button[data-v="3d"]'); pg.wait_for_timeout(300)
-        r = pg.evaluate("({view: KH.view(), mapShown: !document.getElementById('map').hidden, lay: KH.layout().length, rect: window.__k3.filter(x => x.startsWith('rect')).slice(-1)[0]})")
-        ok('표 → 3D: the map is laid out first, then 3D shows over it', r['view'] == '3d' and r['mapShown'] and r['lay'] > 50 and r['rect'] and not r['rect'].endswith('x0'), r)
-        pg.click('.tabs button[data-mkt="WORLD"]'); pg.wait_for_timeout(400)
-        ok('해외 tab leaves 3D (KH3D.hide)', pg.evaluate("[KH.view(), window.__k3.slice(-1)[0], document.getElementById('map3d').hidden]") == ['map', 'hide', True])
-        pg.click('.tabs button[data-mkt="K"]'); pg.wait_for_timeout(500)
-        # WebGL refused → message, back to 지도, focus not lost
-        pg.evaluate("window.__k3fail = true"); pg.click('.viewseg button[data-v="3d"]'); pg.wait_for_timeout(400)
-        r = pg.evaluate("({view: KH.view(), toast: document.getElementById('khToast').textContent, vis: getComputedStyle(document.getElementById('khToast')).opacity, mapVis: getComputedStyle(document.getElementById('map')).visibility, focus: document.activeElement.tagName + ':' + (document.activeElement.dataset.v || '')})")
-        ok('kh:3d-unavailable → toast "…3D 보기를 쓸 수 없어요…", back to 지도, map visible', r['view'] == 'map' and '3D 보기' in r['toast'] and r['mapVis'] == 'visible', r)
-        pg.screenshot(path=SHOTS + f'3d-toast-d1440-{build}.png')
-        ok('view3d: console errors 0', not errs(log), errs(log)[:3])
+        r = pg.evaluate("({view: KH.view(), table: !document.getElementById('tablewrap').hidden, map: document.getElementById('map').hidden, kr: window.__kr.slice(-1)[0], pressed: [...document.querySelectorAll('.viewseg button')].map(b => b.getAttribute('aria-pressed'))})")
+        ok('→ 표: KH.view() table, table shown, map hidden, kh:render {view:"table"} without is3d', r['view'] == 'table' and r['table'] and r['map'] and r['kr'] and r['kr']['view'] == 'table' and 'is3d' not in r['kr'] and r['pressed'] == ['false', 'true'], r)
+        pg.click('.viewseg button[data-v="map"]'); pg.wait_for_timeout(300)
+        ok('→ 지도: KH.view() map, tiles back', pg.evaluate("[KH.view(), document.querySelectorAll('#map .tile').length > 50]") == ['map', True])
+        ok('view: console errors 0', not errs(log), errs(log)[:3])
         ctx.close()
-        # not remembered: a reload starts in 2D; without KH3D (module missing) → message and stay on 지도
         ctx, pg, log = fresh(b, 'm390', store={'market': 'K'})
-        has3d = pg.evaluate("!!window.KH3D")
-        pg.evaluate("delete window.KH3D; window.KH3D = undefined")
-        pg.click('.viewseg button[data-v="3d"]'); pg.wait_for_timeout(250)
-        r = pg.evaluate("({view: KH.view(), toast: document.getElementById('khToast').textContent, pressed: document.querySelector('.viewseg [aria-pressed=\"true\"]').dataset.v, over: document.documentElement.scrollWidth - innerWidth})")
-        ok('m390 no KH3D → toast, 지도 stays pressed, no overflow', r['view'] == 'map' and r['toast'] and r['pressed'] == 'map' and r['over'] == 0, (has3d, r))
-        sz = pg.evaluate("[...document.querySelectorAll('.viewseg button')].map(b => { const r = b.getBoundingClientRect(); return [b.textContent, Math.round(r.width), Math.round(r.height)]; })")
-        ok('m390 지도·3D·표 buttons ≥ 40×40', all(w >= 40 and hh >= 40 for _, w, hh in sz), sz)
-        pg.screenshot(path=SHOTS + f'3d-missing-m390-{build}.png')
+        sz = pg.evaluate("[...document.querySelectorAll('.viewseg button')].map(b => { const r = b.getBoundingClientRect(); return [b.dataset.v, Math.round(r.width), Math.round(r.height)]; })")
+        ok('m390 지도·표 buttons ≥ 40×40', len(sz) == 2 and all(w >= 40 and hh >= 40 for _, w, hh in sz), sz)
         ctx.close()
-
-    # ───── 지도 · 3D · 표 with the real src/map3d (WebGL on SwiftShader) ─────
-    if 'real3d' in WANT:
-        bg = p.chromium.launch(executable_path='/usr/bin/google-chrome', args=['--no-sandbox', '--use-gl=swiftshader', '--enable-webgl', '--ignore-gpu-blocklist'])
-        for vp, motion in [('d1440', 'fancy'), ('m390', 'standard')]:
-            ctx, pg, log = fresh(bg, vp, store={'market': 'K', 'motion': motion}, session={'khm.intro': '1'})
-            pg.click('.viewseg button[data-v="3d"]')
-            try:
-                pg.wait_for_function("() => window.KH3D && KH3D.qa && KH3D.qa.inspect().instances > 0 && !KH3D.qa.inspect().flying && !KH3D.qa.inspect().tweening", timeout=30000)
-            except Exception as e:
-                print('  (3D did not come up)', pg.evaluate("document.getElementById('map3d').innerText"), errs(log)[:2])
-            pg.wait_for_timeout(400)
-            r = pg.evaluate("""() => { const m = document.getElementById('map').getBoundingClientRect(), t = document.getElementById('map3d').getBoundingClientRect(), c = document.querySelector('#map3d canvas');
-              const tiles = KH.layout().filter(n => n.kind === 'tile' && n.w > 0 && n.h > 0).length, q = KH3D.qa.inspect();
-              return { box: [t.left - m.left, t.top - m.top, t.width - m.width, t.height - m.height].map(Math.round), w: Math.round(t.width), h: Math.round(t.height), canvas: c ? [c.clientWidth, c.clientHeight] : null,
-                tiles, inst: q.instances, on: KH3D.isOn(), view: KH.view(), tip: document.getElementById('tip').classList.contains('show'), range: KH.range(), qrange: q.range, over: document.documentElement.scrollWidth - innerWidth }; }""")
-            ok(f'{vp} real 3D: #map3d exactly over #map ({r["w"]}×{r["h"]}), canvas fills it, one box per KH.layout() tile, KH.range() = module range',
-               r['box'] == [0, 0, 0, 0] and r['h'] > 300 and r['canvas'] and r['canvas'][1] > 300 and r['inst'] == r['tiles'] > 50 and r['on'] and r['view'] == '3d' and r['over'] == 0, r)
-            pg.screenshot(path=SHOTS + f'3d-real-{vp}-{build}.png')
-            pg.click('.viewseg button[data-v="map"]'); pg.wait_for_timeout(120)
-            mid = pg.evaluate("({map3d: !document.getElementById('map3d').hidden, mapVis: getComputedStyle(document.getElementById('map')).visibility})")
-            pg.wait_for_timeout(900)
-            end = pg.evaluate("({map3d: !document.getElementById('map3d').hidden, mapVis: getComputedStyle(document.getElementById('map')).visibility, on: KH3D.isOn(), view: KH.view(), tiles: document.querySelectorAll('#map .tile').length})")
-            ok(f'{vp} back to 지도' + (' (화려하게: #map3d stays for the fold, then #map shows)' if motion == 'fancy' else ''),
-               (mid == {'map3d': True, 'mapVis': 'hidden'} if motion == 'fancy' else True) and end == {'map3d': False, 'mapVis': 'visible', 'on': False, 'view': 'map', 'tiles': end['tiles']} and end['tiles'] > 50, (mid, end))
-            ok(f'{vp} real 3D: console errors 0', not errs(log), errs(log)[:3])
-            ctx.close()
-        bg.close()
 
     # ───── tick flash (live: moving quotes) ─────
     if 'flash' in WANT and LIVE:
@@ -312,7 +250,7 @@ with sync_playwright() as p:
             ok(f'{vp} 화려하게: overflow 0, console errors 0, labels inside ({lab["visible"]}), toolbar rows {rows}', over == 0 and not errs(log) and lab['overflow'] == 0 and (rows <= 1 or vp in ('t768',) or vp.startswith('m')), (over, errs(log)[:2], lab['examples'][:1], rows))
             if vp in ('m390', 't768', 'd1440'): pg.screenshot(path=SHOTS + f'fancy-{vp}-{build}.png')
             if vp == 'd1440':
-                # keyboard: Tab reaches the 화면 button, Enter opens it with focus inside; 3D button reachable
+                # keyboard: Tab reaches the 화면 button, Enter opens it with focus inside; 표 button reachable
                 pg.evaluate("document.getElementById('palseg').lastElementChild.focus()")
                 pg.keyboard.press('Tab')
                 a = pg.evaluate("document.activeElement.id")
@@ -322,7 +260,7 @@ with sync_playwright() as p:
                 pg.keyboard.press('Escape')
                 pg.evaluate("document.querySelector('.viewseg button[data-v=\"map\"]').focus()"); pg.keyboard.press('Tab')
                 c = pg.evaluate("document.activeElement.dataset.v")
-                ok('keyboard: 색상 → Tab → 화면 button; Enter opens with focus on 효과 (ring shown); 지도 → Tab → 3D', a == 'moreBtn' and b2 and ring == 'solid' and c == '3d', (a, b2, ring, c))
+                ok('keyboard: 색상 → Tab → 화면 button; Enter opens with focus on 효과 (ring shown); 지도 → Tab → 표', a == 'moreBtn' and b2 and ring == 'solid' and c == 'table', (a, b2, ring, c))
             ctx.close()
 
     print(f'\n{sum(res)}/{len(res)} passed ({build}) [{",".join(sorted(WANT))}]')

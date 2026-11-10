@@ -112,7 +112,7 @@ with sync_playwright() as p:
         st = pg.evaluate("({hidden: document.getElementById('basis').hidden, pressed: document.querySelector('#basis [aria-pressed=\"true\"]')?.dataset.v, badge: document.querySelector('#status .badge .bl')?.textContent})")
         lab = pg.evaluate("document.querySelector('#map .tile[data-c=\"005930\"]').getAttribute('aria-label')")
         c = CLOSE['c']['005930']
-        ok('after the after-market with close.json of that day: KRX · NXT shown, KRX 15:30 종가 by default', not st['hidden'] and st['pressed'] == 'krx' and st['badge'] == 'KRX 15:30 종가', st)
+        ok('after the after-market with close.json of that day: KRX · NXT · 통합 shown, KRX 15:30 종가 by default', not st['hidden'] and st['pressed'] == 'krx' and st['badge'] == 'KRX 15:30 종가', st)
         ok(f"KRX 종가: 삼성전자 tile % = close.json {c[2]}", abs(pnum(lab.split(' ')[-1]) - c[2]) < 0.006, (lab, c))
         # table / tooltip / side / layout px follow
         pg.hover('#map .tile[data-c="005930"]'); pg.wait_for_timeout(250)
@@ -169,25 +169,25 @@ with sync_playwright() as p:
         ok(f'{name} bucket click: "이 구간 N종목 중 지도에 M종목" + map dims', re.search(r'이 구간 [\d,]+종목 중 지도에 [\d,]+종목', d2['note']) and dimmed > 0, (d2['note'], dimmed))
         ctx.close()
     if LIVE:
-        # older Worker after the close, 'NXT 포함' → /api/breadth parts (1-based); partial and total failure
+        # older Worker after the close, 통합 (Naver's integrated quote; §3-10) → /api/breadth parts (1-based); partial and total failure
         q_l, br_l = nxt_fix.built('legacy')
         stream = {x['c']: x for x in q_l['stocks'] if x['m'] == 'K'}
         rowsK = [r for (m, _), bb in sorted(br_l.items()) if m == 'K' for r in bb['rows']]
         vals = [stream[r[0]]['r'] if r[0] in stream else r[1] for r in rowsK]
         ctx, pg, log = fresh(b, 'd1280', store={'market': 'K'}, phase='legacy')
-        pg.click('#basis [data-v="nxt"]'); pg.wait_for_timeout(2500)
+        pg.click('#basis [data-v="int"]'); pg.wait_for_timeout(2500)
         d = dist(pg); up = sum(1 for v in vals if v > 0)
         reqs = sorted(set(u.split('?')[1] for u in log.reqs if 'api/breadth' in u))
         nparts = max(k[1] for k in br_l if k[0] == 'K')
-        ok(f'NXT 포함 (older Worker): 코스피 전 종목 {len(rowsK)} from /api/breadth parts 1..{nparts}', d['scope'] == f'코스피 전 종목 {len(rowsK):,}' and f'상승 {up:,}' in d['lab'] and 'm=K&part=0' not in reqs, (d, reqs, up))
+        ok(f'통합 (older Worker): 코스피 전 종목 {len(rowsK)} from /api/breadth parts 1..{nparts}', d['scope'] == f'코스피 전 종목 {len(rowsK):,}' and f'상승 {up:,}' in d['lab'] and 'm=K&part=0' not in reqs, (d, reqs, up))
         ctx.close()
         ctx, pg, log = fresh(b, 'd1280', store={'market': 'K'}, phase='legacy', routes={'**/api/breadth?m=K&part=2': lambda r: r.abort()})
-        pg.click('#basis [data-v="nxt"]'); pg.wait_for_timeout(2500)
+        pg.click('#basis [data-v="int"]'); pg.wait_for_timeout(2500)
         d = dist(pg)
         ok('one part fails → counts what arrived + "일부만 반영"', '일부만 반영' in d['scope'] and '일부 묶음' in d['note'], d)
         ctx.close()
         ctx, pg, log = fresh(b, 'd1280', store={'market': 'K'}, phase='legacy', routes={'**/api/breadth*': lambda r: r.fulfill(status=502, body='{"error":"x"}')})
-        pg.click('#basis [data-v="nxt"]'); pg.wait_for_timeout(2500)
+        pg.click('#basis [data-v="int"]'); pg.wait_for_timeout(2500)
         d = dist(pg)
         ok('every part fails → map stocks + says so', d['scope'].startswith('코스피 지도 ') and '불러오지 못해 지도 종목' in d['note'], d)
         ctx.close()
