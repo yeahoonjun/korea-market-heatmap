@@ -204,6 +204,56 @@ html[data-motion="fancy"] .tabs .tp.fl{animation:tpfl .9s var(--m-out) 1}
 .crumbs .stat{margin-left:auto;color:var(--muted);font-size:12.5px;white-space:nowrap}
 .crumbs .stat b{font-weight:600}
 .crumbs .hint{color:var(--faint);font-size:12.5px;margin-left:8px}
+/* §3-20 today's index line in the map header row: B (≥1024) a small readable chart in the row (or its own row when the row is
+   short of room), A (phones, 768) a faint line + area behind the row's text — no added height */
+.stagebar{position:relative}
+.ixl{display:flex;align-items:center;gap:10px;min-width:0;font-variant-numeric:tabular-nums;white-space:nowrap}
+.ixl[hidden]{display:none}
+.ixl .ixc{position:relative;flex:1 1 auto;min-width:60px;align-self:stretch}
+.ixl svg{position:absolute;left:0;top:0;width:100%;height:100%;overflow:visible}
+.ixl g.up{color:var(--up-text)} .ixl g.dn{color:var(--dn-text)} .ixl g.flat{color:var(--muted)}
+.ixl .ln{fill:none;stroke:currentColor;stroke-width:1.6;stroke-linejoin:round;stroke-linecap:round}
+.ixl g.k2 .ln{stroke-width:1.2;opacity:.7}
+.ixl .ar{stroke:none}
+.ixl .bl{stroke:#626672;stroke-width:1;stroke-dasharray:3 3}
+.ixl .nw{stroke:#4a4d56;stroke-width:1}
+.ixl .dt{fill:currentColor;stroke:var(--page);stroke-width:1.5}
+.ixl .ixv,.ixl .ixt{display:flex;flex-direction:column;justify-content:center;line-height:1.2;font-size:11px;color:var(--muted)}
+.ixl .ixv b{font-size:12.5px;font-weight:600;color:var(--fg)}
+.ixl .ixv .ixr{display:flex;gap:5px;align-items:baseline}
+.ixl .ixv .ixr b{font-size:11.5px}
+.ixl .ixv i{font-style:normal;color:var(--fg2)}
+.ixl .ixv .k2 i{opacity:.75}
+.ixl .ixt{text-align:right;align-items:flex-end}
+.ixl .ixt b{color:var(--fg2);font-weight:600;font-size:11.5px}
+.ixl .ixtip{position:absolute;bottom:calc(100% + 4px);transform:translateX(-50%);z-index:5;background:rgba(24,25,30,.97);border:1px solid var(--line2);border-radius:6px;padding:4px 8px;font-size:11.5px;color:var(--fg);pointer-events:none;box-shadow:0 6px 18px rgba(0,0,0,.5);line-height:1.35}
+.ixl .ixtip[hidden]{display:none}
+.ixl .ixtip span{display:block}
+.ixl .ixx{position:absolute;top:0;bottom:0;width:1px;background:var(--fg2);opacity:.45;pointer-events:none}
+.ixl .ixx[hidden]{display:none}
+.crumbs .ixl{flex:1 1 360px;max-width:620px;height:30px;margin:0 4px 0 auto}
+.ixl .ixv .sw{width:12px;height:0;border-top:2px solid currentColor;align-self:center;flex:none}
+.ixl .ixv .k2 .sw{border-top-width:1.5px;opacity:.7}
+.ixl .sw.up{color:var(--up-text)} .ixl .sw.dn{color:var(--dn-text)} .ixl .sw.flat{color:var(--muted)}
+.crumbs.ix-t1 .hint{display:none}
+.crumbs.ix-t2 .stat .capx{display:none}
+.ixl.narrow .ixt{display:none}
+.stagebar.ix-row{flex-wrap:wrap;row-gap:4px}
+.stagebar.ix-row > .ixl{order:9;flex:1 0 100%;height:34px}
+.stagebar.ix-bg > .ixl{position:absolute;inset:0 0 2px;z-index:0;pointer-events:none;height:auto}
+.stagebar.ix-bg > .ixl .ixv,.stagebar.ix-bg > .ixl .ixt,.stagebar.ix-bg > .ixl .ixtip,.stagebar.ix-bg > .ixl .ixx{display:none}
+.stagebar.ix-bg > .crumbs,.stagebar.ix-bg > .viewseg{position:relative;z-index:1}
+.stagebar.ix-bg .crumbs{text-shadow:0 0 3px var(--page),0 0 7px var(--page),0 0 12px var(--page)}
+.stagebar.ix-bg .ln{opacity:.42;stroke-width:1.4}
+.stagebar.ix-bg g.k2 .ln{opacity:.32}
+.stagebar.ix-bg .bl{opacity:.6}
+.stagebar.ix-bg .dt{opacity:.7}
+.stagebar.ix-bg .crumbs .hint{display:none}     /* 768: the line would run through the faint hint text (it stays as the root crumb's title) */
+/* 화려하게: the line draws in once */
+.ixl.drawin .ln{stroke-dasharray:1;stroke-dashoffset:1;animation:ixdraw .9s cubic-bezier(.2,.7,.2,1) forwards}
+.ixl.drawin .fx{opacity:0;animation:ixfade .4s .7s forwards}
+@keyframes ixdraw{to{stroke-dashoffset:0}}
+@keyframes ixfade{to{opacity:1}}
 /* §3-11 ★관심 group chips (전체 · 기본 · … · ＋) and the small group popover (menu / name / delete / the ☆ picker) */
 .wgbar{margin:0 0 6px;min-width:0}
 .wgbar[hidden]{display:none}
@@ -949,6 +999,16 @@ if (!COLOR_METRICS[state.colorBy]) state.colorBy = 'r';
 if (!MKT_NAME[state.market]) state.market = 'Q';
 if (state.market !== 'THEME') state.theme = null;
 const isWorld = () => state.market === 'WORLD' || state.market === 'CMDTY';
+/* §3-20 today's index line in the map header row (state here; the drawing follows renderCrumbs) */
+const IX_NAME = { KOSPI: '코스피', KOSDAQ: '코스닥' };
+const ixKeys = () => ({ K: ['KOSPI'], Q: ['KOSDAQ'], ALL: ['KOSPI', 'KOSDAQ'] })[state.market] || [];   // a sector zoom keeps its market's index
+const IXM = { j: null, at: 0, busy: false, timer: null };     // the /api/market answer: index spark = today's 5-min bars [[unix s, value]]
+const RIX = { date: null, m: new Map() };                     // replay: frame minute → its {KOSPI, KOSDAQ} % (frames seen so far)
+const ixSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+const ixEl = h('div', { class: 'ixl', id: 'ixl', role: 'img', hidden: true },
+  h('div', { class: 'ixv' }), h('div', { class: 'ixc' }, ixSvg, h('div', { class: 'ixx', hidden: true }), h('div', { class: 'ixtip', hidden: true })), h('div', { class: 'ixt' }));
+let ixMode = '', ixS = [], ixLast = null, ixDrew = false;     // ixMode: 'bg' (≤1023: behind the row) | 'in' (in the row) | 'row' (own row) | ''
+const ixBgMQ = matchMedia('(max-width: 1023px)');
 const isFlow = () => !isWorld() && (state.sizeBy === 'fgn' || state.sizeBy === 'inst');
 // the colour metric family; 해외 / 원자재 colour today's change (KH.colorOf) so the range control shows the day ranges there
 const kind = () => isWorld() ? 'day' : isFlow() ? 'flow' : COLOR_METRICS[state.colorBy].kind;
@@ -2750,7 +2810,7 @@ function openTheme(id, { writeHash = true, focusAfter = false } = {}) {
   }
 }
 function renderCrumbs() {
-  if (isWorld()) return;
+  if (isWorld()) { ixPlace(null); return; }
   const el = $('#crumbs');
   const f = state.focus;
   const kids = [];
@@ -2772,6 +2832,7 @@ function renderCrumbs() {
       const up = rows.filter(t => (isFlow() ? t.a : t.v) > 0).length, dn = rows.filter(t => (isFlow() ? t.a : t.v) < 0).length;
       kids.push(h('span', { class: 'stat' }, `${rows.length}개 테마  ·  `, h('b', { class: 'up', text: `${isFlow() ? '순매수' : '오름'} ${up}` }), '  ·  ', h('b', { class: 'dn', text: `${isFlow() ? '순매도' : '내림'} ${dn}` })));
     }
+    ixPlace(null);
     el.replaceChildren(...kids);
     return;
   }
@@ -2787,14 +2848,207 @@ function renderCrumbs() {
     if (f.i) kids.push(item(h('button', { class: 'c cur', 'aria-current': 'location', text: f.i })));
   } else if (state.view === 'map' && state.market !== 'WATCH') {
     kids.push(h('span', { class: 'hint', text: '섹터·업종 이름을 누르면 확대돼요' }));
+    kids[kids.length - 2].title = '섹터·업종 이름을 누르면 확대돼요';     // the hint may give way to the index line (§3-20)
   }
   const uni = universe();
   const list = uni.filter(inFocus);
   const cap = list.reduce((a, s) => a + s.cap, 0);
   const more = state.market === 'WATCH' && uni.missing ? `  ·  시세 없는 ${uni.missing}종목` : '';
   kids.push(list.length ? h('span', { class: 'stat' }, `${fmtInt(list.length)}종목`, h('span', { class: 'capx', text: `  ·  시총 ${fmtEok(cap)}` }), '  ·  ', h('b', { class: grpCls(list), text: grpText(list, 2) }), more) : h('span', { class: 'stat', text: `0종목${more}` }));
+  ixPlace(kids);
   el.replaceChildren(...kids);
+  ixFit();
 }
+
+/* ───────────────── §3-20 today's index line in the map header row ─────────────────
+   코스피 / 코스닥 tab: that index, 전체: both; other tabs: none. Live: /api/market's 5-min spark (every 60 s) + the quotes' index as
+   the latest point (every poll); replay: the frames' index % up to the frame shown (+ today's spark for today); snapshot: an embedded
+   /api/market answer (<script id="kh-data-market">) if the build put one in, else no line.
+   B (≥1024): value · % | the line (dashed = 전일 종가, a tick at the latest point) | time / 15:30, hover shows the time and value;
+   in the row's free middle when it gets 360 px or more (the zoom hint and the stat's 시총 give way first), else its own row.
+   A (≤1023): a faint line + area behind the row's text, no added height. x axis 09:00 → the session end (15:30). */
+const NF2 = new Intl.NumberFormat('ko-KR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const ixMin = hm => +String(hm).slice(0, 2) * 60 + +String(hm).slice(2, 4) - 540;          // 'HHMM' → minutes from 09:00
+const ixHM = m => { const t = Math.round(m) + 540; return String(Math.floor(t / 60)).padStart(2, '0') + ':' + String(t % 60).padStart(2, '0'); };
+const unixMin = t => Math.floor((+t + 32400) / 60) % 1440 - 540;                           // unix s → KST minutes from 09:00
+const unixDay = t => new Date((+t + 32400) * 1000).toISOString().slice(0, 10);              // unix s → KST 'YYYY-MM-DD'
+const ixEnd = () => { const e = IXM.j && IXM.j.session && /^\d{4}$/.test(IXM.j.session.end || '') ? ixMin(IXM.j.session.end) : 390; return e >= 120 && e <= 600 ? e : 390; };
+// one index → {key, pts:[[minute, %, value|null]], v, r, m, end, done, day, replay} | null
+function ixSeries(key) {
+  const END = ixEnd();
+  const it = IXM.j && Array.isArray(IXM.j.items) ? IXM.j.items.find(x => x && x.key === key) : null;
+  const sp = it && Array.isArray(it.spark) ? it.spark.filter(p => Array.isArray(p) && isFinite(+p[0]) && +p[1] > 0) : [];
+  const spDay = sp.length ? unixDay(sp[sp.length - 1][0]) : null;
+  const qi = DATA.index && DATA.index[key], qDay = DATA.k ? DATA.k.date : null;
+  const qOk = !!qi && +qi.value > 0 && isFinite(+qi.change) && isFinite(+qi.ratio);
+  let base = null, day = spDay;
+  if (qOk && (!spDay || spDay === qDay)) { base = +qi.value - +qi.change; day = qDay; }       // 전일 종가 = value − change
+  else if (it && +it.value > 0 && isFinite(+it.change)) base = +it.value - +it.change;
+  let pts = [];
+  if (base > 0) for (const p of sp) if (unixDay(p[0]) === spDay) pts.push([Math.max(0, Math.min(END, unixMin(p[0]))), (+p[1] / base - 1) * 100, +p[1]]);
+  if (REPLAY) {
+    const rd = REPLAY.date, ts = String(REPLAY.t || '');
+    if (!/^\d{3,4}$/.test(ts)) return null;
+    const tm = ixMin(ts.padStart(4, '0')), same = !!rd && rd === spDay && base > 0;
+    const out = new Map();
+    if (same) for (const p of pts) if (p[0] <= tm) out.set(p[0], p);
+    if (RIX.date === rd) for (const [m, ix] of RIX.m) {
+      const r = ix && +ix[key];
+      if (m <= tm && ix && ix[key] != null && isFinite(r)) out.set(m, [m, r, same ? base * (1 + r / 100) : null]);
+    }
+    pts = [...out.values()].sort((a, b) => a[0] - b[0]);
+    if (!pts.length) return null;
+    const L = pts[pts.length - 1];
+    return { key, pts, v: L[2], r: L[1], m: L[0], end: END, done: L[0] >= END, day: rd, replay: true };
+  }
+  if (!pts.length) return null;      // no spark (snapshot without an embedded /api/market, the fetch failed): no line from one quote
+  // the quotes' index is the latest point (each poll): today, once the session has begun
+  if (qOk && base > 0 && day === qDay && DATA.k.hm >= '0900') {
+    const m = Math.min(END, ixMin(DATA.k.hm)), L = pts[pts.length - 1];
+    if (!L || m >= L[0]) { if (L && L[0] === m) pts.pop(); pts.push([m, +qi.ratio, +qi.value]); }
+  }
+  if (!pts.length) return null;
+  const L = pts[pts.length - 1];
+  return { key, pts, v: L[2], r: L[1], m: L[0], end: END, done: L[0] >= END || (!!qDay && day !== qDay), day, replay: false };
+}
+// where the line goes (called by renderCrumbs with its children, before they are put in)
+function ixPlace(kids) {
+  const sb = ixEl.ownerDocument.querySelector('.stagebar'), nav = $('#crumbs');
+  if (!sb || !nav) return;
+  nav.classList.remove('ix-t1', 'ix-t2', 'ix-in'); ixEl.classList.remove('narrow', 'narrow2');
+  ixS = kids ? ixKeys().map(ixSeries).filter(Boolean) : [];
+  const mode = !ixS.length ? '' : ixBgMQ.matches ? 'bg' : sb.clientWidth < 800 ? 'row' : 'in';
+  if (mode !== ixMode) { sb.classList.toggle('ix-bg', mode === 'bg'); sb.classList.toggle('ix-row', mode === 'row'); ixMode = mode; }
+  if (mode === 'in') {
+    nav.classList.add('ix-in');
+    const at = kids.findIndex(k => k && k.classList && k.classList.contains('stat'));
+    kids.splice(at < 0 ? kids.length : at, 0, ixEl);
+  } else if (mode === 'bg') { if (sb.firstChild !== ixEl) sb.prepend(ixEl); }
+  else if (mode === 'row') { if (sb.lastChild !== ixEl) sb.append(ixEl); }
+  else { ixEl.remove(); ixEl.hidden = true; }
+}
+// after the row is in: B in the row gives the zoom hint, then the stat's 시총, then its own right / left columns way to keep ≥ 360 px
+// (the hint stays as the root crumb's title)
+function ixFit() {
+  if (!ixMode) return;
+  ixEl.hidden = false;
+  if (ixMode === 'in') {
+    const nav = $('#crumbs'), w = () => ixEl.getBoundingClientRect().width, tight = () => w() < 360 || ixSvg.parentNode.getBoundingClientRect().width < 200;
+    if (tight()) nav.classList.add('ix-t1');          // 전체's two-line legend is wider: the line itself keeps ≥ 200 px
+    if (tight()) nav.classList.add('ix-t2');
+    if (w() < 300) ixEl.classList.add('narrow');
+    if (w() < 210) ixEl.classList.add('narrow2');
+  }
+  ixDraw();
+}
+function ixDraw() {
+  if (!ixMode || !ixS.length) return;
+  const S = ixS, bg = ixMode === 'bg', c = ixSvg.parentNode;
+  const W = Math.round(c.clientWidth), H = Math.round(c.clientHeight);
+  if (W < 20 || H < 8) return;
+  const END = S[0].end, padY = bg ? 6 : 4, padX = bg ? 3 : 4;
+  let lo = 0, hi = 0;
+  for (const s of S) for (const p of s.pts) { if (p[1] < lo) lo = p[1]; if (p[1] > hi) hi = p[1]; }
+  const span = Math.max(hi - lo, 0.4) * 1.06, mid = (hi + lo) / 2;
+  lo = mid - span / 2; hi = mid + span / 2;
+  const X = m => padX + (Math.max(0, Math.min(END, m)) / END) * (W - 2 * padX);
+  const Y = r => padY + (hi - r) / (hi - lo) * (H - 2 * padY);
+  const f1 = v => v.toFixed(1), y0 = f1(Y(0));
+  let out = `<line class="bl" x1="0" x2="${W}" y1="${y0}" y2="${y0}"/>`;
+  if (!bg) out += `<line class="nw" x1="${f1(X(S[0].m))}" x2="${f1(X(S[0].m))}" y1="0" y2="${H}"/>`;
+  S.forEach((s, i) => {
+    const d = s.pts.map((p, j) => (j ? 'L' : 'M') + f1(X(p[0])) + ' ' + f1(Y(p[1]))).join('');
+    const a = s.pts[0], z = s.pts[s.pts.length - 1];
+    // A: the area between the line and the 전일 종가 line, fading toward it
+    const area = bg && s.pts.length > 1 ? `<defs><linearGradient id="ixg${i}" x1="0" x2="0" y1="${s.r < 0 ? 1 : 0}" y2="${s.r < 0 ? 0 : 1}"><stop offset="0" stop-color="currentColor" stop-opacity="${i ? .12 : .2}"/><stop offset="1" stop-color="currentColor" stop-opacity="0"/></linearGradient></defs>`
+      + `<path class="ar" fill="url(#ixg${i})" d="${d}L${f1(X(z[0]))} ${y0}L${f1(X(a[0]))} ${y0}Z"/>` : '';
+    out += `<g class="${cls(s.r)}${i ? ' k2' : ''}"><path class="ln" pathLength="1" d="${d}"/><g class="fx">${area}<circle class="dt" cx="${f1(X(z[0]))}" cy="${f1(Y(z[1]))}" r="${bg ? 2.2 : 3}"/></g></g>`;
+  });
+  ixSvg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  ixSvg.innerHTML = out;
+  ixLast = { S, X, END, W };
+  // labels (B) and the accessible name
+  const L = S[0], now = kst(new Date()), today = now ? now.date : null;     // a line of an earlier day (before the open, weekends) says its date
+  const val = s => s.v != null ? NF2.format(s.v) : '';
+  const v = ixEl.querySelector('.ixv'), t = ixEl.querySelector('.ixt');
+  if (S.length === 1) v.replaceChildren(h('b', { text: val(L) || IX_NAME[L.key] }), h('span', { class: cls(L.r), text: fmtPct(L.r) }));
+  else v.replaceChildren(...S.map((s, i) => h('span', { class: 'ixr' + (i ? ' k2' : '') }, h('em', { class: 'sw ' + cls(s.r), 'aria-hidden': 'true' }), h('i', { text: IX_NAME[s.key] }), h('b', { text: val(s) }), h('span', { class: cls(s.r), text: fmtPct(s.r) }))));
+  const past = !L.replay && L.day && today && L.day !== today;
+  t.replaceChildren(h('b', { text: past ? `${+L.day.slice(5, 7)}/${+L.day.slice(8, 10)}` : ixHM(L.m) }), h('span', { text: L.done ? '종가' : `/ ${ixHM(END)}` }));
+  const what = L.replay ? `${ixHM(L.m)} 다시 보기 흐름` : past ? `${dayName(L.day)} 흐름` : '오늘 흐름';
+  ixEl.setAttribute('aria-label', S.map(s => `${IX_NAME[s.key]} ${what}, ${s.done && !s.replay ? '종가' : '지금'} ${val(s) ? val(s) + ' ' : ''}(${fmtPct(s.r)})`).join(' · '));
+  // 화려하게: the line draws in once
+  if (!ixDrew && S.some(s => s.pts.length > 1)) {
+    ixDrew = true;
+    if (fancy() && !document.hidden) { ixEl.classList.add('drawin'); setTimeout(() => ixEl.classList.remove('drawin'), 1300); }
+  }
+}
+// B: hover → the time and value(s) at that spot
+function ixHover(e) {
+  if (ixMode === 'bg' || !ixLast || e.pointerType === 'touch') return;
+  const c = ixSvg.parentNode, R = c.getBoundingClientRect(), { S, END, W } = ixLast;
+  const m = Math.max(0, Math.min(END, ((e.clientX - R.left - 4) / Math.max(1, W - 8)) * END));
+  const near = s => s.pts.reduce((b, p) => Math.abs(p[0] - m) < Math.abs(b[0] - m) ? p : b, s.pts[0]);
+  const ps = S.map(near), x = ixLast.X(ps[0][0]);
+  if (m > S[0].m + 8) { ixUnhover(); return; }                     // past the latest point: nothing yet
+  const tip = c.querySelector('.ixtip'), line = c.querySelector('.ixx');
+  tip.replaceChildren(h('span', { text: ixHM(ps[0][0]) }), ...S.map((s, i) => h('span', {}, S.length > 1 ? IX_NAME[s.key] + ' ' : '', ps[i][2] != null ? NF2.format(ps[i][2]) + ' ' : '', h('b', { class: cls(ps[i][1]), text: fmtPct(ps[i][1]) }))));
+  tip.hidden = false; line.hidden = false;
+  line.style.left = x.toFixed(1) + 'px';
+  const tw = tip.offsetWidth;
+  tip.style.left = Math.max(tw / 2 - 4, Math.min(W - tw / 2 + 4, x)).toFixed(1) + 'px';
+}
+function ixUnhover() { const c = ixSvg.parentNode; c.querySelector('.ixtip').hidden = true; c.querySelector('.ixx').hidden = true; }
+ixSvg.parentNode.addEventListener('pointermove', ixHover);
+ixSvg.parentNode.addEventListener('pointerleave', ixUnhover);
+ixBgMQ.addEventListener('change', () => renderCrumbs());
+{ // the row's width decides in-row / own row (B); a size change redraws
+  let raf = 0, was = 0;
+  new ResizeObserver(() => { cancelAnimationFrame(raf); raf = requestAnimationFrame(() => {
+    const sb = document.querySelector('.stagebar'); if (!sb) return;
+    const w = sb.clientWidth, flip = (w < 800) !== (was < 800); was = w;
+    if (flip || ixMode === 'in') renderCrumbs(); else ixDraw();
+  }); }).observe(document.querySelector('.stagebar') || document.body);
+}
+// live: /api/market every 60 s while 코스피 · 코스닥 · 전체 is shown (edge-cached 30 s); not in a hidden tab
+async function ixFetch() {
+  clearTimeout(IXM.timer); IXM.timer = null;
+  if (MODE !== 'live' || document.hidden || !ixKeys().length || IXM.busy) return;
+  IXM.busy = true;
+  const ac = new AbortController(), killer = setTimeout(() => ac.abort(), 8000);
+  try {
+    const res = await fetch('api/market', { cache: 'no-store', signal: ac.signal });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const j = await res.json();
+    if (j && Array.isArray(j.items)) { IXM.j = j; IXM.at = Date.now(); }
+  } catch (e) { /* keep the last answer */ }
+  finally {
+    clearTimeout(killer); IXM.busy = false;
+    try { renderCrumbs(); } catch (e2) {}
+    if (!document.hidden && ixKeys().length) IXM.timer = setTimeout(ixFetch, 60000);
+  }
+}
+function ixSync(force) {
+  if (MODE !== 'live') return;
+  if (!ixKeys().length || document.hidden) { clearTimeout(IXM.timer); IXM.timer = null; return; }
+  if (force || (!IXM.timer && !IXM.busy) || Date.now() - IXM.at > 65000) ixFetch();
+}
+// replay: remember each frame's index % (extras sends frame.index) so the line shows the day up to the frame. A frame may also carry
+// the day's series at once, frame.ixs = {KOSPI: [['HHMM', %], …], KOSDAQ: […]}, so a jump to 14:00 draws the morning too
+function ixRec(fr, raw) {
+  if (!fr || !fr.date || !/^\d{3,4}$/.test(fr.t)) return;
+  if (RIX.date !== fr.date) { RIX.date = fr.date; RIX.m = new Map(); }
+  const put = (t, k, r) => { if (!/^\d{3,4}$/.test(String(t)) || !isFinite(+r) || r === null) return; const m = ixMin(String(t).padStart(4, '0')); RIX.m.set(m, Object.assign({}, RIX.m.get(m), { [k]: +r })); };
+  const xs = raw && raw.ixs;
+  if (xs && typeof xs === 'object') for (const k of ['KOSPI', 'KOSDAQ']) if (Array.isArray(xs[k])) for (const e of xs[k]) if (Array.isArray(e)) put(e[0], k, e[1]);
+  if (fr.index) for (const k of ['KOSPI', 'KOSDAQ']) if (fr.index[k] != null) put(fr.t, k, fr.index[k]);
+}
+// snapshot: an /api/market answer embedded by the build, if any
+if (MODE !== 'live') domReady().then(() => {
+  const el = document.getElementById('kh-data-market');
+  if (!el) return;
+  try { const j = JSON.parse(el.textContent); if (j && Array.isArray(j.items)) { IXM.j = j; renderCrumbs(); } } catch (e) { /* no line */ }
+});
 
 /* ───────────────── legend ───────────────── */
 function renderLegend() {
@@ -4233,6 +4487,7 @@ function refresh() {
   const jobs = [liveState.inflight || poll()];
   if (extraWanted().length) jobs.push(pollExtra());
   if (state.market === 'THEME') jobs.push(pollThemes());
+  ixSync(true);
   for (const m of brWanted()) if (BR[m] && !BR[m].busy) BR[m].at = 0;
   syncBreadth();
   const p = Promise.allSettled(jobs).then(() => { refreshP = null; return !!liveState.ok; });
@@ -4310,6 +4565,7 @@ function syncPollers() {
   if (state.market === 'THEME') { if (!themesLive.timer || !THEME_LIVE) pollThemes(); }
   else { clearTimeout(themesLive.timer); themesLive.timer = null; }
   if (extraWanted().length) pollExtra(); else { clearTimeout(extra.timer); extra.timer = null; extra.seq++; extra.busy = false; extra.live = false; }
+  ixSync();                                // §3-20 the index line's /api/market (코스피 · 코스닥 · 전체)
 }
 // hidden tab: every poller stops; visible again: fresh data at once
 document.addEventListener('visibilitychange', () => {
@@ -4323,6 +4579,7 @@ document.addEventListener('visibilitychange', () => {
   if (state.market === 'THEME') pollThemes();
   if (extraWanted().length) pollExtra();
   syncBreadth();
+  ixSync();
 });
 
 /* ───────────────── replay (src/extras drives it) ───────────────── */
@@ -4334,6 +4591,7 @@ function setReplay(frame, opts) {
     const pr = frame.prices instanceof Map ? frame.prices : new Map(Object.entries(frame.prices));
     next = { t: frame.t == null ? '' : String(frame.t), date: frame.date || null, prices: pr,
       index: frame.index && typeof frame.index === 'object' ? frame.index : null };   // §3-16 the frame's index ratios, if given
+    ixRec(next, frame);                                                             // §3-20 the index line up to this frame
   }
   const ms = opts && +opts.tween > 0 ? Math.min(+opts.tween, 5000) : 0;
   const tw = ms && fancy() && state.view === 'map' && !isWorld() && !document.hidden && !introOn && nodes.size ? ms : 0;

@@ -110,8 +110,10 @@ with sync_playwright() as p:
         r = pg.evaluate("""() => { const tip = document.getElementById('tip'), rows = [...tip.querySelectorAll('.peer')];
           return { rows: rows.length, icons: tip.querySelectorAll('.peer .cdi').length, bars: tip.querySelectorAll('.peer .cdb').length, hint: tip.querySelector('.cdhint')?.textContent,
             ohlc: tip.querySelector('.card-head .ohlc')?.textContent, label: tip.querySelector('.peer .cdi')?.getAttribute('aria-label') }; }""")
-        o = expect(QR['000660'], 'int'); op = (o['o'] / o['pc'] - 1) * 100
-        want_head = f"시가 {won(o['o'])} ({'+' if op > 0 else '−' if op < 0 else ''}{abs(op):.1f}%) · 고가 {won(o['h'])} · 저가 {won(o['l'])}"
+        o = expect(QR['000660'], 'int')
+        pc1 = lambda v: (lambda r: f"({'+' if r > 0 else '−' if r < 0 else '+' if v != o['pc'] else ''}{abs(r):.1f}%)")((v / o['pc'] - 1) * 100)
+        # main 7ff8087: 고가 · 저가 carry their ±% like 시가; the parts are spaced boxes (no ' · ' text)
+        want_head = f"시가 {won(o['o'])} {pc1(o['o'])}고가 {won(o['h'])} {pc1(o['h'])}저가 {won(o['l'])} {pc1(o['l'])}"
         ok(f"tooltip: every peer row has a left icon + right candle, a reading hint, and the head line '{want_head}'",
            r['rows'] >= 3 and r['icons'] == r['rows'] == r['bars'] and r['hint'] and r['hint'].startswith('가운데 선 = 전일 종가') and r['ohlc'] == want_head and r['label'].startswith('시가 '), r)
         r = pg.evaluate("""() => { const row = document.querySelector('#tip .card-head .ohlc'), cdb = row.querySelector('.cdb'), body = cdb.querySelector('b'), txt = row.querySelector('.ot');
