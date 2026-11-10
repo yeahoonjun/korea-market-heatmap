@@ -1521,13 +1521,14 @@ function ensureSheet() {
   addEventListener('resize', () => { if (S.detail && S.detail.chart) drawChart(); });
 }
 // peers: the other indices of the same country (world map) — a switcher at the top of the sheet; place: its title
-function openDetail(key, opener, peers, place) {
-  const d = S.data[S.kind];
+function openDetail(key, opener, peers, place, kindArg, today) {
+  const kind = kindArg || S.kind;
+  const d = S.data[kind];
   if (!d || !d.byKey.has(key)) return;
   ensureSheet();
   const same = S.detail && S.detail.key === key;
   peers = peers && peers.length > 1 && peers.includes(key) ? peers : null;
-  S.detail = { key, kind: S.kind, opener: opener || null, tf: same ? S.detail.tf : '3m', chart: null, peers, place: peers ? place || null : null };
+  S.detail = { key, kind, opener: opener || null, tf: same ? S.detail.tf : '3m', chart: null, peers, place: peers ? place || null : null, today: today || null };
   markSel(key);
   fillDetail(true);
   sheet.hidden = false;
@@ -1538,6 +1539,7 @@ function openDetail(key, opener, peers, place) {
   loadChart();
 }
 function markSel(key) {
+  if (!els || !els.tiles) return;          // opened from the ticker before the 해외 tab was ever shown
   for (const [k, el] of els.tiles) el.classList.toggle('sel', k === key);
   for (const [k, el] of els.rows) el.classList.toggle('sel', k === key);
   if (els.g) {
@@ -1601,10 +1603,10 @@ function fillDetail(full) {
       h('dt', { text: '현지 거래 시각' }), h('dd', {}, localTxt, h('small', { text: ` ${city || ''} ${offText(it)}`.trimEnd() })),
       h('dt', { text: '한국 시각' }), h('dd', { text: kstTxt }),
       prev != null ? [h('dt', { text: '전일 종가' }), h('dd', { text: fixed(prev, dpOf(it)) + (u ? ' ' + u[1] : '') })] : null,
-      h('dt', { text: '단위' }), h('dd', { text: u ? u[0] : (it.gkey === 'kr' || S.kind === 'index' ? '포인트' : '—') })),
+      h('dt', { text: '단위' }), h('dd', { text: u ? u[0] : (it.gkey === 'kr' || D.kind === 'index' ? '포인트' : '—') })),
     isRef(it) ? h('p', { class: 'kw-note', text: 'VIX는 S&P 500 옵션 가격으로 계산한 변동성 기대치예요. 오르면 시장 불안이 커졌다는 뜻이라 지도에서 색칠하지 않았어요.' }) : null,
     it.gkey === 'kr' ? h('p', { class: 'kw-note', text: '비교용으로 함께 보여 줘요. 종목 지도는 코스피·코스닥 탭에서 볼 수 있어요.' }) : null,
-    S.kind === 'commodity' ? h('p', { class: 'kw-note', text: '근월물 선물 가격이에요. 거래소 시각 기준으로 하루가 바뀌어요.' }) : null);
+    D.kind === 'commodity' ? h('p', { class: 'kw-note', text: '근월물 선물 가격이에요. 거래소 시각 기준으로 하루가 바뀌어요.' }) : null);
   // a country with several indices: one button each, the shown one pressed
   const peers = D.peers ? h('div', { class: 'kw-peers', role: 'group', 'aria-label': `${D.place || ''} 지수`.trim() },
     D.place ? h('b', { class: 'kw-peers-h', text: D.place }) : null,
@@ -1615,7 +1617,7 @@ function fillDetail(full) {
     put(sheet,   // put(): peers is null for 원자재 — native replaceChildren would print "null"
       h('div', { class: 'kw-grab', 'aria-hidden': 'true' }),
       h('button', { type: 'button', class: 'kw-x', 'aria-label': '닫기', onclick: () => closeDetail(true) }, '×'),
-      peers, head, chartBox,
+      peers, head, todayBox(D.today, it), chartBox,
       h('p', { class: 'kw-dsrc', text: `출처: 네이버 증권 · ${delayText(it)} 시세` }));
     sheet.classList.toggle('has-peers', !!peers);
   } else {
@@ -1625,6 +1627,25 @@ function fillDetail(full) {
     const src = $('.kw-dsrc', sheet); if (src) src.textContent = `출처: 네이버 증권 · ${delayText(it)} 시세`;
     if (S.detail.chart && S.detail.chart.bars) drawChart();   // its last point is the live value
   }
+}
+
+// 코스피 / 코스닥 opened from the ticker: today's intraday line ({pts:[[unix s, value]], base}) above the daily chart
+function todayBox(T, it) {
+  if (!T || !Array.isArray(T.pts) || T.pts.length < 2) return null;
+  const pts = T.pts.filter(p => isFinite(+p[0]) && isFinite(+p[1]));
+  if (pts.length < 2) return null;
+  const W = 300, H = 64, day0 = Math.floor((pts[0][0] + 32400) / 86400) * 86400 - 32400, a = day0 + 9 * 3600, b = day0 + 15.5 * 3600;
+  const base = isFinite(+T.base) ? +T.base : pts[0][1];
+  const vs = pts.map(p => +p[1]).concat([base]), lo = Math.min(...vs), hi = Math.max(...vs);
+  const x = t => 2 + Math.max(0, Math.min(1, (t - a) / (b - a))) * (W - 4);
+  const y = v => hi === lo ? H / 2 : 4 + (1 - (v - lo) / (hi - lo)) * (H - 8);
+  const d = pts.map((p, i) => (i ? 'L' : 'M') + x(p[0]).toFixed(1) + ' ' + y(p[1]).toFixed(1)).join('');
+  const L = pts[pts.length - 1], c = cls(L[1] - base);
+  const g = svg('svg', { class: 'kw-today-svg ' + c, viewBox: `0 0 ${W} ${H}`, preserveAspectRatio: 'none', 'aria-hidden': 'true' },
+    svg('line', { class: 'kw-tb', x1: 0, x2: W, y1: y(base).toFixed(1), y2: y(base).toFixed(1) }),
+    svg('path', { class: 'kw-tl', d }),
+    svg('circle', { class: 'kw-td', cx: x(L[0]).toFixed(1), cy: y(L[1]).toFixed(1), r: 3 }));
+  return h('div', { class: 'kw-today' }, h('div', { class: 'kw-ctop' }, h('b', { text: '오늘 흐름' }), h('span', { class: 'kw-cnote', text: '09:00 → 15:30 · 점선은 전일 종가' })), g);
 }
 
 /* chart: /api/world/chart/{key}?tf=3m|1y (daily closes). A missing route (plain 404) hides charts for the session. */
@@ -1859,7 +1880,24 @@ function layout() {
   }
   return out;
 }
-window.KHWorld = { show, hide, layout, shown: () => S.shown ? S.kind : null, view: () => S.view };
+// the ticker (src/extras) opens an item's sheet from any tab: the data is fetched here when the 해외 tab never loaded it
+async function openDetailKey(key, opts) {
+  opts = opts || {};
+  key = String(key);
+  const find = () => ['index', 'commodity'].find(k => S.data[k] && S.data[k].byKey.has(key));
+  let kind = find();
+  if (!kind && LIVE) {
+    await Promise.all(['index', 'commodity'].map(async k => {
+      if (S.data[k]) return;
+      try { S.data[k] = normalise(await getJSON('api/world?kind=' + k), k); S.at[k] = Date.now(); } catch (e) { /* the other kind may still have it */ }
+    }));
+    kind = find();
+  }
+  if (!kind) return false;
+  openDetail(key, opts.opener || null, null, null, kind, opts.today);
+  return !!S.detail;
+}
+window.KHWorld = { show, hide, layout, shown: () => S.shown ? S.kind : null, view: () => S.view, openDetail: openDetailKey, detailOpen: () => !!S.detail };
 
 // the template may have tried show() before this script existed (page opened at #world / #cmdty): start now
 try {
