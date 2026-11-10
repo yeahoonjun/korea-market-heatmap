@@ -236,7 +236,8 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 .tile .nm.ell{overflow:hidden;text-overflow:ellipsis}
 .tile .pc{font-size:.74em;font-weight:500;margin-top:.12em;font-variant-numeric:tabular-nums;opacity:.96}
 .tile .px{font-size:.52em;font-weight:500;margin-top:.3em;opacity:.78;font-variant-numeric:tabular-nums}
-.tile .pc[hidden],.tile .px[hidden]{display:none}
+.tile .mc{font-size:.44em;font-weight:500;margin-top:.2em;opacity:.66;font-variant-numeric:tabular-nums;white-space:nowrap}
+.tile .pc[hidden],.tile .px[hidden],.tile .mc[hidden]{display:none}
 .tile .lim{position:absolute;z-index:2;left:2px;top:5px;font-size:10px;font-weight:700;line-height:14px;padding:0 3px;border-radius:3px;background:rgba(0,0,0,.62);color:#fff;box-shadow:0 0 0 1px rgba(255,255,255,.45)}
 .tile .lim[hidden]{display:none}
 .tile:hover,.tile.hov{box-shadow:inset 0 0 0 2px rgba(255,255,255,.92);z-index:5}
@@ -305,7 +306,7 @@ table.list{width:100%;border-collapse:collapse;font-size:13.5px}
 .list th button:focus-visible,.list tbody tr:focus-visible{outline-offset:-2px}
 .list th:first-child,.list td:first-child,.list th:nth-child(2),.list td:nth-child(2){text-align:left}
 .list th[aria-sort]{color:var(--fg)}
-.list th[aria-sort="descending"]::after{content:" ▾"} .list th[aria-sort="ascending"]::after{content:" ▴"}
+.list th[aria-sort="descending"] button::after{content:" ▾"} .list th[aria-sort="ascending"] button::after{content:" ▴"}
 .list td{padding:8px 12px;border-bottom:1px solid rgba(255,255,255,.04);text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
 .list tbody tr{cursor:pointer}
 .list tbody tr:hover{background:rgba(255,255,255,.035)}
@@ -315,6 +316,10 @@ table.list{width:100%;border-collapse:collapse;font-size:13.5px}
 .list .nmcell i.nod{background-color:var(--nodata)!important;box-shadow:inset 0 0 0 1px var(--line2)}
 .list .nmcell small{color:var(--faint);font-weight:400;font-size:11.5px}
 .list .indc{color:var(--muted);font-size:12.5px}
+/* (the long 섹터 · 업종 text gives way to 거래량 · 거래대금: one line, cut with an ellipsis; below 1024 px the column goes) */
+.list .indt{display:block;max-width:13em;overflow:hidden;text-overflow:ellipsis}
+@media (max-width:1439px){ .list .indt{max-width:9.5em} }
+@media (max-width:1023px){ .list .k-i,.list.x7 .k-vol{display:none} }
 .list .nd{color:var(--faint)}
 .wbtn{flex:none;display:inline-grid;place-items:center;width:24px;height:24px;margin:-4px -4px -4px -6px;border-radius:6px;font-size:15px;line-height:1;color:var(--faint)}
 .wbtn:hover{color:var(--fg);background:rgba(255,255,255,.06)}
@@ -476,8 +481,6 @@ footer a{color:var(--muted)}
   .secs button,.movers button{min-height:40px}
   .sheet .x{width:40px;height:40px;right:6px;top:6px}
   .wstar{width:40px;height:40px;margin:-10px -4px -10px -4px}
-  .list:not(.th5) th:nth-child(2),.list:not(.th5) td:nth-child(2){display:none}
-  .list.x7 th:nth-child(7),.list.x7 td:nth-child(7){display:none}
   .list.th5 th:nth-child(5),.list.th5 td:nth-child(5){display:none}
   table.list{font-size:12.5px}
   .list th{font-size:12px}
@@ -514,10 +517,10 @@ footer a{color:var(--muted)}
 }
 /* the narrowest phones keep the clock, KRX · NXT · 통합 and the badge on one line: no dot, the badge without its venue word */
 @media (max-width:380px){ .status.has-basis .dot,.status.has-basis .badge .bp{display:none} .status.has-basis{gap:6px} }
-/* phones: the table keeps a readable name column (two lines) and drops 거래대금 (and 시가총액 when a 7th column is shown) */
+/* phones: the table keeps a readable name column (two lines): 종목 · 현재가 · 등락률 · 거래대금 (거래량 · 시가총액 dropped; with a 기간 /
+   순매수 column, that instead of 거래대금) */
 @media (max-width:430px){
-  .list:not(.th5) th:last-child,.list:not(.th5) td:last-child{display:none}
-  .list.x7 th:nth-child(6),.list.x7 td:nth-child(6){display:none}
+  .list .k-vol,.list .k-cap,.list.x7 .k-tv{display:none}
   .list td{padding:9px 5px}
   .list th button{padding:0 5px}
   .list td:first-child{width:auto;max-width:none;min-width:7.2em;white-space:normal}
@@ -544,6 +547,7 @@ html[data-motion="reduced"] .swbtn .swt,html[data-motion="reduced"] .swbtn .swt:
 <body>
 
 <header class="top">
+  <div id="session-bar"></div><!-- §3-12: full-width session progress (src/extras draws it) -->
   <div class="brand"><i aria-hidden="true"><b style="background:#ef3e4a"></b><b style="background:#1f5a41"></b><b style="background:#383c46"></b><b style="background:#12a15b"></b></i><div id="clock"></div><span class="ttl">한국 증시 히트맵</span></div>
   <div class="tabs" role="group" aria-label="시장">
     <button data-mkt="K">코스피</button>
@@ -637,7 +641,7 @@ html[data-motion="reduced"] .swbtn .swt,html[data-motion="reduced"] .swbtn .swt:
 /* ───────────────── window.KH: what the other modules may use ─────────────────
    Contract: AGENTS.md §3 and §3-2. Keep these names and meanings stable.
    §3   MODE 'snapshot'|'live', LIVE_URL, MKT_NAME, stock(code) → live row (main stream, or a row fetched for a theme/관심종목 view) | null,
-        stocks() → main-stream rows, asOf(), colorOf(r) → colour for today's % (today's colour range), palette(), fmt.{pct,int,chg,eok,cls}, h().
+        stocks() → main-stream rows, asOf(), colorOf(r) → colour for today's % (today's colour range), palette(), fmt.{pct,int,chg,eok,vol,cls}, h().
         events on document: 'kh:data' after quotes change, 'kh:palette' after palette or colour-range change.
    §3-2 loadData(name)   name 'themes'|'periods'|'flows' (§3-3 also 'names'|'close') → Promise<JSON|null>. Snapshot: <script id="kh-data-NAME">
                          (waits for the DOM; no block → null); live: GET data/NAME.json (404 → null). Memoised per name; a failed load is
@@ -786,6 +790,8 @@ const fmtPct = (v, d = 2) => sgn(v) + Math.abs(v).toFixed(d) + '%';
 const fmtInt = v => Math.round(v).toLocaleString('ko-KR');
 const fmtChg = v => sgn(v) + Math.abs(Math.round(v)).toLocaleString('ko-KR');
 const fmtEok = v => v < 1 ? '1억 미만' : v >= 10000 ? (v / 10000).toLocaleString('ko-KR', { maximumFractionDigits: 1 }) + '조' : fmtInt(v) + '억';
+// shares: 9,876주 · 79.5만주 · 448만주 · 1.2억주
+const fmtVol = v => { v = +v || 0; const t = (x, d) => x.toLocaleString('ko-KR', { maximumFractionDigits: d }); return v >= 1e8 ? t(v / 1e8, 1) + '억주' : v >= 1e6 ? t(Math.round(v / 1e4), 0) + '만주' : v >= 1e4 ? t(v / 1e4, 1) + '만주' : fmtInt(v) + '주'; };
 // signed amount in 억원: +857억, −1.2조
 const fmtAmt = v => { const a = Math.abs(v); const s = a < 0.5 ? '' : sgn(v); return s + (a >= 10000 ? (a / 10000).toLocaleString('ko-KR', { maximumFractionDigits: 1 }) + '조' : fmtInt(a) + '억'); };
 // a range number without needless decimals: 0.03, 0.3, 3.3, 17
@@ -1408,7 +1414,7 @@ function createNode(n) {
   const k = n.data.kind;
   if (k === 'tile') {
     return h('div', { class: 'node tile', 'data-c': n.data.st.c, tabindex: '-1', role: 'button' },
-      h('div', { class: 'lab' }, h('span', { class: 'nm' }), h('span', { class: 'pc' }), h('span', { class: 'px' })),
+      h('div', { class: 'lab' }, h('span', { class: 'nm' }), h('span', { class: 'pc' }), h('span', { class: 'px' }), h('span', { class: 'mc', hidden: true })),
       h('span', { class: 'lim', hidden: true, 'aria-hidden': 'true' }));
   }
   if (k === 'theme') {
@@ -1456,6 +1462,8 @@ function stockDesc(st) {
   const lim = limOf(st), limTxt = lim > 0 ? ', 상한가' : lim < 0 ? ', 하한가' : '';
   return {
     name: st.n, split: splitName, sub, sub2: isFlow() ? sub : vText(v, 2), px: st.p > 0 ? fmtInt(st.p) : '',
+    // 4th line on big tiles: the market cap as drawn (cap × p_basis / p_krx, or the replay frame's)
+    mc: st.cap > 0 ? fmtEok(st.cap) : '',
     col: colorOf(v), nod: v == null, lim, nonx: !!st.nonx,
     aria: (day ? `${st.n} ${v == null ? '데이터 없음' : fmtPct(v)}` : `${st.n} ${metricLong()} ${v == null ? '데이터 없음' : stText(st)}`) + limTxt + (st.nonx ? ', NXT 거래 없음(KRX 값)' : ''),
   };
@@ -1468,7 +1476,9 @@ function themeDesc(t) {
     aria: `${t.name} 테마 ${t.v == null ? '데이터 없음' : thText(t)}, ${t.codes.length}종목. 누르면 종목 지도가 열려요`,
   };
 }
-// fit a tile label into w × hh: one line, two lines, or an ellipsis; then the value line and (big tiles) the price line
+// fit a tile label into w × hh: one line, two lines, or an ellipsis; then the value line, (big tiles) the price line and (bigger
+// tiles) the market cap line — the cap goes first when room is short, then the price
+const MC_EM = 0.44, MC_H = 0.68;     // the cap line's type (em of the label) and its height with its top margin
 function fitLabel(d, w, hh) {
   const W = w - 6;
   // one line
@@ -1493,9 +1503,16 @@ function fitLabel(d, w, hh) {
   let pcText = d.sub;
   if (fs >= 24 && showPct) { const p2 = d.sub2 || d.sub; if (W >= textUnits(p2) * 0.74 * fs) pcText = p2; }
   const three = !!d.px && showPct && hh >= fs * (nameH + 1.75) && fs >= 15 && w >= 70 && W >= textUnits(d.px) * 0.52 * fs;
-  const labH = fs * (nameH + (showPct ? 0.92 : 0) + (three ? 0.86 : 0));
+  // the cap line: "시총 1,110.2조", or just "1,110.2조" when the word does not fit; never below 9 px type
+  let mcText = '';
+  if (three && d.mc && fs * MC_EM >= 9 && hh >= fs * (nameH + 1.75 + MC_H) + 4) {
+    const full = '시총 ' + d.mc;
+    mcText = W >= textUnits(full) * MC_EM * fs ? full : W >= textUnits(d.mc) * MC_EM * fs ? d.mc : '';
+  }
+  const four = !!mcText;
+  const labH = fs * (nameH + (showPct ? 0.92 : 0) + (three ? 0.86 : 0) + (four ? MC_H : 0));
   const labW = Math.min(W, fs * Math.max(parts ? Math.max(textUnits(parts[0]), textUnits(parts[1])) : textUnits(d.name), showPct ? textUnits(pcText) * 0.74 : 0));
-  return { hidden: false, fs, parts, ell, showPct, pcText, three, labH, labW, nameH };
+  return { hidden: false, fs, parts, ell, showPct, pcText, three, four, mcText, labH, labW, nameH };
 }
 // a corner chip (16 × 16 at the top-left) stays clear of a centred label of this size
 const chipRoom = (L, w, hh) => w >= 34 && hh >= 26 && (L.hidden || (hh - L.labH) / 2 >= 17 || (w - L.labW) / 2 >= 21);
@@ -1506,13 +1523,15 @@ function paintTile(el, d, w, hh) {
   el.__col = d.col; el.__name = d.name; el.__sub = d.sub; el.__px = d.px;
   el.setAttribute('aria-label', d.aria);
   el.classList.toggle('limu', d.lim > 0); el.classList.toggle('limd', d.lim < 0);
-  const lab = el.firstChild, nm = lab.children[0], pc = lab.children[1], px = lab.children[2];
+  const lab = el.firstChild, nm = lab.children[0], pc = lab.children[1], px = lab.children[2], mc = lab.children[3] || null;
   const chip = el.children[1] || null;
   let L = fitLabel(d, w, hh), chipOn = false;
   if (chip && d.lim) {
     // 상/하 is worth more than the price line or slightly smaller type: drop the price line, else refit with 17 px free above and below
-    const La = L.three ? Object.assign({}, L, { three: false, labH: L.fs * (L.nameH + (L.showPct ? 0.92 : 0)) }) : null;
+    const La = L.three ? Object.assign({}, L, { three: false, four: false, labH: L.fs * (L.nameH + (L.showPct ? 0.92 : 0)) }) : null;
+    const Lc = L.four ? Object.assign({}, L, { four: false, labH: L.labH - L.fs * MC_H }) : null;
     if (chipRoom(L, w, hh)) chipOn = true;
+    else if (Lc && chipRoom(Lc, w, hh)) { L = Lc; chipOn = true; }
     else if (La && chipRoom(La, w, hh)) { L = La; chipOn = true; }
     else if (w >= 34 && hh - 34 >= 13) {
       const L2 = fitLabel(d, w, hh - 34);
@@ -1532,6 +1551,8 @@ function paintTile(el, d, w, hh) {
   pc.hidden = !L.showPct;
   px.hidden = !L.three;
   if (L.three) px.textContent = d.px;
+  if (mc) { mc.hidden = !L.four; if (L.four) mc.textContent = L.mcText; }
+  el.__mc = L.four ? L.mcText : null;
 }
 function placeNode(el, n, mdl) {
   const x = n.x0, y = n.y0, w = Math.max(0, n.x1 - n.x0), hh = Math.max(0, n.y1 - n.y0);
@@ -2823,16 +2844,16 @@ function renderTable() {
   if (k === 'period') cols.push(['v', COLOR_METRICS[state.colorBy].label]);
   cols.push(['r', k === 'period' ? '오늘' : '등락률']);
   if (k === 'flow') cols.push(['a', flowShort()]);
-  // 거래대금 of the basis: the venue on a small line above, so the column keeps its width
-  const tvl = tvLabel(), tvv = tvl.slice(0, -4).trim();
-  cols.push(['cap', '시가총액'], ['tv', tvv ? [h('small', { class: 'thv', text: tvv + ' ' }), '거래대금'] : tvl]);
+  // 거래량 · 거래대금 of the basis (통합 = KRX + NXT): the venue on a small line above, so the columns keep their width
+  const tvv = tvLabel().slice(0, -4).trim(), venue = lab => tvv ? [h('small', { class: 'thv', text: tvv + ' ' }), lab] : lab;
+  cols.push(['vol', venue('거래량')], ['tv', venue('거래대금')], ['cap', '시가총액']);
   if (!cols.some(c => c[0] === state.sort.key)) state.sort = { key: 'cap', dir: -1 };
   let list = universe().filter(inFocus).filter(s => matchQuery(s, q) && (state.bucket == null || (!s.nonx && bucketOf(cval(s)) === state.bucket)));
   const { key, dir } = state.sort;
-  const val = key === 'v' ? cval : key === 'a' ? amt : key === 'r' ? (s => s.r) : (s => s[key]);
+  const val = key === 'v' ? cval : key === 'a' ? amt : key === 'r' ? (s => s.r) : key === 'vol' ? (s => s.v) : (s => s[key]);
   sortRows(list, key, dir, val);
   const prevTop = wrap.scrollTop;
-  const thead = h('thead', {}, h('tr', {}, cols.map(([c, label]) => h('th', { 'data-k': c, 'aria-sort': key === c ? (dir < 0 ? 'descending' : 'ascending') : null },
+  const thead = h('thead', {}, h('tr', {}, cols.map(([c, label]) => h('th', { class: 'k-' + c, 'data-k': c, 'aria-sort': key === c ? (dir < 0 ? 'descending' : 'ascending') : null },
     h('button', { type: 'button', onclick: () => {
       state.sort = { key: c, dir: key === c ? -dir : (c === 'n' || c === 'i' ? 1 : -1) };
       renderTable();
@@ -2842,14 +2863,14 @@ function renderTable() {
   const tbody = h('tbody', {}, list.map(s => {
     const v = cval(s);
     const cells = [
-      h('td', {}, h('div', { class: 'nmcell' }, starBtn(s.c, 'wbtn'), h('i', { class: v == null ? 'nod' : s.nonx ? 'nonx' : null, style: `background:${colorOf(v)}` }), h('span', { class: 'nmt', text: s.n }), h('small', { text: s.c }), limTag(s), nxTag(s))),
-      h('td', { class: 'indc', text: `${s.s} · ${s.i}` }),
-      h('td', { 'data-f': '', text: s.p > 0 ? fmtInt(s.p) : '—' }),
+      h('td', { class: 'k-n' }, h('div', { class: 'nmcell' }, starBtn(s.c, 'wbtn'), h('i', { class: v == null ? 'nod' : s.nonx ? 'nonx' : null, style: `background:${colorOf(v)}` }), h('span', { class: 'nmt', text: s.n }), h('small', { text: s.c }), limTag(s), nxTag(s))),
+      h('td', { class: 'k-i indc', title: `${s.s} · ${s.i}` }, h('span', { class: 'indt', text: `${s.s} · ${s.i}` })),
+      h('td', { class: 'k-p', 'data-f': '', text: s.p > 0 ? fmtInt(s.p) : '—' }),
     ];
-    if (k === 'period') cells.push(h('td', { class: v == null ? 'nd' : cls(v), text: v == null ? '데이터 없음' : fmtPct(v) }));
-    cells.push(h('td', { class: cls(s.r), 'data-f': '', text: fmtPct(s.r) }));
-    if (k === 'flow') { const a = amt(s); cells.push(h('td', { class: a == null ? 'nd' : cls(a), text: a == null ? '데이터 없음' : fmtAmt(a) })); }
-    cells.push(h('td', { text: fmtEok(s.cap) }), h('td', { text: fmtEok(s.tv) }));
+    if (k === 'period') cells.push(h('td', { class: 'k-v ' + (v == null ? 'nd' : cls(v)), text: v == null ? '데이터 없음' : fmtPct(v) }));
+    cells.push(h('td', { class: 'k-r ' + cls(s.r), 'data-f': '', text: fmtPct(s.r) }));
+    if (k === 'flow') { const a = amt(s); cells.push(h('td', { class: 'k-a ' + (a == null ? 'nd' : cls(a)), text: a == null ? '데이터 없음' : fmtAmt(a) })); }
+    cells.push(h('td', { class: 'k-vol', text: fmtVol(s.v) }), h('td', { class: 'k-tv', text: fmtEok(s.tv) }), h('td', { class: 'k-cap', text: fmtEok(s.cap) }));
     return h('tr', { class: (s.c === state.selected ? 'sel' : '') + (s.nonx ? ' nonx' : ''), 'data-c': s.c, tabindex: '0',
       'aria-label': `${s.n} ${k === 'day' ? fmtPct(s.r) : metricLong() + ' ' + (v == null ? '데이터 없음' : stText(s))}${s.nonx ? ', NXT 거래 없음(KRX 값)' : ''}`,
       onclick: ev => rowOpen(s, ev.currentTarget),
@@ -2858,7 +2879,7 @@ function renderTable() {
   const hadFocus = wrap.contains(document.activeElement) && document.activeElement.closest('tr[data-c]');
   const fc = hadFocus ? hadFocus.dataset.c : null;
   const fw = hadFocus && document.activeElement.matches('button[data-w]');
-  wrap.replaceChildren(h('table', { class: 'list' + (cols.length > 6 ? ' x7' : '') }, thead, tbody));
+  wrap.replaceChildren(h('table', { class: 'list' + (k !== 'day' ? ' x7' : '') }, thead, tbody));     // x7: a metric column (기간 / 순매수) besides 등락률
   wrap.scrollTop = prevTop;
   if (fc) { const tr = $(`#tablewrap tr[data-c="${fc}"]`); const t2 = tr && fw ? tr.querySelector('button[data-w]') : tr; if (t2) t2.focus({ preventScroll: true }); }
 }
@@ -3698,7 +3719,7 @@ function khLayout() {
     const [x, y, w, hh] = el.__g;
     if (el.classList.contains('tile')) {
       const t = { kind: 'tile', x, y, w, h: hh, color: el.__col || NODATA, label: el.__name || '', sub: el.__sub || '' };
-      if (el.dataset.c) { t.code = el.dataset.c; if (el.__px) t.px = el.__px; }   // px: the price as drawn (정규장 종가 / replay)
+      if (el.dataset.c) { t.code = el.dataset.c; if (el.__px) t.px = el.__px; if (el.__mc) t.mc = el.__mc; }   // px: the price as drawn (basis / replay); mc: the cap line when shown
       if (el.classList.contains('dim')) t.dim = true;                              // dimmed by search / 등락 분포 bucket / sector hover
       if (el.classList.contains('nonx')) t.nonx = true;                            // NXT prices drawn, no NXT trade: the KRX value (§3-8)
       out.push(t);
@@ -3721,7 +3742,7 @@ window.KH = {
   asOf: () => (DATA ? DATA.asOf : null),
   colorOf: r => dayColor(r),
   palette: () => { const p = PALETTES[state.palette]; return { key: state.palette, label: p.label, stops: p.stops.slice(), up: p.stops[6], down: p.stops[0], flat: p.stops[3], upText: p.upText, dnText: p.dnText }; },
-  fmt: { pct: fmtPct, int: fmtInt, chg: fmtChg, eok: fmtEok, cls },
+  fmt: { pct: fmtPct, int: fmtInt, chg: fmtChg, eok: fmtEok, vol: fmtVol, cls },
   h,
   loadData: name => loadData(name),
   watch: watchApi,
@@ -4289,6 +4310,27 @@ html[data-motion="reduced"] .sp-q .bar, html[data-motion="reduced"] .sp-seg butt
   html:not([data-motion]) .sp-q .bar, html:not([data-motion]) .sp-seg button, html:not([data-motion]) .sp-star svg, html:not([data-motion]) .sp-switch i, html:not([data-motion]) .sp-switch i::after { transition: none; }
 }
 
+/* 관심 그룹 picker: popover under the ☆ (desktop), bottom sheet on phones */
+.sp-gp { position: fixed; z-index: 60; max-width: calc(100vw - 16px); max-height: min(70vh, 420px); overflow-y: auto; padding: 10px; border-radius: 12px; background: var(--panel2, var(--panel)); border: 1px solid var(--line2); box-shadow: 0 10px 30px rgba(0, 0, 0, .45); outline: none; text-align: left; }
+.sp-gp-h { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px; font-size: 13px; color: var(--fg2); }
+.sp-gp-x { min-height: 36px; padding: 0 8px; border-radius: 8px; font-size: 12.5px; color: var(--muted); }
+.sp-gp-x:hover { color: var(--fg); background: rgba(255, 255, 255, .06); }
+.sp-gp-row { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 6px; border-radius: 8px; font-size: 14px; color: var(--fg); cursor: pointer; }
+.sp-gp-row:hover { background: rgba(255, 255, 255, .05); }
+.sp-gp-row input { flex: none; width: 18px; height: 18px; accent-color: var(--amber); }
+.sp-gp-row .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sp-gp-row small { flex: none; color: var(--muted); font-size: 12px; }
+.sp-gp-add { width: 100%; min-height: 44px; padding: 0 6px; border-radius: 8px; text-align: left; font-size: 14px; font-weight: 600; color: var(--amber); }
+.sp-gp-add:hover { background: rgba(255, 255, 255, .05); }
+.sp-gp-new { display: flex; gap: 6px; align-items: center; }
+.sp-gp-in { flex: 1; min-width: 0; height: 44px; padding: 0 10px; border-radius: 8px; border: 1px solid var(--line2); background: var(--page); color: var(--fg); font-size: 16px; }
+.sp-gp-ok { flex: none; height: 44px; padding: 0 12px; border-radius: 8px; background: var(--amber); color: #111; font-size: 14px; font-weight: 700; }
+.sp-gp-bd { position: fixed; inset: 0; z-index: 59; background: rgba(0, 0, 0, .5); }
+.sp-gp.sp-gp-sheet { left: 0; right: 0; bottom: 0; top: auto; width: auto; max-width: none; max-height: 75vh; padding: 12px 14px calc(14px + env(safe-area-inset-bottom)); border-radius: 16px 16px 0 0; }
+.sp-gp.sp-gp-sheet { animation: spGpUp .24s cubic-bezier(.2, .7, .2, 1); }
+@keyframes spGpUp { from { transform: translateY(24px); opacity: 0; } }
+html[data-motion="reduced"] .sp-gp.sp-gp-sheet { animation: none; }
+
 </style>
 <script>
 /* 종목 페이지: 히트맵 위에 뜨는 전체 화면 페이지. 계약은 AGENTS.md §3 (window.KHStock).
@@ -4663,11 +4705,86 @@ function renderStar() {
   if (R.star.hidden) return;
   const on = !!W.has(S.code);
   R.star.setAttribute('aria-pressed', String(on));
-  R.star.title = on ? '관심종목에서 빼기' : '관심종목에 넣기';
+  R.star.title = usePicker() ? '관심 그룹 고르기' : on ? '관심종목에서 빼기' : '관심종목에 넣기';
+  R.star.setAttribute('aria-haspopup', usePicker() ? 'dialog' : 'false');
 }
+// 관심 그룹 (AGENTS.md §3-11): with KH.watch.groups() and more than the single 기본 group, ☆ opens a picker; otherwise it toggles instantly
+const groupsApi = () => { const W = watchApi(); return W && ['groups', 'groupsOf', 'setGroups', 'createGroup'].every(k => typeof W[k] === 'function') ? W : null; };
+const usePicker = () => { const W = groupsApi(); if (!W) return false; try { return W.groups().length > 1; } catch (e) { return false; } };
+let gp = null;   // {el, list, add, backdrop}
+function gpClose(refocus) {
+  if (!gp) return;
+  gp.el.remove(); if (gp.backdrop) gp.backdrop.remove();
+  gp = null;
+  if (refocus) R.star.focus({ preventScroll: true });
+}
+function gpFill() {
+  const W = groupsApi();
+  if (!gp || !W || !S.code) return;
+  const mine = new Set(W.groupsOf(S.code) || []);
+  const had = gp.list.contains(document.activeElement) ? document.activeElement.dataset.id : null;
+  gp.list.replaceChildren(...W.groups().map(g => {
+    const cb = h('input', { type: 'checkbox', 'data-id': g.id, onchange: () => gpApply() });
+    cb.checked = mine.has(g.id);
+    return h('label', { class: 'sp-gp-row' }, cb, h('span', { class: 'nm', text: g.name }), h('small', { class: 'num', text: String(g.count) }));
+  }));
+  if (had) { const el = gp.list.querySelector(`input[data-id="${CSS.escape(had)}"]`); if (el) el.focus({ preventScroll: true }); }
+}
+function gpApply() {
+  const W = groupsApi();
+  if (!gp || !W) return;
+  W.setGroups(S.code, [...gp.list.querySelectorAll('input:checked')].map(i => i.dataset.id));
+  renderStar(); gpFill();
+}
+function gpNew() {
+  const W = groupsApi();
+  if (!gp || !W) return;
+  const inp = h('input', { class: 'sp-gp-in', type: 'text', maxlength: '12', placeholder: '새 그룹 이름', 'aria-label': '새 그룹 이름', enterkeyhint: 'done' });
+  const ok = () => {
+    const name = inp.value.trim();
+    if (!name) { inp.focus(); return; }
+    const id = W.createGroup(name);
+    if (id) W.setGroups(S.code, [...(W.groupsOf(S.code) || []), id].filter((x, i, a) => a.indexOf(x) === i));
+    renderStar(); gp.add.replaceChildren(gpAddBtn()); gpFill();
+    const nb = gp.add.querySelector('button'); if (nb) nb.focus({ preventScroll: true });
+  };
+  inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); ok(); } });
+  gp.add.replaceChildren(h('div', { class: 'sp-gp-new' }, inp, h('button', { type: 'button', class: 'sp-gp-ok', onclick: ok, text: '만들기' })));
+  inp.focus();
+}
+const gpAddBtn = () => h('button', { type: 'button', class: 'sp-gp-add', onclick: gpNew, text: '＋ 새 그룹' });
+function gpOpen() {
+  if (gp) { gpClose(true); return; }
+  const phone = matchMedia('(max-width: 699px)').matches;
+  const list = h('div', { class: 'sp-gp-list' }), add = h('div', { class: 'sp-gp-addw' }, gpAddBtn());
+  const el = h('div', { class: 'sp-gp' + (phone ? ' sp-gp-sheet' : ''), role: 'dialog', 'aria-label': '관심종목 그룹 고르기', tabindex: '-1' },
+    h('div', { class: 'sp-gp-h' }, h('b', { text: '관심종목 그룹' }), h('button', { type: 'button', class: 'sp-gp-x', 'aria-label': '닫기', onclick: () => gpClose(true), text: '닫기' })), list, add);
+  const backdrop = phone ? h('div', { class: 'sp-gp-bd', onclick: () => gpClose(true) }) : null;
+  gp = { el, list, add, backdrop };
+  if (backdrop) root.append(backdrop);
+  root.append(el);
+  if (!phone) {
+    const r = R.star.getBoundingClientRect(), w = Math.min(280, innerWidth - 16);
+    el.style.width = w + 'px';
+    el.style.left = Math.max(8, Math.min(innerWidth - w - 8, r.right - w)) + 'px';
+    el.style.top = Math.min(innerHeight - 120, r.bottom + 6) + 'px';
+  }
+  gpFill();
+  (list.querySelector('input') || el).focus({ preventScroll: true });
+  el.addEventListener('keydown', e => {
+    if (e.key !== 'Tab') return;
+    const f = [...el.querySelectorAll('input, button')].filter(x => !x.disabled && x.offsetParent !== null);
+    if (!f.length) return;
+    const first = f[0], last = f[f.length - 1];
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  });
+}
+document.addEventListener('pointerdown', e => { if (gp && !gp.backdrop && !gp.el.contains(e.target) && !R.star.contains(e.target)) gpClose(false); }, true);
 function toggleWatch() {
   const W = watchApi();
   if (!W || !S.code) return;
+  if (usePicker()) { gpOpen(); return; }
   W.toggle(S.code);
   renderStar();
 }
@@ -6016,6 +6133,7 @@ function stopTimers() {
 function stopAll() { stopTimers(); abortAll(); }
 
 function show(code, opener) {
+  gpClose(false);
   build();
   const switching = S.open;
   S.gen++;
@@ -6047,6 +6165,7 @@ function show(code, opener) {
 
 function hide() {
   if (!S.open) return;
+  gpClose(false);
   S.open = false;
   S.gen++;
   stopAll();
@@ -6107,7 +6226,7 @@ addEventListener('popstate', onHash);
 // capture phase: the page owns Esc and '/' while it is open (the heatmap would otherwise zoom out / focus its search)
 addEventListener('keydown', e => {
   if (!S.open) return;
-  if (e.key === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); close(); }
+  if (e.key === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); if (gp) gpClose(true); else close(); }
   else if (e.key === '/') e.stopImmediatePropagation();
 }, true);
 document.addEventListener('visibilitychange', () => {
@@ -6118,7 +6237,7 @@ document.addEventListener('visibilitychange', () => {
 document.addEventListener('kh:palette', () => { if (root) { applyColors(); if (S.open) renderPeers(); } });
 document.addEventListener('kh:data', () => { if (S.open) { renderPeers(); renderHead(); } });   // 업종 path / provisional price arrive with the quotes
 document.addEventListener('kh:motion', () => { if (!fancy() && R.price) { settleRoll(R.price); settleRoll(R.chg); } });
-document.addEventListener('kh:watch', () => { if (S.open) renderStar(); });
+document.addEventListener('kh:watch', () => { if (S.open) { renderStar(); if (gp && !usePicker()) gpClose(false); else gpFill(); } });
 
 window.KHStock = { open, close, isOpen: () => S.open };
 onHash();
