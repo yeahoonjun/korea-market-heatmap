@@ -31,7 +31,7 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 
 /* ── Top bar ───────────────────────────── */
-.top{display:flex;align-items:center;gap:20px;padding:12px 18px 10px;flex-wrap:wrap}
+.top{display:flex;align-items:center;gap:20px;padding:9px 18px 15px;flex-wrap:wrap}   /* §3-16: 15px under the tabs keeps their numbers clear of the session bar's icon */
 .brand{font-weight:700;font-size:17px;letter-spacing:-.02em;white-space:nowrap;display:flex;align-items:center;gap:8px;min-width:0}
 .brand i{width:14px;height:14px;display:inline-grid;grid-template-columns:1fr 1fr;gap:1.5px;flex:none}
 .brand i b{display:block;border-radius:1px}
@@ -41,11 +41,17 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 .has-clock #clock:empty{display:none}
 .has-clock #clock:not(:empty) ~ .ttl{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .tabs{display:flex;gap:2px;background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:3px}
-.tabs button{padding:6px 14px;border-radius:6px;font-size:14px;font-weight:600;color:var(--muted);transition:background .15s,color .15s;white-space:nowrap}
+.tabs button{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;min-height:32px;padding:2px 14px;border-radius:6px;font-size:14px;font-weight:600;color:var(--muted);transition:background .15s,color .15s;white-space:nowrap}
 .tabs button[aria-pressed="true"]{background:var(--panel2);color:var(--fg);box-shadow:inset 0 -2px 0 var(--amber)}
 .tabs button:hover{color:var(--fg)}
-.tabs .st{color:var(--amber);margin-right:2px;font-size:.9em}
+.tabs .tn{line-height:16px}
+.tabs .st{color:var(--amber);margin-right:2px;font-size:.9em;line-height:1}
 .tabs .tsep{width:1px;margin:5px 3px;background:var(--line2)}
+/* §3-16 today's change under 코스피 · 코스닥 · 전체 · ★관심 (blank → the name alone, centred; every tab keeps one height) */
+.tabs .tp{display:block;font-size:11px;line-height:12px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.tabs .tp:empty{display:none}
+html[data-motion="fancy"] .tabs .tp.fl{animation:tpfl .9s var(--m-out) 1}
+@keyframes tpfl{0%{text-shadow:0 0 7px currentColor;filter:brightness(1.45)}100%{text-shadow:0 0 0 transparent;filter:none}}
 .idx{display:flex;gap:18px;font-size:13px;margin-left:auto}
 .idx div{display:flex;gap:7px;align-items:baseline;white-space:nowrap}
 .idx .k{color:var(--muted)} .idx .v{font-weight:600}
@@ -116,6 +122,8 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 .morep .seg button{flex:1 1 auto}
 .morep .hint{font-size:11.5px;color:var(--muted);line-height:1.45}
 .morep .hint[hidden]{display:none}
+.morep .seg.wrap{flex-wrap:wrap}
+.morep .seg.wrap button{max-width:100%;overflow:hidden;text-overflow:ellipsis}
 .swbtn{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;min-height:36px;padding:6px 10px;border-radius:8px;background:var(--panel);border:1px solid var(--line);font-size:13px;color:var(--fg);text-align:left}
 .swbtn:hover{border-color:var(--line2)}
 .swbtn .swt{position:relative;flex:none;width:34px;height:20px;border-radius:10px;background:var(--line2);transition:background-color .15s}
@@ -218,6 +226,7 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 .wgpop .row[disabled]{opacity:.4;cursor:default;background:none}
 .wgpop label.row input{width:16px;height:16px;margin:0;accent-color:var(--amber);flex:none}
 .wgpop .row .n{margin-left:auto;padding-left:12px;color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums}
+.wgpop .row .ck{margin-left:auto;padding-left:12px;color:var(--amber);font-weight:700}
 .wgpop input[type="text"]{width:100%;height:38px;border-radius:8px;border:1px solid var(--line2);background:var(--panel);color:var(--fg);font:inherit;padding:0 10px;outline:none}
 .wgpop input[type="text"]:focus{border-color:var(--amber)}
 .wgpop .msg{min-height:18px;margin:6px 6px 0;font-size:12.5px;color:var(--fg2);line-height:1.45}
@@ -493,7 +502,8 @@ footer a{color:var(--muted)}
   .tabs{order:4;width:100%}
   .tabs{overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:none}
   .tabs::-webkit-scrollbar{display:none}
-  .tabs button{flex:1 0 auto;padding:6px 10px;font-size:13.5px}
+  .tabs button{flex:1 0 auto;min-width:40px;padding:3px 7px 9px;font-size:13.5px}
+  .tabs .tn{line-height:15px}
   .tabs .tsep{display:none}
   .tools{padding:0 12px 8px;gap:8px}
   .search{flex:1 1 0;min-width:0}
@@ -532,7 +542,7 @@ footer a{color:var(--muted)}
   .list .nmt{min-width:0;overflow:hidden;text-overflow:ellipsis}
   .wbtn{width:32px;height:40px;margin:-10px -4px -10px -4px}
   /* compact phone header: one tools row (search · 표시 설정 · extras icons), 지도/표 on the breadcrumb line */
-  .top{padding:4px 12px 4px;gap:6px 12px;min-height:44px}
+  .top{padding:4px 12px 8px;gap:6px 12px;min-height:44px}
   .tabs{padding:0;border:0}
   .basis{padding:0;border:0}
   .basis button{padding:4px 10px}
@@ -590,14 +600,14 @@ html[data-motion="reduced"] .swbtn .swt,html[data-motion="reduced"] .swbtn .swt:
   <div id="session-bar"></div><!-- §3-12: full-width session progress (src/extras draws it) -->
   <div class="brand"><i aria-hidden="true"><b style="background:#ef3e4a"></b><b style="background:#1f5a41"></b><b style="background:#383c46"></b><b style="background:#12a15b"></b></i><div id="clock"></div><span class="ttl">한국 증시 히트맵</span></div>
   <div class="tabs" role="group" aria-label="시장">
-    <button data-mkt="K">코스피</button>
-    <button data-mkt="Q">코스닥</button>
-    <button data-mkt="ALL">전체</button>
+    <button data-mkt="K"><span class="tn">코스피</span><span class="tp" aria-hidden="true"></span></button>
+    <button data-mkt="Q"><span class="tn">코스닥</span><span class="tp" aria-hidden="true"></span></button>
+    <button data-mkt="ALL"><span class="tn">전체</span><span class="tp" aria-hidden="true"></span></button>
     <span class="tsep" aria-hidden="true"></span>
     <button data-mkt="THEME">테마</button>
     <button data-mkt="WORLD" aria-label="해외 지수">해외</button>
     <button data-mkt="CMDTY">원자재</button>
-    <button data-mkt="WATCH" aria-label="관심종목"><span class="st" aria-hidden="true">★</span>관심</button>
+    <button data-mkt="WATCH" aria-label="관심종목"><span class="tn"><span class="st" aria-hidden="true">★</span>관심</span><span class="tp" aria-hidden="true"></span></button>
   </div>
   <div class="idx" id="idx"></div>
   <div class="status" id="status"><span class="dot"></span><span class="txt"></span><span class="tshort"></span>
@@ -627,6 +637,7 @@ html[data-motion="reduced"] .swbtn .swt,html[data-motion="reduced"] .swbtn .swt:
       <div class="morep" id="morePanel" role="group" aria-label="화면 설정">
         <span class="morehd" aria-hidden="true">화면</span>
         <div class="ctl" data-ctl="motion"><span id="motionLbl">효과</span><div class="seg" id="motionseg" role="group" aria-labelledby="motionLbl"><button type="button" data-mo="reduced" title="움직임을 줄여요: 전환·반짝임 없이 바로 그려요">줄이기</button><button type="button" data-mo="standard" title="지금까지의 움직임 그대로">기본</button><button type="button" data-mo="fancy" title="시세 반짝임·첫 화면 연출·리플레이 이어 그리기를 켜요">화려하게</button></div><small class="hint" id="motionHint" hidden></small></div>
+        <div class="ctl" data-ctl="wtab" id="wtabRow" hidden><span id="wtabLbl">관심 탭 등락률</span><div class="seg wrap" id="wtabseg" role="group" aria-labelledby="wtabLbl"></div><small class="hint">★관심 탭 이름 아래에 보여 줄 그룹이에요</small></div>
       </div>
     </div>
   </div>
@@ -728,7 +739,9 @@ html[data-motion="reduced"] .swbtn .swt,html[data-motion="reduced"] .swbtn .swt:
                          session's KRX closes and that day's change, from close.json). A replay is 'krx'.
         'kh:basis' {detail:{basis, phase: 'regular'|'pre'|'after'|'closed', label}} on document when basis() or the phase changes.
         stock(code) rows carry nx: {p, d, r, s 'pre'|'reg'|'after', o 1|0, t, tm, v, tv} | null (the Worker's NXT fields).
-        layout() tiles gain nonx (true: NXT prices drawn, this stock has none, its KRX value is shown). */
+        layout() tiles gain nonx (true: NXT prices drawn, this stock has none, its KRX value is shown).
+   §3-16 setReplay(frame) frame may carry index {KOSPI, KOSDAQ: ratio % | {ratio}} — the market tabs' numbers at that moment (without
+                         it they use the frame's cap-weighted change per market). localStorage khm.watchTabGroup = the ★관심 tab's group. */
 
 /* ───────────────── 효과 level (AGENTS §3-5): 'reduced' | 'standard' | 'fancy', localStorage khm.motion ─────────────────
    No stored choice: the device's reduced-motion setting picks 'reduced', otherwise 'standard'. <html data-motion> mirrors it for CSS. */
@@ -3152,6 +3165,116 @@ function renderHeader() {
   if (countUp) countUp.stop();
   idx.replaceChildren(...kids);
 }
+
+/* §3-16 today's change under 코스피 · 코스닥 · 전체 · ★관심, whatever the colour metric. 코스피 / 코스닥 = the index ratio (the
+   strip's number); 전체 = the two ratios weighted by each market's cap (the cap sums of the rows we have — an approximation, said
+   in the tooltip); ★관심 = the chosen group's cap-weighted change in the current price basis (the group header's sum). A replay frame
+   gives its own index (frame.index) or, without one, the cap-weighted change of that market's stocks in the frame. The group choice
+   is localStorage khm.watchTabGroup ('all' | group id; a deleted group falls back to 'all'). */
+let WTAB = String(store.get('watchTabGroup', 'all') || 'all');
+const wtabId = () => WTAB !== 'all' && wgGet(WTAB) ? WTAB : 'all';
+const wtabCodes = () => { const id = wtabId(); return id === 'all' ? WATCH : wgGet(id).codes; };
+if (WTAB !== 'all' && !wgGet(WTAB)) { WTAB = 'all'; store.set('watchTabGroup', 'all'); }
+// cap-weighted change of rows (as drawn: basis / replay frame): index-style, like groupVal on today's %
+function capWeighted(rows) {
+  let now = 0, before = 0, n = 0;
+  for (const s of rows) { if (!s || !(s.cap > 0) || !isFinite(s.r) || s.r <= -100) continue; now += s.cap; before += s.cap / (1 + s.r / 100); n++; }
+  return before ? { v: (now / before - 1) * 100, n } : null;
+}
+// 'K' | 'Q' → {v, approx?: stocks counted} | null
+function tabIndex(m) {
+  const key = m === 'K' ? 'KOSPI' : 'KOSDAQ';
+  if (REPLAY) {
+    const fi = REPLAY.index ? REPLAY.index[key] : null;
+    const fv = fi == null ? NaN : typeof fi === 'object' ? (fi.ratio == null ? NaN : +fi.ratio) : +fi;
+    if (isFinite(fv)) return { v: fv };
+    const rows = [];
+    for (const c of REPLAY.prices.keys()) { const s = DATA.byCode.get(c); if (s && s.m === m) rows.push(get(c)); }
+    const w = capWeighted(rows);
+    return w ? { v: w.v, approx: w.n } : null;
+  }
+  const x = DATA.index && DATA.index[key];
+  return x && x.ratio != null && x.ratio !== '' && isFinite(+x.ratio) ? { v: +x.ratio } : null;
+}
+let tabCaps = { src: null, K: 0, Q: 0, nK: 0, nQ: 0 };
+function marketCaps() {
+  if (tabCaps.src === DATA) return tabCaps;
+  const o = { src: DATA, K: 0, Q: 0, nK: 0, nQ: 0 };
+  for (const s of DATA.stocks) if (s.cap > 0) { o[s.m] += s.cap; o['n' + s.m]++; }
+  return (tabCaps = o);
+}
+const TAB_NAME = { K: '코스피', Q: '코스닥', ALL: '전체', WATCH: '관심종목' };
+let tabSrc = null;           // the quotes the numbers were last drawn from: a new DATA object = fresh quotes (the 화려하게 flash)
+// → {v (% | null), head (tooltip name), note?, label? (aria: the ★관심 group)} | null
+function tabValue(m) {
+  if (m === 'K' || m === 'Q') {
+    const x = tabIndex(m);
+    return x && { v: x.v, head: `${TAB_NAME[m]} 지수`, note: x.approx ? `이 시점 지수가 없어 지도 종목 ${fmtInt(x.approx)}개의 시가총액 가중으로 계산했어요` : '' };
+  }
+  if (m === 'ALL') {
+    const a = tabIndex('K'), b = tabIndex('Q'), c = marketCaps();
+    if (!a || !b || !(c.K > 0) || !(c.Q > 0)) return null;
+    const v = ((c.K + c.Q) / (c.K / (1 + a.v / 100) + c.Q / (1 + b.v / 100)) - 1) * 100;
+    return { v, head: '전체', note: `코스피·코스닥 지수 등락률을 시가총액으로 가중했어요(비중은 받은 종목 코스피 ${fmtInt(c.nK)}·코스닥 ${fmtInt(c.nQ)}개의 시총 합으로 근사)` };
+  }
+  const id = wtabId(), codes = wtabCodes();
+  const gname = id === 'all' ? '' : wgGet(id).name, head = id === 'all' ? '관심종목 전체' : `관심 그룹 '${gname}'`;
+  if (!codes.length) return { v: null, head, label: gname, note: id === 'all' ? '담은 종목이 없어요' : '이 그룹이 비어 있어요' };
+  const w = capWeighted(codes.map(get));
+  const cover = w && w.n < codes.length ? `${fmtInt(codes.length)}종목 중 ${fmtInt(w.n)}종목 반영` : `${fmtInt(codes.length)}종목`;
+  return { v: w ? w.v : null, head, label: gname, note: w ? `시가총액 가중 · ${cover}` : '시세를 받는 중이에요' };
+}
+function renderTabs() {
+  if (!DATA) return;
+  const fresh = tabSrc && tabSrc !== DATA && !REPLAY && fancy() && !document.hidden;
+  const when = REPLAY ? ` · 다시 보기 ${hhmm(REPLAY.t)}` : MODE !== 'live' && DATA.k ? ` · ${dayName(DATA.k.date)} ${DATA.k.hhmm} 기준` : '';
+  for (const m of ['K', 'Q', 'ALL', 'WATCH']) {
+    const b = document.querySelector(`.tabs button[data-mkt="${m}"]`), tp = b && b.querySelector('.tp');
+    if (!tp) continue;
+    const x = tabValue(m), has = !!x && x.v != null && isFinite(x.v);
+    const v = has ? Math.round(x.v * 100) / 100 : 0;
+    const txt = has ? fmtPct(v) : '';
+    const name = TAB_NAME[m] + (x && x.label ? ` · ${x.label}` : ''), head = x ? x.head : TAB_NAME[m];
+    b.setAttribute('aria-label', has ? `${name} ${txt}` : name);
+    b.title = (has ? `${head} ${txt}` : head) + (x && x.note ? ` · ${x.note}` : '') + (has ? when : '');
+    const was = tp.textContent;
+    tp.classList.remove('up', 'dn', 'flat'); tp.classList.add(has ? cls(v) : 'flat');
+    if (was === txt) continue;
+    tp.classList.remove('fl');
+    tp.textContent = txt;
+    if (fresh && was && txt) { void tp.offsetWidth; tp.classList.add('fl'); }
+  }
+  tabSrc = DATA;
+}
+$('.tabs').addEventListener('animationend', e => { if (e.target.classList) e.target.classList.remove('fl'); });
+document.addEventListener('kh:render', renderTabs);
+// the group choice: 화면 (표시 설정) row — 전체 관심 · each group, shown once there are two groups to choose from
+let wtabKey = '';
+function syncWtabUI() {
+  const row = $('#wtabRow'), seg = $('#wtabseg'), cur = wtabId();
+  row.hidden = WG.groups.length < 2;
+  const key = WG.groups.map(g => g.id + '\u0001' + g.name).join('\u0002');
+  if (key !== wtabKey) {
+    wtabKey = key;
+    seg.replaceChildren(...[['all', '전체 관심'], ...WG.groups.map(g => [g.id, g.name])].map(([id, nm]) => h('button', { type: 'button', 'data-wt': id, text: nm })));
+  }
+  for (const b of seg.children) b.setAttribute('aria-pressed', String(b.dataset.wt === cur));
+}
+function setWtab(id) {
+  const v = id !== 'all' && wgGet(String(id)) ? String(id) : 'all';
+  if (v === WTAB) return;
+  WTAB = v; store.set('watchTabGroup', v);
+  syncWtabUI(); renderTabs();
+  if (state.market !== 'WATCH') syncPollers();    // quotes for that group's stocks outside the main stream
+}
+$('#wtabseg').addEventListener('click', e => { const b = e.target.closest('button[data-wt]'); if (b) setWtab(b.dataset.wt); });
+document.addEventListener('kh:watch', () => {
+  if (WTAB !== 'all' && !wgGet(WTAB)) { WTAB = 'all'; store.set('watchTabGroup', 'all'); }
+  syncWtabUI(); renderTabs();
+  if (state.market !== 'WATCH') syncPollers();
+});
+addEventListener('storage', e => { if (e.key === 'khm.watchTabGroup') { WTAB = String(store.get('watchTabGroup', 'all') || 'all'); syncWtabUI(); renderTabs(); } });
+syncWtabUI();
 let liveState = { ok: true, last: null, timer: null, inflight: null };
 const kstDayFmt = new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul', month: 'long', day: 'numeric', weekday: 'short' });
 const shortDay = k => k ? `${+k.date.slice(5, 7)}/${+k.date.slice(8, 10)} ${k.hhmm}` : '';
@@ -3664,6 +3787,12 @@ function wgMenu(id, opener) {
     row('앞으로 옮기기', () => move(i - 1), i === 0),
     row('뒤로 옮기기', () => move(i + 1), i === n - 1),
     h('div', { class: 'sep' }),
+    // §3-16 the ★관심 tab's number: this group (again: back to 전체 관심)
+    h('button', { class: 'row', type: 'button', 'aria-pressed': String(wtabId() === id), onclick: () => {
+      setWtab(wtabId() === id ? 'all' : id); wgClose(false);
+      const b = document.querySelector(`#wgchips [data-gm="${id}"]`) || document.querySelector(wgChipSel(id)); if (b) b.focus({ preventScroll: true });
+    } }, h('span', { text: '탭에 이 그룹 등락률 표시' }), wtabId() === id ? h('span', { class: 'ck', 'aria-hidden': 'true', text: '✓' }) : null),
+    h('div', { class: 'sep' }),
     row('그룹 지우기…', () => wgAskDelete(id, opener))]);
 }
 // a name for a new group (id null) or a new name; done(newId) after creating
@@ -3964,8 +4093,12 @@ function extraWanted() {
   let codes = [];
   if (state.market === 'THEME' && curTheme()) codes = curTheme().codes.slice(0, MAX_CODES);
   else if (state.market === 'WATCH') codes = WATCH.slice(0, MAX_CODES);
-  return codes.filter(c => CODE_RE.test(c) && !DATA.byCode.has(c));
+  // §3-16 elsewhere the ★관심 tab's number still needs the chosen group's stocks outside the main stream (after the theme's)
+  if (state.market !== 'WATCH') codes = [...new Set(codes.concat(wtabCodes().slice(0, MAX_CODES)))];
+  return codes.filter(c => CODE_RE.test(c) && !DATA.byCode.has(c)).slice(0, MAX_CODES);
 }
+// the extra rows are on the map (a theme's members, ★관심); otherwise only the ★관심 tab's number needs them
+const extraOnMap = () => state.market === 'WATCH' || (state.market === 'THEME' && !!curTheme());
 async function pollExtra() {
   clearTimeout(extra.timer);
   const want = extraWanted();
@@ -3973,7 +4106,7 @@ async function pollExtra() {
   const seq = ++extra.seq;
   const firstTime = want.some(c => !EXTRA.has(c));
   extra.busy = firstTime;
-  if (firstTime) { render(); renderCrumbs(); }
+  if (firstTime && extraOnMap()) { render(); renderCrumbs(); }
   const ac = new AbortController();
   const killer = setTimeout(() => ac.abort(), 8000);
   try {
@@ -3991,7 +4124,7 @@ async function pollExtra() {
     if (seq === extra.seq) {
       extra.busy = false;
       bump();
-      render(); renderCrumbs(); renderSide(); renderLegend();
+      if (extraOnMap()) { render(); renderCrumbs(); renderSide(); renderLegend(); } else renderTabs();
       if (state.hover && tip.classList.contains('show') && !String(state.hover).startsWith('#')) { const st = get(state.hover); if (st) fillTip(st); }
       extra.timer = setTimeout(pollExtra, !extra.ok ? 15000 : (sessionLive() || DATA.afterHours) ? 10000 : 60000);
     }
@@ -4045,7 +4178,8 @@ function setReplay(frame, opts) {
   let next = null;
   if (frame && frame.prices) {
     const pr = frame.prices instanceof Map ? frame.prices : new Map(Object.entries(frame.prices));
-    next = { t: frame.t == null ? '' : String(frame.t), date: frame.date || null, prices: pr };
+    next = { t: frame.t == null ? '' : String(frame.t), date: frame.date || null, prices: pr,
+      index: frame.index && typeof frame.index === 'object' ? frame.index : null };   // §3-16 the frame's index ratios, if given
   }
   const ms = opts && +opts.tween > 0 ? Math.min(+opts.tween, 5000) : 0;
   const tw = ms && fancy() && state.view === 'map' && !isWorld() && !document.hidden && !introOn && nodes.size ? ms : 0;
