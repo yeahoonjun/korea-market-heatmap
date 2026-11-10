@@ -24,6 +24,7 @@
 //   GET /data/{themes,periods,flows,names,close}.json, PWA files → static from ASSET_BASE (whitelist)
 //   scheduled()                        → cron (every minute): appends a replay frame on weekdays 09:00 → session end (stockExchangeType.endTime) KST
 //   GET /api/health                    → {ok:true}
+//   GET /api/time                      → {t: server ms} (no-store; the page clock's offset, §3-17)
 // Contract: AGENTS.md §3, sources and pitfalls: data/ENDPOINTS_DETAIL.md.
 // The Worker has no build-generated modules: page and stock universe come from ASSET_BASE.
 
@@ -45,6 +46,7 @@ export default {
       if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: { 'access-control-allow-origin': ORIGIN, 'access-control-allow-methods': 'GET, OPTIONS', vary: 'origin' } });
       if (path === '/' || path === '/index.html') return await getPage(request, env, ctx);
       if (path === '/api/health') return json({ ok: true });
+      if (path === '/api/time') return json({ t: Date.now() });   // §3-17: server clock (ms) for the page clock's offset — never cached
       if (path === '/api/quotes') {
         const raw = url.searchParams.get('codes'), scope = url.searchParams.get('scope');
         if (scope != null && scope !== 'all') return fail(400, 'scope는 all만 쓸 수 있어요');

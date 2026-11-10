@@ -39,7 +39,7 @@ web/                       실시간 버전 정적 파일 — Worker가 GitHub�
 ## 배포
 
 - **화면**: `python3 scripts/build_page.py` 뒤 `web/`를 커밋·푸시하면 끝이에요. Worker가 `raw.githubusercontent.com`에서 읽어요(캐시 몇 분).
-- **Worker**: `node scripts/build_worker.mjs` → `worker/dist/worker.js`를 Cloudflare에 올려요(`worker/wrangler.toml`: KV `REPLAY`, cron `*/5 0-7 * * 1-5`). 비밀값 `DART_KEY`(OpenDART)는 Cloudflare에만 있어요.
+- **Worker**: `node scripts/build_worker.mjs` → `worker/dist/worker.js`를 Cloudflare에 올려요(`worker/wrangler.toml`: KV `REPLAY`, cron `* 0-7 * * 1-5`, 매분). 비밀값 `DART_KEY`(OpenDART)는 Cloudflare에만 있어요.
 - **주소**: Cloudflare Pages 프로젝트 `kospimap`이 서비스 바인딩으로 Worker에 넘겨요.
 - **매일 데이터**: `.github/workflows/daily.yml` — 평일 16:40 KST(장 마감 확인 뒤) 스냅샷·테마·기간 수익률·투자자 동향을 만들어 커밋, 21:30에 투자자 동향만 한 번 더.
 
@@ -66,5 +66,5 @@ web/                       실시간 버전 정적 파일 — Worker가 GitHub�
 - 네이버 증권 API는 공식 공개 API가 아니에요. 개인 용도로는 동작하지만 예고 없이 바뀔 수 있어요.
   대규모 서비스라면 증권사 Open API(예: 한국투자증권 KIS)로 바꾸는 게 안전해요.
 - 15:30 이후 네이버 시세에는 NXT 거래가 섞여요. 실시간 화면은 "정규장 종가 / NXT 포함"을 고를 수 있어요.
-- 무료 플랜은 요청 하나당 CPU 10ms, 하루 요청 10만 건 제한이 있어요. 그래서 지도는 시장별 300종목, 전 종목 분포는 600개씩 나눠 받아요.
+- Workers Paid 플랜(2026-11-10~)이라 하루 요청 상한이 없고 요청당 CPU 30초까지 써요. 그래서 전 종목(`/api/quotes?scope=all`)·전 종목 분포(`/api/breadth?m=`)를 한 번에 받아요. 기본 지도는 여전히 시장별 300종목이에요(휴대폰 데이터).
 - 호가는 5단계만 있어요. 공매도 잔고는 KRX 로그인이 필요해서 넣지 않았어요.
