@@ -165,9 +165,9 @@ section.rp-player[hidden]{display:none}
 @media (prefers-reduced-motion:reduce){.xs-track{animation:none}}
 
 /* ── odometer (strip values roll when effects are 'fancy') ── */
-.od{display:inline-block;height:1.2em;line-height:1.2;overflow:hidden;vertical-align:bottom}
-.od-s{display:flex;flex-direction:column}
-.od-s i{display:block;font-style:normal;height:1.2em;line-height:1.2}
+.od{position:relative;display:inline-block;overflow:hidden;line-height:inherit;vertical-align:bottom}
+.od-n{display:inline-block}
+.od-o{position:absolute;left:0;top:0}
 
 /* ── clock (#clock) + session progress bar ── */
 #clock{display:flex;flex-direction:column;align-items:flex-start;gap:2px;min-width:0}

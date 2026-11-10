@@ -288,6 +288,6 @@ python3 tmp/shot.py /home/claude/heatmap/dist/index.html    # 1440×900 / 390×8
 ## 3-10. 통합 시세 (사용자 2026-11-10 08:34: "KRX 및 NXT 합산 시세는 불가능한가" → 08:51 "이어서 해줘")
 - 가격 기준은 **`KRX · NXT · 통합`** 세 가지. 통합 = 두 시장 중 **더 최근 체결가**(KRX `localTradedAt` vs `nx.t`), 전일 대비·등락률은 KRX 기준가(전일 종가) 대비로 다시 계산, 거래량·거래대금 = KRX + NXT 합.
 - Worker: quotes 행 `nx`에 `v`(NXT 누적 거래량, 주)·`tv`(NXT 누적 거래대금, 억원) 추가(`overMarketPriceInfo.accumulatedTradingVolumeRaw`·`accumulatedTradingValueRaw`). breadth는 그대로.
-- 기본값: NXT 세션이 열려 있으면 **통합**(장 전·장 후엔 사실상 NXT 가격이지만, 장 후에는 KRX 시간외 단일가가 더 최근일 수 있어요), 닫혀 있으면 KRX 정규장 종가. 정규장 중: 네이버가 그 시간에 NXT 가격을 따로 주면 `KRX · NXT · 통합` 모두, 안 주면 선택을 숨기고 KRX(실측 후 확정 — 오케스트레이터가 09:01 이후 알려 줘요).
+- 기본값: NXT 세션이 열려 있으면 **통합**(장 전·장 후엔 사실상 NXT 가격이지만, 장 후에는 KRX 시간외 단일가가 더 최근일 수 있어요), 닫혀 있으면 KRX 정규장 종가. 정규장 중: **실측(09:02) — 네이버가 NXT 메인마켓 가격을 따로 줘요**(`tradingSessionType:'REGULAR_MARKET'` → Worker `nx.s:'reg'`). 그래서 정규장에도 `KRX · NXT · 통합` 모두, 기본 통합. 세션 열림 판단은 `o` 플래그와 시계 창(프리 08:00~08:50, NXT 메인 09:00~15:20, 애프터 15:30~20:00)이 둘 다 맞을 때 — 네이버가 마감 뒤에도 잠시 OPEN으로 남겨 두기 때문이에요.
 - 크기 `거래대금`은 고른 기준의 거래대금(통합이면 합산). 표·툴팁에 "통합 거래대금" 식으로 표시.
 - 3D 관련 코드는 템플릿에서 정리해요(§3-9).
