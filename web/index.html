@@ -64,6 +64,8 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 .status.has-blab .badge{font-variant-numeric:tabular-nums}
 .status.has-blab .tshort{display:none}
 @media (max-width:1279px){ .status.has-basis .txt{display:none} }
+/* §3-12 the clock is on and the drawn prices are live: no badge (the pressed button says the basis, the clock the time) */
+.has-clock .status.has-basis.bl-live .badge{display:none}
 @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(255,181,71,.55)}70%{box-shadow:0 0 0 7px rgba(255,181,71,0)}100%{box-shadow:0 0 0 0 rgba(255,181,71,0)}}
 
 /* ── Toolbar ───────────────────────────── */
@@ -194,6 +196,44 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 .crumbs .stat{margin-left:auto;color:var(--muted);font-size:12.5px;white-space:nowrap}
 .crumbs .stat b{font-weight:600}
 .crumbs .hint{color:var(--faint);font-size:12.5px;margin-left:8px}
+/* §3-11 ★관심 group chips (전체 · 기본 · … · ＋) and the small group popover (menu / name / delete / the ☆ picker) */
+.wgbar{margin:0 0 6px;min-width:0}
+.wgbar[hidden]{display:none}
+.wgchips{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding:1px 1px 2px}
+.wgchips::-webkit-scrollbar{display:none}
+.wgi{display:inline-flex;flex:none;border-radius:8px;background:var(--panel);border:1px solid var(--line)}
+.wgi[data-on]{border-color:rgba(255,181,71,.5);background:var(--amber-soft)}
+.wgc{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 11px;border-radius:7px;font-size:13px;font-weight:600;color:var(--fg2);white-space:nowrap}
+.wgc:hover,.wgi[data-on] .wgc{color:var(--fg)}
+.wgc .n{font-size:11.5px;font-weight:500;color:var(--muted);font-variant-numeric:tabular-nums}
+.wgm{width:28px;height:30px;margin-left:-6px;border-radius:7px;color:var(--fg2);font-size:15px;line-height:1}
+.wgm:hover{color:var(--fg);background:rgba(255,255,255,.06)}
+.wgadd{flex:none;width:34px;height:32px;border-radius:8px;border:1px dashed var(--line2);color:var(--fg2);font-size:16px}
+.wgadd:hover{color:var(--fg);border-color:var(--muted)}
+.wgpop{position:fixed;z-index:95;width:max-content;min-width:220px;max-width:min(320px,calc(100vw - 16px));padding:10px;border-radius:12px;background:rgba(32,34,40,.99);border:1px solid var(--line2);box-shadow:0 18px 50px rgba(0,0,0,.55);font-size:13.5px;color:var(--fg)}
+.wgpop[hidden]{display:none}
+.wgpop h3{margin:2px 6px 8px;font-size:13px;font-weight:600;color:var(--fg2);overflow-wrap:anywhere}
+.wgpop .row{display:flex;align-items:center;gap:10px;width:100%;min-height:36px;padding:0 8px;border-radius:8px;text-align:left;color:var(--fg);cursor:pointer}
+.wgpop .row:hover{background:rgba(255,255,255,.06)}
+.wgpop .row[disabled]{opacity:.4;cursor:default;background:none}
+.wgpop label.row input{width:16px;height:16px;margin:0;accent-color:var(--amber);flex:none}
+.wgpop .row .n{margin-left:auto;padding-left:12px;color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums}
+.wgpop input[type="text"]{width:100%;height:38px;border-radius:8px;border:1px solid var(--line2);background:var(--panel);color:var(--fg);font:inherit;padding:0 10px;outline:none}
+.wgpop input[type="text"]:focus{border-color:var(--amber)}
+.wgpop .msg{min-height:18px;margin:6px 6px 0;font-size:12.5px;color:var(--fg2);line-height:1.45}
+.wgpop .acts{display:flex;gap:8px;justify-content:flex-end;margin-top:8px}
+.wgpop .acts button{height:34px;padding:0 14px;border-radius:8px;border:1px solid var(--line2);font-weight:600}
+.wgpop .acts .pri{background:var(--amber);color:#1b1404;border-color:var(--amber)}
+.wgpop .acts .pri[disabled]{opacity:.45;cursor:default}
+.wgpop .sep{height:1px;background:var(--line);margin:6px 0}
+@media (max-width:760px){
+  .wgc{height:40px} .wgm{height:40px;width:38px} .wgadd{height:42px;width:44px}
+  .wgpop{left:8px!important;right:8px;top:auto!important;bottom:calc(8px + env(safe-area-inset-bottom));width:auto;max-width:none}
+  .wgpop .row{min-height:44px} .wgpop .acts button{height:44px}
+}
+/* the table's 그룹 column (★관심) */
+.list td.k-g{color:var(--fg2);font-size:12.5px;max-width:12em;overflow:hidden;text-overflow:ellipsis;text-align:left}
+.list th.k-g{text-align:left}
 
 .map{position:relative;background:#000;border-radius:6px;overflow:hidden;height:calc(100vh - 200px);min-height:520px;touch-action:manipulation;user-select:none;-webkit-user-select:none}
 .mapbox{position:relative;min-width:0}
@@ -520,7 +560,7 @@ footer a{color:var(--muted)}
 /* phones: the table keeps a readable name column (two lines): 종목 · 현재가 · 등락률 · 거래대금 (거래량 · 시가총액 dropped; with a 기간 /
    순매수 column, that instead of 거래대금) */
 @media (max-width:430px){
-  .list .k-vol,.list .k-cap,.list.x7 .k-tv{display:none}
+  .list .k-vol,.list .k-cap,.list.x7 .k-tv,.list .k-g{display:none}
   .list td{padding:9px 5px}
   .list th button{padding:0 5px}
   .list td:first-child{width:auto;max-width:none;min-width:7.2em;white-space:normal}
@@ -600,6 +640,7 @@ html[data-motion="reduced"] .swbtn .swt,html[data-motion="reduced"] .swbtn .swt:
       <nav class="crumbs" id="crumbs" aria-label="위치"></nav>
       <div class="seg viewseg" data-key="view" role="group" aria-label="보기"><button data-v="map">지도</button><button data-v="table">표</button></div>
     </div>
+    <div class="wgbar" id="wgbar" hidden><div class="wgchips" id="wgchips" role="group" aria-label="관심종목 그룹"></div></div>
     <div class="mapbox"><div class="map" id="map" role="group" aria-label="종목별 등락률 트리맵"></div></div>
     <div class="tablewrap" id="tablewrap" hidden></div>
     <div class="legend" id="legend" aria-live="polite"></div>
@@ -633,6 +674,7 @@ html[data-motion="reduced"] .swbtn .swt,html[data-motion="reduced"] .swbtn .swt:
 <div class="scrim" id="scrim"></div>
 <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-label="종목 상세" tabindex="-1"></div>
 
+<div class="wgpop" id="wgpop" role="dialog" hidden></div>
 <script id="snapshot" type="application/json">{"asOf": null, "source": "네이버 증권", "marketStatus": {}, "index": {}, "stocks": []}</script>
 <script>
 (() => {
@@ -646,8 +688,14 @@ html[data-motion="reduced"] .swbtn .swt,html[data-motion="reduced"] .swbtn .swt:
    §3-2 loadData(name)   name 'themes'|'periods'|'flows' (§3-3 also 'names'|'close') → Promise<JSON|null>. Snapshot: <script id="kh-data-NAME">
                          (waits for the DOM; no block → null); live: GET data/NAME.json (404 → null). Memoised per name; a failed load is
                          forgotten so the next call retries (the heatmap itself asks for names/close at most once per few minutes).
-        watch            {has(code), toggle(code) → bool (new state), list() → codes} — localStorage 'khm.watch' (JSON array).
-                         Every change fires 'kh:watch' {detail:{code, on, list}} on document (also when another tab changes it).
+        watch (§3-11)    groups of codes, localStorage 'khm.watchGroups' {v:1, groups:[{id,name,codes}], active} (the old 'khm.watch'
+                         array becomes group "기본" once). has(code) any group · list(gid?) a group's codes or the union · toggle(code,
+                         gid?) → bool: with gid that group, without: off → out of every group, on → the shown group (전체: "기본") ·
+                         groups() → [{id,name,count}] · groupsOf(code) → [id] · add(code, gid?) · remove(code, gid?) (no gid: all) ·
+                         setGroups(code, [ids]) · createGroup(name) → id|null (same name → that id; ≤20 groups, ≤12 chars) ·
+                         renameGroup(id, name) · deleteGroup(id) (its codes leave the list unless another group has them) ·
+                         moveGroup(id, toIndex) · active() → 'all'|id · setActive(id|'all') (the ★관심 tab's group).
+                         Every change fires 'kh:watch' {detail:{code, on, list, codes, groups, active}} (also from another tab).
         layout()         → the map as drawn now: [{kind:'sector'|'ind'|'tile', x, y, w, h, color, label, sub, code?, hd?}] in map pixels
                          (sector/ind: label = group name or '' when its header is hidden, sub = its value text as shown, hd = header
                          height; tile: label = full stock or theme name, sub = the value text as shown, code = stock code (absent on
@@ -910,36 +958,161 @@ function need(name) {
 const PER = () => DS.periods.j, FLO = () => DS.flows.j;
 function needForMetric() { if (kind() === 'period') need('periods'); if (isFlow()) need('flows'); if (state.market === 'THEME') need('themes'); }
 
-/* ───────────────── watchlist ───────────────── */
-const cleanWatch = a => Array.isArray(a) ? [...new Set(a.map(String).filter(c => CODE_RE.test(c)))] : [];
-let WATCH = cleanWatch(store.get('watch', []));
-function setWatch(code, on) {
-  code = String(code || '').trim().toUpperCase();
-  if (!CODE_RE.test(code)) return false;
-  const has = WATCH.includes(code);
-  if (on == null) on = !has;
-  if (on === has) return has;
-  WATCH = on ? WATCH.concat(code) : WATCH.filter(c => c !== code);
-  store.set('watch', WATCH);
-  watchChanged(code, on);
-  return on;
+/* ───────────────── watchlist groups (AGENTS §3-11) ─────────────────
+   localStorage khm.watchGroups = {v:1, groups:[{id, name, codes}], active:'all'|id}. The first load moves the old khm.watch (a code
+   array) into a group "기본" (the old key stays, unused). A stock may sit in several groups; at most WG_MAX groups, names ≤ WG_NAME
+   characters. There is always at least one group. WATCH = the union of every group (group order, then insertion), deduplicated. */
+const cleanWatch = a => Array.isArray(a) ? [...new Set(a.map(c => String(c).trim().toUpperCase()).filter(c => CODE_RE.test(c)))] : [];
+const WG_MAX = 20, WG_NAME = 12, WG_DEFAULT = '기본';
+const wgName = n => String(n == null ? '' : n).replace(/\s+/g, ' ').trim().slice(0, WG_NAME);
+let wgSeq = 0;
+const wgNewId = () => { let id; do id = 'g' + Date.now().toString(36) + (wgSeq++).toString(36); while (WG.groups.some(g => g.id === id)); return id; };
+function wgClean(j) {
+  const groups = [], ids = new Set();
+  for (const g of (j && Array.isArray(j.groups) ? j.groups : [])) {
+    if (!g || typeof g !== 'object') continue;
+    const id = String(g.id || ''), name = wgName(g.name);
+    if (!/^[\w-]{1,40}$/.test(id) || ids.has(id) || !name) continue;
+    ids.add(id); groups.push({ id, name, codes: cleanWatch(g.codes) });
+    if (groups.length >= WG_MAX) break;
+  }
+  if (!groups.length) groups.push({ id: 'g0', name: WG_DEFAULT, codes: [] });
+  const active = j && j.active !== 'all' && ids.has(String(j.active)) ? String(j.active) : 'all';
+  return { v: 1, groups, active };
+}
+function wgLoad() {
+  const j = store.get('watchGroups', null);
+  if (j && j.v === 1 && Array.isArray(j.groups)) return wgClean(j);
+  // first run with groups: the old flat list becomes "기본"
+  const w = wgClean({ groups: [{ id: 'g0', name: WG_DEFAULT, codes: cleanWatch(store.get('watch', [])) }], active: 'all' });
+  store.set('watchGroups', w);
+  return w;
+}
+let WG = wgLoad();
+let WATCH = [];
+const wgUnion = () => { const seen = new Set(), out = []; for (const g of WG.groups) for (const c of g.codes) if (!seen.has(c)) { seen.add(c); out.push(c); } return out; };
+WATCH = wgUnion();
+const wgGet = id => WG.groups.find(g => g.id === id) || null;
+// "기본" (or the first group) — where an add without a group lands while 전체 is shown
+const wgDefault = () => WG.groups.find(g => g.name === WG_DEFAULT) || WG.groups[0];
+const wgTarget = () => (WG.active !== 'all' && wgGet(WG.active)) || wgDefault();
+// the codes the ★관심 map and table show: the active group's, or every group's
+const watchView = () => WG.active === 'all' ? WATCH : (wgGet(WG.active) || { codes: [] }).codes;
+const normCode = c => String(c == null ? '' : c).trim().toUpperCase();
+// one change → save, redraw, stars, 'kh:watch' {code, on (watched now, in any group), list, codes, groups, active}
+function wgCommit(code) {
+  WATCH = wgUnion();
+  if (WG.active !== 'all' && !wgGet(WG.active)) WG.active = 'all';
+  store.set('watchGroups', WG);
+  watchChanged(code == null ? null : code, code == null ? null : WATCH.includes(code));
 }
 function watchChanged(code, on) {
   bump();
   if (state.market === 'WATCH') { renderAll({ animate: true }); syncPollers(); }
   else if (state.view === 'table') renderTable();
   syncStars();
-  document.dispatchEvent(new CustomEvent('kh:watch', { detail: { code, on, list: WATCH.slice() } }));
+  if (typeof renderWG === 'function') renderWG();
+  document.dispatchEvent(new CustomEvent('kh:watch', { detail: { code, on, list: WATCH.slice(), codes: WATCH.slice(), groups: watchApi.groups(), active: WG.active } }));
 }
 addEventListener('storage', e => {
-  if (e.key !== 'khm.watch') return;
-  WATCH = cleanWatch(store.get('watch', []));
+  if (e.key !== 'khm.watchGroups') return;
+  WG = wgLoad(); WATCH = wgUnion();
   watchChanged(null, null);
 });
+// add / remove one code in one group (no commit)
+function wgPut(g, code, on) {
+  const has = g.codes.includes(code);
+  if (on && !has) g.codes.push(code); else if (!on && has) g.codes = g.codes.filter(c => c !== code);
+  return has !== on;
+}
+// the old single-list toggle: on → into the current group (전체 → 기본), off → out of every group
+function setWatch(code, on, gid) {
+  code = normCode(code);
+  if (!CODE_RE.test(code)) return false;
+  if (gid != null) {
+    const g = wgGet(String(gid)); if (!g) return WATCH.includes(code);
+    const want = on == null ? !g.codes.includes(code) : !!on;
+    if (wgPut(g, code, want)) wgCommit(code);
+    return want;
+  }
+  const has = WATCH.includes(code);
+  if (on == null) on = !has;
+  if (on === has) return has;
+  if (on) wgPut(wgTarget(), code, true); else for (const g of WG.groups) wgPut(g, code, false);
+  wgCommit(code);
+  return on;
+}
 const watchApi = {
-  has: code => WATCH.includes(String(code)),
-  toggle: code => setWatch(code),
-  list: () => WATCH.slice(),
+  has: code => WATCH.includes(normCode(code)),
+  // a group's codes, or (no id) the union of every group
+  list: gid => gid == null ? WATCH.slice() : (wgGet(String(gid)) || { codes: [] }).codes.slice(),
+  toggle: (code, gid) => setWatch(code, null, gid),
+  groups: () => WG.groups.map(g => ({ id: g.id, name: g.name, count: g.codes.length })),
+  groupsOf: code => { code = normCode(code); return WG.groups.filter(g => g.codes.includes(code)).map(g => g.id); },
+  add: (code, gid) => { code = normCode(code); const g = gid == null ? wgTarget() : wgGet(String(gid)); if (!g || !CODE_RE.test(code)) return false; if (wgPut(g, code, true)) wgCommit(code); return true; },
+  remove: (code, gid) => {
+    code = normCode(code);
+    let ch = false;
+    if (gid == null) for (const g of WG.groups) ch = wgPut(g, code, false) || ch;
+    else { const g = wgGet(String(gid)); if (!g) return false; ch = wgPut(g, code, false); }
+    if (ch) wgCommit(code);
+    return ch;
+  },
+  // exactly these groups for this code (unknown ids ignored); [] takes it off the watchlist
+  setGroups: (code, ids) => {
+    code = normCode(code);
+    if (!CODE_RE.test(code)) return false;
+    const want = new Set((Array.isArray(ids) ? ids : []).map(String));
+    let ch = false;
+    for (const g of WG.groups) ch = wgPut(g, code, want.has(g.id)) || ch;
+    if (ch) wgCommit(code);
+    return true;
+  },
+  // → the new group's id (an existing group of that name gives its id), null when the name is empty or WG_MAX groups exist
+  createGroup: name => {
+    const n = wgName(name);
+    if (!n) return null;
+    const same = WG.groups.find(g => g.name === n);
+    if (same) return same.id;
+    if (WG.groups.length >= WG_MAX) return null;
+    const id = wgNewId();
+    WG.groups.push({ id, name: n, codes: [] });
+    wgCommit(null);
+    return id;
+  },
+  renameGroup: (id, name) => {
+    const g = wgGet(String(id)), n = wgName(name);
+    if (!g || !n || WG.groups.some(x => x !== g && x.name === n)) return false;
+    if (g.name !== n) { g.name = n; wgCommit(null); }
+    return true;
+  },
+  // its stocks leave the watchlist unless another group has them (the UI asks first); the last group leaves an empty "기본"
+  deleteGroup: id => {
+    const i = WG.groups.findIndex(g => g.id === String(id));
+    if (i < 0) return false;
+    WG.groups.splice(i, 1);
+    if (!WG.groups.length) WG.groups.push({ id: wgNewId(), name: WG_DEFAULT, codes: [] });
+    if (WG.active === String(id)) WG.active = 'all';
+    wgCommit(null);
+    return true;
+  },
+  moveGroup: (id, to) => {
+    const i = WG.groups.findIndex(g => g.id === String(id));
+    if (i < 0 || !Number.isFinite(+to)) return false;
+    const j = Math.max(0, Math.min(WG.groups.length - 1, Math.round(+to)));
+    if (i === j) return true;
+    const [g] = WG.groups.splice(i, 1); WG.groups.splice(j, 0, g);
+    wgCommit(null);
+    return true;
+  },
+  // the group the ★관심 tab shows: 'all' | id
+  active: () => WG.active,
+  setActive: id => {
+    const v = id === 'all' || id == null ? 'all' : wgGet(String(id)) ? String(id) : null;
+    if (v == null) return false;
+    if (v !== WG.active) { WG.active = v; state.focus = null; wgCommit(null); }
+    return true;
+  },
 };
 
 /* ───────────────── quotes ───────────────── */
@@ -1064,6 +1237,9 @@ const mdDay = ymd => `${+ymd.slice(5, 7)}/${+ymd.slice(8, 10)}`;
 // the time of the latest trade drawn: before 09:00 the NXT one (KRX has not traded that day), else the quotes' asOf
 const intTime = () => (DATA.k && DATA.k.hm < '0900' && DATA.nx.t ? DATA.nx.t : DATA.k || { hhmm: '' }).hhmm;
 const INT_TITLE = 'KRX와 NXT 중 더 최근 체결가로 그려요. 전일 대비는 KRX 기준가 대비';
+// the drawn prices move now: KRX's regular session, or 통합 / NXT while an NXT session is open (§3-12: with the clock on, the badge
+// then goes — the pressed KRX · NXT · 통합 button says the choice and the clock the time)
+const basisLive = () => BASIS.phase === 'regular' || (BASIS.v !== 'krx' && nxOpenNow());
 // the header badge for what is drawn: {long, short (phones), title}
 function basisLabel() {
   const k = DATA.k, tq = k ? k.hhmm : '', reg = BASIS.phase === 'regular';
@@ -1073,13 +1249,13 @@ function basisLabel() {
     const tail = ' NXT에서 거래되지 않는 종목은 KRX 값 그대로 빗금으로 보여요.';
     if (reg) return { long: 'NXT 실시간', short: `NXT ${tq}`, title: '넥스트레이드(NXT) 메인마켓 가격으로 그려요.' + tail };
     return nxOpenNow() ? { long: `NXT ${ss} · ${t} 기준`, short: `NXT ${t}`, title: `넥스트레이드(NXT) ${ss} 가격으로 그려요.` + tail }
-      : { long: `NXT ${ss} 마감 · ${t} 기준`, short: `NXT ${t}`, title: `넥스트레이드(NXT) ${ss}의 마지막 가격으로 그려요.` + tail };
+      : { long: `NXT ${ss} 마감 · ${t} 기준`, short: `NXT ${t} 마감`, title: `넥스트레이드(NXT) ${ss}의 마지막 가격으로 그려요.` + tail };
   }
   if (BASIS.v === 'int') {
     if (BASIS.legacy) return { long: `통합 시세 · ${tq} 기준`, short: `통합 ${tq}`, title: '정규장 뒤 NXT·시간외 거래가 섞인 마지막 가격(네이버 통합 시세)으로 그려요' };
     if (reg) return { long: '통합 실시간', short: `통합 ${tq}`, title: INT_TITLE + tvTxt };
     const t = intTime();
-    return { long: `통합 시세 · ${t} 기준`, short: `통합 ${t}`, title: INT_TITLE + tvTxt };
+    return { long: `통합 시세 · ${t} 기준`, short: nxOpenNow() ? `통합 ${t}` : `통합 ${t} 기준`, title: INT_TITLE + tvTxt };
   }
   return krxLabel();
 }
@@ -1290,7 +1466,7 @@ const isPreferred = st => st.c.slice(-1) !== '0';   // 우선주: KRX short code
 const curTheme = () => (state.market === 'THEME' && state.theme != null && THEMES ? THEMES.byId.get(state.theme) || null : null);
 const MAX_CODES = 300;
 let uniCache = { key: '', out: null };
-function uniKey() { return [VER, state.market, state.theme, state.sizeBy, state.flowWin, state.colorBy, state.topN, [...state.forced].join(','), WATCH.join(',')].join('|'); }
+function uniKey() { return [VER, state.market, state.theme, state.sizeBy, state.flowWin, state.colorBy, state.topN, [...state.forced].join(','), WG.active, watchView().join(',')].join('|'); }
 function universe() {
   const k = uniKey();
   if (uniCache.key === k) return uniCache.out;
@@ -1304,7 +1480,7 @@ function buildUniverse() {
   const m = state.market, flow = isFlow();
   let pool, missing = 0, capped = 0;
   if (m === 'WATCH' || m === 'THEME') {
-    let codes = m === 'WATCH' ? WATCH : (curTheme() ? curTheme().codes : []);
+    let codes = m === 'WATCH' ? watchView() : (curTheme() ? curTheme().codes : []);
     if (codes.length > MAX_CODES) { capped = codes.length - MAX_CODES; codes = codes.slice(0, MAX_CODES); }
     pool = [];
     for (const c of codes) { const s = get(c); if (s) pool.push(s); else missing++; }
@@ -1372,6 +1548,23 @@ function buildRoot(list, withInd) {
     : Array.from(d3.group(list, s => s.s), ([s, arr]) => ({ id: 'S|' + s, kind: 'sector', s, children: arr.map(leaf) }));
   return d3.hierarchy({ id: 'root', children }).sum(d => d.kind === 'tile' ? Math.max(sizeV(d.st), 0) : 0).sort((a, b) => b.value - a.value);
 }
+// ★관심 전체 with several groups (§3-11): the groups are the top blocks (in their order), each holds its stocks; a stock in two
+// groups shows in both (its first tile keeps the id 'T|code', the others 'T|code|groupId')
+function groupRoot(list) {
+  const by = new Map(list.map(st => [st.c, st])), seen = new Set(), children = [];
+  for (const g of WG.groups) {
+    const kids = [];
+    for (const c of g.codes) {
+      const st = by.get(c); if (!st) continue;
+      kids.push({ id: seen.has(c) ? `T|${c}|${g.id}` : 'T|' + c, kind: 'tile', st });
+      seen.add(c);
+    }
+    if (kids.length) children.push({ id: 'G|' + g.id, kind: 'group', g, children: kids });
+  }
+  return d3.hierarchy({ id: 'root', children }).sum(d => d.kind === 'tile' ? Math.max(sizeV(d.st), 0) : 0).sort((a, b) => b.value - a.value);
+}
+// the ★관심 map groups by group when 전체 is shown and two or more groups have stocks on it
+const wgGrouped = list => WG.active === 'all' && WG.groups.filter(g => g.codes.some(c => list.some(s => s.c === c))).length >= 2;
 function flatRoot(items, themes) {
   const children = themes ? items.map(t => ({ id: 'H|' + t.id, kind: 'theme', t })) : items.map(st => ({ id: 'T|' + st.c, kind: 'tile', st }));
   return d3.hierarchy({ id: 'root', children }).sum(d => d.kind === 'theme' ? Math.max(d.t.cap, 0) : d.kind === 'tile' ? Math.max(sizeV(d.st), 0) : 0).sort((a, b) => b.value - a.value);
@@ -1420,6 +1613,10 @@ function createNode(n) {
   if (k === 'theme') {
     return h('div', { class: 'node tile th', 'data-t': String(n.data.t.id), tabindex: '-1', role: 'button' },
       h('div', { class: 'lab' }, h('span', { class: 'nm' }), h('span', { class: 'pc' }), h('span', { class: 'px' })));
+  }
+  if (k === 'group') {
+    const lbl = `${n.data.g.name} 그룹만 보기`;
+    return h('div', { class: 'node sec grp', 'data-g': n.data.g.id }, h('button', { class: 'hd', type: 'button', title: lbl, 'aria-label': lbl }, h('span', { class: 't' }), h('span', { class: 'v' })));
   }
   const attrs = { class: 'node ' + (k === 'sector' ? 'sec' : 'ind'), 'data-s': n.data.s };
   if (k === 'ind') attrs['data-i'] = n.data.i;
@@ -1564,12 +1761,13 @@ function placeNode(el, n, mdl) {
   hd.style.height = H + 'px';
   hd.style.display = H ? 'flex' : 'none';
   if (!H) { el.__vtxt = null; return; }
-  const name = n.data.kind === 'sector' ? n.data.s : n.data.i;
+  const top = n.data.kind === 'sector' || n.data.kind === 'group';
+  const name = n.data.kind === 'group' ? n.data.g.name : n.data.kind === 'sector' ? n.data.s : n.data.i;
   // a sector header always shows the whole sector's value, even while zoomed into one of its industries
   const grp = n.data.kind === 'sector' && mdl.secGroups && mdl.secGroups.get(n.data.s) ? mdl.secGroups.get(n.data.s) : n.leaves().map(l => l.data.st);
   hd.children[0].textContent = name;
   const v = hd.children[1];
-  const room = w - textUnits(name) * (n.data.kind === 'sector' ? 12 : 10.5) - 12;
+  const room = w - textUnits(name) * (top ? 12 : 10.5) - 12;
   v.textContent = room > 44 ? grpText(grp, 1) : '';
   v.className = 'v ' + grpCls(grp);
   el.__vtxt = v.textContent || null;
@@ -1841,7 +2039,8 @@ function model() {
   if (!list.length && state.focus) { state.focus = null; list = uni; }
   const secGroups = d3.group(uni, s => s.s);
   if (m === 'THEME') return { type: 'members', list, uni, secGroups, root: flatRoot(list, false) };
-  if (m === 'WATCH') return { type: 'watch', list, uni, secGroups, root: buildRoot(list, false) };
+  // ★관심: 전체 → group blocks (or, with one group, sector › industry like a group's own map)
+  if (m === 'WATCH') return wgGrouped(list) && !state.focus ? { type: 'watch', grouped: true, list, uni, secGroups, root: groupRoot(list) } : { type: 'watch', list, uni, secGroups, root: buildRoot(list, true) };
   return { type: 'market', list, uni, secGroups, root: buildRoot(list, true) };
 }
 function emitRender() {
@@ -1875,6 +2074,7 @@ function render({ animate = false } = {}) {
     if (!el) {
       fresh = true;
       el = createNode(n);
+      el.__id = id;
       nodes.set(id, el);
       if (anim) { el.classList.add('entering'); entering.push(el); }
       mapEl.append(el);
@@ -1923,6 +2123,15 @@ function renderEmpty(mdl) {
   let empty = $('.map-empty', mapEl);
   if (mdl.list.length) { if (empty) empty.remove(); return; }
   if (!empty) { empty = h('div', { class: 'map-empty' }); mapEl.append(empty); }
+  if (state.market === 'WATCH' && WATCH.length && WG.active !== 'all' && !watchView().length) {
+    const g = wgGet(WG.active);
+    empty.replaceChildren(h('div', { class: 'we' },
+      h('span', { class: 'big', 'aria-hidden': 'true', text: '☆' }),
+      h('b', { text: `'${g ? g.name : ''}' 그룹이 비어 있어요` }),
+      h('span', { text: '종목 페이지의 ☆나 검색에서 이 그룹에 담을 수 있어요' }),
+      h('button', { type: 'button', onclick: () => watchApi.setActive('all'), text: '관심종목 전체 보기' })));
+    return;
+  }
   if (state.market === 'WATCH' && !WATCH.length) {
     const back = ['K', 'Q', 'ALL'].includes(lastMarket) ? lastMarket : 'K';
     empty.replaceChildren(h('div', { class: 'we' },
@@ -2030,7 +2239,7 @@ function limTag(st) {
 function starBtn(code, extraCls) {
   const on = WATCH.includes(code);
   return h('button', { class: extraCls, type: 'button', 'data-w': code, 'aria-pressed': String(on), 'aria-label': on ? '관심종목에서 빼기' : '관심종목에 추가', title: on ? '관심종목에서 빼기' : '관심종목에 추가',
-    onclick: ev => { ev.stopPropagation(); setWatch(code); }, text: on ? '★' : '☆' });
+    'aria-haspopup': WG.groups.length > 1 ? 'dialog' : null, onclick: ev => { ev.stopPropagation(); starClick(code, ev.currentTarget); }, text: on ? '★' : '☆' });
 }
 // the metric row under the price when the colour metric is not today's change
 function metricRow(st) {
@@ -2110,15 +2319,18 @@ function placeTip(x, y) {
   if (top + tipH > vh - pad) top = Math.max(pad, vh - tipH - pad);
   tip.style.left = left + 'px'; tip.style.top = top + 'px';
 }
-function setHover(code) {
+const tilesOf = code => mapEl.querySelectorAll(`.tile[data-c="${code}"]`);
+let hoverEl = null;          // the tile under the pointer (a stock can have several tiles on the grouped ★관심 map)
+function setHover(code, el) {
+  hoverEl = code ? el || null : null;
   if (state.hover === code) return;
-  if (state.hover) { const o = nodes.get('T|' + state.hover) || nodes.get('H|' + state.hover); if (o) o.classList.remove('hov'); }
+  if (state.hover) { const o = nodes.get('H|' + state.hover); if (o) o.classList.remove('hov'); else if (CODE_RE.test(state.hover)) for (const t of tilesOf(state.hover)) t.classList.remove('hov'); }
   state.hover = code;
-  if (code) { const el = nodes.get('T|' + code) || nodes.get('H|' + code); if (el) el.classList.add('hov'); }
+  if (code) { const o = nodes.get('H|' + code); if (o) o.classList.add('hov'); else if (CODE_RE.test(code)) for (const t of tilesOf(code)) t.classList.add('hov'); }
 }
 // the ☆ on the hovered stock tile (mouse only): toggles the watchlist
 function syncHoverStar() {
-  const el = state.hover && !String(state.hover).startsWith('#') ? nodes.get('T|' + state.hover) : null;
+  const el = state.hover && !String(state.hover).startsWith('#') ? (hoverEl && hoverEl.isConnected && hoverEl.dataset.c === state.hover ? hoverEl : nodes.get('T|' + state.hover)) : null;
   if (!el || !el.__g || !hoverMQ.matches || el.classList.contains('leaving')) { tstar.hidden = true; return; }
   const [x, y, w, hh] = el.__g;
   if (w < 30 || hh < 24) { tstar.hidden = true; return; }
@@ -2134,7 +2346,7 @@ tstar.addEventListener('click', e => {
   e.stopPropagation();
   const code = state.hover;
   if (!code || String(code).startsWith('#')) return;
-  setWatch(code);
+  starClick(code, tstar);
 });
 // every star on screen follows the watchlist
 function syncStars() {
@@ -2159,7 +2371,7 @@ mapEl.addEventListener('pointermove', e => {
     }
   } else {
     const code = t.dataset.c;
-    if (state.hover !== code) { setHover(code); syncHoverStar(); const st = get(code); if (st) fillTip(st); }
+    if (state.hover !== code || hoverEl !== t) { const same = state.hover === code; setHover(code, t); syncHoverStar(); const st = get(code); if (st && !same) fillTip(st); }
   }
   tip.classList.add('show');
   placeTip(e.clientX, e.clientY);
@@ -2171,6 +2383,7 @@ mapEl.addEventListener('click', e => {
   const hd = e.target.closest('.hd');
   if (hd) {
     const node = hd.parentElement;
+    if (node.dataset.g) { watchApi.setActive(node.dataset.g); return; }
     if (node.classList.contains('sec')) zoomTo({ s: node.dataset.s });
     else zoomTo({ s: node.dataset.s, i: node.dataset.i });
     return;
@@ -2185,7 +2398,7 @@ mapEl.addEventListener('click', e => {
 /* keyboard: one tile is tabbable (roving tabindex); arrows move to the nearest tile in that direction; Enter / Space open it
    (stock page, or the theme's map); on mouse-capable screens the tooltip follows the focused tile */
 let rovId = null, kbdTip = false;
-const tileId = el => el.dataset.c ? 'T|' + el.dataset.c : 'H|' + el.dataset.t;
+const tileId = el => el.__id || (el.dataset.c ? 'T|' + el.dataset.c : 'H|' + el.dataset.t);
 function liveTiles() {
   const out = [];
   for (const el of nodes.values()) if (el.__g && el.classList.contains('tile') && !el.classList.contains('leaving')) out.push(el);
@@ -2430,7 +2643,11 @@ function renderCrumbs() {
   }
   if (f) kids.push(h('button', { class: 'back', onclick: zoomOut, text: '‹ 상위로' }));
   const rootName = state.market === 'ALL' ? '전체 시장' : state.market === 'WATCH' ? '관심종목' : `${MKT_NAME[state.market]} 전체`;
-  kids.push(h('button', { class: 'c' + (f ? '' : ' cur'), onclick: () => zoomTo(null), text: rootName }));
+  const wg = state.market === 'WATCH' && WG.active !== 'all' ? wgGet(WG.active) : null;
+  if (wg) {
+    kids.push(h('button', { class: 'c', onclick: () => watchApi.setActive('all'), text: rootName }));
+    kids.push(item(h('button', { class: 'c' + (f ? '' : ' cur'), onclick: () => zoomTo(null), text: wg.name })));
+  } else kids.push(h('button', { class: 'c' + (f ? '' : ' cur'), onclick: () => zoomTo(null), text: rootName }));
   if (f) {
     kids.push(item(h('button', { class: 'c' + (f.i ? '' : ' cur'), onclick: () => zoomTo({ s: f.s }), text: f.s })));
     if (f.i) kids.push(item(h('button', { class: 'c cur', 'aria-current': 'location', text: f.i })));
@@ -2840,7 +3057,12 @@ function renderTable() {
   const wrap = $('#tablewrap');
   const q = state.query.trim();
   const k = kind();
-  const cols = [['n', '종목'], ['i', '업종'], ['p', '현재가']];
+  const cols = [['n', '종목']];
+  const wgCol = state.market === 'WATCH';
+  if (wgCol) cols.push(['g', '그룹']);
+  cols.push(['i', '업종'], ['p', '현재가']);
+  // 그룹: the names of a stock's groups (group order); sorts by its first group's place, then by name
+  const gOf = c => WG.groups.filter(g => g.codes.includes(c)), gKey = s => { const gs = gOf(s.c); return gs.length ? WG.groups.indexOf(gs[0]) * 1e3 + gs.length : 1e9; };
   if (k === 'period') cols.push(['v', COLOR_METRICS[state.colorBy].label]);
   cols.push(['r', k === 'period' ? '오늘' : '등락률']);
   if (k === 'flow') cols.push(['a', flowShort()]);
@@ -2850,12 +3072,12 @@ function renderTable() {
   if (!cols.some(c => c[0] === state.sort.key)) state.sort = { key: 'cap', dir: -1 };
   let list = universe().filter(inFocus).filter(s => matchQuery(s, q) && (state.bucket == null || (!s.nonx && bucketOf(cval(s)) === state.bucket)));
   const { key, dir } = state.sort;
-  const val = key === 'v' ? cval : key === 'a' ? amt : key === 'r' ? (s => s.r) : key === 'vol' ? (s => s.v) : (s => s[key]);
+  const val = key === 'v' ? cval : key === 'a' ? amt : key === 'r' ? (s => s.r) : key === 'vol' ? (s => s.v) : key === 'g' ? gKey : (s => s[key]);
   sortRows(list, key, dir, val);
   const prevTop = wrap.scrollTop;
   const thead = h('thead', {}, h('tr', {}, cols.map(([c, label]) => h('th', { class: 'k-' + c, 'data-k': c, 'aria-sort': key === c ? (dir < 0 ? 'descending' : 'ascending') : null },
     h('button', { type: 'button', onclick: () => {
-      state.sort = { key: c, dir: key === c ? -dir : (c === 'n' || c === 'i' ? 1 : -1) };
+      state.sort = { key: c, dir: key === c ? -dir : (c === 'n' || c === 'i' || c === 'g' ? 1 : -1) };
       renderTable();
       const b = $(`#tablewrap th[data-k="${c}"] button`); if (b) b.focus();
     } }, label)))));
@@ -2864,6 +3086,7 @@ function renderTable() {
     const v = cval(s);
     const cells = [
       h('td', { class: 'k-n' }, h('div', { class: 'nmcell' }, starBtn(s.c, 'wbtn'), h('i', { class: v == null ? 'nod' : s.nonx ? 'nonx' : null, style: `background:${colorOf(v)}` }), h('span', { class: 'nmt', text: s.n }), h('small', { text: s.c }), limTag(s), nxTag(s))),
+      wgCol ? h('td', { class: 'k-g', text: gOf(s.c).map(g => g.name).join(', ') }) : null,
       h('td', { class: 'k-i indc', title: `${s.s} · ${s.i}` }, h('span', { class: 'indt', text: `${s.s} · ${s.i}` })),
       h('td', { class: 'k-p', 'data-f': '', text: s.p > 0 ? fmtInt(s.p) : '—' }),
     ];
@@ -2945,6 +3168,7 @@ function renderStatus() {
   bas.hidden = !showBasis;
   el.classList.toggle('has-basis', showBasis);
   el.classList.toggle('has-blab', blab);
+  if (!blab) el.classList.remove('bl-live');
   el.classList.toggle('replay', !!REPLAY);
   ts.textContent = '';
   badge.title = '';
@@ -2983,9 +3207,10 @@ function renderStatus() {
       }
     }
     const L = basisLabel();
-    // phones: the short form; the narrowest drop its venue word ("통합 08:21" → "08:21") while the pressed button says it
-    const sm = /^(KRX|NXT|통합) (\d\d:\d\d)$/.exec(L.short);
+    // phones: the short form; the narrowest drop its venue word ("NXT 08:50 마감" → "08:50 마감") while the pressed button says it
+    const sm = /^(KRX|NXT|통합) (\d\d:\d\d(?: 마감| 기준)?)$/.exec(L.short);
     badge.replaceChildren(h('span', { class: 'bl', text: L.long }), h('span', { class: 'bs', 'aria-hidden': 'true' }, sm ? [h('span', { class: 'bp', text: sm[1] + ' ' }), sm[2]] : L.short));
+    el.classList.toggle('bl-live', showBasis && basisLive());
     badge.title = L.title;
     txt.textContent = (open || DATA.afterHours || nxOpenNow()) && lastK ? `${kstClock.format(liveState.last)} 갱신` : (okAsOf ? kstDayFmt.format(asOf) : '');
   } else if (open) {
@@ -3163,7 +3388,7 @@ function setMarket(m, writeHash) {
   if (writeHash && location.hash.slice(1) !== TO_HASH[m]) location.hash = TO_HASH[m];
   if (wasWorld !== isWorld()) { rebuildColor(); document.dispatchEvent(new CustomEvent('kh:palette')); }
   syncWorld();
-  renderHeader(); syncControls(); renderStatus();
+  renderHeader(); syncControls(); renderStatus(); renderWG();
   render({ animate: !wasWorld }); renderCrumbs(); renderSide(); renderLegend(); renderFooter();
   if (wasWorld) requestAnimationFrame(fitMapHeight);
   syncPollers();
@@ -3355,6 +3580,143 @@ function setView(v) {
   syncControls();
   render(); renderCrumbs(); renderSide(); renderFooter(); renderLegend();
   fitMapHeight();
+}
+
+/* ───────────────── ★관심 group chips + the group popover (§3-11) ─────────────────
+   Chips over the map: 전체 · each group (count) · ＋. The shown group's chip has ⋯ (rename · move · delete); a right click or a long
+   press opens it on any chip. One popover (#wgpop) serves the menu, the name form, the delete question and the ☆ picker; on phones
+   it is a bottom sheet. Esc or a tap outside closes it and focus goes back to what opened it. */
+const wgPop = $('#wgpop');
+let wgOpener = null;     // {el, sel}: the opener and a selector to find it again after a redraw
+function renderWG() {
+  const bar = $('#wgbar'), chips = $('#wgchips');
+  const on = state.market === 'WATCH' && !isWorld();
+  const was = !bar.hidden;
+  bar.hidden = !on;
+  if (on) {
+    const act = WG.active;
+    const chip = (id, name, n) => {
+      const sel = act === id, grp = id !== 'all';
+      const kids = [h('button', { class: 'wgc', type: 'button', 'data-g': id, 'aria-pressed': String(sel), title: grp ? `${name} · 길게 누르거나 오른쪽 클릭하면 편집` : null,
+        onclick: () => { if (wgLong) { wgLong = false; return; } watchApi.setActive(id); },
+        oncontextmenu: grp ? ev => { ev.preventDefault(); wgMenu(id, ev.currentTarget); } : null }, name, h('span', { class: 'n', text: fmtInt(n) }))];
+      if (grp && sel) kids.push(h('button', { class: 'wgm', type: 'button', 'data-gm': id, 'aria-label': `${name} 그룹 편집`, title: '이름 바꾸기 · 순서 · 지우기', 'aria-haspopup': 'dialog', onclick: ev => wgMenu(id, ev.currentTarget), text: '⋯' }));
+      return h('span', { class: 'wgi', 'data-on': sel ? '' : null }, kids);
+    };
+    chips.replaceChildren(chip('all', '전체', WATCH.length), ...WG.groups.map(g => chip(g.id, g.name, g.codes.length)),
+      WG.groups.length < WG_MAX ? h('button', { class: 'wgadd', type: 'button', 'aria-label': '새 그룹 만들기', title: '새 그룹', 'aria-haspopup': 'dialog', onclick: ev => wgForm(null, ev.currentTarget), text: '＋' }) : null);
+    // keep the shown group's chip in view (sideways only)
+    const cur = chips.querySelector('.wgi[data-on]');
+    if (cur) { const r = cur.getBoundingClientRect(), b = chips.getBoundingClientRect(); if (r.left < b.left) chips.scrollLeft -= b.left - r.left + 8; else if (r.right > b.right) chips.scrollLeft += r.right - b.right + 8; }
+  } else if (was) wgClose(false);          // leaving ★관심 (a ☆ picker elsewhere stays open while its ticks redraw)
+  if (was !== on) requestAnimationFrame(fitMapHeight);
+}
+// long press (touch) on a group chip → its menu
+let wgLong = false, wgLongT = 0;
+$('#wgchips').addEventListener('pointerdown', e => {
+  const b = e.target.closest('.wgc'); wgLong = false;
+  if (!b || e.pointerType === 'mouse' || b.dataset.g === 'all') return;
+  clearTimeout(wgLongT);
+  wgLongT = setTimeout(() => { wgLong = true; wgMenu(b.dataset.g, b); }, 550);
+});
+for (const t of ['pointerup', 'pointercancel', 'pointerleave']) $('#wgchips').addEventListener(t, () => clearTimeout(wgLongT));
+$('#wgchips').addEventListener('scroll', () => clearTimeout(wgLongT), { passive: true });
+
+function wgOpen(opener, sel, label, kids) {
+  wgOpener = { el: opener, sel };
+  wgPop.replaceChildren(...kids);
+  wgPop.setAttribute('aria-label', label);
+  wgPop.hidden = false;
+  // under the opener, inside the viewport (phones: a bottom sheet, by CSS)
+  if (!narrowMQ.matches) {
+    const r = opener.getBoundingClientRect(), pw = wgPop.offsetWidth, ph = wgPop.offsetHeight;
+    let top = r.bottom + 6;
+    if (top + ph > innerHeight - 8) top = Math.max(8, r.top - ph - 6);
+    wgPop.style.left = Math.round(Math.min(Math.max(8, r.left), innerWidth - pw - 8)) + 'px';
+    wgPop.style.top = Math.round(top) + 'px';
+  }
+  const f = wgPop.querySelector('input[type="text"],input:checked,input,button:not([disabled])');
+  if (f) f.focus({ preventScroll: true });
+}
+function wgClose(restore = true) {
+  if (wgPop.hidden) return;
+  wgPop.hidden = true; wgPop.replaceChildren();
+  const o = wgOpener; wgOpener = null;
+  if (!restore || !o) return;
+  const el = o.el && o.el.isConnected && o.el.offsetParent ? o.el : o.sel ? document.querySelector(o.sel) : null;
+  if (el) el.focus({ preventScroll: true });
+}
+document.addEventListener('pointerdown', e => {
+  if (wgPop.hidden || wgPop.contains(e.target) || (wgOpener && wgOpener.el && wgOpener.el.contains(e.target))) return;
+  wgClose(false);
+}, true);
+wgPop.addEventListener('keydown', e => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); wgClose(); } });
+wgPop.addEventListener('focusout', e => { if (e.relatedTarget && !wgPop.contains(e.relatedTarget)) wgClose(false); });
+const wgChipSel = id => `#wgchips .wgc[data-g="${id}"]`;
+// ⋯ : rename · move earlier / later · delete
+function wgMenu(id, opener) {
+  const i = WG.groups.findIndex(g => g.id === id); if (i < 0) return;
+  const g = WG.groups[i], n = WG.groups.length;
+  const row = (text, fn, dis) => h('button', { class: 'row', type: 'button', disabled: !!dis, onclick: fn, text });
+  const move = to => { watchApi.moveGroup(id, to); wgClose(false); const b = document.querySelector(`#wgchips [data-gm="${id}"]`) || document.querySelector(wgChipSel(id)); if (b) b.focus({ preventScroll: true }); };
+  wgOpen(opener, wgChipSel(id), `${g.name} 그룹 편집`, [h('h3', { text: g.name }),
+    row('이름 바꾸기', () => wgForm(id, opener)),
+    row('앞으로 옮기기', () => move(i - 1), i === 0),
+    row('뒤로 옮기기', () => move(i + 1), i === n - 1),
+    h('div', { class: 'sep' }),
+    row('그룹 지우기…', () => wgAskDelete(id, opener))]);
+}
+// a name for a new group (id null) or a new name; done(newId) after creating
+function wgForm(id, opener, done) {
+  const g = id ? wgGet(id) : null;
+  if (!g && WG.groups.length >= WG_MAX) return;
+  const inp = h('input', { type: 'text', maxlength: String(WG_NAME), value: g ? g.name : '', placeholder: '예: 반도체', 'aria-label': '그룹 이름', autocomplete: 'off', enterkeyhint: 'done' });
+  const msg = h('p', { class: 'msg', 'aria-live': 'polite', text: `${WG_NAME}자까지` });
+  const ok = h('button', { class: 'pri', type: 'submit', text: g ? '바꾸기' : '만들기' });
+  const check = () => {
+    const nm = wgName(inp.value), dup = !!nm && WG.groups.some(x => x !== g && x.name === nm);
+    ok.disabled = !nm || dup;
+    msg.textContent = dup ? '같은 이름의 그룹이 있어요' : `${WG_NAME}자까지`;
+  };
+  inp.addEventListener('input', check);
+  const form = h('form', { onsubmit: ev => {
+    ev.preventDefault(); check(); if (ok.disabled) return;
+    const nm = wgName(inp.value);
+    if (g) { watchApi.renameGroup(id, nm); wgClose(false); const b = document.querySelector(wgChipSel(id)); if (b) b.focus({ preventScroll: true }); return; }
+    const nid = watchApi.createGroup(nm);
+    if (!nid) return;
+    if (done) { done(nid); return; }
+    wgClose(false);
+    watchApi.setActive(nid);
+    const b = document.querySelector(wgChipSel(nid)); if (b) b.focus({ preventScroll: true });
+  } }, inp, msg, h('div', { class: 'acts' }, h('button', { type: 'button', onclick: () => wgClose(), text: '취소' }), ok));
+  wgOpen(opener, g ? wgChipSel(id) : '#wgchips .wgadd', g ? '그룹 이름 바꾸기' : '새 그룹', [h('h3', { text: g ? '그룹 이름 바꾸기' : '새 그룹' }), form]);
+  check();
+  inp.select();
+}
+function wgAskDelete(id, opener) {
+  const g = wgGet(id); if (!g) return;
+  const only = g.codes.filter(c => !WG.groups.some(x => x !== g && x.codes.includes(c))).length;
+  wgOpen(opener, wgChipSel(id), '그룹 지우기', [h('h3', { text: `'${g.name}' 그룹을 지울까요?` }),
+    h('p', { class: 'msg', text: !g.codes.length ? '빈 그룹이에요.' : only ? `다른 그룹에 없는 ${fmtInt(only)}종목은 관심종목에서 빠져요.` : '종목은 다른 그룹에 그대로 남아요.' }),
+    h('div', { class: 'acts' }, h('button', { type: 'button', onclick: () => wgClose(), text: '취소' }),
+      h('button', { class: 'pri', type: 'button', onclick: () => { watchApi.deleteGroup(id); wgClose(false); const b = document.querySelector(wgChipSel('all')); if (b) b.focus({ preventScroll: true }); }, text: '지우기' }))]);
+}
+// ☆ with several groups: tick the groups this stock belongs to (applied at once); one group: a plain toggle
+function starClick(code, el) {
+  if (WG.groups.length < 2) { setWatch(code); return; }
+  wgPicker(code, el);
+}
+function wgPicker(code, opener) {
+  const st = rawGet(code), nm = (st && st.n) || code;
+  const boxes = WG.groups.map(g => h('label', { class: 'row' },
+    h('input', { type: 'checkbox', 'data-g': g.id, checked: g.codes.includes(code), onchange: () => watchApi.setGroups(code, [...wgPop.querySelectorAll('input[data-g]')].filter(x => x.checked).map(x => x.dataset.g)) }),
+    h('span', { text: g.name }), h('span', { class: 'n', text: fmtInt(g.codes.length) })));
+  const sel = `button[data-w="${code}"]`;
+  wgOpen(opener, opener === tstar ? null : sel, `${nm} 관심 그룹`, [h('h3', { text: `${nm} · 관심 그룹` }), ...boxes,
+    WG.groups.length < WG_MAX ? h('div', { class: 'sep' }) : null,
+    WG.groups.length < WG_MAX ? h('button', { class: 'row', type: 'button', onclick: () => wgForm(null, opener, nid => { watchApi.add(code, nid); wgPicker(code, opener); }), text: '＋ 새 그룹에 담기' }) : null,
+    h('div', { class: 'acts' }, h('button', { class: 'pri', type: 'button', onclick: () => wgClose(), text: '완료' }))].filter(Boolean));
 }
 
 /* search: the current map's stocks first, then every other listed stock (names.json live, the embedded rows in the snapshot) —
@@ -3793,6 +4155,7 @@ fitMapHeight();
 renderHeader();
 renderStatus();
 renderFooter();
+renderWG();
 render();
 renderCrumbs();
 renderSide();
@@ -3941,6 +4304,8 @@ html.sp-on, html.sp-on body { overflow: hidden; }
 .sp-peer-list::-webkit-scrollbar { display: none; }
 .sp-peer { flex: none; display: inline-flex; align-items: center; gap: 7px; height: 40px; padding: 0 12px; border-radius: 20px; background: var(--panel); border: 1px solid var(--line); font-size: 13px; white-space: nowrap; }
 .sp-peer:hover { border-color: var(--line2); background: var(--panel2); }
+.sp-peer .pk { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 10px; height: 16px; margin-right: -2px; }
+.sp-peer .pk svg, .sp-peer .pk canvas { display: block; }
 .sp-peer .nm { font-weight: 600; }
 .sp-peer .num { font-size: 12.5px; font-weight: 600; }
 .sp-peer .pr { color: var(--fg2); font-weight: 500; }
@@ -4883,10 +5248,43 @@ function peerItems() {
   return st && st.s ? KH.stocks().filter(x => x.s === st.s && x.i === st.i && x.c !== st.c && x.c.slice(-1) === '0').sort((a, b) => b.cap - a.cap).slice(0, 12)
     .map(x => ({ c: x.c, n: x.n, p: isNum(x.p) ? +x.p : null, r: isNum(x.r) ? +x.r : null })) : [];
 }
+// §3-13: a vertical mini candle (today's open/high/low/now) in the 10px slot left of the name. On the map: KH.ohlc(code);
+// otherwise the raw /api/quotes row fetched for it (R.peerRows). Nothing is drawn without the helpers or without a value.
+function peerCandle(slot, code) {
+  let el = null;
+  try {
+    if (typeof KH.ohlc === 'function' && typeof KH.candleIcon === 'function') {
+      const o = KH.stock(code) ? KH.ohlc(code) : R.peerRows && R.peerRows.has(code) ? KH.ohlc(R.peerRows.get(code)) : null;
+      el = o ? KH.candleIcon(o) : null;
+    }
+  } catch (e) { el = null; }
+  if (el) { if (slot.firstChild !== el) slot.replaceChildren(el); } else slot.replaceChildren();
+}
+// peers that are not on the map: their rows come from /api/quotes?codes= once per opened stock (live only, at most 6)
+async function peerFetchRows(list) {
+  if (!LIVE || typeof KH.ohlc !== 'function' || typeof KH.candleIcon !== 'function') return;
+  const code = S.code;
+  const want = list.filter(x => !KH.stock(x.c)).map(x => x.c).slice(0, 6);
+  if (!want.length) return;
+  const key = code + '|' + want.join();
+  if (R.peerRowsFor === key) return;
+  R.peerRowsFor = key;
+  if (R.peerRowsCode !== code) { R.peerRows = null; R.peerRowsCode = code; }
+  const ac = new AbortController(), killer = setTimeout(() => ac.abort(), 8000);
+  try {
+    const res = await fetch('api/quotes?codes=' + want.join(','), { cache: 'no-store', signal: ac.signal });
+    if (!res.ok) return;
+    const raw = await res.json();
+    if (S.code !== code) return;
+    R.peerRows = new Map(((raw && raw.stocks) || []).filter(x => x && x.c).map(x => [String(x.c), x]));
+    if (S.open && R.peerList) peerItems().forEach((x, i) => { const b = R.peerList.children[i]; if (b && b.dataset.code === x.c) peerCandle(b.children[0], x.c); });
+  } catch (e) { /* no icons for these; the list itself is fine */ } finally { clearTimeout(killer); }
+}
 function peerFill(b, x) {
-  b.children[1].textContent = x.p != null ? int(x.p) : '';
-  b.children[2].className = 'num pc ' + cls(x.r);
-  b.children[2].textContent = pct(x.r);
+  peerCandle(b.children[0], x.c);
+  b.children[2].textContent = x.p != null ? int(x.p) : '';
+  b.children[3].className = 'num pc ' + cls(x.r);
+  b.children[3].textContent = pct(x.r);
   b.setAttribute('aria-label', `${x.n}${x.p != null ? ` ${int(x.p)}원` : ''} ${pct(x.r)} 보기`);
 }
 function renderPeers() {
@@ -4901,11 +5299,12 @@ function renderPeers() {
   R.peerKey = key;
   R.peerList = h('div', { class: 'sp-peer-list' }, list.map(x => {
     const b = h('button', { type: 'button', class: 'sp-peer', 'data-code': x.c, onclick: () => open(x.c) },
-      h('span', { class: 'nm', text: x.n }), h('span', { class: 'num pr' }), h('span', { class: 'num pc' }));
+      h('span', { class: 'pk', 'aria-hidden': 'true' }), h('span', { class: 'nm', text: x.n }), h('span', { class: 'num pr' }), h('span', { class: 'num pc' }));
     peerFill(b, x);
     return b;
   }));
   R.peers.replaceChildren(h('h2', { class: 'sp-peers-t', text: '같은 업종' }), R.peerList);
+  peerFetchRows(list);
 }
 
 function renderOffline() {
@@ -6438,9 +6837,6 @@ section.rp-player[hidden]{display:none}
 .xa-wig.xa-do{animation:xaWig .45s ease-out}
 @keyframes xaWig{0%{transform:rotate(0)}25%{transform:rotate(-4deg)}55%{transform:rotate(3deg)}80%{transform:rotate(-1deg)}100%{transform:rotate(0)}}
 .xc-dig{font:700 15px/1 var(--sans,inherit);font-variant-numeric:tabular-nums;color:var(--fg2)}
-.xc-bar{position:relative;width:100%;min-width:118px;height:3px;border-radius:2px;background:#22242a;overflow:hidden}
-.xc-segs,.xc-fill{position:absolute;inset:0;border-radius:2px}
-.xc-txt{font-size:11.5px;line-height:1.1;font-weight:600;white-space:nowrap;font-variant-numeric:tabular-nums}
 @media (max-width:900px){.xa{width:48px;height:48px}}
 @media (max-width:760px){
   .xc-digits{font-size:26px}
@@ -6451,8 +6847,6 @@ section.rp-player[hidden]{display:none}
   .xc-face{gap:6px}
   #clock{position:relative;gap:0;height:40px}
   .xc-btn{height:40px;display:flex;align-items:center;margin:0;padding:0 4px 3px}
-  .xc-bar{position:absolute;left:4px;right:4px;bottom:1px;height:2px;min-width:0}
-  .xc-txt{display:none}
 }
 @media (prefers-reduced-motion:reduce){.xc-fill{transition:none!important}}
 
@@ -6463,6 +6857,31 @@ section.rp-player[hidden]{display:none}
 .rp-big-t{font:750 clamp(52px,9vw,128px)/.92 var(--sans,inherit);letter-spacing:-.05em;font-variant-numeric:tabular-nums}
 .rp-big-d{margin-top:4px;font:600 clamp(11px,1.2vw,15px)/1 var(--sans,inherit);letter-spacing:.04em;opacity:.9}
 @media (max-width:760px){.rp-big-t{font-size:clamp(44px,17vw,72px)}}
+
+/* ── session bar: a thick underline along the bottom edge of the header (#session-bar) ── */
+header.top{position:relative}
+#session-bar{position:absolute;left:0;right:0;bottom:0;z-index:5;height:0;--sbh:6px;pointer-events:none}
+#session-bar[hidden]{display:none}
+.sb{position:absolute;left:12px;right:12px;bottom:2px;height:calc(var(--sbh) + 4px);pointer-events:auto;outline:none;cursor:default}
+.sb:focus-visible .sb-track{outline:2px solid var(--amber);outline-offset:2px}
+.sb-track{position:absolute;left:0;right:0;bottom:0;height:var(--sbh);border-radius:99px;overflow:hidden;background:#1c1e24}
+.sb-segs,.sb-fill{position:absolute;inset:0}
+.sb-segs i,.sb-fill i{position:absolute;top:0;bottom:0;display:block}
+.sb-segs i.lo,.sb-fill i.lo{top:30%}
+.sb-hol .sb-fill{opacity:0}
+.sb-ico{position:absolute;bottom:calc(var(--sbh) - 4px);width:18px;height:18px;margin-left:-9px;pointer-events:none;filter:drop-shadow(0 0 3px rgba(255,181,71,.35))}
+.sb-ico:has(.sb-moon){filter:drop-shadow(0 0 3px rgba(190,200,255,.4))}
+.sb-svg{display:block;overflow:visible}
+.sb-fancy .sb-rays{transform-origin:10px 10px;animation:sbSpin 28s linear infinite}
+.sb-fancy .sb-rise .sb-rays{transform-origin:10px 14px;animation:sbPulse 3.2s ease-in-out infinite}
+.sb-fancy{animation:sbGlow 3.2s ease-in-out infinite}
+@keyframes sbSpin{to{transform:rotate(360deg)}}
+@keyframes sbPulse{50%{opacity:.45}}
+@keyframes sbGlow{50%{filter:drop-shadow(0 0 7px rgba(255,181,71,.6))}}
+.sb-tip{position:absolute;bottom:calc(var(--sbh) + 22px);padding:6px 10px;border-radius:8px;border:1px solid var(--line2);background:#26282f;color:var(--fg);font-size:12.5px;line-height:1.3;white-space:nowrap;box-shadow:0 8px 24px rgba(0,0,0,.5);opacity:0;pointer-events:none;transition:opacity .15s}
+.sb-tip.on{opacity:1}
+@media (max-width:760px){#session-bar{--sbh:4px}.sb{left:8px;right:8px}.sb-ico{width:16px;height:16px;margin-left:-8px}.sb-ico svg{width:16px;height:16px}}
+@media (prefers-reduced-motion:reduce){.sb-fancy,.sb-fancy .sb-rays{animation:none}}
 
 </style>
 <script>
@@ -7597,11 +8016,7 @@ function ckBuild() {
     face.append(h('span', { class: 'xc-digits' }, cells[0], cells[1], h('span', { class: 'xc-colon', text: ':' }), cells[2], cells[3]), ck.sec);
   }
   ck.btn = h('button', { type: 'button', class: 'xc-btn', onclick: ckClick }, face);
-  ck.fill = h('div', { class: 'xc-fill' });
-  ck.segs = h('div', { class: 'xc-segs' });
-  ck.bar = h('div', { class: 'xc-bar', role: 'progressbar', 'aria-valuemin': 0, 'aria-valuemax': 100 }, ck.segs, ck.fill);
-  ck.txt = h('div', { class: 'xc-txt' });
-  clockEl.replaceChildren(ck.btn, ck.bar, ck.txt);
+  clockEl.replaceChildren(ck.btn);
 }
 
 function ckRender(instant) {
@@ -7620,26 +8035,91 @@ function ckRender(instant) {
     ck.btn.setAttribute('aria-label', `한국 증시 히트맵 · 지금 ${two(n.h)}:${two(n.m)} · 눌러서 새로고침`);
     ck.btn.title = `${ph.text} · 눌러서 새로고침`;
   }
-  const smooth = lvl === 'fancy';
-  const sig = ph.key + ph.mode + ph.seg.start + ph.seg.end;
-  if (sig !== ck.sig) {
-    ck.sig = sig;
-    const { start, mid, auc, end } = ph.seg, W = end - start;
-    const p = v => ((v - start) / W * 100).toFixed(2) + '%';
-    const tint = c => c + '38';
-    ck.segs.style.background = `linear-gradient(90deg,${tint(PH.am)} 0 ${p(mid)},${tint(PH.pm)} ${p(mid)} ${p(auc)},${tint(PH.auc)} ${p(auc)} 100%)`;
-    ck.fill.style.background = ph.mode === 'reg'
-      ? `linear-gradient(90deg,${PH.am} 0 ${p(mid)},${PH.pm} ${p(mid)} ${p(auc)},${PH.auc} ${p(auc)} 100%)`
-      : PH[ph.key];
-    ck.bar.title = `장 시작 전 08:00~${two(start / 60 | 0)}:${two(start % 60)} · 오전장 ~${two(mid / 60 | 0)}:${two(mid % 60)} · 오후장 ~${two(auc / 60 | 0)}:${two(auc % 60)} · 마감 동시호가 ~${two(end / 60 | 0)}:${two(end % 60)} · NXT 애프터마켓 ~20:00`;
-    ck.txt.style.color = PH[ph.key];
+  sbRender(n, ph, lvl);
+}
+
+/* ── session bar (#session-bar): a thick underline along the header's bottom edge, 08:00 → 20:00, with a sun / moon riding it ── */
+const sbEl = document.getElementById('session-bar');
+const SB0 = 8 * 60, SB1 = 20 * 60;
+const sb = { built: false, sig: '', tipT: 0 };
+const fmtLeft = m => { m = Math.max(1, Math.ceil(m)); const hh = Math.floor(m / 60), mm = m % 60; return hh ? `${hh}시간${mm ? ' ' + mm + '분' : ''}` : `${mm}분`; };
+function sbIcon(kind) {
+  const S = (t, a, ...k) => svg(t, a, ...k);
+  const root = S('svg', { viewBox: '0 0 20 20', width: 18, height: 18, class: 'sb-svg sb-' + kind, 'aria-hidden': 'true', focusable: 'false' });
+  const ray = (ang, r1, r2, cx, cy) => { const a = ang * Math.PI / 180; return S('line', { x1: (cx + Math.cos(a) * r1).toFixed(2), y1: (cy + Math.sin(a) * r1).toFixed(2), x2: (cx + Math.cos(a) * r2).toFixed(2), y2: (cy + Math.sin(a) * r2).toFixed(2), stroke: '#ffd479', 'stroke-width': 1.5, 'stroke-linecap': 'round' }); };
+  if (kind === 'moon') {
+    root.append(S('path', { d: 'M12.6 2.6a7.6 7.6 0 1 0 4.8 12.9A6.3 6.3 0 0 1 12.6 2.6z', fill: '#d6dcff' }), S('circle', { cx: 15.2, cy: 4.6, r: 0.9, fill: '#d6dcff' }));
+  } else if (kind === 'rise') {
+    root.append(S('g', { class: 'sb-rays' }, ...[180, 215, 250, 290, 325, 360].map(a => ray(a, 7.6, 10, 10, 14))),
+      S('path', { d: 'M3.8 14a6.2 6.2 0 0 1 12.4 0z', fill: '#ffb547' }), S('line', { x1: 1, y1: 14.6, x2: 19, y2: 14.6, stroke: '#ffd479', 'stroke-width': 1.3, 'stroke-linecap': 'round' }));
+  } else {
+    root.append(S('g', { class: 'sb-rays' }, ...[0, 45, 90, 135, 180, 225, 270, 315].map(a => ray(a, 6.6, 9.2, 10, 10))), S('circle', { cx: 10, cy: 10, r: 4.6, fill: '#ffb547' }));
   }
-  ck.fill.style.transition = smooth ? 'clip-path 1s linear' : 'none';
-  ck.fill.style.clipPath = `inset(0 ${(100 - Math.max(0, Math.min(1, ph.fill)) * 100).toFixed(2)}% 0 0)`;
-  if (ck.txt.textContent !== ph.text) ck.txt.textContent = ph.text;
-  ck.bar.setAttribute('aria-valuenow', Math.round(Math.max(0, Math.min(1, ph.fill)) * 100));
-  ck.bar.setAttribute('aria-valuetext', ph.text);
-  ck.bar.dataset.phase = ph.key;
+  return root;
+}
+function sbBuild() {
+  sb.segs = h('div', { class: 'sb-segs' });
+  sb.fill = h('div', { class: 'sb-fill' });
+  sb.track = h('div', { class: 'sb-track' }, sb.segs, sb.fill);
+  sb.ico = h('div', { class: 'sb-ico' });
+  sb.tip = h('div', { class: 'sb-tip', role: 'status' });
+  sb.box = h('div', { class: 'sb', role: 'progressbar', tabindex: 0, 'aria-valuemin': 0, 'aria-valuemax': 100 }, sb.track, sb.ico, sb.tip);
+  const show = () => { sbTip(true); };
+  sb.box.addEventListener('mouseenter', show);
+  sb.box.addEventListener('focus', show);
+  sb.box.addEventListener('click', show);
+  sb.box.addEventListener('mouseleave', () => sbTip(false));
+  sb.box.addEventListener('blur', () => sbTip(false));
+  sbEl.replaceChildren(sb.box);
+  sb.built = true;
+}
+function sbTip(on) {
+  clearTimeout(sb.tipT);
+  if (!on) { sb.tip.classList.remove('on'); return; }
+  sb.tip.classList.add('on');
+  const bw = sb.box.clientWidth, cx = parseFloat(sb.ico.style.left) / 100 * bw, tw = sb.tip.offsetWidth;
+  sb.tip.style.left = Math.max(4, Math.min(bw - tw - 4, cx - tw / 2)) + 'px';
+  sb.tipT = setTimeout(() => sb.tip.classList.remove('on'), 4000);
+}
+function sbRender(n, ph, lvl) {
+  if (!sbEl) return;
+  if (!sb.built) sbBuild();
+  const { start, mid, auc, end } = ph.seg, T = SB1 - SB0, t = n.min + n.s / 60;
+  const pc = v => ((v - SB0) / T * 100).toFixed(2);
+  const hol = ph.text === '휴장';
+  const sig = [start, mid, auc, end].join();
+  if (sig !== sb.sig) {
+    sb.sig = sig;
+    const parts = [[SB0, start, PH.pre, 'lo'], [start, mid, PH.am], [mid, auc, PH.pm], [auc, end, PH.auc], [end, SB1, PH.nxt, 'lo']];
+    const mk = (alpha) => parts.map(([a, b, c, lo]) => h('i', { class: lo ? 'lo' : '', style: `left:${pc(a)}%;width:${(pc(b) - pc(a)).toFixed(2)}%;background:${c}${alpha}` }));
+    sb.segs.replaceChildren(...mk('3d'));
+    sb.fillSegs = mk('');
+    sb.fill.replaceChildren(...sb.fillSegs);
+    sb.box.dataset.title = `장 시작 전 08:00~${minLabel(start)} · 오전장 ~${minLabel(mid)} · 오후장 ~${minLabel(auc)} · 마감 동시호가 ~${minLabel(end)} · NXT ~20:00`;
+  }
+  const pos = Math.max(0, Math.min(1, (t - SB0) / T));
+  const done = hol ? 0 : pos;
+  const night = t < SB0 || t >= 18 * 60;
+  const kind = night ? 'moon' : t < 12 * 60 ? 'rise' : 'sun';
+  const smooth = lvl === 'fancy';
+  sb.fill.style.transition = sb.ico.style.transition = smooth ? 'clip-path 1s linear, left 1s linear' : 'none';
+  sb.fill.style.clipPath = `inset(0 ${(100 - done * 100).toFixed(2)}% 0 0)`;
+  sb.ico.style.left = (pos * 100).toFixed(2) + '%';
+  if (sb.kind !== kind) { sb.kind = kind; sb.ico.replaceChildren(sbIcon(kind)); }
+  sb.ico.classList.toggle('sb-fancy', lvl === 'fancy');
+  sb.box.classList.toggle('sb-hol', hol);
+  // tooltip text: the phase and what is left of it
+  let tip = ph.text;
+  if (!hol) {
+    if (t >= start && t < end) tip = `${ph.key === 'auc' ? '마감 동시호가' : '정규장 ' + ph.pct + '%'} · ${minLabel(end)} 마감까지 ${fmtLeft(end - t)}`;
+    else if (t >= 8 * 60 && t < start) tip = `장 시작 전 · ${minLabel(start)} 개장까지 ${fmtLeft(start - t)}`;
+    else if (t >= end && t < SB1) tip = `장 마감 · NXT 20:00까지 ${fmtLeft(SB1 - t)}`;
+  }
+  if (sb.tip.textContent !== tip) { sb.tip.textContent = tip; }
+  sb.box.setAttribute('aria-valuenow', Math.round(done * 100));
+  sb.box.setAttribute('aria-valuetext', tip);
+  sb.box.setAttribute('aria-label', '장 진행');
+  sb.box.title = sb.box.dataset.title ? `${tip}\n${sb.box.dataset.title}` : tip;
 }
 function ckSchedule() {
   clearTimeout(ck.timer);
@@ -7674,6 +8154,7 @@ function ckApply() {
   ck.on = on;
   document.documentElement.classList.toggle('has-clock', on);
   clockEl.hidden = !on;
+  if (sbEl) sbEl.hidden = !on;
   clearTimeout(ck.timer); cancelAnimationFrame(ck.raf);
   if (!on) { clockEl.replaceChildren(); return; }
   ck.sig = '';
