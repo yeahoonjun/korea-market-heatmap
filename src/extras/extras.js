@@ -1354,6 +1354,22 @@ function sbRender(n, ph, lvl) {
   sb.box.setAttribute('aria-label', '장 진행');
   sb.box.title = sb.box.dataset.title ? `${tip}\n${sb.box.dataset.title}` : tip;
 }
+
+// Where the bar goes depends on the layout, not on a breakpoint: when the tab row wrapped under the clock row, the bar sits
+// between the two rows; when they share a row (desktop), it hangs under the header with a gap below the tabs.
+function sbPlace() {
+  const root = document.documentElement, hd = document.querySelector('header.top');
+  if (!sbEl || !hd || sbEl.hidden || !root.classList.contains('has-clock')) { root.classList.remove('sb-mid'); return; }
+  const tabs = hd.querySelector('.tabs'), brand = hd.querySelector('.brand');
+  const mid = !!(tabs && brand && tabs.offsetParent && tabs.offsetTop >= brand.offsetTop + brand.offsetHeight - 2);
+  root.classList.toggle('sb-mid', mid);
+  if (!mid) { root.style.removeProperty('--sb-mt'); root.style.removeProperty('--sb-top'); return; }
+  const cs = getComputedStyle(root), sbh = parseFloat(cs.getPropertyValue('--sbh')) || 6;
+  const rowGap = parseFloat(getComputedStyle(hd).rowGap) || 0;
+  const above = 3, below = 5;                                    // the clock box keeps ~3px of its own bottom padding
+  root.style.setProperty('--sb-mt', Math.max(0, Math.round(above + sbh + below - rowGap)) + 'px');
+  root.style.setProperty('--sb-top', (tabs.offsetTop - below) + 'px');
+}
 function ckSchedule() {
   clearTimeout(ck.timer);
   if (!ck.on || document.hidden) return;
@@ -1388,6 +1404,7 @@ function ckApply() {
   document.documentElement.classList.toggle('has-clock', on);
   clockEl.hidden = !on;
   if (sbEl) sbEl.hidden = !on;
+  requestAnimationFrame(sbPlace);
   clearTimeout(ck.timer); cancelAnimationFrame(ck.raf);
   if (!on) { clockEl.replaceChildren(); return; }
   ck.sig = '';
@@ -1410,6 +1427,10 @@ function initClock() {
     ckRender(); ckSchedule(); ckSweep();
   });
   document.addEventListener('kh:motion', () => { ckRender(); ckSchedule(); ckSweep(); });
+  const hd = document.querySelector('header.top');
+  if (hd && window.ResizeObserver) new ResizeObserver(() => sbPlace()).observe(hd);
+  addEventListener('resize', sbPlace);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(sbPlace);
   matchMedia('(max-width: 760px)').addEventListener('change', () => ckApply());
   document.addEventListener('kh:refresh', () => { if (LIVE) pollStrip(); });
 }

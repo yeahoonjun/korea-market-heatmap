@@ -214,16 +214,25 @@ section.rp-player[hidden]{display:none}
 
 /* ── session bar: a thick underline along the bottom edge of the header (#session-bar) ── */
 header.top{position:relative}
-#session-bar{position:absolute;left:0;right:0;bottom:0;z-index:5;height:0;--sbh:6px;pointer-events:none}
+html.has-clock{--sbh:6px;--sbb:2px;--sbgap:7px;--ico:16px;--sb-mt:0px}
+html.has-clock.sb-mid{--sbb:0px;--ico:12px}
+/* tabs on the header's own bottom row (desktop): the bar hangs under the tab row with a clear gap */
+html.has-clock:not(.sb-mid) header.top{padding-bottom:calc(var(--sbh) + var(--sbb) + var(--sbgap))}
+/* tabs wrapped under the clock row (phones, narrow tablets): the bar sits between the two rows (extras.js sets --sb-top and --sb-mt) */
+html.sb-mid .tabs{margin-top:var(--sb-mt)}
+html.sb-mid #session-bar{top:var(--sb-top);bottom:auto}
+#session-bar{position:absolute;left:0;right:0;bottom:0;z-index:5;height:0;pointer-events:none}
 #session-bar[hidden]{display:none}
-.sb{position:absolute;left:12px;right:12px;bottom:2px;height:calc(var(--sbh) + 4px);pointer-events:auto;outline:none;cursor:default}
+.sb{position:absolute;left:12px;right:12px;bottom:var(--sbb,2px);height:calc(var(--sbh) + 4px);pointer-events:auto;outline:none;cursor:default}
+html.sb-mid .sb{height:calc(var(--sbh) + 2px)}
 .sb:focus-visible .sb-track{outline:2px solid var(--amber);outline-offset:2px}
 .sb-track{position:absolute;left:0;right:0;bottom:0;height:var(--sbh);border-radius:99px;overflow:hidden;background:#1c1e24}
 .sb-segs,.sb-fill{position:absolute;inset:0}
 .sb-segs i,.sb-fill i{position:absolute;top:0;bottom:0;display:block}
 .sb-segs i.lo,.sb-fill i.lo{top:30%}
 .sb-hol .sb-fill{opacity:0}
-.sb-ico{position:absolute;bottom:calc(var(--sbh) - 4px);width:18px;height:18px;margin-left:-9px;pointer-events:none;filter:drop-shadow(0 0 3px rgba(255,181,71,.35))}
+.sb-ico{position:absolute;bottom:calc((var(--sbh) - var(--ico)) / 2);width:var(--ico);height:var(--ico);margin-left:calc(var(--ico) / -2);pointer-events:none;filter:drop-shadow(0 0 3px rgba(255,181,71,.35))}
+.sb-ico svg{width:100%;height:100%}
 .sb-ico:has(.sb-moon){filter:drop-shadow(0 0 3px rgba(190,200,255,.4))}
 .sb-svg{display:block;overflow:visible}
 .sb-fancy .sb-rays{transform-origin:10px 10px;animation:sbSpin 28s linear infinite}
@@ -234,5 +243,5 @@ header.top{position:relative}
 @keyframes sbGlow{50%{filter:drop-shadow(0 0 7px rgba(255,181,71,.6))}}
 .sb-tip{position:absolute;bottom:calc(var(--sbh) + 22px);padding:6px 10px;border-radius:8px;border:1px solid var(--line2);background:#26282f;color:var(--fg);font-size:12.5px;line-height:1.3;white-space:nowrap;box-shadow:0 8px 24px rgba(0,0,0,.5);opacity:0;pointer-events:none;transition:opacity .15s}
 .sb-tip.on{opacity:1}
-@media (max-width:760px){#session-bar{--sbh:4px}.sb{left:8px;right:8px}.sb-ico{width:16px;height:16px;margin-left:-8px}.sb-ico svg{width:16px;height:16px}}
+@media (max-width:760px){html.has-clock{--sbh:4px;--sbgap:5px;--ico:12px}.sb{left:8px;right:8px}}
 @media (prefers-reduced-motion:reduce){.sb-fancy,.sb-fancy .sb-rays{animation:none}}
