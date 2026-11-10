@@ -266,10 +266,10 @@ async function getUniverse(env) {
 }
 
 /* ── NXT (overMarketPriceInfo) ─────────────────────────────── */
-// → {p, d, r, s:'pre'|'after', o:1|0, t} | null (no overPrice, unknown session or trading halted). Read-only: no extra calls.
+// → {p, d, r, s:'pre'|'reg'|'after', o:1|0, t} | null (no overPrice, unknown session or trading halted). Read-only: no extra calls.
 function nxtOf(i) {
   if (!i || i.overPrice == null || i.overPrice === '') return null;
-  const st = i.tradingSessionType === 'PRE_MARKET' ? 'pre' : i.tradingSessionType === 'AFTER_MARKET' ? 'after' : null;
+  const st = i.tradingSessionType === 'PRE_MARKET' ? 'pre' : i.tradingSessionType === 'AFTER_MARKET' ? 'after' : i.tradingSessionType === 'REGULAR_MARKET' ? 'reg' : null;
   const ts = i.tradeStopType && i.tradeStopType.name;
   if (!st || (ts && ts !== 'TRADING')) return null;
   const p = pn(i.overPrice);
