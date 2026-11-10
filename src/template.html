@@ -645,8 +645,14 @@ html[data-motion="reduced"] .swbtn .swt,html[data-motion="reduced"] .swbtn .swt:
    §3-2 loadData(name)   name 'themes'|'periods'|'flows' (§3-3 also 'names'|'close') → Promise<JSON|null>. Snapshot: <script id="kh-data-NAME">
                          (waits for the DOM; no block → null); live: GET data/NAME.json (404 → null). Memoised per name; a failed load is
                          forgotten so the next call retries (the heatmap itself asks for names/close at most once per few minutes).
-        watch            {has(code), toggle(code) → bool (new state), list() → codes} — localStorage 'khm.watch' (JSON array).
-                         Every change fires 'kh:watch' {detail:{code, on, list}} on document (also when another tab changes it).
+        watch (§3-11)    groups of codes, localStorage 'khm.watchGroups' {v:1, groups:[{id,name,codes}], active} (the old 'khm.watch'
+                         array becomes group "기본" once). has(code) any group · list(gid?) a group's codes or the union · toggle(code,
+                         gid?) → bool: with gid that group, without: off → out of every group, on → the shown group (전체: "기본") ·
+                         groups() → [{id,name,count}] · groupsOf(code) → [id] · add(code, gid?) · remove(code, gid?) (no gid: all) ·
+                         setGroups(code, [ids]) · createGroup(name) → id|null (same name → that id; ≤20 groups, ≤12 chars) ·
+                         renameGroup(id, name) · deleteGroup(id) (its codes leave the list unless another group has them) ·
+                         moveGroup(id, toIndex) · active() → 'all'|id · setActive(id|'all') (the ★관심 tab's group).
+                         Every change fires 'kh:watch' {detail:{code, on, list, codes, groups, active}} (also from another tab).
         layout()         → the map as drawn now: [{kind:'sector'|'ind'|'tile', x, y, w, h, color, label, sub, code?, hd?}] in map pixels
                          (sector/ind: label = group name or '' when its header is hidden, sub = its value text as shown, hd = header
                          height; tile: label = full stock or theme name, sub = the value text as shown, code = stock code (absent on
@@ -909,36 +915,161 @@ function need(name) {
 const PER = () => DS.periods.j, FLO = () => DS.flows.j;
 function needForMetric() { if (kind() === 'period') need('periods'); if (isFlow()) need('flows'); if (state.market === 'THEME') need('themes'); }
 
-/* ───────────────── watchlist ───────────────── */
-const cleanWatch = a => Array.isArray(a) ? [...new Set(a.map(String).filter(c => CODE_RE.test(c)))] : [];
-let WATCH = cleanWatch(store.get('watch', []));
-function setWatch(code, on) {
-  code = String(code || '').trim().toUpperCase();
-  if (!CODE_RE.test(code)) return false;
-  const has = WATCH.includes(code);
-  if (on == null) on = !has;
-  if (on === has) return has;
-  WATCH = on ? WATCH.concat(code) : WATCH.filter(c => c !== code);
-  store.set('watch', WATCH);
-  watchChanged(code, on);
-  return on;
+/* ───────────────── watchlist groups (AGENTS §3-11) ─────────────────
+   localStorage khm.watchGroups = {v:1, groups:[{id, name, codes}], active:'all'|id}. The first load moves the old khm.watch (a code
+   array) into a group "기본" (the old key stays, unused). A stock may sit in several groups; at most WG_MAX groups, names ≤ WG_NAME
+   characters. There is always at least one group. WATCH = the union of every group (group order, then insertion), deduplicated. */
+const cleanWatch = a => Array.isArray(a) ? [...new Set(a.map(c => String(c).trim().toUpperCase()).filter(c => CODE_RE.test(c)))] : [];
+const WG_MAX = 20, WG_NAME = 12, WG_DEFAULT = '기본';
+const wgName = n => String(n == null ? '' : n).replace(/\s+/g, ' ').trim().slice(0, WG_NAME);
+let wgSeq = 0;
+const wgNewId = () => { let id; do id = 'g' + Date.now().toString(36) + (wgSeq++).toString(36); while (WG.groups.some(g => g.id === id)); return id; };
+function wgClean(j) {
+  const groups = [], ids = new Set();
+  for (const g of (j && Array.isArray(j.groups) ? j.groups : [])) {
+    if (!g || typeof g !== 'object') continue;
+    const id = String(g.id || ''), name = wgName(g.name);
+    if (!/^[\w-]{1,40}$/.test(id) || ids.has(id) || !name) continue;
+    ids.add(id); groups.push({ id, name, codes: cleanWatch(g.codes) });
+    if (groups.length >= WG_MAX) break;
+  }
+  if (!groups.length) groups.push({ id: 'g0', name: WG_DEFAULT, codes: [] });
+  const active = j && j.active !== 'all' && ids.has(String(j.active)) ? String(j.active) : 'all';
+  return { v: 1, groups, active };
+}
+function wgLoad() {
+  const j = store.get('watchGroups', null);
+  if (j && j.v === 1 && Array.isArray(j.groups)) return wgClean(j);
+  // first run with groups: the old flat list becomes "기본"
+  const w = wgClean({ groups: [{ id: 'g0', name: WG_DEFAULT, codes: cleanWatch(store.get('watch', [])) }], active: 'all' });
+  store.set('watchGroups', w);
+  return w;
+}
+let WG = wgLoad();
+let WATCH = [];
+const wgUnion = () => { const seen = new Set(), out = []; for (const g of WG.groups) for (const c of g.codes) if (!seen.has(c)) { seen.add(c); out.push(c); } return out; };
+WATCH = wgUnion();
+const wgGet = id => WG.groups.find(g => g.id === id) || null;
+// "기본" (or the first group) — where an add without a group lands while 전체 is shown
+const wgDefault = () => WG.groups.find(g => g.name === WG_DEFAULT) || WG.groups[0];
+const wgTarget = () => (WG.active !== 'all' && wgGet(WG.active)) || wgDefault();
+// the codes the ★관심 map and table show: the active group's, or every group's
+const watchView = () => WG.active === 'all' ? WATCH : (wgGet(WG.active) || { codes: [] }).codes;
+const normCode = c => String(c == null ? '' : c).trim().toUpperCase();
+// one change → save, redraw, stars, 'kh:watch' {code, on (watched now, in any group), list, codes, groups, active}
+function wgCommit(code) {
+  WATCH = wgUnion();
+  if (WG.active !== 'all' && !wgGet(WG.active)) WG.active = 'all';
+  store.set('watchGroups', WG);
+  watchChanged(code == null ? null : code, code == null ? null : WATCH.includes(code));
 }
 function watchChanged(code, on) {
   bump();
   if (state.market === 'WATCH') { renderAll({ animate: true }); syncPollers(); }
   else if (state.view === 'table') renderTable();
   syncStars();
-  document.dispatchEvent(new CustomEvent('kh:watch', { detail: { code, on, list: WATCH.slice() } }));
+  if (typeof renderWG === 'function') renderWG();
+  document.dispatchEvent(new CustomEvent('kh:watch', { detail: { code, on, list: WATCH.slice(), codes: WATCH.slice(), groups: watchApi.groups(), active: WG.active } }));
 }
 addEventListener('storage', e => {
-  if (e.key !== 'khm.watch') return;
-  WATCH = cleanWatch(store.get('watch', []));
+  if (e.key !== 'khm.watchGroups') return;
+  WG = wgLoad(); WATCH = wgUnion();
   watchChanged(null, null);
 });
+// add / remove one code in one group (no commit)
+function wgPut(g, code, on) {
+  const has = g.codes.includes(code);
+  if (on && !has) g.codes.push(code); else if (!on && has) g.codes = g.codes.filter(c => c !== code);
+  return has !== on;
+}
+// the old single-list toggle: on → into the current group (전체 → 기본), off → out of every group
+function setWatch(code, on, gid) {
+  code = normCode(code);
+  if (!CODE_RE.test(code)) return false;
+  if (gid != null) {
+    const g = wgGet(String(gid)); if (!g) return WATCH.includes(code);
+    const want = on == null ? !g.codes.includes(code) : !!on;
+    if (wgPut(g, code, want)) wgCommit(code);
+    return want;
+  }
+  const has = WATCH.includes(code);
+  if (on == null) on = !has;
+  if (on === has) return has;
+  if (on) wgPut(wgTarget(), code, true); else for (const g of WG.groups) wgPut(g, code, false);
+  wgCommit(code);
+  return on;
+}
 const watchApi = {
-  has: code => WATCH.includes(String(code)),
-  toggle: code => setWatch(code),
-  list: () => WATCH.slice(),
+  has: code => WATCH.includes(normCode(code)),
+  // a group's codes, or (no id) the union of every group
+  list: gid => gid == null ? WATCH.slice() : (wgGet(String(gid)) || { codes: [] }).codes.slice(),
+  toggle: (code, gid) => setWatch(code, null, gid),
+  groups: () => WG.groups.map(g => ({ id: g.id, name: g.name, count: g.codes.length })),
+  groupsOf: code => { code = normCode(code); return WG.groups.filter(g => g.codes.includes(code)).map(g => g.id); },
+  add: (code, gid) => { code = normCode(code); const g = gid == null ? wgTarget() : wgGet(String(gid)); if (!g || !CODE_RE.test(code)) return false; if (wgPut(g, code, true)) wgCommit(code); return true; },
+  remove: (code, gid) => {
+    code = normCode(code);
+    let ch = false;
+    if (gid == null) for (const g of WG.groups) ch = wgPut(g, code, false) || ch;
+    else { const g = wgGet(String(gid)); if (!g) return false; ch = wgPut(g, code, false); }
+    if (ch) wgCommit(code);
+    return ch;
+  },
+  // exactly these groups for this code (unknown ids ignored); [] takes it off the watchlist
+  setGroups: (code, ids) => {
+    code = normCode(code);
+    if (!CODE_RE.test(code)) return false;
+    const want = new Set((Array.isArray(ids) ? ids : []).map(String));
+    let ch = false;
+    for (const g of WG.groups) ch = wgPut(g, code, want.has(g.id)) || ch;
+    if (ch) wgCommit(code);
+    return true;
+  },
+  // → the new group's id (an existing group of that name gives its id), null when the name is empty or WG_MAX groups exist
+  createGroup: name => {
+    const n = wgName(name);
+    if (!n) return null;
+    const same = WG.groups.find(g => g.name === n);
+    if (same) return same.id;
+    if (WG.groups.length >= WG_MAX) return null;
+    const id = wgNewId();
+    WG.groups.push({ id, name: n, codes: [] });
+    wgCommit(null);
+    return id;
+  },
+  renameGroup: (id, name) => {
+    const g = wgGet(String(id)), n = wgName(name);
+    if (!g || !n || WG.groups.some(x => x !== g && x.name === n)) return false;
+    if (g.name !== n) { g.name = n; wgCommit(null); }
+    return true;
+  },
+  // its stocks leave the watchlist unless another group has them (the UI asks first); the last group leaves an empty "기본"
+  deleteGroup: id => {
+    const i = WG.groups.findIndex(g => g.id === String(id));
+    if (i < 0) return false;
+    WG.groups.splice(i, 1);
+    if (!WG.groups.length) WG.groups.push({ id: wgNewId(), name: WG_DEFAULT, codes: [] });
+    if (WG.active === String(id)) WG.active = 'all';
+    wgCommit(null);
+    return true;
+  },
+  moveGroup: (id, to) => {
+    const i = WG.groups.findIndex(g => g.id === String(id));
+    if (i < 0 || !Number.isFinite(+to)) return false;
+    const j = Math.max(0, Math.min(WG.groups.length - 1, Math.round(+to)));
+    if (i === j) return true;
+    const [g] = WG.groups.splice(i, 1); WG.groups.splice(j, 0, g);
+    wgCommit(null);
+    return true;
+  },
+  // the group the ★관심 tab shows: 'all' | id
+  active: () => WG.active,
+  setActive: id => {
+    const v = id === 'all' || id == null ? 'all' : wgGet(String(id)) ? String(id) : null;
+    if (v == null) return false;
+    if (v !== WG.active) { WG.active = v; state.focus = null; wgCommit(null); }
+    return true;
+  },
 };
 
 /* ───────────────── quotes ───────────────── */
@@ -1289,7 +1420,7 @@ const isPreferred = st => st.c.slice(-1) !== '0';   // 우선주: KRX short code
 const curTheme = () => (state.market === 'THEME' && state.theme != null && THEMES ? THEMES.byId.get(state.theme) || null : null);
 const MAX_CODES = 300;
 let uniCache = { key: '', out: null };
-function uniKey() { return [VER, state.market, state.theme, state.sizeBy, state.flowWin, state.colorBy, state.topN, [...state.forced].join(','), WATCH.join(',')].join('|'); }
+function uniKey() { return [VER, state.market, state.theme, state.sizeBy, state.flowWin, state.colorBy, state.topN, [...state.forced].join(','), WG.active, watchView().join(',')].join('|'); }
 function universe() {
   const k = uniKey();
   if (uniCache.key === k) return uniCache.out;
@@ -1303,7 +1434,7 @@ function buildUniverse() {
   const m = state.market, flow = isFlow();
   let pool, missing = 0, capped = 0;
   if (m === 'WATCH' || m === 'THEME') {
-    let codes = m === 'WATCH' ? WATCH : (curTheme() ? curTheme().codes : []);
+    let codes = m === 'WATCH' ? watchView() : (curTheme() ? curTheme().codes : []);
     if (codes.length > MAX_CODES) { capped = codes.length - MAX_CODES; codes = codes.slice(0, MAX_CODES); }
     pool = [];
     for (const c of codes) { const s = get(c); if (s) pool.push(s); else missing++; }
