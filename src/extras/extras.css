@@ -245,3 +245,4 @@ html.sb-mid .sb{height:calc(var(--sbh) + 2px)}
 .sb-tip.on{opacity:1}
 @media (max-width:760px){html.has-clock{--sbh:4px;--sbgap:5px;--ico:12px}.sb{left:8px;right:8px}}
 @media (prefers-reduced-motion:reduce){.sb-fancy,.sb-fancy .sb-rays{animation:none}}
+html.sb-mid .sb-tip{bottom:auto;top:calc(100% + 8px)}
