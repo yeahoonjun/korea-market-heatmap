@@ -151,7 +151,7 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
   .morep .seg{background:var(--panel)}
 }
 /* 1280–1439: the toolbar (with the 화면 button and the extras icons) still fits on one row */
-@media (min-width:1280px) and (max-width:1439px){ .tools{gap:10px} .search{flex-basis:172px} }
+@media (min-width:1280px) and (max-width:1439px){ .tools{gap:10px} .search{flex-basis:160px} .seg[data-key="topN"] button{padding:5px 6px} }
 @media (min-width:1280px) and (max-width:1599px){
   .morebtn{width:34px;padding:0}
   .morebtn .mbl{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
@@ -425,9 +425,11 @@ span.cdb.cdb > i{position:absolute;top:50%;width:auto;height:1px;margin-top:-.5p
 .cdb em{position:absolute;top:50%;transform:translateY(-50%);font-style:normal;font-size:8px;line-height:1;color:currentColor}
 .cdb .ovr{right:0} .cdb .ovl{left:0}
 .cdhint{font-size:11px;color:var(--muted);padding:5px 6px 0;line-height:1.4}
-.card-head .ohlc{display:flex;align-items:center;gap:9px;margin-top:5px;font-size:12px;color:var(--fg2);font-variant-numeric:tabular-nums;flex-wrap:wrap}
-.card-head .ohlc .cdb{width:96px;height:12px;flex:none}
-.card-head .ohlc b{font-weight:600;color:var(--fg)}
+.card-head .ohlc{display:flex;align-items:center;gap:9px;margin-top:5px;font-size:12px;line-height:1.35;color:var(--fg2);font-variant-numeric:tabular-nums}
+.card-head .ohlc .cdb{width:64px;height:12px;flex:none}
+.card-head .ohlc .cdb::before{top:-3px;bottom:-3px;background:var(--muted)}
+.card-head .ohlc .ot{min-width:0}
+.card-head .ohlc .ot b{font-weight:600;color:var(--fg)}
 .peer .cdi{width:9px;height:13px}
 .movers .cdi{width:10px;height:15px} .list .nmcell .cdi{width:10px;height:15px}
 .dbar::before{content:"";position:absolute;left:50%;top:-2px;bottom:-2px;width:1px;background:var(--line2)}
@@ -644,7 +646,7 @@ html[data-motion="reduced"] .swbtn .swt,html[data-motion="reduced"] .swbtn .swt:
     <div class="ctl" data-ctl="sizeBy"><span>크기</span><div class="seg" data-key="sizeBy"><button data-v="cap">시가총액</button><button data-v="tv">거래대금</button><button data-v="fgn" title="외국인 순매수 금액" aria-label="외국인 순매수">외국인</button><button data-v="inst" title="기관 순매수 금액" aria-label="기관 순매수">기관</button></div></div>
     <div class="ctl dd" data-ctl="flowWin" hidden><span><span class="wide-hide">순매수 </span>기간</span><button type="button" class="ddbtn" aria-expanded="false" aria-haspopup="true" aria-label="순매수 기간 고르기"><span class="ddv"></span><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 4.5 3 3 3-3"/></svg></button><div class="seg" data-key="flowWin" role="group" aria-label="순매수 기간"><button data-v="1">1일</button><button data-v="5">5일</button><button data-v="20">20일</button></div></div>
     <div class="ctl dd" data-ctl="colorBy"><span>색 기준</span><button type="button" class="ddbtn" aria-expanded="false" aria-haspopup="true" aria-label="색 기준 고르기"><span class="ddv"></span><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 4.5 3 3 3-3"/></svg></button><div class="seg" data-key="colorBy" role="group" aria-label="색 기준"><button data-v="r" title="오늘 등락률">오늘</button><button data-v="w1" title="1주 수익률">1주</button><button data-v="m1" title="1개월 수익률">1개월</button><button data-v="m3" title="3개월 수익률">3개월</button><button data-v="ytd" title="올해 수익률 (작년 마지막 거래일 종가 대비)">올해</button><button data-v="y1" title="1년 수익률">1년</button></div></div>
-    <div class="ctl" data-ctl="topN"><span>종목 수</span><div class="seg" data-key="topN"><button data-v="100">100</button><button data-v="200">200</button><button data-v="300">300</button><button data-v="500">500</button></div></div>
+    <div class="ctl" data-ctl="topN"><span>종목 수</span><div class="seg" data-key="topN"><button data-v="100">100</button><button data-v="200">200</button><button data-v="300">300</button><button data-v="500">500</button><button data-v="all" title="상장 종목 전부(코스피 약 940 · 코스닥 약 1,760)">전체</button></div></div>
     <div class="ctl" data-ctl="range"><span>색 범위</span><div class="seg" data-key="range" id="rangeseg"></div></div>
     <div class="ctl" data-ctl="palette"><span>색상</span><div class="seg" data-key="palette" id="palseg"></div></div>
     <div class="ctl more" data-ctl="more">
@@ -923,8 +925,10 @@ if (!PALETTES[state.palette]) state.palette = 'krg';
 if (!RANGES.day.includes(state.range)) state.range = 3;
 if (!RANGES.period.includes(state.rangeP)) state.rangeP = 20;
 if (![0, 1, 2].includes(state.rangeF)) state.rangeF = 1;
-if (![100, 200, 300, 500].includes(state.topN)) state.topN = 300;
-if (MODE === 'live' && state.topN > 300) state.topN = 300;   // the Worker streams the top 300 per market
+if (![100, 200, 300, 500, 'all'].includes(state.topN)) state.topN = 300;
+if (MODE === 'live' && state.topN === 500) state.topN = 300;   // live: the top 300 per market, or (전체, §3-15) every listed stock
+// §3-15 종목 수 전체: the live quotes come from /api/quotes?scope=all (~2,700 rows) and refresh every 15 s
+const allScope = () => MODE === 'live' && state.topN === 'all';
 if (!SIZE_METRICS[state.sizeBy]) state.sizeBy = 'cap';
 if (![1, 5, 20].includes(state.flowWin)) state.flowWin = 5;
 if (!COLOR_METRICS[state.colorBy]) state.colorBy = 'r';
@@ -1595,7 +1599,7 @@ function buildUniverse() {
   list.sort((a, b) => sizeV(b) - sizeV(a));
   let out = list;
   if (m !== 'WATCH' && m !== 'THEME') {
-    out = list.slice(0, state.topN);
+    out = state.topN === 'all' ? list : list.slice(0, state.topN);
     const have = new Set(out.map(s => s.c));
     for (const c of state.forced) {
       const s = get(c);
@@ -2191,17 +2195,18 @@ function render({ animate = false } = {}) {
     if (geo && !fresh) flip(el, old, nw);
     else if (!sameBox(old, nw)) flip(el, null, nw);
   }
-  for (const [id, el] of nodes) {
-    if (seen.has(id)) continue;
-    nodes.delete(id);
-    if (anim) { el.classList.add('leaving'); setTimeout(() => el.remove(), 320); } else el.remove();
-  }
+  // leaving nodes fade out together (one timer); thousands at once (종목 수 전체 → 300) just go
+  const gone = [];
+  for (const [id, el] of nodes) { if (seen.has(id)) continue; nodes.delete(id); gone.push(el); }
+  if (anim && gone.length <= 300) { for (const el of gone) el.classList.add('leaving'); if (gone.length) setTimeout(() => { for (const el of gone) el.remove(); }, 320); }
+  else for (const el of gone) el.remove();
   if (entering.length) requestAnimationFrame(() => requestAnimationFrame(() => entering.forEach(el => el.classList.remove('entering'))));
   if (intro) runIntro(root);
   renderEmpty(mdl);
   syncRoving();
   applyHighlights();
-  if (state.hover && !nodes.has('T|' + state.hover)) { setHover(null); tip.classList.remove('show'); }
+  // the hovered tile left the map: drop its tooltip (a theme tile is 'H|id' under the hover key '#id' — it used to vanish on every poll)
+  if (state.hover && !nodes.has(String(state.hover).startsWith('#') ? 'H|' + String(state.hover).slice(1) : 'T|' + state.hover)) { setHover(null); tip.classList.remove('show'); }
   syncHoverStar();
   emitRender();
 }
@@ -2313,7 +2318,7 @@ const candleRange = os => Math.min(30, Math.max(curRange(), ...os.filter(Boolean
 function peerRow(p, R, me, o, CR) {
   const v = cval(p), tv = isFlow() ? amt(p) : v;
   const frac = v == null ? 0 : Math.min(Math.abs(v) / R, 1) * 50;
-  const el = h('div', { class: 'peer' + (me ? ' me' : '') },
+  const el = h('div', { class: 'peer' + (me ? ' me' : ''), 'data-c': p.c },
     o ? candleIcon(o) : h('i', { style: `background:${colorOf(v)}` }), h('span', { class: 'nm', text: p.n }),
     o ? candleBar(o, CR) : h('div', { class: 'dbar' }, h('i', { style: `background:${colorOf(v)};width:${frac}%;${(v || 0) >= 0 ? 'left:50%' : 'right:50%'}` })),
     h('span', { class: 'v ' + (tv == null ? 'flat' : cls(tv)), text: stText(p) }));
@@ -2369,15 +2374,15 @@ function metricRow(st) {
   return h('div', { class: 'mrow' }, `${m.long} `, h('b', { class: v == null ? 'flat' : cls(v), text: v == null ? '데이터 없음' : fmtPct(v) }),
     b ? h('span', { text: `${bd ? bd + ' ' : ''}종가 ${fmtInt(b)}원 대비` }) : null);
 }
-// under the price (§3-13): today's candle, a little bigger, and 시가 (±% vs 전일 종가) · 고가 · 저가
-function ohlcRow(st) {
+// under the price (§3-13): today's candle on the list's scale (cr; else its own) beside 시가 (±% vs 전일 종가) · 고가 · 저가
+function ohlcRow(st, cr) {
   const o = kind() === 'day' ? ohlcOf(st) : null;
   if (!o) return null;
   const op = (o.o / o.pc - 1) * 100;
-  return h('div', { class: 'ohlc' }, candleBar(o, Math.max(curRange(), Math.abs(o.h / o.pc - 1) * 100, Math.abs(o.l / o.pc - 1) * 100)),
-    h('span', {}, '시가 ', h('b', { text: fmtInt(o.o) }), ' ', h('span', { class: cls(op), text: `(${fmtPct(op, 1)})` }), ' · 고가 ', h('b', { text: fmtInt(o.h) }), ' · 저가 ', h('b', { text: fmtInt(o.l) })));
+  return h('div', { class: 'ohlc' }, candleBar(o, Math.max(cr || 0, candleRange([o]))),
+    h('span', { class: 'ot' }, '시가 ', h('b', { text: fmtInt(o.o) }), ' ', h('span', { class: cls(op), text: `(${fmtPct(op, 1)})` }), ' · 고가 ', h('b', { text: fmtInt(o.h) }), ' · 저가 ', h('b', { text: fmtInt(o.l) })));
 }
-function headBlock(st, how) {
+function headBlock(st, how, cr) {
   const tipMode = how === 'tip', nameBtn = how === 'sheet-link';
   const pathTxt = state.market === 'THEME' && curTheme() ? `테마 ${curTheme().name}  ›  ${MKT_NAME[st.m]} ${st.s}` : `${MKT_NAME[st.m]}  ›  ${st.s}  ›  ${st.i}`;
   const watched = WATCH.includes(st.c);
@@ -2388,7 +2393,7 @@ function headBlock(st, how) {
       tipMode ? (watched ? h('span', { class: 'wmark', text: '★ 관심' }) : null) : starBtn(st.c, 'wstar')),
     h('div', { class: 'px' }, h('b', { text: st.p > 0 ? fmtInt(st.p) : '—' }), h('span', { class: cls(st.r), text: `${fmtChg(st.d)}  (${fmtPct(st.r)})` }), kind() !== 'day' ? h('span', { class: 'flat', text: '오늘' }) : null),
     nxLine(st),
-    ohlcRow(st),
+    ohlcRow(st, cr),
     metricRow(st),
     h('div', { class: 'meta' }, h('span', {}, '시가총액 ', h('em', { text: fmtEok(st.cap) })), h('span', {}, rowTvLabel(st) + ' ', h('em', { text: fmtEok(st.tv) }))));
 }
@@ -2402,7 +2407,7 @@ function fillTip(st) {
   const pr = peerRows(st, 10);
   const big = !tstar.hidden;
   const watched = WATCH.includes(st.c);
-  tip.replaceChildren(headBlock(st, 'tip'), h('div', { class: 'peers' + (isFlow() ? ' amt' : '') },
+  tip.replaceChildren(headBlock(st, 'tip', pr.cr), h('div', { class: 'peers' + (isFlow() ? ' amt' : '') },
     h('div', { class: 'ttl', text: peerTitle(pr) }), pr.rows, pr.candles ? candleHint(pr.cr) : null),
     h('div', { class: 'tiphint', text: big ? (watched ? '오른쪽 위 ★를 누르면 관심종목에서 빠져요' : '오른쪽 위 ☆를 누르면 관심종목에 담겨요') : '작은 타일은 표 보기에서 ☆로 담을 수 있어요' }));
 }
@@ -2420,7 +2425,7 @@ function fillThemeTip(t) {
     h('div', { class: 'px' }, h('b', { class: valCls, text: thText(t) }), h('span', { class: 'flat', text: isFlow() ? `${flowShort()} 순매수 합` : `${metricShort() === '등락' ? '오늘' : metricShort()}${L ? ' (네이버 테마 등락률)' : ' · 시총 가중'}` })),
     h('div', { class: 'meta' }, h('span', {}, '구성 ', h('em', { text: `${t.codes.length}종목` })), h('span', {}, '시총 ', h('em', { text: fmtEok(t.cap) })),
       counts ? h('span', {}, h('em', { class: 'up', text: `${isFlow() ? '순매수' : '상승'} ${t.up}` }), ' · ', h('em', { class: 'dn', text: `${isFlow() ? '순매도' : '하락'} ${t.down}` })) : null)),
-    rows.length ? h('div', { class: 'peers' + (isFlow() ? ' amt' : '') }, h('div', { class: 'ttl', text: '시가총액 상위 종목' }), rows, rows.some(r => r.__cd) ? candleHint(CR) : null) : null,
+    ...(rows.length ? [h('div', { class: 'peers' + (isFlow() ? ' amt' : '') }, h('div', { class: 'ttl', text: '시가총액 상위 종목' }), rows, rows.some(r => r.__cd) ? candleHint(CR) : null)] : []),   // native replaceChildren prints a null
     h('div', { class: 'tiphint', text: '누르면 이 테마의 종목 지도가 열려요' }));
 }
 let tipW = 300, tipH = 0;
@@ -2596,7 +2601,7 @@ function openSheet(st, opener) {
   const canStock = !!stockApi();
   if (!sheet.classList.contains('open')) sheetOpener = opener || (document.activeElement !== document.body ? document.activeElement : null);
   sheetCode = st.c;
-  const kids = [h('div', { class: 'grab' }), h('button', { class: 'x', 'aria-label': '닫기', onclick: () => closeSheet(), text: '×' }), headBlock(st, canStock ? 'sheet-link' : 'sheet')];
+  const kids = [h('div', { class: 'grab' }), h('button', { class: 'x', 'aria-label': '닫기', onclick: () => closeSheet(), text: '×' }), headBlock(st, canStock ? 'sheet-link' : 'sheet', pr.cr)];
   if (MODE === 'live' && !REPLAY) kids.push(h('div', { class: 'spark', id: 'spark' }, h('div', { class: 'note', text: '오늘 흐름 불러오는 중…' })));
   kids.push(h('div', { class: 'peers' + (isFlow() ? ' amt' : '') }, h('div', { class: 'ttl', text: peerTitle(pr) }), pr.rows, pr.candles ? candleHint(pr.cr) : null));
   const marketView = ['K', 'Q', 'ALL'].includes(state.market);
@@ -2772,7 +2777,7 @@ function renderCrumbs() {
   const list = uni.filter(inFocus);
   const cap = list.reduce((a, s) => a + s.cap, 0);
   const more = state.market === 'WATCH' && uni.missing ? `  ·  시세 없는 ${uni.missing}종목` : '';
-  kids.push(list.length ? h('span', { class: 'stat' }, `${list.length}종목`, h('span', { class: 'capx', text: `  ·  시총 ${fmtEok(cap)}` }), '  ·  ', h('b', { class: grpCls(list), text: grpText(list, 2) }), more) : h('span', { class: 'stat', text: `0종목${more}` }));
+  kids.push(list.length ? h('span', { class: 'stat' }, `${fmtInt(list.length)}종목`, h('span', { class: 'capx', text: `  ·  시총 ${fmtEok(cap)}` }), '  ·  ', h('b', { class: grpCls(list), text: grpText(list, 2) }), more) : h('span', { class: 'stat', text: `0종목${more}` }));
   el.replaceChildren(...kids);
 }
 
@@ -3396,7 +3401,7 @@ function renderFooter() {
   if (THEMES && THEMES.asOf && state.market === 'THEME') daily.push(`테마 구성은 ${dayName(THEMES.asOf)} 기준이에요`);
   if (daily.length) parts.push(h('p', {}, daily.join('. ') + '.'));
   if (MODE === 'live') {
-    parts.push(h('p', {}, '정규장과 NXT 거래 시간에는 10초마다 새 시세를 받아 와요. ' + (BASIS.show && !BASIS.legacy
+    parts.push(h('p', {}, `정규장과 NXT 거래 시간에는 ${allScope() ? '15초마다 전 종목' : '10초마다 시장별 시총 상위 300종목'}의 새 시세를 받아 와요. ` + (BASIS.show && !BASIS.legacy
       ? '위에서 KRX(한국거래소), NXT(넥스트레이드), 통합 가격 중에 골라 볼 수 있어요. 통합은 두 시장 중 더 최근 체결가에 전일 대비는 KRX 기준가 대비' + (DATA.nx.tv ? ', 거래량·거래대금은 두 시장 합이에요. ' : '예요. ')
         + 'KRX 정규장이나 NXT 프리마켓(08:00~08:50)·애프터마켓(15:30~20:00) 중에는 통합이 기본이고, 거래가 없는 시간에는 KRX 종가가 기본이에요. NXT에서는 NXT에서 거래되지 않는 종목을 KRX 값 그대로 빗금으로 보여 줘요. 장 시작 전 KRX는 어제 종가와 그날 등락률이에요.'
       : BASIS.show ? `정규장 뒤에는 위에서 KRX 정규장 종가와 통합 시세(NXT·시간외 거래가 섞인 마지막 가격) 중에 골라 볼 수 있어요.`
@@ -3462,8 +3467,10 @@ document.addEventListener('click', e => {
   if (k === 'range') { setRange(+b.dataset.v); return; }
   if (k === 'view') { setView(b.dataset.v); return; }
   let v = b.dataset.v;
-  if (k === 'topN' || k === 'flowWin') v = +v;
+  if (k === 'topN') v = v === 'all' ? 'all' : +v;
+  else if (k === 'flowWin') v = +v;
   if (state[k] === v) return;
+  const scopeWas = allScope();
   const prevKind = kind();
   state[k] = v;
   if (k !== 'view') store.set(k === 'palette' ? 'palette2' : k, v);
@@ -3477,6 +3484,8 @@ document.addEventListener('click', e => {
   syncControls();
   render({ animate: k === 'sizeBy' || k === 'topN' || k === 'flowWin' || k === 'colorBy' });
   renderCrumbs(); renderSide(); renderFooter(); renderLegend();
+  // 전체 on / off: the other quotes stream now (the map draws what it has meanwhile)
+  if (k === 'topN' && allScope() !== scopeWas && MODE === 'live') poll();
 });
 // phones: the tab row scrolls sideways; the active tab stays in view
 function keepTabInView() {
@@ -3746,7 +3755,7 @@ function renderWG() {
       return h('span', { class: 'wgi', 'data-on': sel ? '' : null }, kids);
     };
     chips.replaceChildren(chip('all', '전체', WATCH.length), ...WG.groups.map(g => chip(g.id, g.name, g.codes.length)),
-      WG.groups.length < WG_MAX ? h('button', { class: 'wgadd', type: 'button', 'aria-label': '새 그룹 만들기', title: '새 그룹', 'aria-haspopup': 'dialog', onclick: ev => wgForm(null, ev.currentTarget), text: '＋' }) : null);
+      ...(WG.groups.length < WG_MAX ? [h('button', { class: 'wgadd', type: 'button', 'aria-label': '새 그룹 만들기', title: '새 그룹', 'aria-haspopup': 'dialog', onclick: ev => wgForm(null, ev.currentTarget), text: '＋' })] : []));
     // keep the shown group's chip in view (sideways only)
     const cur = chips.querySelector('.wgi[data-on]');
     if (cur) { const r = cur.getBoundingClientRect(), b = chips.getBoundingClientRect(); if (r.left < b.left) chips.scrollLeft -= b.left - r.left + 8; else if (r.right > b.right) chips.scrollLeft += r.right - b.right + 8; }
@@ -4046,24 +4055,24 @@ async function pollOnce() {
   clearTimeout(liveState.timer); liveState.timer = null;
   let open = false;
   const ac = new AbortController();
-  const killer = setTimeout(() => ac.abort(), 8000);   // a stalled request must not stop the polling loop
+  const killer = setTimeout(() => ac.abort(), allScope() ? 12000 : 8000);   // a stalled request must not stop the polling loop (전체: ~2,700 rows)
   try {
-    const res = await fetch('api/quotes', { cache: 'no-store', signal: ac.signal });
+    const res = await fetch(allScope() ? 'api/quotes?scope=all' : 'api/quotes', { cache: 'no-store', signal: ac.signal });
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const raw = await res.json();
     if (!raw || !Array.isArray(raw.stocks) || !raw.stocks.length) throw new Error('empty');
-    if (seq !== pollSeq) return;             // a newer poll took over (the tab came back)
+    if (seq !== pollSeq) return;             // a newer poll took over (the tab came back, 종목 수 changed)
     const hadBasis = BASIS.key;
     const changed = setData(raw);
     liveState.ok = true; liveState.last = new Date();
     open = sessionLive();
     render({ animate: !REPLAY }); renderSide(); renderCrumbs(); renderHeader(); renderLegend();
-    if (hadBasis !== BASIS.key) { renderFooter(); refreshOpenViews(); }
+    if (hadBasis !== BASIS.key) renderFooter();
+    refreshOpenViews();                      // the open sheet / stock or theme tooltip follow every poll (they froze before)
     maybeReloadClose();
     // flashes follow the prices as drawn (NXT, KRX quotes); KRX closes do not move
     flashChanged(changed);
     if (fancy()) { const dot = $('#status .dot'); if (dot) { dot.classList.remove('beat'); void dot.offsetWidth; dot.classList.add('beat'); } }
-    if (state.hover && tip.classList.contains('show') && !String(state.hover).startsWith('#')) { const st = get(state.hover); if (st) fillTip(st); }
     if (extraWanted().length && !EXTRA.size) pollExtra();
   } catch (e) {
     liveState.ok = false;
@@ -4073,7 +4082,7 @@ async function pollOnce() {
     if (seq === pollSeq) {
       try { renderStatus(); } catch (e3) {}
       clearTimeout(liveState.timer); liveState.timer = null;
-      if (!document.hidden) liveState.timer = setTimeout(poll, !liveState.ok ? 15000 : open ? 10000 : 60000);
+      if (!document.hidden) liveState.timer = setTimeout(poll, !liveState.ok ? 15000 : open ? (allScope() ? 15000 : 10000) : 60000);
     }
   }
 }
@@ -4134,7 +4143,7 @@ async function pollExtra() {
       extra.busy = false;
       bump();
       render(); renderCrumbs(); renderSide(); renderLegend();
-      if (state.hover && tip.classList.contains('show') && !String(state.hover).startsWith('#')) { const st = get(state.hover); if (st) fillTip(st); }
+      refreshOpenViews();
       extra.timer = setTimeout(pollExtra, !extra.ok ? 15000 : (sessionLive() || DATA.afterHours) ? 10000 : 60000);
     }
   }
@@ -4156,7 +4165,7 @@ async function pollThemes() {
   } catch (e) { themesLive.ok = false; }
   finally {
     clearTimeout(killer);
-    if (state.market === 'THEME') { render(); renderCrumbs(); renderSide(); renderLegend(); }
+    if (state.market === 'THEME') { render(); renderCrumbs(); renderSide(); renderLegend(); refreshOpenViews(); }   // theme rates: the theme tooltip
     themesLive.timer = setTimeout(pollThemes, themesLive.ok ? 30000 : 15000);
   }
 }
@@ -4202,7 +4211,9 @@ function setReplay(frame, opts) {
   refreshOpenViews();
   emitBasis();
 }
-// the tooltip and the quick-view sheet show the values as drawn now (replay frame, 정규장 종가)
+// the tooltip and the quick-view sheet show the values as drawn now (every live / extra poll, replay frame, 정규장 종가).
+// The sheet keeps its scroll position, its spark chart (not rebuilt) and the focus: an element in the head or the list that had it
+// is looked up again in the new markup (★ by data-w, the name button, a list row by data-c)
 function refreshOpenViews() {
   if (state.hover && tip.classList.contains('show')) {
     if (String(state.hover).startsWith('#')) { const t = themeRow(+state.hover.slice(1)); if (t) fillThemeTip(t); }
@@ -4210,8 +4221,20 @@ function refreshOpenViews() {
   }
   if (sheet.classList.contains('open') && sheetCode) {
     const st = get(sheetCode), head = sheet.querySelector('.card-head'), peers = sheet.querySelector('.peers');
-    if (st && head) head.replaceWith(headBlock(st, stockApi() ? 'sheet-link' : 'sheet'));
-    if (st && peers) { const pr = peerRows(st, 12); peers.replaceChildren(h('div', { class: 'ttl', text: peerTitle(pr) }), ...pr.rows, ...(pr.candles ? [candleHint(pr.cr)] : [])); }
+    if (!st || (!head && !peers)) return;
+    const pr = peerRows(st, 12);
+    const top = sheet.scrollTop, ae = document.activeElement;
+    let refocus = null;
+    if (ae && ae !== sheet && (head && head.contains(ae) || peers && peers.contains(ae))) {
+      const box = head && head.contains(ae) ? '.card-head' : '.peers', row = ae.closest('[data-c]');
+      refocus = ae.dataset.w ? `${box} [data-w="${ae.dataset.w}"]` : ae.classList.contains('nmbtn') ? `${box} .nmbtn`
+        : row && row !== ae ? null : row ? `${box} [data-c="${row.dataset.c}"]` : null;
+    }
+    if (head) head.replaceWith(headBlock(st, stockApi() ? 'sheet-link' : 'sheet', pr.cr));
+    if (peers) peers.replaceChildren(h('div', { class: 'ttl', text: peerTitle(pr) }), ...pr.rows, ...(pr.candles ? [candleHint(pr.cr)] : []));   // native replaceChildren prints a null
+    if (sheet.scrollTop !== top) sheet.scrollTop = top;
+    if (refocus) { const el = sheet.querySelector(refocus); (el || sheet).focus({ preventScroll: true }); }
+    else if (ae && ae !== sheet && !ae.isConnected) sheet.focus({ preventScroll: true });
   }
 }
 // the map as drawn now (for saving it as an image)
