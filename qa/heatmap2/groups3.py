@@ -109,7 +109,8 @@ with sync_playwright() as p:
         # ⋯ menu → rename (duplicate refused, then a new name), focus back on the chip
         pg.click('#wgchips [data-gm="g1"]'); pg.wait_for_timeout(200)
         m = pg.evaluate(POP)
-        ok('⋯ opens the menu: 이름 바꾸기 · 앞으로 · 뒤로 · 그룹 지우기…, focus inside', m and m['rows'] == ['이름 바꾸기', '앞으로 옮기기', '뒤로 옮기기', '그룹 지우기…'] and m['focus'], m)
+        ok('⋯ opens the menu: 이름 바꾸기 · 앞으로 · 뒤로 · (§3-16 탭에 이 그룹 등락률 표시) · 그룹 지우기…, focus inside',
+           m and [r for r in m['rows'] if not r.startswith('탭에 ')] == ['이름 바꾸기', '앞으로 옮기기', '뒤로 옮기기', '그룹 지우기…'] and m['focus'], m)
         pg.click('#wgpop .row:has-text("이름 바꾸기")'); pg.wait_for_timeout(150)
         pg.fill('#wgpop input[type=text]', '배당'); pg.wait_for_timeout(100)
         d = pg.evaluate("({msg: document.querySelector('#wgpop .msg').textContent, dis: document.querySelector('#wgpop .pri').disabled})")

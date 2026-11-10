@@ -1,5 +1,5 @@
 """§3-13 today's candles in lists + §3-14 sector / theme ranking tabs and movers 더보기 (numbers, not eyeballing).
-usage: candles3.py [section…]   sections: ohlc, lists, side, perf, quality (default: all)
+usage: candles3.py [section…]   sections: ohlc, lists, follow, side, perf, quality (default: all)
 ohlc / lists / side run on mocked quotes (nxt_fix phases with synthetic op/hi/lo) through the dev Worker harness; quality runs the
 live harness as it is (real quotes) and the snapshot (no OHLC fields → squares)."""
 import sys, os, json, math
@@ -9,8 +9,9 @@ from playwright.sync_api import sync_playwright
 import nxt_fix
 from nxt_fix import CLOCK, built
 
-VIEWPORTS = dict(VIEWPORTS, d1440=dict(viewport={'width': 1440, 'height': 900}))
-WANT = set(sys.argv[1:]) or {'ohlc', 'lists', 'side', 'perf', 'quality'}
+VIEWPORTS = dict(VIEWPORTS, d1440=dict(viewport={'width': 1440, 'height': 900}),
+                 m390s=dict(VIEWPORTS['m390'], viewport={'width': 390, 'height': 700}))   # a shorter 390 phone: the 12-row sheet scrolls
+WANT = set(sys.argv[1:]) or {'ohlc', 'lists', 'follow', 'side', 'perf', 'quality'}
 LIVE = 'http://127.0.0.1:%s/' % os.environ.get('HM_PORT', '8806')
 SNAP = 'file:///home/claude/hm-heatmap/dist/index.html'
 SHOTS = '/home/claude/hm-heatmap/qa/heatmap2/shots3/'
@@ -27,18 +28,33 @@ def errs(log): return [c for c in log.console if c.startswith('error') or c.star
 def won(v): return f'{round(v):,}'
 
 
-def fresh(b, vp, phase=None, store=None, hsh='', url=LIVE, wait=3500):
+def fresh(b, vp, phase=None, store=None, hsh='', url=LIVE, wait=3500, hook=None):
     ctx = b.new_context(**VIEWPORTS[vp], service_workers='block')
     pg = ctx.new_page(); log = Log(); log.attach(pg)
     hold = None
     if phase:
-        pg.clock.set_fixed_time(CLOCK[phase]); hold = nxt_fix.route(pg, phase)
+        pg.clock.set_fixed_time(CLOCK[phase]); hold = nxt_fix.route(pg, phase, quotes_hook=hook)
     pg.goto(url)
     js = "for (const k of Object.keys(localStorage)) if (k.startsWith('khm.')) localStorage.removeItem(k); sessionStorage.setItem('khm.intro', '1');"
     for k, v in dict({'market': 'K'}, **(store or {})).items(): js += f"localStorage.setItem('khm.{k}', {json.dumps(json.dumps(v))});"
     pg.evaluate(js)
     pg.goto(url + hsh); pg.reload(); pg.wait_for_timeout(wait)
     return ctx, pg, log, hold
+
+
+STEP = 0.004          # 'follow': every main poll n moves each KRX price by n × 0.4 % (static fixture prices otherwise)
+
+
+def moved(s, n):
+    """a fixture row as the n-th poll serves it: the KRX price up n × STEP (whole won), d / r from it, high stretched to it"""
+    s = dict(s); base = s['p'] - s['d']
+    p = round(s['p'] * (1 + STEP * n)); s.update(p=p, d=p - base, r=round((p - base) / base * 100, 2))
+    if s.get('hi'): s['hi'] = max(s['hi'], p)
+    return s
+
+
+def move_hook(body, n):
+    body['stocks'] = [moved(s, n) for s in body['stocks']]
 
 
 def expect(s, basis):
@@ -98,6 +114,11 @@ with sync_playwright() as p:
         want_head = f"시가 {won(o['o'])} ({'+' if op > 0 else '−' if op < 0 else ''}{abs(op):.1f}%) · 고가 {won(o['h'])} · 저가 {won(o['l'])}"
         ok(f"tooltip: every peer row has a left icon + right candle, a reading hint, and the head line '{want_head}'",
            r['rows'] >= 3 and r['icons'] == r['rows'] == r['bars'] and r['hint'] and r['hint'].startswith('가운데 선 = 전일 종가') and r['ohlc'] == want_head and r['label'].startswith('시가 '), r)
+        r = pg.evaluate("""() => { const row = document.querySelector('#tip .card-head .ohlc'), cdb = row.querySelector('.cdb'), body = cdb.querySelector('b'), txt = row.querySelector('.ot');
+          const a = cdb.getBoundingClientRect(), t = txt.getBoundingClientRect();
+          return { body: getComputedStyle(body).backgroundColor, cdb: getComputedStyle(cdb).color, cls: cdb.className, sameLine: a.top < t.bottom && t.top < a.bottom && a.right <= t.left + 1,
+                   hint: document.querySelector('#tip .cdhint').textContent, label: cdb.getAttribute('aria-label') }; }""")
+        ok('head candle: body in the candle colour (not the text colour), inline left of 시가 · 고가 · 저가, on the list scale', r['body'] == r['cdb'] and r['body'] not in ('rgb(238, 240, 243)', 'rgb(255, 255, 255)') and r['sameLine'], r)
         pg.mouse.move(5, 5)
         r = pg.evaluate("({movers: document.querySelectorAll('#movers .cdi').length, rows: document.querySelectorAll('#movers > button[data-c]').length})")
         ok('눈에 띄는 종목: a candle icon on every row', r['movers'] == r['rows'] > 0, r)
@@ -133,6 +154,51 @@ with sync_playwright() as p:
         r = pg.evaluate("({icons: document.querySelectorAll('#sheet .peer .cdi').length, rows: document.querySelectorAll('#sheet .peer').length, ohlc: !!document.querySelector('#sheet .ohlc'), over: document.documentElement.scrollWidth - innerWidth})")
         ok('m390 sheet: peers with candles, head OHLC line, no overflow', r['rows'] > 0 and r['icons'] == r['rows'] and r['ohlc'] and r['over'] == 0, r)
         pg.screenshot(path=SHOTS + 'candles-sheet-m390.png')
+        ctx.close()
+
+    if 'follow' in WANT:
+        # the quick-view sheet and the theme tooltip follow the polls (they froze while open): every poll n serves prices moved n × 0.4 %
+        ctx, pg, log, hold = fresh(b, 'm390s', 'reg', store={'topN': 300}, hook=move_hook)
+        pg.evaluate("window.KHStock = undefined")
+        SC = '207940'      # 삼성바이오로직스: 18 제약 peers in the top 300 → a 12-row list, the sheet scrolls at 390×700
+        pg.tap(f'#map .tile[data-c="{SC}"]'); pg.wait_for_timeout(500)
+        SH = """() => { const s = document.getElementById('sheet');
+          return { px: s.querySelector('.card-head .px b')?.textContent, peers: Object.fromEntries([...s.querySelectorAll('.peer[data-c]')].map(r => [r.dataset.c, r.querySelector('.cdb')?.title])),
+                   focus: document.activeElement.matches('#sheet .card-head [data-w="%s"]'), top: s.scrollTop, spark: s.querySelector('#spark')?.__qa === 1, open: s.classList.contains('open') }; }""" % SC
+        # focus the head ★, scroll the sheet a little, mark the spark box (it must not be rebuilt)
+        pg.evaluate("""() => { const s = document.getElementById('sheet'); s.querySelector('.card-head [data-w]').focus(); s.scrollTop = Math.min(48, s.scrollHeight - s.clientHeight);
+          const sp = s.querySelector('#spark'); if (sp) sp.__qa = 1; }""")
+        n0 = hold['n']; r0 = pg.evaluate(SH)
+        for _ in range(60):
+            if hold['n'] >= n0 + 2: break
+            pg.wait_for_timeout(500)
+        pg.wait_for_timeout(700)
+        n1 = hold['n']; r1 = pg.evaluate(SH)
+        cur = lambda c, n: f"현재 {won(moved(QR[c], n)['p'])}"
+        peers_ok = all(t and t.endswith(cur(c, n1)) for c, t in r1['peers'].items() if c in QR and QR[c].get('op'))
+        ok(f"390×700 sheet over two polls ({n0} → {n1}): head price {r0['px']} → {r1['px']} (= poll {n1}), every peer candle title ends with its poll-{n1} price",
+           n1 >= n0 + 2 and r0['px'] == won(moved(QR[SC], n0)['p']) and r1['px'] == won(moved(QR[SC], n1)['p']) and peers_ok and len(r1['peers']) >= 3, (r0, r1))
+        ok(f"…the sheet stays open, keeps its scroll ({r0['top']} → {r1['top']}), the focus on the head ★ (put back after the replace), the spark box not rebuilt",
+           r1['open'] and r1['top'] == r0['top'] > 0 and r0['focus'] and r1['focus'] and r1['spark'], (r0, r1))
+        ok('follow sheet: console errors 0', not errs(log), errs(log)[:3])
+        ctx.close()
+        ctx, pg, log, hold = fresh(b, 'd1440', 'reg', store={'market': 'THEME'}, hsh='#theme', wait=4500, hook=move_hook)
+        th = next(t for t in THEMES if '005930' in t['codes'] and '000660' in t['codes'])
+        el = pg.query_selector(f'#map .tile[data-t="{th["id"]}"]')
+        if el:
+            bb = el.bounding_box(); pg.mouse.move(bb['x'] + bb['width'] / 2, bb['y'] + bb['height'] / 2); pg.wait_for_timeout(300)
+            TT = "() => Object.fromEntries([...document.querySelectorAll('#tip .peer[data-c]')].map(r => [r.dataset.c, r.querySelector('.cdb')?.title]))"
+            n0 = hold['n']; t0 = pg.evaluate(TT)
+            for _ in range(40):
+                if hold['n'] >= n0 + 1: break
+                pg.wait_for_timeout(500)
+            pg.wait_for_timeout(700)
+            n1 = hold['n']; t1 = pg.evaluate(TT)
+            fol = [c for c, t in t1.items() if c in QR and QR[c].get('op')]
+            ok(f"theme tooltip ({th['name']}) over a poll ({n0} → {n1}): {len(fol)} candle titles end with the new price",
+               n1 > n0 and fol and all(t1[c].endswith(cur(c, n1)) and t0[c] != t1[c] for c in fol) and pg.evaluate("document.getElementById('tip').classList.contains('show')"), (t0, t1))
+        else: ok('theme tile on screen', False, th['name'])
+        ok('follow tooltip: console errors 0', not errs(log), errs(log)[:3])
         ctx.close()
 
     if 'side' in WANT:
