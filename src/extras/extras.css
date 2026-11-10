@@ -214,8 +214,8 @@ section.rp-player[hidden]{display:none}
 
 /* ── session bar: a thick underline along the bottom edge of the header (#session-bar) ── */
 header.top{position:relative}
-html.has-clock{--sbh:6px;--sbb:2px;--sbgap:7px;--ico:16px;--sb-mt:0px}
-html.has-clock.sb-mid{--sbb:0px;--ico:12px}
+html.has-clock{--sbh:6px;--sbb:2px;--sbgap:7px;--ico:22px;--sb-mt:0px}
+html.has-clock.sb-mid{--sbb:0px}
 /* tabs on the header's own bottom row (desktop): the bar hangs under the tab row with a clear gap */
 html.has-clock:not(.sb-mid) header.top{padding-bottom:calc(var(--sbh) + var(--sbb) + var(--sbgap))}
 /* tabs wrapped under the clock row (phones, narrow tablets): the bar sits between the two rows (extras.js sets --sb-top and --sb-mt) */
@@ -231,18 +231,18 @@ html.sb-mid .sb{height:calc(var(--sbh) + 2px)}
 .sb-segs i,.sb-fill i{position:absolute;top:0;bottom:0;display:block}
 .sb-segs i.lo,.sb-fill i.lo{top:30%}
 .sb-hol .sb-fill{opacity:0}
-.sb-ico{position:absolute;bottom:calc((var(--sbh) - var(--ico)) / 2);width:var(--ico);height:var(--ico);margin-left:calc(var(--ico) / -2);pointer-events:none;filter:drop-shadow(0 0 3px rgba(255,181,71,.35))}
+.sb-ico{position:absolute;bottom:calc((var(--sbh) - var(--ico)) / 2);width:var(--ico);height:var(--ico);margin-left:calc(var(--ico) / -2);pointer-events:none;overflow:visible;filter:drop-shadow(0 0 1px #0b0c0f) drop-shadow(0 0 1px #0b0c0f) drop-shadow(0 0 3px rgba(255,181,71,.35))}
 .sb-ico svg{width:100%;height:100%}
-.sb-ico:has(.sb-moon){filter:drop-shadow(0 0 3px rgba(190,200,255,.4))}
+.sb-ico:has(.sb-moon){filter:drop-shadow(0 0 1px #0b0c0f) drop-shadow(0 0 1px #0b0c0f) drop-shadow(0 0 3px rgba(190,200,255,.4))}
 .sb-svg{display:block;overflow:visible}
 .sb-fancy .sb-rays{transform-origin:10px 10px;animation:sbSpin 28s linear infinite}
 .sb-fancy .sb-rise .sb-rays{transform-origin:10px 14px;animation:sbPulse 3.2s ease-in-out infinite}
 .sb-fancy{animation:sbGlow 3.2s ease-in-out infinite}
 @keyframes sbSpin{to{transform:rotate(360deg)}}
 @keyframes sbPulse{50%{opacity:.45}}
-@keyframes sbGlow{50%{filter:drop-shadow(0 0 7px rgba(255,181,71,.6))}}
+@keyframes sbGlow{50%{filter:drop-shadow(0 0 1px #0b0c0f) drop-shadow(0 0 1px #0b0c0f) drop-shadow(0 0 7px rgba(255,181,71,.6))}}
 .sb-tip{position:absolute;bottom:calc(var(--sbh) + 22px);padding:6px 10px;border-radius:8px;border:1px solid var(--line2);background:#26282f;color:var(--fg);font-size:12.5px;line-height:1.3;white-space:nowrap;box-shadow:0 8px 24px rgba(0,0,0,.5);opacity:0;pointer-events:none;transition:opacity .15s}
 .sb-tip.on{opacity:1}
-@media (max-width:760px){html.has-clock{--sbh:4px;--sbgap:5px;--ico:12px}.sb{left:8px;right:8px}}
+@media (max-width:760px){html.has-clock{--sbh:4px;--sbgap:5px;--ico:20px}.sb{left:8px;right:8px}}
 @media (prefers-reduced-motion:reduce){.sb-fancy,.sb-fancy .sb-rays{animation:none}}
 html.sb-mid .sb-tip{bottom:auto;top:calc(100% + 8px)}

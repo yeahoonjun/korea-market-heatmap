@@ -1278,7 +1278,7 @@ const sb = { built: false, sig: '', tipT: 0 };
 const fmtLeft = m => { m = Math.max(1, Math.ceil(m)); const hh = Math.floor(m / 60), mm = m % 60; return hh ? `${hh}시간${mm ? ' ' + mm + '분' : ''}` : `${mm}분`; };
 function sbIcon(kind) {
   const S = (t, a, ...k) => svg(t, a, ...k);
-  const root = S('svg', { viewBox: '0 0 20 20', width: 18, height: 18, class: 'sb-svg sb-' + kind, 'aria-hidden': 'true', focusable: 'false' });
+  const root = S('svg', { viewBox: '0 0 20 20', width: 22, height: 22, class: 'sb-svg sb-' + kind, 'aria-hidden': 'true', focusable: 'false' });
   const ray = (ang, r1, r2, cx, cy) => { const a = ang * Math.PI / 180; return S('line', { x1: (cx + Math.cos(a) * r1).toFixed(2), y1: (cy + Math.sin(a) * r1).toFixed(2), x2: (cx + Math.cos(a) * r2).toFixed(2), y2: (cy + Math.sin(a) * r2).toFixed(2), stroke: '#ffd479', 'stroke-width': 1.5, 'stroke-linecap': 'round' }); };
   if (kind === 'moon') {
     root.append(S('path', { d: 'M12.6 2.6a7.6 7.6 0 1 0 4.8 12.9A6.3 6.3 0 0 1 12.6 2.6z', fill: '#d6dcff' }), S('circle', { cx: 15.2, cy: 4.6, r: 0.9, fill: '#d6dcff' }));
@@ -1366,7 +1366,7 @@ function sbPlace() {
   if (!mid) { root.style.removeProperty('--sb-mt'); root.style.removeProperty('--sb-top'); return; }
   const cs = getComputedStyle(root), sbh = parseFloat(cs.getPropertyValue('--sbh')) || 6;
   const rowGap = parseFloat(getComputedStyle(hd).rowGap) || 0;
-  const above = 3, below = 5;                                    // the clock box keeps ~3px of its own bottom padding
+  const above = 5, below = 7;                                    // gaps; the 20px icon may reach into them but not onto the text
   root.style.setProperty('--sb-mt', Math.max(0, Math.round(above + sbh + below - rowGap)) + 'px');
   root.style.setProperty('--sb-top', (tabs.offsetTop - below) + 'px');
 }
