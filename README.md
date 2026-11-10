@@ -39,7 +39,7 @@ web/                       실시간 버전 정적 파일 — Worker가 GitHub�
 ## 배포
 
 - **화면**: `python3 scripts/build_page.py` 뒤 `web/`를 커밋·푸시하면 끝이에요. Worker가 `raw.githubusercontent.com`에서 읽어요(캐시 몇 분).
-- **Worker**: `node scripts/build_worker.mjs` → `worker/dist/worker.js`를 Cloudflare에 올려요(`worker/wrangler.toml`: KV `REPLAY`, cron `*/5 0-7 * * 1-5`). 비밀값 `DART_KEY`(OpenDART)는 Cloudflare에만 있어요.
+- **Worker**: `node scripts/build_worker.mjs` → `worker/dist/worker.js`를 Cloudflare에 올려요(`worker/wrangler.toml`: KV `REPLAY`, cron `* 0-7 * * 1-5`, 매분). 비밀값 `DART_KEY`(OpenDART)는 Cloudflare에만 있어요.
 - **주소**: Cloudflare Pages 프로젝트 `kospimap`이 서비스 바인딩으로 Worker에 넘겨요.
 - **매일 데이터**: `.github/workflows/daily.yml` — 평일 16:40 KST(장 마감 확인 뒤) 스냅샷·테마·기간 수익률·투자자 동향을 만들어 커밋, 21:30에 투자자 동향만 한 번 더.
 
@@ -47,23 +47,24 @@ web/                       실시간 버전 정적 파일 — Worker가 GitHub�
 
 | 경로 | 내용 | 캐시 |
 |---|---|---|
-| `/api/quotes` | 시장별 시총 상위 300종목 + 지수 (`?codes=`로 지정 종목) | 8초 |
-| `/api/breadth?m=K\|Q&part=N` | 시장 전 종목 등락률(등락 분포용, 600개씩 나눠서) | 30초~10분 |
+| `/api/quotes` | 시장별 시총 상위 300종목 + 지수 (`?codes=`로 지정 종목, `?scope=all`로 상장 전 종목 약 2,700) | 8초 |
+| `/api/breadth?m=K\|Q[&part=N]` | 시장 전 종목 등락률(등락 분포용). `part` 없으면 한 번에, `part=N`이면 600개씩 나눈 N번째 | 30초~10분 |
 | `/api/market` | 시장 띠: 코스피·코스닥·원/달러·미국 선물·WTI·금·비트코인 | 30초 |
 | `/api/world?kind=index\|commodity` | 해외 지수 41개 · 원자재 17개 | 30초 |
 | `/api/world/chart/{키}?tf=3m\|1y` | 해외 지수·원자재 일봉 종가 | 10분 |
 | `/api/themes` | 테마별 등락률 | 30초 |
 | `/api/stock/{코드}/summary·chart·orderbook·investors·daily·news·disclosures·finance·research` | 종목 페이지 | 2초~6시간 |
-| `/api/replay/dates`, `/api/replay?date=` | 장중 리플레이(5분 간격 기록) | 1분~1시간 |
+| `/api/replay/dates`, `/api/replay?date=` | 장중 리플레이(매분 기록, 이 경로는 5분 칸만). `dates` 응답의 `minute`은 1분 기록이 있는 날 | 1분~1시간 |
+| `/api/replay?date=&step=1&from=HHMM&to=HHMM` | 그 구간의 1분 프레임(양 끝 포함, 한 번에 120개까지) | 1분~1시간 |
 | `/data/*.json` | 테마·기간·투자자·이름·종가 파일 | 10분 |
 | `/api/health` | `{ok:true}` | 없음 |
 
-정확한 응답 모양은 `AGENTS.md` §3·§3-2·§3-3·§3-4에 있어요.
+정확한 응답 모양은 `AGENTS.md` §3·§3-2·§3-3·§3-4·§3-15에 있어요.
 
 ## 알아 둘 점
 
 - 네이버 증권 API는 공식 공개 API가 아니에요. 개인 용도로는 동작하지만 예고 없이 바뀔 수 있어요.
   대규모 서비스라면 증권사 Open API(예: 한국투자증권 KIS)로 바꾸는 게 안전해요.
 - 15:30 이후 네이버 시세에는 NXT 거래가 섞여요. 실시간 화면은 "정규장 종가 / NXT 포함"을 고를 수 있어요.
-- 무료 플랜은 요청 하나당 CPU 10ms, 하루 요청 10만 건 제한이 있어요. 그래서 지도는 시장별 300종목, 전 종목 분포는 600개씩 나눠 받아요.
+- Workers Paid 플랜(2026-11-10~)이라 하루 요청 상한이 없고 요청당 CPU 30초까지 써요. 그래서 전 종목(`/api/quotes?scope=all`)·전 종목 분포(`/api/breadth?m=`)를 한 번에 받아요. 기본 지도는 여전히 시장별 300종목이에요(휴대폰 데이터).
 - 호가는 5단계만 있어요. 공매도 잔고는 KRX 로그인이 필요해서 넣지 않았어요.
