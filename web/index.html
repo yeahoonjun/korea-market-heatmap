@@ -411,6 +411,25 @@ table.list{width:100%;border-collapse:collapse;font-size:13.5px}
 .secs .rank-h.second{margin-top:10px}
 .secs .none{font-size:12.5px;color:var(--faint);padding:4px 0}
 .dbar{position:relative;height:10px}
+/* §3-13 today's candle: the vertical icon (the 10 px square's place) and the horizontal one (the bar's place); colours = the stock
+   page chart's (palette ends, flat grey) */
+:root{--cd-up:#ef3e4a;--cd-dn:#12a15b;--cd-flat:#8a8f99}
+.cdi{position:relative;display:inline-block;flex:none;width:9px;height:15px;vertical-align:middle;color:var(--cd-flat)}
+span.cdi.cdi > i{position:absolute;left:calc(50% - .5px);width:1px;height:auto;border-radius:0;background:currentColor}
+.cdi b{position:absolute;left:1px;right:1px;background:currentColor;border-radius:1px}
+.cdi.u,.cdb.u{color:var(--cd-up)} .cdi.d,.cdb.d{color:var(--cd-dn)}
+.cdb{position:relative;display:block;height:10px;color:var(--cd-flat)}
+.cdb::before{content:"";position:absolute;left:50%;top:-2px;bottom:-2px;width:1px;background:var(--line2)}
+span.cdb.cdb > i{position:absolute;top:50%;width:auto;height:1px;margin-top:-.5px;border-radius:0;background:currentColor}
+.cdb b{position:absolute;top:1px;bottom:1px;background:currentColor;border-radius:1px}
+.cdb em{position:absolute;top:50%;transform:translateY(-50%);font-style:normal;font-size:8px;line-height:1;color:currentColor}
+.cdb .ovr{right:0} .cdb .ovl{left:0}
+.cdhint{font-size:11px;color:var(--muted);padding:5px 6px 0;line-height:1.4}
+.card-head .ohlc{display:flex;align-items:center;gap:9px;margin-top:5px;font-size:12px;color:var(--fg2);font-variant-numeric:tabular-nums;flex-wrap:wrap}
+.card-head .ohlc .cdb{width:96px;height:12px;flex:none}
+.card-head .ohlc b{font-weight:600;color:var(--fg)}
+.peer .cdi{width:9px;height:13px}
+.movers .cdi{width:10px;height:15px} .list .nmcell .cdi{width:10px;height:15px}
 .dbar::before{content:"";position:absolute;left:50%;top:-2px;bottom:-2px;width:1px;background:var(--line2)}
 .dbar i{position:absolute;top:1px;height:8px;border-radius:2px}
 .movers-tabs{display:flex;gap:2px;margin-bottom:8px}
@@ -425,6 +444,12 @@ table.list{width:100%;border-collapse:collapse;font-size:13.5px}
 .movers .px{color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums}
 .movers .v{text-align:right;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
 .movers .none{font-size:12.5px;color:var(--faint);padding:4px 0}
+/* §3-14 더보기 / 접기 under a list; the 거래대금 number of a sector */
+.movers .more,.secs .more{display:block;width:100%;margin:6px 0 0;padding:7px 0;border-radius:7px;border:1px solid var(--line);font-size:12.5px;font-weight:600;color:var(--fg2);text-align:center}
+.movers .more:hover,.secs .more:hover{color:var(--fg);background:rgba(255,255,255,.04)}
+.secs .v.tvv{color:var(--fg2);font-weight:600}
+@media (max-width:760px){ .movers .more,.secs .more{min-height:42px} }
+.movers-tabs button[hidden]{display:none}
 
 footer{padding:4px 18px 18px;font-size:12px;color:var(--faint);line-height:1.6}
 footer p{margin:0;max-width:92ch}
@@ -655,13 +680,14 @@ html[data-motion="reduced"] .swbtn .swt,html[data-motion="reduced"] .swbtn .swt:
       <div class="hist-axis" id="histAxis"></div>
       <div class="hist-note" id="histNote">막대를 누르면 그 구간 종목만 지도에서 강조돼요.</div>
     </section>
-    <section class="card">
+    <section class="card" id="secCard">
       <h2><span id="secTitle">섹터별 등락</span> <small id="secSub">누르면 확대</small></h2>
+      <div class="movers-tabs" id="secTabs" role="group" aria-label="섹터 정렬"><button data-v="up">상승률</button><button data-v="dn">하락률</button><button data-v="tv">거래대금</button></div>
       <div class="secs" id="secs"></div>
     </section>
     <section class="card" id="moverCard">
       <h2>눈에 띄는 종목 <small id="moverScope"></small></h2>
-      <div class="movers-tabs" id="moverTabs"><button data-v="up">상승률</button><button data-v="dn">하락률</button><button data-v="tv">거래대금</button></div>
+      <div class="movers-tabs" id="moverTabs" role="group" aria-label="종목 정렬"><button data-v="up">상승률</button><button data-v="dn">하락률</button><button data-v="tv">거래대금</button></div>
       <div class="movers" id="movers"></div>
     </section>
   </aside>
@@ -835,13 +861,15 @@ function h(tag, props, ...kids) {
 const MINUS = '−';
 const sgn = v => v > 0 ? '+' : v < 0 ? MINUS : '';
 const fmtPct = (v, d = 2) => sgn(v) + Math.abs(v).toFixed(d) + '%';
-const fmtInt = v => Math.round(v).toLocaleString('ko-KR');
-const fmtChg = v => sgn(v) + Math.abs(Math.round(v)).toLocaleString('ko-KR');
-const fmtEok = v => v < 1 ? '1억 미만' : v >= 10000 ? (v / 10000).toLocaleString('ko-KR', { maximumFractionDigits: 1 }) + '조' : fmtInt(v) + '억';
+// cached formatters: toLocaleString builds one per call (≈20 µs), and a 300-row table or 600 candle labels call it thousands of times
+const NF0 = new Intl.NumberFormat('ko-KR'), NF1 = new Intl.NumberFormat('ko-KR', { maximumFractionDigits: 1 });
+const fmtInt = v => NF0.format(Math.round(v));
+const fmtChg = v => sgn(v) + NF0.format(Math.abs(Math.round(v)));
+const fmtEok = v => v < 1 ? '1억 미만' : v >= 10000 ? NF1.format(v / 10000) + '조' : fmtInt(v) + '억';
 // shares: 9,876주 · 79.5만주 · 448만주 · 1.2억주
-const fmtVol = v => { v = +v || 0; const t = (x, d) => x.toLocaleString('ko-KR', { maximumFractionDigits: d }); return v >= 1e8 ? t(v / 1e8, 1) + '억주' : v >= 1e6 ? t(Math.round(v / 1e4), 0) + '만주' : v >= 1e4 ? t(v / 1e4, 1) + '만주' : fmtInt(v) + '주'; };
+const fmtVol = v => { v = +v || 0; const t = (x, d) => (d ? NF1 : NF0).format(x); return v >= 1e8 ? t(v / 1e8, 1) + '억주' : v >= 1e6 ? t(Math.round(v / 1e4), 0) + '만주' : v >= 1e4 ? t(v / 1e4, 1) + '만주' : fmtInt(v) + '주'; };
 // signed amount in 억원: +857억, −1.2조
-const fmtAmt = v => { const a = Math.abs(v); const s = a < 0.5 ? '' : sgn(v); return s + (a >= 10000 ? (a / 10000).toLocaleString('ko-KR', { maximumFractionDigits: 1 }) + '조' : fmtInt(a) + '억'); };
+const fmtAmt = v => { const a = Math.abs(v); const s = a < 0.5 ? '' : sgn(v); return s + (a >= 10000 ? NF1.format(a / 10000) + '조' : fmtInt(a) + '억'); };
 // a range number without needless decimals: 0.03, 0.3, 3.3, 17
 const fmtR = v => { const a = Math.abs(v); return String(+(a >= 10 ? a.toFixed(0) : a >= 1 ? a.toFixed(1) : a.toFixed(2))); };
 const cls = v => v > 0 ? 'up' : v < 0 ? 'dn' : 'flat';
@@ -877,6 +905,8 @@ const state = {
   rangeP: store.get('rangeP', 20),             // period returns
   rangeF: store.get('rangeF', 1),              // flows: index into RANGES.flow[window]
   palette: store.get('palette2', 'krg'),
+  secSort: ['up', 'dn', 'tv'].includes(store.get('secSort', 'up')) ? store.get('secSort', 'up') : 'up',   // §3-14 섹터·테마 순위 정렬
+  moversMore: false, themeRankMore: false,     // §3-14 펼친 목록 (이 페이지에서만)
   view: 'map',
   focus: null,          // {s} | {s, i}
   bucket: null,
@@ -1288,6 +1318,7 @@ function emitBasis() {
 }
 // theme colours from Naver's live theme list (today's change of the live KRX quotes: no replay frame, KRX closes, NXT or 통합 prices)
 const naverThemeDay = () => MODE === 'live' && kind() === 'day' && !ovOn();
+const ohlOf = x => { const op = +x.op, hi = +x.hi, lo = +x.lo; return op > 0 && hi > 0 && lo > 0 ? { op, hi: Math.max(hi, op), lo: Math.min(lo, op) } : null; };
 function norm(x) {
   const map = INDUSTRY.get(String(x.c));
   const nx = x.nx && +x.nx.p > 0 ? x.nx : null;
@@ -1299,10 +1330,12 @@ function norm(x) {
     lim: x.lim === 1 || x.lim === -1 ? x.lim : Math.abs(+x.r || 0) >= 29.5 ? Math.sign(+x.r) : 0,
     // KRX trade time of the row (ms) when the Worker sends one (t), for 통합
     tm: x.t ? Date.parse(x.t) : NaN,
+    // §3-13 today's KRX open / high / low (none before the first trade)
+    ohl: ohlOf(x),
     // NXT (§3-8, §3-10): {p, d, r, s 'pre'|'reg'|'after', o 1 while that session runs, t ISO time of the last NXT trade, tm (ms),
     // v volume (shares) | null, tv value (억원) | null} | null
     nx: nx ? { p: +nx.p, d: +nx.d || 0, r: +nx.r || 0, s: nx.s in NX_NAME ? nx.s : 'pre', o: nx.o ? 1 : 0, t: nx.t ? String(nx.t) : null,
-      tm: nx.t ? Date.parse(nx.t) : NaN, v: nx.v != null && isFinite(+nx.v) ? +nx.v : null, tv: nx.tv != null && isFinite(+nx.tv) ? +nx.tv : null } : null,
+      tm: nx.t ? Date.parse(nx.t) : NaN, v: nx.v != null && isFinite(+nx.v) ? +nx.v : null, tv: nx.tv != null && isFinite(+nx.tv) ? +nx.tv : null, ohl: ohlOf(nx) } : null,
   };
 }
 let SHOWN = null;            // {key: BASIS.key, p: Map code → the price drawn} — ticks are measured on what is drawn
@@ -1390,6 +1423,75 @@ function allStocks() {
 // 상/하한가: the quote's flag; overridden rows (replay frame, 정규장 종가) judge by their own change
 const limOf = st => st.live ? (Math.abs(st.r) >= 29.5 ? Math.sign(st.r) : 0) : st.lim;
 
+/* ───────────────── today's candle in lists (AGENTS §3-13) ─────────────────
+   ohlcOf(row as drawn) → {pc, o, h, l, c} | null in the price basis: pc = KRX base (quote p − d), c = the price drawn. KRX: the row's
+   op/hi/lo; NXT: nx's (a stock without an NXT trade: KRX's); 통합: o = NXT's open when there is one (its pre-market opens first),
+   else KRX's, h / l = the wider of the two; h ≥ c ≥ l always. null: a replay, 어제 종가 before 09:00, no fields (before the first
+   trade, a snapshot without them). Lists draw candles only for today's change (a period / flow list says something else). */
+function ohlcOf(st) {
+  if (!st || REPLAY || (MODE === 'live' && basisId() === 'krx-prev')) return null;
+  const raw = st.live || st, pc = raw.p - raw.d, c = st.p;
+  if (!(pc > 0 && c > 0)) return null;
+  const K = raw.ohl, N = raw.nx && raw.nx.ohl;
+  let A;
+  if (st.nxOn) A = N && { o: N.op, h: N.hi, l: N.lo };
+  else if (st.intOn) A = (K || N) && { o: N ? N.op : K.op, h: Math.max(K ? K.hi : 0, N ? N.hi : 0), l: Math.min(K ? K.lo : Infinity, N ? N.lo : Infinity) };
+  else A = K && { o: K.op, h: K.hi, l: K.lo };
+  if (!A) return null;
+  return { pc, o: A.o, h: Math.max(A.h, c), l: Math.min(A.l, c), c };
+}
+// KH.ohlc(code | /api/quotes row): the code's row as drawn, or that raw row put through the same basis
+function khOhlc(x) {
+  if (x == null) return null;
+  if (typeof x === 'string' || typeof x === 'number') return ohlcOf(get(String(x)));
+  if (typeof x !== 'object' || !x.c) return null;
+  return ohlcOf(basisRow(norm(x)));
+}
+const candleText = o => `시가 ${fmtInt(o.o)} · 고가 ${fmtInt(o.h)} · 저가 ${fmtInt(o.l)} · 현재 ${fmtInt(o.c)}`;
+const candleDir = o => o.c > o.o ? 'u' : o.c < o.o ? 'd' : 'f';
+function candleLabel(el, o) { const t = candleText(o); el.title = t; el.setAttribute('role', 'img'); el.setAttribute('aria-label', t); return el; }
+// the vertical mini candle (the 10 px square's place): wick low↔high, body open↔now (≥ 1.5 px); the scale is the day's range, at
+// least 2 % of the base so a quiet day does not fill it
+function candleIcon(o) {
+  const el = document.createElement('span');
+  el.className = 'cdi';
+  if (!o) { el.classList.add('none'); return el; }
+  const span = Math.max(o.h - o.l, o.pc * 0.02), top = (o.h + o.l) / 2 + span / 2;
+  const y = v => ((top - v) / span * 100).toFixed(1) + '%';
+  const w = document.createElement('i'), b = document.createElement('b');
+  w.style.top = y(o.h); w.style.bottom = (100 - parseFloat(y(o.l))).toFixed(1) + '%';
+  const bt = (top - Math.max(o.o, o.c)) / span * 100, bh = Math.abs(o.c - o.o) / span * 100;
+  b.style.top = bt.toFixed(1) + '%'; b.style.height = `max(1.5px, ${bh.toFixed(1)}%)`;
+  el.classList.add(candleDir(o));
+  el.append(w, b);
+  return candleLabel(el, o);
+}
+// the horizontal candle (the bar's place): centre line = 전일 종가, ±range (curRange()), wick low%↔high%, body open%↔now%; past
+// ±range the end is cut and marked ◂ / ▸
+function candleBar(o, range) {
+  const el = document.createElement('span');
+  el.className = 'cdb';
+  if (!o) { el.classList.add('none'); return el; }
+  const R = +range > 0 ? +range : curRange();
+  const pct = v => (v / o.pc - 1) * 100, x = p => 50 + Math.max(-1, Math.min(1, p / R)) * 50;
+  const lo = pct(o.l), hi = pct(o.h), a = Math.min(pct(o.o), pct(o.c)), z = Math.max(pct(o.o), pct(o.c));
+  const w = document.createElement('i'), b = document.createElement('b');
+  w.style.left = x(lo).toFixed(1) + '%'; w.style.right = (100 - x(hi)).toFixed(1) + '%';
+  b.style.left = x(a).toFixed(1) + '%'; b.style.width = `max(1.5px, ${(x(z) - x(a)).toFixed(1)}%)`;
+  el.classList.add(candleDir(o));
+  el.append(w, b);
+  if (hi > R) el.append(h('em', { class: 'ovr', 'aria-hidden': 'true', text: '▸' }));
+  if (lo < -R) el.append(h('em', { class: 'ovl', 'aria-hidden': 'true', text: '◂' }));
+  return candleLabel(el, o);
+}
+// a list row's left mark: today's candle (day metric, OHLC known) or the colour square as before
+function rowMark(st, v, sqCls) {
+  const o = kind() === 'day' ? ohlcOf(st) : null;
+  return o ? candleIcon(o) : h('i', { class: sqCls || null, style: `background:${colorOf(v)}` });
+}
+const CANDLE_HINT = '가운데 선 = 전일 종가 · 몸통 = 시가→현재가 · 선 = 저가~고가';
+const candleHint = cr => h('div', { class: 'cdhint', text: `${CANDLE_HINT} · 양 끝 ±${fmtR(cr)}%` });
+
 /* ───────────────── metrics ───────────────── */
 function amt(st) {
   const f = FLO(); if (!f || !isFlow()) return null;
@@ -1445,6 +1547,8 @@ function rebuildColor() {
   actScale = kind() === 'day' ? dayScale : makeScale(curRange());
   document.documentElement.style.setProperty('--up-text', p.upText);
   document.documentElement.style.setProperty('--dn-text', p.dnText);
+  document.documentElement.style.setProperty('--cd-up', p.stops[6]);
+  document.documentElement.style.setProperty('--cd-dn', p.stops[0]);
 }
 const colorOf = v => v == null ? NODATA : v === 0 ? PALETTES[state.palette].stops[3] : actScale(v);
 const colorFor = st => colorOf(cval(st));
@@ -2199,15 +2303,22 @@ function peerRows(st, limit) {
   if (!peers.includes(st)) peers.push(st);
   let rows = peers.slice(0, limit);
   if (!rows.includes(st)) rows = rows.slice(0, limit - 1).concat(st);
-  const R = curRange();
-  return { total: peers.length, gtext: grpText(peers, 1), rows: rows.map(p => {
-    const v = cval(p);
-    const frac = v == null ? 0 : Math.min(Math.abs(v) / R, 1) * 50;
-    const bar = h('div', { class: 'dbar' }, h('i', { style: `background:${colorOf(v)};width:${frac}%;${(v || 0) >= 0 ? 'left:50%' : 'right:50%'}` }));
-    const tv = isFlow() ? amt(p) : v;
-    return h('div', { class: 'peer' + (p === st ? ' me' : '') },
-      h('i', { style: `background:${colorOf(v)}` }), h('span', { class: 'nm', text: p.n }), bar, h('span', { class: 'v ' + (tv == null ? 'flat' : cls(tv)), text: stText(p) }));
-  }) };
+  const R = curRange(), os = rows.map(p => kind() === 'day' ? ohlcOf(p) : null), CR = candleRange(os);
+  return { total: peers.length, gtext: grpText(peers, 1), rows: rows.map((p, i) => peerRow(p, R, p === st, os[i], CR)), candles: os.filter(Boolean).length, cr: CR };
+}
+// a list's candle scale: the colour range, widened to the list's farthest high / low (≤ ±30 %) so no candle of the list is cut —
+// with ±3 % on a +5 % day every body would sit past the edge
+const candleRange = os => Math.min(30, Math.max(curRange(), ...os.filter(Boolean).map(o => Math.max(Math.abs(o.h / o.pc - 1), Math.abs(o.l / o.pc - 1)) * 100)));
+// one row of a stock list in the tooltip / sheet / theme tooltip: mark · name · bar (or today's candle) · value
+function peerRow(p, R, me, o, CR) {
+  const v = cval(p), tv = isFlow() ? amt(p) : v;
+  const frac = v == null ? 0 : Math.min(Math.abs(v) / R, 1) * 50;
+  const el = h('div', { class: 'peer' + (me ? ' me' : '') },
+    o ? candleIcon(o) : h('i', { style: `background:${colorOf(v)}` }), h('span', { class: 'nm', text: p.n }),
+    o ? candleBar(o, CR) : h('div', { class: 'dbar' }, h('i', { style: `background:${colorOf(v)};width:${frac}%;${(v || 0) >= 0 ? 'left:50%' : 'right:50%'}` })),
+    h('span', { class: 'v ' + (tv == null ? 'flat' : cls(tv)), text: stText(p) }));
+  el.__cd = !!o;
+  return el;
 }
 // under the price (§3-8, §3-10), while the rows carry NXT prices: the markets not drawn — under KRX its NXT price, under NXT its
 // KRX value, under 통합 both — or "NXT 거래 없음" for a stock without an NXT trade
@@ -2258,6 +2369,14 @@ function metricRow(st) {
   return h('div', { class: 'mrow' }, `${m.long} `, h('b', { class: v == null ? 'flat' : cls(v), text: v == null ? '데이터 없음' : fmtPct(v) }),
     b ? h('span', { text: `${bd ? bd + ' ' : ''}종가 ${fmtInt(b)}원 대비` }) : null);
 }
+// under the price (§3-13): today's candle, a little bigger, and 시가 (±% vs 전일 종가) · 고가 · 저가
+function ohlcRow(st) {
+  const o = kind() === 'day' ? ohlcOf(st) : null;
+  if (!o) return null;
+  const op = (o.o / o.pc - 1) * 100;
+  return h('div', { class: 'ohlc' }, candleBar(o, Math.max(curRange(), Math.abs(o.h / o.pc - 1) * 100, Math.abs(o.l / o.pc - 1) * 100)),
+    h('span', {}, '시가 ', h('b', { text: fmtInt(o.o) }), ' ', h('span', { class: cls(op), text: `(${fmtPct(op, 1)})` }), ' · 고가 ', h('b', { text: fmtInt(o.h) }), ' · 저가 ', h('b', { text: fmtInt(o.l) })));
+}
 function headBlock(st, how) {
   const tipMode = how === 'tip', nameBtn = how === 'sheet-link';
   const pathTxt = state.market === 'THEME' && curTheme() ? `테마 ${curTheme().name}  ›  ${MKT_NAME[st.m]} ${st.s}` : `${MKT_NAME[st.m]}  ›  ${st.s}  ›  ${st.i}`;
@@ -2269,6 +2388,7 @@ function headBlock(st, how) {
       tipMode ? (watched ? h('span', { class: 'wmark', text: '★ 관심' }) : null) : starBtn(st.c, 'wstar')),
     h('div', { class: 'px' }, h('b', { text: st.p > 0 ? fmtInt(st.p) : '—' }), h('span', { class: cls(st.r), text: `${fmtChg(st.d)}  (${fmtPct(st.r)})` }), kind() !== 'day' ? h('span', { class: 'flat', text: '오늘' }) : null),
     nxLine(st),
+    ohlcRow(st),
     metricRow(st),
     h('div', { class: 'meta' }, h('span', {}, '시가총액 ', h('em', { text: fmtEok(st.cap) })), h('span', {}, rowTvLabel(st) + ' ', h('em', { text: fmtEok(st.tv) }))));
 }
@@ -2283,21 +2403,15 @@ function fillTip(st) {
   const big = !tstar.hidden;
   const watched = WATCH.includes(st.c);
   tip.replaceChildren(headBlock(st, 'tip'), h('div', { class: 'peers' + (isFlow() ? ' amt' : '') },
-    h('div', { class: 'ttl', text: peerTitle(pr) }), pr.rows),
+    h('div', { class: 'ttl', text: peerTitle(pr) }), pr.rows, pr.candles ? candleHint(pr.cr) : null),
     h('div', { class: 'tiphint', text: big ? (watched ? '오른쪽 위 ★를 누르면 관심종목에서 빠져요' : '오른쪽 위 ☆를 누르면 관심종목에 담겨요') : '작은 타일은 표 보기에서 ☆로 담을 수 있어요' }));
 }
 function fillThemeTip(t) {
   const L = naverThemeDay();
   const top = t.codes.slice(0, 8).map(c => get(c)).filter(Boolean);
   const R = curRange();
-  const rows = top.map(p => {
-    const v = cval(p);
-    const frac = v == null ? 0 : Math.min(Math.abs(v) / R, 1) * 50;
-    const tv = isFlow() ? amt(p) : v;
-    return h('div', { class: 'peer' }, h('i', { style: `background:${colorOf(v)}` }), h('span', { class: 'nm', text: p.n }),
-      h('div', { class: 'dbar' }, h('i', { style: `background:${colorOf(v)};width:${frac}%;${(v || 0) >= 0 ? 'left:50%' : 'right:50%'}` })),
-      h('span', { class: 'v ' + (tv == null ? 'flat' : cls(tv)), text: stText(p) }));
-  });
+  const os = top.map(p => kind() === 'day' ? ohlcOf(p) : null), CR = candleRange(os);
+  const rows = top.map((p, i) => peerRow(p, R, false, os[i], CR));
   const valCls = (isFlow() ? t.a : t.v) == null ? 'flat' : cls(isFlow() ? t.a : t.v);
   const counts = t.up + t.flat + t.down;
   tip.replaceChildren(h('div', { class: 'card-head' },
@@ -2306,7 +2420,7 @@ function fillThemeTip(t) {
     h('div', { class: 'px' }, h('b', { class: valCls, text: thText(t) }), h('span', { class: 'flat', text: isFlow() ? `${flowShort()} 순매수 합` : `${metricShort() === '등락' ? '오늘' : metricShort()}${L ? ' (네이버 테마 등락률)' : ' · 시총 가중'}` })),
     h('div', { class: 'meta' }, h('span', {}, '구성 ', h('em', { text: `${t.codes.length}종목` })), h('span', {}, '시총 ', h('em', { text: fmtEok(t.cap) })),
       counts ? h('span', {}, h('em', { class: 'up', text: `${isFlow() ? '순매수' : '상승'} ${t.up}` }), ' · ', h('em', { class: 'dn', text: `${isFlow() ? '순매도' : '하락'} ${t.down}` })) : null)),
-    rows.length ? h('div', { class: 'peers' + (isFlow() ? ' amt' : '') }, h('div', { class: 'ttl', text: '시가총액 상위 종목' }), rows) : null,
+    rows.length ? h('div', { class: 'peers' + (isFlow() ? ' amt' : '') }, h('div', { class: 'ttl', text: '시가총액 상위 종목' }), rows, rows.some(r => r.__cd) ? candleHint(CR) : null) : null,
     h('div', { class: 'tiphint', text: '누르면 이 테마의 종목 지도가 열려요' }));
 }
 let tipW = 300, tipH = 0;
@@ -2484,7 +2598,7 @@ function openSheet(st, opener) {
   sheetCode = st.c;
   const kids = [h('div', { class: 'grab' }), h('button', { class: 'x', 'aria-label': '닫기', onclick: () => closeSheet(), text: '×' }), headBlock(st, canStock ? 'sheet-link' : 'sheet')];
   if (MODE === 'live' && !REPLAY) kids.push(h('div', { class: 'spark', id: 'spark' }, h('div', { class: 'note', text: '오늘 흐름 불러오는 중…' })));
-  kids.push(h('div', { class: 'peers' + (isFlow() ? ' amt' : '') }, h('div', { class: 'ttl', text: peerTitle(pr) }), pr.rows));
+  kids.push(h('div', { class: 'peers' + (isFlow() ? ' amt' : '') }, h('div', { class: 'ttl', text: peerTitle(pr) }), pr.rows, pr.candles ? candleHint(pr.cr) : null));
   const marketView = ['K', 'Q', 'ALL'].includes(state.market);
   const zoomBtn = marketView
     ? h('button', { class: 'sec2', type: 'button', onclick: () => { closeSheet(); zoomTo({ s: st.s, i: st.i }); }, text: '업종 확대' })
@@ -2970,44 +3084,71 @@ function rankButton(label, sub, v, text, frac, onclick, cur) {
     h('span', { class: 'dbar' }, h('i', { style: `background:${colorOf(v)};width:${frac}%;${(v || 0) >= 0 ? 'left:50%' : 'right:50%'}` })),
     h('span', { class: 'v ' + (v == null ? 'flat' : cls(v)), text }));
 }
+// §3-14 the 상승률 · 하락률 · 거래대금 tabs (flows: 순매수 · 순매도 · 거래대금; periods and the theme ranking: no 거래대금)
+function secTabs(themeMode) {
+  const k = kind(), tvOk = !themeMode && k !== 'period';
+  const labels = k === 'flow' ? ['순매수', '순매도', '거래대금'] : ['상승률', '하락률', '거래대금'];
+  const sort = state.secSort === 'tv' && !tvOk ? 'up' : state.secSort;
+  [...$('#secTabs').children].forEach((b, i) => { b.textContent = labels[i]; b.hidden = b.dataset.v === 'tv' && !tvOk; b.setAttribute('aria-pressed', String(b.dataset.v === sort)); });
+  return sort;
+}
+// a "더보기 (N개)" / "접기" button under a list; collapsing brings the card's head back into view
+function listMoreBtn(open, n, toggle, card) {
+  return h('button', { class: 'more', type: 'button', 'aria-expanded': String(open), onclick: () => {
+    toggle();
+    renderSide();
+    if (open) {
+      const c = $(card), r = c && c.getBoundingClientRect();
+      if (r && r.top < 0) c.scrollIntoView({ block: 'start', behavior: reduced() ? 'auto' : 'smooth' });
+      const b = c && c.querySelector('.more'); if (b) b.focus({ preventScroll: true });
+    }
+  }, text: open ? '접기' : `더보기 (${n}개)` });
+}
 function renderSecCard(themeMode) {
   const box = $('#secs');
   const k = kind();
   box.classList.toggle('wide', k === 'flow');
+  const sort = secTabs(themeMode);
   if (themeMode) {
-    // 테마 순위: best and worst themes in the active metric
-    const rows = themeRows().filter(t => t.v != null).slice().sort((a, b) => b.v - a.v);
+    // 테마 순위: every theme, most up (or down) first; long → 더보기
+    const rows = themeRows().filter(t => t.v != null).slice().sort((a, b) => sort === 'dn' ? a.v - b.v : b.v - a.v);
     $('#secTitle').textContent = '테마 순위';
     const cur = curTheme();
     const rank = cur ? rows.findIndex(t => t.id === cur.id) : -1;
     $('#secSub').textContent = rank >= 0 ? `이 테마 ${rank + 1}위 / ${rows.length}` : '누르면 종목 지도';
     if (!rows.length) { box.replaceChildren(h('div', { class: 'none', text: THEMES ? '테마 값을 불러오는 중이에요.' : '테마 목록을 불러오는 중이에요.' })); return; }
-    const N = 6;
-    const best = rows.slice(0, N), worst = rows.slice(-N).reverse().filter(t => !best.includes(t));
+    const N = 12, shown = state.themeRankMore ? rows : rows.slice(0, N);
     const maxAbs = Math.max(curRange() / 2, ...rows.map(t => Math.abs(t.v)));
     const btn = t => rankButton(t.name, null, t.v, thText(t), Math.min(Math.abs(t.v) / maxAbs, 1) * 50, () => { openTheme(t.id); showStage(); }, cur && cur.id === t.id);
-    box.replaceChildren(h('div', { class: 'rank-h', text: k === 'flow' ? '순매수가 많은 테마' : '많이 오른 테마' }), ...best.map(btn),
-      worst.length ? h('div', { class: 'rank-h second', text: k === 'flow' ? '순매도가 많은 테마' : '많이 내린 테마' }) : null, ...worst.map(btn));
+    box.replaceChildren(...shown.map(btn), rows.length > N ? listMoreBtn(state.themeRankMore, rows.length, () => { state.themeRankMore = !state.themeRankMore; }, '#secCard') : null);
     return;
   }
   // sectors (always the whole market view so you can jump around)
   $('#secTitle').textContent = k === 'day' ? '섹터별 등락' : k === 'period' ? `섹터별 ${COLOR_METRICS[state.colorBy].label} 수익률` : `섹터별 ${flowShort()} 순매수`;
   $('#secSub').textContent = '누르면 확대';
   const uni = universe();
-  // ordered by the number shown: the return, or (flows) the net amount; the bar uses the same number
-  const secs = Array.from(d3.group(uni, s => s.s), ([s, arr]) => ({ s, n: arr.length, arr, r: groupVal(arr), a: k === 'flow' ? sumAmt(arr) : null }))
-    .map(x => Object.assign(x, { key: k === 'flow' ? x.a : x.r }))
-    .sort((a, b) => (b.key == null ? -Infinity : b.key) - (a.key == null ? -Infinity : a.key));
+  // the number shown: the return, (flows) the net amount, or (거래대금) the sector's value in the price basis; the bar is the move
+  const secs = Array.from(d3.group(uni, s => s.s), ([s, arr]) => ({ s, n: arr.length, arr, r: groupVal(arr), a: k === 'flow' ? sumAmt(arr) : null, tv: arr.reduce((t, x) => t + (x.tv || 0), 0) }))
+    .map(x => Object.assign(x, { key: k === 'flow' ? x.a : x.r }));
+  const nz = v => v == null ? null : v;
+  if (sort === 'tv') secs.sort((a, b) => b.tv - a.tv);
+  else secs.sort((a, b) => { const x = nz(a.key), y = nz(b.key); if (x == null || y == null) return x == null ? (y == null ? 0 : 1) : -1; return sort === 'dn' ? x - y : y - x; });
   const maxAbs = k === 'flow' ? Math.max(1, ...secs.map(x => Math.abs(x.a || 0))) : Math.max(curRange() / 2, ...secs.map(x => Math.abs(x.r || 0)));
   if (!secs.length) { box.replaceChildren(h('div', { class: 'none', text: '표시할 종목이 없어요.' })); return; }
   box.replaceChildren(...secs.map(x => {
-    const b = rankButton(x.s, x.n, x.r, grpText(x.arr, 2), x.key == null ? 0 : Math.min(Math.abs(x.key) / maxAbs, 1) * 50,
+    const b = rankButton(x.s, x.n, x.r, sort === 'tv' ? fmtEok(x.tv) : grpText(x.arr, 2), x.key == null ? 0 : Math.min(Math.abs(x.key) / maxAbs, 1) * 50,
       () => { zoomTo({ s: x.s }); showStage(); }, state.focus && state.focus.s === x.s);
+    if (sort === 'tv') b.lastChild.className = 'v tvv';
     b.addEventListener('mouseenter', () => { if (!state.focus) { state.hoverSector = x.s; applyHighlights(); } });
     b.addEventListener('mouseleave', () => { if (state.hoverSector) { state.hoverSector = null; applyHighlights(); } });
     return b;
   }));
 }
+$('#secTabs').addEventListener('click', e => {
+  const b = e.target.closest('button[data-v]'); if (!b) return;
+  state.secSort = b.dataset.v; store.set('secSort', state.secSort); state.themeRankMore = false;
+  renderSide();
+});
 function renderMovers(themeOverview) {
   const card = $('#moverCard');
   card.hidden = !!themeOverview;
@@ -3027,17 +3168,18 @@ function renderMovers(themeOverview) {
     mv.sort(state.movers === 'up' ? (a, b) => key(b) - key(a) : (a, b) => key(a) - key(b));
     mv = mv.filter(s => state.movers === 'up' ? key(s) > 0 : key(s) < 0);
   }
-  mv = mv.slice(0, 8);
+  const total = Math.min(mv.length, 30);
+  mv = mv.slice(0, state.moversMore ? 30 : 8);
   const box = $('#movers');
   box.classList.toggle('amt', k === 'flow');
   if (!mv.length) { box.replaceChildren(h('div', { class: 'none', text: '해당하는 종목이 없어요.' })); return; }
   box.replaceChildren(...mv.map(s => {
     const v = cval(s), tv = k === 'flow' ? amt(s) : v;
     return h('button', { 'data-c': s.c, onclick: ev => openStock(s.c, ev.currentTarget) },
-      h('i', { class: s.nonx ? 'nonx' : null, style: `background:${colorOf(v)}` }), h('span', { class: 'nm', text: s.n }),
+      rowMark(s, v, s.nonx ? 'nonx' : null), h('span', { class: 'nm', text: s.n }),
       h('span', { class: 'px', text: state.movers === 'tv' ? fmtEok(s.tv) : s.p > 0 ? fmtInt(s.p) : '—' }),
       h('span', { class: 'v ' + (tv == null ? 'flat' : cls(tv)), text: stText(s) }));
-  }));
+  }), total > 8 ? listMoreBtn(state.moversMore, total, () => { state.moversMore = !state.moversMore; }, '#moverCard') : null);
 }
 $('#moverTabs').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; state.movers = b.dataset.v; renderSide(); });
 
@@ -3085,7 +3227,7 @@ function renderTable() {
   const tbody = h('tbody', {}, list.map(s => {
     const v = cval(s);
     const cells = [
-      h('td', { class: 'k-n' }, h('div', { class: 'nmcell' }, starBtn(s.c, 'wbtn'), h('i', { class: v == null ? 'nod' : s.nonx ? 'nonx' : null, style: `background:${colorOf(v)}` }), h('span', { class: 'nmt', text: s.n }), h('small', { text: s.c }), limTag(s), nxTag(s))),
+      h('td', { class: 'k-n' }, h('div', { class: 'nmcell' }, starBtn(s.c, 'wbtn'), rowMark(s, v, v == null ? 'nod' : s.nonx ? 'nonx' : null), h('span', { class: 'nmt', text: s.n }), h('small', { text: s.c }), limTag(s), nxTag(s))),
       wgCol ? h('td', { class: 'k-g', text: gOf(s.c).map(g => g.name).join(', ') }) : null,
       h('td', { class: 'k-i indc', title: `${s.s} · ${s.i}` }, h('span', { class: 'indt', text: `${s.s} · ${s.i}` })),
       h('td', { class: 'k-p', 'data-f': '', text: s.p > 0 ? fmtInt(s.p) : '—' }),
@@ -3775,10 +3917,10 @@ function renderSugg() {
     if (s.ext) {
       // outside the map: the quote when we have one, else just name · code · market and "종목 페이지"
       const r = s.row, nm = s.n || (r && r.n) || `${s.c} 종목`, mk = s.m || (r && r.m);
-      return suggOption(s, i, [h('i', { class: 'sw' + (r && r.nonx ? ' nonx' : ''), style: `background:${r ? colorFor(r) : NODATA}` }), h('span', {}, nm, ' ', h('span', { class: 'meta', text: `${s.c}${mk ? ' · ' + MKT_NAME[mk] : ''}${(s.n || r) && isPreferred({ c: s.c }) ? ' · 우선주' : ''}${r && r.nonx ? ' · NXT 없음' : ''}` })),
+      return suggOption(s, i, [r && kind() === 'day' && ohlcOf(r) ? candleIcon(ohlcOf(r)) : h('i', { class: 'sw' + (r && r.nonx ? ' nonx' : ''), style: `background:${r ? colorFor(r) : NODATA}` }), h('span', {}, nm, ' ', h('span', { class: 'meta', text: `${s.c}${mk ? ' · ' + MKT_NAME[mk] : ''}${(s.n || r) && isPreferred({ c: s.c }) ? ' · 우선주' : ''}${r && r.nonx ? ' · NXT 없음' : ''}` })),
         h('span', { class: 'meta num', text: r && r.p > 0 ? fmtInt(r.p) : '' }), r ? h('span', { class: 'num ' + cls(r.r), text: fmtPct(r.r) }) : h('span', { class: 'meta', text: '종목 페이지' })]);
     }
-    return suggOption(s, i, [h('i', { class: 'sw' + (s.nonx ? ' nonx' : ''), style: `background:${colorFor(s)}` }), h('span', {}, s.n, ' ', h('span', { class: 'meta', text: `${s.c} · ${s.i}${s.nonx ? ' · NXT 없음' : ''}` })),
+    return suggOption(s, i, [kind() === 'day' && ohlcOf(s) ? candleIcon(ohlcOf(s)) : h('i', { class: 'sw' + (s.nonx ? ' nonx' : ''), style: `background:${colorFor(s)}` }), h('span', {}, s.n, ' ', h('span', { class: 'meta', text: `${s.c} · ${s.i}${s.nonx ? ' · NXT 없음' : ''}` })),
       h('span', { class: 'meta num', text: s.p > 0 ? fmtInt(s.p) : '—' }), h('span', { class: 'num ' + cls(s.r), text: fmtPct(s.r) })]);
   });
   if (!opts.length) opts.push(h('div', { class: 'empty' }, loadingNames ? '종목 목록을 불러오는 중…' : `'${q}'와 맞는 ${where} 없어요.`,
@@ -4069,7 +4211,7 @@ function refreshOpenViews() {
   if (sheet.classList.contains('open') && sheetCode) {
     const st = get(sheetCode), head = sheet.querySelector('.card-head'), peers = sheet.querySelector('.peers');
     if (st && head) head.replaceWith(headBlock(st, stockApi() ? 'sheet-link' : 'sheet'));
-    if (st && peers) { const pr = peerRows(st, 12); peers.replaceChildren(h('div', { class: 'ttl', text: peerTitle(pr) }), ...pr.rows); }
+    if (st && peers) { const pr = peerRows(st, 12); peers.replaceChildren(h('div', { class: 'ttl', text: peerTitle(pr) }), ...pr.rows, ...(pr.candles ? [candleHint(pr.cr)] : [])); }
   }
 }
 // the map as drawn now (for saving it as an image)
@@ -4105,6 +4247,9 @@ window.KH = {
   colorOf: r => dayColor(r),
   palette: () => { const p = PALETTES[state.palette]; return { key: state.palette, label: p.label, stops: p.stops.slice(), up: p.stops[6], down: p.stops[0], flat: p.stops[3], upText: p.upText, dnText: p.dnText }; },
   fmt: { pct: fmtPct, int: fmtInt, chg: fmtChg, eok: fmtEok, vol: fmtVol, cls },
+  // §3-13 today's candle: ohlc(code | /api/quotes row) → {pc, o, h, l, c} | null in the price basis; candleIcon(o) / candleBar(o, range?)
+  // → elements (o null → an empty slot of the same size)
+  ohlc: khOhlc, candleIcon, candleBar,
   h,
   loadData: name => loadData(name),
   watch: watchApi,
