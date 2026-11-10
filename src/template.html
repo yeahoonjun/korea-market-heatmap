@@ -823,11 +823,11 @@ html[data-motion="reduced"] .swbtn .swt,html[data-motion="reduced"] .swbtn .swt:
                          it they use the frame's cap-weighted change per market). localStorage khm.watchTabGroup = the ★관심 tab's group. */
 
 /* ───────────────── 효과 level (AGENTS §3-5): 'reduced' | 'standard' | 'fancy', localStorage khm.motion ─────────────────
-   No stored choice: the device's reduced-motion setting picks 'reduced', otherwise 'standard'. <html data-motion> mirrors it for CSS. */
+   No stored choice: the device's reduced-motion setting picks 'reduced', otherwise 'fancy' (사용자 2026-11-10 13:58: 화려하게가 기본). <html data-motion> mirrors it for CSS. */
 const MOTIONS = ['reduced', 'standard', 'fancy'];
 const deviceReducedMQ = matchMedia('(prefers-reduced-motion: reduce)');
 const storedMotion = () => { try { const v = JSON.parse(localStorage.getItem('khm.motion')); return MOTIONS.includes(v) ? v : null; } catch (e) { return null; } };
-let MOTION = storedMotion() || (deviceReducedMQ.matches ? 'reduced' : 'standard');
+let MOTION = storedMotion() || (deviceReducedMQ.matches ? 'reduced' : 'fancy');
 document.documentElement.dataset.motion = MOTION;
 
 /* ───────────────── d3 guard: the live page loads d3 from cdnjs; if that is blocked, say so instead of a blank map ───────────────── */
@@ -4040,7 +4040,7 @@ function applyMotion(m, persist) {
   document.dispatchEvent(new CustomEvent('kh:motion', { detail: { motion: m } }));
 }
 motionSeg.addEventListener('click', e => { const b = e.target.closest('button[data-mo]'); if (b) applyMotion(b.dataset.mo, true); });
-deviceReducedMQ.addEventListener('change', () => { if (!storedMotion()) applyMotion(deviceReducedMQ.matches ? 'reduced' : 'standard', false); else syncMotionSeg(); });
+deviceReducedMQ.addEventListener('change', () => { if (!storedMotion()) applyMotion(deviceReducedMQ.matches ? 'reduced' : 'fancy', false); else syncMotionSeg(); });
 
 /* KH.addSetting({key, label, hint?, default, onChange(value), options?:[{v, label}]}) — a switch (default: boolean) or, with ≥ 2
    options, a choice; drawn in 화면, kept in localStorage khm.set.<key>, onChange called once now and after every change.

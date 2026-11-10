@@ -1446,7 +1446,7 @@ function ckSweep() {
 
 function ckBuild() {
   const narrow = matchMedia('(max-width: 760px)').matches;
-  let want = getSet('clockStyle', 'digital');
+  let want = getSet('clockStyle', 'both');   // 기본 둘 다 (사용자 2026-11-10 13:58)
   if (want === 'flap') want = 'digital';
   const style = want === 'both' ? 'both' : want === 'analog' && !narrow ? 'analog' : 'digital';   // phones: analog alone gives way to the flap digits
   ck.style = style; ck.cells = []; ck.analog = null; ck.mAng = null; ck.shown = '';
@@ -1634,7 +1634,7 @@ function initClock() {
   if (has('addSetting')) {
     try {
       KH.addSetting({ key: 'clock', label: '시계·장 진행률', hint: '서버 시각으로 맞춘 한국 시각(KST)이에요. 시계를 누르면 새로고침해요.', default: true, onChange: () => ckApply() });
-      KH.addSetting({ key: 'clockStyle', label: '시계 모양', options: [{ v: 'digital', label: '숫자' }, { v: 'analog', label: '아날로그' }, { v: 'both', label: '둘 다' }], default: 'digital', onChange: () => ckApply() });
+      KH.addSetting({ key: 'clockStyle', label: '시계 모양', options: [{ v: 'digital', label: '숫자' }, { v: 'analog', label: '아날로그' }, { v: 'both', label: '둘 다' }], default: 'both', onChange: () => ckApply() });
     } catch (e) { /* settings are optional */ }
   }
   ckApply();
