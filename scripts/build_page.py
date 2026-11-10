@@ -16,7 +16,7 @@ SNAP_PATH = pathlib.Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "data/sna
 snap = json.loads((SNAP_PATH).read_text(encoding="utf-8"))
 
 # keep only the fields the page reads, compact separators, and make it safe inside <script>
-keep = ("c", "n", "m", "s", "i", "cap", "p", "d", "r", "tv", "v", "lim")
+keep = ("c", "n", "m", "s", "i", "cap", "p", "d", "r", "tv", "v", "lim", "op", "hi", "lo")
 snap["stocks"] = [{k: s[k] for k in keep if k in s} for s in snap["stocks"]]
 blob = json.dumps(snap, ensure_ascii=False, separators=(",", ":")).replace("</", "<\\/")
 
