@@ -703,24 +703,24 @@ const hmMin = t => { const m = String(t).replace(':', '').match(/^(\d\d)(\d\d)$/
 const minLabel = m => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
 // the slider's range follows the day's real frames: 09:00 … max(15:30, last frame); sessions that open at 10:00 or later
 // (수능 day, first trading day) run 10:00 … 16:30
-const SESSION = { s0: 9 * 60, s1: 15 * 60 + 30, slots: 78 };
-const slotOfT = t => { const m = hmMin(t); return isFinite(m) ? Math.round((m - SESSION.s0) / 5) : 0; };
+const SESSION = { s0: 9 * 60, s1: 15 * 60 + 30, slots: 390 };          // slider units are minutes
+const slotOfT = t => { const m = hmMin(t); return isFinite(m) ? Math.round(m - SESSION.s0) : 0; };
 function setSession(frames) {
   const mins = frames.map(f => hmMin(f.t)).filter(isFinite);
   const first = mins.length ? Math.min(...mins) : 9 * 60, last = mins.length ? Math.max(...mins) : 15 * 60 + 30;
   const late = first >= 10 * 60;
   const s0 = Math.min(late ? 10 * 60 : 9 * 60, Math.floor(first / 5) * 5);
   const s1 = Math.max(late ? 16 * 60 + 30 : 15 * 60 + 30, Math.ceil(last / 5) * 5);
-  Object.assign(SESSION, { s0, s1, slots: (s1 - s0) / 5 });
+  Object.assign(SESSION, { s0, s1, slots: s1 - s0 });
 }
-const replay = { open: false, el: null, btn: null, dates: null, date: null, day: null, cache: new Map(), i: -1, playing: false, speed: 1, timer: 0, req: 0, frameT: null, raf: 0 };
+const replay = { open: false, el: null, btn: null, dates: null, date: null, day: null, cache: new Map(), i: -1, playing: false, delay: 500, mode: 5, timer: 0, req: 0, minute: new Set(), fillTok: 0, frameT: null, raf: 0 };
 function rpTicks() {
   const ui = replay.ui, { s0, s1, slots } = SESSION;
   const marks = [s0];
   for (let m = Math.ceil((s0 + 1) / 60) * 60; m < s1; m += 60) marks.push(m);
   if (s1 - marks[marks.length - 1] < 40) marks.pop();          // the last hour mark would crowd the closing time
   marks.push(s1);
-  ui.ticks.replaceChildren(...marks.map((m, k) => h('span', { class: k % 2 && k < marks.length - 1 ? 'o' : null, style: `left:${((m - s0) / 5 / slots) * 100}%`, text: minLabel(m) })));
+  ui.ticks.replaceChildren(...marks.map((m, k) => h('span', { class: k % 2 && k < marks.length - 1 ? 'o' : null, style: `left:${((m - s0) / slots) * 100}%`, text: minLabel(m) })));
   ui.slider.max = slots;
 }
 function rpSetH() {
@@ -729,6 +729,19 @@ function rpSetH() {
   document.documentElement.style.setProperty('--rp-h', px + 'px');
 }
 
+// playback speed = the pause between scenes. 5-minute days: 1× 2× 4× (default 2×, faster than the old 1×);
+// 1-minute days have ~391 scenes, so the choices are seconds per scene (default 0.25 s: about 100 s a day)
+const SPEEDS = {
+  5: { def: 500, opts: [[1000, '1×', '1배속'], [500, '2×', '2배속'], [250, '4×', '4배속']] },
+  1: { def: 250, opts: [[1000, '1초', '한 장면에 1초'], [500, '0.5초', '한 장면에 0.5초'], [250, '0.25초', '한 장면에 0.25초'], [120, '0.12초', '한 장면에 0.12초']] },
+};
+function rpSpeedUI(mode) {
+  const R = replay, sp = SPEEDS[mode];
+  if (R.mode === mode && R.ui.speed.children.length) return;
+  R.mode = mode;
+  R.delay = R.userDelay && sp.opts.some(o => o[0] === R.userDelay) ? R.userDelay : sp.def;
+  R.ui.speed.replaceChildren(...sp.opts.map(([ms, label, aria]) => h('button', { type: 'button', 'data-v': ms, 'aria-pressed': String(ms === R.delay), text: label, 'aria-label': aria, onclick: () => setSpeed(ms) })));
+}
 function rpBuild() {
   const R = replay;
   const ui = R.ui = {};
@@ -737,8 +750,7 @@ function rpBuild() {
   ui.day = h('div', { class: 'rp-day', text: '' });
   ui.idx = h('div', { class: 'rp-idx' });
   ui.date = h('select', { class: 'rp-date', 'aria-label': '날짜', onchange: e => loadDay(e.target.value, false) });
-  ui.speed = h('div', { class: 'rp-speed', role: 'group', 'aria-label': '재생 속도' }, [1, 2, 4].map(v =>
-    h('button', { type: 'button', 'data-v': v, 'aria-pressed': String(v === R.speed), text: `${v}×`, 'aria-label': `${v}배속`, onclick: () => setSpeed(v) })));
+  ui.speed = h('div', { class: 'rp-speed', role: 'group', 'aria-label': '재생 속도' });
   ui.slider = h('input', { type: 'range', class: 'rp-slider', min: 0, max: SESSION.slots, step: 1, value: 0, 'aria-label': '시각' });
   ui.slider.addEventListener('input', () => { pause(); seekSlot(+ui.slider.value); });
   ui.ticks = h('div', { class: 'rp-ticks', 'aria-hidden': 'true' });
@@ -758,7 +770,7 @@ function rpBuild() {
     ui.more, ui.idx, ui.set);
   R.el = h('section', { class: 'rp-player', id: 'replay-player', role: 'region', 'aria-label': '장중 리플레이', hidden: true }, ui.close, ui.msg, ui.body, ui.note);
   document.body.append(R.el);
-  rpTicks();
+  rpTicks(); rpSpeedUI(5);
   new ResizeObserver(rpSetH).observe(R.el);
   addEventListener('resize', rpSetH);
 }
@@ -792,6 +804,7 @@ async function loadDates() {
   try {
     const j = await getJSON('api/replay/dates');
     R.dates = (j && Array.isArray(j.dates) ? j.dates : []).filter(d => /^\d{4}-\d\d-\d\d$/.test(d));
+    R.minute = new Set((j && Array.isArray(j.minute) ? j.minute : []).filter(d => /^\d{4}-\d\d-\d\d$/.test(d)));
   } catch (e) {
     if (!R.open) return;
     rpState('error', '기록된 날짜를 불러오지 못했어요. 네트워크를 확인하고 다시 시도해 주세요.', loadDates);
@@ -820,8 +833,8 @@ async function loadDay(date, fallback) {
     try {
       const j = await getJSON('api/replay?date=' + encodeURIComponent(date), 20000);
       if (!j || !Array.isArray(j.codes) || !Array.isArray(j.frames)) throw new Error('bad shape');
-      day = { date: j.date || date, codes: j.codes.map(String), frames: j.frames.filter(f => f && f.t != null && Array.isArray(f.p) && Array.isArray(f.r)), index: j.index || {}, base: j.base || j.prev || null };
-      day.frames.sort((a, b) => hmMin(a.t) - hmMin(b.t));
+      day = { date: j.date || date, codes: j.codes.map(String), byT: new Map(), frames: [], base: j.base || j.prev || null, minute: R.minute.has(j.date || date), fill: { done: new Set(), tries: {}, busy: false } };
+      ingest(day, j.codes, j.frames, j.index);
       R.cache.set(date, day);
     } catch (e) {
       if (id !== R.req || !R.open) return;
@@ -841,10 +854,10 @@ async function loadDay(date, fallback) {
   setSession(day.frames);
   rpTicks();
   rpState('ready');
-  const first = slotOfT(day.frames[0].t), last = slotOfT(day.frames[day.frames.length - 1].t);
-  R.ui.slider.style.setProperty('--rec0', (first / SESSION.slots * 100) + '%');
-  R.ui.slider.style.setProperty('--rec1', (last / SESSION.slots * 100) + '%');
+  rpSpeedUI(day.minute ? 1 : 5);
+  rpBand();
   showFrame(0);
+  startFill(day);
 }
 function indexBase(day, key) {
   if (day.base && isFinite(+day.base[key])) return +day.base[key];
@@ -859,7 +872,7 @@ function showFrame(i) {
   i = Math.max(0, Math.min(day.frames.length - 1, i));
   R.i = i;
   const f = day.frames[i];
-  R.frameT = hhmm(f.t);
+  R.frameT = hhmm(f.t); R.curMin = hmMin(f.t);
   const prices = new Map();
   for (let j = 0; j < day.codes.length; j++) {
     const p = f.p[j], r = f.r[j];
@@ -869,7 +882,7 @@ function showFrame(i) {
   R.prices = prices;
   cancelAnimationFrame(R.raf);
   // 'fancy' timelapse: while playing, the map tweens from frame to frame (the template ignores the option when it can't)
-  const tw = R.playing && motion() === 'fancy' ? Math.round(1000 / R.speed * 0.92) : 0;
+  const tw = R.playing && motion() === 'fancy' ? Math.round(R.delay * 0.92) : 0;
   R.raf = requestAnimationFrame(() => { try { KH.setReplay({ t: String(f.t), date: day.date, prices }, tw ? { tween: tw } : undefined); } catch (e) { /* map keeps its last frame */ } });
   const ui = R.ui, sl = slotOfT(f.t);
   ui.time.textContent = R.frameT;
@@ -878,17 +891,17 @@ function showFrame(i) {
   ui.slider.setAttribute('aria-valuetext', `${dayLabel(day.date)} ${R.frameT}`);
   ui.slider.style.setProperty('--pos', (sl / SESSION.slots * 100) + '%');
   ui.idx.replaceChildren(...['KOSPI', 'KOSDAQ'].map(k => {
-    const arr = day.index[k];
-    const v = Array.isArray(arr) ? +(Array.isArray(arr[i]) ? arr[i][0] : arr[i] && typeof arr[i] === 'object' ? arr[i].value : arr[i]) : NaN;
+    const e = f.ix && f.ix[k];
+    const v = e == null ? NaN : +(Array.isArray(e) ? e[0] : typeof e === 'object' ? e.value : e);
     const label = k === 'KOSPI' ? '코스피' : '코스닥';
-    if (!isFinite(v) || arr[i] == null) return h('div', { class: 'rp-ix' }, h('span', { class: 'rp-k', text: label }), h('span', { class: 'rp-v', text: '—' }));
+    if (!isFinite(v)) return h('div', { class: 'rp-ix' }, h('span', { class: 'rp-k', text: label }), h('span', { class: 'rp-v', text: '—' }));
     const base = indexBase(day, k);
     const kids = [h('span', { class: 'rp-k', text: label }), h('span', { class: 'rp-v', text: fixed(v, 2) })];
     if (isFinite(base) && base) kids.push(h('span', { class: 'rp-r ' + dir(v - base), text: pct((v / base - 1) * 100) }));
     return h('div', { class: 'rp-ix' }, kids);
   }));
   const lastT = hhmm(day.frames[day.frames.length - 1].t);
-  ui.day.textContent = `${i + 1}/${day.frames.length}장면${hmMin(lastT) < SESSION.s1 ? ` · ${lastT}까지 기록` : ''}`;
+  rpCount();
 }
 
 /* big time readout over a corner of the map while the timelapse plays ('fancy' only) */
@@ -905,6 +918,113 @@ function bigUpdate() {
   R.big.firstChild.textContent = R.frameT || '';
   R.big.lastChild.textContent = dayLabel(R.day.date);
   R.big.classList.add('on');
+}
+
+/* ── frames: one Map per day keyed by minute; 5-minute skeleton first, 1-minute chunks merged in behind it ── */
+function ingest(day, codes, frames, index) {
+  const same = codes.length === day.codes.length && codes.every((c, k) => String(c) === day.codes[k]);
+  const remap = same ? null : codes.map(c => day.codes.indexOf(String(c)));
+  let added = 0;
+  (frames || []).forEach((f, n) => {
+    if (!f || f.t == null || !Array.isArray(f.p) || !Array.isArray(f.r)) return;
+    const m = hmMin(f.t);
+    if (!isFinite(m) || day.byT.has(m)) return;                       // keep what is there (the same frame as the 5-minute one)
+    let p = f.p, r = f.r;
+    if (remap) { p = day.codes.map(() => null); r = day.codes.map(() => null); remap.forEach((to, k) => { if (to >= 0) { p[to] = f.p[k]; r[to] = f.r[k]; } }); }
+    const ix = {};
+    for (const k of ['KOSPI', 'KOSDAQ']) { const a = index && index[k]; if (Array.isArray(a) && a[n] != null) ix[k] = a[n]; }
+    day.byT.set(m, { t: String(f.t), p, r, ix });
+    added++;
+  });
+  day.frames = [...day.byT.entries()].sort((a, b) => a[0] - b[0]).map(e => e[1]);
+  return added;
+}
+// grey band under the slider = 5-minute coverage; the lighter band on top = ranges that have 1-minute frames
+function rpBand() {
+  const R = replay, day = R.day, ui = R.ui;
+  if (!day || !day.frames.length) return;
+  const S = SESSION.slots, pc = v => (v / S * 100).toFixed(2) + '%';
+  ui.slider.style.setProperty('--rec0', pc(slotOfT(day.frames[0].t)));
+  ui.slider.style.setProperty('--rec1', pc(slotOfT(day.frames[day.frames.length - 1].t)));
+  const mins = [...day.byT.keys()].sort((a, b) => a - b);
+  const runs = [];
+  for (const m of mins) {
+    const last = runs[runs.length - 1];
+    if (last && m - last[1] <= 1) last[1] = m; else runs.push([m, m]);
+  }
+  const fine = runs.filter(r => r[1] - r[0] >= 2);                   // 5-minute frames alone never make a run
+  let g = 'linear-gradient(transparent,transparent)';
+  if (fine.length) {
+    const st = [`transparent 0 ${pc(fine[0][0] - SESSION.s0)}`];
+    fine.forEach((r, k) => {
+      const a = pc(r[0] - SESSION.s0), b = pc(r[1] - SESSION.s0);
+      st.push(`#697086 ${a} ${b}`, `transparent ${b} ${k < fine.length - 1 ? pc(fine[k + 1][0] - SESSION.s0) : '100%'}`);
+    });
+    g = `linear-gradient(90deg,${st.join(',')})`;
+  }
+  ui.slider.style.setProperty('--m1', g);
+}
+function rpCount() {
+  const R = replay, day = R.day;
+  if (!day || !R.ui) return;
+  const lastT = hhmm(day.frames[day.frames.length - 1].t);
+  const f = day.fill;
+  let note = hmMin(lastT) < SESSION.s1 ? ` · ${lastT}까지 기록` : '';
+  if (day.minute) note += f.done.size >= f.total ? ' · 1분 단위' : f.stalled ? ' · 1분 기록 일부만' : ` · 1분 기록 불러오는 중 ${f.done.size}/${f.total || '…'}`;
+  R.ui.day.textContent = `${R.i + 1}/${day.frames.length}장면${note}`;
+}
+
+/* ── 1-minute chunks (<= 120 frames per call), the one nearest the current position first ── */
+const CHUNK = 120;
+function fillChunks() {
+  const out = [];
+  for (let a = SESSION.s0; a <= SESSION.s1; a += CHUNK) out.push([a, Math.min(a + CHUNK - 1, SESSION.s1)]);
+  return out;
+}
+async function startFill(day) {
+  const R = replay;
+  if (!day.minute) return;
+  const f = day.fill, tok = ++R.fillTok;
+  if (f.busy) { f.busy = false; }
+  f.busy = true;
+  const chunks = fillChunks();
+  f.total = chunks.length;
+  const today = kstYmd(new Date()) === day.date;
+  const nowMin = today ? kstNow().min : 1e9;
+  const alive = () => R.open && R.day === day && tok === R.fillTok;
+  rpCount();
+  for (;;) {
+    if (!alive()) { f.busy = false; return; }
+    if (document.hidden) { await new Promise(r => { const on = () => { if (!document.hidden) { document.removeEventListener('visibilitychange', on); r(); } }; document.addEventListener('visibilitychange', on); }); continue; }
+    const cur = isFinite(R.curMin) ? R.curMin : SESSION.s0;
+    // the unfinished chunk nearest to where the viewer is
+    let best = -1, bd = Infinity;
+    chunks.forEach(([a, b], k) => {
+      if (f.done.has(k) || (f.tries[k] || 0) >= 2) return;
+      const d = cur < a ? a - cur : cur > b ? cur - b : 0;
+      if (d < bd) { bd = d; best = k; }
+    });
+    if (best < 0) break;
+    const [a, b] = chunks[best];
+    try {
+      const j = await getJSON(`api/replay?date=${encodeURIComponent(day.date)}&step=1&from=${minLabel(a).replace(':', '')}&to=${minLabel(b).replace(':', '')}`, 20000);
+      if (!alive()) { f.busy = false; return; }
+      if (!j || !Array.isArray(j.frames)) throw new Error('bad shape');
+      const cmin = R.curMin;
+      ingest(day, Array.isArray(j.codes) ? j.codes.map(String) : day.codes, j.frames, j.index);
+      if (R.i >= 0 && isFinite(cmin)) { const ni = day.frames.findIndex(x => hmMin(x.t) === cmin); if (ni >= 0) R.i = ni; }
+      if (!(today && b > nowMin - 2)) f.done.add(best);             // today's last chunk keeps growing: it stays open
+      else f.tries[best] = 2;
+      rpBand(); rpCount();
+    } catch (e) {
+      if (!alive()) { f.busy = false; return; }
+      f.tries[best] = (f.tries[best] || 0) + 1;
+      await new Promise(r => setTimeout(r, 1500));
+    }
+  }
+  f.busy = false;
+  f.stalled = f.done.size < f.total && !today;
+  if (alive()) rpCount();
 }
 function seekSlot(sl) {
   const day = replay.day;
@@ -924,14 +1044,14 @@ function tick() {
   if (!R.playing || !R.day) return;
   if (R.i >= R.day.frames.length - 1) { pause(); return; }
   showFrame(R.i + 1);
-  R.timer = setTimeout(tick, 1000 / R.speed);
+  R.timer = setTimeout(tick, R.delay);
 }
 function play() {
   const R = replay;
   if (!R.day || R.playing) return;
   if (R.i >= R.day.frames.length - 1) showFrame(0);
   R.playing = true; setPlayIcon(); bigUpdate();
-  R.timer = setTimeout(tick, 1000 / R.speed);
+  R.timer = setTimeout(tick, R.delay);
 }
 function pause() {
   const R = replay;
@@ -944,15 +1064,15 @@ function pause() {
 function togglePlay() { replay.playing ? pause() : play(); }
 function setSpeed(v) {
   const R = replay;
-  R.speed = v;
+  R.delay = R.userDelay = v;
   for (const b of R.ui.speed.children) b.setAttribute('aria-pressed', String(+b.dataset.v === v));
-  if (R.playing) { clearTimeout(R.timer); R.timer = setTimeout(tick, 1000 / v); }
+  if (R.playing) { clearTimeout(R.timer); R.timer = setTimeout(tick, v); }
 }
 function closeReplay() {
   const R = replay;
   if (!R.open) return;
   pause();
-  R.open = false; R.frameT = null; R.prices = null; R.req++;
+  R.open = false; R.frameT = null; R.prices = null; R.req++; R.fillTok++;
   cancelAnimationFrame(R.raf);
   try { KH.setReplay(null); } catch (e) { /* nothing to undo */ }
   R.el.hidden = true;
