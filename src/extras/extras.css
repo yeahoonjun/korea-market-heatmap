@@ -246,3 +246,5 @@ html.sb-mid .sb{height:calc(var(--sbh) + 2px)}
 @media (max-width:760px){html.has-clock{--sbh:4px;--sbgap:5px;--ico:20px}.sb{left:8px;right:8px}}
 @media (prefers-reduced-motion:reduce){.sb-fancy,.sb-fancy .sb-rays{animation:none}}
 html.sb-mid .sb-tip{bottom:auto;top:calc(100% + 8px)}
+
+.xc-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}

@@ -1106,8 +1106,46 @@ const getSet = (k, d) => {
   try { const v = localStorage.getItem('khm.set.' + k); if (v != null) return v === 'true' ? true : v === 'false' ? false : v; } catch (e) { /* default */ }
   return d;
 };
+/* server time (§3-17): offset = server − (local send time + RTT/2), NTP style; the sample with the shortest round trip wins */
+const tsync = { off: 0, pend: null, rtt: Infinity, ok: false, rev: 0, timer: 0, busy: false };
+const nowMs = () => Date.now() + tsync.off;
+if (!has('now')) KH.now = nowMs;
+async function timeSample() {
+  const t0 = Date.now(), p0 = performance.now();
+  const j = await getJSON('api/time', 5000);
+  const rtt = performance.now() - p0;
+  if (!j || !isFinite(+j.t)) throw new Error('bad shape');
+  return { off: +j.t - (t0 + rtt / 2), rtt };
+}
+function timeAdopt(sm, first) {
+  const diff = Math.abs(sm.off - tsync.off);
+  tsync.rtt = sm.rtt; tsync.ok = true; tsync.rev++;
+  if (first || diff > 2000) { tsync.off = sm.off; tsync.pend = null; ckRender(); }    // big jump: snap now
+  else tsync.pend = sm.off;                                                          // small change: from the next second on
+}
+async function timeSync(initial) {
+  if (!LIVE || tsync.busy) return;
+  tsync.busy = true;
+  try {
+    if (initial) {
+      let best = null;
+      for (let k = 0; k < 3; k++) { try { const sm = await timeSample(); if (!best || sm.rtt < best.rtt) best = sm; } catch (e) { /* try the next one */ } }
+      if (best) timeAdopt(best, true);
+    } else {
+      const sm = await timeSample();
+      // a much slower round trip is not trusted, unless the clock is clearly off (then the old offset is worse than a noisy one)
+      if (!tsync.ok || sm.rtt <= tsync.rtt * 2 + 40 || Math.abs(sm.off - tsync.off) > 2000) timeAdopt(sm, !tsync.ok);
+    }
+  } catch (e) { /* offset stays as it was (0 if there never was a sample) */ }
+  tsync.busy = false;
+}
+function timeLine() {
+  if (!tsync.ok) return '';
+  const d = Math.abs(tsync.off) / 1000;
+  return d < 0.1 ? '서버 시각 기준 · 이 기기와 같아요' : `서버 시각 기준 · 이 기기와 ${d.toFixed(1)}초 차이`;
+}
 const kstNow = () => {
-  const d = new Date(Date.now() + 9 * 36e5);                    // KST wall clock, whatever the viewer's time zone is
+  const d = new Date(nowMs() + 9 * 36e5);                       // KST wall clock, whatever the viewer's time zone is
   const h24 = d.getUTCHours(), m = d.getUTCMinutes(), s = d.getUTCSeconds();
   return { dow: d.getUTCDay(), h: h24, m, s, ms: d.getUTCMilliseconds(), min: h24 * 60 + m, date: d.toISOString().slice(0, 10) };
 };
@@ -1249,11 +1287,13 @@ function ckBuild() {
     face.append(h('span', { class: 'xc-digits' }, cells[0], cells[1], h('span', { class: 'xc-colon', text: ':' }), cells[2], cells[3]), ck.sec);
   }
   ck.btn = h('button', { type: 'button', class: 'xc-btn', onclick: ckClick }, face);
-  clockEl.replaceChildren(ck.btn);
+  ck.desc = h('span', { id: 'ck-desc', class: 'xc-sr' });
+  clockEl.replaceChildren(ck.btn, ck.desc);
 }
 
 function ckRender(instant) {
   if (!ck.on || !clockEl) return;
+  if (tsync.pend != null) { tsync.off = tsync.pend; tsync.pend = null; }
   const n = kstNow(), lvl = motion();
   const t = two(n.h) + two(n.m);
   if (ck.cells.length) {
@@ -1263,10 +1303,12 @@ function ckRender(instant) {
   if (ck.analog) ckAnalogSet(n);
   if (ck.dig) ck.dig.textContent = `${two(n.h)}:${two(n.m)}`;
   const ph = ckPhase(n);
-  if (ck.lastMin !== n.min || ck.lastTxt !== ph.text) {
-    ck.lastMin = n.min; ck.lastTxt = ph.text;
+  if (ck.lastMin !== n.min || ck.lastTxt !== ph.text || ck.lastRev !== tsync.rev) {
+    ck.lastMin = n.min; ck.lastTxt = ph.text; ck.lastRev = tsync.rev;
     ck.btn.setAttribute('aria-label', `한국 증시 히트맵 · 지금 ${two(n.h)}:${two(n.m)} · 눌러서 새로고침`);
-    ck.btn.title = `${ph.text} · 눌러서 새로고침`;
+    const tl = timeLine();
+    ck.btn.title = `${ph.text} · 눌러서 새로고침${tl ? '\n' + tl : ''}`;
+    if (tl) { ck.desc.textContent = tl; ck.btn.setAttribute('aria-describedby', 'ck-desc'); } else { ck.desc.textContent = ''; ck.btn.removeAttribute('aria-describedby'); }
   }
   sbRender(n, ph, lvl);
 }
@@ -1417,13 +1459,16 @@ function initClock() {
   if (!clockEl) return;
   if (has('addSetting')) {
     try {
-      KH.addSetting({ key: 'clock', label: '시계·장 진행률', default: true, onChange: () => ckApply() });
+      KH.addSetting({ key: 'clock', label: '시계·장 진행률', hint: '서버 시각으로 맞춘 한국 시각(KST)이에요. 시계를 누르면 새로고침해요.', default: true, onChange: () => ckApply() });
       KH.addSetting({ key: 'clockStyle', label: '시계 모양', options: [{ v: 'digital', label: '숫자' }, { v: 'analog', label: '아날로그' }, { v: 'both', label: '둘 다' }], default: 'digital', onChange: () => ckApply() });
     } catch (e) { /* settings are optional */ }
   }
   ckApply();
+  timeSync(true);
+  setInterval(() => { if (!document.hidden) timeSync(false); }, 10 * 60 * 1000);
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) { clearTimeout(ck.timer); cancelAnimationFrame(ck.raf); return; }
+    timeSync(false);
     ckRender(); ckSchedule(); ckSweep();
   });
   document.addEventListener('kh:motion', () => { ckRender(); ckSchedule(); ckSweep(); });
