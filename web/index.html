@@ -6057,9 +6057,9 @@ section.rp-player[hidden]{display:none}
 @media (prefers-reduced-motion:reduce){.xs-track{animation:none}}
 
 /* ── odometer (strip values roll when effects are 'fancy') ── */
-.od{display:inline-block;height:1.2em;line-height:1.2;overflow:hidden;vertical-align:bottom}
-.od-s{display:flex;flex-direction:column}
-.od-s i{display:block;font-style:normal;height:1.2em;line-height:1.2}
+.od{position:relative;display:inline-block;overflow:hidden;line-height:inherit;vertical-align:bottom}
+.od-n{display:inline-block}
+.od-o{position:absolute;left:0;top:0}
 
 /* ── clock (#clock) + session progress bar ── */
 #clock{display:flex;flex-direction:column;align-items:flex-start;gap:2px;min-width:0}
@@ -6201,6 +6201,8 @@ function sparkSvg(spark, base) {
   const day0 = Math.floor((t0 + 32400) / 86400) * 86400 - 32400;     // 00:00 KST of the first bar
   let a = day0 + 9 * 3600, b = day0 + 15.5 * 3600;                   // x axis = the regular session 09:00–15:30
   if (pts[pts.length - 1][0] > b || t0 < a) { a = Math.min(a, t0); b = Math.max(b, pts[pts.length - 1][0]); }
+  const tl = pts[pts.length - 1][0];
+  if ((tl - t0) < (b - a) * 0.4) { a = t0; b = tl; }                  // early in the session: stretch the few points over the width
   const ys = pts.map(p => p[1]);
   if (isFinite(base)) ys.push(base);
   const lo = Math.min(...ys), hi = Math.max(...ys);
@@ -6212,6 +6214,7 @@ function sparkSvg(spark, base) {
   const el = svg('svg', { class: 'xs-spark ' + dir(last - ref), viewBox: `0 0 ${W} ${H}`, width: W, height: H, 'aria-hidden': 'true' });
   if (isFinite(base)) el.append(svg('line', { x1: 0, x2: W, y1: y(base).toFixed(1), y2: y(base).toFixed(1), class: 'xs-base' }));
   el.append(svg('path', { d, fill: 'none', stroke: 'currentColor', 'stroke-width': '1.4', 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }));
+  el.append(svg('circle', { cx: Math.min(W - 2, Math.max(2, x(pts[pts.length - 1][0]))).toFixed(1), cy: y(last).toFixed(1), r: '2', fill: 'currentColor' }));
   return el;
 }
 
@@ -6334,22 +6337,33 @@ function updateTicker(kids) {
 const motion = () => { try { if (has('motion')) { const m = KH.motion(); if (m === 'reduced' || m === 'standard' || m === 'fancy') return m; } } catch (e) { /* default below */ } return reduceMQ.matches ? 'reduced' : 'standard'; };
 const stripPrev = new Map();                                   // key → { v, r, vt, rt } from the previous render
 function rollText(el, oldT, newT, up) {
-  if (!el || oldT === newT || !oldT) return;
+  // The text is always written first, so the final state never depends on an animation: each changed digit gets an
+  // aria-hidden "old digit" overlay that slides out while the real new digit slides in; everything is removed again on a timer.
+  el.textContent = newT; el._want = newT;
+  if (!oldT || oldT === newT) return;
   const a = [...oldT], b = [...newT];
-  const kids = b.map((ch, i) => {
+  const kids = [], movers = [];
+  b.forEach((ch, i) => {
     const o = a[a.length - (b.length - i)];
-    if (o === undefined || o === ch || !/[0-9]/.test(ch + o)) return document.createTextNode(ch);
-    const col = h('span', { class: 'od' }, h('span', { class: 'od-s' }, up ? h('i', { text: o }) : h('i', { text: ch }), up ? h('i', { text: ch }) : h('i', { text: o })));
-    col.dataset.up = up ? '1' : '0';
-    return col;
+    if (o === undefined || o === ch || !/[0-9]/.test(ch) || !/[0-9]/.test(o)) { kids.push(document.createTextNode(ch)); return; }
+    const nw = h('span', { class: 'od-n', text: ch }), ol = h('span', { class: 'od-o', 'aria-hidden': 'true', text: o });
+    kids.push(h('span', { class: 'od' }, nw, ol));
+    movers.push([nw, ol]);
   });
+  if (!movers.length) return;
   el.replaceChildren(...kids);
-  let k = 0;
-  const cols = [...el.querySelectorAll('.od-s')].reverse();           // the last digit moves first
-  for (const st of cols) {
-    const from = st.parentNode.dataset.up === '1' ? 'translateY(0)' : 'translateY(-50%)', to = st.parentNode.dataset.up === '1' ? 'translateY(-50%)' : 'translateY(0)';
-    try { st.animate([{ transform: from }, { transform: to }], { duration: 520, delay: k++ * 45, easing: 'cubic-bezier(.2,.7,.2,1)', fill: 'backwards' }); } catch (e) { /* static digits are fine */ }
+  const dist = up ? 1 : -1;
+  let k = movers.length;
+  for (const [nw, ol] of movers) {
+    const delay = --k * 45, o = { duration: 480, delay, easing: 'cubic-bezier(.2,.7,.2,1)', fill: 'backwards' };
+    try {
+      nw.animate([{ transform: `translateY(${dist * 100}%)`, opacity: 0 }, { transform: 'translateY(0)', opacity: 1 }], o);
+      ol.animate([{ transform: 'translateY(0)', opacity: 1 }, { transform: `translateY(${-dist * 100}%)`, opacity: 0 }], Object.assign({}, o, { fill: 'both' }));
+    } catch (e) { /* static digits are fine */ }
   }
+  el._want = newT;
+  const settle = () => { if (el._want === newT) el.textContent = newT; };
+  setTimeout(settle, 480 + movers.length * 45 + 80);
 }
 function rollChanged(items) {
   const lvl = motion();
