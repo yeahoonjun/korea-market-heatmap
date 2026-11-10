@@ -1195,6 +1195,71 @@ def run_nxt(b):
     mock('/__reset')
 
 
+STUB_GROUPS = r"""(init) => {
+  const st = { groups: init.map(g => ({ id: g[0], name: g[1], codes: [...g[2]] })), n: 100 };
+  const fire = () => document.dispatchEvent(new CustomEvent('kh:watch', { detail: { codes: [...new Set(st.groups.flatMap(g => g.codes))], groups: st.groups.length } }));
+  const W = KH.watch || (KH.watch = {});
+  Object.assign(W, {
+    has: c => st.groups.some(g => g.codes.includes(c)),
+    list: id => [...new Set(st.groups.filter(g => !id || g.id === id).flatMap(g => g.codes))],
+    toggle: (c, id) => { if (W.has(c)) st.groups.forEach(g => { g.codes = g.codes.filter(x => x !== c); }); else st.groups[0].codes.push(c); fire(); },
+    groups: () => st.groups.map(g => ({ id: g.id, name: g.name, count: g.codes.length })),
+    groupsOf: c => st.groups.filter(g => g.codes.includes(c)).map(g => g.id),
+    add: (c, id) => { const g = st.groups.find(x => x.id === id); if (g && !g.codes.includes(c)) g.codes.push(c); fire(); },
+    remove: (c, id) => { st.groups.forEach(g => { if (!id || g.id === id) g.codes = g.codes.filter(x => x !== c); }); fire(); },
+    setGroups: (c, ids) => { st.groups.forEach(g => { g.codes = g.codes.filter(x => x !== c); if (ids.includes(g.id)) g.codes.push(c); }); fire(); },
+    createGroup: name => { const id = 'g' + (++st.n); st.groups.push({ id, name: name.slice(0, 12), codes: [] }); fire(); return id; },
+  });
+  window.__wst = st; fire();
+}"""
+
+
+def run_groups(b):
+    """관심종목 group picker on the ☆ (AGENTS.md §3-11), with KH.watch stubbed per the contract."""
+    mock('/__reset')
+    res = {}
+    for w in (360, 390, 768, 1280, 1440):
+        P = Page(b, w, BASE); P.pg.wait_for_timeout(500)
+        P.ev(STUB_GROUPS, [['base', '기본', []]])
+        P.ev("() => KHStock.open('005930')"); P.wait_chart(); P.pg.wait_for_timeout(300)
+        r = {}
+        # single 기본 group: instant toggle, no picker
+        P.pg.click('.sp-star'); P.pg.wait_for_timeout(100)
+        r['single'] = P.ev("() => [!!document.querySelector('.sp-gp'), document.querySelector('.sp-star').getAttribute('aria-pressed'), __wst.groups[0].codes.length]")
+        P.pg.click('.sp-star'); P.pg.wait_for_timeout(100)
+        # a second group appears -> picker
+        P.ev("() => KH.watch.createGroup('반도체')"); P.pg.wait_for_timeout(100)
+        P.pg.click('.sp-star'); P.pg.wait_for_selector('.sp-gp')
+        r['rows'] = P.ev("() => [...document.querySelectorAll('.sp-gp-row')].map(x => x.textContent)")
+        r['focus_in'] = P.ev("() => document.querySelector('.sp-gp').contains(document.activeElement)")
+        P.pg.keyboard.press('Space'); P.pg.wait_for_timeout(100)
+        r['checked'] = P.ev("() => [__wst.groups.map(g => g.codes.length), document.querySelector('.sp-star').getAttribute('aria-pressed')]")
+        # new group inline
+        P.pg.click('.sp-gp-add'); P.pg.fill('.sp-gp-in', '배당주'); P.pg.keyboard.press('Enter'); P.pg.wait_for_timeout(150)
+        r['new'] = P.ev("() => [__wst.groups.map(g => g.name + ':' + g.codes.length), [...document.querySelectorAll('.sp-gp-row input')].map(i => i.checked)]")
+        o = P.ev(OVERFLOW_JS)
+        r['sheet'] = P.ev("() => document.querySelector('.sp-gp').classList.contains('sp-gp-sheet')")
+        r['inview'] = P.ev("() => { const b = document.querySelector('.sp-gp').getBoundingClientRect(); return b.left >= -0.5 && b.right <= innerWidth + 0.5 && b.top >= 0 && b.bottom <= innerHeight + 0.5; }")
+        # uncheck all -> star empty; Esc closes the picker only and returns focus to the star
+        P.pg.uncheck('.sp-gp-row input >> nth=0'); P.pg.uncheck('.sp-gp-row input >> nth=2') if P.ev("() => document.querySelectorAll('.sp-gp-row input')[2].checked") else None
+        r['empty'] = P.ev("() => document.querySelector('.sp-star').getAttribute('aria-pressed')")
+        P.pg.keyboard.press('Escape'); P.pg.wait_for_timeout(100)
+        r['esc'] = P.ev("() => [!document.querySelector('.sp-gp'), KHStock.isOpen(), document.activeElement.classList.contains('sp-star')]")
+        r['err'] = P.console[:]; r['ov'] = [o['doc'], o['root'], o['n']]
+        res[w] = r; P.close()
+    ok = all(r['single'] == [False, 'true', 1] and r['rows'] == ['기본0', '반도체0'] and r['focus_in'] and r['checked'][0] == [1, 0] and r['checked'][1] == 'true'
+             and r['new'][0] == ['기본:1', '반도체:0', '배당주:1'] and r['new'][1] == [True, False, True] and r['empty'] == 'false' and r['esc'] == [True, True, True] for r in res.values())
+    check('groups_picker_flow_all_widths', ok, {w: {k: r[k] for k in ('single', 'rows', 'checked', 'new', 'empty', 'esc')} for w, r in list(res.items())[:2]})
+    check('groups_picker_sheet_on_phones_popover_otherwise', all(r['sheet'] == (w < 700) and r['inview'] for w, r in res.items()), {w: [r['sheet'], r['inview']] for w, r in res.items()})
+    check('groups_no_overflow_no_console_errors', all(r['ov'] == [0, 0, 0] or (r['ov'][0] <= 0 and r['ov'][1] <= 0 and r['ov'][2] == 0) for r in res.values()) and not any(r['err'] for r in res.values()), {w: [r['ov'], r['err']] for w, r in res.items()})
+    # no groups API: today's instant toggle
+    P = Page(b, 390, BASE); P.pg.wait_for_timeout(500)
+    P.ev("() => { const s = new Set(); const W = KH.watch || (KH.watch = {}); for (const k of ['groups', 'groupsOf', 'setGroups', 'createGroup']) delete W[k]; Object.assign(W, { has: c => s.has(c), toggle: c => { s.has(c) ? s.delete(c) : s.add(c); document.dispatchEvent(new CustomEvent('kh:watch')); } }); document.dispatchEvent(new CustomEvent('kh:watch')); }")
+    P.ev("() => KHStock.open('005930')"); P.wait_chart(); P.pg.click('.sp-star'); P.pg.wait_for_timeout(100)
+    check('groups_missing_api_keeps_instant_toggle', P.ev("() => [!document.querySelector('.sp-gp'), document.querySelector('.sp-star').getAttribute('aria-pressed')]") == [True, 'true'])
+    P.close()
+
+
 if __name__ == '__main__':
     srv = subprocess.Popen([sys.executable, str(HERE / 'mock_api.py')], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     try:
@@ -1210,6 +1275,8 @@ if __name__ == '__main__':
                     run_motion(browser)
                 elif '--nxt-only' in sys.argv:
                     run_nxt(browser)
+                elif '--groups-only' in sys.argv:
+                    run_groups(browser)
                 elif '--info-only' in sys.argv:
                     run_info(browser)
                 else:
@@ -1219,6 +1286,7 @@ if __name__ == '__main__':
                     run_info(browser)
                     run_motion(browser)
                     run_nxt(browser)
+                    run_groups(browser)
             finally:
                 browser.close()
     finally:
@@ -1226,6 +1294,6 @@ if __name__ == '__main__':
         srv.wait(5)
     passed = sum(1 for v in R.values() if v['ok'])
     print(f'\n{passed}/{len(R)} passed' + (f'  FAILED: {FAILS}' if FAILS else ''))
-    if '--extra-only' not in sys.argv and '--info-only' not in sys.argv and '--motion-only' not in sys.argv and '--nxt-only' not in sys.argv:
+    if '--extra-only' not in sys.argv and '--info-only' not in sys.argv and '--motion-only' not in sys.argv and '--nxt-only' not in sys.argv and '--groups-only' not in sys.argv:
         (HERE / 'results.json').write_text(json.dumps(R, ensure_ascii=False, indent=1), encoding='utf-8')
     sys.exit(1 if FAILS else 0)

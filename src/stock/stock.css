@@ -506,3 +506,24 @@ html[data-motion="reduced"] .sp-q .bar, html[data-motion="reduced"] .sp-seg butt
   html:not([data-motion]) .sp-chip.live i, html:not([data-motion]) .sp-skel, html:not([data-motion]) .sp-chart-skel i, html:not([data-motion]) .sp-fin-skel i { animation: none; }
   html:not([data-motion]) .sp-q .bar, html:not([data-motion]) .sp-seg button, html:not([data-motion]) .sp-star svg, html:not([data-motion]) .sp-switch i, html:not([data-motion]) .sp-switch i::after { transition: none; }
 }
+
+/* 관심 그룹 picker: popover under the ☆ (desktop), bottom sheet on phones */
+.sp-gp { position: fixed; z-index: 60; max-width: calc(100vw - 16px); max-height: min(70vh, 420px); overflow-y: auto; padding: 10px; border-radius: 12px; background: var(--panel2, var(--panel)); border: 1px solid var(--line2); box-shadow: 0 10px 30px rgba(0, 0, 0, .45); outline: none; text-align: left; }
+.sp-gp-h { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px; font-size: 13px; color: var(--fg2); }
+.sp-gp-x { min-height: 36px; padding: 0 8px; border-radius: 8px; font-size: 12.5px; color: var(--muted); }
+.sp-gp-x:hover { color: var(--fg); background: rgba(255, 255, 255, .06); }
+.sp-gp-row { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 6px; border-radius: 8px; font-size: 14px; color: var(--fg); cursor: pointer; }
+.sp-gp-row:hover { background: rgba(255, 255, 255, .05); }
+.sp-gp-row input { flex: none; width: 18px; height: 18px; accent-color: var(--amber); }
+.sp-gp-row .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sp-gp-row small { flex: none; color: var(--muted); font-size: 12px; }
+.sp-gp-add { width: 100%; min-height: 44px; padding: 0 6px; border-radius: 8px; text-align: left; font-size: 14px; font-weight: 600; color: var(--amber); }
+.sp-gp-add:hover { background: rgba(255, 255, 255, .05); }
+.sp-gp-new { display: flex; gap: 6px; align-items: center; }
+.sp-gp-in { flex: 1; min-width: 0; height: 44px; padding: 0 10px; border-radius: 8px; border: 1px solid var(--line2); background: var(--page); color: var(--fg); font-size: 16px; }
+.sp-gp-ok { flex: none; height: 44px; padding: 0 12px; border-radius: 8px; background: var(--amber); color: #111; font-size: 14px; font-weight: 700; }
+.sp-gp-bd { position: fixed; inset: 0; z-index: 59; background: rgba(0, 0, 0, .5); }
+.sp-gp.sp-gp-sheet { left: 0; right: 0; bottom: 0; top: auto; width: auto; max-width: none; max-height: 75vh; padding: 12px 14px calc(14px + env(safe-area-inset-bottom)); border-radius: 16px 16px 0 0; }
+.sp-gp.sp-gp-sheet { animation: spGpUp .24s cubic-bezier(.2, .7, .2, 1); }
+@keyframes spGpUp { from { transform: translateY(24px); opacity: 0; } }
+html[data-motion="reduced"] .sp-gp.sp-gp-sheet { animation: none; }

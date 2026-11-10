@@ -129,14 +129,14 @@
   "ok": true,
   "detail": {
    "before_up_dn": [
-    1558,
-    2567
+    1538,
+    2547
    ],
    "after_old_up_dn_new_up_dn": [
-    5,
+    4,
     0,
-    1558,
-    2569
+    1538,
+    2548
    ]
   }
  },
@@ -243,7 +243,7 @@
  "empty_states": {
   "ok": true,
   "detail": {
-   "chart": "오늘은 아직 거래가 없어요.9시에 정규장이 열리면 차트가 그려져요.",
+   "chart": "이 기간에는 거래 기록이 없어요.다른 기간을 골라 보세요.",
    "ob": "지금은 호가가 없어요.거래가 멈췄거나 장이 열리지 않은 시간일 수 있어요.",
    "inv": "투자자별 매매 기록이 없어요.새로 상장했거나 거래가 적은 종목일 수 있어요.",
    "daily": "일별 시세가 없어요.새로 상장한 종목이면 거래가 쌓인 뒤에 보여요."
@@ -1719,6 +1719,157 @@
   }
  },
  "nxt_no_console_errors": {
+  "ok": true,
+  "detail": null
+ },
+ "groups_picker_flow_all_widths": {
+  "ok": true,
+  "detail": {
+   "360": {
+    "single": [
+     false,
+     "true",
+     1
+    ],
+    "rows": [
+     "기본0",
+     "반도체0"
+    ],
+    "checked": [
+     [
+      1,
+      0
+     ],
+     "true"
+    ],
+    "new": [
+     [
+      "기본:1",
+      "반도체:0",
+      "배당주:1"
+     ],
+     [
+      true,
+      false,
+      true
+     ]
+    ],
+    "empty": "false",
+    "esc": [
+     true,
+     true,
+     true
+    ]
+   },
+   "390": {
+    "single": [
+     false,
+     "true",
+     1
+    ],
+    "rows": [
+     "기본0",
+     "반도체0"
+    ],
+    "checked": [
+     [
+      1,
+      0
+     ],
+     "true"
+    ],
+    "new": [
+     [
+      "기본:1",
+      "반도체:0",
+      "배당주:1"
+     ],
+     [
+      true,
+      false,
+      true
+     ]
+    ],
+    "empty": "false",
+    "esc": [
+     true,
+     true,
+     true
+    ]
+   }
+  }
+ },
+ "groups_picker_sheet_on_phones_popover_otherwise": {
+  "ok": true,
+  "detail": {
+   "360": [
+    true,
+    true
+   ],
+   "390": [
+    true,
+    true
+   ],
+   "768": [
+    false,
+    true
+   ],
+   "1280": [
+    false,
+    true
+   ],
+   "1440": [
+    false,
+    true
+   ]
+  }
+ },
+ "groups_no_overflow_no_console_errors": {
+  "ok": true,
+  "detail": {
+   "360": [
+    [
+     0,
+     0,
+     0
+    ],
+    []
+   ],
+   "390": [
+    [
+     0,
+     0,
+     0
+    ],
+    []
+   ],
+   "768": [
+    [
+     0,
+     0,
+     0
+    ],
+    []
+   ],
+   "1280": [
+    [
+     0,
+     0,
+     0
+    ],
+    []
+   ],
+   "1440": [
+    [
+     0,
+     0,
+     0
+    ],
+    []
+   ]
+  }
+ },
+ "groups_missing_api_keeps_instant_toggle": {
   "ok": true,
   "detail": null
  }

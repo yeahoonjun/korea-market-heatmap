@@ -370,11 +370,86 @@ function renderStar() {
   if (R.star.hidden) return;
   const on = !!W.has(S.code);
   R.star.setAttribute('aria-pressed', String(on));
-  R.star.title = on ? '관심종목에서 빼기' : '관심종목에 넣기';
+  R.star.title = usePicker() ? '관심 그룹 고르기' : on ? '관심종목에서 빼기' : '관심종목에 넣기';
+  R.star.setAttribute('aria-haspopup', usePicker() ? 'dialog' : 'false');
 }
+// 관심 그룹 (AGENTS.md §3-11): with KH.watch.groups() and more than the single 기본 group, ☆ opens a picker; otherwise it toggles instantly
+const groupsApi = () => { const W = watchApi(); return W && ['groups', 'groupsOf', 'setGroups', 'createGroup'].every(k => typeof W[k] === 'function') ? W : null; };
+const usePicker = () => { const W = groupsApi(); if (!W) return false; try { return W.groups().length > 1; } catch (e) { return false; } };
+let gp = null;   // {el, list, add, backdrop}
+function gpClose(refocus) {
+  if (!gp) return;
+  gp.el.remove(); if (gp.backdrop) gp.backdrop.remove();
+  gp = null;
+  if (refocus) R.star.focus({ preventScroll: true });
+}
+function gpFill() {
+  const W = groupsApi();
+  if (!gp || !W || !S.code) return;
+  const mine = new Set(W.groupsOf(S.code) || []);
+  const had = gp.list.contains(document.activeElement) ? document.activeElement.dataset.id : null;
+  gp.list.replaceChildren(...W.groups().map(g => {
+    const cb = h('input', { type: 'checkbox', 'data-id': g.id, onchange: () => gpApply() });
+    cb.checked = mine.has(g.id);
+    return h('label', { class: 'sp-gp-row' }, cb, h('span', { class: 'nm', text: g.name }), h('small', { class: 'num', text: String(g.count) }));
+  }));
+  if (had) { const el = gp.list.querySelector(`input[data-id="${CSS.escape(had)}"]`); if (el) el.focus({ preventScroll: true }); }
+}
+function gpApply() {
+  const W = groupsApi();
+  if (!gp || !W) return;
+  W.setGroups(S.code, [...gp.list.querySelectorAll('input:checked')].map(i => i.dataset.id));
+  renderStar(); gpFill();
+}
+function gpNew() {
+  const W = groupsApi();
+  if (!gp || !W) return;
+  const inp = h('input', { class: 'sp-gp-in', type: 'text', maxlength: '12', placeholder: '새 그룹 이름', 'aria-label': '새 그룹 이름', enterkeyhint: 'done' });
+  const ok = () => {
+    const name = inp.value.trim();
+    if (!name) { inp.focus(); return; }
+    const id = W.createGroup(name);
+    if (id) W.setGroups(S.code, [...(W.groupsOf(S.code) || []), id].filter((x, i, a) => a.indexOf(x) === i));
+    renderStar(); gp.add.replaceChildren(gpAddBtn()); gpFill();
+    const nb = gp.add.querySelector('button'); if (nb) nb.focus({ preventScroll: true });
+  };
+  inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); ok(); } });
+  gp.add.replaceChildren(h('div', { class: 'sp-gp-new' }, inp, h('button', { type: 'button', class: 'sp-gp-ok', onclick: ok, text: '만들기' })));
+  inp.focus();
+}
+const gpAddBtn = () => h('button', { type: 'button', class: 'sp-gp-add', onclick: gpNew, text: '＋ 새 그룹' });
+function gpOpen() {
+  if (gp) { gpClose(true); return; }
+  const phone = matchMedia('(max-width: 699px)').matches;
+  const list = h('div', { class: 'sp-gp-list' }), add = h('div', { class: 'sp-gp-addw' }, gpAddBtn());
+  const el = h('div', { class: 'sp-gp' + (phone ? ' sp-gp-sheet' : ''), role: 'dialog', 'aria-label': '관심종목 그룹 고르기', tabindex: '-1' },
+    h('div', { class: 'sp-gp-h' }, h('b', { text: '관심종목 그룹' }), h('button', { type: 'button', class: 'sp-gp-x', 'aria-label': '닫기', onclick: () => gpClose(true), text: '닫기' })), list, add);
+  const backdrop = phone ? h('div', { class: 'sp-gp-bd', onclick: () => gpClose(true) }) : null;
+  gp = { el, list, add, backdrop };
+  if (backdrop) root.append(backdrop);
+  root.append(el);
+  if (!phone) {
+    const r = R.star.getBoundingClientRect(), w = Math.min(280, innerWidth - 16);
+    el.style.width = w + 'px';
+    el.style.left = Math.max(8, Math.min(innerWidth - w - 8, r.right - w)) + 'px';
+    el.style.top = Math.min(innerHeight - 120, r.bottom + 6) + 'px';
+  }
+  gpFill();
+  (list.querySelector('input') || el).focus({ preventScroll: true });
+  el.addEventListener('keydown', e => {
+    if (e.key !== 'Tab') return;
+    const f = [...el.querySelectorAll('input, button')].filter(x => !x.disabled && x.offsetParent !== null);
+    if (!f.length) return;
+    const first = f[0], last = f[f.length - 1];
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  });
+}
+document.addEventListener('pointerdown', e => { if (gp && !gp.backdrop && !gp.el.contains(e.target) && !R.star.contains(e.target)) gpClose(false); }, true);
 function toggleWatch() {
   const W = watchApi();
   if (!W || !S.code) return;
+  if (usePicker()) { gpOpen(); return; }
   W.toggle(S.code);
   renderStar();
 }
@@ -1723,6 +1798,7 @@ function stopTimers() {
 function stopAll() { stopTimers(); abortAll(); }
 
 function show(code, opener) {
+  gpClose(false);
   build();
   const switching = S.open;
   S.gen++;
@@ -1754,6 +1830,7 @@ function show(code, opener) {
 
 function hide() {
   if (!S.open) return;
+  gpClose(false);
   S.open = false;
   S.gen++;
   stopAll();
@@ -1814,7 +1891,7 @@ addEventListener('popstate', onHash);
 // capture phase: the page owns Esc and '/' while it is open (the heatmap would otherwise zoom out / focus its search)
 addEventListener('keydown', e => {
   if (!S.open) return;
-  if (e.key === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); close(); }
+  if (e.key === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); if (gp) gpClose(true); else close(); }
   else if (e.key === '/') e.stopImmediatePropagation();
 }, true);
 document.addEventListener('visibilitychange', () => {
@@ -1825,7 +1902,7 @@ document.addEventListener('visibilitychange', () => {
 document.addEventListener('kh:palette', () => { if (root) { applyColors(); if (S.open) renderPeers(); } });
 document.addEventListener('kh:data', () => { if (S.open) { renderPeers(); renderHead(); } });   // 업종 path / provisional price arrive with the quotes
 document.addEventListener('kh:motion', () => { if (!fancy() && R.price) { settleRoll(R.price); settleRoll(R.chg); } });
-document.addEventListener('kh:watch', () => { if (S.open) renderStar(); });
+document.addEventListener('kh:watch', () => { if (S.open) { renderStar(); if (gp && !usePicker()) gpClose(false); else gpFill(); } });
 
 window.KHStock = { open, close, isOpen: () => S.open };
 onHash();
