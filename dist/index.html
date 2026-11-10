@@ -9228,8 +9228,11 @@ function ckAnalogSvg() {
   const gw = S('g', { class: 'xa-wig' });
   const hh = S('g', { class: 'xa-g xa-hh' }, S('polygon', { points: '47.2,57 52.8,57 51.9,27 48.1,27', fill: '#17181c' }), S('rect', { class: 'xa-in', x: 49.2, y: 33, width: 1.6, height: 15, fill: '#f4f1e8', opacity: 0.9 }));
   const mh = S('g', { class: 'xa-g xa-mh' }, S('polygon', { points: '47.6,58 52.4,58 51.5,10 48.5,10', fill: '#17181c' }), S('rect', { class: 'xa-in', x: 49.35, y: 17, width: 1.3, height: 24, fill: '#f4f1e8', opacity: 0.9 }));
-  const sh = S('g', { class: 'xa-g xa-sh' }, S('rect', { x: 49.2, y: 8, width: 1.6, height: 52, fill: '#ffb547' }), S('rect', { x: 48.2, y: 56, width: 3.6, height: 9, fill: '#ffb547' }));
-  gw.append(hh, mh, sh, S('circle', { cx: 50, cy: 50, r: 2.2, fill: '#ffb547', stroke: '#17181c', 'stroke-width': 0.8 }));
+  // second hand: the station-clock red with its round disc near the tip — thicker so it reads on small dials (사용자 14:21)
+  const SEC = '#e5231b';
+  const sh = S('g', { class: 'xa-g xa-sh' }, S('rect', { x: 48.7, y: 13, width: 2.6, height: 49, rx: 0.6, fill: SEC }), S('rect', { x: 48.3, y: 56, width: 3.4, height: 11, rx: 0.8, fill: SEC }),
+    S('circle', { cx: 50, cy: 19, r: 5.6, fill: SEC }));
+  gw.append(hh, mh, sh, S('circle', { cx: 50, cy: 50, r: 2.8, fill: SEC, stroke: '#17181c', 'stroke-width': 0.7 }));
   root.append(gw);
   root._h = hh; root._m = mh; root._s = sh; root._w = gw;
   return root;
