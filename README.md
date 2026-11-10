@@ -47,18 +47,19 @@ web/                       실시간 버전 정적 파일 — Worker가 GitHub�
 
 | 경로 | 내용 | 캐시 |
 |---|---|---|
-| `/api/quotes` | 시장별 시총 상위 300종목 + 지수 (`?codes=`로 지정 종목) | 8초 |
-| `/api/breadth?m=K\|Q&part=N` | 시장 전 종목 등락률(등락 분포용, 600개씩 나눠서) | 30초~10분 |
+| `/api/quotes` | 시장별 시총 상위 300종목 + 지수 (`?codes=`로 지정 종목, `?scope=all`로 상장 전 종목 약 2,700) | 8초 |
+| `/api/breadth?m=K\|Q[&part=N]` | 시장 전 종목 등락률(등락 분포용). `part` 없으면 한 번에, `part=N`이면 600개씩 나눈 N번째 | 30초~10분 |
 | `/api/market` | 시장 띠: 코스피·코스닥·원/달러·미국 선물·WTI·금·비트코인 | 30초 |
 | `/api/world?kind=index\|commodity` | 해외 지수 41개 · 원자재 17개 | 30초 |
 | `/api/world/chart/{키}?tf=3m\|1y` | 해외 지수·원자재 일봉 종가 | 10분 |
 | `/api/themes` | 테마별 등락률 | 30초 |
 | `/api/stock/{코드}/summary·chart·orderbook·investors·daily·news·disclosures·finance·research` | 종목 페이지 | 2초~6시간 |
-| `/api/replay/dates`, `/api/replay?date=` | 장중 리플레이(5분 간격 기록) | 1분~1시간 |
+| `/api/replay/dates`, `/api/replay?date=` | 장중 리플레이(매분 기록, 이 경로는 5분 칸만). `dates` 응답의 `minute`은 1분 기록이 있는 날 | 1분~1시간 |
+| `/api/replay?date=&step=1&from=HHMM&to=HHMM` | 그 구간의 1분 프레임(양 끝 포함, 한 번에 120개까지) | 1분~1시간 |
 | `/data/*.json` | 테마·기간·투자자·이름·종가 파일 | 10분 |
 | `/api/health` | `{ok:true}` | 없음 |
 
-정확한 응답 모양은 `AGENTS.md` §3·§3-2·§3-3·§3-4에 있어요.
+정확한 응답 모양은 `AGENTS.md` §3·§3-2·§3-3·§3-4·§3-15에 있어요.
 
 ## 알아 둘 점
 

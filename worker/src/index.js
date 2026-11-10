@@ -12,14 +12,17 @@
 //   GET /api/stock/:code/news          → latest 20 news items
 //   GET /api/stock/:code/disclosures   → latest 20 disclosures
 //   GET /api/quotes?codes=c1,c2,…      → same shape for the given codes (≤ 300)
+//   GET /api/quotes?scope=all          → same shape for every listed stock (universe K + Q + X, ~2,700), polled in parallel chunks
+//   GET /api/breadth?m=K|Q[&part=N]    → [code, ratio, lim?, nxr?] for the whole market (no part) or one 600-code chunk
 //   GET /api/themes                    → theme list with ratio / up / flat / down
 //   GET /api/market                    → market strip (indices + spark, USDKRW, US futures, WTI, gold, BTC)
 //   GET /api/world?kind=index|commodity, /api/world/chart/:key?tf=3m|1y → world indices / futures / commodities (AGENTS §3-4)
 //   GET /api/replay/dates, /api/replay?date=YYYY-MM-DD → intraday replay frames recorded in KV (env.REPLAY, one key per frame)
+//   GET /api/replay?date=…&step=1&from=HHMM&to=HHMM → 1-minute frames of that window (≤ 120, both ends included; AGENTS §3-15)
 //   GET /api/stock/:code/finance?period=annual|quarter → financial statements (cols oldest→newest)
 //   GET /api/stock/:code/research      → broker reports (target / opinion parsed from the preview) + consensus
 //   GET /data/{themes,periods,flows,names,close}.json, PWA files → static from ASSET_BASE (whitelist)
-//   scheduled()                        → cron: appends a replay frame every 5 min on weekdays 09:00 → session end (stockExchangeType.endTime) KST
+//   scheduled()                        → cron (every minute): appends a replay frame on weekdays 09:00 → session end (stockExchangeType.endTime) KST
 //   GET /api/health                    → {ok:true}
 // Contract: AGENTS.md §3, sources and pitfalls: data/ENDPOINTS_DETAIL.md.
 // The Worker has no build-generated modules: page and stock universe come from ASSET_BASE.
@@ -43,18 +46,22 @@ export default {
       if (path === '/' || path === '/index.html') return await getPage(request, env, ctx);
       if (path === '/api/health') return json({ ok: true });
       if (path === '/api/quotes') {
-        const raw = url.searchParams.get('codes');
+        const raw = url.searchParams.get('codes'), scope = url.searchParams.get('scope');
+        if (scope != null && scope !== 'all') return fail(400, 'scope는 all만 쓸 수 있어요');
+        if (scope === 'all' && raw != null) return fail(400, 'codes와 scope=all은 함께 쓸 수 없어요');
+        if (scope === 'all') return await edgeCached(request, ctx, 'quotes-all', QUOTES_TTL, () => getQuotes(env, null, true));
         if (raw == null) return await edgeCached(request, ctx, 'quotes', QUOTES_TTL, () => getQuotes(env));
         const codes = [...new Set(raw.split(',').map(x => x.trim().toUpperCase()))].sort();
         if (!codes.length || codes.length > 300 || !codes.every(c => CODE_RE.test(c))) return fail(400, 'codes는 6자 종목 코드를 쉼표로 이어 300개까지 보낼 수 있어요');
         return await edgeCached(request, ctx, 'quotes-' + codes.join(','), QUOTES_TTL, () => getQuotes(env, codes));
       }
       if (path === '/api/breadth') {
-        const mk = url.searchParams.get('m'), pr = url.searchParams.get('part') || '1';
+        const mk = url.searchParams.get('m'), pr = url.searchParams.get('part') || '';   // no part → the whole market in one response
         if (mk !== 'K' && mk !== 'Q') return fail(400, 'm은 K 또는 Q여야 해요');
-        if (!/^\d{1,2}$/.test(pr) || +pr < 1) return fail(400, 'part는 1 이상의 정수여야 해요');
+        if (pr && (!/^\d{1,2}$/.test(pr) || +pr < 1)) return fail(400, 'part는 1 이상의 정수여야 해요');
         const k = kstNow(), hhmm = pad(k.getUTCHours()) + pad(k.getUTCMinutes()), wd = k.getUTCDay();
         const live = wd >= 1 && wd <= 5 && hhmm >= '0900' && hhmm < lastEndTime;
+        if (!pr) return await edgeCached(request, ctx, `breadth-${mk}-all`, live ? 30 : 600, () => getBreadthAll(env, mk));
         return await edgeCached(request, ctx, `breadth-${mk}-${+pr}`, live ? 30 : 600, () => getBreadth(env, mk, +pr));
       }
       if (path === '/api/world') {
@@ -77,7 +84,14 @@ export default {
         const d = url.searchParams.get('date') || '';
         if (d && !/^\d{4}-\d{2}-\d{2}$/.test(d)) return fail(400, 'date는 YYYY-MM-DD 형식이어야 해요');
         const past = d && d.replace(/-/g, '') < ymd(kstNow());           // a finished day never changes
-        return await edgeCached(request, ctx, 'replay-' + (d || 'latest'), past ? 3600 : 60, () => getReplay(env, d));
+        const step = url.searchParams.get('step') || '5';
+        if (step !== '1' && step !== '5') return fail(400, 'step은 1 또는 5여야 해요');
+        if (step === '5') return await edgeCached(request, ctx, 'replay-' + (d || 'latest'), past ? 3600 : 60, () => getReplay(env, d));
+        const from = url.searchParams.get('from') || '', to = url.searchParams.get('to') || '';
+        if (!HM_RE.test(from) || !HM_RE.test(to)) return fail(400, 'step=1에는 from과 to를 HHMM 형식으로 함께 보내야 해요');
+        if (from > to) return fail(400, 'from이 to보다 늦을 수 없어요');
+        if (hmMin(to) - hmMin(from) + 1 > MINUTE_MAX) return fail(400, `1분 프레임은 한 번에 ${MINUTE_MAX}개(from~to 양 끝 포함)까지 받을 수 있어요`);
+        return await edgeCached(request, ctx, `replay1-${d || 'latest'}-${from}-${to}`, past ? 3600 : 60, () => getReplayMinutes(env, d, from, to));
       }
       if (ASSETS[path]) return await getAsset(request, env, ctx, path);
       m = path.match(/^\/api\/chart\/([^/]+)$/);
@@ -283,22 +297,40 @@ function ohlcInto(row, op, hi, lo) {
   if (op > 0 && hi > 0 && lo > 0 && lo <= hi) { row.op = op; row.hi = hi; row.lo = lo; }
 }
 
+/* ── polling (domestic stocks) ─────────────────────────────── */
+// Naver answers ≤ 1000 codes per call (1001 → 400). Longer lists are split into even chunks of ≤ POLL_MAX
+// fetched in parallel (2,700 codes → 3 calls; with the index call that stays under the 6 connections
+// waiting for headers). A failed chunk is retried once; if it fails again the whole call fails (never cached).
+const POLL_MAX = 900;
+async function pollStocks(codes) {
+  const n = Math.max(1, Math.ceil(codes.length / POLL_MAX)), size = Math.ceil(codes.length / n);
+  const one = cs => {
+    const u = `https://polling.finance.naver.com/api/realtime/domestic/stock/${cs.join(',')}`;
+    return naver(u).catch(e => { if (e && e.status) throw e; return naver(u); });
+  };
+  const res = await Promise.all(Array.from({ length: n }, (_, k) => one(codes.slice(k * size, (k + 1) * size))));
+  return res.flatMap(r => (r && r.datas) || []);
+}
+
 /* ── /api/quotes ─────────────────────────────── */
-// One polling call returns live rows for up to 1000 codes; we send the top 300 per market
-// (from ASSET_BASE/universe.json) to keep the response small and CPU time low on the free plan.
+// Default: the top 300 per market (from ASSET_BASE/universe.json) in one polling call.
 // `only` (array of codes) → those codes instead of the universe; stocks outside the universe get s/i '기타'.
-async function getQuotes(env, only) { return (await quotesCore(env, only)).body; }
-async function quotesCore(env, only) {
+// `all` → every listed stock of the universe (K + Q top 300, then X), same row shape (AGENTS §3-15).
+async function getQuotes(env, only, all) { return (await quotesCore(env, only, all)).body; }
+async function quotesCore(env, only, all) {
   const STOCKS = only ? await getUniverse(env).catch(() => new Map()) : await getUniverse(env);
-  const codes = only || (universeMem.codes || (universeMem.codes = [...STOCKS.keys()]));
-  const [live, idx] = await Promise.all([
-    naver(`https://polling.finance.naver.com/api/realtime/domestic/stock/${codes.join(',')}`),
+  const U = universeMem;
+  const codes = only || (all
+    ? (U.allCodes || (U.allCodes = [...new Set([...STOCKS.keys(), ...U.extra.keys()])]))
+    : (U.codes || (U.codes = [...STOCKS.keys()])));
+  const [datas, idx] = await Promise.all([
+    pollStocks(codes),
     naver('https://polling.finance.naver.com/api/realtime/domestic/index/KOSPI,KOSDAQ').catch(() => null),
   ]);
   const stocks = [];
   let asOf = '', stockOpen = false, endTime = '', nxOpen = '', nxSess = '';
-  for (const s of live.datas || []) {
-    let meta = STOCKS.get(s.itemCode) || (only && universeMem && universeMem.extra && universeMem.extra.get(s.itemCode));
+  for (const s of datas) {
+    let meta = STOCKS.get(s.itemCode) || ((only || all) && U && U.extra && U.extra.get(s.itemCode));
     if (!meta) {
       if (!only) continue;
       const ex = s.stockExchangeType && s.stockExchangeType.code;
@@ -356,10 +388,11 @@ async function quotesCore(env, only) {
 }
 
 /* ── /api/breadth ─────────────────────────────── */
-// All stocks of one market (universe K/Q top 300 + every X entry of that market, preferreds included), sorted by code,
-// chunked by 600 → one polling call per request. Rows are tiny: [code, ratio, lim?].
+// All stocks of one market (universe K/Q top 300 + every X entry of that market, preferreds included), sorted by code.
+// part=N → the N-th chunk of 600 (one polling call); no part → the whole market (pollStocks: ≤ 2 parallel calls).
+// Rows are tiny: [code, ratio, lim?, nxr?].
 const BREADTH_CHUNK = 600;
-async function getBreadth(env, m, part) {
+async function marketCodes(env, m) {
   await getUniverse(env);
   const U = universeMem;
   if (!U.byMkt) {
@@ -368,13 +401,12 @@ async function getBreadth(env, m, part) {
     for (const [c, v] of U.extra) if (U.byMkt[v.m]) U.byMkt[v.m].push(c);
     for (const k of ['K', 'Q']) U.byMkt[k] = [...new Set(U.byMkt[k])].sort();
   }
-  const all = U.byMkt[m], parts = Math.max(1, Math.ceil(all.length / BREADTH_CHUNK));
-  if (part > parts) throw new HttpError(400, `part는 1~${parts} 범위여야 해요`);
-  const codes = all.slice((part - 1) * BREADTH_CHUNK, part * BREADTH_CHUNK);
-  const live = await naver(`https://polling.finance.naver.com/api/realtime/domestic/stock/${codes.join(',')}`);
+  return U.byMkt[m];
+}
+function breadthRows(datas) {
   let asOf = '', seenEnd = false;
   const rows = [];
-  for (const s of live.datas || []) {
+  for (const s of datas) {
     if (s.localTradedAt && s.localTradedAt > asOf) asOf = s.localTradedAt;
     const row = [s.itemCode, num(s.fluctuationsRatioRaw)];
     const ln = s.compareToPreviousPrice && s.compareToPreviousPrice.name;
@@ -384,7 +416,21 @@ async function getBreadth(env, m, part) {
     rows.push(row);
     if (!seenEnd && s.stockExchangeType && /^\d{4}$/.test(s.stockExchangeType.endTime)) { seenEnd = true; lastEndTime = s.stockExchangeType.endTime; }
   }
+  return { asOf, rows };
+}
+async function getBreadth(env, m, part) {
+  const all = await marketCodes(env, m), parts = Math.max(1, Math.ceil(all.length / BREADTH_CHUNK));
+  if (part > parts) throw new HttpError(400, `part는 1~${parts} 범위여야 해요`);
+  const codes = all.slice((part - 1) * BREADTH_CHUNK, part * BREADTH_CHUNK);
+  const live = await naver(`https://polling.finance.naver.com/api/realtime/domestic/stock/${codes.join(',')}`);
+  const { asOf, rows } = breadthRows(live.datas || []);
   return { m, part, parts, asOf, rows };
+}
+// → {m, all:true, asOf, rows} — rows sorted by code like the parts
+async function getBreadthAll(env, m) {
+  const { asOf, rows } = breadthRows(await pollStocks(await marketCodes(env, m)));
+  rows.sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0));
+  return { m, all: true, asOf, rows };
 }
 
 /* ── /api/world, /api/world/chart ─────────────────────────────── */
@@ -942,57 +988,127 @@ async function getAsset(request, env, ctx, path) {
 }
 
 /* ── intraday replay (KV env.REPLAY) ─────────────────────────────── */
-// KV free plan: 1,000 list ops/day → this code never calls list().
+// No list() anywhere: every key is built from the date and the minute.
 // replay:days           → ["20261109", …] newest first, ≤ 40 (no TTL)
+// replay:minute         → ["20261110", …] days that have 1-minute frames (set by the day's first frame off the 5-minute grid), newest first, ≤ 40 (no TTL)
 // replay:YYYYMMDD:codes → ["005930",…] (written with the day's first frame)
 // replay:YYYYMMDD:HHMM  → {p:[int|null,…], r:[2-decimals|null,…], i:[KOSPI, KOSDAQ], b:[prev closes], e:'1530'}   (~10 KB each, TTL 40 days)
+// The cron runs every minute (AGENTS §3-15): 09:00 → endTime is 391 frames on a normal day. /api/replay serves only the
+// 5-minute keys among them (as before); /api/replay?step=1 serves a window of ≤ 120 minutes.
 const REPLAY_TTL = 40 * 86400;
+const REPLAY_DAYS = 40;
 const DAYS_KEY = 'replay:days';
+const MINUTE_KEY = 'replay:minute';
+const MINUTE_MAX = 120;                                               // 1-minute frames per /api/replay?step=1 call
+const FIRST_MIN = 540, LAST_MIN = 990;                               // 09:00 … 16:30 (the longest session end)
+const HM_RE = /^([01]\d|2[0-3])[0-5]\d$/;
+const hmMin = s => +s.slice(0, 2) * 60 + +s.slice(2, 4);
+const minHm = m => pad(Math.floor(m / 60)) + pad(m % 60);
+
+// KV bulk read: ≤ 100 keys per call — one operation, not held by the 6-connection limit (billed per key) → Map(key → value|null).
+// A binding without the bulk form (the local dev mock answers null) gets parallel single reads instead.
+let kvBulk = null;                                                    // null = not known yet, false = no bulk get on this binding
+async function kvMany(kv, keys, type = 'json') {
+  const out = new Map();
+  const chunks = [];
+  for (let i = 0; i < keys.length; i += 100) chunks.push(keys.slice(i, i + 100));
+  await Promise.all(chunks.map(async ks => {
+    if (kvBulk !== false) {
+      let got = null, threw = false;
+      try { got = await kv.get(ks, type); } catch (e) { threw = true; }   // a failed bulk read falls back to single reads this time only
+      if (got instanceof Map) {
+        kvBulk = true;
+        for (const k of ks) out.set(k, got.has(k) ? got.get(k) : null);
+        return;
+      }
+      if (!threw) kvBulk = false;
+    }
+    const vals = await Promise.all(ks.map(k => kv.get(k, type)));
+    ks.forEach((k, i) => out.set(k, vals[i]));
+  }));
+  return out;
+}
+
+// frames live 40 days: older dates are (partly) gone, so they are no longer offered
+const oldestDay = () => ymd(kstDaysAgo(REPLAY_DAYS - 1));
 async function getReplayDates(env) {
   if (!env.REPLAY) throw new HttpError(503, '리플레이 저장소가 연결되지 않았어요');
-  const days = await env.REPLAY.get(DAYS_KEY, 'json');
-  return { dates: (Array.isArray(days) ? days : []).filter(d => /^\d{8}$/.test(d)).map(dash) };
+  const got = await kvMany(env.REPLAY, [DAYS_KEY, MINUTE_KEY]);
+  const cut = oldestDay();
+  const clean = v => (Array.isArray(v) ? v : []).filter(d => /^\d{8}$/.test(d) && d >= cut).sort().reverse();
+  const dates = clean(got.get(DAYS_KEY)), has = new Set(dates);
+  return { dates: dates.map(dash), minute: clean(got.get(MINUTE_KEY)).filter(d => has.has(d)).map(dash) };
 }
 // every 5-minute key of a day: 09:00 → 16:30 (the longest session end); keys past the real end simply don't exist
-const FRAME_TS = (() => { const a = []; for (let m = 540; m <= 990; m += 5) a.push(pad(Math.floor(m / 60)) + pad(m % 60)); return a; })();
-async function getReplay(env, date) {
+const FRAME_TS = (() => { const a = []; for (let m = FIRST_MIN; m <= LAST_MIN; m += 5) a.push(minHm(m)); return a; })();
+// today: the last minute that can have a frame yet (keys of later minutes are not read at all)
+function lastFrameMin(day) {
+  const k = kstNow();
+  return day === ymd(k) ? k.getUTCHours() * 60 + k.getUTCMinutes() : LAST_MIN;
+}
+// date ('' = latest recorded) → {date, day, codes}; 404 before any frame read when the day can't have a record
+async function replayDay(env, date) {
   if (!env.REPLAY) throw new HttpError(503, '리플레이 저장소가 연결되지 않았어요');
   if (!date) {
     date = (await getReplayDates(env)).dates[0];
     if (!date) throw new HttpError(404, '기록된 날이 아직 없어요');
   }
   const day = date.replace(/-/g, '');
+  if (day < oldestDay() || day > ymd(kstNow())) throw new HttpError(404, '그날 기록이 없어요');
   const codes = await env.REPLAY.get(`replay:${day}:codes`, 'json');
   if (!codes) throw new HttpError(404, '그날 기록이 없어요');
-  const vals = [];
-  for (let i = 0; i < FRAME_TS.length; i += 20) vals.push(...await Promise.all(FRAME_TS.slice(i, i + 20).map(t => env.REPLAY.get(`replay:${day}:${t}`, 'json'))));
-  const frames = [], ix = { KOSPI: [], KOSDAQ: [] };
+  return { date, day, codes };
+}
+// → {frames:[{t,p,r}], index:{KOSPI:[…],KOSDAQ:[…]}, base} for the minutes ts that have a frame
+async function replayFrames(env, day, ts) {
+  const key = t => `replay:${day}:${t}`;
+  const got = await kvMany(env.REPLAY, ts.map(key));
+  const frames = [], index = { KOSPI: [], KOSDAQ: [] };
   let base = null;                                                     // previous close of each index (from the first frame that has it)
-  FRAME_TS.forEach((t, n) => {
-    const f = vals[n];
-    if (!f) return;
+  for (const t of ts) {
+    const f = got.get(key(t));
+    if (!f) continue;
     frames.push({ t, p: f.p, r: f.r });
-    ix.KOSPI.push(f.i ? f.i[0] : null);
-    ix.KOSDAQ.push(f.i ? f.i[1] : null);
+    index.KOSPI.push(f.i ? f.i[0] : null);
+    index.KOSDAQ.push(f.i ? f.i[1] : null);
     if (!base && f.b) base = { KOSPI: f.b[0], KOSDAQ: f.b[1] };
-  });
-  return { date, codes, frames, index: ix, base };
+  }
+  return { frames, index, base };
+}
+// 5-minute frames only (09:00, 09:05 …), also on days recorded every minute
+async function getReplay(env, date) {
+  const r = await replayDay(env, date);
+  const cut = lastFrameMin(r.day);
+  const { frames, index, base } = await replayFrames(env, r.day, FRAME_TS.filter(t => hmMin(t) <= cut));
+  return { date: r.date, codes: r.codes, frames, index, base };
+}
+// 1-minute frames from → to (both included, ≤ MINUTE_MAX, checked by the router); minutes without a frame are left out
+async function getReplayMinutes(env, date, from, to) {
+  const r = await replayDay(env, date);
+  const a = Math.max(hmMin(from), FIRST_MIN), b = Math.min(hmMin(to), LAST_MIN, lastFrameMin(r.day));
+  const ts = [];
+  for (let m = a; m <= b; m++) ts.push(minHm(m));
+  const { frames, index, base } = await replayFrames(env, r.day, ts);
+  return { date: r.date, step: 1, from, to, codes: r.codes, frames, index, base };
 }
 
-// Cron entry. event.scheduledTime (ms) is the cron's nominal time; the dev harness passes a fake one.
+// Cron entry, every minute. event.scheduledTime (ms) is the cron's nominal time; the dev harness passes a fake one.
 // Outside 09:00–16:30 KST or on weekends it returns before touching KV or the network.
+// KV reads can be ~60 s stale (edge cache), so the day's codes and list updates are also remembered per isolate.
+let recMem = { day: '', codes: null, days: false, minute: false };
 async function recordFrame(event, env) {
   if (!env.REPLAY) return { skipped: 'no-kv' };
   const at = new Date((event && event.scheduledTime) || Date.now());
   const k = new Date(at.getTime() + 9 * 3600e3);                       // KST wall clock via getUTC*
   const wd = k.getUTCDay(), mins = k.getUTCHours() * 60 + k.getUTCMinutes();
-  if (wd < 1 || wd > 5 || mins < 540 || mins > 990) return { skipped: 'outside-hours' };
-  const bucket = mins - (mins % 5);
-  const t = pad(Math.floor(bucket / 60)) + pad(bucket % 60);
-  const day = ymd(k), fkey = `replay:${day}:${t}`, ckey = `replay:${day}:codes`;
-  if (await env.REPLAY.get(fkey)) return { skipped: 'duplicate', t };
+  if (wd < 1 || wd > 5 || mins < FIRST_MIN || mins > LAST_MIN) return { skipped: 'outside-hours' };
+  const t = minHm(mins), offGrid = mins % 5 !== 0;
+  const day = ymd(k), fkey = `replay:${day}:${t}`, ckey = `replay:${day}:codes`, endKey = `replay:${day}:1530`;
+  if (recMem.day !== day) recMem = { day, codes: null, days: false, minute: false };
+  const got = await kvMany(env.REPLAY, [fkey, ckey, DAYS_KEY, MINUTE_KEY, ...(t > '1530' ? [endKey] : [])]);
+  if (got.get(fkey)) return { skipped: 'duplicate', t };
   if (t > '1530') {                                                    // a normal day ended at 15:30: its frame says so → no fetch needed
-    const f = await env.REPLAY.get(`replay:${day}:1530`, 'json');
+    const f = got.get(endKey);
     if (f && (f.e || '1530') <= '1530') return { skipped: 'after-end', t };
   }
   const { body: q, endTime } = await quotesCore(env);
@@ -1000,25 +1116,31 @@ async function recordFrame(event, env) {
   const closed = q.marketStatus.KOSPI !== 'OPEN' && q.marketStatus.KOSDAQ !== 'OPEN';
   // Holiday guard: both indices CLOSE. The last frame (endTime) is allowed when the data is stamped today (the close may already have flipped).
   if (closed && !(t === endTime && (q.asOf || '').slice(0, 10) === dash(day))) return { skipped: 'closed', t };
-  let codes = await env.REPLAY.get(ckey, 'json');
-  if (!codes) {
-    codes = q.stocks.map(s => s.c);
-    await env.REPLAY.put(ckey, JSON.stringify(codes), { expirationTtl: REPLAY_TTL });
+  const writes = [];
+  const put = (key, val, ttl) => writes.push(env.REPLAY.put(key, JSON.stringify(val), ttl ? { expirationTtl: ttl } : undefined));
+  let codes = recMem.codes || got.get(ckey);
+  if (!Array.isArray(codes)) {
+    // universe order is fixed for the day, so a stale "not found" read that rewrites this key writes the same list
+    codes = (universeMem && universeMem.codes) || q.stocks.map(s => s.c);
+    put(ckey, codes, REPLAY_TTL);
   }
-  const days = await env.REPLAY.get(DAYS_KEY, 'json');
-  if (!Array.isArray(days) || !days.includes(day)) {
-    const next = [...new Set([day, ...(Array.isArray(days) ? days : [])])].sort().reverse().slice(0, 40);
-    await env.REPLAY.put(DAYS_KEY, JSON.stringify(next));
-  }
+  const withDay = list => [...new Set([day, ...(Array.isArray(list) ? list : [])])].sort().reverse().slice(0, REPLAY_DAYS);
+  const days = got.get(DAYS_KEY), mdays = got.get(MINUTE_KEY);
+  if (!recMem.days && !(Array.isArray(days) && days.includes(day))) put(DAYS_KEY, withDay(days));
+  if (offGrid && !recMem.minute && !(Array.isArray(mdays) && mdays.includes(day))) put(MINUTE_KEY, withDay(mdays));
   const by = new Map(q.stocks.map(s => [s.c, s]));
   const ix = x => (q.index[x] ? round2(q.index[x].value) : null);
   const bx = x => (q.index[x] ? round2(q.index[x].value - q.index[x].change) : null);
-  await env.REPLAY.put(fkey, JSON.stringify({
+  put(fkey, {
     p: codes.map(c => (by.has(c) ? Math.round(by.get(c).p) : null)),
     r: codes.map(c => (by.has(c) ? round2(by.get(c).r) : null)),
     i: [ix('KOSPI'), ix('KOSDAQ')],
     b: [bx('KOSPI'), bx('KOSDAQ')],
     e: endTime,
-  }), { expirationTtl: REPLAY_TTL });
+  }, REPLAY_TTL);
+  await Promise.all(writes);
+  recMem.codes = codes;
+  recMem.days = true;
+  if (offGrid) recMem.minute = true;
   return { wrote: t };
 }
