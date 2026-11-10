@@ -1129,11 +1129,7 @@ function ckBuild() {
     face.append(h('span', { class: 'xc-digits' }, cells[0], cells[1], h('span', { class: 'xc-colon', text: ':' }), cells[2], cells[3]), ck.sec);
   }
   ck.btn = h('button', { type: 'button', class: 'xc-btn', onclick: ckClick }, face);
-  ck.fill = h('div', { class: 'xc-fill' });
-  ck.segs = h('div', { class: 'xc-segs' });
-  ck.bar = h('div', { class: 'xc-bar', role: 'progressbar', 'aria-valuemin': 0, 'aria-valuemax': 100 }, ck.segs, ck.fill);
-  ck.txt = h('div', { class: 'xc-txt' });
-  clockEl.replaceChildren(ck.btn, ck.bar, ck.txt);
+  clockEl.replaceChildren(ck.btn);
 }
 
 function ckRender(instant) {
@@ -1152,26 +1148,91 @@ function ckRender(instant) {
     ck.btn.setAttribute('aria-label', `한국 증시 히트맵 · 지금 ${two(n.h)}:${two(n.m)} · 눌러서 새로고침`);
     ck.btn.title = `${ph.text} · 눌러서 새로고침`;
   }
-  const smooth = lvl === 'fancy';
-  const sig = ph.key + ph.mode + ph.seg.start + ph.seg.end;
-  if (sig !== ck.sig) {
-    ck.sig = sig;
-    const { start, mid, auc, end } = ph.seg, W = end - start;
-    const p = v => ((v - start) / W * 100).toFixed(2) + '%';
-    const tint = c => c + '38';
-    ck.segs.style.background = `linear-gradient(90deg,${tint(PH.am)} 0 ${p(mid)},${tint(PH.pm)} ${p(mid)} ${p(auc)},${tint(PH.auc)} ${p(auc)} 100%)`;
-    ck.fill.style.background = ph.mode === 'reg'
-      ? `linear-gradient(90deg,${PH.am} 0 ${p(mid)},${PH.pm} ${p(mid)} ${p(auc)},${PH.auc} ${p(auc)} 100%)`
-      : PH[ph.key];
-    ck.bar.title = `장 시작 전 08:00~${two(start / 60 | 0)}:${two(start % 60)} · 오전장 ~${two(mid / 60 | 0)}:${two(mid % 60)} · 오후장 ~${two(auc / 60 | 0)}:${two(auc % 60)} · 마감 동시호가 ~${two(end / 60 | 0)}:${two(end % 60)} · NXT 애프터마켓 ~20:00`;
-    ck.txt.style.color = PH[ph.key];
+  sbRender(n, ph, lvl);
+}
+
+/* ── session bar (#session-bar): a thick underline along the header's bottom edge, 08:00 → 20:00, with a sun / moon riding it ── */
+const sbEl = document.getElementById('session-bar');
+const SB0 = 8 * 60, SB1 = 20 * 60;
+const sb = { built: false, sig: '', tipT: 0 };
+const fmtLeft = m => { m = Math.max(1, Math.ceil(m)); const hh = Math.floor(m / 60), mm = m % 60; return hh ? `${hh}시간${mm ? ' ' + mm + '분' : ''}` : `${mm}분`; };
+function sbIcon(kind) {
+  const S = (t, a, ...k) => svg(t, a, ...k);
+  const root = S('svg', { viewBox: '0 0 20 20', width: 18, height: 18, class: 'sb-svg sb-' + kind, 'aria-hidden': 'true', focusable: 'false' });
+  const ray = (ang, r1, r2, cx, cy) => { const a = ang * Math.PI / 180; return S('line', { x1: (cx + Math.cos(a) * r1).toFixed(2), y1: (cy + Math.sin(a) * r1).toFixed(2), x2: (cx + Math.cos(a) * r2).toFixed(2), y2: (cy + Math.sin(a) * r2).toFixed(2), stroke: '#ffd479', 'stroke-width': 1.5, 'stroke-linecap': 'round' }); };
+  if (kind === 'moon') {
+    root.append(S('path', { d: 'M12.6 2.6a7.6 7.6 0 1 0 4.8 12.9A6.3 6.3 0 0 1 12.6 2.6z', fill: '#d6dcff' }), S('circle', { cx: 15.2, cy: 4.6, r: 0.9, fill: '#d6dcff' }));
+  } else if (kind === 'rise') {
+    root.append(S('g', { class: 'sb-rays' }, ...[180, 215, 250, 290, 325, 360].map(a => ray(a, 7.6, 10, 10, 14))),
+      S('path', { d: 'M3.8 14a6.2 6.2 0 0 1 12.4 0z', fill: '#ffb547' }), S('line', { x1: 1, y1: 14.6, x2: 19, y2: 14.6, stroke: '#ffd479', 'stroke-width': 1.3, 'stroke-linecap': 'round' }));
+  } else {
+    root.append(S('g', { class: 'sb-rays' }, ...[0, 45, 90, 135, 180, 225, 270, 315].map(a => ray(a, 6.6, 9.2, 10, 10))), S('circle', { cx: 10, cy: 10, r: 4.6, fill: '#ffb547' }));
   }
-  ck.fill.style.transition = smooth ? 'clip-path 1s linear' : 'none';
-  ck.fill.style.clipPath = `inset(0 ${(100 - Math.max(0, Math.min(1, ph.fill)) * 100).toFixed(2)}% 0 0)`;
-  if (ck.txt.textContent !== ph.text) ck.txt.textContent = ph.text;
-  ck.bar.setAttribute('aria-valuenow', Math.round(Math.max(0, Math.min(1, ph.fill)) * 100));
-  ck.bar.setAttribute('aria-valuetext', ph.text);
-  ck.bar.dataset.phase = ph.key;
+  return root;
+}
+function sbBuild() {
+  sb.segs = h('div', { class: 'sb-segs' });
+  sb.fill = h('div', { class: 'sb-fill' });
+  sb.track = h('div', { class: 'sb-track' }, sb.segs, sb.fill);
+  sb.ico = h('div', { class: 'sb-ico' });
+  sb.tip = h('div', { class: 'sb-tip', role: 'status' });
+  sb.box = h('div', { class: 'sb', role: 'progressbar', tabindex: 0, 'aria-valuemin': 0, 'aria-valuemax': 100 }, sb.track, sb.ico, sb.tip);
+  const show = () => { sbTip(true); };
+  sb.box.addEventListener('mouseenter', show);
+  sb.box.addEventListener('focus', show);
+  sb.box.addEventListener('click', show);
+  sb.box.addEventListener('mouseleave', () => sbTip(false));
+  sb.box.addEventListener('blur', () => sbTip(false));
+  sbEl.replaceChildren(sb.box);
+  sb.built = true;
+}
+function sbTip(on) {
+  clearTimeout(sb.tipT);
+  if (!on) { sb.tip.classList.remove('on'); return; }
+  sb.tip.classList.add('on');
+  const bw = sb.box.clientWidth, cx = parseFloat(sb.ico.style.left) / 100 * bw, tw = sb.tip.offsetWidth;
+  sb.tip.style.left = Math.max(4, Math.min(bw - tw - 4, cx - tw / 2)) + 'px';
+  sb.tipT = setTimeout(() => sb.tip.classList.remove('on'), 4000);
+}
+function sbRender(n, ph, lvl) {
+  if (!sbEl) return;
+  if (!sb.built) sbBuild();
+  const { start, mid, auc, end } = ph.seg, T = SB1 - SB0, t = n.min + n.s / 60;
+  const pc = v => ((v - SB0) / T * 100).toFixed(2);
+  const hol = ph.text === '휴장';
+  const sig = [start, mid, auc, end].join();
+  if (sig !== sb.sig) {
+    sb.sig = sig;
+    const parts = [[SB0, start, PH.pre, 'lo'], [start, mid, PH.am], [mid, auc, PH.pm], [auc, end, PH.auc], [end, SB1, PH.nxt, 'lo']];
+    const mk = (alpha) => parts.map(([a, b, c, lo]) => h('i', { class: lo ? 'lo' : '', style: `left:${pc(a)}%;width:${(pc(b) - pc(a)).toFixed(2)}%;background:${c}${alpha}` }));
+    sb.segs.replaceChildren(...mk('3d'));
+    sb.fillSegs = mk('');
+    sb.fill.replaceChildren(...sb.fillSegs);
+    sb.box.dataset.title = `장 시작 전 08:00~${minLabel(start)} · 오전장 ~${minLabel(mid)} · 오후장 ~${minLabel(auc)} · 마감 동시호가 ~${minLabel(end)} · NXT ~20:00`;
+  }
+  const pos = Math.max(0, Math.min(1, (t - SB0) / T));
+  const done = hol ? 0 : pos;
+  const night = t < SB0 || t >= 18 * 60;
+  const kind = night ? 'moon' : t < 12 * 60 ? 'rise' : 'sun';
+  const smooth = lvl === 'fancy';
+  sb.fill.style.transition = sb.ico.style.transition = smooth ? 'clip-path 1s linear, left 1s linear' : 'none';
+  sb.fill.style.clipPath = `inset(0 ${(100 - done * 100).toFixed(2)}% 0 0)`;
+  sb.ico.style.left = (pos * 100).toFixed(2) + '%';
+  if (sb.kind !== kind) { sb.kind = kind; sb.ico.replaceChildren(sbIcon(kind)); }
+  sb.ico.classList.toggle('sb-fancy', lvl === 'fancy');
+  sb.box.classList.toggle('sb-hol', hol);
+  // tooltip text: the phase and what is left of it
+  let tip = ph.text;
+  if (!hol) {
+    if (t >= start && t < end) tip = `${ph.key === 'auc' ? '마감 동시호가' : '정규장 ' + ph.pct + '%'} · ${minLabel(end)} 마감까지 ${fmtLeft(end - t)}`;
+    else if (t >= 8 * 60 && t < start) tip = `장 시작 전 · ${minLabel(start)} 개장까지 ${fmtLeft(start - t)}`;
+    else if (t >= end && t < SB1) tip = `장 마감 · NXT 20:00까지 ${fmtLeft(SB1 - t)}`;
+  }
+  if (sb.tip.textContent !== tip) { sb.tip.textContent = tip; }
+  sb.box.setAttribute('aria-valuenow', Math.round(done * 100));
+  sb.box.setAttribute('aria-valuetext', tip);
+  sb.box.setAttribute('aria-label', '장 진행');
+  sb.box.title = sb.box.dataset.title ? `${tip}\n${sb.box.dataset.title}` : tip;
 }
 function ckSchedule() {
   clearTimeout(ck.timer);
@@ -1206,6 +1267,7 @@ function ckApply() {
   ck.on = on;
   document.documentElement.classList.toggle('has-clock', on);
   clockEl.hidden = !on;
+  if (sbEl) sbEl.hidden = !on;
   clearTimeout(ck.timer); cancelAnimationFrame(ck.raf);
   if (!on) { clockEl.replaceChildren(); return; }
   ck.sig = '';
