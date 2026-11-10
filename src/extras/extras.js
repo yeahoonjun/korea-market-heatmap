@@ -525,26 +525,54 @@ function readIxLine() {
     g.push({ d: ln.getAttribute('d'), color: getComputedStyle(ln).stroke, k2: grp.classList.contains('k2'), dot: dt ? [+dt.getAttribute('cx'), +dt.getAttribute('cy')] : null });
   }
   const bl = svg.querySelector('line.bl');
-  return g.length ? { w: vb.width, h: vb.height, g, y0: bl ? +bl.getAttribute('y1') : null } : null;
+  // the labels the template keeps for style B (display:none in A): value / %, per index with its name when there are two, and the time
+  const rows = [];
+  const multi = el.querySelectorAll('.ixv .ixr');
+  if (multi.length) multi.forEach(r => { const sp = r.querySelectorAll(':scope > span'), pc = sp[sp.length - 1]; rows.push({ name: (r.querySelector('i') || {}).textContent || '', val: (r.querySelector('b') || {}).textContent || '', pct: pc ? pc.textContent : '', color: pc ? rgbOf(pc) : '#cfd2d8' }); });
+  else { const v = el.querySelector('.ixv'); if (v) { const b = v.querySelector('b'), pc = v.querySelector('span'); rows.push({ name: '', val: b ? b.textContent : '', pct: pc ? pc.textContent : '', color: pc ? rgbOf(pc) : '#cfd2d8' }); } }
+  const tt = el.querySelector('.ixt'), tb = tt && tt.querySelector('b'), ts = tt && tt.querySelector('span');
+  return g.length ? { w: vb.width, h: vb.height, g, y0: bl ? +bl.getAttribute('y1') : null, rows, time: tb ? tb.textContent : '', sub: ts ? ts.textContent : '' } : null;
 }
-function drawIxLine(ctx, ix, W, TH) {
-  const m = new DOMMatrix([W / ix.w, 0, 0, TH / ix.h, 0, 0]);
-  const y0 = ix.y0 == null ? TH / 2 : ix.y0 * TH / ix.h;
-  ctx.save();
-  ctx.setLineDash([3, 4]); ctx.strokeStyle = 'rgba(255,255,255,.22)'; ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.moveTo(0, y0); ctx.lineTo(W, y0); ctx.stroke(); ctx.setLineDash([]);
-  ix.g.forEach((g, i) => {
-    const path = new Path2D(); path.addPath(new Path2D(g.d), m);
-    const first = g.d.match(/^M\s*([\d.]+)/), last = g.d.match(/L\s*([\d.]+)\s+[\d.]+\s*$/);
-    ctx.globalAlpha = g.k2 ? .32 : .42; ctx.strokeStyle = g.color; ctx.lineWidth = 1.4; ctx.lineJoin = 'round'; ctx.stroke(path);
-    if (first && last) {                                                  // the area between the line and 전일 종가, fading toward it
-      const area = new Path2D(path); area.lineTo(+last[1] * W / ix.w, y0); area.lineTo(+first[1] * W / ix.w, y0); area.closePath();
-      const ly = g.dot ? g.dot[1] * TH / ix.h : TH / 2, gr = ctx.createLinearGradient(0, ly, 0, y0 + (y0 === ly ? 1 : 0));
-      gr.addColorStop(0, g.color); gr.addColorStop(1, 'rgba(0,0,0,0)');
-      ctx.globalAlpha = i ? .12 : .2; ctx.fillStyle = gr; ctx.fill(area);
-    }
-    if (g.dot) { ctx.globalAlpha = .7; ctx.fillStyle = g.color; ctx.beginPath(); ctx.arc(g.dot[0] * W / ix.w, g.dot[1] * TH / ix.h, 2.2, 0, 7); ctx.fill(); }
+// style B, the PC way, in a row of its own under the header: value · % on the left, the line (dashed 전일 종가, a tick at the latest point) in the middle, time / 15:30 or 종가 on the right
+function ixRowHeight(ix) { return ix ? (ix.g.length > 1 ? 46 : 36) : 0; }
+function drawIxRow(ctx, ix, fam, W, y0, pad) {
+  const CH = ixRowHeight(ix), small = W < 520, fs = small ? 11.5 : 12.5;
+  ctx.save(); ctx.translate(0, y0);
+  ctx.fillStyle = '#0d0e11'; ctx.fillRect(0, 0, W, CH);
+  ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
+  const rows = ix.rows.length ? ix.rows : [];
+  const rowH = CH / Math.max(1, rows.length);
+  let lw = 0;
+  const meas = r => { ctx.font = `500 ${fs - 1}px ${fam}`; const nm = r.name ? ctx.measureText(r.name).width + 5 : 0; ctx.font = `700 ${fs}px ${fam}`; const v = ctx.measureText(r.val).width; ctx.font = `600 ${fs}px ${fam}`; return { nm, v, p: ctx.measureText(r.pct).width }; };
+  rows.forEach(r => { const m = meas(r); r.m = m; lw = Math.max(lw, m.nm + m.v + 6 + m.p); });
+  ctx.font = `700 ${fs}px ${fam}`; const tw = Math.max(ctx.measureText(ix.time).width, (ctx.font = `500 ${fs - 1}px ${fam}`, ctx.measureText(ix.sub).width));
+  const px0 = pad + lw + 12, px1 = W - pad - tw - 12;
+  rows.forEach((r, i) => {
+    const cy = rowH * i + rowH / 2; let x = pad;
+    if (r.name) { ctx.font = `500 ${fs - 1}px ${fam}`; ctx.fillStyle = '#8a8f99'; ctx.fillText(r.name, x, cy); x += r.m.nm; }
+    ctx.font = `700 ${fs}px ${fam}`; ctx.fillStyle = '#eef0f3'; ctx.fillText(r.val, x, cy); x += r.m.v + 6;
+    ctx.font = `600 ${fs}px ${fam}`; ctx.fillStyle = r.color; ctx.fillText(r.pct, x, cy);
   });
+  ctx.textAlign = 'right';
+  ctx.font = `700 ${fs}px ${fam}`; ctx.fillStyle = '#eef0f3'; ctx.fillText(ix.time, W - pad, CH / 2 - (ix.sub ? 7 : 0));
+  if (ix.sub) { ctx.font = `500 ${fs - 1}px ${fam}`; ctx.fillStyle = '#8a8f99'; ctx.fillText(ix.sub, W - pad, CH / 2 + 8); }
+  if (px1 - px0 > 40) {
+    const sx = (px1 - px0) / ix.w, sy = (CH - 8) / ix.h, m = new DOMMatrix([sx, 0, 0, sy, px0, 4]);
+    const ly = ix.y0 == null ? CH / 2 : 4 + ix.y0 * sy;
+    ctx.save();
+    ctx.setLineDash([3, 4]); ctx.strokeStyle = 'rgba(255,255,255,.28)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(px0, ly); ctx.lineTo(px1, ly); ctx.stroke(); ctx.setLineDash([]);
+    ix.g.forEach(g => {
+      const path = new Path2D(); path.addPath(new Path2D(g.d), m);
+      ctx.globalAlpha = g.k2 ? .7 : 1; ctx.strokeStyle = g.color; ctx.lineWidth = 1.7; ctx.lineJoin = 'round'; ctx.lineCap = 'round'; ctx.stroke(path);
+      if (g.dot) {
+        const dx = px0 + g.dot[0] * sx, dy = 4 + g.dot[1] * sy;
+        ctx.globalAlpha = .35; ctx.beginPath(); ctx.moveTo(dx, 2); ctx.lineTo(dx, CH - 2); ctx.lineWidth = 1; ctx.stroke();   // "now"
+        ctx.globalAlpha = 1; ctx.fillStyle = g.color; ctx.beginPath(); ctx.arc(dx, dy, 3, 0, 7); ctx.fill();
+      }
+    });
+    ctx.restore();
+  }
   ctx.restore();
 }
 // the legend row as atoms per group: {t,font,color} text | {grad:[colors]} | {box:color,lim} | pill for the 리플레이 chip
@@ -625,19 +653,19 @@ function drawMap(nodes, wt) {
   const ctx = cnv.getContext('2d');
   // the screen's own header row (title, today's index line behind it, N종목 · ±%), the whole map, the legend row, a small footer
   const chrome = readChrome(wt);
-  const tSize = W < 520 ? 14 : 16, TH = Math.round(tSize * 2.7);
+  const tSize = W < 520 ? 14 : 16, TH = Math.round(tSize * 2.4);
   ctx.font = `500 12px ${fam}`;
   const lg = layoutLegend(ctx, fam, chrome.legend, W, pad);
-  const FH = 24;
-  const H = TH + MH + lg.h + FH;
+  const FH = 24, XH = ixRowHeight(chrome.ix), HT = TH + XH;
+  const H = HT + MH + lg.h + FH;
   let s = Math.min(3, Math.max(2, window.devicePixelRatio || 1));
   while (W * H * s * s > 16e6 && s > 1) s -= 0.25;                     // stay under the canvas area limit (iOS ≈ 16.7M px)
   cnv.width = Math.round(W * s); cnv.height = Math.round(H * s);
   ctx.scale(s, s);
   ctx.fillStyle = '#131418'; ctx.fillRect(0, 0, W, H);
-  ctx.fillStyle = '#000'; ctx.fillRect(0, TH, W, MH);
+  ctx.fillStyle = '#000'; ctx.fillRect(0, HT, W, MH);
   ctx.textBaseline = 'middle';
-  if (chrome.ix) drawIxLine(ctx, chrome.ix, W, TH);
+  if (chrome.ix) drawIxRow(ctx, chrome.ix, fam, W, TH, pad);
   {
     const cy = TH / 2;
     let right = W - pad;
@@ -651,11 +679,9 @@ function drawMap(nodes, wt) {
     }
     ctx.textAlign = 'left';
     ctx.font = `700 ${tSize}px ${fam}`;
-    ctx.save(); ctx.shadowColor = '#131418'; ctx.shadowBlur = 6;
     ctx.fillStyle = '#eef0f3'; ctx.fillText(ellipsize(ctx, chrome.title, Math.max(40, right - pad)), pad, cy);
-    ctx.restore();
   }
-  ctx.translate(0, TH);
+  ctx.translate(0, HT);
   // group headers: the header height is the gap between a group's top and its first child (d3 paddingTop), unless given
   const tiles = N.filter(n => n.kind === 'tile'), inds = N.filter(n => n.kind === 'ind'), secs = N.filter(n => n.kind === 'sector');
   const inside = (c, p) => c.x >= p.x - 0.5 && c.y >= p.y - 0.5 && c.x + c.w <= p.x + p.w + 0.5 && c.y + c.h <= p.y + p.h + 0.5;
