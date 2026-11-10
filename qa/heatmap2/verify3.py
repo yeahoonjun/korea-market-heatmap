@@ -88,7 +88,8 @@ with sync_playwright() as p:
           const fs = parseFloat(getComputedStyle(document.querySelector('#tablewrap .nmt')).fontSize);
           return { hs, minW: Math.min(...cells.map(c => c.w)), fs, maxLines: Math.max(...cells.map(c => c.lines)), clipped: cells.filter(c => c.clipped).map(c => c.name),
                    over: document.getElementById('tablewrap').scrollWidth - document.getElementById('tablewrap').clientWidth }; }""")
-        ok(f'{vp} table: 거래대금 dropped, name ≥ 5.5em, ≤ 2 lines, no sideways scroll', '거래대금' not in ''.join(r['hs']) and r['minW'] >= 5.5 * r['fs'] and r['maxLines'] <= 2 and r['over'] <= 0 and not r['clipped'], r)
+        ok(f'{vp} table: 종목 · 현재가 · 등락률 · 거래대금 (거래량 · 시가총액 dropped), name ≥ 5.5em, ≤ 2 lines, no sideways scroll',
+           r['hs'][:3] == ['종목', '현재가', '등락률'] and len(r['hs']) == 4 and r['hs'][3].endswith('거래대금') and r['minW'] >= 5.5 * r['fs'] and r['maxLines'] <= 2 and r['over'] <= 0 and not r['clipped'], r)
         # 7-column tables (period colour) also drop 시가총액
         pg.evaluate("localStorage.setItem('khm.colorBy', JSON.stringify('m1'))"); pg.reload(); pg.wait_for_timeout(WAIT)
         pg.click('.viewseg button[data-v="table"]'); pg.wait_for_timeout(600)

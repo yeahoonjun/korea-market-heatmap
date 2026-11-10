@@ -47,6 +47,10 @@ def int_row(q, s):
     return x['p'], jsround((x['p'] - base) / base * 1e4) / 100, tv
 
 
+def int_row_v(q, s):
+    x = s.get('nx'); return s['v'] + ((x or {}).get('v') or 0)
+
+
 def fresh(b, vp, phase, store=None, hsh='', hook=None, wait=3500, motion=None):
     ctx = b.new_context(**VIEWPORTS[vp], service_workers='block')
     ctx.add_init_script(REC)
@@ -86,7 +90,10 @@ def pick(pg, v, wait=500):
 
 
 def table_row(pg, code):
-    return pg.evaluate("c => ({head: [...document.querySelectorAll('#tablewrap thead th')].map(t => t.textContent), cells: [...document.querySelector(`#tablewrap tr[data-c=\"${c}\"]`).children].map(td => td.textContent)})", code)
+    """{head, cells (by position), by: {column key → [header, cell]}}"""
+    return pg.evaluate("""c => { const th = [...document.querySelectorAll('#tablewrap thead th')], td = [...document.querySelector(`#tablewrap tr[data-c="${c}"]`).children];
+      const by = {}; th.forEach((t, i) => { by[t.dataset.k] = [t.textContent, td[i].textContent]; });
+      return { head: th.map(t => t.textContent), cells: td.map(x => x.textContent), by }; }""", code)
 
 
 def breadth_vals(q, br, m, how):
@@ -181,6 +188,18 @@ with sync_playwright() as p:
         else:
             pick(pg, 'int')
             ip, ir, itv = int_row(QP, SS)
+            # the 4th tile line: market cap as drawn (cap × p_basis / p_krx), only under a shown price line
+            MC = """c => { const t = document.querySelector(`#map .tile[data-c="${c}"]`), m = t.querySelector('.mc'), p = t.querySelector('.px');
+              return { mc: m && !m.hidden ? m.textContent : null, px: p && !p.hidden ? p.textContent : null, fs: m ? parseFloat(getComputedStyle(m).fontSize) : 0 }; }"""
+            ALLMC = "[...document.querySelectorAll('#map .tile')].map(t => [t.querySelector('.mc') && !t.querySelector('.mc').hidden, !t.querySelector('.px').hidden])"
+            m_int = pg.evaluate(MC, '005930'); w_int = pg.evaluate(f"KH.fmt.eok({SS['cap']} * {ip} / {SS['p']})")
+            allmc = pg.evaluate(ALLMC)
+            ok(f"통합 tile 4th line: 삼성전자 '시총 {w_int}' (cap × p_int / p_krx), ≥ 9 px, under its price; every cap line has a price line ({sum(a for a, _ in allmc)} tiles)",
+               m_int['mc'] == '시총 ' + w_int and m_int['px'] == won(ip) and m_int['fs'] >= 9 and all(px for mc, px in allmc if mc) and 0 < sum(a for a, _ in allmc) < len(allmc) / 3, (m_int, w_int))
+            pick(pg, 'krx')
+            m_krx = pg.evaluate(MC, '005930'); w_krx = pg.evaluate(f"KH.fmt.eok({SS['cap']} * {CS['005930'][0]} / {SS['p']})")
+            ok(f"KRX (어제 종가) tile 4th line: 삼성전자 '시총 {w_krx}'", m_krx['mc'] == '시총 ' + w_krx, m_krx)
+            pick(pg, 'int')
             lay = [n for n in pg.evaluate("KH.layout()") if n.get('code') == '005930'][0]
             ok(f"통합 map: 삼성전자 {pct(ir)} · {won(ip)} (tile label, KH.layout px)", tile_pct(pg, '005930') == pct(ir) and lay.get('px') == won(ip), (tile_pct(pg, '005930'), lay))
             pg.hover('#map .tile[data-c="005930"]'); pg.wait_for_timeout(250)
@@ -201,7 +220,9 @@ with sync_playwright() as p:
                 ok(f'통합 등락 분포: 코스피 전 종목 {len(vals)} (상승 {up} · 하락 {dn}; before 09:00 the NXT % where there is one)', d['scope'] == f'코스피 전 종목 {len(vals):,}' and f'상승 {up:,}' in d['lab'] and f'하락 {dn:,}' in d['lab'], (d, len(vals), up, dn))
             pg.click('.viewseg button[data-v="table"]'); pg.wait_for_timeout(300)
             t = table_row(pg, '005930')
-            ok(f"통합 table: 현재가 {won(ip)}, 등락률 {pct(ir)}, column '통합 거래대금' {eok}", t['cells'][2] == won(ip) and t['cells'][3] == pct(ir) and t['head'][-1] == '통합 거래대금' and t['cells'][-1] == eok, t)
+            vol = int_row_v(QP, SS)
+            ok(f"통합 table: 현재가 {won(ip)}, 등락률 {pct(ir)}, '통합 거래량' {vol}, '통합 거래대금' {eok}", t['by']['p'][1] == won(ip) and t['by']['r'][1] == pct(ir) and t['by']['tv'] == ['통합 거래대금', eok]
+               and t['by']['vol'] == ['통합 거래량', pg.evaluate(f"KH.fmt.vol({vol})")] and list(t['by'])[-3:] == ['vol', 'tv', 'cap'], t)
             pg.click('.viewseg button[data-v="map"]'); pg.wait_for_timeout(300)
             pg.fill('#q', '삼성전자'); pg.wait_for_timeout(250)
             sg = pg.evaluate("[...document.querySelectorAll('#sugg [role=option]')].slice(0, 3).map(o => o.textContent)")
@@ -232,7 +253,7 @@ with sync_playwright() as p:
             pg.click('.viewseg button[data-v="table"]'); pg.wait_for_timeout(300)
             t = table_row(pg, '005930')
             neok = pg.evaluate(f"KH.fmt.eok({nx.get('tv') or 0})")
-            ok(f"NXT table: 현재가 {won(nx['p'])}, 등락률 {pct(nx['r'])}, 'NXT 거래대금' {neok}", t['cells'][2] == won(nx['p']) and t['cells'][3] == pct(nx['r']) and t['head'][-1] == 'NXT 거래대금' and t['cells'][-1] == neok, t)
+            ok(f"NXT table: 현재가 {won(nx['p'])}, 등락률 {pct(nx['r'])}, 'NXT 거래대금' {neok}", t['by']['p'][1] == won(nx['p']) and t['by']['r'][1] == pct(nx['r']) and t['by']['tv'] == ['NXT 거래대금', neok], t)
             pg.click('.viewseg button[data-v="map"]'); pg.wait_for_timeout(300)
             pg.fill('#q', '삼성전자'); pg.wait_for_timeout(250)
             sg = pg.evaluate("[...document.querySelectorAll('#sugg [role=option]')].slice(0, 3).map(o => o.textContent)")
@@ -296,8 +317,16 @@ with sync_playwright() as p:
         for v, lab, val in [('int', '통합 거래대금', s['tv'] + x['tv']), ('nxt', 'NXT 거래대금', x['tv']), ('krx', '거래대금', s['tv'])]:
             pick(pg, v, 400)
             t = table_row(pg, '005930')
-            heads[v] = (t['head'][-1], t['cells'][-1], pg.evaluate(f"KH.fmt.eok({val})"), lab)
+            heads[v] = (t['by']['tv'][0], t['by']['tv'][1], pg.evaluate(f"KH.fmt.eok({val})"), lab)
         ok('reg table: the value column follows the basis (통합 = KRX + NXT, NXT, KRX)', all(h_ == lab and c == e for h_, c, e, lab in heads.values()), heads)
+        # 거래량 sorts like the other columns (desc, then asc), under 통합 the KRX + NXT sum
+        pick(pg, 'int', 400)
+        pg.click('#tablewrap th[data-k="vol"] button'); pg.wait_for_timeout(300)
+        o1 = pg.evaluate("[...document.querySelectorAll('#tablewrap tbody tr')].slice(0, 5).map(tr => tr.dataset.c)")
+        pg.click('#tablewrap th[data-k="vol"] button'); pg.wait_for_timeout(300)
+        o2 = pg.evaluate("[...document.querySelectorAll('#tablewrap tbody tr')].slice(0, 3).map(tr => tr.dataset.c)")
+        kv = sorted([s for s in R.values() if s['m'] == 'K' and s['c'][-1] == '0'], key=lambda s: -int_row_v(QR, s))
+        ok(f"table 거래량 (통합) sorts: ▾ {[s['n'] for s in kv[:3]]}, then ▴", o1[:5] == [s['c'] for s in kv[:5]] and o2[:3] == [s['c'] for s in kv[::-1][:3]], (o1, o2))
         pg.click('.viewseg button[data-v="map"]'); pg.wait_for_timeout(300)
         # 등락 분포: 통합 = /api/breadth KRX column after 09:00; NXT = its NXT column
         pick(pg, 'int', 900)
