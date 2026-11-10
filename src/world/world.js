@@ -879,7 +879,7 @@ function fillHead(sec, hd) {
   s.replaceChildren(h('i', { class: 'kw-sd ' + (st.open ? 'open' : 'close'), 'aria-hidden': 'true' }), st.text);
   if (sec.ref) { a.replaceChildren(h('small', { text: '색칠하지 않는 지표' })); return; }
   const avg = avgOf(sec.items);
-  a.replaceChildren(avg == null ? null : h('small', { text: '평균' }), avg == null ? null : h('b', { class: cls(avg), text: pct(avg) }));
+  put(a, avg == null ? null : h('small', { text: '평균' }), avg == null ? null : h('b', { class: cls(avg), text: pct(avg) }));
 }
 function renderList(d) {
   const L = els.list;
@@ -1612,7 +1612,7 @@ function fillDetail(full) {
       h('span', { class: 'n', text: p.name }), h('span', { class: 'v ' + (isRef(p) || p.ratio == null ? 'flat' : cls(p.ratio)), text: pct(p.ratio) })) : null; })) : null;
   if (full || !sheet.firstChild) {
     const chartBox = h('div', { class: 'kw-chart' });
-    sheet.replaceChildren(
+    put(sheet,   // put(): peers is null for 원자재 — native replaceChildren would print "null"
       h('div', { class: 'kw-grab', 'aria-hidden': 'true' }),
       h('button', { type: 'button', class: 'kw-x', 'aria-label': '닫기', onclick: () => closeDetail(true) }, '×'),
       peers, head, chartBox,
