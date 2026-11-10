@@ -138,15 +138,40 @@ let tkPaused = false;
 try { tkPaused = localStorage.getItem('khm.tickerPaused') === '1'; } catch (e) { /* storage blocked */ }
 const tkOn = () => stripEl.classList.contains('xs-tk');
 
+// the "네이버 증권 · HH:MM 기준" item is normally hidden: it shows only when the data lags the corrected clock by more than
+// 2 minutes (after the close, holidays, weekends: "15:30 기준") or when the last refresh failed
+function dataAsOf() {
+  try { if (has('asOf')) { const a = KH.asOf(); const d = a ? new Date(a) : null; if (d && !isNaN(d)) return d; } } catch (e) { /* fall back to the strip */ }
+  const d = strip.asOf ? new Date(strip.asOf) : null;
+  return d && !isNaN(d) ? d : null;
+}
 function stripTail() {
   if (LIVE) {
-    const at = strip.asOf ? new Date(strip.asOf) : null;
-    const t = at && !isNaN(at) ? fmtHM.format(at) : '';
-    return h('span', { class: 'xs-t' + (strip.failed ? ' xs-stale' : ''), title: strip.failed ? '최근 갱신에 실패해서 마지막으로 받은 값이에요' : '30초마다 갱신해요' },
-      h('span', { text: strip.failed ? '갱신 실패' : '네이버 증권' }), h('span', { text: `${t} 기준` }));
+    const at = dataAsOf();
+    const lag = at ? nowMs() - at.getTime() : 0;
+    if (!strip.failed && !(lag > 120000)) return null;
+    const t = at ? fmtHM.format(at) : '';
+    return h('span', { class: 'xs-t' + (strip.failed ? ' xs-stale' : ''), title: strip.failed ? '최근 갱신에 실패해서 마지막으로 받은 값이에요' : '시세 기준 시각이 지금보다 늦어요(장 마감 뒤·휴장 포함)' },
+      h('span', { text: strip.failed ? '갱신 실패' : '네이버 증권' }), h('span', { text: t ? `${t} 기준` : '' }));
   }
   if (KH.LIVE_URL) return h('a', { class: 'xs-live', href: KH.LIVE_URL, target: '_blank', rel: 'noopener', text: '환율·미국 선물은 실시간 버전에서 볼 수 있어요' });
   return null;
+}
+// add / replace / remove the tail in place (ticker or static layout); the track's animation is never touched
+function syncTail() {
+  if (!stripEl || stripEl.hidden || !LIVE) return;
+  const t = stripTail();
+  if (tkOn()) {
+    if (tk.tail && t) { tk.tail.replaceWith(t); tk.tail = t; }
+    else if (tk.tail && !t) { tk.tail.remove(); tk.tail = null; }
+    else if (!tk.tail && t) { tk.vp.after(t); tk.tail = t; }
+    else return;
+    tkSize(false);                                                 // the viewport got wider/narrower: only ever add copies, so the loop never jumps
+  } else {
+    const cur = stripEl.querySelector('.xs-t');
+    if (cur && t) cur.replaceWith(t); else if (cur) cur.remove(); else if (t && stripEl.querySelector('.xs-list')) stripEl.append(t);
+    stripOverflow();
+  }
 }
 function tkCopy() {
   const c = tk.list.cloneNode(true);
@@ -214,8 +239,7 @@ function updateTicker(kids) {
       node.replaceChildren(...[...f.childNodes].map(c => c.cloneNode(true)));
     }
   }
-  const t = stripTail();
-  if (tk.tail && t) { tk.tail.replaceWith(t); tk.tail = t; }
+  syncTail();
   tkSize(false);
 }
 
@@ -360,6 +384,8 @@ function initStrip() {
   if (LIVE) {
     renderStrip();
     pollStrip();
+    setInterval(() => { if (!document.hidden) syncTail(); }, 15000);        // the minute passes without a poll changing anything
+    document.addEventListener('kh:data', () => syncTail());
     document.addEventListener('visibilitychange', () => {
       if (document.hidden) { clearTimeout(strip.timer); return; }
       const age = Date.now() - strip.at;
@@ -780,7 +806,7 @@ function rpState(kind, text, retry) {
   ui.msg.hidden = kind === 'ready';
   ui.msg.replaceChildren(ui.label(), h('p', { text }));
   if (retry) ui.msg.append(h('button', { type: 'button', class: 'rp-retry', onclick: retry, text: '다시 시도' }));
-  ui.note.textContent = kind === 'ready' ? `5분마다 기록한 시세예요. 정규장(${minLabel(SESSION.s0)}~${minLabel(SESSION.s1)}) 기준 · 네이버 증권` : kind === 'empty' ? '5분마다 기록한 시세예요. 네이버 증권' : '';
+  ui.note.textContent = kind === 'ready' ? `${replay.day && replay.day.minute ? '1분' : '5분'}마다 기록한 시세예요. 정규장(${minLabel(SESSION.s0)}~${minLabel(SESSION.s1)}) 기준 · 네이버 증권` : kind === 'empty' ? `${replay.minute && replay.minute.size > 0 ? '1분' : '5분'}마다 기록한 시세예요. 네이버 증권` : '';
   if (kind === 'ready' && !narrowMQ.matches) ui.note.textContent += ' · 스페이스 재생/멈춤, ←/→ 한 칸씩';
 }
 
@@ -811,7 +837,7 @@ async function loadDates() {
     return;
   }
   if (!R.open) return;
-  if (!R.dates.length) { rpState('empty', '아직 기록된 날이 없어요. 다음 거래일 09:00부터 5분마다 기록돼서, 장이 열린 뒤에 다시 볼 수 있어요.'); return; }
+  if (!R.dates.length) { rpState('empty', '아직 기록된 날이 없어요. 다음 거래일 09:00부터 1분마다 기록돼서, 장이 열린 뒤에 다시 볼 수 있어요.'); return; }
   R.ui.date.replaceChildren(...R.dates.map(d => h('option', { value: d, text: dayLabel(d) })));
   R.ui.date.value = R.dates.includes(R.date) ? R.date : R.dates[0];
   await loadDay(R.ui.date.value, true);
@@ -849,7 +875,7 @@ async function loadDay(date, fallback) {
     }
   }
   if (id !== R.req || !R.open) return;
-  if (!day.frames.length) { fail(`${dayLabel(date)}에는 아직 기록된 장면이 없어요. 장이 열리면 5분마다 쌓여요.`); return; }
+  if (!day.frames.length) { fail(`${dayLabel(date)}에는 아직 기록된 장면이 없어요. 장이 열리면 1분마다 쌓여요.`); return; }
   R.date = date; R.day = day;
   setSession(day.frames);
   rpTicks();
@@ -880,10 +906,16 @@ function showFrame(i) {
     prices.set(day.codes[j], { p: +p, r: +r });
   }
   R.prices = prices;
+  // the frame's index change in % (same numbers as the panel below) travels with the frame for the §3-16 tab numbers
+  const ixr = {};
+  for (const k of ['KOSPI', 'KOSDAQ']) {
+    const e = f.ix && f.ix[k], v = e == null ? NaN : +(Array.isArray(e) ? e[0] : typeof e === 'object' ? e.value : e), base = indexBase(day, k);
+    if (isFinite(v) && isFinite(base) && base) ixr[k] = (v / base - 1) * 100;
+  }
   cancelAnimationFrame(R.raf);
   // 'fancy' timelapse: while playing, the map tweens from frame to frame (the template ignores the option when it can't)
   const tw = R.playing && motion() === 'fancy' ? Math.round(R.delay * 0.92) : 0;
-  R.raf = requestAnimationFrame(() => { try { KH.setReplay({ t: String(f.t), date: day.date, prices }, tw ? { tween: tw } : undefined); } catch (e) { /* map keeps its last frame */ } });
+  R.raf = requestAnimationFrame(() => { try { KH.setReplay({ t: String(f.t), date: day.date, prices, index: ixr }, tw ? { tween: tw } : undefined); } catch (e) { /* map keeps its last frame */ } });
   const ui = R.ui, sl = slotOfT(f.t);
   ui.time.textContent = R.frameT;
   bigUpdate();
