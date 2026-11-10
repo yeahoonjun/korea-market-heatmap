@@ -77,9 +77,9 @@ def _build(phase):
             if phase == 'regular':
                 x['o'] = 0
                 continue
-            # NXT 메인마켓: a price a few ticks off KRX's, traded seconds before the quotes' asOf
+            # NXT 메인마켓: a price a few ticks off KRX's; Naver stamps it with the response time, µs after the KRX rows' (11/10 09:33)
             np_ = round(p * (1 + rnd.uniform(-0.3, 0.3) / 100))
-            x.update(p=np_, d=np_ - base, r=_r2((np_ - base) / base * 100), s='reg', o=1, t='2026-11-10T10:14:%02d.500000+09:00' % (i % 60))
+            x.update(p=np_, d=np_ - base, r=_r2((np_ - base) / base * 100), s='reg', o=1, t='2026-11-10T10:15:00.0000%02d+09:00' % (10 + i % 80))
         q['nxt'] = {'session': 'pre', 'open': False} if phase == 'regular' else {'session': 'reg', 'open': True}
         for key, b in br.items():
             for row in b['rows']:

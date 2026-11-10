@@ -42,7 +42,7 @@ def int_row(q, s):
     k = datetime.fromisoformat(q['asOf'])
     kt = ms(s['t']) if s.get('t') and k.strftime('%H%M') >= '0900' else ms(CLOSE['asOf']) if k.strftime('%H%M') < '0900' else ms(q['asOf'])
     tv = s['tv'] + (x.get('tv') or 0)
-    if not ms(x['t']) > kt: return s['p'], s['r'], tv
+    if not ms(x['t']) > kt + 1000: return s['p'], s['r'], tv          # within 1 s: one moment, KRX stands
     base = s['p'] - s['d']
     return x['p'], jsround((x['p'] - base) / base * 1e4) / 100, tv
 
@@ -272,20 +272,24 @@ with sync_playwright() as p:
         def rowtime(q, n):     # a Worker that sends the KRX trade time per row: 000660's KRX trade is older than its NXT one
             for s in q['stocks']:
                 if s['c'] == '000660': s['t'] = '2026-11-10T10:10:00.000000+09:00'
-                if s['c'] == '005930': s['t'] = '2026-11-10T10:14:59.000000+09:00'
+                if s['c'] == '005930': s['t'] = '2026-11-10T10:15:00.000000+09:00'
         ctx, pg, log, _ = fresh(b, 'd1440', 'reg', hook=rowtime)
-        hy = dict(R['000660'], t='2026-11-10T10:10:00.000000+09:00'); ss = dict(R['005930'], t='2026-11-10T10:14:59.000000+09:00')
+        hy = dict(R['000660'], t='2026-11-10T10:10:00.000000+09:00'); ss = dict(R['005930'], t='2026-11-10T10:15:00.000000+09:00')
         hp, hr, _ = int_row(QR, hy); sp, sr, _ = int_row(QR, ss)
         ok(f"reg 통합 with row times: SK하이닉스 NXT is newer → {won(hp)} {pct(hr)} (vs KRX base); 삼성전자 KRX newer → {won(sp)} {pct(sr)}",
            hp == hy['nx']['p'] and sp == ss['p'] and tile_pct(pg, '000660') == pct(hr) and tile_pct(pg, '005930') == pct(sr), (tile_pct(pg, '000660'), tile_pct(pg, '005930')))
         ctx.close()
         ctx, pg, log, _ = fresh(b, 'd1440', 'reg')
+        # the Worker's real shape: no row times, NXT stamped µs after asOf → one moment, KRX stands for every row
+        same = pg.evaluate("c => c.map(x => document.querySelector(`#map .tile[data-c=\"${x}\"]`)?.getAttribute('aria-label').split(',')[0].split(' ').pop())", [c for c in list(R)[:40] if c[-1] == '0'])
+        want = [pct(R[c]['r']) for c in list(R)[:40] if c[-1] == '0']
+        ok('reg 통합 without row times: NXT µs after KRX is the same moment → every tile its KRX %', [x for x in same if x] == [w for x, w in zip(same, want) if x] and sum(1 for x in same if x) > 20, (same[:5], want[:5]))
         s = R['005930']; x = s['nx']
         pg.hover('#map .tile[data-c="005930"]'); pg.wait_for_timeout(250)
         tip = pg.evaluate(TIP_JS)
         eok = pg.evaluate(f"KH.fmt.eok({s['tv'] + x['tv']})")
-        ok(f"reg tooltip: KRX quote {won(s['p'])}, lines 'KRX 실시간 …' + 'NXT 메인마켓 {won(x['p'])} {pct(x['r'])} 10:14', '통합 거래대금 {eok}'",
-           tip['px'] == won(s['p']) and tip['nx'][0].startswith('KRX 실시간') and tip['nx'][1].startswith('NXT 메인마켓') and won(x['p']) in tip['nx'][1] and '10:14' in tip['nx'][1] and f'통합 거래대금 {eok}' in tip['meta'], tip)
+        ok(f"reg tooltip: KRX quote {won(s['p'])}, lines 'KRX 실시간 …' + 'NXT 메인마켓 {won(x['p'])} {pct(x['r'])} 10:15', '통합 거래대금 {eok}'",
+           tip['px'] == won(s['p']) and tip['nx'][0].startswith('KRX 실시간') and tip['nx'][1].startswith('NXT 메인마켓') and won(x['p']) in tip['nx'][1] and '10:15' in tip['nx'][1] and f'통합 거래대금 {eok}' in tip['meta'], tip)
         pg.mouse.move(5, 5)
         pg.click('.viewseg button[data-v="table"]'); pg.wait_for_timeout(300)
         heads = {}

@@ -962,7 +962,8 @@ function afterClose() {
    NXT: rows with nx draw nx.p/d/r (size cap × nx.p / p, volume / value nx.v / nx.tv); rows without keep their KRX value, flagged
    nonx (hatched, "NXT 거래 없음").
    통합 ('int'): per row the more recent trade of KRX (the row's t, else the quotes' asOf; before 09:00 KRX has not traded that day,
-   so its last trade is the previous close) and NXT (nx.t); d / r again against the KRX base (p − d); volume / value KRX + NXT.
+   so its last trade is the previous close) and NXT (nx.t), KRX when the two are within NX_TIE_MS (both are Naver's response time
+   while both trade); d / r again against the KRX base (p − d); volume / value KRX + NXT.
    Rows without nx: the KRX quote. After 15:30 Naver's quote already is the latest of KRX 시간외 and NXT, and asOf ≥ every nx.t.
    Choices: KRX · NXT · 통합 whenever the rows carry NXT prices (in the regular session: NXT's 메인마켓 rows, s 'reg' or an open
    trade from that session); an older Worker without any NXT field: KRX · 통합 after the close (통합 = Naver's integrated quote).
@@ -1164,13 +1165,17 @@ function nxRow(st) {
   const x = st.nx;
   return Object.assign({}, st, { p: x.p, d: x.d, r: x.r, cap: st.p > 0 ? st.cap * x.p / st.p : st.cap, v: x.v != null ? x.v : st.v, tv: x.tv != null ? x.tv : st.tv, nxOn: true, live: st });
 }
-// 통합: the more recent trade of the two (KRX: the row's own time, else BASIS.kt), change against the KRX base, volume / value summed
+// 통합: the more recent trade of the two (KRX: the row's own time, else BASIS.kt), change against the KRX base, volume / value summed.
+// Naver stamps both venues with the response time while they trade (11/10 09:33: NXT a few µs after KRX, no integrated price), so
+// stamps within NX_TIE_MS are one moment and KRX — the reference venue (기준가, 종가) — stands; NXT wins when it traded after KRX's
+// last trade: before 09:00, or while KRX is shut
+const NX_TIE_MS = 1000;
 function intRow(st) {
   const x = st.nx;
   if (!x) return st;
   const v = st.v + (x.v || 0), tv = st.tv + (x.tv || 0);
   const kt = isFinite(st.tm) && !(DATA.k && DATA.k.hm < '0900') ? st.tm : BASIS.kt;
-  if (!(x.tm > kt)) return Object.assign({}, st, { v, tv, intOn: true });
+  if (!(x.tm > kt + NX_TIE_MS)) return Object.assign({}, st, { v, tv, intOn: true });
   const base = st.p - st.d, p = x.p;
   const d = base > 0 ? p - base : x.d, r = base > 0 ? Math.round(d / base * 1e4) / 100 : x.r;
   return Object.assign({}, st, { p, d, r, cap: st.p > 0 ? st.cap * p / st.p : st.cap, v, tv, intOn: true, intNx: true, live: st });
