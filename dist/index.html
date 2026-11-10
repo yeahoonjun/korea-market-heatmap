@@ -8361,6 +8361,21 @@ function indexBase(day, key) {
   if (it && it.spark && it.spark.length && isFinite(+it.change) && kstYmd(new Date(it.spark[0][0] * 1000)) === day.date) return +it.value - +it.change;
   return NaN;
 }
+// the day's whole index series in % vs the previous close, [['HHMM', pct], …]: built once per day, rebuilt only after new frames arrived
+function dayIxs(day) {
+  if (day.ixs && day.ixsN === day.frames.length) return day.ixs;
+  const out = {};
+  for (const k of ['KOSPI', 'KOSDAQ']) {
+    const base = indexBase(day, k), a = [];
+    if (isFinite(base) && base) for (const f of day.frames) {
+      const e = f.ix && f.ix[k], v = e == null ? NaN : +(Array.isArray(e) ? e[0] : typeof e === 'object' ? e.value : e);
+      if (isFinite(v)) a.push([String(f.t), (v / base - 1) * 100]);
+    }
+    out[k] = a;
+  }
+  day.ixs = out; day.ixsN = day.frames.length;
+  return out;
+}
 function showFrame(i) {
   const R = replay, day = R.day;
   if (!day) return;
@@ -8381,10 +8396,11 @@ function showFrame(i) {
     const e = f.ix && f.ix[k], v = e == null ? NaN : +(Array.isArray(e) ? e[0] : typeof e === 'object' ? e.value : e), base = indexBase(day, k);
     if (isFinite(v) && isFinite(base) && base) ixr[k] = (v / base - 1) * 100;
   }
+  const ixs = dayIxs(day);
   cancelAnimationFrame(R.raf);
   // 'fancy' timelapse: while playing, the map tweens from frame to frame (the template ignores the option when it can't)
   const tw = R.playing && motion() === 'fancy' ? Math.round(R.delay * 0.92) : 0;
-  R.raf = requestAnimationFrame(() => { try { KH.setReplay({ t: String(f.t), date: day.date, prices, index: ixr }, tw ? { tween: tw } : undefined); } catch (e) { /* map keeps its last frame */ } });
+  R.raf = requestAnimationFrame(() => { try { KH.setReplay({ t: String(f.t), date: day.date, prices, index: ixr, ixs }, tw ? { tween: tw } : undefined); } catch (e) { /* map keeps its last frame */ } });
   const ui = R.ui, sl = slotOfT(f.t);
   ui.time.textContent = R.frameT;
   bigUpdate();
@@ -8517,6 +8533,7 @@ async function startFill(day) {
       if (!(today && b > nowMin - 2)) f.done.add(best);             // today's last chunk keeps growing: it stays open
       else f.tries[best] = 2;
       rpBand(); rpCount();
+      if (!R.playing && R.day === day) showFrame(R.i);   // re-send the day's index line with the new frames
     } catch (e) {
       if (!alive()) { f.busy = false; return; }
       f.tries[best] = (f.tries[best] || 0) + 1;
