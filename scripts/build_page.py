@@ -69,7 +69,7 @@ def stock_module() -> str:
     return module("stock", "stock") + module("extras", "extras") + module("world", "world")
 
 
-DATA_FILES = ("themes", "periods", "flows")
+DATA_FILES = ("themes", "periods", "flows", "market")   # market: /api/market after the close (index spark for the §3-20 header line)
 
 
 def embedded_data() -> str:

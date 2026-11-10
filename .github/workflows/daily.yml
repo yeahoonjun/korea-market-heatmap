@@ -47,6 +47,17 @@ jobs:
         if: steps.day.outputs.trading == 'true' && github.event.schedule == '30 12 * * 1-5'
         run: python3 scripts/build_daily.py --only flows
 
+      # §3-20: the snapshot's header line needs the day's index spark — the live Worker's market strip, taken after the close
+      - name: Market strip for the snapshot
+        if: steps.day.outputs.trading == 'true' && github.event.schedule != '30 12 * * 1-5'
+        run: |
+          if curl -fsS --retry 3 --max-time 20 https://kospimap.pages.dev/api/market -o /tmp/market.json \
+             && python3 -c "import json,sys; d=json.load(open('/tmp/market.json')); sys.exit(0 if d else 1)"; then
+            mv /tmp/market.json web/market.json
+          else
+            echo "market.json skipped (Worker unreachable) - the snapshot keeps the previous file or hides the line."
+          fi
+
       - name: Validate
         if: steps.day.outputs.trading == 'true'
         run: python3 scripts/validate_daily.py
