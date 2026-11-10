@@ -72,7 +72,8 @@ STATE_JS = """() => ({ basis: KH.basis(), seg: document.getElementById('basis').
   opts: document.getElementById('basis').hidden ? [] : [...document.querySelectorAll('#basis button')].filter(b => !b.hidden).map(b => b.dataset.v),
   badge: (document.querySelector('#status .badge .bl') || document.querySelector('#status .badge')).textContent,
   short: (document.querySelector('#status .badge .bs') || {}).textContent || null,
-  nonx: document.querySelectorAll('#map .tile.nonx').length, tiles: document.querySelectorAll('#map .tile').length })"""
+  nonx: document.querySelectorAll('#map .tile.nonx').length, tiles: document.querySelectorAll('#map .tile').length,
+  vis: getComputedStyle(document.querySelector('#status .badge')).display !== 'none', clock: document.documentElement.classList.contains('has-clock') })"""
 TILE_JS = "c => { const t = document.querySelector(`#map .tile[data-c=\"${c}\"]`); return t ? t.getAttribute('aria-label') : null; }"
 TIP_JS = """() => ({px: document.querySelector('#tip .card-head .px b')?.textContent, chg: document.querySelector('#tip .card-head .px span')?.textContent,
   nx: [...document.querySelectorAll('#tip .nxrow')].map(e => e.textContent), meta: document.querySelector('#tip .card-head .meta')?.textContent})"""
@@ -162,6 +163,8 @@ with sync_playwright() as p:
             got = tile_pct(pg, '005930')
             ok(f'{ph}: KH.basis {bid}, pressed {seg}, choices {opts}, badge "{badge}" / phones "{short}", 삼성전자 {want(q)}',
                s['basis'] == bid and s['seg'] == seg and s['opts'] == opts and s['badge'] == badge and s['short'] == short and got == want(q) and s['nonx'] == 0 and not errs(log), (s, got, errs(log)[:2]))
+            live = ph in ('pre', 'after', 'reg')
+            ok(f'  {ph} §3-12: clock on → badge {"hidden (live basis: the pressed button says it)" if live else "shown (a fixed point in time)"}', s['clock'] and s['vis'] == (not live), s)
             if ph == 'pre':
                 ev = pg.evaluate("window.__kb || []")
                 ok('kh:basis fired with {basis:"int", phase:"pre", label}', any(e['basis'] == 'int' and e['phase'] == 'pre' and e['label'] == badge for e in ev), ev)
