@@ -548,10 +548,43 @@ function peerItems() {
   return st && st.s ? KH.stocks().filter(x => x.s === st.s && x.i === st.i && x.c !== st.c && x.c.slice(-1) === '0').sort((a, b) => b.cap - a.cap).slice(0, 12)
     .map(x => ({ c: x.c, n: x.n, p: isNum(x.p) ? +x.p : null, r: isNum(x.r) ? +x.r : null })) : [];
 }
+// §3-13: a vertical mini candle (today's open/high/low/now) in the 10px slot left of the name. On the map: KH.ohlc(code);
+// otherwise the raw /api/quotes row fetched for it (R.peerRows). Nothing is drawn without the helpers or without a value.
+function peerCandle(slot, code) {
+  let el = null;
+  try {
+    if (typeof KH.ohlc === 'function' && typeof KH.candleIcon === 'function') {
+      const o = KH.stock(code) ? KH.ohlc(code) : R.peerRows && R.peerRows.has(code) ? KH.ohlc(R.peerRows.get(code)) : null;
+      el = o ? KH.candleIcon(o) : null;
+    }
+  } catch (e) { el = null; }
+  if (el) { if (slot.firstChild !== el) slot.replaceChildren(el); } else slot.replaceChildren();
+}
+// peers that are not on the map: their rows come from /api/quotes?codes= once per opened stock (live only, at most 6)
+async function peerFetchRows(list) {
+  if (!LIVE || typeof KH.ohlc !== 'function' || typeof KH.candleIcon !== 'function') return;
+  const code = S.code;
+  const want = list.filter(x => !KH.stock(x.c)).map(x => x.c).slice(0, 6);
+  if (!want.length) return;
+  const key = code + '|' + want.join();
+  if (R.peerRowsFor === key) return;
+  R.peerRowsFor = key;
+  if (R.peerRowsCode !== code) { R.peerRows = null; R.peerRowsCode = code; }
+  const ac = new AbortController(), killer = setTimeout(() => ac.abort(), 8000);
+  try {
+    const res = await fetch('api/quotes?codes=' + want.join(','), { cache: 'no-store', signal: ac.signal });
+    if (!res.ok) return;
+    const raw = await res.json();
+    if (S.code !== code) return;
+    R.peerRows = new Map(((raw && raw.stocks) || []).filter(x => x && x.c).map(x => [String(x.c), x]));
+    if (S.open && R.peerList) peerItems().forEach((x, i) => { const b = R.peerList.children[i]; if (b && b.dataset.code === x.c) peerCandle(b.children[0], x.c); });
+  } catch (e) { /* no icons for these; the list itself is fine */ } finally { clearTimeout(killer); }
+}
 function peerFill(b, x) {
-  b.children[1].textContent = x.p != null ? int(x.p) : '';
-  b.children[2].className = 'num pc ' + cls(x.r);
-  b.children[2].textContent = pct(x.r);
+  peerCandle(b.children[0], x.c);
+  b.children[2].textContent = x.p != null ? int(x.p) : '';
+  b.children[3].className = 'num pc ' + cls(x.r);
+  b.children[3].textContent = pct(x.r);
   b.setAttribute('aria-label', `${x.n}${x.p != null ? ` ${int(x.p)}원` : ''} ${pct(x.r)} 보기`);
 }
 function renderPeers() {
@@ -566,11 +599,12 @@ function renderPeers() {
   R.peerKey = key;
   R.peerList = h('div', { class: 'sp-peer-list' }, list.map(x => {
     const b = h('button', { type: 'button', class: 'sp-peer', 'data-code': x.c, onclick: () => open(x.c) },
-      h('span', { class: 'nm', text: x.n }), h('span', { class: 'num pr' }), h('span', { class: 'num pc' }));
+      h('span', { class: 'pk', 'aria-hidden': 'true' }), h('span', { class: 'nm', text: x.n }), h('span', { class: 'num pr' }), h('span', { class: 'num pc' }));
     peerFill(b, x);
     return b;
   }));
   R.peers.replaceChildren(h('h2', { class: 'sp-peers-t', text: '같은 업종' }), R.peerList);
+  peerFetchRows(list);
 }
 
 function renderOffline() {
