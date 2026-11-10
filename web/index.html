@@ -437,7 +437,8 @@ span.cdb.cdb > i{position:absolute;top:50%;width:auto;height:1px;margin-top:-.5p
 .card-head .ohlc{display:flex;align-items:center;gap:9px;margin-top:5px;font-size:12px;line-height:1.35;color:var(--fg2);font-variant-numeric:tabular-nums}
 .card-head .ohlc .cdb{width:64px;height:12px;flex:none}
 .card-head .ohlc .cdb::before{top:-3px;bottom:-3px;background:var(--muted)}
-.card-head .ohlc .ot{min-width:0}
+.card-head .ohlc .ot{min-width:0;display:flex;flex-wrap:wrap;column-gap:11px;row-gap:1px}
+.card-head .ohlc .og{white-space:nowrap}
 .card-head .ohlc .ot b{font-weight:600;color:var(--fg)}
 .peer .cdi{width:9px;height:13px}
 .movers .cdi{width:10px;height:15px} .list .nmcell .cdi{width:10px;height:15px}
@@ -2387,13 +2388,14 @@ function metricRow(st) {
   return h('div', { class: 'mrow' }, `${m.long} `, h('b', { class: v == null ? 'flat' : cls(v), text: v == null ? '데이터 없음' : fmtPct(v) }),
     b ? h('span', { text: `${bd ? bd + ' ' : ''}종가 ${fmtInt(b)}원 대비` }) : null);
 }
-// under the price (§3-13): today's candle on the list's scale (cr; else its own) beside 시가 (±% vs 전일 종가) · 고가 · 저가
+// under the price (§3-13): today's candle on the list's scale (cr; else its own) beside 시가 · 고가 · 저가, each with ±% vs 전일 종가
+// (사용자 2026-11-10 12:06: 고가·저가에도 시가처럼 등락률). Parts are spaced, not dotted, so a wrapped line never ends in a separator.
 function ohlcRow(st, cr) {
   const o = kind() === 'day' ? ohlcOf(st) : null;
   if (!o) return null;
-  const op = (o.o / o.pc - 1) * 100;
+  const part = (label, v) => { const r = (v / o.pc - 1) * 100; return h('span', { class: 'og' }, `${label} `, h('b', { text: fmtInt(v) }), ' ', h('span', { class: cls(r), text: `(${fmtPct(r, 1)})` })); };
   return h('div', { class: 'ohlc' }, candleBar(o, Math.max(cr || 0, candleRange([o]))),
-    h('span', { class: 'ot' }, '시가 ', h('b', { text: fmtInt(o.o) }), ' ', h('span', { class: cls(op), text: `(${fmtPct(op, 1)})` }), ' · 고가 ', h('b', { text: fmtInt(o.h) }), ' · 저가 ', h('b', { text: fmtInt(o.l) })));
+    h('span', { class: 'ot' }, part('시가', o.o), part('고가', o.h), part('저가', o.l)));
 }
 function headBlock(st, how, cr) {
   const tipMode = how === 'tip', nameBtn = how === 'sheet-link';
