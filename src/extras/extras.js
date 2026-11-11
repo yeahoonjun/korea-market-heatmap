@@ -1858,11 +1858,36 @@ function sbIcon(kind) {
   }
   return root;
 }
+// the phase the pill names (§3-24): label, icon, colour, and the phase's own progress (the number the tooltip uses)
+function sbPhase(n, ph) {
+  const t = n.min + n.s / 60, { start, end } = ph.seg;
+  if (ph.text === '휴장') return { id: 'hol', label: '휴장', icon: 'caloff', color: '#a3a9b6' };
+  if (t < start) return { id: 'pre', label: '장 전', icon: 'glass', color: PH.pre, pct: t >= 8 * 60 ? Math.min(99, Math.floor(ph.fill * 100)) : null };
+  if (t < end) return ph.key === 'auc' ? { id: 'auc', label: '마감 동시호가', icon: 'bell', color: PH.auc, pct: null }
+    : { id: 'reg', label: '장 중', icon: 'candle', color: PH[ph.key], pct: ph.pct };
+  if (t < SB1) return { id: 'nxt', label: '애프터마켓', icon: 'moon', color: '#b99cf7', pct: Math.min(99, Math.floor(ph.fill * 100)) };
+  return { id: 'end', label: '장 마감', icon: 'lock', color: '#8f9fd8' };
+}
+function sbPhaseIcon(kind) {
+  const S = (t, a, ...k) => svg(t, a, ...k);
+  const root = S('svg', { viewBox: '0 0 12 12', class: 'sb-pi sb-pi-' + kind, 'aria-hidden': 'true', focusable: 'false', fill: 'none', stroke: 'currentColor', 'stroke-width': '1.2', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' });
+  if (kind === 'glass') root.append(S('path', { d: 'M3 1.4h6M3 10.6h6M3.7 1.4c0 2.3 1.3 2.9 2.3 4.6-1 1.7-2.3 2.3-2.3 4.6M8.3 1.4c0 2.3-1.3 2.9-2.3 4.6 1 1.7 2.3 2.3 2.3 4.6' }));
+  else if (kind === 'candle') root.append(S('path', { d: 'M3.4 1.2v9.6M8.6 2.2v8.2' }), S('rect', { x: 2.2, y: 3.2, width: 2.4, height: 4.4, rx: .4, fill: 'currentColor' }), S('rect', { x: 7.4, y: 4.2, width: 2.4, height: 3.4, rx: .4 }));
+  else if (kind === 'bell') root.append(S('g', { class: 'sb-bell' }, S('path', { d: 'M6 1.5c-1.9 0-3 1.4-3 3.2v1.9L1.9 8.4h8.2L9 6.6V4.7C9 2.9 7.9 1.5 6 1.5z', fill: 'currentColor', 'fill-opacity': '.25' }), S('path', { d: 'M4.9 9.8a1.2 1.2 0 0 0 2.2 0' })));
+  else if (kind === 'moon') root.append(S('path', { d: 'M7.3 1.3a4.7 4.7 0 1 0 3.5 7.9A3.9 3.9 0 0 1 7.3 1.3z', fill: 'currentColor', stroke: 'none' }));
+  else if (kind === 'lock') root.append(S('rect', { x: 2.4, y: 5.3, width: 7.2, height: 5.3, rx: 1.2, fill: 'currentColor', 'fill-opacity': '.25' }), S('path', { d: 'M4 5.3V3.9a2 2 0 0 1 4 0v1.4' }));
+  else root.append(S('rect', { x: 1.7, y: 2.4, width: 8.6, height: 7.8, rx: 1.3 }), S('path', { d: 'M1.7 4.9h8.6M4 1.3v2M8 1.3v2M1.2 11l9.6-9.6' }));
+  return root;
+}
 function sbBuild() {
   sb.segs = h('div', { class: 'sb-segs' });
   sb.fill = h('div', { class: 'sb-fill' });
   sb.track = h('div', { class: 'sb-track' }, sb.segs, sb.fill);
-  sb.ico = h('div', { class: 'sb-ico' });
+  sb.cap = h('span', { class: 'sb-cap' });
+  sb.pi = h('span', { class: 'sb-picon' });
+  sb.pt = h('span', { class: 'sb-pt' });
+  sb.pp = h('span', { class: 'sb-pp' });
+  sb.ico = h('div', { class: 'sb-pill' }, sb.cap, sb.pi, sb.pt, sb.pp);
   sb.tip = h('div', { class: 'sb-tip', role: 'status' });
   sb.box = h('div', { class: 'sb', role: 'progressbar', tabindex: 0, 'aria-valuemin': 0, 'aria-valuemax': 100 }, sb.track, sb.ico, sb.tip);
   const show = () => { sbTip(true); };
@@ -1873,14 +1898,31 @@ function sbBuild() {
   sb.box.addEventListener('blur', () => sbTip(false));
   sbEl.replaceChildren(sb.box);
   sb.built = true;
+  if (typeof ResizeObserver === 'function') new ResizeObserver(() => sbFit()).observe(sb.box);
 }
 function sbTip(on) {
   clearTimeout(sb.tipT);
   if (!on) { sb.tip.classList.remove('on'); return; }
   sb.tip.classList.add('on');
-  const bw = sb.box.clientWidth, cx = parseFloat(sb.ico.style.left) / 100 * bw, tw = sb.tip.offsetWidth;
+  const bw = sb.box.clientWidth, cx = isFinite(sb.cx) ? sb.cx : parseFloat(sb.ico.style.left) || 0, tw = sb.tip.offsetWidth;
   sb.tip.style.left = Math.max(4, Math.min(bw - tw - 4, cx - tw / 2)) + 'px';
   sb.tipT = setTimeout(() => sb.tip.classList.remove('on'), 4000);
+}
+// the pill sits centred on the bar's position, clamped inside the bar; too wide → drop the words, then the % → icon only (never taller)
+function sbFit() {
+  if (!sb.built || !sb.pos && sb.pos !== 0) return;
+  const bw = sb.box.clientWidth;
+  if (!bw) return;
+  const p = sb.ico;
+  let mode = 'full';
+  for (const m of ['full', 'short', 'icon']) {
+    mode = m;
+    p.dataset.mode = m;
+    if (p.offsetWidth <= bw * (m === 'icon' ? 1 : 0.5)) break;
+  }
+  const w = p.offsetWidth;
+  sb.cx = Math.max(w / 2, Math.min(bw - w / 2, sb.pos * bw));
+  p.style.left = sb.cx.toFixed(1) + 'px';
 }
 function sbRender(n, ph, lvl) {
   if (!sbEl) return;
@@ -1905,9 +1947,25 @@ function sbRender(n, ph, lvl) {
   const smooth = lvl === 'fancy';
   sb.fill.style.transition = sb.ico.style.transition = smooth ? 'clip-path 1s linear, left 1s linear' : 'none';
   sb.fill.style.clipPath = `inset(0 ${(100 - done * 100).toFixed(2)}% 0 0)`;
-  sb.ico.style.left = (pos * 100).toFixed(2) + '%';
-  if (sb.kind !== kind) { sb.kind = kind; sb.ico.replaceChildren(sbIcon(kind)); }
+  sb.pos = pos;
+  const pp = sbPhase(n, ph);
+  if (sb.kind !== kind) { sb.kind = kind; sb.cap.replaceChildren(sbIcon(kind)); }
+  const dup = pp.icon === 'moon' && kind === 'moon', sigP = pp.id + (dup ? '+' : '');
+  const textP = pp.label, pctP = pp.pct != null ? pp.pct + '%' : '';
+  if (sb.phase !== sigP) {
+    const first = sb.phase === undefined;
+    sb.phase = sigP;
+    if (dup) sb.pi.replaceChildren(); else sb.pi.replaceChildren(sbPhaseIcon(pp.icon));
+    sb.ico.style.setProperty('--pc', pp.color);
+    sb.ico.dataset.ph = pp.id;
+    if (!first && lvl === 'fancy') { try { sb.ico.animate([{ opacity: 0.2 }, { opacity: 1 }], { duration: 360, easing: 'ease-out' }); } catch (e) { /* static is fine */ } }
+  }
+  if (sb.pt.textContent !== textP) sb.pt.textContent = textP;
+  if (sb.pp.textContent !== pctP) sb.pp.textContent = pctP;
   sb.ico.classList.toggle('sb-fancy', lvl === 'fancy');
+  sb.ico.classList.toggle('sb-live', lvl === 'fancy' && pp.id === 'reg');
+  sb.ico.classList.toggle('sb-ring', lvl === 'fancy' && pp.id === 'auc');
+  sbFit();
   sb.box.classList.toggle('sb-hol', hol);
   // tooltip text: the phase and what is left of it
   let tip = ph.text;
@@ -1918,7 +1976,7 @@ function sbRender(n, ph, lvl) {
   }
   if (sb.tip.textContent !== tip) { sb.tip.textContent = tip; }
   sb.box.setAttribute('aria-valuenow', Math.round(done * 100));
-  sb.box.setAttribute('aria-valuetext', tip);
+  sb.box.setAttribute('aria-valuetext', `${pp.label}${pp.pct != null ? ' ' + pp.pct + '%' : ''}, ${tip}`);
   sb.box.setAttribute('aria-label', '장 진행');
   sb.box.title = sb.box.dataset.title ? `${tip}\n${sb.box.dataset.title}` : tip;
 }
