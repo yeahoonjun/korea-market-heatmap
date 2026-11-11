@@ -87,7 +87,11 @@ def tile_pct(pg, code):
 
 
 def pick(pg, v, wait=500):
-    pg.click(f'#basis [data-v="{v}"]'); pg.wait_for_timeout(wait)
+    # phones (≤ 760 px): KRX · NXT · 통합 is one chip with a menu; elsewhere the three buttons
+    if pg.evaluate("(() => { const c = document.getElementById('bchip'); return !!c && getComputedStyle(c).display !== 'none'; })()"):
+        pg.click('#bchip'); pg.wait_for_timeout(120); pg.click(f'#bmenu .bm-it[data-v="{v}"]')
+    else: pg.click(f'#basis [data-v="{v}"]')
+    pg.wait_for_timeout(wait)
 
 
 def table_row(pg, code):
@@ -482,11 +486,12 @@ with sync_playwright() as p:
                     if v and not pg.evaluate("document.getElementById('basis').hidden"): pick(pg, v, 400)
                     over = pg.evaluate("document.documentElement.scrollWidth - innerWidth")
                     lab = pg.evaluate(LABEL_CHECK_JS)
-                    hdr = pg.evaluate("""() => { const kids = [...document.querySelectorAll('.top > *, #status > *, #status .badge > *, #basis button')].filter(e => e.offsetParent && e.getClientRects().length);
+                    hdr = pg.evaluate("""() => { const kids = [...document.querySelectorAll('.top > *, #status > *, #status .badge > *, #basis button, #bchip')].filter(e => e.offsetParent && e.getClientRects().length);
                       const out = kids.filter(e => { const r = e.getBoundingClientRect(); return r.right > innerWidth + 0.5 || r.left < -0.5; }).map(e => e.id || e.className || e.tagName);
                       const st = document.getElementById('status').getBoundingClientRect(), ck = document.getElementById('clock').getBoundingClientRect();
                       return { out, overlap: ck.width > 0 && ck.right > st.left + 0.5 && ck.top < st.bottom && st.top < ck.bottom }; }""")
-                    tap = pg.evaluate("[...document.querySelectorAll('#basis button')].filter(e => e.offsetParent).map(e => { const r = e.getBoundingClientRect(); return [Math.round(r.width), Math.round(r.height)]; })")
+                    # phones: the chip — 32 px drawn, its tap area 40 px tall (::after up to the header's top edge)
+                    tap = pg.evaluate("[...document.querySelectorAll('#basis button, #bchip')].filter(e => e.offsetParent && getComputedStyle(e).display !== 'none').map(e => { const r = e.getBoundingClientRect(), a = getComputedStyle(e, '::after'); return [Math.round(r.width), Math.round(r.height - (parseFloat(a.top) || 0))]; })")
                     tapok = all(w >= 40 and hh >= 40 for w, hh in tap) if vp.startswith('m') else True
                     ok(f'{ph}{"/" + v if v else ""} {vp}: overflow 0, console 0, labels inside ({lab["visible"]}), header inside, basis buttons {tap}{" ≥ 40 px" if vp.startswith("m") else ""}',
                        over == 0 and not errs(log) and lab['overflow'] == 0 and not hdr['out'] and not hdr['overlap'] and tapok, (over, errs(log)[:2], lab['examples'][:1], hdr, tap))

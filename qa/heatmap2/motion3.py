@@ -54,8 +54,9 @@ with sync_playwright() as p:
         ctx, pg, log = fresh(b, 'd1440', store={'market': 'K'})
         r = pg.evaluate("""() => ({ motion: KH.motion(), dm: document.documentElement.dataset.motion, types: ['motion','addSetting','getSetting','refresh','marketStatus','view','setReplay','layout'].map(k => typeof KH[k]),
           ms: KH.marketStatus(), clockInTitle: !!document.querySelector('.brand #clock'), view: KH.view() })""")
-        ok('KH hooks exist; motion() = standard by default (html[data-motion] mirrors it); #clock sits in the title spot',
-           r['motion'] == 'standard' and r['dm'] == 'standard' and set(r['types']) == {'function'} and r['clockInTitle'] and r['view'] == 'map', r)
+        # main 491c95f: the default is 화려하게 (fancy) unless the device asks for reduced motion
+        ok('KH hooks exist; motion() = fancy by default (main 491c95f; html[data-motion] mirrors it); #clock sits in the title spot',
+           r['motion'] == 'fancy' and r['dm'] == 'fancy' and set(r['types']) == {'function'} and r['clockInTitle'] and r['view'] == 'map', r)
         ok('KH.marketStatus() → {KOSPI, KOSDAQ}', isinstance(r['ms'], dict) and ('KOSPI' in r['ms'] or not LIVE), r['ms'])
         # addSetting: switch + 2/3-option choice, onChange at registration and on change, khm.set.<key>, kh:setting
         r = pg.evaluate("""() => { const log = []; document.addEventListener('kh:setting', e => log.push('ev:' + e.detail.key + '=' + e.detail.value));
@@ -76,6 +77,8 @@ with sync_playwright() as p:
         ok('clicking: stored as khm.set.<key>, aria-checked / aria-pressed follow, getSetting follows', r['ls'] == ['false', '"a"'] and r['aria'] == 'false' and r['pressed'] == ['true', 'false'] and r['g'] == [False, 'a'], r)
         # 효과: 화려하게 → kh:motion, localStorage khm.motion, Esc closes the popover and returns focus
         pg.evaluate("window.__mo = []; document.addEventListener('kh:motion', e => window.__mo.push(e.detail.motion))")
+        pg.click('#motionseg button[data-mo="standard"]'); pg.wait_for_timeout(100)            # from the fancy default: 기본 first, then 화려하게
+        pg.evaluate("window.__mo = []")
         pg.click('#motionseg button[data-mo="fancy"]'); pg.wait_for_timeout(100)
         r = pg.evaluate("({m: KH.motion(), ev: window.__mo, ls: localStorage.getItem('khm.motion'), dm: document.documentElement.dataset.motion})")
         ok('효과 화려하게 → KH.motion() fancy, kh:motion {motion}, khm.motion, html[data-motion]', r == {'m': 'fancy', 'ev': ['fancy'], 'ls': '"fancy"', 'dm': 'fancy'}, r)
@@ -204,7 +207,7 @@ with sync_playwright() as p:
         on = [x for x in r if x['on']]; off = [x for x in r if not x['on']]
         ok('a key press during the intro finishes it at once (< 200 ms)', on and off and off[0]['t'] - on[0]['t'] < 200, [(x['on'], round(x['t'])) for x in r])
         ctx.close()
-        ctx, pg, log = fresh(b, 'd1440', store={'market': 'K'}, init=[REC])
+        ctx, pg, log = fresh(b, 'd1440', store={'market': 'K', 'motion': 'standard'}, init=[REC])
         ok('기본: no intro', not [x for x in pg.evaluate("window.__ir") if x['on']])
         ctx.close()
 

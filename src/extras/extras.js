@@ -176,22 +176,41 @@ async function tkAux(force) {
       return true;
     }).catch(() => false))));
   }
-  const codes = tkCodes(ids);
+  // §3-24 stock items read the heatmap's quote store (KH.quote: one row per code, the chosen price basis); only codes the store does
+  // not hold are fetched here, and what comes back feeds the store (KH.quotes.put) so the map, tabs and stock page see it too
+  const tracked = c => { try { return !!(KH.quotes && typeof KH.quotes.tracked === 'function' && KH.quotes.tracked(c)); } catch (e) { return false; } };
+  const codes = tkCodes(ids).filter(c => !tracked(c));               // the heatmap keeps the main stream and its theme / 관심 codes fresh
   for (let i = 0; i < codes.length; i += 300) {
     const part = codes.slice(i, i + 300);
-    jobs.push(getJSON('api/quotes?codes=' + part.join(',')).then(j => { for (const r of (j && j.stocks) || []) { tkx.q.set(String(r.c), r); tkx.names.set('s:' + r.c, r.n); } }).catch(() => { /* "—" */ }));
+    jobs.push(getJSON('api/quotes?codes=' + part.join(',')).then(j => {
+      const rows = (j && j.stocks) || [];
+      for (const r of rows) { tkx.q.set(String(r.c), r); tkx.names.set('s:' + r.c, r.n); }
+      try { if (KH.quotes && typeof KH.quotes.put === 'function') KH.quotes.put(rows, j && j.asOf); } catch (e) { /* the ticker keeps its own copy */ }
+    }).catch(() => { /* "—" */ }));
   }
   await Promise.all(jobs);
 }
 function tkStockItem(code) {
-  const r = tkx.q.get(code), nm = (r && r.n) || tkx.names.get('s:' + code) || code;
+  let q = null;
+  try { q = has('quote') ? KH.quote(code) : null; } catch (e) { q = null; }
+  const r = q || tkx.q.get(code), nm = (r && r.n) || tkx.names.get('s:' + code) || code;
   if (!r || r.p == null || !isFinite(+r.p)) return { key: 's:' + code, name: nm, none: true, def: { label: nm, dp: 0 } };
+  if (r.n) tkx.names.set('s:' + code, r.n);
   return { key: 's:' + code, name: nm, value: +r.p, change: +r.d, ratio: +r.r, def: { label: nm, dp: 0, unit: '원', full: nm } };
+}
+// 코스피 / 코스닥 items: the quotes' index (the tabs' numbers, every poll) when it is newer than /api/market's; the spark stays
+function tkIndexItem(it) {
+  if (!it || (it.key !== 'KOSPI' && it.key !== 'KOSDAQ') || !has('index') || !has('asOf')) return it;
+  try {
+    const x = (KH.index() || {})[it.key], qa = Date.parse(KH.asOf()), ma = Date.parse(strip.asOf);
+    if (!x || !isFinite(+x.value) || !(+x.value > 0) || !(qa >= ma || !isFinite(ma))) return it;
+    return Object.assign({}, it, { value: +x.value, change: +x.change, ratio: +x.ratio });
+  } catch (e) { return it; }
 }
 function tkSource() {
   const ids = tkIds();
-  if (!ids || !strip.items) return strip.items;                                      // the Worker's own set, in its order
-  const byKey = new Map(strip.items.map(i => [i.key, i]));
+  if (!ids || !strip.items) return strip.items && strip.items.map(tkIndexItem);     // the Worker's own set, in its order
+  const byKey = new Map(strip.items.map(i => [i.key, tkIndexItem(i)]));
   const out = [], seen = new Set();
   const push = it => { if (!seen.has(it.key)) { seen.add(it.key); out.push(it); } };
   for (const id of ids) {
@@ -666,7 +685,9 @@ function initStrip() {
     renderStrip();
     pollStrip();
     setInterval(() => { if (!document.hidden) syncTail(); }, 15000);        // the minute passes without a poll changing anything
-    document.addEventListener('kh:data', () => syncTail());
+    // every quotes poll (and every store update): stock / index items follow the heatmap's numbers at once
+    document.addEventListener('kh:data', () => { if (strip.items && !tkHold.down) renderStrip(); else syncTail(); });
+    document.addEventListener('kh:basis', () => { if (strip.items) renderStrip(); });          // KRX · NXT · 통합 picked: stock items follow
     document.addEventListener('kh:watch', () => { const a = tkIds(); if (a && a.some(x => x.startsWith('g:'))) tkAux().then(() => renderStrip()).catch(() => {}); });
     document.addEventListener('visibilitychange', () => {
       if (document.hidden) { clearTimeout(strip.timer); return; }
@@ -790,6 +811,18 @@ function readChrome(world) {
     if (crumbs.length) out.title = crumbs.join(' › ');
     const st = document.querySelector('#crumbs .stat'), b = st && st.querySelector('b');
     if (st && b && st.firstChild) out.stat = { n: String(st.firstChild.textContent).trim(), pct: b.textContent.trim(), color: rgbOf(b) };
+    // the row as shown, piece by piece (a market root reads "코스피 지수 +3.70%" or "코스피 +x · 코스닥 +y", desktop "300종목 · 시총 …"):
+    // text and labels muted, the coloured numbers bold; pieces the screen hides (시총 on phones) left out, screen-reader labels kept
+    if (st) {
+      const parts = [];
+      for (const nd of st.childNodes) {
+        if (nd.nodeType === 3) { if (nd.textContent.trim()) parts.push({ t: nd.textContent.replace(/\s+/g, ' ') }); continue; }
+        if (nd.nodeType !== 1 || (!nd.classList.contains('sr') && getComputedStyle(nd).display === 'none')) continue;
+        const t = nd.textContent.replace(/\s+/g, ' ');
+        if (t.trim()) parts.push(nd.tagName === 'B' ? { t, c: rgbOf(nd), b: true } : { t });
+      }
+      if (parts.length) out.stat = Object.assign(out.stat || {}, { parts });
+    }
     out.ix = readIxLine();
   }
   out.legend = readLegend(document.querySelector(world ? '.kw-legend' : '#legend'));
@@ -952,7 +985,15 @@ function drawMap(nodes, wt) {
     const cy = TH / 2;
     let right = W - pad;
     ctx.textAlign = 'right';
-    if (chrome.stat) {
+    if (chrome.stat && chrome.stat.parts) {
+      const fs = W < 520 ? 12 : 13;
+      for (const p of chrome.stat.parts.slice().reverse()) {
+        ctx.font = `${p.b ? 600 : 500} ${fs}px ${fam}`;
+        ctx.fillStyle = p.c || '#8a8f99'; ctx.fillText(p.t, right, cy);
+        right -= ctx.measureText(p.t).width;
+      }
+      right -= 12;
+    } else if (chrome.stat) {
       ctx.font = `600 ${W < 520 ? 12 : 13}px ${fam}`;
       const pw = ctx.measureText(chrome.stat.pct).width;
       ctx.fillStyle = chrome.stat.color; ctx.fillText(chrome.stat.pct, right, cy);

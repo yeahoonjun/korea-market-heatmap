@@ -27,6 +27,13 @@ def ok(item, cond, info=''):
 def errs(log): return [c for c in log.console if c.startswith('error') or c.startswith('pageerror')]
 def won(v): return f'{round(v):,}'
 
+def basis_pick(pg, v):
+    """phones: the chip's menu; elsewhere the KRX · NXT · 통합 buttons"""
+    if pg.evaluate("(() => { const c = document.getElementById('bchip'); return !!c && getComputedStyle(c).display !== 'none'; })()"):
+        pg.click('#bchip'); pg.wait_for_timeout(120); pg.click(f'#bmenu .bm-it[data-v="{v}"]')
+    else: pg.click(f'#basis [data-v="{v}"]')
+
+
 
 def fresh(b, vp, phase=None, store=None, hsh='', url=LIVE, wait=3500, hook=None):
     ctx = b.new_context(**VIEWPORTS[vp], service_workers='block')
@@ -78,7 +85,7 @@ with sync_playwright() as p:
         ctx, pg, log, _ = fresh(b, 'd1440', 'reg')
         got = {}
         for v in ['int', 'nxt', 'krx']:
-            pg.click(f'#basis [data-v="{v}"]'); pg.wait_for_timeout(400)
+            basis_pick(pg, v); pg.wait_for_timeout(400)
             got[v] = pg.evaluate("['005930', '000660', '035720'].map(c => KH.ohlc(c))")
         ex = {v: [expect(QR[c], v) for c in ['005930', '000660', '035720']] for v in ['int', 'nxt', 'krx']}
         ok('KH.ohlc in the regular session: 통합 (o = NXT open, h/l = wider of the two, c = KRX price), NXT (NXT values), KRX (KRX values); a stock without NXT under NXT → its KRX values',
@@ -99,7 +106,7 @@ with sync_playwright() as p:
         ctx, pg, log, _ = fresh(b, 'd1440', 'pre')
         o = pg.evaluate("KH.ohlc('005930')"); x = QP['005930']['nx']
         ok(f"pre-market 통합: KRX has not traded → NXT's candle (o {won(x['op'])}, c {won(x['p'])})", o and o['o'] == x['op'] and o['c'] == x['p'] and o['h'] == max(x['hi'], x['p']) and o['pc'] == QP['005930']['p'], o)
-        pg.click('#basis [data-v="krx"]'); pg.wait_for_timeout(400)
+        basis_pick(pg, 'krx'); pg.wait_for_timeout(400)
         ok('pre-market KRX (어제 종가, krx-prev) → null, lists keep their squares', pg.evaluate("[KH.basis(), KH.ohlc('005930'), document.querySelectorAll('#movers .cdi').length]") == ['krx-prev', None, 0])
         ctx.close()
 

@@ -60,6 +60,13 @@ def fresh(b, vp, store=None, hsh='', init=(), routes=None, wait=WAIT, phase=None
 def errs(log):
     return [c for c in log.console if c.startswith('error') or c.startswith('pageerror')]
 
+def basis_pick(pg, v):
+    """phones: the chip's menu; elsewhere the KRX · NXT · 통합 buttons"""
+    if pg.evaluate("(() => { const c = document.getElementById('bchip'); return !!c && getComputedStyle(c).display !== 'none'; })()"):
+        pg.click('#bchip'); pg.wait_for_timeout(120); pg.click(f'#bmenu .bm-it[data-v="{v}"]')
+    else: pg.click(f'#basis [data-v="{v}"]')
+
+
 
 with sync_playwright() as p:
     b = launch(p)
@@ -128,7 +135,7 @@ with sync_playwright() as p:
         pg.click('.viewseg button[data-v="map"]'); pg.wait_for_timeout(300)
         # size by cap follows the price (cap × p_shown / p_quote)
         w1 = pg.evaluate("(() => { const L = KH.layout().filter(n => n.kind === 'tile'); const a = L.find(n => n.code === '005930'), b = L.find(n => n.code === '000660'); return a.w * a.h / (b.w * b.h); })()")
-        pg.click('#basis [data-v="nxt"]'); pg.wait_for_timeout(900)
+        basis_pick(pg, 'nxt'); pg.wait_for_timeout(900)
         lab2 = pg.evaluate("document.querySelector('#map .tile[data-c=\"005930\"]').getAttribute('aria-label')")
         st2 = pg.evaluate("({pressed: document.querySelector('#basis [aria-pressed=\"true\"]')?.dataset.v, badge: document.querySelector('#status .badge .bl')?.textContent})")
         ok(f"NXT: 삼성전자 tile % = the after-market's last NXT price {ss['nx']['r']}", abs(pnum(lab2.split(' ')[-1]) - ss['nx']['r']) < 0.006 and st2['pressed'] == 'nxt', (lab2, st2))
@@ -176,19 +183,19 @@ with sync_playwright() as p:
         rowsK = [r for (m, _), bb in sorted(br_l.items()) if m == 'K' for r in bb['rows']]
         vals = [stream[r[0]]['r'] if r[0] in stream else r[1] for r in rowsK]
         ctx, pg, log = fresh(b, 'd1280', store={'market': 'K'}, phase='legacy')
-        pg.click('#basis [data-v="int"]'); pg.wait_for_timeout(2500)
+        basis_pick(pg, 'int'); pg.wait_for_timeout(2500)
         d = dist(pg); up = sum(1 for v in vals if v > 0)
         reqs = sorted(set(u.split('?')[1] for u in log.reqs if 'api/breadth' in u))
         nparts = max(k[1] for k in br_l if k[0] == 'K')
         ok(f'통합 (older Worker): 코스피 전 종목 {len(rowsK)} from /api/breadth parts 1..{nparts}', d['scope'] == f'코스피 전 종목 {len(rowsK):,}' and f'상승 {up:,}' in d['lab'] and 'm=K&part=0' not in reqs, (d, reqs, up))
         ctx.close()
         ctx, pg, log = fresh(b, 'd1280', store={'market': 'K'}, phase='legacy', routes={'**/api/breadth?m=K&part=2': lambda r: r.abort()})
-        pg.click('#basis [data-v="int"]'); pg.wait_for_timeout(2500)
+        basis_pick(pg, 'int'); pg.wait_for_timeout(2500)
         d = dist(pg)
         ok('one part fails → counts what arrived + "일부만 반영"', '일부만 반영' in d['scope'] and '일부 묶음' in d['note'], d)
         ctx.close()
         ctx, pg, log = fresh(b, 'd1280', store={'market': 'K'}, phase='legacy', routes={'**/api/breadth*': lambda r: r.fulfill(status=502, body='{"error":"x"}')})
-        pg.click('#basis [data-v="int"]'); pg.wait_for_timeout(2500)
+        basis_pick(pg, 'int'); pg.wait_for_timeout(2500)
         d = dist(pg)
         ok('every part fails → map stocks + says so', d['scope'].startswith('코스피 지도 ') and '불러오지 못해 지도 종목' in d['note'], d)
         ctx.close()

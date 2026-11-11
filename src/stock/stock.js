@@ -39,7 +39,7 @@ const KST = 9 * 3600;
 const WD = ['일', '월', '화', '수', '목', '금', '토'];
 const MINUS = '−';
 const PHASE = {
-  open: { chip: '장 중', live: true },
+  open: { chip: '실시간', live: true },
   after: { chip: '시간외', live: true, note: '정규장이 끝나 NXT·시간외 거래 중이에요' },
   pre: { chip: '장 시작 전', live: true },
   closed: { chip: '장 마감' },
@@ -292,17 +292,32 @@ function setRoll(el, text, dir) {
   rollTimers.set(el, setTimeout(() => { rollTimers.delete(el); if (el.dataset.v === text) el.textContent = text; }, d + maxDelay + 60));
 }
 let headPrev = null;   // {code, price} of the last quote drawn, to tell which way it moved
+const headQuote = () => { try { const q = LIVE && typeof KH.quote === 'function' ? KH.quote(S.code) : null; return q && isNum(q.p) && q.p > 0 ? q : null; } catch (e) { return null; } };
+// the summary feeds the heatmap's quote store (taken only when it is fresher than the row held): its price, change, day candle, volume, NXT
+function feedStore(j) {
+  if (!LIVE || !j || !isNum(j.price) || !(+j.price > 0) || !KH.quotes || typeof KH.quotes.put !== 'function') return;
+  const nx = j.nxt && isNum(j.nxt.p) ? j.nxt : null;
+  try {
+    KH.quotes.put([{ c: String(j.code || S.code), partial: true, p: +j.price, d: +j.change || 0, r: +j.ratio || 0, t: j.asOf || null,
+      op: j.open, hi: j.high, lo: j.low, v: j.volume, tv: j.tradingValue, nx }], j.asOf);
+  } catch (e) { /* the page still draws from its summary */ }
+}
 function renderHead() {
   const st = KH.stock(S.code), s = S.sum;
   const name = (s && s.name) || (st && st.n) || (LIVE && !S.sumErr ? '' : S.code);
   R.name.replaceChildren(name || skel('6em', '0.9em'));
+  R.name.classList.toggle('long', !!name && [...name].length > 7);      // phones: 8+ characters (삼성바이오로직스, 한화에어로스페이스) fit at 16 px
   R.code.textContent = name === S.code ? '' : S.code;
   const m = (s && s.market) || (st && st.m);
   R.mkt.textContent = m ? KH.MKT_NAME[m] || '' : '';
   R.path.textContent = st && st.s ? `${st.s} › ${st.i}` : '';
   R.path.hidden = !(st && st.s);
   let price = null, chg = null, ratio = null;
-  if (s && isNum(s.price)) { price = +s.price; chg = +s.change; ratio = +s.ratio; }
+  // §3-24 the headline is the heatmap's row for this code in the chosen price basis (KRX · NXT · 통합) — the same number the map, the
+  // ★관심 tab and the ticker show; the summary only fills in when the heatmap holds no row (snapshot, a stock outside every list)
+  const q = headQuote();
+  if (q) { price = q.p; chg = q.d; ratio = q.r; }
+  else if (s && isNum(s.price)) { price = +s.price; chg = +s.change; ratio = +s.ratio; }
   else if (st) { price = st.p; chg = st.d; ratio = st.r; }
   if (price == null) {
     settleRoll(R.price); settleRoll(R.chg); delete R.price.dataset.v; delete R.chg.dataset.v; headPrev = null;
@@ -338,14 +353,28 @@ function limitOf() {
 }
 // NXT line (AGENTS.md §3-8): summary.nxt {p,d,r,s:'pre'|'after',o:1|0,t}; null/missing = the stock has no NXT trading, no line
 let nxtPrev = null;
+// the NXT session windows (KST): 프리 08:00–08:50, 메인 09:00–15:20, 애프터 15:30–20:00 — the heatmap's rule (§3-10)
+function nxWindow(sess) {
+  const now = kst(new Date()), w = { pre: [800, 850], reg: [900, 1520], after: [1530, 2000] }[sess];
+  return !!w && now.wd >= 1 && now.wd <= 5 && now.hm >= w[0] && now.hm < w[1];
+}
 function renderNxt() {
-  const x = S.sum && S.sum.code === S.code && S.sum.nxt && isNum(S.sum.nxt.p) ? S.sum.nxt : null, n = R.nxt;
+  // the other venue under the headline: NXT normally; KRX when the headline itself is an NXT price (NXT, or 통합 while NXT traded last)
+  const q = headQuote(), st = KH.stock(S.code), n = R.nxt;
+  const own = st && st.nx && isNum(st.nx.p) ? st.nx : null;
+  let x = own || (S.sum && S.sum.code === S.code && S.sum.nxt && isNum(S.sum.nxt.p) ? S.sum.nxt : null), krx = false;
+  if (q && q.venue === 'NXT' && st && isNum(st.p)) { x = { p: st.p, d: st.d, r: st.r, t: null }; krx = true; }
   n.hidden = !x;
   if (!x) { nxtPrev = null; return; }
   const K = n.querySelector('.k'), PV = n.querySelector('.pv'), PR = n.querySelector('.pr'), T = n.querySelector('.t');
-  const pre = x.s === 'pre', open = !!x.o, c = cls(+x.d);
+  // label: just the venue. The session (Naver's tradingSessionType → Worker s: pre · reg · after) and whether it is trading go in the
+  // tooltip; "trading" = Naver's OPEN flag and the KST clock inside that session's window, the map's rule (§3-10: Naver leaves OPEN on
+  // for a while after a session ends)
+  const c = cls(+x.d), sess = { pre: '프리마켓', reg: '메인마켓', after: '애프터마켓' }[x.s] || '';
   n.className = 'sp-nxt num ' + c;
-  K.textContent = `NXT ${pre ? (open ? '프리마켓' : '프리마켓 마감') : (open ? '애프터마켓' : '애프터 종가')}`;
+  K.textContent = krx ? 'KRX' : 'NXT';
+  const live = !krx && !!x.o && nxWindow(x.s);
+  n.title = krx ? 'KRX(한국거래소) 시세' : `NXT(넥스트레이드)${sess ? ' ' + sess : ''} · ${live ? '거래 중' : '마감'}`;
   const d = toDate(x.t), tm = d ? clock(d).slice(0, 5) : '';
   const dir = nxtPrev && nxtPrev.code === S.code ? Math.sign(+x.p - nxtPrev.p) : 0;
   nxtPrev = { code: S.code, p: +x.p };
@@ -353,7 +382,8 @@ function renderNxt() {
   if (fancy() && dir) { setRoll(PV, pv, dir); setRoll(PR, pr, dir); }
   else for (const [el, t] of [[PV, pv], [PR, pr]]) if (el.dataset.v !== t) { settleRoll(el); el.textContent = t; el.dataset.v = t; }
   T.textContent = tm ? ` · ${tm}` : '';
-  n.setAttribute('aria-label', `${K.textContent} ${pv}원 ${pr}${tm ? ' ' + tm : ''}`);
+  if (tm) n.title += ` · ${tm}`;                       // phones ≤ 430 px hide the time on the line
+  n.setAttribute('aria-label', `${krx ? 'KRX' : n.title} ${pv}원 ${pr}${tm ? ' ' + tm : ''}`);
 }
 function renderLim() {
   const lim = limitOf();
@@ -463,7 +493,8 @@ function renderMeta() {
   } else {
     const ph = PHASE[S.phase] || PHASE.unknown;
     if (ph.chip) kids.push(chip(ph.chip, ph.live));
-    if (S.sum && S.sum.asOf) kids.push(h('span', { text: `네이버 증권 · ${asOfLabel(S.sum.asOf)} 기준` }));
+    const q = headQuote(), at = q && isFinite(q.ts) ? new Date(q.ts).toISOString() : S.sum && S.sum.asOf;   // the headline's own time
+    if (at) kids.push(h('span', { text: `네이버 증권 · ${asOfLabel(at)} 기준` }));
     if (nxtApplies()) kids.push(h('span', { class: 'sp-nxt', title: '정규장(15:30)이 끝난 뒤의 가격이라 NXT와 시간외 거래가 섞여 있어요.', text: 'NXT·시간외 거래 포함' }));
     if (ph.note && S.phase !== 'after') kids.push(h('span', { class: 'sp-phase-note', text: ph.note }));
     if (!S.sum && !S.sumErr) kids.push(skel('14em', '0.9em'));
@@ -577,6 +608,7 @@ async function peerFetchRows(list) {
     const raw = await res.json();
     if (S.code !== code) return;
     R.peerRows = new Map(((raw && raw.stocks) || []).filter(x => x && x.c).map(x => [String(x.c), x]));
+    try { if (KH.quotes && typeof KH.quotes.put === 'function') KH.quotes.put((raw && raw.stocks) || [], raw && raw.asOf); } catch (e) { /* the list keeps its own rows */ }
     if (S.open && R.peerList) peerItems().forEach((x, i) => { const b = R.peerList.children[i]; if (b && b.dataset.code === x.c) peerCandle(b.children[0], x.c); });
   } catch (e) { /* no icons for these; the list itself is fine */ } finally { clearTimeout(killer); }
 }
@@ -626,6 +658,7 @@ async function loadSummary(quiet) {
     const j = await api('summary', 'sum');
     if (g !== S.gen) return;
     S.sum = j; S.sumErr = null;
+    feedStore(j);
   } catch (e) {
     if (aborted(e) || g !== S.gen) return;
     if (!quiet || !S.sum) S.sumErr = e;
@@ -1934,7 +1967,8 @@ document.addEventListener('visibilitychange', () => {
   else stopTimers();   // loads already in flight may finish; nothing new starts while hidden
 });
 document.addEventListener('kh:palette', () => { if (root) { applyColors(); if (S.open) renderPeers(); } });
-document.addEventListener('kh:data', () => { if (S.open) { renderPeers(); renderHead(); } });   // 업종 path / provisional price arrive with the quotes
+document.addEventListener('kh:data', () => { if (S.open) { renderPeers(); renderHead(); if (LIVE) renderMeta(); } });
+document.addEventListener('kh:basis', () => { if (S.open) renderHead(); });   // the headline is the row in the chosen basis   // 업종 path / provisional price arrive with the quotes
 document.addEventListener('kh:motion', () => { if (!fancy() && R.price) { settleRoll(R.price); settleRoll(R.chg); } });
 document.addEventListener('kh:watch', () => { if (S.open) { renderStar(); if (gp && !usePicker()) gpClose(false); else gpFill(); } });
 

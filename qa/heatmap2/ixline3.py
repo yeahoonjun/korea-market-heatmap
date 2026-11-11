@@ -17,7 +17,9 @@ SHOTS = HERE + '/shots3/'
 MK = json.load(open(HERE + '/fixtures/ix_market.json'))
 Q = json.load(gzip.open(HERE + '/fixtures/ix_quotes.json.gz'))
 CLOCK = '2026-11-10T13:02:50+09:00'
-TOP = {'m390': 240, 'd1280': 191}            # map top before §3-20 (live); the snapshot's phone header is shorter (234)
+# the header row's own height without the line (main 7e7dbdf): phones 44, 768 and desktop 36 — the line must not change it (map top
+# itself moves with the clock / ticker rows above, which are not this module's)
+SBH = {'m360': 44, 'm390': 44, 't768': 36, 'd1280': 36, 'd1440': 36, 'd1920': 36}
 res = []
 
 
@@ -82,7 +84,9 @@ IX = """(() => { const e = document.getElementById('ixl'), sb = document.querySe
   const r = e.getBoundingClientRect(), mr = document.getElementById('map').getBoundingClientRect();
   return { on, mode: sb.classList.contains('ix-bg') ? 'bg' : sb.classList.contains('ix-row') ? 'row' : e.closest('#crumbs') ? 'in' : '', label: e.getAttribute('aria-label'),
     v: e.querySelector('.ixv').innerText.replace(/\\s+/g, ' ').trim(), t: e.querySelector('.ixt').innerText.replace(/\\s+/g, ' ').trim(), lines, dt,
-    y0: bl ? +bl.getAttribute('y1') : null, W: Math.round(c.clientWidth), H: Math.round(c.clientHeight), w: Math.round(r.width), h: Math.round(r.height),
+    y0: bl ? +bl.getAttribute('y1') : null, W: Math.round(c.clientWidth),
+    tl: (() => { const vs = document.querySelector('.stagebar > .viewseg'); return vs ? Math.round(vs.getBoundingClientRect().left - c.getBoundingClientRect().left) : null; })(),
+    dotR: Math.max(0, ...[...e.querySelectorAll('svg .dt')].map(d => d.getBoundingClientRect().right)), tgl: Math.round((document.querySelector('.stagebar > .viewseg') || { getBoundingClientRect: () => ({ left: 1e9 }) }).getBoundingClientRect().left), H: Math.round(c.clientHeight), w: Math.round(r.width), h: Math.round(r.height),
     top: Math.round(mr.top), sbh: Math.round(sb.getBoundingClientRect().height), over: document.documentElement.scrollWidth - innerWidth,
     nul: /\\bnull\\b|undefined|NaN/.test(document.querySelector('.stagebar').innerText + ' ' + (e.getAttribute('aria-label') || '')),
     hint: !!document.querySelector('#crumbs .hint') && getComputedStyle(document.querySelector('#crumbs .hint')).display !== 'none',
@@ -111,10 +115,10 @@ with sync_playwright() as p:
                 r = pg.evaluate(IX)
                 keys = {'K': ['KOSPI'], 'Q': ['KOSDAQ'], 'ALL': ['KOSPI', 'KOSDAQ']}[mkt]
                 lab = ' · '.join(f"{'코스피' if k == 'KOSPI' else '코스닥'} 오늘 흐름, 지금 {fmt2(Q['index'][k]['value'])} ({pct(Q['index'][k]['ratio'])})" for k in keys)
-                top_ok = (r['top'] == TOP[vp]) if vp in TOP else (r['top'] <= 191 + 40 if vp == 'd1024' else True)
+                top_ok = r['sbh'] == SBH[vp] if vp in SBH else r['sbh'] <= 36 + 40
                 good = (r['on'] and r['mode'] == want_mode[vp] and r['label'] == lab and len(r['lines']) == len(keys) and all(l['n'] == NSP + 1 for l in r['lines'])
                         and all(l['cls'].split()[0] == 'up' for l in r['lines']) and top_ok and r['over'] == 0 and not r['nul'] and not errs(log))
-                ok(f"{vp} {mkt}: {r['mode']} ({r['w']}×{r['h']}), {len(r['lines'])} line(s) of {NSP} bars + the quote, up colour, map top {r['top']}, label '{lab[:44]}…'", good,
+                ok(f"{vp} {mkt}: {r['mode']} ({r['w']}×{r['h']}), {len(r['lines'])} line(s) of {NSP} bars + the quote, up colour, header row {r['sbh']} px, label '{lab[:44]}…'", good,
                    {k: r[k] for k in ('on', 'mode', 'label', 'top', 'over', 'nul', 'v', 't')} | {'lines': [(l['cls'], l['n']) for l in r['lines']], 'errs': errs(log)[:2]})
                 if mkt == 'K' and vp in ('d1280', 'd1920', 'd1024'):
                     ok(f"{vp} B labels: '{r['v']}' · '{r['t']}' (value / %, now / 15:30)", r['v'] == f"{fmt2(KP['value'])} {pct(KP['ratio'])}" and r['t'] == '13:02 / 15:30', (r['v'], r['t']))
@@ -123,10 +127,11 @@ with sync_playwright() as p:
                 if vp in ('m390', 't768', 'd1280', 'd1920'): pg.screenshot(path=SHOTS + f'ix-{vp}-{mkt}.png', clip={'x': 0, 'y': max(0, r['top'] - 110), 'width': V[vp]['viewport']['width'], 'height': 150})
                 if mkt == 'K' and vp == 'm390':
                     # x axis 09:00 → 15:30: the last point (13:02 = 242 min) sits at 242 / 390 of the width; dashed line = 전일 종가 below a rising line
-                    xr = r['dt'][0][0] / r['W']
-                    ok(f"m390 x axis fixed 09:00–15:30: the now dot at {xr:.3f} of the width (13:02 → {242 / 390:.3f}); line above the dashed 전일 종가 ({r['lines'][0]['ymax']} < {r['y0']})",
-                       abs(xr - 242 / 390) < 0.02 and r['lines'][0]['ymax'] < r['y0'], (r['dt'], r['W'], r['y0']))
-                    ok('m390 A: no added height (map top 240), the row text sits above the line (z-order), hint hidden', r['top'] == 240 and pg.evaluate(
+                    # A's 09:00 → 15:30 axis runs from the row's left to 8 px before the 지도/표 toggle
+                    want = 3 + (242 / 390) * (r['tl'] - 8 - 3)
+                    ok(f"m390 x axis 09:00–15:30 fitted left of the toggle (axis end {r['tl'] - 8}): the 13:02 dot at x {r['dt'][0][0]} (expected {want:.1f}); line above the dashed 전일 종가",
+                       abs(r['dt'][0][0] - want) < 1.5 and r['lines'][0]['ymax'] < r['y0'] and r['dotR'] <= r['tgl'] - 4, (r['dt'], r['tl'], r['W'], r['y0']))
+                    ok('m390 A: no added height (row 44 px), the row text sits above the line (z-order), hint hidden', r['sbh'] == 44 and pg.evaluate(
                         "getComputedStyle(document.querySelector('.stagebar > .crumbs')).zIndex === '1' && getComputedStyle(document.getElementById('ixl')).pointerEvents === 'none'"), r)
                 ctx.close()
         # colour = sign vs 전일 종가, the palette's colours; KOSDAQ mirrored below its base
@@ -142,7 +147,7 @@ with sync_playwright() as p:
         ctx, pg, log, _ = fresh(b, 'd1280', 'Q')
         pg.click('#map .node.sec > .hd >> nth=0'); pg.wait_for_timeout(700)
         r = pg.evaluate(IX)
-        ok(f"sector zoom ({pg.evaluate('document.getElementById(\"crumbs\").innerText').split(chr(10))[0][:30]}…): still the 코스닥 line", r['on'] and r['label'].startswith('코스닥 오늘 흐름') and r['top'] == 191, r['label'])
+        ok(f"sector zoom ({pg.evaluate('document.getElementById(\"crumbs\").innerText').split(chr(10))[0][:30]}…): still the 코스닥 line, row {r['sbh']} px", r['on'] and r['label'].startswith('코스닥 오늘 흐름') and r['sbh'] == 36, (r['label'], r['sbh']))
         c = pg.query_selector('#ixl .ixc').bounding_box()
         x = c['x'] + 4 + (c['width'] - 8) * (60 / 390)            # 10:00
         pg.mouse.move(x, c['y'] + c['height'] / 2); pg.wait_for_timeout(150)
@@ -155,7 +160,7 @@ with sync_playwright() as p:
         for tab in ['THEME', 'WATCH']:
             pg.click(f'.tabs button[data-mkt="{tab}"]'); pg.wait_for_timeout(900)
             r = pg.evaluate(IX)
-            ok(f'{tab}: no line, header row as before ({r["sbh"]} px, map top {r["top"]})', not r['on'] and r['sbh'] == 36 and (r['top'] == 191 or tab == 'WATCH'), (r['mode'], r['sbh']))
+            ok(f'{tab}: no line, header row as before ({r["sbh"]} px)', not r['on'] and r['sbh'] == 36, (r['mode'], r['sbh']))
         pg.click('.tabs button[data-mkt="K"]'); pg.wait_for_timeout(900)
         ok('back to 코스피: the line again', pg.evaluate(IX)['label'].startswith('코스피 오늘 흐름'))
         ok('live: console errors 0', not errs(log), errs(log)[:3])
@@ -190,12 +195,29 @@ with sync_playwright() as p:
         m, q = fullday(t1110); q['asOf'] = '2026-11-11T08:20:00.000000+09:00'
         ctx, pg, log, _ = fresh(b, 'm390', 'K', mk=m, q=q, clock='2026-11-11T08:20:00+09:00')
         r = pg.evaluate(IX)
-        ok(f"next day 08:20: yesterday's line, '{r['label']}', map top {r['top']}", r['on'] and r['label'] == f"코스피 11월 10일 흐름, 종가 {fmt2(KP['value'])} ({pct(KP['ratio'])})" and r['top'] == 240 and not errs(log), (r['label'], r['top']))
+        ok(f"next day 08:20: yesterday's line, '{r['label']}', row {r['sbh']} px", r['on'] and r['label'] == f"코스피 11월 10일 흐름, 종가 {fmt2(KP['value'])} ({pct(KP['ratio'])})" and r['sbh'] == 44 and not errs(log), (r['label'], r['sbh']))
         ctx.close()
         ctx, pg, log, _ = fresh(b, 'd1280', 'K', mk=m, q=q, clock='2026-11-11T08:20:00+09:00')
         r = pg.evaluate(IX)
         ok(f"next day 08:20 B right column '{r['t']}'", r['t'] == '11/10 종가', r['t'])
         ctx.close()
+        # A: the latest point / the close never sits under the 지도/표 toggle (15:20, 16:10 after the close), K and 전체 at 360 · 390 · 768
+        t1110b = t1110
+        for clock, asof, n in [('2026-11-10T15:20:30+09:00', '2026-11-10T15:20:30.000000+09:00', 77), ('2026-11-10T16:10:00+09:00', '2026-11-10T16:10:00.000000+09:00', 79)]:
+            m, q = fullday(t1110b)
+            for it in m['items']:
+                if it.get('spark'): it['spark'] = it['spark'][:n]
+            q['asOf'] = asof
+            for vp in ['m360', 'm390', 't768']:
+                for mkt in ['K', 'ALL']:
+                    ctx, pg, log, _ = fresh(b, vp, mkt, mk=m, q=q, clock=clock)
+                    r = pg.evaluate(IX)
+                    ok(f"{clock[11:16]} {vp} {mkt}: {len(r['lines'])} line(s), the last dot's right edge {r['dotR']:.0f} < toggle {r['tgl']} (−8 px axis end), map top {r['top']}",
+                       r['on'] and r['dotR'] and r['dotR'] <= r['tgl'] - 4 and len(r['lines']) == (2 if mkt == 'ALL' else 1) and not errs(log), (r['dotR'], r['tgl'], r['dt'], errs(log)[:2]))
+                    if vp == 'm390' and mkt == 'ALL':
+                        bb = pg.query_selector('.stagebar').bounding_box()
+                        pg.screenshot(path=SHOTS + f"ix-late-{clock[11:13]}{clock[14:16]}-m390-ALL.png", clip={'x': 0, 'y': bb['y'] - 4, 'width': 390, 'height': bb['height'] + 8})
+                    ctx.close()
         # /api/market failing: no line, the row as before
         ctx = b.new_context(**V['d1280'], service_workers='block'); pg = ctx.new_page(); log = Log(); log.attach(pg)
         pg.clock.set_fixed_time(CLOCK)
@@ -263,8 +285,8 @@ with sync_playwright() as p:
         for vp in ['m360', 'm390', 't768', 'd1280', 'd1920']:
             ctx, pg, log, _ = fresh(b, vp, 'K', url=SNAP, mocked=False, wait=1500)
             r = pg.evaluate(IX)
-            ok(f'snapshot {vp}: no embedded /api/market → no line, header as before (map top {r["top"]}), overflow 0, console 0', not r['on'] and r['over'] == 0 and not errs(log)
-               and (r['top'] == {'m390': 234, 'd1280': 191}.get(vp, r['top'])), (r['on'], r['top'], errs(log)[:2]))
+            ok(f'snapshot {vp}: no embedded /api/market → no line, header row as before ({r["sbh"]} px), overflow 0, console 0', not r['on'] and r['over'] == 0 and not errs(log)
+               and r['sbh'] == SBH[vp], (r['on'], r['sbh'], errs(log)[:2]))
             ctx.close()
         # a build that embeds the day's /api/market: a synthetic 11/09 spark ending at the snapshot's close
         snap = json.load(open('/home/claude/hm-heatmap/data/snapshot.json'))
@@ -282,9 +304,9 @@ with sync_playwright() as p:
         for vp in ['m390', 'd1280']:
             ctx, pg, log, _ = fresh(b, vp, 'ALL', url='file://' + tmp, mocked=False, wait=1500)
             r = pg.evaluate(IX)
-            ok(f"snapshot + embedded market {vp}: {r['mode']} line of 11/09 to 15:30 ({[l['n'] for l in r['lines']]} points), '{r['label'][:40]}…', map top {r['top']}",
+            ok(f"snapshot + embedded market {vp}: {r['mode']} line of 11/09 to 15:30 ({[l['n'] for l in r['lines']]} points), '{r['label'][:40]}…', row {r['sbh']} px",
                r['on'] and [l['n'] for l in r['lines']] == [79, 79] and r['label'].startswith('코스피 11월 9일 흐름, 종가 5,018.85') and all(l['cls'].startswith('dn') for l in r['lines'])
-               and r['top'] == {'m390': 234, 'd1280': 191}[vp] and not errs(log), (r['label'], r['lines'], r['top'], errs(log)[:2]))
+               and r['sbh'] == SBH[vp] and not errs(log), (r['label'], r['lines'], r['sbh'], errs(log)[:2]))
             if vp == 'd1280': ok(f"snapshot B right column '{r['t']}' (that day, 종가)", r['t'] == '11/9 종가', r['t'])
             pg.screenshot(path=SHOTS + f'ix-snapemb-{vp}.png', clip={'x': 0, 'y': max(0, r['top'] - 110), 'width': V[vp]['viewport']['width'], 'height': 150})
             ctx.close()
@@ -296,9 +318,8 @@ with sync_playwright() as p:
                     ctx, pg, log, _ = fresh(b, vp, mkt, url=url, mocked=False, wait=4000 if mode == 'live' else 1500)
                     r = pg.evaluate(IX)
                     want_on = mode == 'live'
-                    tb = {'live': {'m390': 240, 'd1280': 191}, 'snapshot': {'m390': 234, 'd1280': 191}}[mode]
-                    ok(f"{mode} {vp} {mkt}: line {'on (' + r['mode'] + ')' if r['on'] else 'off'}, map top {r['top']}, overflow 0, console 0, no null text",
-                       r['on'] == want_on and r['over'] == 0 and not errs(log) and not r['nul'] and r['top'] == tb.get(vp, r['top']), (r['on'], r['mode'], r['top'], r['over'], errs(log)[:2], r['label']))
+                    ok(f"{mode} {vp} {mkt}: line {'on (' + r['mode'] + ')' if r['on'] else 'off'}, header row {r['sbh']} px (map top {r['top']}), overflow 0, console 0, no null text",
+                       r['on'] == want_on and r['over'] == 0 and not errs(log) and not r['nul'] and r['sbh'] == SBH[vp], (r['on'], r['mode'], r['sbh'], r['over'], errs(log)[:2], r['label']))
                     if mode == 'live' and mkt == 'K' and vp in ('m390', 't768', 'd1280', 'd1920'):
                         pg.screenshot(path=SHOTS + f'ix-real-{vp}.png', clip={'x': 0, 'y': max(0, r['top'] - 110), 'width': V[vp]['viewport']['width'], 'height': 150})
                     ctx.close()
