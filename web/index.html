@@ -236,6 +236,19 @@ html[data-motion="fancy"] .tabs .tp.fl{animation:tpfl .9s var(--m-out) 1}
 .ixl .ixv .k2 .sw{border-top-width:1.5px;opacity:.7}
 .ixl .sw.up{color:var(--up-text)} .ixl .sw.dn{color:var(--dn-text)} .ixl .sw.flat{color:var(--muted)}
 .crumbs.ix-t1 .hint{display:none}
+/* 전체: the two markets side by side — 코스피 left, 코스닥 right (phones: right before the 지도/표 toggle) */
+.crumbs .stat.ixpair{flex:1 1 auto;display:flex;justify-content:space-between;align-items:baseline;gap:10px;min-width:0;margin-left:0;width:auto;order:0}
+.crumbs .ixpair .ixr2{white-space:nowrap}
+.crumbs .ixh{white-space:nowrap}
+.crumbs .ixh .ixn{color:var(--fg);font-weight:600;font-size:13.5px}
+.crumbs .ixh b{font-weight:600}
+/* B for 전체 mirrors it: 코스피's value · % on the left, both lines in the middle, 코스닥's on the right (then the time) */
+.ixl.mirror .ixv{display:contents}
+.ixl.mirror .ixr{order:0}
+.ixl.mirror .ixr.k2{order:2}
+.ixl.mirror .ixc{order:1}
+.ixl.mirror .ixt{order:3}
+.crumbs .ixl.mirror{max-width:none;margin-left:0}
 .crumbs.ix-t2 .stat .capx{display:none}
 .ixl.narrow .ixt{display:none}
 .stagebar.ix-row{flex-wrap:wrap;row-gap:4px}
@@ -597,6 +610,10 @@ footer a{color:var(--muted)}
   .map,.tablewrap{height:72svh;min-height:440px}
   .legend{gap:6px 14px}
   .legend .right{margin-left:0}
+  /* 1주 · 1개월 …: "색 1개월 수익률 10월 8일 종가 대비 −20% ▬ +20%" is wider than a 360 phone — its pieces wrap (it pushed the page to 415 px) */
+  .legend .lg{flex-wrap:wrap;row-gap:4px;max-width:100%}
+  .legend .lg > *{white-space:nowrap}
+  .legend .grad{width:clamp(96px,32vw,140px)}
   .side{display:flex}
   .tip{display:none}
   .tstar{display:none}
@@ -643,8 +660,33 @@ footer a{color:var(--muted)}
   /* the clock (title spot) needs the room: no second "last update" time while the session is live */
   .has-clock .status.live .tshort{display:none}
 }
-/* the narrowest phones keep the clock, KRX · NXT · 통합 and the badge on one line: no dot, the badge without its venue word */
-@media (max-width:380px){ .status.has-basis .dot,.status.has-basis .badge .bp{display:none} .status.has-basis{gap:6px} }
+/* phones: the KRX · NXT · 통합 choice is one chip ("통합 ▾", "통합 · 15:30 기준") that opens a menu — the clock row stays one row in every
+   state and clock style (the three buttons and a separate badge wrapped to a second row at 15:30) */
+.bchip{display:none}
+@media (max-width:760px){
+  .status.has-basis #basis,.status.has-basis .badge{display:none}
+  .status.has-basis .bchip{display:inline-flex}
+  .status.has-basis{gap:6px}
+}
+/* 32 px tall, centred in the 40 px row (its tap area reaches the header's top edge: 40 px), so the session bar's sun / moon, which
+   rides just below the row, never meets it */
+.bchip{position:relative;align-items:center;gap:0;height:32px;padding:0 8px 0 10px;border-radius:9px;border:1px solid var(--line2);background:var(--panel2);color:var(--fg);font-size:13px;font-weight:600;white-space:nowrap;font-variant-numeric:tabular-nums}
+.bchip::after{content:"";position:absolute;left:0;right:0;top:-8px;bottom:0}
+.bchip .bcs{margin-left:4px;font-size:11.5px;font-weight:500;color:var(--fg2)}
+.bchip .bcs:empty{display:none}
+.bchip .bcc{margin-left:5px;font-size:10px;color:var(--muted)}
+.bchip[aria-expanded="true"]{border-color:rgba(255,181,71,.55)}
+.bmenu{position:fixed;inset:0;z-index:95;display:flex;align-items:flex-end;justify-content:center;background:rgba(0,0,0,.45)}
+.bmenu[hidden]{display:none}
+.bm-in{width:100%;max-width:520px;background:rgba(24,25,30,.99);border-top:1px solid var(--line2);border-radius:16px 16px 0 0;padding:6px 12px calc(14px + env(safe-area-inset-bottom));box-shadow:0 -18px 60px rgba(0,0,0,.6)}
+.bm-in .bm-t{font-size:12.5px;color:var(--muted);margin:8px 8px 6px;font-weight:600}
+.bm-it{display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;min-height:54px;padding:8px 12px;border-radius:10px;text-align:left}
+.bm-it b{font-size:15px;color:var(--fg);font-weight:600}
+.bm-it span{font-size:12px;color:var(--muted);white-space:normal}
+.bm-it[aria-checked="true"]{background:var(--amber-soft)}
+.bm-it[aria-checked="true"] b{color:var(--amber)}
+.bm-it:hover{background:var(--panel2)}
+.bm-it:focus-visible{outline:2px solid var(--amber);outline-offset:-2px}
 /* phones: the table keeps a readable name column (two lines): 종목 · 현재가 · 등락률 · 거래대금 (거래량 · 시가총액 dropped; with a 기간 /
    순매수 column, that instead of 거래대금) */
 @media (max-width:430px){
@@ -690,6 +732,7 @@ html[data-motion="reduced"] .swbtn .swt,html[data-motion="reduced"] .swbtn .swt:
   <div class="idx" id="idx"></div>
   <div class="status" id="status"><span class="dot"></span><span class="txt"></span><span class="tshort"></span>
     <div class="seg basis" id="basis" role="group" aria-label="가격 기준" hidden><button type="button" data-v="krx">KRX</button><button type="button" data-v="nxt">NXT</button><button type="button" data-v="int">통합</button></div>
+    <button type="button" class="bchip" id="bchip" aria-haspopup="menu" aria-expanded="false" aria-controls="bmenu" hidden><span class="bcv"></span><span class="bcs"></span><span class="bcc" aria-hidden="true">▾</span></button>
     <span class="badge"></span></div>
 </header>
 <div id="strip"></div>
@@ -765,6 +808,7 @@ html[data-motion="reduced"] .swbtn .swt,html[data-motion="reduced"] .swbtn .swt:
 <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-label="종목 상세" tabindex="-1"></div>
 
 <div class="wgpop" id="wgpop" role="dialog" hidden></div>
+<div class="bmenu" id="bmenu" hidden><div class="bm-in" role="menu" aria-label="가격 기준"></div></div>
 <script id="snapshot" type="application/json">{"asOf": null, "source": "네이버 증권", "marketStatus": {}, "index": {}, "stocks": []}</script>
 <script>
 (() => {
@@ -1009,6 +1053,7 @@ const ixEl = h('div', { class: 'ixl', id: 'ixl', role: 'img', hidden: true },
   h('div', { class: 'ixv' }), h('div', { class: 'ixc' }, ixSvg, h('div', { class: 'ixx', hidden: true }), h('div', { class: 'ixtip', hidden: true })), h('div', { class: 'ixt' }));
 let ixMode = '', ixS = [], ixLast = null, ixDrew = false;     // ixMode: 'bg' (≤1023: behind the row) | 'in' (in the row) | 'row' (own row) | ''
 const ixBgMQ = matchMedia('(max-width: 1023px)');
+const bchip = document.getElementById('bchip'), bmenu = document.getElementById('bmenu');   // phones: the KRX · NXT · 통합 chip and its menu
 const isFlow = () => !isWorld() && (state.sizeBy === 'fgn' || state.sizeBy === 'inst');
 // the colour metric family; 해외 / 원자재 colour today's change (KH.colorOf) so the range control shows the day ranges there
 const kind = () => isWorld() ? 'day' : isFlow() ? 'flow' : COLOR_METRICS[state.colorBy].kind;
@@ -1397,7 +1442,18 @@ function emitBasis() {
 // theme colours from Naver's live theme list (today's change of the live KRX quotes: no replay frame, KRX closes, NXT or 통합 prices)
 const naverThemeDay = () => MODE === 'live' && kind() === 'day' && !ovOn();
 const ohlOf = x => { const op = +x.op, hi = +x.hi, lo = +x.lo; return op > 0 && hi > 0 && lo > 0 ? { op, hi: Math.max(hi, op), lo: Math.min(lo, op) } : null; };
-function norm(x) {
+/* §3-24 one quote store: every row carries ts (ms) — its own KRX trade time (the Worker's per-row t) or else the time of the answer
+   it came in (asOf). Each code keeps its freshest row whichever fetch brought it (main stream, theme / 관심 extras, the ticker's codes,
+   the stock page's summary): an edge cache answering with an older snapshot never moves a number back, and every view reads the
+   same row. (Naver's last price can sit between two ticks — 중간가 호가 trades print the mid of the best bid / ask, e.g. 22,625 between
+   22,600 and 22,650 — so prices are taken as given.) */
+const rowTs = (x, asMs) => { const t = x && x.t ? Date.parse(x.t) : NaN; return isFinite(t) ? t : asMs; };
+const tsv = r => (r && isFinite(r.ts) ? r.ts : -Infinity);
+// n replaces o: at least as fresh — or older by more than 5 minutes, which no edge cache explains (a data reset): then n is the truth
+const fresher = (n, o) => !o || tsv(n) >= tsv(o) || tsv(o) - tsv(n) > 300000;
+// what a row shows (KRX, NXT): an answer stamped like the held row but showing something else still counts as news
+const rowSig = r => r ? `${r.p}|${r.r}|${r.nx ? r.nx.p + '|' + r.nx.r + '|' + r.nx.o : ''}` : '';
+function norm(x, asMs = NaN) {
   const map = INDUSTRY.get(String(x.c));
   const nx = x.nx && +x.nx.p > 0 ? x.nx : null;
   return {
@@ -1406,8 +1462,8 @@ function norm(x) {
     cap: +x.cap || 0, p: +x.p || 0, d: +x.d || 0, r: +x.r || 0, tv: +x.tv || 0, v: +x.v || 0,
     // 상/하한가: the row's flag, or |r| ≥ 29.5 when the row has none (the limit is ±30 % rounded to the tick)
     lim: x.lim === 1 || x.lim === -1 ? x.lim : Math.abs(+x.r || 0) >= 29.5 ? Math.sign(+x.r) : 0,
-    // KRX trade time of the row (ms) when the Worker sends one (t), for 통합
-    tm: x.t ? Date.parse(x.t) : NaN,
+    // KRX trade time of the row (ms) when the Worker sends one (t), for 통합; ts: freshness in the quote store (t, else the answer's asOf)
+    tm: x.t ? Date.parse(x.t) : NaN, ts: rowTs(x, asMs),
     // §3-13 today's KRX open / high / low (none before the first trade)
     ohl: ohlOf(x),
     // NXT (§3-8, §3-10): {p, d, r, s 'pre'|'reg'|'after', o 1 while that session runs, t ISO time of the last NXT trade, tm (ms),
@@ -1420,7 +1476,10 @@ let SHOWN = null;            // {key: BASIS.key, p: Map code → the price drawn
 // the streamed rows' drawn prices now (a basis change in between polls re-takes it, so the next poll compares like with like)
 function snapShown() { const m = new Map(); for (const s of DATA.stocks) m.set(s.c, basisRow(s, true).p); SHOWN = { key: BASIS.key, p: m }; }
 function setData(raw) {
-  const stocks = (raw.stocks || []).map(norm);
+  // a code whose row we already hold from a newer answer (an extras / ticker / stock page fetch, or this stream's previous poll when an
+  // edge cache answers with an older snapshot) keeps that row
+  const asMs = Date.parse(raw.asOf);
+  const stocks = (raw.stocks || []).map(x => { const n = norm(x, asMs), o = DATA && DATA.byCode ? rawGet(n.c) : null; return fresher(n, o) ? n : o; });
   const byCode = new Map(stocks.map(s => [s.c, s]));
   const k = kst(raw.asOf);
   DATA = { asOf: raw.asOf, k, source: raw.source, marketStatus: raw.marketStatus || {}, afterHours: !!raw.afterHours, index: raw.index || {}, stocks, byCode, nx: nxInfo(stocks, raw.nxt, k) };
@@ -1437,6 +1496,67 @@ function setData(raw) {
 }
 const marketOpen = () => Object.values(DATA.marketStatus || {}).some(v => v === 'OPEN');
 const rawGet = c => (DATA.byCode.get(c) || EXTRA.get(c) || null);
+// put one normalized row into the store if it is at least as fresh as the one held → true when the row was taken
+function storePut(n) {
+  const cur = DATA.byCode.get(n.c);
+  if (cur) {
+    if (cur === n || !fresher(n, cur)) return false;
+    const i = DATA.stocks.indexOf(cur);
+    if (i >= 0) DATA.stocks[i] = n;
+    DATA.byCode.set(n.c, n);
+    return true;
+  }
+  const e = EXTRA.get(n.c);
+  if (e && !fresher(n, e)) return false;
+  EXTRA.set(n.c, n);
+  return true;
+}
+// a partial row (the stock page's summary: price, change, open / high / low, volume, NXT) over the full row it updates
+function mergePartial(old, x, asMs) {
+  const p = +x.p, ts = rowTs(x, asMs);
+  const o = Object.assign({}, old, { p, d: +x.d || 0, r: +x.r || 0, cap: old.p > 0 ? old.cap * p / old.p : old.cap, ts, tm: x.t ? Date.parse(x.t) : old.tm });
+  if (+x.v > 0) o.v = +x.v;
+  if (+x.tv > 0) o.tv = +x.tv;
+  const ohl = ohlOf(x); if (ohl) o.ohl = ohl;
+  if (x.nx && +x.nx.p > 0) {
+    const y = x.nx, on = old.nx || {};
+    o.nx = Object.assign({}, on, { p: +y.p, d: +y.d || 0, r: +y.r || 0, s: y.s in NX_NAME ? y.s : on.s || 'pre', o: y.o ? 1 : 0, t: y.t ? String(y.t) : null, tm: y.t ? Date.parse(y.t) : NaN });
+  }
+  return o;
+}
+// KH.quotes.put(rows, asOf): rows another module fetched (/api/quotes rows, or partial rows {c, p, d, r, …, partial:true} that only
+// update a row the store holds) → how many rows were taken. Views redraw once, shortly after
+let storeT = 0;
+function quotesPut(rows, asOf) {
+  if (MODE !== 'live' || !DATA || !Array.isArray(rows)) return 0;
+  const asMs = Date.parse(asOf);
+  let n = 0;
+  for (const x of rows) {
+    if (!x || !CODE_RE.test(String(x.c)) || !(+x.p > 0)) continue;
+    const old = rawGet(String(x.c));
+    let row;
+    if (x.partial) { if (!old) continue; row = mergePartial(old, x, asMs); }
+    else row = norm(x, asMs);
+    if (old && (!fresher(row, old) || (tsv(row) === tsv(old) && rowSig(row) === rowSig(old)))) continue;   // older, or nothing new
+    if (storePut(row)) n++;
+  }
+  if (n && !storeT) storeT = setTimeout(storeRedraw, 60);
+  return n;
+}
+function storeRedraw() {
+  storeT = 0;
+  bump();
+  render(); renderCrumbs(); renderSide(); renderLegend();
+  refreshOpenViews();
+  document.dispatchEvent(new CustomEvent('kh:data', { detail: { changed: [], store: true } }));
+}
+// KH.quote(code): the row as the map draws it now in the chosen price basis (KRX · NXT · 통합; never a replay frame) + basis id
+function khQuote(code) {
+  const st = DATA && rawGet(String(code));
+  if (!st) return null;
+  const b = basisRow(st, true);
+  return Object.assign({}, b, { basis: basisId(), venue: b.nxOn || b.intNx ? 'NXT' : 'KRX' });
+}
 // one row in the price basis (ok false: KRX, as under a replay frame). live = the quote row when the price is not the quote's.
 // size by cap follows the price (cap × p_shown / p_quote); codes missing from close.json keep the quote's values
 function basisRow(st, ok = !REPLAY) {
@@ -2809,6 +2929,23 @@ function openTheme(id, { writeHash = true, focusAfter = false } = {}) {
     if (target) target.focus({ preventScroll: true });
   }
 }
+function marketStat(list, cap) {
+  const xs = ixKeys().map(k => { const t = tabIndex(k === 'KOSPI' ? 'K' : 'Q'); return t && t.v != null && isFinite(t.v) ? { k, v: Math.round(t.v * 100) / 100 } : null; });
+  if (!xs.length || xs.some(x => !x)) return null;                       // no index yet: the cap-weighted stat as before
+  const phone = ixBgMQ.matches, line = ixKeys().some(k => ixSeries(k));
+  const title = xs.map(x => `${IX_NAME[x.k]} 지수 ${fmtPct(x.v)}`).join(' · ') + (REPLAY ? ` · 다시 보기 ${hhmm(REPLAY.t)}` : '');
+  const count = [`${fmtInt(list.length)}종목`, h('span', { class: 'capx', text: `  ·  시총 ${fmtEok(cap)}` })];
+  const one = x => h('span', { class: 'ixh' }, h('span', { class: 'ixn', text: IX_NAME[x.k] + ' ' }), h('b', { class: cls(x.v), text: fmtPct(x.v) }));
+  if (xs.length > 1) {
+    // 전체: 코스피 on the left, 코스닥 on the right (phones: before the toggle; desktop without a line: then N종목 · 시총). The hidden " · "
+    // keeps the two apart for screen readers and the saved image
+    if (!phone && line) return h('span', { class: 'stat', title: `${fmtInt(list.length)}종목 · 시가총액 합 ${fmtEok(cap)}` }, count);
+    return h('span', { class: 'stat ixpair', title }, one(xs[0]), h('span', { class: 'ixr2' }, h('span', { class: 'sr', text: ' · ' }), one(xs[1]), phone ? [] : ['  ·  ', count]));
+  }
+  const pc = h('b', { class: cls(xs[0].v), text: fmtPct(xs[0].v) });
+  if (phone) return h('span', { class: 'stat ixst', title }, h('span', { class: 'sr', text: IX_NAME[xs[0].k] + ' 지수 ' }), pc);
+  return h('span', { class: 'stat', title: line ? `${fmtInt(list.length)}종목 · 시가총액 합 ${fmtEok(cap)}` : title }, count, line ? [] : ['  ·  ', h('span', { class: 'sr', text: IX_NAME[xs[0].k] + ' 지수 ' }), pc]);
+}
 function renderCrumbs() {
   if (isWorld()) { ixPlace(null); return; }
   const el = $('#crumbs');
@@ -2837,16 +2974,18 @@ function renderCrumbs() {
     return;
   }
   if (f) kids.push(h('button', { class: 'back', onclick: zoomOut, text: '‹ 상위로' }));
-  const rootName = state.market === 'ALL' ? '전체 시장' : state.market === 'WATCH' ? '관심종목' : `${MKT_NAME[state.market]} 전체`;
+  // the root crumb says the tab's name (코스피 · 코스닥 · 전체 · 관심종목); 전체 at its root has none — its two markets speak instead
+  const mktTab = ['K', 'Q', 'ALL'].includes(state.market), pairRoot = state.market === 'ALL' && !f;
+  const rootName = state.market === 'WATCH' ? '관심종목' : MKT_NAME[state.market];
   const wg = state.market === 'WATCH' && WG.active !== 'all' ? wgGet(WG.active) : null;
   if (wg) {
     kids.push(h('button', { class: 'c', onclick: () => watchApi.setActive('all'), text: rootName }));
     kids.push(item(h('button', { class: 'c' + (f ? '' : ' cur'), onclick: () => zoomTo(null), text: wg.name })));
-  } else kids.push(h('button', { class: 'c' + (f ? '' : ' cur'), onclick: () => zoomTo(null), text: rootName }));
+  } else if (!pairRoot) kids.push(h('button', { class: 'c' + (f ? '' : ' cur'), onclick: () => zoomTo(null), text: rootName }));
   if (f) {
     kids.push(item(h('button', { class: 'c' + (f.i ? '' : ' cur'), onclick: () => zoomTo({ s: f.s }), text: f.s })));
     if (f.i) kids.push(item(h('button', { class: 'c cur', 'aria-current': 'location', text: f.i })));
-  } else if (state.view === 'map' && state.market !== 'WATCH') {
+  } else if (state.view === 'map' && state.market !== 'WATCH' && !pairRoot) {
     kids.push(h('span', { class: 'hint', text: '섹터·업종 이름을 누르면 확대돼요' }));
     kids[kids.length - 2].title = '섹터·업종 이름을 누르면 확대돼요';     // the hint may give way to the index line (§3-20)
   }
@@ -2854,7 +2993,14 @@ function renderCrumbs() {
   const list = uni.filter(inFocus);
   const cap = list.reduce((a, s) => a + s.cap, 0);
   const more = state.market === 'WATCH' && uni.missing ? `  ·  시세 없는 ${uni.missing}종목` : '';
-  kids.push(list.length ? h('span', { class: 'stat' }, `${fmtInt(list.length)}종목`, h('span', { class: 'capx', text: `  ·  시총 ${fmtEok(cap)}` }), '  ·  ', h('b', { class: grpCls(list), text: grpText(list, 2) }), more) : h('span', { class: 'stat', text: `0종목${more}` }));
+  // §3-20 a market root (코스피 · 코스닥 · 전체, not zoomed) speaks in its index: the same % as the tab and the index line (one market
+  // number on screen). Phones / 768: the index change only (전체: both); desktop: the line already shows it, so the stat keeps
+  // N종목 · 시총 (and the index joins it only when there is no line). A zoomed sector / industry keeps its cap-weighted %.
+  // phones / 768 drop the N종목 count of the market tabs (the 종목 수 control says it): a zoomed group shows its own % only
+  const ixStat = !f && mktTab && list.length ? marketStat(list, cap) : null;
+  const narrowZoom = !ixStat && f && mktTab && ixBgMQ.matches && list.length
+    ? h('span', { class: 'stat', title: `${f.i || f.s} 시가총액 가중 등락률` }, h('span', { class: 'sr', text: '시가총액 가중 등락률 ' }), h('b', { class: grpCls(list), text: grpText(list, 2) })) : null;
+  kids.push(ixStat ? ixStat : narrowZoom ? narrowZoom : list.length ? h('span', { class: 'stat' }, `${fmtInt(list.length)}종목`, h('span', { class: 'capx', text: `  ·  시총 ${fmtEok(cap)}` }), '  ·  ', h('b', { class: grpCls(list), text: grpText(list, 2) }), more) : h('span', { class: 'stat', text: `0종목${more}` }));
   ixPlace(kids);
   el.replaceChildren(...kids);
   ixFit();
@@ -2919,6 +3065,7 @@ function ixPlace(kids) {
   ixS = kids ? ixKeys().map(ixSeries).filter(Boolean) : [];
   const mode = !ixS.length ? '' : ixBgMQ.matches ? 'bg' : sb.clientWidth < 800 ? 'row' : 'in';
   if (mode !== ixMode) { sb.classList.toggle('ix-bg', mode === 'bg'); sb.classList.toggle('ix-row', mode === 'row'); ixMode = mode; }
+  ixEl.classList.toggle('mirror', ixS.length > 1 && mode !== 'bg');
   if (mode === 'in') {
     nav.classList.add('ix-in');
     const at = kids.findIndex(k => k && k.classList && k.classList.contains('stat'));
@@ -2951,10 +3098,13 @@ function ixDraw() {
   for (const s of S) for (const p of s.pts) { if (p[1] < lo) lo = p[1]; if (p[1] > hi) hi = p[1]; }
   const span = Math.max(hi - lo, 0.4) * 1.06, mid = (hi + lo) / 2;
   lo = mid - span / 2; hi = mid + span / 2;
-  const X = m => padX + (Math.max(0, Math.min(END, m)) / END) * (W - 2 * padX);
+  // A sits behind the row: its 09:00 → 15:30 axis ends 8 px left of the 지도/표 toggle, so the latest point and the close never hide under it
+  let xR = W - padX;
+  if (bg) { const vs = document.querySelector('.stagebar > .viewseg'); if (vs && vs.offsetWidth) { const r = vs.getBoundingClientRect().left - c.getBoundingClientRect().left - 8; if (r > 60) xR = Math.min(xR, r); } }
+  const X = m => padX + (Math.max(0, Math.min(END, m)) / END) * (xR - padX);
   const Y = r => padY + (hi - r) / (hi - lo) * (H - 2 * padY);
   const f1 = v => v.toFixed(1), y0 = f1(Y(0));
-  let out = `<line class="bl" x1="0" x2="${W}" y1="${y0}" y2="${y0}"/>`;
+  let out = `<line class="bl" x1="0" x2="${f1(bg ? xR : W)}" y1="${y0}" y2="${y0}"/>`;
   if (!bg) out += `<line class="nw" x1="${f1(X(S[0].m))}" x2="${f1(X(S[0].m))}" y1="0" y2="${H}"/>`;
   S.forEach((s, i) => {
     const d = s.pts.map((p, j) => (j ? 'L' : 'M') + f1(X(p[0])) + ' ' + f1(Y(p[1]))).join('');
@@ -3004,11 +3154,13 @@ ixSvg.parentNode.addEventListener('pointerleave', ixUnhover);
 ixBgMQ.addEventListener('change', () => renderCrumbs());
 { // the row's width decides in-row / own row (B); a size change redraws
   let raf = 0, was = 0;
-  new ResizeObserver(() => { cancelAnimationFrame(raf); raf = requestAnimationFrame(() => {
+  const ro = new ResizeObserver(() => { cancelAnimationFrame(raf); raf = requestAnimationFrame(() => {
     const sb = document.querySelector('.stagebar'); if (!sb) return;
     const w = sb.clientWidth, flip = (w < 800) !== (was < 800); was = w;
     if (flip || ixMode === 'in') renderCrumbs(); else ixDraw();
-  }); }).observe(document.querySelector('.stagebar') || document.body);
+  }); });
+  ro.observe(document.querySelector('.stagebar') || document.body);
+  const vs = document.querySelector('.stagebar > .viewseg'); if (vs) ro.observe(vs);      // its width sets where A's axis ends
 }
 // live: /api/market every 60 s while 코스피 · 코스닥 · 전체 is shown (edge-cached 30 s); not in a hidden tab
 async function ixFetch() {
@@ -3692,6 +3844,8 @@ function renderStatus() {
   const blab = MODE === 'live' && liveState.ok && !REPLAY && !isWorld() && !!DATA.stocks.length && (BASIS.show || (!reg && (BASIS.krx !== 'quote' || DATA.afterHours || afterClose())));
   const showBasis = blab && BASIS.show;
   bas.hidden = !showBasis;
+  bchip.hidden = !showBasis;
+  if (!showBasis && !bmenu.hidden) bmClose(false);
   el.classList.toggle('has-basis', showBasis);
   el.classList.toggle('has-blab', blab);
   if (!blab) el.classList.remove('bl-live');
@@ -3738,6 +3892,13 @@ function renderStatus() {
     badge.replaceChildren(h('span', { class: 'bl', text: L.long }), h('span', { class: 'bs', 'aria-hidden': 'true' }, sm ? [h('span', { class: 'bp', text: sm[1] + ' ' }), sm[2]] : L.short));
     el.classList.toggle('bl-live', showBasis && basisLive());
     badge.title = L.title;
+    // phones: the chip — the venue, and the badge's time when the drawn prices are not live ("통합 · 15:30 기준", "NXT · 15:20 마감")
+    const venue = { krx: 'KRX', nxt: 'NXT', int: '통합' }[BASIS.v] || 'KRX', sfx = basisLive() ? '' : L.short.replace(/^(KRX|NXT|통합)\s*/, '');
+    bchip.querySelector('.bcv').textContent = venue;
+    bchip.querySelector('.bcs').textContent = sfx ? `· ${sfx}` : '';
+    bchip.setAttribute('aria-label', `가격 기준 ${venue}${sfx ? ', ' + sfx : ''}, 바꾸기`);
+    bchip.title = L.title;
+    if (!bmenu.hidden) bmFill();
     txt.textContent = (open || DATA.afterHours || nxOpenNow()) && lastK ? `${kstClock.format(liveState.last)} 갱신` : (okAsOf ? kstDayFmt.format(asOf) : '');
   } else if (open) {
     txt.textContent = lastK ? `${kstClock.format(liveState.last)} 갱신` : '';
@@ -4523,7 +4684,8 @@ async function pollExtra() {
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const raw = await res.json();
     if (seq !== extra.seq) return;
-    for (const x of (raw && raw.stocks) || []) if (x && x.c) EXTRA.set(String(x.c), norm(x));
+    const asMs = Date.parse(raw && raw.asOf);
+    for (const x of (raw && raw.stocks) || []) if (x && x.c) storePut(norm(x, asMs));
     extra.ok = true;
   } catch (e) {
     if (seq !== extra.seq) return;
@@ -4660,6 +4822,11 @@ window.KH = {
   LIVE_URL,
   MKT_NAME,
   stock: code => (DATA && rawGet(String(code))) || null,
+  // §3-24 the shared quote store: quote(code) → the row in the chosen basis (what the map, tabs, tooltips draw); quotes.put(rows, asOf)
+  // feeds rows another module fetched (taken only when fresher) and redraws; quotes.tracked(code) → the heatmap itself keeps that code
+// fresh (main stream, or its theme / 관심 extras every 10 s) — other codes are the caller's to fetch
+  quote: khQuote,
+  quotes: { put: quotesPut, tracked: code => !!(DATA && MODE === 'live' && (DATA.byCode.has(String(code)) || extraWanted().includes(String(code)))) },
   stocks: () => (DATA ? DATA.stocks : []),
   asOf: () => (DATA ? DATA.asOf : null),
   colorOf: r => dayColor(r),
@@ -4684,6 +4851,47 @@ window.KH = {
   market: () => ({ THEME: 'theme', WATCH: 'watch', WORLD: 'world', CMDTY: 'cmdty' })[state.market] || state.market,
   basis: basisId,
 };
+
+/* phones: the basis chip's menu (a bottom sheet): KRX · NXT · 통합 with a line each; arrows / Home / End move, Enter picks, Esc closes,
+   focus returns to the chip. Picking goes through the same #basis buttons as on desktop. */
+const BM_DESC = {
+  krx: () => (BASIS.phase === 'pre' ? '한국거래소 · 장 전에는 어제 종가' : '한국거래소(KRX) 가격'),
+  nxt: () => '넥스트레이드(NXT) 가격 · NXT에 없는 종목은 KRX 값(빗금)',
+  int: () => (BASIS.legacy ? '정규장 뒤 NXT·시간외가 섞인 마지막 가격' : '두 시장 중 더 최근 체결가 · 등락은 KRX 기준가 대비'),
+};
+function bmFill() {
+  const box = bmenu.firstElementChild;
+  box.replaceChildren(h('div', { class: 'bm-t', text: '가격 기준' }), ...BASIS.opts.map(v => h('button', { type: 'button', class: 'bm-it', role: 'menuitemradio', 'data-v': v, 'aria-checked': String(v === BASIS.v), tabindex: '-1' },
+    h('b', { text: { krx: 'KRX', nxt: 'NXT', int: '통합' }[v] }), h('span', { text: BM_DESC[v]() }))));
+}
+function bmOpen() {
+  bmFill();
+  bmenu.hidden = false; bchip.setAttribute('aria-expanded', 'true');
+  const cur = bmenu.querySelector('.bm-it[aria-checked="true"]') || bmenu.querySelector('.bm-it');
+  if (cur) cur.focus();
+}
+function bmClose(ret = true) {
+  if (bmenu.hidden) return;
+  bmenu.hidden = true; bchip.setAttribute('aria-expanded', 'false');
+  if (ret) bchip.focus();
+}
+bchip.addEventListener('click', () => (bmenu.hidden ? bmOpen() : bmClose()));
+bmenu.addEventListener('click', e => {
+  const it = e.target.closest('.bm-it');
+  if (!it) { if (!e.target.closest('.bm-in')) bmClose(); return; }
+  const b = $(`#basis button[data-v="${it.dataset.v}"]`);
+  bmClose();
+  if (b && it.dataset.v !== BASIS.v) b.click();
+});
+bmenu.addEventListener('keydown', e => {
+  const its = [...bmenu.querySelectorAll('.bm-it')], i = its.indexOf(document.activeElement);
+  if (e.key === 'Escape' || e.key === 'Tab') { e.preventDefault(); bmClose(); return; }
+  const to = e.key === 'ArrowDown' ? i + 1 : e.key === 'ArrowUp' ? i - 1 : e.key === 'Home' ? 0 : e.key === 'End' ? its.length - 1 : null;
+  if (to == null || !its.length) return;
+  e.preventDefault();
+  its[(to + its.length) % its.length].focus();
+});
+narrowMQ.addEventListener('change', () => bmClose(false));
 
 /* KRX · NXT · 통합 (§3-8, §3-10): the pick lasts while the session phase lasts (khm.basis) */
 $('#basis').addEventListener('click', e => {
@@ -4785,6 +4993,14 @@ html.sp-on, html.sp-on body { overflow: hidden; }
 .sp-lim.dn { color: var(--dn-text); background: color-mix(in srgb, var(--dn-text) 15%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--dn-text) 45%, transparent); }
 /* 관심종목 */
 @media (max-width: 699px) { .sp-head-in:has(.sp-star:not([hidden])) { padding-right: 4px; } }
+/* phones: the code · market line never clips mid-word — the market part goes first when the name column is narrow; long names a size
+   down; the NXT line's time moves to its tooltip on the narrowest screens */
+@media (max-width: 699px) {
+  .sp-id { container: spid / inline-size; }
+  .sp-name.long { font-size: 16px; }
+}
+@container spid (max-width: 104px) { .sp-mkt { display: none; } }
+@media (max-width: 430px) { .sp-nxt .t { display: none; } }
 .sp-star { flex: none; display: inline-grid; place-items: center; width: 42px; height: 44px; margin-left: 2px; border-radius: 10px; color: var(--muted); }
 .sp-star[hidden], .sp-nf .sp-star { display: none; }
 .sp-star:hover { background: rgba(255, 255, 255, .06); color: var(--fg); }
@@ -5302,7 +5518,7 @@ const KST = 9 * 3600;
 const WD = ['일', '월', '화', '수', '목', '금', '토'];
 const MINUS = '−';
 const PHASE = {
-  open: { chip: '장 중', live: true },
+  open: { chip: '실시간', live: true },
   after: { chip: '시간외', live: true, note: '정규장이 끝나 NXT·시간외 거래 중이에요' },
   pre: { chip: '장 시작 전', live: true },
   closed: { chip: '장 마감' },
@@ -5555,17 +5771,32 @@ function setRoll(el, text, dir) {
   rollTimers.set(el, setTimeout(() => { rollTimers.delete(el); if (el.dataset.v === text) el.textContent = text; }, d + maxDelay + 60));
 }
 let headPrev = null;   // {code, price} of the last quote drawn, to tell which way it moved
+const headQuote = () => { try { const q = LIVE && typeof KH.quote === 'function' ? KH.quote(S.code) : null; return q && isNum(q.p) && q.p > 0 ? q : null; } catch (e) { return null; } };
+// the summary feeds the heatmap's quote store (taken only when it is fresher than the row held): its price, change, day candle, volume, NXT
+function feedStore(j) {
+  if (!LIVE || !j || !isNum(j.price) || !(+j.price > 0) || !KH.quotes || typeof KH.quotes.put !== 'function') return;
+  const nx = j.nxt && isNum(j.nxt.p) ? j.nxt : null;
+  try {
+    KH.quotes.put([{ c: String(j.code || S.code), partial: true, p: +j.price, d: +j.change || 0, r: +j.ratio || 0, t: j.asOf || null,
+      op: j.open, hi: j.high, lo: j.low, v: j.volume, tv: j.tradingValue, nx }], j.asOf);
+  } catch (e) { /* the page still draws from its summary */ }
+}
 function renderHead() {
   const st = KH.stock(S.code), s = S.sum;
   const name = (s && s.name) || (st && st.n) || (LIVE && !S.sumErr ? '' : S.code);
   R.name.replaceChildren(name || skel('6em', '0.9em'));
+  R.name.classList.toggle('long', !!name && [...name].length > 7);      // phones: 8+ characters (삼성바이오로직스, 한화에어로스페이스) fit at 16 px
   R.code.textContent = name === S.code ? '' : S.code;
   const m = (s && s.market) || (st && st.m);
   R.mkt.textContent = m ? KH.MKT_NAME[m] || '' : '';
   R.path.textContent = st && st.s ? `${st.s} › ${st.i}` : '';
   R.path.hidden = !(st && st.s);
   let price = null, chg = null, ratio = null;
-  if (s && isNum(s.price)) { price = +s.price; chg = +s.change; ratio = +s.ratio; }
+  // §3-24 the headline is the heatmap's row for this code in the chosen price basis (KRX · NXT · 통합) — the same number the map, the
+  // ★관심 tab and the ticker show; the summary only fills in when the heatmap holds no row (snapshot, a stock outside every list)
+  const q = headQuote();
+  if (q) { price = q.p; chg = q.d; ratio = q.r; }
+  else if (s && isNum(s.price)) { price = +s.price; chg = +s.change; ratio = +s.ratio; }
   else if (st) { price = st.p; chg = st.d; ratio = st.r; }
   if (price == null) {
     settleRoll(R.price); settleRoll(R.chg); delete R.price.dataset.v; delete R.chg.dataset.v; headPrev = null;
@@ -5601,14 +5832,28 @@ function limitOf() {
 }
 // NXT line (AGENTS.md §3-8): summary.nxt {p,d,r,s:'pre'|'after',o:1|0,t}; null/missing = the stock has no NXT trading, no line
 let nxtPrev = null;
+// the NXT session windows (KST): 프리 08:00–08:50, 메인 09:00–15:20, 애프터 15:30–20:00 — the heatmap's rule (§3-10)
+function nxWindow(sess) {
+  const now = kst(new Date()), w = { pre: [800, 850], reg: [900, 1520], after: [1530, 2000] }[sess];
+  return !!w && now.wd >= 1 && now.wd <= 5 && now.hm >= w[0] && now.hm < w[1];
+}
 function renderNxt() {
-  const x = S.sum && S.sum.code === S.code && S.sum.nxt && isNum(S.sum.nxt.p) ? S.sum.nxt : null, n = R.nxt;
+  // the other venue under the headline: NXT normally; KRX when the headline itself is an NXT price (NXT, or 통합 while NXT traded last)
+  const q = headQuote(), st = KH.stock(S.code), n = R.nxt;
+  const own = st && st.nx && isNum(st.nx.p) ? st.nx : null;
+  let x = own || (S.sum && S.sum.code === S.code && S.sum.nxt && isNum(S.sum.nxt.p) ? S.sum.nxt : null), krx = false;
+  if (q && q.venue === 'NXT' && st && isNum(st.p)) { x = { p: st.p, d: st.d, r: st.r, t: null }; krx = true; }
   n.hidden = !x;
   if (!x) { nxtPrev = null; return; }
   const K = n.querySelector('.k'), PV = n.querySelector('.pv'), PR = n.querySelector('.pr'), T = n.querySelector('.t');
-  const pre = x.s === 'pre', open = !!x.o, c = cls(+x.d);
+  // label: just the venue. The session (Naver's tradingSessionType → Worker s: pre · reg · after) and whether it is trading go in the
+  // tooltip; "trading" = Naver's OPEN flag and the KST clock inside that session's window, the map's rule (§3-10: Naver leaves OPEN on
+  // for a while after a session ends)
+  const c = cls(+x.d), sess = { pre: '프리마켓', reg: '메인마켓', after: '애프터마켓' }[x.s] || '';
   n.className = 'sp-nxt num ' + c;
-  K.textContent = `NXT ${pre ? (open ? '프리마켓' : '프리마켓 마감') : (open ? '애프터마켓' : '애프터 종가')}`;
+  K.textContent = krx ? 'KRX' : 'NXT';
+  const live = !krx && !!x.o && nxWindow(x.s);
+  n.title = krx ? 'KRX(한국거래소) 시세' : `NXT(넥스트레이드)${sess ? ' ' + sess : ''} · ${live ? '거래 중' : '마감'}`;
   const d = toDate(x.t), tm = d ? clock(d).slice(0, 5) : '';
   const dir = nxtPrev && nxtPrev.code === S.code ? Math.sign(+x.p - nxtPrev.p) : 0;
   nxtPrev = { code: S.code, p: +x.p };
@@ -5616,7 +5861,8 @@ function renderNxt() {
   if (fancy() && dir) { setRoll(PV, pv, dir); setRoll(PR, pr, dir); }
   else for (const [el, t] of [[PV, pv], [PR, pr]]) if (el.dataset.v !== t) { settleRoll(el); el.textContent = t; el.dataset.v = t; }
   T.textContent = tm ? ` · ${tm}` : '';
-  n.setAttribute('aria-label', `${K.textContent} ${pv}원 ${pr}${tm ? ' ' + tm : ''}`);
+  if (tm) n.title += ` · ${tm}`;                       // phones ≤ 430 px hide the time on the line
+  n.setAttribute('aria-label', `${krx ? 'KRX' : n.title} ${pv}원 ${pr}${tm ? ' ' + tm : ''}`);
 }
 function renderLim() {
   const lim = limitOf();
@@ -5726,7 +5972,8 @@ function renderMeta() {
   } else {
     const ph = PHASE[S.phase] || PHASE.unknown;
     if (ph.chip) kids.push(chip(ph.chip, ph.live));
-    if (S.sum && S.sum.asOf) kids.push(h('span', { text: `네이버 증권 · ${asOfLabel(S.sum.asOf)} 기준` }));
+    const q = headQuote(), at = q && isFinite(q.ts) ? new Date(q.ts).toISOString() : S.sum && S.sum.asOf;   // the headline's own time
+    if (at) kids.push(h('span', { text: `네이버 증권 · ${asOfLabel(at)} 기준` }));
     if (nxtApplies()) kids.push(h('span', { class: 'sp-nxt', title: '정규장(15:30)이 끝난 뒤의 가격이라 NXT와 시간외 거래가 섞여 있어요.', text: 'NXT·시간외 거래 포함' }));
     if (ph.note && S.phase !== 'after') kids.push(h('span', { class: 'sp-phase-note', text: ph.note }));
     if (!S.sum && !S.sumErr) kids.push(skel('14em', '0.9em'));
@@ -5840,6 +6087,7 @@ async function peerFetchRows(list) {
     const raw = await res.json();
     if (S.code !== code) return;
     R.peerRows = new Map(((raw && raw.stocks) || []).filter(x => x && x.c).map(x => [String(x.c), x]));
+    try { if (KH.quotes && typeof KH.quotes.put === 'function') KH.quotes.put((raw && raw.stocks) || [], raw && raw.asOf); } catch (e) { /* the list keeps its own rows */ }
     if (S.open && R.peerList) peerItems().forEach((x, i) => { const b = R.peerList.children[i]; if (b && b.dataset.code === x.c) peerCandle(b.children[0], x.c); });
   } catch (e) { /* no icons for these; the list itself is fine */ } finally { clearTimeout(killer); }
 }
@@ -5889,6 +6137,7 @@ async function loadSummary(quiet) {
     const j = await api('summary', 'sum');
     if (g !== S.gen) return;
     S.sum = j; S.sumErr = null;
+    feedStore(j);
   } catch (e) {
     if (aborted(e) || g !== S.gen) return;
     if (!quiet || !S.sum) S.sumErr = e;
@@ -7197,7 +7446,8 @@ document.addEventListener('visibilitychange', () => {
   else stopTimers();   // loads already in flight may finish; nothing new starts while hidden
 });
 document.addEventListener('kh:palette', () => { if (root) { applyColors(); if (S.open) renderPeers(); } });
-document.addEventListener('kh:data', () => { if (S.open) { renderPeers(); renderHead(); } });   // 업종 path / provisional price arrive with the quotes
+document.addEventListener('kh:data', () => { if (S.open) { renderPeers(); renderHead(); if (LIVE) renderMeta(); } });
+document.addEventListener('kh:basis', () => { if (S.open) renderHead(); });   // the headline is the row in the chosen basis   // 업종 path / provisional price arrive with the quotes
 document.addEventListener('kh:motion', () => { if (!fancy() && R.price) { settleRoll(R.price); settleRoll(R.chg); } });
 document.addEventListener('kh:watch', () => { if (S.open) { renderStar(); if (gp && !usePicker()) gpClose(false); else gpFill(); } });
 
@@ -7677,22 +7927,41 @@ async function tkAux(force) {
       return true;
     }).catch(() => false))));
   }
-  const codes = tkCodes(ids);
+  // §3-24 stock items read the heatmap's quote store (KH.quote: one row per code, the chosen price basis); only codes the store does
+  // not hold are fetched here, and what comes back feeds the store (KH.quotes.put) so the map, tabs and stock page see it too
+  const tracked = c => { try { return !!(KH.quotes && typeof KH.quotes.tracked === 'function' && KH.quotes.tracked(c)); } catch (e) { return false; } };
+  const codes = tkCodes(ids).filter(c => !tracked(c));               // the heatmap keeps the main stream and its theme / 관심 codes fresh
   for (let i = 0; i < codes.length; i += 300) {
     const part = codes.slice(i, i + 300);
-    jobs.push(getJSON('api/quotes?codes=' + part.join(',')).then(j => { for (const r of (j && j.stocks) || []) { tkx.q.set(String(r.c), r); tkx.names.set('s:' + r.c, r.n); } }).catch(() => { /* "—" */ }));
+    jobs.push(getJSON('api/quotes?codes=' + part.join(',')).then(j => {
+      const rows = (j && j.stocks) || [];
+      for (const r of rows) { tkx.q.set(String(r.c), r); tkx.names.set('s:' + r.c, r.n); }
+      try { if (KH.quotes && typeof KH.quotes.put === 'function') KH.quotes.put(rows, j && j.asOf); } catch (e) { /* the ticker keeps its own copy */ }
+    }).catch(() => { /* "—" */ }));
   }
   await Promise.all(jobs);
 }
 function tkStockItem(code) {
-  const r = tkx.q.get(code), nm = (r && r.n) || tkx.names.get('s:' + code) || code;
+  let q = null;
+  try { q = has('quote') ? KH.quote(code) : null; } catch (e) { q = null; }
+  const r = q || tkx.q.get(code), nm = (r && r.n) || tkx.names.get('s:' + code) || code;
   if (!r || r.p == null || !isFinite(+r.p)) return { key: 's:' + code, name: nm, none: true, def: { label: nm, dp: 0 } };
+  if (r.n) tkx.names.set('s:' + code, r.n);
   return { key: 's:' + code, name: nm, value: +r.p, change: +r.d, ratio: +r.r, def: { label: nm, dp: 0, unit: '원', full: nm } };
+}
+// 코스피 / 코스닥 items: the quotes' index (the tabs' numbers, every poll) when it is newer than /api/market's; the spark stays
+function tkIndexItem(it) {
+  if (!it || (it.key !== 'KOSPI' && it.key !== 'KOSDAQ') || !has('index') || !has('asOf')) return it;
+  try {
+    const x = (KH.index() || {})[it.key], qa = Date.parse(KH.asOf()), ma = Date.parse(strip.asOf);
+    if (!x || !isFinite(+x.value) || !(+x.value > 0) || !(qa >= ma || !isFinite(ma))) return it;
+    return Object.assign({}, it, { value: +x.value, change: +x.change, ratio: +x.ratio });
+  } catch (e) { return it; }
 }
 function tkSource() {
   const ids = tkIds();
-  if (!ids || !strip.items) return strip.items;                                      // the Worker's own set, in its order
-  const byKey = new Map(strip.items.map(i => [i.key, i]));
+  if (!ids || !strip.items) return strip.items && strip.items.map(tkIndexItem);     // the Worker's own set, in its order
+  const byKey = new Map(strip.items.map(i => [i.key, tkIndexItem(i)]));
   const out = [], seen = new Set();
   const push = it => { if (!seen.has(it.key)) { seen.add(it.key); out.push(it); } };
   for (const id of ids) {
@@ -8167,7 +8436,9 @@ function initStrip() {
     renderStrip();
     pollStrip();
     setInterval(() => { if (!document.hidden) syncTail(); }, 15000);        // the minute passes without a poll changing anything
-    document.addEventListener('kh:data', () => syncTail());
+    // every quotes poll (and every store update): stock / index items follow the heatmap's numbers at once
+    document.addEventListener('kh:data', () => { if (strip.items && !tkHold.down) renderStrip(); else syncTail(); });
+    document.addEventListener('kh:basis', () => { if (strip.items) renderStrip(); });          // KRX · NXT · 통합 picked: stock items follow
     document.addEventListener('kh:watch', () => { const a = tkIds(); if (a && a.some(x => x.startsWith('g:'))) tkAux().then(() => renderStrip()).catch(() => {}); });
     document.addEventListener('visibilitychange', () => {
       if (document.hidden) { clearTimeout(strip.timer); return; }
@@ -8291,6 +8562,18 @@ function readChrome(world) {
     if (crumbs.length) out.title = crumbs.join(' › ');
     const st = document.querySelector('#crumbs .stat'), b = st && st.querySelector('b');
     if (st && b && st.firstChild) out.stat = { n: String(st.firstChild.textContent).trim(), pct: b.textContent.trim(), color: rgbOf(b) };
+    // the row as shown, piece by piece (a market root reads "코스피 지수 +3.70%" or "코스피 +x · 코스닥 +y", desktop "300종목 · 시총 …"):
+    // text and labels muted, the coloured numbers bold; pieces the screen hides (시총 on phones) left out, screen-reader labels kept
+    if (st) {
+      const parts = [];
+      for (const nd of st.childNodes) {
+        if (nd.nodeType === 3) { if (nd.textContent.trim()) parts.push({ t: nd.textContent.replace(/\s+/g, ' ') }); continue; }
+        if (nd.nodeType !== 1 || (!nd.classList.contains('sr') && getComputedStyle(nd).display === 'none')) continue;
+        const t = nd.textContent.replace(/\s+/g, ' ');
+        if (t.trim()) parts.push(nd.tagName === 'B' ? { t, c: rgbOf(nd), b: true } : { t });
+      }
+      if (parts.length) out.stat = Object.assign(out.stat || {}, { parts });
+    }
     out.ix = readIxLine();
   }
   out.legend = readLegend(document.querySelector(world ? '.kw-legend' : '#legend'));
@@ -8453,7 +8736,15 @@ function drawMap(nodes, wt) {
     const cy = TH / 2;
     let right = W - pad;
     ctx.textAlign = 'right';
-    if (chrome.stat) {
+    if (chrome.stat && chrome.stat.parts) {
+      const fs = W < 520 ? 12 : 13;
+      for (const p of chrome.stat.parts.slice().reverse()) {
+        ctx.font = `${p.b ? 600 : 500} ${fs}px ${fam}`;
+        ctx.fillStyle = p.c || '#8a8f99'; ctx.fillText(p.t, right, cy);
+        right -= ctx.measureText(p.t).width;
+      }
+      right -= 12;
+    } else if (chrome.stat) {
       ctx.font = `600 ${W < 520 ? 12 : 13}px ${fam}`;
       const pw = ctx.measureText(chrome.stat.pct).width;
       ctx.fillStyle = chrome.stat.color; ctx.fillText(chrome.stat.pct, right, cy);
