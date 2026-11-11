@@ -231,7 +231,7 @@ html.sb-mid .sb{height:calc(var(--sbh) + 2px)}
 .sb-segs i,.sb-fill i{position:absolute;top:0;bottom:0;display:block}
 .sb-segs i.lo,.sb-fill i.lo{top:30%}
 .sb-hol .sb-fill{opacity:0}
-.sb-ico{position:absolute;bottom:calc((var(--sbh) - var(--ico)) / 2);width:var(--ico);height:var(--ico);margin-left:calc(var(--ico) / -2);pointer-events:none;overflow:visible;filter:drop-shadow(0 0 1px #0b0c0f) drop-shadow(0 0 1px #0b0c0f) drop-shadow(0 0 3px rgba(255,181,71,.35))}
+.sb-ico-old{position:absolute;bottom:calc((var(--sbh) - var(--ico)) / 2);width:var(--ico);height:var(--ico);margin-left:calc(var(--ico) / -2);pointer-events:none;overflow:visible;filter:drop-shadow(0 0 1px #0b0c0f) drop-shadow(0 0 1px #0b0c0f) drop-shadow(0 0 3px rgba(255,181,71,.35))}
 .sb-ico svg{width:100%;height:100%}
 .sb-ico:has(.sb-moon){filter:drop-shadow(0 0 1px #0b0c0f) drop-shadow(0 0 1px #0b0c0f) drop-shadow(0 0 3px rgba(190,200,255,.4))}
 .sb-svg{display:block;overflow:visible}
@@ -287,3 +287,23 @@ dialog.xk{width:min(560px,calc(100% - 24px));max-height:min(760px,calc(100% - 24
   dialog.xk{width:100%;max-width:100%;margin:auto 0 0;border-radius:16px 16px 0 0;max-height:90svh;padding-bottom:calc(16px + env(safe-area-inset-bottom))}
   .xk-pane{max-height:38svh}
 }
+
+/* §3-24 phase pill riding the session bar: [sun/moon cap][phase icon][label][%] */
+.sb-pill{--ph:20px;position:absolute;left:0;bottom:calc((var(--sbh) - var(--ph)) / 2);height:var(--ph);box-sizing:border-box;transform:translateX(-50%);display:flex;align-items:center;gap:4px;padding:0 8px 0 1px;border-radius:99px;background:#121317;border:1px solid var(--pc,#6b7079);box-shadow:0 0 0 1px #0b0c0f,0 2px 8px rgba(0,0,0,.55);color:#eef0f3;font-size:11px;font-weight:700;line-height:1;white-space:nowrap;pointer-events:none}
+.sb-cap{display:grid;place-items:center;flex:none;width:calc(var(--ph) - 4px);height:calc(var(--ph) - 4px)}
+.sb-cap svg{width:100%;height:100%;overflow:visible}
+.sb-picon{display:grid;place-items:center;flex:none}
+.sb-pi{display:block;width:12px;height:12px;color:var(--pc);flex:none}
+.sb-pp{font-variant-numeric:tabular-nums;color:var(--pc);letter-spacing:-.01em}
+.sb-pill[data-mode="short"] .sb-pt{display:none}
+.sb-pill[data-mode="icon"] .sb-pt,.sb-pill[data-mode="icon"] .sb-pp{display:none}
+.sb-pill[data-mode="icon"]{padding-right:5px}
+.sb-pill:not([data-mode="icon"]) .sb-pt:empty{display:none}
+.sb-pill.sb-fancy{animation:none}
+.sb-pill.sb-live .sb-pi{animation:sbLive 2.4s ease-in-out infinite}
+.sb-pill.sb-ring .sb-bell{transform-origin:6px 2px;animation:sbRing 1.1s ease-in-out infinite}
+@keyframes sbLive{50%{transform:scale(1.18);opacity:.75}}
+@keyframes sbRing{0%,60%,100%{transform:rotate(0)}10%{transform:rotate(14deg)}20%{transform:rotate(-12deg)}30%{transform:rotate(9deg)}40%{transform:rotate(-6deg)}}
+@media (max-width:760px){.sb-pill{font-size:10.5px;gap:3px;padding-right:6px}}
+@media (prefers-reduced-motion:reduce){.sb-pill.sb-live .sb-pi,.sb-pill.sb-ring .sb-bell{animation:none}}
+@media (min-width:761px){html:not(.sb-mid) .sb-pill{--ph:18px;bottom:calc((var(--sbh) - var(--ph)) / 2 + 2px);font-size:10.5px}}
