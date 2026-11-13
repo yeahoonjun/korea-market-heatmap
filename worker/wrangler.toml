@@ -13,3 +13,15 @@ id = "bfdaeef6e5204d0ba223a568f76d3c85"
 
 [triggers]
 crons = ["* 0-7 * * 2-6"]   # Mon–Fri: Cloudflare counts weekdays 1 = Sunday … 7 = Saturday (the old "1-5" was Sun–Thu)
+
+# 실시간 갱신 (AGENTS §3-23b, docs/standards/realtime.md): one Durable Object hub `MarketHub` (worker/src/live.js) pushes the
+# top 300 × 2 over WebSocket during the regular session. Budget guard: live_core.js LIMITS — inside the $5 plan, no overage.
+# The first deploy with this block CREATES the namespace: Cloudflare cannot roll back past it, so scripts/deploy_worker.mjs
+# uploads it only when run by hand with ALLOW_DO_LIFECYCLE=1 (Actions › deploy-worker › Run workflow › allow_do_lifecycle).
+[[durable_objects.bindings]]
+name = "MARKET"
+class_name = "MarketHub"
+
+[exports.MarketHub]
+type = "durable-object"
+storage = "sqlite"
