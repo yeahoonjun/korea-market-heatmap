@@ -1,0 +1,41 @@
+name: deploy-worker
+
+# Uploads the Cloudflare Worker (worker/src → worker/dist/worker.js) whenever its code reaches main, so deploys no longer
+# depend on a chat connector. Page files (web/) need no step: the Worker reads them from this repository.
+# Needs the repository secret CLOUDFLARE_API_TOKEN (Account › Workers Scripts › Edit); without it the job skips with a warning.
+on:
+  push:
+    branches: [main]
+    paths:
+      - worker/src/**
+      - worker/wrangler.toml
+      - worker/package-lock.json
+      - scripts/build_worker.mjs
+      - scripts/deploy_worker.mjs
+      - .github/workflows/deploy-worker.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-worker
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: worker/package-lock.json
+      - run: npm ci --prefix worker --no-audit --no-fund
+      - run: node scripts/build_worker.mjs
+      - run: node --check worker/dist/worker.js
+      - run: node scripts/deploy_worker.mjs
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
