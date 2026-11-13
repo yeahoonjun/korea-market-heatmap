@@ -4227,15 +4227,6 @@ function renderStatus() {
   }
 }
 // the colour's wording in the footer for today's change, by the price basis
-function basisColTxt() {
-  if (MODE !== 'live' || REPLAY) return '전일 대비 등락률';
-  if (BASIS.v === 'nxt' && BASIS.nxt) return '전일 대비 등락률(NXT 가격 기준, NXT에서 거래되지 않는 종목은 KRX 값을 빗금으로)';
-  if (BASIS.v === 'int') return BASIS.legacy ? '전일 대비 등락률(네이버 통합 시세, NXT·시간외 거래 포함)' : '전일 대비 등락률(통합 시세: KRX와 NXT 중 최근 체결가, KRX 기준가 대비)';
-  if (BASIS.phase === 'regular') return '전일 대비 등락률';
-  if (BASIS.krx === 'close') return '전일 대비 등락률(KRX 정규장 종가 기준)';
-  if (BASIS.krx === 'prev') return `${dayName(CLOSE.date)} 등락률(KRX 종가 기준)`;
-  return '전일 대비 등락률';
-}
 function renderFooter() {
   const asOf = DATA.asOf ? kstFmt.format(new Date(DATA.asOf)) : '';
   if (isWorld()) {
@@ -4243,26 +4234,14 @@ function renderFooter() {
     return;
   }
   const k = kind();
-  const themeOv = state.market === 'THEME' && state.theme == null;
-  const sizeTxt = themeOv ? '테마 구성 종목의 시가총액 합' : isFlow() ? `${FLOW_WHO[state.sizeBy]} 순매수 금액(${state.flowWin === 1 ? '1일' : state.flowWin + '일 합'}, 순매수 주식 수 × 그날 종가)` : sizeLabel();
-  let colTxt;
-  if (k === 'flow') colTxt = '순매수(빨강 쪽)·순매도(반대쪽) 방향과 시가총액 대비 크기';
-  else if (k === 'day') colTxt = themeOv && naverThemeDay() ? '네이버 증권의 테마 등락률' : basisColTxt();
-  else { const P = PER(), m = COLOR_METRICS[state.colorBy]; colTxt = `${m.long}(현재가 ÷ ${P && P.base ? dayName(P.base[m.key]) + ' ' : '기준일 '}종가 − 1)`; }
-  const parts = [h('p', {}, `데이터: ${DATA.source || '네이버 증권'}. 크기는 ${sizeTxt}, 색은 ${colTxt}이에요. 섹터 분류는 네이버 업종(WICS 기준)을, 테마는 네이버 증권 테마를 따랐어요. 투자 판단의 근거로 쓰지 마세요.`)];
+  // 사용자 2026-11-13 22:06: 크기·색·분류 설명과 갱신·가격 기준 설명은 아래 출처 줄에서 뺐어요(범례·버튼이 이미 말해요).
+  const parts = [h('p', {}, `데이터: ${DATA.source || '네이버 증권'}. 투자 판단의 근거로 쓰지 마세요.`)];
   const daily = [];
   const P = PER(), F = FLO();
   if (P && P.asOf && k === 'period') daily.push(`기간 수익률 기준 종가는 ${dayName(P.asOf)}에 만든 자료예요`);
   if (F && F.asOf && isFlow()) daily.push(`순매수는 ${dayName(F.asOf)}까지 집계예요(장중에는 전 거래일까지)`);
   if (THEMES && THEMES.asOf && state.market === 'THEME') daily.push(`테마 구성은 ${dayName(THEMES.asOf)} 기준이에요`);
   if (daily.length) parts.push(h('p', {}, daily.join('. ') + '.'));
-  if (MODE === 'live') {
-    parts.push(h('p', {}, `정규장과 NXT 거래 시간에는 ${allScope() ? '15초마다 전 종목' : '10초마다 시장별 시총 상위 300종목'}의 새 시세를 받아 와요. ` + (BASIS.show && !BASIS.legacy
-      ? '위에서 KRX(한국거래소), NXT(넥스트레이드), 통합 가격 중에 골라 볼 수 있어요. 통합은 두 시장 중 더 최근 체결가에 전일 대비는 KRX 기준가 대비' + (DATA.nx.tv ? ', 거래량·거래대금은 두 시장 합이에요. ' : '예요. ')
-        + 'KRX 정규장이나 NXT 프리마켓(08:00~08:50)·애프터마켓(15:30~20:00) 중에는 통합이 기본이고, 거래가 없는 시간에는 KRX 종가가 기본이에요. NXT에서는 NXT에서 거래되지 않는 종목을 KRX 값 그대로 빗금으로 보여 줘요. 장 시작 전 KRX는 어제 종가와 그날 등락률이에요.'
-      : BASIS.show ? `정규장 뒤에는 위에서 KRX 정규장 종가와 통합 시세(NXT·시간외 거래가 섞인 마지막 가격) 중에 골라 볼 수 있어요.`
-      : '정규장 밖 시간의 시세에는 NXT·시간외 거래가 섞여요.')));
-  }
   if (MODE === 'snapshot') parts.push(h('p', {}, `이 화면은 ${asOf} 시세를 담은 스냅샷이라 자동으로 갱신되지 않아요. `,
     h('a', { href: LIVE_URL, target: '_blank', rel: 'noopener', text: '실시간 버전 열기' })));
   $('#foot').replaceChildren(...parts);
