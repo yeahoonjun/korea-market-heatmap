@@ -56,7 +56,7 @@ if(d.dataset.serif==='on'){var s=document.getElementById('kh-serif');if(s&&windo
   --sheet-fl-sh:0 24px 70px rgba(0,0,0,.6);
   --scrim:rgba(0,0,0,.45); --blur:none; --blur-bar:none;
   --bar-bg:var(--page); --bar-sh:none; --bar-stuck:0 1px 0 var(--line2);
-  --dock-bg:rgba(30,32,38,.97); --dock-sh:inset 0 0 0 1px var(--line2),inset 0 1px 0 rgba(255,255,255,.06),0 10px 30px rgba(0,0,0,.55); --dock-r:18px; --dock-div:var(--line2);
+  --dock-bg:#1e2026; --dock-sh:inset 0 0 0 1px var(--line2),inset 0 1px 0 rgba(255,255,255,.06),0 10px 30px rgba(0,0,0,.55); --dock-r:18px; --dock-div:var(--line2);
   /* type (§5): weights and tracking only — sizes and line heights are the same in every theme */
   --w-head:600; --w-strong:700; --track-head:normal; --font-head:var(--sans); --serif:'KH 명조','Noto Serif KR',var(--sans);
   --cd-up:#ef3e4a; --cd-dn:#12a15b; --cd-flat:var(--muted);
@@ -128,7 +128,7 @@ html[data-theme="glass-dark"]{
   --scrim:rgba(0,0,0,.22); --blur:blur(24px) saturate(1.4); --blur-bar:blur(20px) saturate(1.6);
   --bar-bg:linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,0) 60%),rgba(16,18,24,.62);
   --bar-sh:inset 0 1px 0 rgba(255,255,255,.16),inset 0 0 0 .5px rgba(255,255,255,.1),0 10px 24px rgba(0,0,0,.3);
-  --dock-bg:linear-gradient(180deg,rgba(255,255,255,.09),rgba(255,255,255,0) 40%),rgba(22,24,30,.93); --dock-sh:inset 0 1px 0 rgba(255,255,255,.22),inset 0 0 0 .5px rgba(255,255,255,.14),0 12px 32px rgba(0,0,0,.5); --dock-r:28px; --dock-div:rgba(255,255,255,.12);
+  --dock-bg:linear-gradient(180deg,rgba(255,255,255,.09),rgba(255,255,255,0) 40%),#15171d; --dock-sh:inset 0 1px 0 rgba(255,255,255,.22),inset 0 0 0 .5px rgba(255,255,255,.14),0 12px 32px rgba(0,0,0,.5); --dock-r:28px; --dock-div:rgba(255,255,255,.12);
   --tray-bg:rgba(0,0,0,.34); --tray-sh:inset 0 1px 2px rgba(0,0,0,.5),inset 0 0 0 .5px rgba(255,255,255,.1);
   --ind-bg:linear-gradient(180deg,rgba(255,255,255,.24),rgba(255,255,255,.08));
   --ind-sh:inset 0 1px 0 rgba(255,255,255,.38),inset 0 -1px 0 rgba(0,0,0,.2),inset 0 0 0 .5px rgba(255,255,255,.2),0 1px 2px rgba(0,0,0,.35),0 4px 10px rgba(0,0,0,.25);
@@ -163,7 +163,7 @@ html[data-theme="glass-light"]{
   --scrim:rgba(30,40,60,.16); --blur:blur(24px) saturate(1.4); --blur-bar:blur(20px) saturate(1.6);
   --bar-bg:linear-gradient(180deg,rgba(255,255,255,.5),rgba(255,255,255,0) 60%),rgba(246,247,250,.64);
   --bar-sh:inset 0 1px 0 #fff,inset 0 0 0 .5px rgba(15,17,21,.08),0 10px 24px rgba(20,30,50,.1);
-  --dock-bg:linear-gradient(180deg,rgba(255,255,255,.6),rgba(255,255,255,0) 40%),rgba(248,249,251,.95); --dock-sh:inset 0 1px 0 #fff,inset 0 0 0 .5px rgba(15,17,21,.1),0 12px 32px rgba(20,30,50,.18); --dock-r:28px; --dock-div:rgba(15,17,21,.1);
+  --dock-bg:linear-gradient(180deg,rgba(255,255,255,.6),rgba(255,255,255,0) 40%),#f7f8fa; --dock-sh:inset 0 1px 0 #fff,inset 0 0 0 .5px rgba(15,17,21,.1),0 12px 32px rgba(20,30,50,.18); --dock-r:28px; --dock-div:rgba(15,17,21,.1);
   --tray-bg:rgba(15,17,21,.06); --tray-sh:inset 0 1px 2px rgba(15,17,21,.13),inset 0 0 0 .5px rgba(15,17,21,.07);
   --ind-bg:linear-gradient(180deg,#ffffff,#f3f5f8); --ind-sh:inset 0 1px 0 #fff,inset 0 0 0 .5px rgba(15,17,21,.06),0 1px 2px rgba(20,30,50,.16),0 4px 10px rgba(20,30,50,.1);
   --key-bg:linear-gradient(180deg,rgba(255,255,255,.95),rgba(255,255,255,.6)); --key-hover:linear-gradient(180deg,#fff,rgba(255,255,255,.75)); --key-fg:#0f1115; --key-ic:#353b44;
@@ -1023,6 +1023,9 @@ html[data-theme="glass-dark"] header.top::after{opacity:.5}
 
 /* ───────────────── 표시 설정 › 화면 › 테마 (안 A: four at once, 2 × 2 with swatches) · 명조 제목 · 유리 흐림 ───────────────── */
 .thm .seg{display:grid;grid-template-columns:1fr 1fr}
+/* two-row segments (테마 2 × 2, 색상 2 × 2 in the sheet): a capsule radius would turn the tray into one big pill — cap it */
+:is(.thm .seg,.ctls .seg[data-key="palette"]){border-radius:min(var(--r-tray),18px)}
+:is(.thm .seg,.ctls .seg[data-key="palette"])::before{border-radius:min(var(--r-in),14px)}
 .thm .seg button{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:34px}
 .tsw{display:inline-flex;gap:1px;flex:none}
 .tsw b{display:block;width:7px;height:13px;box-shadow:inset 0 0 0 .5px color-mix(in srgb,var(--fg) 30%,transparent)}
@@ -1037,7 +1040,8 @@ html[data-theme="glass-dark"] header.top::after{opacity:.5}
 @media (max-width:760px){.thm .seg button{min-height:40px}}
 
 /* ───────────────── 아래 막대 — the phone dock (docs/standards/dock.md, V2 two cells + swipe pages, 🔍 at the end) ─────────────────
-   Floats once the map has gone by (never over it), hides while any sheet / dialog / the stock page / the keyboard is open. No blur. */
+   Floats once the map has gone by (never over it), hides while any sheet / dialog / the stock page / the keyboard is open. No blur, and an
+   opaque fill (the draft's α .93–.97 over each page, composited): without blur a translucent fill only ghosts the card text behind its numbers. */
 .dock{position:fixed;z-index:50;left:8px;right:8px;bottom:calc(8px + env(safe-area-inset-bottom));height:56px;display:flex;align-items:stretch;padding:6px;border-radius:var(--dock-r);background:var(--dock-bg);box-shadow:var(--dock-sh);color:var(--fg);
   transform:translateY(calc(100% + 16px));opacity:0;visibility:hidden;transition:transform var(--m-1) var(--m-exit),opacity var(--m-1) var(--m-exit),visibility 0s linear var(--m-1)}
 .dock.on{transform:none;opacity:1;visibility:visible;transition:transform var(--m-2) var(--m-out),opacity var(--m-2) var(--m-out),visibility 0s}
