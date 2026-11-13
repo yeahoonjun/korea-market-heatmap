@@ -11,6 +11,7 @@
 //   GET /api/stock/:code/daily?page=N  → daily price table, 60 rows per page
 //   GET /api/stock/:code/news          → latest 20 news items
 //   GET /api/stock/:code/disclosures   → latest 20 disclosures
+//   GET /api/disclosures/today         → the day's OpenDART filings of universe stocks (공시 배지; KV-shared snapshot, AGENTS §3-29)
 //   GET /api/quotes?codes=c1,c2,…      → same shape for the given codes (≤ 300)
 //   GET /api/quotes?scope=all          → same shape for every listed stock (universe K + Q + X, ~2,700), polled in parallel chunks
 //   GET /api/breadth?m=K|Q[&part=N]    → [code, ratio, lim?, nxr?] for the whole market (no part) or one 600-code chunk
@@ -92,6 +93,7 @@ export default {
         return await edgeCached(request, ctx, `wch-${item.key}-${tf}`, 600, () => getWorldChart(item, tf));
       }
       if (path === '/api/themes') return await edgeCached(request, ctx, 'themes', 30, () => getThemes());
+      if (path === '/api/disclosures/today') return await edgeCached(request, ctx, 'dis-today', 30, () => getDisclosuresToday(request, env));   // 공시 배지 (AGENTS §3-29)
       if (path === '/api/market') return await edgeCached(request, ctx, 'market', 30, () => getMarket());
       if (path === '/api/replay/dates') return await edgeCached(request, ctx, 'replay-dates', 60, () => getReplayDates(env));
       if (path === '/api/replay/status') return json(await getReplayStatus(env));   // recorder health, never cached
@@ -1090,6 +1092,262 @@ async function getDartList(corp, key) {
     url: `https://dart.fss.or.kr/dsaf001/main.do?rcpNo=${x.rcept_no}`,
   }));
   return { source: 'dart', rows };
+}
+
+/* ── /api/disclosures/today — 공시 배지 (AGENTS §3-29) ─────────────────────────────── */
+// The day's OpenDART filings (list.json, corp_cls Y = KOSPI, K = KOSDAQ) of stocks in the universe, newest first.
+// One KV snapshot (REPLAY `dart:today`) is shared by every colo and isolate. It is refreshed when older than 60 s
+// (weekdays 07:00–19:00 KST) or 5 min (otherwise), incrementally: page 1 of each market, then more pages only while
+// DART's total_count says rows are still missing. A colo that did not write the snapshot waits 2 min longer (KV takes
+// up to ~60 s to reach other colos), so in steady state one colo does the polling. Failures serve the last snapshot
+// with stale:true and back off (`dart:cool`: 020 → 10 min, key errors → 30 min, others → one refresh interval).
+// First seen: `dart:seen:YYYYMMDD` → {rcept_no: 'HH:MM'} (DART gives only the date); rows present at a check that
+// starts a watch (first check of the day, or after a pause > 15 min) get that check's time, and `since` says when.
+// The key (env.DART_KEY) goes only into the upstream URL — never into errors, KV or responses.
+const DT_KEY = 'dart:today', DT_COOL = 'dart:cool', DT_KEEP = 8 * 86400;
+const DT_PAGE = 100, DT_MAX_PAGES = 30, DT_PAR = 3, DT_TIMEOUT = 6000;
+const DT_SOFT = 4000, DT_HARD = 8000;      // upstream calls per KST day, counted in the snapshot (approximate across colos)
+const DT_GAP = 15 * 60e3;                  // a longer pause between successful checks restarts `since`
+const DT_UA = 'Mozilla/5.0 (compatible; panse/1.0; +https://panse.pages.dev)';
+const DT_ISO = Math.random().toString(36).slice(2, 10);   // stands for this isolate when request.cf.colo is unknown
+let dtMem = null, dtFlight = null, dtCoolMem = 0;
+class DtErr extends Error { constructor(kind) { super('dart ' + kind); this.kind = kind; } }
+const dtK = ms => new Date(ms + 9 * 3600e3);                         // KST wall clock via getUTC*
+const dtHm = k => pad(k.getUTCHours()) + ':' + pad(k.getUTCMinutes());
+const dtIso = ms => { const k = dtK(ms); return `${dash(ymd(k))}T${dtHm(k)}:${pad(k.getUTCSeconds())}+09:00`; };
+const dtHard = e => e instanceof DtErr && (e.kind === 'rate' || e.kind === 'key');   // stop everything, cool down
+
+async function getDisclosuresToday(request, env) {
+  if (!env.REPLAY) throw new HttpError(503, '공시 저장소가 연결되지 않았어요');
+  const colo = (request.cf && request.cf.colo) || DT_ISO;
+  if (dtMem && dtFresh(dtMem, colo, Date.now())) return dtBody(dtMem, Date.now());
+  if (!dtFlight) dtFlight = dtLoad(env, colo).finally(() => { dtFlight = null; });
+  return dtBody(await dtFlight, Date.now());
+}
+// seconds a snapshot stays fresh
+function dtTtl(snap, now) {
+  const k = dtK(now), wd = k.getUTCDay(), min = k.getUTCHours() * 60 + k.getUTCMinutes(), today = ymd(k);
+  if (snap && snap.callsDay === today && snap.calls >= DT_SOFT) return 600;
+  const quiet = !!snap && snap.date !== today;                        // no filing today yet: after 10:00 that is a holiday
+  return wd >= 1 && wd <= 5 && min >= 420 && min < 1140 && !(quiet && min >= 600) ? 60 : 300;
+}
+function dtFresh(snap, colo, now) {
+  if (!snap) return false;
+  const last = Math.max(snap.at || 0, snap.try || 0);
+  return now - last < dtTtl(snap, now) * 1000 + (snap.by === colo ? 0 : 120e3);
+}
+async function dtLoad(env, colo) {
+  const now = Date.now();
+  const got = await kvMany(env.REPLAY, [DT_KEY, DT_COOL]);
+  const kv = got.get(DT_KEY), cool = got.get(DT_COOL);
+  let snap = dtMem;
+  const last = s => Math.max(s.at || 0, s.try || 0);
+  if (kv && kv.v === 1 && Array.isArray(kv.rows) && (!snap || last(kv) > last(snap))) snap = kv;
+  dtMem = snap;
+  if (dtFresh(snap, colo, now)) return snap;
+  let why = '';
+  if ((cool && cool.until > now) || dtCoolMem > now) why = (cool && cool.until > now && cool.why) || 'cool';
+  else if (!env.DART_KEY) why = 'nokey';
+  else if (snap && snap.callsDay === ymd(dtK(now)) && snap.calls >= DT_HARD) why = 'budget';
+  if (why) {
+    if (snap) return { ...snap, err: snap.err || why };
+    throw new HttpError(503, why === 'nokey' ? '공시 원천(OpenDART)이 연결되지 않았어요' : '공시 목록을 잠시 불러올 수 없어요');
+  }
+  return dtRefresh(env, snap, colo, now);
+}
+async function dtRefresh(env, prev, colo, now) {
+  const today = ymd(dtK(now));
+  const run = { key: env.DART_KEY, calls: 0 };
+  const counted = () => ({ calls: (prev && prev.callsDay === today ? prev.calls || 0 : 0) + run.calls, callsDay: today });
+  let next;
+  try {
+    await getUniverse(env);
+    const U = universeMem;
+    const mktOf = c => { const a = CODE_RE.test(c) && (U.map.get(c) || (U.extra && U.extra.get(c))); return a ? a.m : null; };
+    next = await dtBuild(env, run, prev, now, mktOf);
+  } catch (e) {
+    const why = e instanceof DtErr ? e.kind : 'error';
+    const secs = why === 'rate' ? 600 : why === 'key' ? 1800 : dtTtl(prev, now);
+    dtCoolMem = now + secs * 1000;
+    const writes = [env.REPLAY.put(DT_COOL, JSON.stringify({ until: dtCoolMem, why }), { expirationTtl: Math.max(60, secs) })];
+    if (prev) {
+      dtMem = { ...prev, try: now, by: colo, err: why, ...counted() };
+      writes.push(env.REPLAY.put(DT_KEY, JSON.stringify(dtMem), { expirationTtl: DT_KEEP }));
+    }
+    await Promise.all(writes).catch(() => {});
+    if (prev) return dtMem;
+    throw new HttpError(502, '공시 목록을 불러오지 못했어요');
+  }
+  dtMem = Object.assign(next, { v: 1, at: now, try: now, by: colo }, counted());
+  dtCoolMem = 0;
+  await env.REPLAY.put(DT_KEY, JSON.stringify(dtMem), { expirationTtl: DT_KEEP }).catch(() => {});
+  return dtMem;
+}
+// today first; when today has nothing yet (night, weekend, holiday) the latest weekday with filings, ≤ 4 days back
+async function dtBuild(env, run, prev, now, mktOf) {
+  const k = dtK(now), today = ymd(k), hm = dtHm(k);
+  const t = await dtSyncDay(run, today, prev && prev.date === today ? prev : null, mktOf);
+  const w = prev && prev.watch;
+  const watch = w && w.d === today && prev.at && now - prev.at <= DT_GAP ? w : { d: today, t: hm };
+  const back = dtBackDays(now);
+  const empty = ((prev && prev.empty) || []).filter(d => back.includes(d));
+  let day = today, got = t;
+  if (!t.any) {
+    if (t.err) throw new DtErr('partial');                           // a failed market might have had filings
+    day = '';
+    for (const d of back) {
+      if (prev && prev.date === d && prev.final) { day = d; got = prev; break; }
+      if (empty.includes(d)) continue;
+      const r = await dtSyncDay(run, d, prev && prev.date === d ? prev : null, mktOf);
+      if (r.err) throw new DtErr('partial');
+      if (r.any) { day = d; got = r; break; }
+      empty.push(d);
+    }
+    if (!day) { day = today; got = t; }
+  }
+  const rows = got.rows.slice().sort((a, b) => (a.r < b.r ? 1 : a.r > b.r ? -1 : 0));
+  if (got !== prev && rows.some(r => !r.s)) await dtStamp(env, day, rows, day === today ? hm : '');
+  return { date: day, final: day < today, err: day === today ? t.err : '', watch, empty, mk: got.mk, rows };
+}
+function dtBackDays(now) {
+  const out = [];
+  for (let i = 1; i <= 4; i++) { const k = dtK(now - i * 86400e3), wd = k.getUTCDay(); if (wd >= 1 && wd <= 5) out.push(ymd(k)); }
+  return out;
+}
+// both markets of one day merged onto `base` (the same day's snapshot) → {mk:{Y,K}, rows, any, err}
+async function dtSyncDay(run, day, base, mktOf) {
+  const CLS = ['Y', 'K'];
+  const settled = await Promise.allSettled(CLS.map(cls => dtSyncMarket(run, day, cls, base)));
+  for (const s of settled) if (s.status === 'rejected' && dtHard(s.reason)) throw s.reason;
+  if (settled.every(s => s.status === 'rejected')) throw settled[0].reason;
+  const byR = new Map(base ? base.rows.map(r => [r.r, r]) : []);
+  const mk = {};
+  let err = '';
+  CLS.forEach((cls, i) => {
+    const old = (base && base.mk && base.mk[cls]) || { tot: 0, x: [], gap: 0 };
+    const s = settled[i];
+    if (s.status === 'rejected') { mk[cls] = old; err = 'partial'; return; }
+    const { tot, gap, items, partial } = s.value;
+    if (partial) err = 'partial';
+    const x = new Set(old.x || []);                                   // filings of stocks outside the universe (counted, not served)
+    for (const it of items) {
+      const r = String(it.rcept_no || '');
+      if (!/^\d{14}$/.test(r)) continue;
+      const code = String(it.stock_code || '').trim(), m = mktOf(code);
+      if (!m) { x.add(r); continue; }
+      const row = dtRow(it, code, m, cls), was = byR.get(r);
+      if (was && was.s) row.s = was.s;
+      byR.set(r, row);
+    }
+    mk[cls] = { tot, x: [...x], gap };
+  });
+  const rows = [...byR.values()];
+  return { mk, rows, any: rows.length > 0 || mk.Y.tot > 0 || mk.K.tot > 0, err };
+}
+// one market: page 1, then pages until known + fetched ≥ total_count (newest first, so new filings sit on page 1)
+async function dtSyncMarket(run, day, cls, base) {
+  const old = base && base.mk && base.mk[cls];
+  const known = new Set(base ? base.rows.filter(r => r.y === cls).map(r => r.r) : []);
+  for (const r of (old && old.x) || []) known.add(r);
+  const first = await dtPage(run, day, cls, 1);
+  if (first.status === '013') {
+    if (old && old.tot > 0) throw new DtErr('gone');                // a day's list doesn't shrink to nothing: a failure
+    return { tot: 0, gap: 0, items: [] };
+  }
+  const tot = Math.max(0, parseInt(first.total_count, 10) || 0);
+  const last = Math.min(DT_MAX_PAGES, Math.max(1, parseInt(first.total_page, 10) || 1));
+  const items = new Map();
+  const add = list => { for (const it of Array.isArray(list) ? list : []) if (it && it.rcept_no) items.set(String(it.rcept_no), it); };
+  add(first.list);
+  let gap = (old && old.gap) || 0;                                    // rows total_count promised but a full pass never found
+  const missing = () => {
+    let n = known.size;
+    for (const r of items.keys()) if (!known.has(r)) n++;
+    return Math.min(tot, DT_MAX_PAGES * DT_PAGE) - gap - n;
+  };
+  let page = 2, partial = false;
+  while (page <= last && missing() > 0) {
+    const want = Math.min(DT_PAR, Math.ceil(missing() / DT_PAGE), last - page + 1);
+    const pages = Array.from({ length: want }, (_, i) => page + i);
+    page += want;
+    const got = await Promise.allSettled(pages.map(p => dtPage(run, day, cls, p)));
+    for (const g of got) {
+      if (g.status === 'fulfilled') add(g.value.list);
+      else if (dtHard(g.reason)) throw g.reason;
+      else partial = true;
+    }
+    if (partial) break;
+  }
+  if (!partial && page > last && missing() > 0) gap += missing();     // walked every page: don't page for them again
+  return { tot, gap, items: [...items.values()], partial };
+}
+async function dtPage(run, day, cls, page) {
+  run.calls++;
+  const u = `https://opendart.fss.or.kr/api/list.json?crtfc_key=${encodeURIComponent(run.key)}&bgn_de=${day}&end_de=${day}&corp_cls=${cls}&sort=date&sort_mth=desc&page_no=${page}&page_count=${DT_PAGE}`;
+  let j;
+  try {
+    const r = await fetch(u, { headers: { accept: 'application/json', 'user-agent': DT_UA }, signal: AbortSignal.timeout(DT_TIMEOUT) });
+    if (r.status === 429) throw new DtErr('rate');
+    if (!r.ok) throw new DtErr('http');
+    j = await r.json();
+  } catch (e) {
+    if (e instanceof DtErr) throw e;
+    throw new DtErr(e && (e.name === 'TimeoutError' || e.name === 'AbortError') ? 'timeout' : e instanceof SyntaxError ? 'json' : 'network');
+  }
+  const st = String((j && j.status) || '');
+  if (st === '000' || st === '013') return j;
+  if (st === '020') throw new DtErr('rate');                          // 요청 제한 초과
+  if (st === '010' || st === '011' || st === '012' || st === '901') throw new DtErr('key');   // 미등록·사용 불가 키, 접근 불가 IP, 기간 만료
+  throw new DtErr('status');
+}
+// report_nm → t (leading [기재정정]-style tags moved to n), DART rm → n (철=철회, 정=정정본 있음), filer when not the company
+function dtRow(it, code, m, cls) {
+  const raw = String(it.report_nm || '').replace(/\s+/g, ' ').trim();
+  let t = raw, g;
+  const tags = [];
+  while ((g = /^\[([^\]]{1,20})\]\s*/.exec(t))) { tags.push(g[1].trim()); t = t.slice(g[0].length); }
+  const rm = String(it.rm || '');
+  if (rm.includes('철')) tags.push('철회');
+  if (rm.includes('정')) tags.push('정정본 있음');
+  const row = { c: code, t: t || raw, k: dartKind(t || raw), r: String(it.rcept_no), m, y: cls };
+  if (tags.length) row.n = [...new Set(tags)].join(' · ');
+  const f = String(it.flr_nm || '').trim();
+  if (f && f !== String(it.corp_name || '').trim()) row.f = f;
+  return row;
+}
+// first-seen stamps: kept ones first, then this check's time (today only); written back when something new was stamped
+async function dtStamp(env, day, rows, hm) {
+  const key = 'dart:seen:' + day;
+  let seen = null;
+  try { seen = await env.REPLAY.get(key, 'json'); } catch (e) { /* stamp without it */ }
+  if (!seen || typeof seen !== 'object') seen = {};
+  let added = false;
+  for (const r of rows) {
+    if (r.s) continue;
+    if (typeof seen[r.r] === 'string') r.s = seen[r.r];
+    else if (hm) { r.s = hm; added = true; }
+  }
+  if (!added) return;
+  const out = { ...seen };
+  for (const r of rows) if (r.s) out[r.r] = r.s;
+  await env.REPLAY.put(key, JSON.stringify(out), { expirationTtl: DT_KEEP }).catch(() => {});
+}
+function dtBody(snap, now) {
+  const today = ymd(dtK(now)), counts = { K: 0, Q: 0, total: 0 };
+  const rows = snap.rows.map(x => {
+    counts[x.m === 'Q' ? 'Q' : 'K']++;
+    counts.total++;
+    const o = { c: x.c, t: x.t, k: x.k };
+    if (x.n) o.n = x.n;
+    o.r = x.r;
+    if (x.s) o.s = x.s;
+    if (x.f) o.f = x.f;
+    return o;
+  });
+  const body = { date: dash(snap.date), asOf: dtIso(snap.at || snap.try), rows, counts };
+  if (snap.date === today && snap.watch && snap.watch.d === today) body.since = snap.watch.t;
+  if (snap.err) body.stale = true;
+  return body;
 }
 
 /* ── /api/stock/:code/finance, /research ─────────────────────────────── */
