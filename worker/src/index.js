@@ -110,6 +110,7 @@ export default {
         if (hmMin(to) - hmMin(from) + 1 > MINUTE_MAX) return fail(400, `1분 프레임은 한 번에 ${MINUTE_MAX}개(from~to 양 끝 포함)까지 받을 수 있어요`);
         return await edgeCached(request, ctx, `replay1-${d || 'latest'}-${from}-${to}`, past ? 3600 : 60, () => getReplayMinutes(env, d, from, to));
       }
+      if (path === '/api/news') return await getNewsRoute(request, env, ctx);   // 시장 뉴스 RSS (docs/standards/news.md §2-2)
       if (ASSETS[path]) return await getAsset(request, env, ctx, path);
       m = path.match(/^\/api\/chart\/([^/]+)$/);
       if (m) {
@@ -1416,6 +1417,215 @@ async function getResearch(code) {
     url: `https://m.stock.naver.com/research/company/${r.researchId}`,
   }));
   return { consensus, rows };
+}
+
+/* ── /api/news: 시장 뉴스 (docs/standards/news.md §2-2 · §2-3, AGENTS §3-27) ─────────────────────────────── */
+// GET /api/news → {asOf, items:[{src, title, url, t}], sources:{einfomax|hankyung|mk: {ok, n, at, error?, stale?}}}
+//   items: up to 30 per outlet, merged, deduped by url, newest first (ties in NEWS_SRC order); t = KST ISO (+09:00).
+//   Only headline · link · time leave the Worker — never the body, description, images, author or category.
+//   An outlet that fails this time: its last good copy (KV REPLAY news:last:<src>, 6 h) rides along as {ok:false, stale:true,
+//   n, at:<when that copy was fetched>}; without one {ok:false, n:0, at:null}. No item at all → 502 {error, sources}.
+// Fetching: an honest User-Agent (not the Naver one, no browser imitation), 6 s per outlet, all three in parallel
+// (Promise.allSettled), never retried in the same request; 403 / 429 → that outlet rests 15 min (news:cool:<src>).
+// Edge cache 180 s (+ stale-while-revalidate 120): one fetch per outlet per data centre every 3 minutes at most.
+const NEWS_UA = 'PanseNewsBot/1.0 (+https://panse.pages.dev)';
+const NEWS_ACCEPT = 'application/rss+xml, application/xml;q=0.9, */*;q=0.5';
+const NEWS_SRC = [
+  { key: 'einfomax', url: 'https://news.einfomax.co.kr/rss/allArticle.xml', host: 'news.einfomax.co.kr' },
+  { key: 'hankyung', url: 'https://www.hankyung.com/feed/finance', host: 'www.hankyung.com' },
+  { key: 'mk', url: 'https://www.mk.co.kr/rss/50200011/', host: 'www.mk.co.kr' },
+];
+const NEWS_TTL = 180, NEWS_SWR = 120, NEWS_TIMEOUT_MS = 6000, NEWS_PER_SRC = 30;
+const NEWS_COOL_S = 900, NEWS_LAST_S = 6 * 3600, NEWS_REWRITE_MS = 30 * 60e3, NEWS_TITLE_MAX = 200;
+
+async function getNewsRoute(request, env, ctx) {
+  const cache = typeof caches !== 'undefined' ? caches.default : null;
+  const cacheKey = new Request(new URL('/__cache/news-v1', request.url).toString());
+  const hit = cache && await cache.match(cacheKey);
+  if (hit) return hit;
+  const body = await newsCore(env, ctx);
+  const ok = body.items.length > 0;
+  const res = new Response(JSON.stringify(ok ? body : { error: '세 언론사 모두 뉴스를 불러오지 못했어요', sources: body.sources }), {
+    status: ok ? 200 : 502,
+    headers: {
+      'content-type': 'application/json; charset=utf-8',
+      'cache-control': ok ? `public, s-maxage=${NEWS_TTL}, stale-while-revalidate=${NEWS_SWR}` : 'no-store',
+      'access-control-allow-origin': ORIGIN,
+    },
+  });
+  if (ok && cache) {
+    const put = cache.put(cacheKey, res.clone()).catch(() => {});
+    if (ctx && ctx.waitUntil) ctx.waitUntil(put);
+  }
+  return res;
+}
+
+async function newsCore(env, ctx) {
+  const kv = env && env.REPLAY && typeof env.REPLAY.get === 'function' ? env.REPLAY : null;
+  const now = Date.now();
+  const settled = await Promise.allSettled(NEWS_SRC.map(s => newsOne(s, kv, ctx, now)));
+  const sources = {}, merged = [];
+  settled.forEach((r, i) => {
+    const s = NEWS_SRC[i];
+    const v = r.status === 'fulfilled' ? r.value : { ok: false, error: String((r.reason && r.reason.message) || r.reason || 'error').slice(0, 80), items: [] };
+    const meta = { ok: !!v.ok, n: v.items.length, at: v.at || null };
+    if (!v.ok) meta.error = v.error || 'error';
+    if (v.stale) meta.stale = true;
+    sources[s.key] = meta;
+    for (const it of v.items) merged.push({ src: s.key, title: it.title, url: it.url, t: it.t, o: i });
+  });
+  const seen = new Set(), items = [];
+  for (const it of merged) { if (seen.has(it.url)) continue; seen.add(it.url); items.push(it); }
+  items.sort((a, b) => (a.t < b.t ? 1 : a.t > b.t ? -1 : a.o - b.o));
+  return { asOf: newsKstIso(now), items: items.map(({ src, title, url, t }) => ({ src, title, url, t })), sources };
+}
+
+async function newsKvGet(kv, key, type) {
+  if (!kv) return null;
+  try { return await kv.get(key, type); } catch (e) { return null; }
+}
+function newsKvPut(kv, ctx, key, value, ttl) {
+  if (!kv) return;
+  let p;
+  try { p = Promise.resolve(kv.put(key, value, { expirationTtl: ttl })).catch(() => {}); } catch (e) { return; }
+  if (ctx && ctx.waitUntil) ctx.waitUntil(p);
+}
+
+// one outlet: cool-down check → one GET (no retry) → parse → keep the last good copy
+async function newsOne(s, kv, ctx, now) {
+  const [cool, last] = await Promise.all([newsKvGet(kv, 'news:cool:' + s.key), newsKvGet(kv, 'news:last:' + s.key, 'json')]);
+  const fallback = error => (last && Array.isArray(last.items) && last.items.length
+    ? { ok: false, error, stale: true, at: last.at || null, items: last.items }
+    : { ok: false, error, items: [] });
+  if (cool) return fallback('cool-down');
+  const ac = new AbortController();
+  const timer = setTimeout(() => ac.abort(), NEWS_TIMEOUT_MS);
+  let text;
+  try {
+    const r = await fetch(s.url, { headers: { 'user-agent': NEWS_UA, accept: NEWS_ACCEPT }, redirect: 'follow', signal: ac.signal });
+    if (!r.ok) {
+      if (r.status === 403 || r.status === 429) newsKvPut(kv, ctx, 'news:cool:' + s.key, String(now), NEWS_COOL_S);
+      try { await r.body?.cancel(); } catch (e) { /* nothing to drain */ }
+      return fallback('http ' + r.status);
+    }
+    text = await r.text();
+  } catch (e) {
+    return fallback(e && e.name === 'AbortError' ? 'timeout' : 'network');
+  } finally { clearTimeout(timer); }
+  if (!/<rss\b|<channel\b|<feed\b/i.test(text.slice(0, 2000))) return fallback('not rss');
+  const items = parseNewsFeed(text, s.host, now);
+  const at = newsKstIso(now);
+  // keep the last good copy; write only when the list changed or the copy is 30 min old (KV writes stay rare)
+  const sig = newsSig(items);
+  if (items.length && (!last || last.sig !== sig || !(now - Date.parse(last.at) < NEWS_REWRITE_MS))) {
+    newsKvPut(kv, ctx, 'news:last:' + s.key, JSON.stringify({ at, sig, items }), NEWS_LAST_S);
+  }
+  return { ok: true, at, items };
+}
+function newsSig(items) {
+  let h = 5381;
+  const s = items.map(x => x.url + '\u0001' + x.title + '\u0001' + x.t).join('\u0002');
+  for (let i = 0; i < s.length; i++) h = ((h * 33) ^ s.charCodeAt(i)) >>> 0;
+  return items.length + ':' + h.toString(36);
+}
+
+// RSS 2.0 (and Atom <entry>, just in case) → [{title, url, t}] for one outlet, newest first, ≤ 30
+function parseNewsFeed(xml, host, now) {
+  const out = [], seen = new Set();
+  const blocks = xml.match(/<item\b[\s\S]*?<\/item>/gi) || xml.match(/<entry\b[\s\S]*?<\/entry>/gi) || [];
+  for (const b of blocks) {
+    const title = newsCleanTitle(newsTag(b, 'title'));
+    let link = newsTag(b, 'link');
+    if (!link) { const m = /<link\b[^>]*\bhref\s*=\s*["']([^"']+)["']/i.exec(b); if (m) link = newsXmlUnescape(m[1]); }
+    const url = newsUrl(link, host);
+    const t = newsDate(newsTag(b, 'pubDate') || newsTag(b, 'dc:date') || newsTag(b, 'published') || newsTag(b, 'updated'), now);
+    if (!title || !url || !t || seen.has(url)) continue;
+    seen.add(url);
+    out.push({ title, url, t });
+  }
+  out.sort((a, b) => (a.t < b.t ? 1 : a.t > b.t ? -1 : 0));
+  return out.slice(0, NEWS_PER_SRC);
+}
+// the text of the first <name>…</name> in an item: CDATA sections kept as they are, the rest XML-unescaped
+function newsTag(block, name) {
+  const m = new RegExp('<' + name.replace(':', '\\:') + '(?:\\s[^>]*)?>([\\s\\S]*?)</' + name.replace(':', '\\:') + '\\s*>', 'i').exec(block);
+  if (!m) return '';
+  const raw = m[1], re = /<!\[CDATA\[([\s\S]*?)\]\]>/g;
+  let out = '', i = 0, c;
+  while ((c = re.exec(raw))) { out += newsXmlUnescape(raw.slice(i, c.index)) + c[1]; i = re.lastIndex; }
+  return out + newsXmlUnescape(raw.slice(i));
+}
+const NEWS_XML_ENT = { lt: '<', gt: '>', amp: '&', quot: '"', apos: "'" };
+function newsXmlUnescape(s) {
+  return String(s).replace(/&(#x[0-9a-f]+|#\d+|lt|gt|amp|quot|apos);/gi, (all, e) => {
+    if (e[0] === '#') {
+      const cp = e[1] === 'x' || e[1] === 'X' ? parseInt(e.slice(2), 16) : parseInt(e.slice(1), 10);
+      try { return String.fromCodePoint(cp); } catch (_) { return all; }
+    }
+    return NEWS_XML_ENT[e.toLowerCase()];
+  });
+}
+// HTML entities (the shared table + a few more that headlines use) — one pass after the XML level, so a feed that escapes
+// twice (연합인포맥스: &amp;quot;) reads right
+const NEWS_HTML_ENT = { ndash: '–', mdash: '—', bull: '•', laquo: '«', raquo: '»', lsaquo: '‹', rsaquo: '›', sbquo: '‚', bdquo: '„', prime: '′', times: '×', trade: '™', reg: '®', copy: '©', deg: '°', percnt: '%', amp: '&' };
+function newsHtmlDecode(s) {
+  return String(s).replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (all, e) => {
+    if (e[0] === '#') {
+      const cp = e[1] === 'x' || e[1] === 'X' ? parseInt(e.slice(2), 16) : parseInt(e.slice(1), 10);
+      try { return String.fromCodePoint(cp); } catch (_) { return all; }
+    }
+    const k = e.toLowerCase(), v = ENTITIES[k] != null ? ENTITIES[k] : NEWS_HTML_ENT[k];
+    return v == null ? all : v;
+  });
+}
+// §2-2: entities → tags to text → invisible characters out (a 한국경제 title began with a BOM) → one space → trimmed → ≤ 200 characters
+function newsCleanTitle(raw) {
+  let t = newsHtmlDecode(raw);
+  t = t.replace(/<\/?[A-Za-z][^>]*>/g, '');
+  t = t.replace(/[﻿​-‍⁠]/g, '').replace(/\s+/g, ' ').trim();
+  const cps = Array.from(t);
+  return cps.length > NEWS_TITLE_MAX ? cps.slice(0, NEWS_TITLE_MAX).join('').trim() : t;
+}
+// §2-2: https only, and only that outlet's host — anything else drops the item
+function newsUrl(raw, host) {
+  const s = String(raw || '').replace(/[﻿​-‍⁠]/g, '').trim();
+  if (!s) return null;
+  let u;
+  try { u = new URL(s); } catch (e) { return null; }
+  if (u.protocol !== 'https:' || u.hostname.toLowerCase() !== host || u.username || u.password) return null;
+  u.hash = '';
+  return u.href;
+}
+// pubDate → 'YYYY-MM-DDTHH:MM:SS+09:00' (KST). RFC 822 ('Fri, 13 Nov 2026 22:00:04 +0900' · '+09:00' · GMT · KST …),
+// ISO 8601, or 연합인포맥스's 'YYYY-MM-DD HH:MM:SS' without a zone (read as KST). Unreadable → null (the item is dropped);
+// a time more than a day ahead is a broken zone, also dropped.
+const NEWS_MON = { jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5, jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11 };
+const NEWS_TZ = { gmt: 0, ut: 0, utc: 0, z: 0, kst: 540, jst: 540, est: -300, edt: -240, cst: -360, cdt: -300, mst: -420, mdt: -360, pst: -480, pdt: -420 };
+function newsDate(raw, now) {
+  const s = String(raw || '').replace(/\s+/g, ' ').trim();
+  if (!s) return null;
+  let ms = NaN, m;
+  const off = z => {
+    if (!z) return 540;
+    const n = /^([+-])(\d{2}):?(\d{2})$/.exec(z);
+    if (n) return (n[1] === '-' ? -1 : 1) * (+n[2] * 60 + +n[3]);
+    const v = NEWS_TZ[z.toLowerCase()];
+    return v == null ? null : v;
+  };
+  if ((m = /^(?:[A-Za-z]{3},? )?(\d{1,2}) ([A-Za-z]{3})[a-z]* (\d{2}|\d{4}) (\d{1,2}):(\d{2})(?::(\d{2}))?(?: ?([+-]\d{2}:?\d{2}|[A-Za-z]{1,4}))?$/.exec(s))) {
+    const mon = NEWS_MON[m[2].toLowerCase()], o = off(m[7]);
+    let y = +m[3]; if (y < 100) y += 2000;
+    if (mon != null && o != null) ms = Date.UTC(y, mon, +m[1], +m[4], +m[5], +(m[6] || 0)) - o * 60e3;
+  } else if ((m = /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2})(?:\.\d+)?)?(?: ?(Z|[+-]\d{2}:?\d{2}))?$/i.exec(s))) {
+    const o = off(m[7]);
+    if (o != null) ms = Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +(m[6] || 0)) - o * 60e3;
+  }
+  if (!Number.isFinite(ms) || ms > now + 86400e3) return null;
+  return newsKstIso(ms);
+}
+function newsKstIso(ms) {
+  const k = new Date(ms + 9 * 3600e3);
+  return `${k.getUTCFullYear()}-${pad(k.getUTCMonth() + 1)}-${pad(k.getUTCDate())}T${pad(k.getUTCHours())}:${pad(k.getUTCMinutes())}:${pad(k.getUTCSeconds())}+09:00`;
 }
 
 /* ── static assets (whitelist, binary-safe) ─────────────────────────────── */

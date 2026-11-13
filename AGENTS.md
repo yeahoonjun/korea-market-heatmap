@@ -104,6 +104,7 @@ python3 tmp/shot.py /home/claude/heatmap/dist/index.html    # 1440×900 / 390×8
 | `/api/replay/dates` | `{dates:['YYYY-MM-DD',…]}` 최신순 | 60초 |
 | `/api/replay?date=YYYY-MM-DD` | `{date, codes:[…], frames:[{t:'HHMM', p:[…], r:[…]}], index:{KOSPI:[…],KOSDAQ:[…]}, base:{KOSPI,KOSDAQ}\|null}` — `p`·`r`·지수는 `codes`/`frames` 순서, `base`는 지수 전일 종가. 날짜 없으면 최신 | 60초(지난 날 1시간) |
 | `/api/replay/status` | 기록기 상태(§3-15 ①): KV `replay:status` `{v, at(ms), day:'YYYY-MM-DD', t:'HHMM', result:'wrote'\|'skipped:<이유>'\|'error', error?, rows?, since(ms), lastWrote:'HHMM'\|null, errors(그날, 근사), lastError?:{t,error}, cron}` + `{now(ms), nowKst, atKst, ageSec, due, recent, stale}` — 아직 없으면 `result:null`. `due`=평일 09:06~마감, `recent`=최근 5분 프레임 키가 있는지(`{'HHMM':bool}`), `stale`=`due`인데 그 5분에 프레임이 하나도 없음. 이유: `after-end`·`closed`(휴장) | 없음(`no-store`) |
+| `/api/news` | `{asOf, items:[{src:'einfomax'\|'hankyung'\|'mk', title, url, t(ISO KST)}], sources:{src:{ok, n, at, error?, stale?}}}` — 시장 뉴스(§3-27, `docs/standards/news.md` §2-2): 연합인포맥스 · 한국경제 · 매일경제 RSS, 언론사마다 최신 30개, `url`로 중복 제거, `t` 내림차순. 제목 · 링크 · 시각만(본문 · 요약 · 이미지 · 기자 없음). User-Agent `PanseNewsBot/1.0 (+https://panse.pages.dev)`, 언론사마다 6초 · 같은 요청 안 재시도 없음 · 403/429면 15분 쉼(KV `news:cool:<src>`), 마지막 성공본 KV `news:last:<src>` 6시간(실패하면 `stale:true`로 같이). 기사가 하나도 없으면 502 `{error, sources}` | 180초 (`s-maxage=180, stale-while-revalidate=120`) |
 | `/data/themes.json`, `/data/periods.json`, `/data/flows.json` | ASSET_BASE의 `web/*.json` 그대로 | 10분 |
 | `/manifest.webmanifest`, `/sw.js`, `/icon.svg`, `/icon-192.png`, `/icon-512.png`, `/apple-touch-icon.png` | ASSET_BASE에서 올바른 content-type으로 | 1시간 |
 
@@ -488,6 +489,7 @@ python3 tmp/shot.py /home/claude/heatmap/dist/index.html    # 1440×900 / 390×8
 ## 3-27. 뉴스 · 색 범위 자동 · 해외 묶음 (사용자 2026-11-13 22:19~22:26)
 
 **뉴스 패널** (22:19 "pc에서 아래에 공간이 빈 것 같아서 연합인포맥스, 한국경제, 매일경제 뉴스 못가져오나?"): PC는 지도 아래 빈자리, 휴대폰은 맨 아래 카드(최신 5 + 더보기). 시각 · 언론사 · 제목만, 누르면 원문 새 탭(본문·요약·이미지·로고 없음). 제목 속 지도 종목 이름은 표시 → 누르면 빠른 시트. 원천 RSS(정직한 User-Agent, 엣지 캐시 몇 분, 막히면 그 언론사는 빠짐 — 우회하지 않아요): 연합인포맥스 `news.einfomax.co.kr/rss/allArticle.xml`, 한국경제 `www.hankyung.com/feed/finance`, 매일경제 `www.mk.co.kr/rss/50200011/`. 모양은 시안(`drafts/news.html`, `docs/standards/news.md`) 뒤 사용자 선택.
+- **결정 (사용자 2026-11-13 23:14 "너 추천대로 c안으로 하는게 낫겠다") → C안**, 구현 `feat/news`: Worker `/api/news`(§3-2 표), 템플릿 마운트 `#news`(main.layout 마지막 칸, PC 두 줄 격자) · `KH.quick` · `KH.hover` · 토큰 `--row-hov --mk-bg --mk-line --dchip-bg` · 출처 줄 `#foot-news`, 모듈 `src/news/news.js · news.css · match.js`(빌드: world 다음). 1920 × 1080처럼 빈자리가 작으면 최소 5줄(두 단 10개)을 지켜요(오케스트레이터 결정). 탭은 기사가 있는 언론사만(지난 목록 포함) — 받지 못했고 지난 목록도 없는 언론사는 탭 · 출처 줄에서 빠지고 따로 오류 문구 없음, 다시 되면 다음 갱신에 탭이 돌아와요.
 
 **색 범위 자동** (22:26 "현재 보이는 최고 최저에 맞게 자동 조절 … 코스닥에서 범위 10퍼센트로 하다가 해외나 원자재 탭으로 가면 … 색상 차이가 없어져서 불편해"): 템플릿이 테마 작업을 병합한 뒤 구현.
 - 색 범위에 `자동` 추가(기본값): 지금 화면에 그린 항목 등락률 절댓값의 95번째 백분위를 1·2·3·4·5·7·10·15·20·30% 중 올림 — 상한가 하나가 전체를 흐리게 만들지 않게. 범례에 "자동 ±4%"처럼 실제 값. 갱신 때 깜박이지 않게 단계가 바뀔 때만(작은 히스테리시스).

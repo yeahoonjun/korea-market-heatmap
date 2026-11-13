@@ -19,7 +19,7 @@ globalThis.caches = {
       return e.res.clone();
     },
     async put(req, res) {
-      const m = /max-age=(\d+)/.exec(res.headers.get('cache-control') || '');
+      const cc = res.headers.get('cache-control') || '', m = /s-maxage=(\d+)/.exec(cc) || /max-age=(\d+)/.exec(cc);   // /api/news sends s-maxage only
       if (m) store.set(req.url, { exp: Date.now() + m[1] * 1000, res: res.clone() });
     },
   },

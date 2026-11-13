@@ -136,6 +136,9 @@ class H(SimpleHTTPRequestHandler):
             return super().do_GET()
         if path.startswith('/api/chart/'):
             return self.send_json({'day': '20261109', 'points': []})
+        if path == '/api/news':                    # src/news polls it once the card is near the screen (qa/news has the real fixtures)
+            at = time.strftime('%Y-%m-%dT%H:%M:%S+09:00', time.gmtime(time.time() + 9 * 3600))
+            return self.send_json({'asOf': at, 'items': [], 'sources': {k: {'ok': True, 'n': 0, 'at': at} for k in ('einfomax', 'hankyung', 'mk')}})
         if path.startswith('/api/') or path.startswith('/data/'):
             return self.send_json({'error': 'not mocked'}, 404)
         return super().do_GET()

@@ -90,6 +90,8 @@ if(d.dataset.serif==='on'){var s=document.getElementById('kh-serif');if(s&&windo
   --knob-sh:0 1px 1px rgba(0,0,0,.3),0 3px 6px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.85);
   --knob-dn:0 1px 1px rgba(0,0,0,.4),0 1px 2px rgba(0,0,0,.3),inset 0 1px 0 rgba(255,255,255,.85);
   --chip-bg:#25272e; --chip-on:color-mix(in srgb,#ffb547 20%,#25272e); --chip-ring:rgba(255,181,71,.8);
+  /* 시장 뉴스 (news.md §7 ✚): list-row hover tint · in-headline chip (A · B 안) · data chip (stock name + %) surface */
+  --row-hov:rgba(255,255,255,.045); --mk-bg:rgba(255,255,255,.06); --mk-line:var(--line2); --dchip-bg:var(--key-bg);
 }
 html[data-motion="reduced"]{--c-fast:0ms; --c-base:0ms; --c-switch:0ms}
 /* ───────────────── themes (docs/standards/themes.md §4): one set of role tokens per theme — colour, light, corners, material and
@@ -118,6 +120,7 @@ html[data-theme="paper"]{
   --pri-bg:#211a15; --pri-fg:#fbf1e6; --pri-sh:0 2px 0 #6e5a49; --press-f:brightness(.95);
   --done-bg:#f3b941; --done-fg:#211a15; --fail-bg:#fbf1e6; --fail-fg:#7a3f00; --fail-ring:#8a4b00;
   --chip-bg:#fff8ef; --chip-on:#f7d68e; --chip-ring:#211a15;
+  --row-hov:rgba(46,30,18,.06); --mk-bg:rgba(46,30,18,.07); --mk-line:rgba(46,30,18,.34);
   --trk:#ead5c0; --knob:#fffaf3; --sw-on:#211a15; --knob-sh:inset 0 0 0 1px #211a15,0 2px 0 #211a15; --knob-dn:inset 0 0 0 1px #211a15,0 1px 0 #211a15;
   --r-key:3px; --r-tray:4px; --r-in:2px; --r-chip:3px;
   --w-head:800; --w-strong:800; --track-head:-.03em;
@@ -146,6 +149,7 @@ html[data-theme="glass-dark"]{
   --pri-bg:linear-gradient(180deg,#ffffff,#e6e9ee); --pri-fg:#101216; --pri-sh:inset 0 1px 0 #fff,inset 0 -1px 0 rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.4),0 4px 10px rgba(0,0,0,.3);
   --press-f:brightness(1.2) saturate(1.1); --done-bg:rgba(255,181,71,.94); --fail-bg:rgba(255,181,71,.13);
   --chip-bg:var(--key-bg); --chip-on:rgba(255,181,71,.2);
+  --dchip-bg:linear-gradient(180deg,rgba(255,255,255,.10),rgba(255,255,255,.02) 62%),rgba(0,0,0,.25);   /* the raised key is too light under red / green % */
   --trk:rgba(0,0,0,.36); --knob:linear-gradient(180deg,#ffffff,#e5e8ed);
   --knob-sh:inset 0 1px 0 #fff,0 1px 1px rgba(0,0,0,.3),0 3px 8px rgba(0,0,0,.4); --knob-dn:inset 0 1px 0 #fff,0 1px 1px rgba(0,0,0,.35),0 1px 3px rgba(0,0,0,.3);
   --r-key:999px; --r-tray:999px; --r-in:999px; --r-chip:999px;
@@ -182,6 +186,7 @@ html[data-theme="glass-light"]{
   --press-f:brightness(.95) saturate(1.1);
   --done-bg:#ffb547; --done-fg:#1b1404; --fail-bg:rgba(255,181,71,.2); --fail-fg:#6b3b00; --fail-ring:rgba(154,86,0,.6);
   --chip-bg:var(--key-bg); --chip-on:rgba(255,181,71,.3); --chip-ring:rgba(154,86,0,.75);
+  --row-hov:rgba(15,17,21,.045); --mk-bg:rgba(255,255,255,.7); --mk-line:rgba(15,17,21,.16);
   --trk:rgba(15,17,21,.12); --knob:#ffffff; --sw-on:#ffb547;
   --knob-sh:inset 0 0 0 .5px rgba(15,17,21,.06),0 1px 1px rgba(20,30,50,.2),0 3px 8px rgba(20,30,50,.22); --knob-dn:inset 0 0 0 .5px rgba(15,17,21,.08),0 1px 1px rgba(20,30,50,.25),0 1px 3px rgba(20,30,50,.18);
   --r-key:999px; --r-tray:999px; --r-in:999px; --r-chip:999px;
@@ -375,6 +380,12 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 
 /* ── Layout ───────────────────────────── */
 .layout{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:14px;padding:0 18px 14px;flex:1;min-height:0}
+/* 시장 뉴스 (news.md §4-1): two rows while the card is shown — the side column spans both, so the second row (1fr) is "side end − map
+   column end" and the card under the legend stretches to the side's end. The map, legend and side cards don't move a pixel. */
+.layout:has(> .news:not([hidden])){grid-template-rows:auto 1fr}
+.layout:has(> .news:not([hidden])) > .stage{grid-row:1}
+.layout:has(> .news:not([hidden])) > .side{grid-row:1 / span 2}
+.layout > .news{grid-column:1;grid-row:2;align-self:stretch;min-width:0}
 .stage{display:flex;flex-direction:column;min-width:0}
 .stagebar{display:flex;align-items:center;gap:12px;padding-bottom:6px;min-height:36px}
 .crumbs{display:flex;align-items:center;gap:6px;min-height:30px;font-size:13.5px;flex-wrap:wrap;flex:1;min-width:0}
@@ -547,6 +558,9 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 .tile:hover,.tile.hov{box-shadow:inset 0 0 0 2px var(--tile-hov);z-index:5}
 .tile.sel{box-shadow:inset 0 0 0 3px var(--sel-1),0 0 0 1px var(--sel-2);z-index:6}
 .tile.dim{filter:saturate(.25) brightness(.38)}
+/* 뉴스 줄에 올리면 그 종목만 (KH.hover): weaker than the search / 등락 분포 highlight, which win while they are on */
+.tile.ndim{filter:saturate(.5) brightness(.6)}
+.tile.nhl{box-shadow:inset 0 0 0 2px var(--sel-1),0 0 0 1px var(--sel-2);z-index:5}
 .map.anim .tile{transition:opacity .3s,background-color .6s,filter .2s}
 .tile{transition:filter .2s}
 .tile.flash-up::after,.tile.flash-dn::after{content:"";position:absolute;inset:0;pointer-events:none;animation:flash .9s ease-out}
@@ -793,6 +807,9 @@ footer .credit .dc{width:1.15em;height:1.15em;flex:none}
 @media (max-width: 980px){
   .layout{grid-template-columns:1fr}
   .side{padding-top:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
+  /* one column: stage → side cards → news, in DOM order (news.md §11 위험 ②) */
+  .layout:has(> .news:not([hidden])){grid-template-rows:none}
+  .layout:has(> .news:not([hidden])) > :is(.stage,.side),.layout > .news{grid-row:auto}
 }
 @media (max-width: 760px){
   .top{padding:12px 12px 8px;gap:10px 12px}
@@ -1227,6 +1244,7 @@ html[data-theme="paper"] .ss-list > button[aria-selected="true"]{background:var(
       <div class="movers" id="movers"></div>
     </section>
   </aside>
+  <section class="card news" id="news" hidden></section><!-- 시장 뉴스 (src/news, docs/standards/news.md §4): PC = 지도 열 두 번째 줄 -->
 </main>
 <div id="world" hidden></div>
 
@@ -1295,7 +1313,10 @@ html[data-theme="paper"] .ss-list > button[aria-selected="true"]{background:var(
         stock(code) rows carry nx: {p, d, r, s 'pre'|'reg'|'after', o 1|0, t, tm, v, tv} | null (the Worker's NXT fields).
         layout() tiles gain nonx (true: NXT prices drawn, this stock has none, its KRX value is shown).
    §3-16 setReplay(frame) frame may carry index {KOSPI, KOSDAQ: ratio % | {ratio}} — the market tabs' numbers at that moment (without
-                         it they use the frame's cap-weighted change per market). localStorage khm.watchTabGroup = the ★관심 tab's group. */
+                         it they use the frame's cap-weighted change per market). localStorage khm.watchTabGroup = the ★관심 tab's group.
+   §3-27 시장 뉴스 (docs/standards/news.md): mount <section class="card news" id="news" hidden> = main.layout's last cell (src/news shows it);
+        quick(code, opener) → the quick view a tile opens; hover(codes | null) → those tiles lit on the map (weaker than search /
+        등락 분포, classes .nhl / .ndim); footer line <p id="foot-news"> (src/news writes "시장 뉴스: … RSS (제목 · 링크만)"). */
 
 /* ───────────────── 효과 level (AGENTS §3-5): 'reduced' | 'standard' | 'fancy', localStorage khm.motion ─────────────────
    No stored choice: the device's reduced-motion setting picks 'reduced', otherwise 'fancy' (사용자 2026-11-10 13:58: 화려하게가 기본). <html data-motion> mirrors it for CSS. */
@@ -3235,7 +3256,30 @@ function applyHighlights() {
     el.classList.toggle('dim', dimOn && !ok);
     el.classList.toggle('sel', st.c === state.selected);
   }
+  newsHighlight(dimOn);
   if (state.view === 'table') renderTable();
+}
+// 시장 뉴스 (news.md §9, KH.hover): the stocks of the news row under the pointer / focus stay lit, the rest dim a little. Only on the
+// map, only when one of them is drawn, and never over the search / 등락 분포 / sector highlight. Classes only — no redraw.
+let NEWS_HL = null, NEWS_ON = false;
+function newsHighlight(dimOn) {
+  if (!NEWS_HL && !NEWS_ON) return;                              // nothing lit, nothing to clear (the usual case)
+  if (dimOn == null) dimOn = !!state.query.trim() || state.bucket != null || !!state.hoverSector;
+  const tiles = [];
+  for (const [id, el] of nodes) if (id[0] === 'T' && id[1] === '|') tiles.push(el);
+  const on = !!NEWS_HL && !dimOn && state.view === 'map' && tiles.some(el => NEWS_HL.has(el.dataset.c));
+  NEWS_ON = on;
+  for (const el of tiles) {
+    const hit = on && NEWS_HL.has(el.dataset.c);
+    el.classList.toggle('nhl', hit);
+    el.classList.toggle('ndim', on && !hit);
+  }
+}
+function newsHover(codes) {
+  const next = Array.isArray(codes) && codes.length ? new Set(codes.map(String)) : null;
+  if (!next && !NEWS_HL) return;
+  NEWS_HL = next;
+  newsHighlight();
 }
 
 /* ───────────────── tooltip & detail ───────────────── */
@@ -4710,6 +4754,8 @@ function creditLine() {
   b.prepend(ic);
   return h('p', { class: 'credit' }, '© 2026 ', b);
 }
+// the news credit line keeps its text across footer redraws (one element, re-attached each time)
+function footNewsP() { return footNewsP.el || (footNewsP.el = h('p', { id: 'foot-news', hidden: true })); }
 function renderFooter() {
   const asOf = DATA.asOf ? kstFmt.format(new Date(DATA.asOf)) : '';
   if (isWorld()) {
@@ -4719,6 +4765,7 @@ function renderFooter() {
   const k = kind();
   // 사용자 2026-11-13 22:06: 크기·색·분류 설명과 갱신·가격 기준 설명은 아래 출처 줄에서 뺐어요(범례·버튼이 이미 말해요).
   const parts = [h('p', {}, '데이터: 네이버 증권 (finance.naver.com). 투자 판단의 근거로 쓰지 마세요.')];   // 사용자 22:16: 출처 주소는 finance.naver.com
+  parts.push(footNewsP());                       // "시장 뉴스: … RSS (제목 · 링크만)" — src/news fills it (news.md §2-5), hidden until then
   const daily = [];
   const P = PER(), F = FLO();
   if (P && P.asOf && k === 'period') daily.push(`기간 수익률 기준 종가는 ${dayName(P.asOf)}에 만든 자료예요`);
@@ -5698,6 +5745,10 @@ window.KH = {
   ui: KHUI,
   // themes.md: 'base' | 'paper' | 'glass-dark' | 'glass-light' (<html data-theme>, data-tone 'dark' | 'light'); 'kh:theme' {theme} on change
   theme: () => THEME,
+  // 시장 뉴스 (news.md §3 · §9): quick(code, opener) = the quick view a tile opens (select → openSheet; Esc returns focus to opener);
+  // hover(codes | null) = light those stocks on the map (weaker than search / 등락 분포; null = back to normal)
+  quick: (code, opener) => select(String(code), opener || null),
+  hover: codes => newsHover(codes),
 };
 
 /* phones: the basis chip's menu (a bottom sheet): KRX · NXT · 통합 with a line each; arrows / Home / End move, Enter picks, Esc closes,
@@ -5758,7 +5809,11 @@ if ('IntersectionObserver' in window) new IntersectionObserver(es => {
   const v = es[es.length - 1].isIntersecting;
   if (v === brState.visible) return;
   brState.visible = v;
-  if (v) { syncBreadth(); renderSide(); } else syncBreadth();     // off screen: it stops unless the dock's 등락 분포 cell shows
+  if (!v) { syncBreadth(); return; }                              // off screen: it stops unless the dock's 등락 분포 cell shows
+  // the redraw replaces the side cards' 더보기 / 접기 key: keep the keyboard focus on it (collapsing a long list scrolls this card back in)
+  const a = document.activeElement, card = a && a.classList && a.classList.contains('more') ? a.closest('.card') : null;
+  syncBreadth(); renderSide();
+  if (card && !a.isConnected) { const nb = card.querySelector('.more'); if (nb) nb.focus({ preventScroll: true }); }
 }).observe($('#hist').closest('.card'));
 
 /* ───────────────── themes (docs/standards/themes.md) ─────────────────
@@ -14847,6 +14902,613 @@ try {
   const w = document.getElementById('world');
   if ((m === 'world' || m === 'cmdty') && w && !w.hidden) show(m === 'cmdty' ? 'commodity' : 'index');
 } catch (e) { /* the template will call show() itself */ }
+})();
+
+</script>
+<script>
+/* 판세 시장 뉴스 — 헤드라인 속 지도 종목 이름 찾기 (docs/standards/news.md §3). drafts/news.html의 NEWS_MATCH 그대로.
+   window.KHNewsMatch = { build(rows) → idx, match(title, idx, max = 3) → {text, marks:[{i, j, codes}]}, clean, PARTICLES, ALLOW2, DENY, ALIAS }
+   rows = [{c: 코드, n: 종목명}] — 지도에 그리는 보통주(KH.stocks()), 시장 탭과 상관없이. Node에서도 require로 읽혀요(QA). */
+(function (root) {
+'use strict';
+const NEWS_MATCH = (() => {
+  // 이름 뒤에 붙어도 되는 조사(한두 개 이어져도 돼요): 삼성전자가 · 삼성전자에서도 · 한전발
+  const PARTICLES = ['으로', '에서', '에게', '까지', '부터', '보다', '처럼', '이나', '이란', '이며', '은', '는', '이', '가', '을', '를', '의', '도', '와', '과', '에', '만', '로', '나', '엔', '발', '측'];
+  // 두 글자 이름은 이 목록만(흔한 낱말 · 그룹 이름이 많아서): 상보 · 신흥 · 전방 · 태양 · 동양 · 대상 · 두산 · 한화 …는 빠져요
+  const ALLOW2 = new Set(['기아', '농심', '한샘', '한섬', '휴젤', '파두', '루닛', '안랩', '씨젠', '웹젠', '툴젠', '심텍', '한컴', '엔켐', '고영', '다날', '하림',
+    '풍산', '영풍', '후성', '테스', '천보', '원텍', '바텍', '스맥', '태웅', '삼현', '미코', '금양', '노타', '피노', '태성', '대웅', '뷰노', '쏘카', '엠로', '엑셈', '넵튠', '샘표', '한독', '팬젠', '휴럼', '퓨릿']);
+  // 세 글자 이상이지만 흔한 낱말 · 그룹 이름과 겹치는 것
+  const DENY = new Set(['신세계', '우리로', '엘리스', '미래산업', '모나리자', '포스코', '대한', '한국']);
+  // 다른 이름(별칭) → 코드. 사이트 이름(n)과 달리 기사에서 흔히 쓰는 이름. 같은 경계 규칙을 따라요. 후보에 그 종목이 있을 때만.
+  const ALIAS = { '네이버': ['035420'], '한전': ['015760'], '하이닉스': ['000660'], '현대자동차': ['005380'], '에쓰오일': ['010950'], 'LS일렉트릭': ['010120'],
+    'LG엔솔': ['373220'], '삼성바이오': ['207940'], '삼전': ['005930'], '삼전닉스': ['005930', '000660'], 'JYP': ['035900'] };
+  const HAN = /[가-힣]/, WORD = /[가-힣A-Za-z0-9]/;
+  const clean = s => String(s || '').normalize('NFC').replace(/[﻿​-‍⁠]/g, '').replace(/\s+/g, ' ').trim();
+  function okRight(t, j) {
+    if (j >= t.length || !WORD.test(t[j])) return true;
+    if (!HAN.test(t[j])) return false;                    // 이름 뒤에 영문 · 숫자가 이어지면 다른 이름이에요 (HLB생명과학 X, KTX X)
+    let k = j, n = 0;
+    while (k < t.length && n < 2) {                        // 조사 한두 개
+      const p = PARTICLES.find(q => t.startsWith(q, k)); if (!p) break;
+      k += p.length; n++;
+      if (k >= t.length || !WORD.test(t[k])) return true;
+    }
+    return false;
+  }
+  const okLeft = (t, i) => i === 0 || !WORD.test(t[i - 1]);
+  // 후보 만들기: 지도에 있는 종목(행 {c, n})으로 한 번. 이름 길이 긴 것부터.
+  function build(rows) {
+    const byCode = new Map(rows.map(r => [r.c, r]));
+    const cand = [];
+    for (const r of rows) {
+      const n = clean(r.n);
+      if (!n || DENY.has(n)) continue;
+      const latin = /^[A-Za-z0-9&.\- ]+$/.test(n);
+      if (latin ? n.replace(/[^A-Za-z0-9]/g, '').length < 3 : n.length < 3 && !ALLOW2.has(n)) continue;
+      cand.push({ key: n, codes: [r.c] });
+    }
+    for (const [k, cs] of Object.entries(ALIAS)) { const codes = cs.filter(c => byCode.has(c)); if (codes.length) cand.push({ key: k, codes }); }
+    cand.sort((a, b) => b.key.length - a.key.length);
+    return { cand, byCode };
+  }
+  // 헤드라인 → {text, marks:[{i, j, codes}]} (겹치지 않게, 앞에서부터, 한 종목은 한 번, 최대 3개)
+  function match(title, idx, max = 3) {
+    const t = clean(title), taken = new Uint8Array(t.length), marks = [], seen = new Set();
+    for (const c of idx.cand) {
+      let from = 0;
+      while (true) {
+        const i = t.indexOf(c.key, from); if (i < 0) break;
+        const j = i + c.key.length; from = i + 1;
+        if (taken.subarray(i, j).some(Boolean) || !okLeft(t, i) || !okRight(t, j)) continue;
+        if (c.codes.every(x => seen.has(x))) continue;
+        taken.fill(1, i, j); c.codes.forEach(x => seen.add(x));
+        marks.push({ i, j, codes: c.codes.filter(Boolean) }); break;
+      }
+    }
+    marks.sort((a, b) => a.i - b.i);
+    return { text: t, marks: marks.slice(0, max) };
+  }
+  return { build, match, clean, PARTICLES, ALLOW2, DENY, ALIAS };
+})();
+if (typeof module === 'object' && module && module.exports) module.exports = NEWS_MATCH;
+if (root) root.KHNewsMatch = NEWS_MATCH;
+})(typeof window !== 'undefined' ? window : null);
+
+</script>
+<style>
+/* 시장 뉴스 패널 (src/news/news.js · docs/standards/news.md — C안, 사용자 2026-11-13 23:14). drafts/news.html의 C · 휴대폰 모양 그대로.
+   카드 = 템플릿의 <section class="card news" id="news">: PC는 지도 열의 두 번째 줄(옆 칸 끝까지 늘어나요), 980px 이하는 옆 카드 다음.
+   색은 모두 역할 토큰(themes.md §4) + 템플릿의 ✚ --row-hov · --mk-bg · --mk-line · --dchip-bg. 빨강 · 초록은 등락률 숫자에만. */
+:root{--nw-badge-r:6px}
+html[data-theme="paper"]{--nw-badge-r:2px}
+html[data-theme^="glass"]{--nw-badge-r:999px}
+
+.news{display:flex;flex-direction:column;min-width:0;min-height:0;--nw-rh:32px}
+.news[hidden]{display:none}
+@media (pointer:coarse) and (min-width:761px){.news{--nw-rh:44px}}
+.news .nw-hd{display:flex;align-items:center;gap:8px 14px;min-height:30px;margin:0 0 10px;min-width:0}
+.news .nw-hd h2{margin:0;flex:none}
+/* 언론사 탭 = 사이트의 .movers-tabs (KH.ui.seg: 앞 가장자리 --c-fast · 뒤 --c-base) */
+.news .nw-tabs{margin:0;flex:none;min-width:0}
+.news .nw-tabs > button{flex:1 1 auto;padding:3px 11px;min-height:24px}
+.news .nw-tabs > button .nw-bad{display:inline-block;margin-left:4px;color:var(--acc);font-weight:700}
+.news .nw-tabs > button[aria-disabled="true"],.news .nw-only[aria-disabled="true"]{opacity:.45;cursor:not-allowed}
+.news .nw-tabs > button[aria-disabled="true"]:active{filter:none}
+.news .nw-at{margin-left:auto;display:inline-flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums;min-width:0}
+.news .nw-at > span{overflow:hidden;text-overflow:ellipsis;min-width:0}
+.news .nw-at.stale{color:var(--acc);font-weight:600}
+.news .nw-at svg{width:15px;height:15px;flex:none}
+/* 켜고 끄기 칩 "지도 종목 기사만" (controls §5-7): 채움 + 테 + 체크가 0 → 14px (줄 끝이라 옆이 안 밀려요) */
+.news .nw-only{position:relative;display:inline-flex;align-items:center;gap:0;height:28px;padding:0 11px;border-radius:var(--r-chip);background:var(--chip-bg);box-shadow:var(--key-sh);font-size:12.5px;font-weight:600;color:var(--key-fg);white-space:nowrap;flex:none;
+  transition:background var(--c-fast) var(--c-out),box-shadow var(--c-fast) var(--c-out),transform var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out)}
+.news .nw-only .nw-ck{display:inline-block;width:0;height:14px;opacity:0;transform:scale(.6);background:currentColor;-webkit-mask:var(--ck-mask) center/14px no-repeat;mask:var(--ck-mask) center/14px no-repeat;
+  transition:width var(--c-fast) var(--c-out),opacity var(--c-fast) var(--c-out),transform var(--c-fast) var(--c-out),margin var(--c-fast) var(--c-out)}
+.news .nw-only[aria-pressed="true"]{background:var(--chip-on);box-shadow:inset 0 0 0 1.5px var(--chip-ring),var(--key-sh)}
+.news .nw-only[aria-pressed="true"] .nw-ck{width:14px;opacity:1;transform:none;margin-right:6px}
+.news .nw-only .nw-n{margin-left:6px;color:var(--fg2);font-variant-numeric:tabular-nums}
+.news .nw-only:not([aria-disabled="true"]):is(:active,.is-press){transform:translateY(1px);box-shadow:var(--key-dn);filter:var(--press-f);transition-duration:0s}
+
+/* 오래된 목록 한 줄 (한 곳이 이번에 실패해서 마지막으로 받은 목록을 보여 줄 때) */
+.news .nw-note{display:flex;align-items:center;gap:8px;min-height:30px;margin:-4px 0 4px;font-size:12.5px;color:var(--fg2);min-width:0}
+.news .nw-note[hidden]{display:none}
+.news .nw-note > span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.news .nw-note > svg{color:var(--acc);width:15px;height:15px;flex:none}
+.news .nw-note .kasync{margin-left:auto}
+
+/* 목록: 줄은 늘 통째로(반 줄 없음), 줄 높이 32 */
+.news .nw-list{flex:1 1 auto;min-height:0;list-style:none;margin:0;padding:0;display:grid;grid-auto-rows:var(--nw-rh);align-content:start}
+.news .nw-list.c2{grid-auto-flow:column;grid-template-columns:minmax(0,1fr) minmax(0,1fr);column-gap:28px;grid-template-rows:repeat(var(--nw-r,5),var(--nw-rh))}
+.news .nw-row{position:relative;display:grid;grid-template-columns:40px auto minmax(0,1fr) auto;grid-template-areas:"t s tt k";align-items:center;column-gap:10px;height:var(--nw-rh);padding:0 6px;margin:0 -6px;border-radius:6px;box-shadow:inset 0 -1px 0 var(--row-bd);min-width:0;transition:background var(--c-fast) var(--c-out)}
+.news .nw-row:hover{background:var(--row-hov)}
+.news .nw-row time{grid-area:t;font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.news .nw-row .nw-src{grid-area:s}
+.news .nw-row .nw-tt{grid-area:tt}
+.news .nw-row .nw-stk{grid-area:k}
+.news:not([data-tab="all"]) .nw-row .nw-src{display:none}
+.news:not([data-tab="all"]) .nw-row{grid-template-columns:40px 0 minmax(0,1fr) auto}
+/* 언론사 = 글자 배지 · 중립색 (빨강 · 초록 · 언론사 색 · 로고 없음) */
+.news .nw-src{display:inline-block;font-size:11px;font-weight:500;line-height:18px;padding:0 6px;border-radius:var(--nw-badge-r);color:var(--fg2);box-shadow:inset 0 0 0 1px var(--line2);white-space:nowrap;letter-spacing:-.01em}
+.news .nw-tt{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13.5px;color:var(--fg)}
+.news .nw-tt a{text-decoration:none;color:var(--fg)}
+.news .nw-tt a:hover{text-decoration:underline;text-decoration-color:var(--muted);text-underline-offset:3px}
+.news .nw-tt a:focus-visible{outline-offset:-2px;border-radius:3px}
+.news .nw-tt a:visited{color:var(--fg2)}
+/* 제목 안의 종목 이름: 점선 밑줄만(누르지 않음) — 누르는 곳은 오른쪽 칩 */
+.news .nw-tt mark{background:none;color:inherit;text-decoration:underline dotted;text-decoration-color:var(--muted);text-decoration-thickness:1.5px;text-underline-offset:3px}
+/* 종목 칩 = 가는 칩 (controls §5-7: 솟음, 누르면 1px) — 이름 + 오늘 등락률(지도와 같은 값) */
+.news .nw-stk{display:flex;gap:6px;justify-content:flex-end;align-items:center;min-width:0}
+.news .nw-chip{position:relative;display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 9px;border-radius:var(--r-chip);background:var(--dchip-bg);box-shadow:var(--key-sh);font-size:12.5px;font-weight:600;color:var(--key-fg);white-space:nowrap;
+  transition:transform var(--c-fast) var(--c-out),box-shadow var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out)}
+.news .nw-chip b{font-weight:600;font-variant-numeric:tabular-nums}
+.news .nw-chip:hover{filter:brightness(1.1)}
+.news .nw-chip:is(:active,.is-press){transform:translateY(1px);box-shadow:var(--key-dn);filter:var(--press-f);transition-duration:0s}
+.news .nw-moren{font-size:12px;color:var(--muted);align-self:center;font-variant-numeric:tabular-nums}
+/* 터치 화면: 누르는 곳 44px (보이는 크기는 그대로) */
+@media (pointer:coarse){ .news :is(.nw-chip,.nw-only,.nw-kbtn.sm)::before{content:"";position:absolute;left:50%;top:50%;width:max(100%,44px);height:44px;transform:translate(-50%,-50%)} }
+
+/* 줄 아래: 더보기(akey — 글자 상자가 가장 긴 글자 폭) · 출처 */
+.news .nw-ft{display:flex;align-items:center;gap:8px 14px;margin-top:8px;min-height:34px}
+.news .nw-ft small{margin-left:auto;font-size:11.5px;color:var(--faint);text-align:right;line-height:1.45;min-width:0}
+.news .nw-kbtn{position:relative;display:inline-flex;align-items:center;justify-content:center;gap:7px;height:34px;padding:0 14px;border-radius:var(--r-key);background:var(--key-bg);box-shadow:var(--key-sh);font-size:12.5px;font-weight:600;color:var(--key-fg);white-space:nowrap;flex:none;
+  transition:transform var(--c-fast) var(--c-out),box-shadow var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out),background var(--c-base) var(--c-out),color var(--c-fast) var(--c-out)}
+.news .nw-kbtn:hover{background:var(--key-hover)}
+.news .nw-kbtn:is(:active,.is-press){transform:translateY(1px);box-shadow:var(--key-dn);filter:var(--press-f);transition-duration:0s}
+.news .nw-kbtn.sm{height:26px;padding:0 10px;font-size:12px}
+.news .nw-kbtn[hidden]{display:inline-flex;visibility:hidden}
+.news .nw-more::after{content:"";width:6px;height:6px;margin-top:-3px;border:solid var(--key-ic);border-width:0 1.6px 1.6px 0;transform:rotate(45deg);transition:transform var(--c-base) var(--c-inout),margin var(--c-base) var(--c-inout)}
+.news .nw-more[aria-expanded="true"]::after{margin-top:3px;transform:rotate(225deg)}
+@media (hover:none){ .news .nw-kbtn:hover{background:var(--key-bg)} .news .nw-row:hover{background:none} .news .nw-chip:hover{filter:none} }
+/* 화려하게: 더보기로 펼친 줄이 4px 아래에서 (20ms 간격, 8줄까지) */
+html[data-motion="fancy"] .news .nw-row.in{animation:nwIn var(--c-base) var(--c-out) both;animation-delay:var(--d,0ms)}
+@keyframes nwIn{from{opacity:0;transform:translateY(4px)}}
+
+/* 빈 · 오류 · 불러오는 중: 목록 자리를 그대로 차지해요 — 상태가 바뀌어도 카드 높이 그대로 */
+.news .nw-list.is-msg{display:flex;flex-direction:column}
+.news .nw-msg{flex:1 1 auto;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;font-size:13.5px;color:var(--fg2);padding:8px}
+.news .nw-msg b{font-weight:600;color:var(--fg)}
+.news .nw-msg small{font-size:12px;color:var(--muted)}
+.news .nw-msg a{color:var(--fg);font-weight:600;text-underline-offset:3px}
+.news .nw-msg .kasync{margin-top:2px}
+.news .nw-sk{display:block;height:10px;border-radius:5px;background:var(--line);opacity:.8}
+.news .nw-row.skel .nw-tt .nw-sk{width:calc(60% + var(--w,0%))}
+html:not([data-motion="reduced"]) .news .nw-row.skel .nw-sk{animation:nwSk 1.4s var(--c-inout) infinite alternate}
+@keyframes nwSk{to{opacity:.35}}
+
+/* 휴대폰 (≤760): 맨 아래 카드 · 5개 + 더보기 · 시각 · 언론사 / 제목 두 줄 / 종목 칩 한 줄 */
+@media (max-width:760px){
+  .news{--nw-rh:auto}
+  .news .nw-hd{flex-wrap:wrap}
+  .news .nw-hd h2{flex:1 1 auto}
+  .news .nw-tabs{order:5;width:100%}
+  .news .nw-tabs > button{min-height:40px;padding:0 6px;font-size:13px}
+  .news .nw-at{margin-left:0}
+  .news .nw-only{order:6;height:32px}
+  .news .nw-list{grid-auto-rows:auto}
+  .news .nw-row{grid-template-columns:auto minmax(0,1fr);grid-template-areas:"t s" "tt tt" "k k";row-gap:4px;align-items:center;justify-items:start;height:auto;padding:11px 0 12px;margin:0;border-radius:0}
+  .news .nw-row:hover{background:none}
+  .news .nw-row time{font-size:12px}
+  .news .nw-row .nw-tt{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;font-size:15px;line-height:21px;font-weight:500;width:100%}
+  .news .nw-row .nw-tt a{display:block}
+  .news .nw-row .nw-stk{justify-content:flex-start;flex-wrap:wrap;gap:8px;margin-top:6px}
+  .news .nw-row .nw-stk:empty{display:none}
+  .news .nw-chip{height:32px;padding:0 12px;font-size:13px}
+  .news:not([data-tab="all"]) .nw-row{grid-template-columns:auto minmax(0,1fr)}
+  .news .nw-ft{flex-direction:column;align-items:stretch;gap:10px}
+  .news .nw-ft .nw-kbtn{height:42px;width:100%}
+  .news .nw-ft small{margin-left:0;text-align:left}
+  .news .nw-note{flex-wrap:wrap;margin:0 0 4px}
+  .news .nw-note > span{white-space:normal}
+  .news .nw-msg{min-height:300px}
+  .news .nw-wide{display:none}
+  .news.is-snap .nw-msg{min-height:0;padding:18px 8px}
+}
+html[data-motion="reduced"] .news *{animation:none!important}
+
+</style>
+<script>
+/* 시장 뉴스 패널 (docs/standards/news.md · AGENTS §3-27) — C안 (사용자 2026-11-13 23:14 "너 추천대로 c안으로 하는게 낫겠다").
+   window.KHNews = { show(), hide(), refresh() → Promise<boolean> }
+   Mount: the template's <section class="card news" id="news" hidden>, the last cell of main.layout. PC (> 980): the map column's second
+   grid row, stretched to the side column's end — the list fills it (whole rows, min 5; two columns from a 1200 px card). Tablet: 8 rows.
+   Phone (≤ 760): the last card, 5 rows + 더보기. 더보기 → up to 30 per tab.
+   Rows: time · outlet (text badge) · headline (one link, new tab) · stock chips (name + today's % = the map's value) for names found in
+   the headline (src/news/match.js); hovering / focusing a row lights those tiles on the map (KH.hover), a chip opens the quick view
+   (KH.quick). Only headline · time · outlet · link — never a body, summary, image or logo.
+   Data (live): GET api/news (Worker, §2-2) while the card is on screen or within 400 px and the browser tab is visible: every 3 min,
+   3 → 6 → 12 → 15 min after failures, at once on kh:refresh; "오래됨" 15 min after the last answer. A list that arrives while the
+   pointer / focus is in the card waits until it leaves (rows never move under a finger). Tabs = the outlets that have items (Q3).
+   Snapshot (dist/): a note + LIVE_URL link, never baked articles. */
+(() => {
+'use strict';
+const KH = window.KH, M = window.KHNewsMatch;
+const root = document.getElementById('news');
+if (!KH || typeof KH.h !== 'function' || !root) return;
+const h = KH.h, UI = KH.ui || {};
+const LIVE = KH.MODE === 'live';
+const SRC = { einfomax: '연합인포맥스', hankyung: '한국경제', mk: '매일경제' };
+const SRC_ORDER = ['einfomax', 'hankyung', 'mk'];
+const MIN_ROWS = 5, MAX_ROWS = 30, TAB_ROWS = 8, PHONE_ROWS = 5, TWO_COL_W = 1200;
+const POLL_MS = 180e3, MAX_WAIT_MS = 15 * 60e3, STALE_MS = 15 * 60e3, TIMEOUT_MS = 12e3;
+const narrowMQ = matchMedia('(max-width: 760px)'), deskMQ = matchMedia('(min-width: 981px)');
+const MINUS = '−';
+const pct = v => (v > 0 ? '+' : v < 0 ? MINUS : '') + Math.abs(v).toFixed(2) + '%';
+const cls = v => (v > 0 ? 'up' : v < 0 ? 'dn' : 'flat');
+const nowMs = () => (typeof KH.now === 'function' ? KH.now() : Date.now());
+const pad = n => String(n).padStart(2, '0');
+const kstDay = ms => { const k = new Date(ms + 9 * 3600e3); return `${k.getUTCFullYear()}-${pad(k.getUTCMonth() + 1)}-${pad(k.getUTCDate())}`; };
+// 오늘(KST)이면 HH:MM, 아니면 M/D (앞 0 없음)
+const timeText = t => (t.slice(0, 10) === kstDay(nowMs()) ? t.slice(11, 16) : `${+t.slice(5, 7)}/${+t.slice(8, 10)}`);
+// native append / replaceChildren print "null" for a null child — every list goes through this filter
+const put = (el, ...kids) => el.replaceChildren(...kids.flat(Infinity).filter(k => k != null && k !== false));
+const icon = name => (typeof UI.icon === 'function' ? UI.icon(name) : null);
+const motion = () => (typeof KH.motion === 'function' ? KH.motion() : document.documentElement.dataset.motion || 'standard');
+
+root.setAttribute('aria-labelledby', 'news-h');
+
+/* ───────── snapshot: a note in the card's place (no articles in the build — 시점 · 저작권) ───────── */
+if (!LIVE) {
+  root.classList.add('is-snap');
+  put(root, h('div', { class: 'nw-hd' }, h('h2', { id: 'news-h', text: '시장 뉴스' })),
+    h('div', { class: 'nw-list is-msg' }, h('div', { class: 'nw-msg' },
+      h('b', { text: '뉴스는 실시간 버전에서 볼 수 있어요' }),
+      h('small', { text: '언론사 RSS의 시장 뉴스 제목을 3분마다 새로 받아 와요. 이 미리보기는 네트워크가 막혀 있어요.' }),
+      h('a', { href: KH.LIVE_URL, target: '_blank', rel: 'noopener', text: '실시간 버전 열기' }))));
+  root.hidden = false;
+  window.KHNews = { show() { root.hidden = false; }, hide() { root.hidden = true; }, refresh: () => Promise.resolve(false) };
+  return;
+}
+
+/* ───────── state ───────── */
+const S = {
+  data: null, next: null,   // the list drawn · one that waits while the reader is in the card
+  okAt: 0, lastTry: 0, tries: 0, loading: true, busy: null, timer: 0,
+  tab: 'all', only: false, open: false,
+  n: MIN_ROWS, two: false, measure: false, shown: 0,
+  visible: false, near: !('IntersectionObserver' in window), ptr: false, hov: '',
+};
+
+/* ───────── headline names → map stocks (match.js), rebuilt only when the names change ───────── */
+let IDX = null, IDX_KEY = '';
+const MK = new Map();                                    // url → {text, marks}
+function ensureIdx() {
+  if (!M) return false;
+  const rows = (KH.stocks() || []).filter(r => r && r.c && r.n && /0$/.test(r.c));   // common shares (§3-1: preferred shares are off the map)
+  let key = String(rows.length);
+  for (const r of rows) key += '|' + r.c + r.n;
+  if (IDX && key === IDX_KEY) return false;
+  IDX_KEY = key; IDX = M.build(rows.map(r => ({ c: r.c, n: r.n }))); MK.clear();
+  return true;
+}
+function matchOf(it) {
+  let m = MK.get(it.url);
+  if (!m) { m = IDX ? M.match(it.title, IDX) : { text: it.title, marks: [] }; MK.set(it.url, m); }
+  return m;
+}
+// a chip's numbers: the quote in the chosen price basis (= what the map draws), the name from the row
+function quoteOf(code) {
+  const st = KH.stock(code);
+  if (!st) return null;
+  const q = typeof KH.quote === 'function' ? KH.quote(code) : null;
+  const r = Number(q && q.r != null ? q.r : st.r);
+  return { n: st.n, r: Number.isFinite(r) ? r : 0 };
+}
+const codesOf = it => [...new Set(matchOf(it).marks.flatMap(x => x.codes))].filter(c => quoteOf(c));
+
+/* ───────── DOM ───────── */
+const tabs = h('div', { class: 'movers-tabs nw-tabs', role: 'group', 'aria-label': '언론사' });
+const onlyBtn = h('button', { type: 'button', class: 'nw-only', 'aria-pressed': 'false' },
+  h('i', { class: 'nw-ck', 'aria-hidden': 'true' }), '지도 종목 기사만', h('span', { class: 'nw-n' }));
+const at = h('span', { class: 'nw-at' });
+const hd = h('div', { class: 'nw-hd' }, h('h2', { id: 'news-h', text: '시장 뉴스' }), tabs, onlyBtn, at);
+const note = h('div', { class: 'nw-note', hidden: true });
+const list = h('ol', { class: 'nw-list', 'aria-labelledby': 'news-h' });
+const more = typeof UI.akey === 'function' ? UI.akey('nw-kbtn nw-more', { idle: '더보기 (30개)', less: '접기' }, 'idle')
+  : h('button', { type: 'button', class: 'nw-kbtn nw-more', text: '더보기' });
+more.setAttribute('aria-expanded', 'false');
+const credit = h('small');
+put(root, hd, note, list, h('div', { class: 'nw-ft' }, more, credit));
+root.dataset.tab = 'all';
+
+/* ───────── helpers ───────── */
+const outletsWithItems = () => (S.data ? SRC_ORDER.filter(k => S.data.items.some(x => x.src === k)) : []);
+function listFor(tab = S.tab, only = S.only) {
+  let a = S.data ? S.data.items : [];
+  if (tab !== 'all') a = a.filter(x => x.src === tab);
+  if (only) a = a.filter(x => codesOf(x).length);
+  return a;
+}
+const staleNow = () => !!S.data && S.tries > 0 && Date.now() - S.okAt > STALE_MS;   // failing, and the last answer is 15 min old (elapsed: device clock)
+function retryKey(sm) {
+  if (typeof UI.retry !== 'function') return null;
+  return UI.retry({ cls: 'nw-kbtn' + (sm ? ' sm' : ''), run: () => load({ silent: true }), render: () => render() });
+}
+const reading = () => S.ptr || root.contains(document.activeElement);
+
+/* ───────── head: "HH:MM 기준" · 불러오는 중 · 받은 목록 없음 · 오래됨 ───────── */
+let staleSpan = null;
+function staleText() { const m = Math.max(15, Math.round((Date.now() - S.okAt) / 60000)); return `${timeText(S.data.asOf)} 기준 · ${m}분째 못 받았어요`; }
+function renderHead() {
+  if (S.loading && !S.data) { at.classList.remove('stale'); staleSpan = null; put(at, icon('spin'), h('span', { text: '불러오는 중' })); return; }
+  if (!S.data) { at.classList.remove('stale'); staleSpan = null; put(at, h('span', { text: '받은 목록 없음' })); return; }
+  if (staleNow()) {
+    if (staleSpan && staleSpan.isConnected && at.classList.contains('stale')) { staleSpan.textContent = staleText(); return; }
+    at.classList.add('stale');
+    staleSpan = h('span', { text: staleText() });
+    put(at, icon('warn'), staleSpan, retryKey(true));
+    return;
+  }
+  at.classList.remove('stale'); staleSpan = null;
+  put(at, h('span', { text: `${timeText(S.data.asOf)} 기준` }));
+}
+
+/* ───────── tabs: 전체 + the outlets that have items (fresh or the last good copy) ───────── */
+let tabKeys = '';
+function renderTabs(none) {
+  const outs = S.data ? outletsWithItems() : SRC_ORDER;
+  if (S.tab !== 'all' && !outs.includes(S.tab)) { S.tab = 'all'; root.dataset.tab = 'all'; }
+  const keys = ['all', ...outs].join();
+  if (keys !== tabKeys) {
+    tabKeys = keys;
+    put(tabs, ['all', ...outs].map(k => h('button', { type: 'button', 'data-k': k, 'aria-pressed': String(k === S.tab) })));
+  }
+  for (const b of tabs.children) {
+    const k = b.dataset.k, src = S.data && S.data.sources ? S.data.sources[k] : null;
+    const kids = [k === 'all' ? '전체' : SRC[k]];
+    if (src && src.stale) kids.push(h('span', { class: 'nw-bad', 'aria-hidden': 'true', text: '!' }), h('span', { class: 'sr', text: ' (새 기사를 받지 못했어요)' }));
+    put(b, kids);
+    b.setAttribute('aria-pressed', String(k === S.tab));
+    if (none) b.setAttribute('aria-disabled', 'true'); else b.removeAttribute('aria-disabled');
+  }
+}
+
+/* ───────── rows ───────── */
+function titleLink(it, m) {
+  const t = m.text;
+  const a = h('a', { href: it.url, target: '_blank', rel: 'noopener', 'aria-label': `${t} — ${SRC[it.src]}, 새 탭에서 열려요` });
+  let p = 0;
+  for (const x of m.marks) { a.append(t.slice(p, x.i), h('mark', { text: t.slice(x.i, x.j) })); p = x.j; }
+  a.append(t.slice(p));
+  return a;
+}
+function chip(code) {
+  const q = quoteOf(code);
+  if (!q) return null;
+  return h('button', { type: 'button', class: 'nw-chip', 'data-c': code, 'aria-label': `${q.n} ${pct(q.r)} · 빠른 보기` },
+    q.n, h('b', { class: cls(q.r), text: pct(q.r) }));
+}
+function row(it, k, grow) {
+  const m = matchOf(it), codes = codesOf(it), phone = narrowMQ.matches, cap = phone ? 3 : 2;
+  const anim = grow && k >= S.shown;
+  return h('li', { class: 'nw-row' + (anim ? ' in' : ''), style: anim ? `--d:${Math.min(8, k - S.shown) * 20}ms` : null, 'data-codes': codes.length ? codes.join(',') : null },
+    h('time', { datetime: it.t, text: timeText(it.t) }),
+    h('span', { class: 'nw-src', text: SRC[it.src] }),
+    h('span', { class: 'nw-tt', title: m.text }, titleLink(it, m)),
+    h('span', { class: 'nw-stk' }, codes.slice(0, cap).map(chip),
+      !phone && codes.length > cap ? h('span', { class: 'nw-moren', 'aria-hidden': 'true', title: codes.slice(cap).map(c => (KH.stock(c) || {}).n).join(', '), text: `+${codes.length - cap}` }) : null));
+}
+const skel = n => Array.from({ length: n }, (_, k) => h('li', { class: 'nw-row skel', 'aria-hidden': 'true' },
+  h('time', {}, h('i', { class: 'nw-sk', style: 'width:32px' })), h('span', {}, h('i', { class: 'nw-sk', style: 'width:52px' })),
+  h('span', { class: 'nw-tt', style: `--w:${(k * 37) % 30}%` }, h('i', { class: 'nw-sk' }))));
+function msg(title, sub, retry) {
+  return h('li', { class: 'nw-msg' }, h('b', { text: title }), sub ? h('small', { text: sub }) : null, retry ? retryKey(false) : null);
+}
+
+/* ───────── render ───────── */
+function baseRows() { return narrowMQ.matches ? PHONE_ROWS : deskMQ.matches ? S.n : TAB_ROWS; }
+function render(o = {}) {
+  const d = S.data, phone = narrowMQ.matches, two = deskMQ.matches && S.two && !S.measure;
+  const none = !d || !d.items.length;
+  root.dataset.tab = S.tab;
+  renderHead();
+  renderTabs(none);
+  // the only-chip: off look when there is nothing to filter (controls §5-12)
+  if (none) onlyBtn.setAttribute('aria-disabled', 'true'); else onlyBtn.removeAttribute('aria-disabled');
+  onlyBtn.querySelector('.nw-n').textContent = d ? String(listFor(S.tab, true).length) : '';
+  // an outlet failed this time and its last good list is shown: one line (전체 탭 · 그 언론사 탭)
+  const stale = d ? SRC_ORDER.filter(k => d.sources[k] && d.sources[k].stale && d.items.some(x => x.src === k) && (S.tab === 'all' || S.tab === k)) : [];
+  note.hidden = !stale.length;
+  if (stale.length) {
+    const ats = stale.map(k => d.sources[k].at).filter(Boolean).sort();
+    put(note, icon('warn'), h('span', {}, `${stale.map(k => SRC[k]).join(' · ')} 새 기사를 받지 못했어요`,
+      ats.length ? h('span', { class: 'nw-wide', text: ` · ${timeText(ats[0])}에 받은 목록이에요` }) : null),
+      staleNow() ? null : retryKey(true));      // 오래됨이면 다시 시도는 머리에 하나만
+  }
+  // the list
+  const all = listFor(), base = baseRows();
+  const shown = S.measure ? 0 : S.open ? Math.min(MAX_ROWS, all.length) : base;
+  const perCol = n => (two ? Math.ceil(n / 2) : n);
+  list.classList.toggle('c2', two);
+  list.style.setProperty('--nw-r', String(perCol(Math.max(shown, base))));
+  list.style.minHeight = phone ? '' : S.measure ? '0px' : `calc(var(--nw-rh) * ${perCol(base)})`;
+  let kids;
+  if (S.measure) kids = [];
+  else if (!d && S.loading) kids = skel(base);
+  else if (!d) kids = [msg('뉴스를 불러오지 못했어요', '세 언론사 모두 응답이 없었어요. 잠시 뒤 다시 눌러 주세요.', true)];
+  else if (!all.length) kids = [msg(S.only ? '지도 종목이 나오는 기사가 아직 없어요' : '아직 새 기사가 없어요', S.only ? '' : '3분마다 다시 확인해요.', false)];
+  else kids = all.slice(0, shown).map((it, k) => row(it, k, o.grow));
+  put(list, kids);
+  list.classList.toggle('is-msg', kids.length === 1 && kids[0].classList.contains('nw-msg'));
+  if (!S.measure) S.shown = d ? Math.min(shown, all.length) : 0;
+  // 더보기 (N개) / 접기 — at the first row count the key keeps its place, hidden
+  const total = Math.min(MAX_ROWS, all.length);
+  const lab = more.querySelector('.kl[data-l="idle"]');
+  if (lab) lab.textContent = `더보기 (${total}개)`;
+  if (more.dataset.st !== 'less') more.setAttribute('aria-label', `더보기 (${total}개)`);
+  more.hidden = !(d && (total > base || S.open));
+  // the outlets credited are the ones shown (Q3: a failing outlet without a copy is not named)
+  const outs = outletsWithItems().map(k => SRC[k]);
+  credit.textContent = (outs.length ? `${outs.join(' · ')} RSS — ` : '') + '제목과 시각만 보여 드려요. 원문은 언론사 사이트에서 새 탭으로 열려요.';
+  const fn = document.getElementById('foot-news');   // the template's footer line (re-attached on every footer redraw)
+  if (fn) { fn.textContent = outs.length ? `시장 뉴스: ${outs.join(' · ')} RSS (제목 · 링크만)` : ''; fn.hidden = !outs.length; }
+  if (S.hov && !list.querySelector('.nw-row[data-codes]:hover')) setHover(null);
+}
+
+/* ───────── PC fill: the card is stretched to the side column's end; whole rows that fit, at least 5 ───────── */
+function fit() {
+  if (root.hidden) return;
+  if (!deskMQ.matches) { S.two = false; render(); return; }
+  S.two = root.clientWidth >= TWO_COL_W;
+  S.measure = true; render();
+  const rh = parseFloat(getComputedStyle(root).getPropertyValue('--nw-rh')) || 32;
+  const r = Math.max(MIN_ROWS, Math.floor((list.clientHeight + 0.5) / rh));
+  S.measure = false; S.n = S.two ? r * 2 : r;
+  render();
+}
+const stage = document.querySelector('main.layout > .stage'), side = document.querySelector('main.layout > .side');
+let fitKey = '', fitRaf = 0;
+function layoutKey() {
+  return [deskMQ.matches, narrowMQ.matches, root.clientWidth, stage ? stage.offsetHeight : 0,
+    side ? [...side.children].map(c => c.offsetHeight).join(',') : ''].join('|');
+}
+function refit(force) {
+  cancelAnimationFrame(fitRaf);
+  fitRaf = requestAnimationFrame(() => {
+    if (root.hidden || !root.offsetParent) return;
+    const k = layoutKey();
+    if (!force && k === fitKey) return;
+    fitKey = k; fit(); fitKey = layoutKey();
+  });
+}
+if ('ResizeObserver' in window) {
+  const ro = new ResizeObserver(() => refit());
+  ro.observe(root);
+  if (stage) ro.observe(stage);
+  if (side) for (const c of side.children) ro.observe(c);
+}
+for (const mq of [narrowMQ, deskMQ]) mq.addEventListener('change', () => refit(true));
+
+/* ───────── data ───────── */
+async function getJSON(url) {
+  const ac = new AbortController(), timer = setTimeout(() => ac.abort(), TIMEOUT_MS);
+  try {
+    const res = await fetch(url, { cache: 'no-store', signal: ac.signal });
+    if (!res.ok) { const e = new Error('HTTP ' + res.status); e.status = res.status; throw e; }
+    return await res.json();
+  } finally { clearTimeout(timer); }
+}
+const T_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?\+09:00$/;
+function accept(j) {
+  if (!j || !Array.isArray(j.items) || typeof j.asOf !== 'string' || !T_RE.test(j.asOf)) return null;
+  const items = j.items.filter(x => x && SRC[x.src] && typeof x.title === 'string' && x.title && typeof x.t === 'string' && T_RE.test(x.t)
+    && typeof x.url === 'string' && /^https:\/\//.test(x.url)).map(x => ({ src: x.src, title: x.title, url: x.url, t: x.t }));
+  const sources = {};
+  for (const k of SRC_ORDER) { const s = j.sources && j.sources[k]; sources[k] = s && typeof s === 'object' ? { ok: !!s.ok, n: +s.n || 0, at: typeof s.at === 'string' ? s.at : null, stale: !!s.stale } : { ok: false, n: 0, at: null, stale: false }; }
+  return { asOf: j.asOf, items, sources };
+}
+function apply(data) { S.data = data; S.next = null; ensureIdx(); render(); }
+function load(o = {}) {
+  if (S.busy) return S.busy;
+  clearTimeout(S.timer); S.timer = 0;
+  S.lastTry = Date.now();
+  S.busy = (async () => {
+    let data = null, missing = false;
+    try { data = accept(await getJSON('api/news')); } catch (e) { data = null; missing = e && e.status === 404; }
+    S.loading = false; S.busy = null;
+    // 404 = a Worker without /api/news (the page went out first): no card at all — the layout is the one without news — until a reload
+    if (missing && !S.data) { S.gone = true; hide(); return false; }
+    if (data) {
+      S.tries = 0; S.okAt = Date.now();
+      if (o.silent) { S.data = data; S.next = null; ensureIdx(); }   // 다시 시도: its ✓ shows first, then its render() draws
+      else if (S.data && reading()) S.next = data;                    // rows never move under the reader
+      else apply(data);
+    } else {
+      S.tries++;
+      if (!o.silent) render();
+    }
+    schedule();
+    return !!data;
+  })();
+  return S.busy;
+}
+const active = () => S.visible && S.near && !document.hidden && !root.hidden && !S.gone;
+function schedule() {
+  clearTimeout(S.timer); S.timer = 0;
+  if (!active() || S.busy) return;
+  const wait = S.tries ? Math.min(MAX_WAIT_MS, POLL_MS * 2 ** (S.tries - 1)) : POLL_MS;   // 3 → 6 → 12 → 15 분
+  const due = S.lastTry ? S.lastTry + wait - Date.now() : 0;
+  if (due <= 0) { load(); return; }
+  S.timer = setTimeout(() => load(), due);
+}
+
+/* ───────── events ───────── */
+tabs.addEventListener('click', e => {
+  const b = e.target.closest('button');
+  if (!b || b.getAttribute('aria-disabled') === 'true' || b.dataset.k === S.tab) return;
+  S.tab = b.dataset.k;
+  render();
+});
+onlyBtn.addEventListener('click', () => {
+  if (onlyBtn.getAttribute('aria-disabled') === 'true') return;
+  S.only = !S.only;
+  onlyBtn.setAttribute('aria-pressed', String(S.only));
+  render();
+});
+more.addEventListener('click', () => {
+  S.open = !S.open;
+  if (typeof UI.state === 'function') UI.state(more, S.open ? 'less' : 'idle');
+  more.setAttribute('aria-expanded', String(S.open));
+  render({ grow: S.open });
+  if (!S.open && narrowMQ.matches) {                     // 휴대폰: 접으면 카드 머리로 (§3-14와 같아요)
+    const top = root.getBoundingClientRect().top, stuck = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--stuck-h')) || 0;
+    if (top < stuck) scrollBy({ top: top - stuck - 8, behavior: motion() === 'reduced' ? 'auto' : 'smooth' });
+  }
+  more.focus({ preventScroll: true });
+});
+list.addEventListener('click', e => {
+  const c = e.target.closest('.nw-chip');
+  if (!c) return;
+  e.preventDefault();
+  if (typeof KH.quick === 'function') KH.quick(c.dataset.c, c);
+  else if (window.KHStock) window.KHStock.open(c.dataset.c, { opener: c });
+});
+// a row with map stocks lights them on the map (mouse and keyboard; not on phones)
+function setHover(li) {
+  const codes = li && li.dataset.codes ? li.dataset.codes.split(',') : null, key = codes ? codes.join() : '';
+  if (key === S.hov) return;
+  S.hov = key;
+  if (typeof KH.hover === 'function') KH.hover(codes);
+}
+list.addEventListener('pointerover', e => { if (narrowMQ.matches || e.pointerType === 'touch') return; setHover(e.target.closest('.nw-row')); });
+list.addEventListener('pointerleave', () => setHover(null));
+list.addEventListener('focusin', e => { if (!narrowMQ.matches) setHover(e.target.closest('.nw-row')); });
+list.addEventListener('focusout', e => { if (!e.relatedTarget || !list.contains(e.relatedTarget)) setHover(null); });
+// reading: a list that arrived meanwhile is drawn once the pointer and the focus have left the card
+const flush = () => { if (S.next && !reading()) apply(S.next); };
+root.addEventListener('pointerenter', () => { S.ptr = true; });
+root.addEventListener('pointerleave', () => { S.ptr = false; flush(); });
+root.addEventListener('focusout', () => setTimeout(flush, 0));
+// quotes: the chips' % follow the map; a new name list re-matches the headlines
+document.addEventListener('kh:data', () => {
+  if (!S.data || root.hidden) return;
+  if (ensureIdx()) { if (!reading()) render(); return; }
+  for (const b of list.querySelectorAll('.nw-chip[data-c]')) {
+    const q = quoteOf(b.dataset.c), v = b.querySelector('b');
+    if (!q || !v) continue;
+    const t = pct(q.r);
+    if (v.textContent !== t) { v.textContent = t; v.className = cls(q.r); b.setAttribute('aria-label', `${q.n} ${t} · 빠른 보기`); }
+  }
+});
+document.addEventListener('kh:refresh', () => { if (!S.gone && !root.hidden && root.offsetParent && !document.hidden) load(); });
+document.addEventListener('visibilitychange', () => { if (document.hidden) { clearTimeout(S.timer); S.timer = 0; } else schedule(); });
+if ('IntersectionObserver' in window) {
+  new IntersectionObserver(es => { for (const e of es) S.near = e.isIntersecting; schedule(); }, { rootMargin: '400px 0px' }).observe(root);
+}
+setInterval(() => { if (S.visible && S.data && !document.hidden && staleNow()) renderHead(); }, 30e3);   // "N분째" counts on
+
+/* ───────── API ───────── */
+function show() {
+  if (S.gone) return;
+  root.hidden = false; S.visible = true;
+  if (typeof UI.seg === 'function') UI.seg(tabs);
+  ensureIdx(); render(); refit(true); schedule();
+}
+function hide() {
+  root.hidden = true; S.visible = false;
+  clearTimeout(S.timer); S.timer = 0;
+  setHover(null);
+}
+window.KHNews = { show, hide, refresh: () => load() };
+show();
 })();
 
 </script>
