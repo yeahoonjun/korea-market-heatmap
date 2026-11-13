@@ -923,8 +923,9 @@ html[data-motion="reduced"] .tip{transition:none}
 .rc{display:inline-block;overflow:hidden;vertical-align:top}
 .rs{display:block}
 .rs[data-o]::before{display:block;content:attr(data-o)}
-.rs.dn[data-o]::before{content:none}
-.rs.dn[data-o]::after{display:block;content:attr(data-o)}
+/* (the downward column is .rs-dn, not .dn: the global .dn down colour must not paint a rolling number) */
+.rs.rs-dn[data-o]::before{content:none}
+.rs.rs-dn[data-o]::after{display:block;content:attr(data-o)}
 /* async keys (KH.ui.akey · KH.ui.retry): ✓ = the amber surface, ! = the dark amber one with a ring (never red / green). The
    element-qualified selector outranks a module's own key :hover, so a touch screen's leftover hover never hides the state. */
 :is(button,a).kasync[aria-busy="true"]{cursor:progress}
@@ -1490,7 +1491,7 @@ function uiRoll(el, text, dir) {
     if (a === c || !/\d/.test(a) || !/\d/.test(c)) { el.append(c); continue; }
     const box = document.createElement('span'), col = document.createElement('span');
     box.className = 'rc'; box.style.height = H + 'px';
-    col.className = dir > 0 ? 'rs' : 'rs dn'; col.dataset.o = a; col.textContent = c;
+    col.className = dir > 0 ? 'rs' : 'rs rs-dn'; col.dataset.o = a; col.textContent = c;
     box.append(col); el.append(box);
     const an = col.animate(dir > 0 ? [{ transform: 'translateY(0)' }, { transform: `translateY(${-H}px)` }] : [{ transform: `translateY(${-H}px)` }, { transform: 'translateY(0)' }],
       { duration: dur, easing: 'cubic-bezier(.22,1,.36,1)', delay: (text.length - 1 - i) * 40, fill: 'both' });
