@@ -48,11 +48,13 @@ if(d.dataset.serif==='on'){var s=document.getElementById('kh-serif');if(s&&windo
   --flash-up:rgba(255,255,255,.38); --flash-dn:rgba(0,0,0,.45);
   --badge-bg:rgba(0,0,0,.62); --badge-fg:#fff; --badge-ring:rgba(255,255,255,.45); --lim-bar:#fff; --lim-bar-sh:rgba(0,0,0,.35); --limsw:#5a5e69;
   --ix-base:#626672; --ix-now:#4a4d56; --spark-fill:.2;
+  /* session bar (§4-4; drawn by src/extras): the hours' hues, the not-yet-reached tint, the track */
+  --sb-dawn:#6f78e6; --sb-am:#5cc0f2; --sb-pm:#ffb547; --sb-close:#ee7a2c; --sb-after:#a97bf2; --sb-night:#4a5f9c; --sb-rest:.24; --sb-track:#1c1e24;
   /* surfaces: cards, list rows, floating panels (tooltip · sheets · popovers), scrim, glass blur, the header strip, the phone dock */
   --card-bg:var(--panel); --card-bd:var(--line); --card-r:10px; --card-sh:none; --row-bd:transparent; --th-bg:var(--panel2);
   --tip-bg:rgba(24,25,30,.97); --tip-bd:var(--line2); --tip-sh:0 18px 50px rgba(0,0,0,.55); --tip-r:10px;
   --sheet-bg:rgba(24,25,30,.98); --sheet-bd:var(--line2); --sheet-sh:0 -18px 60px rgba(0,0,0,.6); --sheet-r:16px;
-  --pop-bg:rgba(32,34,40,.99); --pop-solid:#202228; --pop-sh:0 14px 40px rgba(0,0,0,.5); --bub-bg:#26282f;
+  --pop-bg:rgba(32,34,40,.99); --pop-solid:#202228; --pop-sh:0 14px 40px rgba(0,0,0,.5);
   --sheet-fl-sh:0 24px 70px rgba(0,0,0,.6);
   --scrim:rgba(0,0,0,.45); --blur:none; --blur-bar:none;
   --bar-bg:var(--page); --bar-sh:none; --bar-stuck:0 1px 0 var(--line2);
@@ -98,10 +100,11 @@ html[data-theme="paper"]{
   --lab-sh:none; --lab-sh-sm:none;
   --hatch:rgba(33,26,21,.07); --hatch2:rgba(33,26,21,.16); --nonx-a:rgba(251,241,230,.62); --nonx-b:rgba(251,241,230,.36); --nonx-c:rgba(251,241,230,.2);
   --flash-up:transparent; --flash-dn:transparent; --limsw:#9b8b7d; --ix-base:#8f8072; --ix-now:#b9ab9c; --spark-fill:.12;
+  --sb-dawn:#6b5ca6; --sb-am:#4b88b6; --sb-pm:#c98a1c; --sb-close:#c05a1c; --sb-after:#7c4f9f; --sb-night:#2c3a63; --sb-rest:.22; --sb-track:rgba(33,26,21,.13);
   --card-bg:transparent; --card-bd:transparent; --card-r:0px; --card-sh:inset 0 2px 0 #211a15; --row-bd:rgba(46,30,18,.2); --th-bg:#eddac7;
   --tip-bg:#fbf1e6; --tip-bd:#211a15; --tip-sh:4px 4px 0 rgba(33,26,21,.88); --tip-r:2px;
   --sheet-bg:#fbf1e6; --sheet-bd:#211a15; --sheet-sh:0 -10px 30px rgba(70,40,15,.2); --sheet-r:6px; --sheet-fl-sh:4px 4px 0 rgba(33,26,21,.88);
-  --pop-bg:#fbf1e6; --pop-solid:#fbf1e6; --pop-sh:4px 4px 0 rgba(33,26,21,.88); --bub-bg:#fbf1e6;
+  --pop-bg:#fbf1e6; --pop-solid:#fbf1e6; --pop-sh:4px 4px 0 rgba(33,26,21,.88);
   --scrim:rgba(46,28,12,.36); --bar-bg:#f6e8da; --bar-sh:0 1px 0 #211a15; --bar-stuck:0 1px 0 #211a15;
   --dock-bg:#fbf1e6; --dock-sh:inset 0 0 0 1px #211a15,3px 3px 0 rgba(33,26,21,.88); --dock-r:4px; --dock-div:rgba(46,30,18,.28);
   --tray-bg:#ead5c0; --tray-sh:inset 0 1px 2px rgba(70,40,15,.22),inset 0 0 0 1px rgba(33,26,21,.42);
@@ -124,7 +127,7 @@ html[data-theme="glass-dark"]{
   --tip-bg:linear-gradient(180deg,rgba(255,255,255,.09),rgba(255,255,255,0) 30%),rgba(20,22,28,.84); --tip-bd:transparent; --tip-r:20px;
   --tip-sh:inset 0 1px 0 rgba(255,255,255,.24),inset 0 0 0 .5px rgba(255,255,255,.12),0 18px 50px rgba(0,0,0,.5);
   --sheet-bg:var(--tip-bg); --sheet-bd:transparent; --sheet-r:28px; --sheet-fl-sh:var(--tip-sh); --sheet-sh:inset 0 1px 0 rgba(255,255,255,.24),inset 0 0 0 .5px rgba(255,255,255,.12),0 -14px 40px rgba(0,0,0,.45);
-  --pop-bg:var(--tip-bg); --pop-solid:#1b1d23; --pop-sh:var(--tip-sh); --bub-bg:#1b1d23;
+  --pop-bg:var(--tip-bg); --pop-solid:#1b1d23; --pop-sh:var(--tip-sh);
   --scrim:rgba(0,0,0,.22); --blur:blur(24px) saturate(1.4); --blur-bar:blur(20px) saturate(1.6);
   --bar-bg:linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,0) 60%),rgba(16,18,24,.62);
   --bar-sh:inset 0 1px 0 rgba(255,255,255,.16),inset 0 0 0 .5px rgba(255,255,255,.1),0 10px 24px rgba(0,0,0,.3);
@@ -154,12 +157,13 @@ html[data-theme="glass-light"]{
   --lab-sh:none; --lab-sh-sm:none;
   --hatch:rgba(15,17,21,.06); --hatch2:rgba(15,17,21,.14); --nonx-a:rgba(255,255,255,.62); --nonx-b:rgba(255,255,255,.36); --nonx-c:rgba(255,255,255,.2);
   --flash-up:transparent; --flash-dn:transparent; --limsw:#8a919b; --ix-base:#8a919b; --ix-now:#b4bac3; --spark-fill:.12;
+  --sb-rest:.24; --sb-track:rgba(15,17,21,.12);
   --card-bg:linear-gradient(180deg,rgba(255,255,255,.82),rgba(255,255,255,.56)); --card-bd:transparent; --card-r:22px; --th-bg:#f3f5f8;
   --card-sh:inset 0 1px 0 #fff,inset 0 0 0 .5px rgba(255,255,255,.9),0 1px 2px rgba(20,30,50,.06),0 10px 30px rgba(20,30,50,.1);
   --tip-bg:linear-gradient(180deg,rgba(255,255,255,.5),rgba(255,255,255,0) 30%),rgba(248,249,251,.86); --tip-bd:transparent; --tip-r:20px;
   --tip-sh:inset 0 1px 0 #fff,inset 0 0 0 .5px rgba(255,255,255,.8),0 18px 50px rgba(20,30,50,.24);
   --sheet-bg:var(--tip-bg); --sheet-bd:transparent; --sheet-r:28px; --sheet-fl-sh:var(--tip-sh); --sheet-sh:inset 0 1px 0 #fff,inset 0 0 0 .5px rgba(255,255,255,.8),0 -14px 40px rgba(20,30,50,.2);
-  --pop-bg:var(--tip-bg); --pop-solid:#f4f6f9; --pop-sh:var(--tip-sh); --bub-bg:#f4f6f9;
+  --pop-bg:var(--tip-bg); --pop-solid:#f4f6f9; --pop-sh:var(--tip-sh);
   --scrim:rgba(30,40,60,.16); --blur:blur(24px) saturate(1.4); --blur-bar:blur(20px) saturate(1.6);
   --bar-bg:linear-gradient(180deg,rgba(255,255,255,.5),rgba(255,255,255,0) 60%),rgba(246,247,250,.64);
   --bar-sh:inset 0 1px 0 #fff,inset 0 0 0 .5px rgba(15,17,21,.08),0 10px 24px rgba(20,30,50,.1);
@@ -950,7 +954,7 @@ html[data-motion="fancy"] .kl .kck{transform:scale(.6);transition:transform var(
 html[data-motion="fancy"] .kl.on .kck{transform:none;transition-delay:var(--c-fast)}
 .kck,.kwn{flex:none;width:15px;height:15px}
 /* a short note under an icon-only key: no layout, nothing to press (KH.ui.bubble) */
-.kbub{position:fixed;z-index:140;padding:6px 10px;border-radius:9px;background:var(--bub-bg);box-shadow:inset 0 0 0 1px var(--tip-bd),0 8px 24px color-mix(in srgb,var(--shc) 50%,transparent);color:var(--fg);font-size:12.5px;font-weight:600;white-space:nowrap;pointer-events:none;opacity:0;transform:translateY(-4px);transition:opacity var(--c-fast) var(--c-in),transform var(--c-fast) var(--c-in)}
+.kbub{position:fixed;z-index:140;padding:6px 10px;border-radius:9px;background:var(--tip-bg);box-shadow:inset 0 0 0 1px var(--tip-bd),var(--tip-sh);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);color:var(--fg);font-size:12.5px;font-weight:600;white-space:nowrap;pointer-events:none;opacity:0;transform:translateY(-4px);transition:opacity var(--c-fast) var(--c-in),transform var(--c-fast) var(--c-in)}
 .kbub.on{opacity:1;transform:none;transition-timing-function:var(--c-out)}
 .kbub svg{width:13px;height:13px;vertical-align:-2px;margin-right:5px;color:var(--acc)}
 /* segments and tab rows: one raised indicator each (KH.ui.seg) */
