@@ -454,76 +454,97 @@ function renderStar() {
 // 관심 그룹 (AGENTS.md §3-11): with KH.watch.groups() and more than the single 기본 group, ☆ opens a picker; otherwise it toggles instantly
 const groupsApi = () => { const W = watchApi(); return W && ['groups', 'groupsOf', 'setGroups', 'createGroup'].every(k => typeof W[k] === 'function') ? W : null; };
 const usePicker = () => { const W = groupsApi(); if (!W) return false; try { return W.groups().length > 1; } catch (e) { return false; } };
-let gp = null;   // {el, list, add, backdrop}
+/* The 관심 그룹 picker is the template's group popover (.wgpop, §3-11): its look (rows with check boxes and counts, ＋ 새 그룹에 담기,
+   완료; a bottom sheet up to 760px) and its flow — ticks apply at once, the name form takes the popover's place, Esc · a tap outside
+   · Tab out closes it, focus goes back to ☆. The template does not hand its own popover out through KH, so this one is drawn here
+   with the same classes inside the stock page (whose stacking context it has to sit in). */
+let gp = null;   // {el}
+const GP_MAX = 20, GP_NAME = 12;   // the template's group limits (§3-11)
+const gpPhone = () => matchMedia('(max-width: 760px)').matches;
 function gpClose(refocus) {
   if (!gp) return;
-  gp.el.remove(); if (gp.backdrop) gp.backdrop.remove();
+  gp.el.remove();
   gp = null;
+  R.star.setAttribute('aria-expanded', 'false');
   if (refocus) R.star.focus({ preventScroll: true });
 }
-function gpFill() {
+function gpShow(label, kids) {
+  const el = gp.el;
+  el.replaceChildren(...kids);
+  el.setAttribute('aria-label', label);
+  el.classList.toggle('sp-gp-sheet', gpPhone());
+  if (gpPhone()) { el.style.left = el.style.top = ''; }
+  else {   // under ☆, inside the viewport (above it when there is no room below)
+    const r = R.star.getBoundingClientRect(), pw = el.offsetWidth, ph = el.offsetHeight;
+    let top = r.bottom + 6;
+    if (top + ph > innerHeight - 8) top = Math.max(8, r.top - ph - 6);
+    el.style.left = Math.round(Math.min(Math.max(8, r.left), innerWidth - pw - 8)) + 'px';
+    el.style.top = Math.round(top) + 'px';
+  }
+  const f = el.querySelector('input[type="text"], input:checked, input, button:not([disabled])');
+  if (f) f.focus({ preventScroll: true });
+}
+function gpName() { const st = KH.stock(S.code); return (S.sum && S.sum.code === S.code && S.sum.name) || (st && st.n) || S.code; }
+function gpPick() {
   const W = groupsApi();
   if (!gp || !W || !S.code) return;
-  const mine = new Set(W.groupsOf(S.code) || []);
-  const had = gp.list.contains(document.activeElement) ? document.activeElement.dataset.id : null;
-  gp.list.replaceChildren(...W.groups().map(g => {
-    const cb = h('input', { type: 'checkbox', 'data-id': g.id, onchange: () => gpApply() });
-    cb.checked = mine.has(g.id);
-    return h('label', { class: 'sp-gp-row' }, cb, h('span', { class: 'nm', text: g.name }), h('small', { class: 'num', text: String(g.count) }));
-  }));
-  if (had) { const el = gp.list.querySelector(`input[data-id="${CSS.escape(had)}"]`); if (el) el.focus({ preventScroll: true }); }
+  const mine = new Set(W.groupsOf(S.code) || []), groups = W.groups(), nm = gpName(), add = groups.length < GP_MAX;
+  gpShow(`${nm} 관심 그룹`, [h('h3', { text: `${nm} · 관심 그룹` }),
+    ...groups.map(g => h('label', { class: 'row sp-gp-row' },
+      h('input', { type: 'checkbox', 'data-id': g.id, checked: mine.has(g.id), onchange: gpApply }),
+      h('span', { class: 'nm', text: g.name }), h('span', { class: 'n num', text: String(g.count) }))),
+    add ? h('div', { class: 'sep' }) : null,
+    add ? h('button', { class: 'row sp-gp-add', type: 'button', onclick: gpForm, text: '＋ 새 그룹에 담기' }) : null,
+    h('div', { class: 'acts' }, h('button', { class: 'pri', type: 'button', onclick: () => gpClose(true), text: '완료' }))].filter(Boolean));
 }
 function gpApply() {
   const W = groupsApi();
   if (!gp || !W) return;
-  W.setGroups(S.code, [...gp.list.querySelectorAll('input:checked')].map(i => i.dataset.id));
-  renderStar(); gpFill();
+  W.setGroups(S.code, [...gp.el.querySelectorAll('input[data-id]:checked')].map(i => i.dataset.id));
+  renderStar();
 }
-function gpNew() {
+// kh:watch while the picker shows: ticks and counts change in place (focus stays); another set of groups draws it again
+function gpSync() {
+  const W = groupsApi(), boxes = gp ? [...gp.el.querySelectorAll('input[data-id]')] : [];
+  if (!W || !boxes.length) return;                       // the name form is showing
+  const groups = W.groups(), mine = new Set(W.groupsOf(S.code) || []);
+  if (groups.length !== boxes.length || groups.some((g, i) => boxes[i].dataset.id !== g.id)) { gpPick(); return; }
+  groups.forEach((g, i) => { boxes[i].checked = mine.has(g.id); const n = boxes[i].closest('label').querySelector('.n'); if (n) n.textContent = String(g.count); });
+}
+// ＋ 새 그룹에 담기: a name (12 characters, no duplicate), then this stock goes into it and the picker comes back
+function gpForm() {
   const W = groupsApi();
   if (!gp || !W) return;
-  const inp = h('input', { class: 'sp-gp-in', type: 'text', maxlength: '12', placeholder: '새 그룹 이름', 'aria-label': '새 그룹 이름', enterkeyhint: 'done' });
-  const ok = () => {
-    const name = inp.value.trim();
-    if (!name) { inp.focus(); return; }
-    const id = W.createGroup(name);
-    if (id) W.setGroups(S.code, [...(W.groupsOf(S.code) || []), id].filter((x, i, a) => a.indexOf(x) === i));
-    renderStar(); gp.add.replaceChildren(gpAddBtn()); gpFill();
-    const nb = gp.add.querySelector('button'); if (nb) nb.focus({ preventScroll: true });
+  const inp = h('input', { type: 'text', class: 'sp-gp-in', maxlength: String(GP_NAME), placeholder: '예: 반도체', 'aria-label': '그룹 이름', autocomplete: 'off', enterkeyhint: 'done' });
+  const msg = h('p', { class: 'msg', 'aria-live': 'polite', text: `${GP_NAME}자까지` });
+  const ok = h('button', { class: 'pri', type: 'submit', text: '만들기' });
+  const name = () => inp.value.replace(/\s+/g, ' ').trim().slice(0, GP_NAME);
+  const check = () => {
+    const nm = name(), dup = !!nm && W.groups().some(g => g.name === nm);
+    ok.disabled = !nm || dup;
+    msg.textContent = dup ? '같은 이름의 그룹이 있어요' : `${GP_NAME}자까지`;
   };
-  inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); ok(); } });
-  gp.add.replaceChildren(h('div', { class: 'sp-gp-new' }, inp, h('button', { type: 'button', class: 'sp-gp-ok', onclick: ok, text: '만들기' })));
-  inp.focus();
+  inp.addEventListener('input', check);
+  const form = h('form', { onsubmit: ev => {
+    ev.preventDefault(); check(); if (ok.disabled) return;
+    const id = W.createGroup(name());
+    if (!id) return;
+    W.setGroups(S.code, [...new Set([...(W.groupsOf(S.code) || []), id])]);
+    renderStar(); gpPick();
+  } }, inp, msg, h('div', { class: 'acts' }, h('button', { type: 'button', onclick: () => gpClose(true), text: '취소' }), ok));
+  gpShow('새 그룹', [h('h3', { text: '새 그룹' }), form]);
+  check();
 }
-const gpAddBtn = () => h('button', { type: 'button', class: 'sp-gp-add', onclick: gpNew, text: '＋ 새 그룹' });
 function gpOpen() {
   if (gp) { gpClose(true); return; }
-  const phone = matchMedia('(max-width: 699px)').matches;
-  const list = h('div', { class: 'sp-gp-list' }), add = h('div', { class: 'sp-gp-addw' }, gpAddBtn());
-  const el = h('div', { class: 'sp-gp' + (phone ? ' sp-gp-sheet' : ''), role: 'dialog', 'aria-label': '관심종목 그룹 고르기', tabindex: '-1' },
-    h('div', { class: 'sp-gp-h' }, h('b', { text: '관심종목 그룹' }), h('button', { type: 'button', class: 'sp-gp-x', 'aria-label': '닫기', onclick: () => gpClose(true), text: '닫기' })), list, add);
-  const backdrop = phone ? h('div', { class: 'sp-gp-bd', onclick: () => gpClose(true) }) : null;
-  gp = { el, list, add, backdrop };
-  if (backdrop) root.append(backdrop);
+  const el = h('div', { class: 'wgpop sp-gp', role: 'dialog', tabindex: '-1' });
+  el.addEventListener('focusout', e => { if (gp && e.relatedTarget && !el.contains(e.relatedTarget)) gpClose(false); });
+  gp = { el };
   root.append(el);
-  if (!phone) {
-    const r = R.star.getBoundingClientRect(), w = Math.min(280, innerWidth - 16);
-    el.style.width = w + 'px';
-    el.style.left = Math.max(8, Math.min(innerWidth - w - 8, r.right - w)) + 'px';
-    el.style.top = Math.min(innerHeight - 120, r.bottom + 6) + 'px';
-  }
-  gpFill();
-  (list.querySelector('input') || el).focus({ preventScroll: true });
-  el.addEventListener('keydown', e => {
-    if (e.key !== 'Tab') return;
-    const f = [...el.querySelectorAll('input, button')].filter(x => !x.disabled && x.offsetParent !== null);
-    if (!f.length) return;
-    const first = f[0], last = f[f.length - 1];
-    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
-    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
-  });
+  R.star.setAttribute('aria-expanded', 'true');
+  gpPick();
 }
-document.addEventListener('pointerdown', e => { if (gp && !gp.backdrop && !gp.el.contains(e.target) && !R.star.contains(e.target)) gpClose(false); }, true);
+document.addEventListener('pointerdown', e => { if (gp && !gp.el.contains(e.target) && !R.star.contains(e.target)) gpClose(false); }, true);
 function toggleWatch() {
   const W = watchApi();
   if (!W || !S.code) return;
@@ -1499,8 +1520,10 @@ function buildNews(panel) {
     note: h('p', { class: 'sp-note' }),
   };
   R.nw.srcText = h('span');
-  R.nw.equity = h('button', { type: 'button', class: 'sp-switch', role: 'switch', 'aria-checked': 'false', onclick: () => setDiscEquity(!discEquity) },
-    h('span', { class: 'sp-switch-t', text: '지분 공시 포함' }), h('i', { 'aria-hidden': 'true' }));
+  // the template's switch (§5-8: .swbtn + .swt, 44 × 26, --c-switch, the knob can be dragged with KH.ui.sw)
+  R.nw.equity = h('button', { type: 'button', class: 'sp-switch swbtn', role: 'switch', 'aria-checked': 'false', onclick: () => setDiscEquity(!discEquity) },
+    h('span', { class: 'sp-switch-t', text: '지분 공시 포함' }), h('span', { class: 'swt', 'aria-hidden': 'true' }));
+  if (UI && typeof UI.sw === 'function') UI.sw(R.nw.equity);
   R.nw.src.append(R.nw.srcText, R.nw.equity);
   panel.append(R.nw.seg, R.nw.filters, R.nw.src, R.nw.body, R.nw.note);
   uiSeg(R.nw.filters);
@@ -2115,7 +2138,7 @@ document.addEventListener('kh:palette', () => { if (root) { applyColors(); if (S
 document.addEventListener('kh:data', () => { if (S.open) { renderPeers(); renderHead(); if (LIVE) renderMeta(); } });
 document.addEventListener('kh:basis', () => { if (S.open) renderHead(); });   // the headline is the row in the chosen basis   // 업종 path / provisional price arrive with the quotes
 document.addEventListener('kh:motion', () => { if (!fancy() && R.price) { settleRoll(R.price); settleRoll(R.chg); } });
-document.addEventListener('kh:watch', () => { if (S.open) { renderStar(); if (gp && !usePicker()) gpClose(false); else gpFill(); } });
+document.addEventListener('kh:watch', () => { if (S.open) { renderStar(); if (gp && !usePicker()) gpClose(false); else gpSync(); } });
 
 window.KHStock = { open, close, isOpen: () => S.open };
 onHash();
