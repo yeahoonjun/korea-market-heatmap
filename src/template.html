@@ -4230,12 +4230,12 @@ function renderStatus() {
 function renderFooter() {
   const asOf = DATA.asOf ? kstFmt.format(new Date(DATA.asOf)) : '';
   if (isWorld()) {
-    $('#foot').replaceChildren(h('p', {}, '데이터: 네이버 증권. 투자 판단의 근거로 쓰지 마세요.'));
+    $('#foot').replaceChildren(h('p', {}, '데이터: 네이버 증권 (finance.naver.com). 투자 판단의 근거로 쓰지 마세요.'));
     return;
   }
   const k = kind();
   // 사용자 2026-11-13 22:06: 크기·색·분류 설명과 갱신·가격 기준 설명은 아래 출처 줄에서 뺐어요(범례·버튼이 이미 말해요).
-  const parts = [h('p', {}, `데이터: ${DATA.source || '네이버 증권'}. 투자 판단의 근거로 쓰지 마세요.`)];
+  const parts = [h('p', {}, '데이터: 네이버 증권 (finance.naver.com). 투자 판단의 근거로 쓰지 마세요.')];   // 사용자 22:16: 출처 주소는 finance.naver.com
   const daily = [];
   const P = PER(), F = FLO();
   if (P && P.asOf && k === 'period') daily.push(`기간 수익률 기준 종가는 ${dayName(P.asOf)}에 만든 자료예요`);
