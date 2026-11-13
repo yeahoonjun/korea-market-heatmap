@@ -88,7 +88,20 @@ async function smoke() {
   return false;
 }
 
+// cron triggers live beside the script, not in it: make them match wrangler.toml (the 1-minute replay recorder, §3-15)
+const crons = ((toml.match(/^crons\s*=\s*\[([^\]]*)\]/m) || [])[1] || '').match(/"[^"]+"/g)?.map(s => s.slice(1, -1)) || [];
+async function ensureCrons() {
+  if (!crons.length) return;
+  const res = await cfJson('/schedules');
+  const have = ((res && res.schedules) || []).map(s => s.cron).sort();
+  log(`cron    ${have.join(', ') || '(none)'}`);
+  if (JSON.stringify(have) === JSON.stringify([...crons].sort())) return;
+  await cfJson('/schedules', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(crons.map(cron => ({ cron }))) });
+  console.log(`::warning::cron triggers were ${have.join(', ') || 'missing'}; set to ${crons.join(', ')} from wrangler.toml`);
+}
+
 // ── run ─────────────────────────────────────────────────────────────────────────────────────────────────────────────
+await ensureCrons();
 const before = await deployedVersions();
 log(`live    ${before.map(v => `${v.version_id} ${v.percentage}%`).join(', ') || '(none)'}`);
 const now = await liveCode();
