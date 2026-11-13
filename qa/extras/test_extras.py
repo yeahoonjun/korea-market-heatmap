@@ -256,7 +256,7 @@ def run(b):
     # table view → nothing to draw → message, no download
     pg.click('.viewseg button[data-v="table"]'); pg.wait_for_timeout(300)
     pg.click('#extras-tools [data-x=image]'); pg.wait_for_timeout(300)
-    check('image live: table view explains instead of failing', '지도 보기' in (pg.text_content('.xt-toast') or ''))
+    check('image live: table view explains instead of failing', '지도 보기' in (pg.evaluate("() => [...document.querySelectorAll('.kbub, .xt-toast')].map(e => e.textContent).join(' ')") or ''))   # controls stage 2: result bubble (.kbub) replaced the toast
     ctx.close()
     ctx, pg, _ = open_page(b, SNAP, 390, 844, mobile=True)
     pg.click('#extras-tools [data-x=image]')
@@ -296,7 +296,7 @@ def run(b):
     after = pg.evaluate('() => [...document.querySelectorAll("#map .tile")].slice(0, 40).map(e => e.style.backgroundColor)')
     check('replay: map recoloured', after != before)
     pg.screenshot(path=str(SHOTS / 'live_1440_replay.png'))
-    pg.click('.rp-speed button[data-v="4"]')
+    pg.click('.rp-speed button:last-of-type')   # speeds are ms per frame now (1000/500/250…); the last is the fastest
     pg.keyboard.press('Space')
     pg.wait_for_timeout(1700)
     t1 = pg.text_content('.rp-time')
