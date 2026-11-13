@@ -191,6 +191,19 @@ function syncMotion() {
   if (sheet) sheet.classList.toggle('kw-noanim', m === 'reduced');
 }
 
+/* living controls (docs/standards/controls.md): the template's KH.ui — segments with one raised indicator (seg), the shared
+   다시 시도 key (retry: the message stays while it works, ring "받는 중" → ✓ "받았어요" held --c-slow → the content, or ! "아직 안 돼요 ·
+   다시" until the next press). failedW: areas whose last retry failed, so a message drawn again keeps the !. */
+const UI = KH.ui && typeof KH.ui.retry === 'function' ? KH.ui : null;
+const uiSeg = el => { if (UI && typeof UI.seg === 'function') UI.seg(el); return el; };
+const uiSpin = () => (UI && typeof UI.icon === 'function' ? UI.icon('spin') : null);
+const failedW = new Set();
+function retryKey(area, run, done, cls, alive) {
+  cls = 'kw-retry' + (cls ? ' ' + cls : '');
+  if (UI) return UI.retry({ cls, run, render: done, alive, fail: failedW.has(area), onStart: () => failedW.delete(area), onFail: () => failedW.add(area) });
+  return h('button', { type: 'button', class: cls, onclick: async () => { if (await run()) done(); } }, '다시 시도');
+}
+
 /* normalise one /api/world payload; throws on a wrong shape */
 function normalise(j, kind) {
   if (!j || !Array.isArray(j.groups)) throw new Error('응답 모양이 달라요');
@@ -233,10 +246,12 @@ function scaffold() {
   const map = h('div', { class: 'kw-map', role: 'group' });
   const list = h('div', { class: 'kw-list', role: 'group', hidden: true });
   const geo = h('div', { class: 'kw-geo', hidden: true });
+  // the world map could not load: the list stands in; 다시 시도 fetches the atlas again (the note stays until the map is in)
   const note = h('p', { class: 'kw-gnote', role: 'status', hidden: true }, '세계지도를 불러오지 못해서 목록으로 보여 드려요. ',
-    h('button', { type: 'button', class: 'kw-retry sm', onclick: () => { GEO.state = 'idle'; render(); } }, '다시 시도'));
-  const seg = (name, label, opts) => h('div', { class: 'seg kw-seg', role: 'group', 'aria-label': label, 'data-kw': name },
-    opts.map(([v, t]) => h('button', { type: 'button', 'data-v': v, 'aria-pressed': 'false' }, t)));
+    retryKey('geo', async () => { GEO.state = 'idle'; await loadAtlas(true); return GEO.state === 'ready'; }, () => render(), 'sm',
+      () => S.shown && S.kind === 'index' && S.view === 'map'));
+  const seg = (name, label, opts) => uiSeg(h('div', { class: 'seg kw-seg', role: 'group', 'aria-label': label, 'data-kw': name },
+    opts.map(([v, t]) => h('button', { type: 'button', 'data-v': v, 'aria-pressed': 'false' }, t))));
   const sortSeg = seg('sort', '정렬', [['group', '지역순'], ['pct', '등락률순']]);
   const viewSeg = seg('view', '보기', [['list', '목록'], ['map', '지도']]);
   const tools = h('div', { class: 'kw-tools' }, sortSeg, viewSeg);
@@ -380,9 +395,11 @@ function errText(e) {
   if (e.status === 404 && !e.json) return '서버에 아직 이 기능이 없어요. 잠시 뒤 다시 시도할게요.';
   return e.status ? '서버가 시세를 받아 오지 못했어요. 15초 뒤 다시 시도할게요.' : '네트워크 연결을 확인해 주세요. 15초 뒤 다시 시도할게요.';
 }
+// retry: 다시 시도 fetches this kind again; the message stays until the answer is in (busy: the ring while the first answer comes)
 function msgBox(title, body, retry, busy) {
-  return h('div', { class: 'kw-msg' + (busy ? ' busy' : '') }, h('b', { text: title }), body ? h('span', { text: body }) : null,
-    retry ? h('button', { type: 'button', class: 'kw-retry', onclick: () => load(S.kind) }, '다시 시도') : null);
+  const kind = S.kind;
+  return h('div', { class: 'kw-msg' + (busy ? ' busy' : '') }, h('b', {}, title, busy ? uiSpin() : null), body ? h('span', { text: body }) : null,
+    retry ? retryKey('data:' + kind, () => load(kind, true), () => render(), '', () => S.shown && S.kind === kind) : null);
 }
 
 function renderBar(d, err) {
@@ -1037,7 +1054,7 @@ function topoFeatures(topo, name) {
       return f;
     });
 }
-async function loadAtlas() {
+async function loadAtlas(quiet) {
   if (GEO.state === 'loading' || GEO.state === 'ready') return;
   GEO.state = 'loading';
   const ac = new AbortController();
@@ -1054,7 +1071,7 @@ async function loadAtlas() {
     GEO.state = 'failed';
     GEO.err = e;
   } finally { clearTimeout(timer); }
-  if (S.shown) render();
+  if (S.shown && !quiet) render();          // quiet: the 다시 시도 key shows ✓ first, then draws
 }
 function geoGroups(d) {
   const used = new Set(), cs = [];
@@ -1664,20 +1681,46 @@ async function loadChart() {
   if (fresh) { D.chart = c; drawChart(); return; }
   D.chart = { loading: true };
   drawChart();
+  const res = await fetchChart(D.key, D.tf);
+  if (!S.detail || S.detail.key !== D.key || S.detail.tf !== D.tf) return;
+  if (!S.chartRoute) { box.replaceChildren(); box.hidden = true; return; }
+  S.detail.chart = res;
+  drawChart();
+}
+async function fetchChart(key, tf) {
   let res;
   try {
-    const j = await getJSON(`api/world/chart/${encodeURIComponent(D.key)}?tf=${D.tf}`);
+    const j = await getJSON(`api/world/chart/${encodeURIComponent(key)}?tf=${tf}`);
     const bars = (j && Array.isArray(j.bars) ? j.bars : []).filter(b => b && b.t != null && isFinite(+b.c)).map(b => ({ t: String(b.t), c: +b.c }));
     res = { at: Date.now(), bars };
   } catch (e) {
     if (e.status === 404 && !e.json) S.chartRoute = false;          // the Worker has no chart route at all
     res = { at: Date.now(), err: e, gone: e.status === 404 || e.status === 400 };
   }
-  CH.set(k, res);
-  if (!S.detail || S.detail.key !== D.key || S.detail.tf !== D.tf) return;
-  if (!S.chartRoute) { box.replaceChildren(); box.hidden = true; return; }
-  S.detail.chart = res;
-  drawChart();
+  CH.set(key + '|' + tf, res);
+  return res;
+}
+// 다시 시도 under a failed chart: the message stays while it works; ✓ then the chart, or ! (KH.ui.retry)
+function chartRetry(D) {
+  const k = D.key, tf = D.tf, same = () => !!S.detail && S.detail.key === k && S.detail.tf === tf;
+  return retryKey('chart:' + k + '|' + tf, async () => {
+    CH.delete(k + '|' + tf);
+    const res = await fetchChart(k, tf);
+    if (!same()) return null;
+    if (!S.chartRoute) { const box = $('.kw-chart', sheet); if (box) { box.replaceChildren(); box.hidden = true; } return null; }
+    S.detail.chart = res;
+    return !res.err;
+  }, () => drawChart(), 'sm', same);
+}
+// the 기간 segment lives as long as the sheet: KH.ui.seg slides its indicator from one period to the other
+let tfSeg = null;
+function tfSegment(D) {
+  if (!tfSeg) {
+    tfSeg = uiSeg(h('div', { class: 'seg kw-tf', role: 'group', 'aria-label': '차트 기간' }, TFS.map(([v, lab]) =>
+      h('button', { type: 'button', 'data-v': v, 'aria-pressed': 'false', onclick: () => { const X = S.detail; if (!X || X.tf === v) return; X.tf = v; loadChart(); } }, lab))));
+  }
+  for (const b of tfSeg.children) b.setAttribute('aria-pressed', String(D.tf === b.dataset.v));
+  return tfSeg;
 }
 function svg(tag, attrs, ...kids) {
   const el = document.createElementNS(SVGNS, tag);
@@ -1693,14 +1736,15 @@ function drawChart() {
   const box = $('.kw-chart', sheet);
   if (!box || box.hidden) return;
   const it = S.data[D.kind] && S.data[D.kind].byKey.get(D.key);
-  const seg = h('div', { class: 'seg kw-tf', role: 'group', 'aria-label': '차트 기간' }, TFS.map(([v, lab]) =>
-    h('button', { type: 'button', 'aria-pressed': String(D.tf === v), onclick: () => { if (D.tf === v) return; D.tf = v; loadChart(); } }, lab)));
+  const seg = tfSegment(D);
   const C = D.chart;
+  // the segment moves into the new top row: a focused period button keeps the focus
+  const keep = seg.contains(document.activeElement) ? document.activeElement : null;
+  const put2 = (...kids) => { box.replaceChildren(...kids); if (keep && !keep.isConnected) return; if (keep && document.activeElement !== keep) keep.focus({ preventScroll: true }); };
   const top = h('div', { class: 'kw-ctop' }, seg, h('span', { class: 'kw-cnote', text: '일봉 종가 · 마지막 점은 현재 값' }));
-  if (!C || C.loading) { box.replaceChildren(top, h('div', { class: 'kw-cmsg', text: '차트를 불러오는 중이에요…' })); return; }
+  if (!C || C.loading) { put2(top, h('div', { class: 'kw-cmsg', text: '차트를 불러오는 중이에요…' })); return; }
   if (C.err) {
-    box.replaceChildren(top, h('div', { class: 'kw-cmsg' }, C.gone ? '이 항목은 차트 자료가 없어요.' : '차트를 불러오지 못했어요. ',
-      C.gone ? null : h('button', { type: 'button', class: 'kw-retry sm', onclick: () => { CH.delete(D.key + '|' + D.tf); loadChart(); } }, '다시 시도')));
+    put2(top, h('div', { class: 'kw-cmsg' }, C.gone ? '이 항목은 차트 자료가 없어요.' : '차트를 불러오지 못했어요. ', C.gone ? null : chartRetry(D)));
     return;
   }
   const bars = C.bars.slice();
@@ -1711,7 +1755,7 @@ function drawChart() {
     if (lastB.t === day) { if (lastB.c !== it.value) bars[bars.length - 1] = { t: day, c: it.value }; }
     else if (lastB.t < day) bars.push({ t: day, c: it.value });
   }
-  if (bars.length < 2) { box.replaceChildren(top, h('div', { class: 'kw-cmsg', text: '차트 자료가 아직 없어요.' })); return; }
+  if (bars.length < 2) { put2(top, h('div', { class: 'kw-cmsg', text: '차트 자료가 아직 없어요.' })); return; }
   const W = Math.max(220, Math.round(box.clientWidth || 300)), H = 150, padL = 2, padR = 58, padT = 10, padB = 20;
   const cs = bars.map(b => b.c);
   const lo = Math.min(...cs), hi = Math.max(...cs), first = cs[0], last = cs[cs.length - 1];
@@ -1757,7 +1801,7 @@ function drawChart() {
   });
   s.addEventListener('pointerleave', reset);
   reset();
-  box.replaceChildren(top, read, s);
+  put2(top, read, s);
 }
 
 /* ───────── polling ───────── */
@@ -1766,30 +1810,34 @@ function schedule(ms) {
   if (!S.shown || !LIVE) return;
   S.timer = setTimeout(() => load(S.kind), ms);
 }
-async function load(kind) {
+// → true (arrived) · false (failed) · null (superseded). quiet (the 다시 시도 key): the message stays while it works and nothing is
+// drawn here — the key shows ✓ and then draws, or ! and the message stays
+async function load(kind, quiet) {
   clearTimeout(S.timer); S.timer = 0;
-  if (!S.shown || S.kind !== kind || !LIVE || document.hidden) return;
+  if (!S.shown || S.kind !== kind || !LIVE || document.hidden) return null;
   const seq = ++S.seq;
   if (S.ac) S.ac.abort();
   const ac = S.ac = new AbortController();
   S.busy = kind;
-  if (!S.data[kind] && S.err[kind]) { S.err[kind] = null; render(); }   // a retry from the error box shows "loading" again
+  if (!quiet && !S.data[kind] && S.err[kind]) { S.err[kind] = null; render(); }   // the automatic retry shows "loading" again
   let ok = false;
   try {
     const j = await getJSON('api/world?kind=' + kind, ac.signal);
-    if (seq !== S.seq) return;
+    if (seq !== S.seq) return null;
     S.data[kind] = normalise(j, kind);
     S.at[kind] = Date.now();
     S.err[kind] = null;
+    failedW.delete('data:' + kind);
     ok = true;
   } catch (e) {
-    if (seq !== S.seq) return;
+    if (seq !== S.seq) return null;
     S.err[kind] = e;
   }
   S.busy = null;
-  render();
+  if (!quiet) render();
   announce(kind, ok);
   schedule(ok ? POLL_MS : RETRY_MS);
+  return ok;
 }
 function announce(kind, ok) {
   const K = KINDS[kind], key = kind + (ok ? ':ok' : ':err');

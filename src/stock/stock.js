@@ -130,43 +130,31 @@ const uiIcon = n => (UI && typeof UI.icon === 'function' ? UI.icon(n) : null);
 const uiSeg = el => { if (UI && typeof UI.seg === 'function') UI.seg(el); };
 const cMs = (name, d) => (UI && typeof UI.ms === 'function' ? UI.ms(name) : d);          // '줄이기' sets --c-fast/base/switch to 0
 const say = t => { if (UI && typeof UI.live === 'function') UI.live(t); };
-const wait = ms => new Promise(r => setTimeout(r, ms));
 function setState(el, st) {
   if (!el) return;
   if (UI) { UI.state(el, st); return; }
   el.dataset.st = st;
   for (const x of el.querySelectorAll('.kl')) x.classList.toggle('on', x.matches(`[data-l~="${st}"]`));
 }
-// an async key (§5-3): one label per state stacked in one box, so the key keeps the width of its longest label; 'work' carries the
-// ring, 'done' ✓, 'fail' ! (KH.ui.state switches them)
-const KICON = { work: 'spin', done: 'check', fail: 'warn' };
+// an async key (§5-3): the template's KH.ui.akey — one label per state stacked in one box (the key keeps its longest label); 'work'
+// carries the ring, 'done' ✓, 'fail' ! (KH.ui.state switches them). Without KH.ui: the idle label only.
 function asyncKey(cls, says, st) {
-  st = st || 'idle';
-  return h('button', { type: 'button', class: cls, 'data-st': st, 'data-busy': 'work', 'aria-label': says[st] },
-    h('span', { class: 'klb' }, Object.entries(says).map(([k, t]) => h('span', { class: 'kl' + (k === st ? ' on' : ''), 'data-l': k }, KICON[k] ? uiIcon(KICON[k]) : null, t))));
+  if (UI && typeof UI.akey === 'function') return UI.akey(cls, says, st);
+  return h('button', { type: 'button', class: cls, 'data-st': st || 'idle', text: says[st || 'idle'] });
 }
-/* 다시 시도 (§5-3): the message stays while it works — ring "받는 중", then ✓ "받았어요" for --c-slow before the content comes in, or
-   ! "아직 안 돼요 · 다시" until the next press. run() → true (arrived) / false (failed) / null (no longer wanted: another stock, aborted);
-   render() draws the area once the data is in. A message drawn again after a failed retry keeps the ! (failed). */
-const RETRY_SAY = { idle: '다시 시도', work: '받는 중', done: '받았어요', fail: '아직 안 돼요 · 다시' };
+/* 다시 시도 (§5-3): the template's KH.ui.retry, shared with the 해외 tab — the message stays while it works (ring "받는 중"), then ✓
+   "받았어요" for --c-slow before the content comes in, or ! "아직 안 돼요 · 다시" until the next press. run() → true / false / null (no
+   longer wanted). A result for another stock (S.gen moved on) is dropped. failed: the areas whose last retry failed, so a message
+   drawn again keeps the !. */
 const failed = new Set();
 function retryKey(area, run, render, cls) {
-  const b = asyncKey(cls || 'sp-btn sp-retry', RETRY_SAY, failed.has(area) ? 'fail' : 'idle');
-  b.addEventListener('click', async () => {
-    if (b.dataset.st === 'work') return;
-    const g = S.gen;
-    failed.delete(area);
-    setState(b, 'work');
-    let r = null;
-    try { r = await run(); } catch (e) { r = false; }
-    if (g !== S.gen) return;
-    if (r == null) { if (b.isConnected) setState(b, 'idle'); return; }
-    if (!r) { failed.add(area); if (b.isConnected) setState(b, 'fail'); say('아직 안 돼요. 잠시 뒤 다시 눌러 주세요.'); return; }
-    if (b.isConnected && !reducedNow()) { setState(b, 'done'); await wait(cMs('--c-slow', 560)); if (g !== S.gen) return; }
-    say('불러왔어요.');
-    render();
-  });
-  return b;
+  cls = cls || 'sp-btn sp-retry';
+  let g = S.gen;
+  if (UI && typeof UI.retry === 'function') {
+    return UI.retry({ cls, run, render, fail: failed.has(area), alive: () => g === S.gen,
+      onStart: () => { g = S.gen; failed.delete(area); }, onFail: () => failed.add(area) });
+  }
+  return h('button', { type: 'button', class: cls, onclick: async () => { g = S.gen; const r = await run(); if (g === S.gen && r) render(); }, text: '다시 시도' });
 }
 function errSub(e) {
   if (e && e.status === 404) return '이 종목의 정보를 찾지 못했어요.';
@@ -290,7 +278,7 @@ function buildLive() {
     e.preventDefault();
     setTab(keys[i], true);
   });
-  if ('ResizeObserver' in window) new ResizeObserver(() => tabInd(true)).observe(R.tabs);
+  uiSeg(R.tabs);
   for (const t of TABS) if (t.build) t.build(R.panels[t.key]);
   R.body.append(chartcol, h('section', { class: 'sp-side', 'aria-label': TABS.map(t => t.label).join('·') }, h('div', { class: 'sp-tabwrap' }, R.tabs), ...Object.values(R.panels)));
   R.foot.append(h('p', {}, '데이터: 네이버 증권(비공식). 투자 판단의 근거로 쓰지 마세요. 차트: ',
@@ -454,101 +442,18 @@ function renderStar() {
 // 관심 그룹 (AGENTS.md §3-11): with KH.watch.groups() and more than the single 기본 group, ☆ opens a picker; otherwise it toggles instantly
 const groupsApi = () => { const W = watchApi(); return W && ['groups', 'groupsOf', 'setGroups', 'createGroup'].every(k => typeof W[k] === 'function') ? W : null; };
 const usePicker = () => { const W = groupsApi(); if (!W) return false; try { return W.groups().length > 1; } catch (e) { return false; } };
-/* The 관심 그룹 picker is the template's group popover (.wgpop, §3-11): its look (rows with check boxes and counts, ＋ 새 그룹에 담기,
-   완료; a bottom sheet up to 760px) and its flow — ticks apply at once, the name form takes the popover's place, Esc · a tap outside
-   · Tab out closes it, focus goes back to ☆. The template does not hand its own popover out through KH, so this one is drawn here
-   with the same classes inside the stock page (whose stacking context it has to sit in). */
-let gp = null;   // {el}
-const GP_MAX = 20, GP_NAME = 12;   // the template's group limits (§3-11)
-const gpPhone = () => matchMedia('(max-width: 760px)').matches;
-function gpClose(refocus) {
-  if (!gp) return;
-  gp.el.remove();
-  gp = null;
-  R.star.setAttribute('aria-expanded', 'false');
-  if (refocus) R.star.focus({ preventScroll: true });
-}
-function gpShow(label, kids) {
-  const el = gp.el;
-  el.replaceChildren(...kids);
-  el.setAttribute('aria-label', label);
-  el.classList.toggle('sp-gp-sheet', gpPhone());
-  if (gpPhone()) { el.style.left = el.style.top = ''; }
-  else {   // under ☆, inside the viewport (above it when there is no room below)
-    const r = R.star.getBoundingClientRect(), pw = el.offsetWidth, ph = el.offsetHeight;
-    let top = r.bottom + 6;
-    if (top + ph > innerHeight - 8) top = Math.max(8, r.top - ph - 6);
-    el.style.left = Math.round(Math.min(Math.max(8, r.left), innerWidth - pw - 8)) + 'px';
-    el.style.top = Math.round(top) + 'px';
-  }
-  const f = el.querySelector('input[type="text"], input:checked, input, button:not([disabled])');
-  if (f) f.focus({ preventScroll: true });
-}
+/* The 관심 그룹 picker is the template's (KH.watch.pick, §3-11): one implementation for the map's ☆, the tooltip and this page — rows
+   with check boxes and counts (ticks apply at once), ＋ 새 그룹에 담기, 완료; a bottom sheet up to 760px; Esc · a tap outside · Tab
+   out closes it and focus goes back to ☆. Opened from here it moves into this dialog (the rest of the page is inert) and sits above
+   it. 'sp-gp' tags its parts for the stock page's tests. */
+const pickApi = () => { const W = groupsApi(); return W && typeof W.pick === 'function' ? W : null; };
+const pickOpen = () => { const W = pickApi(); return !!(W && typeof W.pickOpen === 'function' && W.pickOpen()); };
+const pickClose = restore => { const W = pickApi(); if (W && typeof W.pickClose === 'function') W.pickClose(restore); };
 function gpName() { const st = KH.stock(S.code); return (S.sum && S.sum.code === S.code && S.sum.name) || (st && st.n) || S.code; }
-function gpPick() {
-  const W = groupsApi();
-  if (!gp || !W || !S.code) return;
-  const mine = new Set(W.groupsOf(S.code) || []), groups = W.groups(), nm = gpName(), add = groups.length < GP_MAX;
-  gpShow(`${nm} 관심 그룹`, [h('h3', { text: `${nm} · 관심 그룹` }),
-    ...groups.map(g => h('label', { class: 'row sp-gp-row' },
-      h('input', { type: 'checkbox', 'data-id': g.id, checked: mine.has(g.id), onchange: gpApply }),
-      h('span', { class: 'nm', text: g.name }), h('span', { class: 'n num', text: String(g.count) }))),
-    add ? h('div', { class: 'sep' }) : null,
-    add ? h('button', { class: 'row sp-gp-add', type: 'button', onclick: gpForm, text: '＋ 새 그룹에 담기' }) : null,
-    h('div', { class: 'acts' }, h('button', { class: 'pri', type: 'button', onclick: () => gpClose(true), text: '완료' }))].filter(Boolean));
-}
-function gpApply() {
-  const W = groupsApi();
-  if (!gp || !W) return;
-  W.setGroups(S.code, [...gp.el.querySelectorAll('input[data-id]:checked')].map(i => i.dataset.id));
-  renderStar();
-}
-// kh:watch while the picker shows: ticks and counts change in place (focus stays); another set of groups draws it again
-function gpSync() {
-  const W = groupsApi(), boxes = gp ? [...gp.el.querySelectorAll('input[data-id]')] : [];
-  if (!W || !boxes.length) return;                       // the name form is showing
-  const groups = W.groups(), mine = new Set(W.groupsOf(S.code) || []);
-  if (groups.length !== boxes.length || groups.some((g, i) => boxes[i].dataset.id !== g.id)) { gpPick(); return; }
-  groups.forEach((g, i) => { boxes[i].checked = mine.has(g.id); const n = boxes[i].closest('label').querySelector('.n'); if (n) n.textContent = String(g.count); });
-}
-// ＋ 새 그룹에 담기: a name (12 characters, no duplicate), then this stock goes into it and the picker comes back
-function gpForm() {
-  const W = groupsApi();
-  if (!gp || !W) return;
-  const inp = h('input', { type: 'text', class: 'sp-gp-in', maxlength: String(GP_NAME), placeholder: '예: 반도체', 'aria-label': '그룹 이름', autocomplete: 'off', enterkeyhint: 'done' });
-  const msg = h('p', { class: 'msg', 'aria-live': 'polite', text: `${GP_NAME}자까지` });
-  const ok = h('button', { class: 'pri', type: 'submit', text: '만들기' });
-  const name = () => inp.value.replace(/\s+/g, ' ').trim().slice(0, GP_NAME);
-  const check = () => {
-    const nm = name(), dup = !!nm && W.groups().some(g => g.name === nm);
-    ok.disabled = !nm || dup;
-    msg.textContent = dup ? '같은 이름의 그룹이 있어요' : `${GP_NAME}자까지`;
-  };
-  inp.addEventListener('input', check);
-  const form = h('form', { onsubmit: ev => {
-    ev.preventDefault(); check(); if (ok.disabled) return;
-    const id = W.createGroup(name());
-    if (!id) return;
-    W.setGroups(S.code, [...new Set([...(W.groupsOf(S.code) || []), id])]);
-    renderStar(); gpPick();
-  } }, inp, msg, h('div', { class: 'acts' }, h('button', { type: 'button', onclick: () => gpClose(true), text: '취소' }), ok));
-  gpShow('새 그룹', [h('h3', { text: '새 그룹' }), form]);
-  check();
-}
-function gpOpen() {
-  if (gp) { gpClose(true); return; }
-  const el = h('div', { class: 'wgpop sp-gp', role: 'dialog', tabindex: '-1' });
-  el.addEventListener('focusout', e => { if (gp && e.relatedTarget && !el.contains(e.relatedTarget)) gpClose(false); });
-  gp = { el };
-  root.append(el);
-  R.star.setAttribute('aria-expanded', 'true');
-  gpPick();
-}
-document.addEventListener('pointerdown', e => { if (gp && !gp.el.contains(e.target) && !R.star.contains(e.target)) gpClose(false); }, true);
 function toggleWatch() {
   const W = watchApi();
   if (!W || !S.code) return;
-  if (usePicker()) { gpOpen(); return; }
+  if (usePicker() && pickApi()) { W.pick(S.code, R.star, { name: gpName(), cls: 'sp-gp' }); renderStar(); return; }
   W.toggle(S.code);
   renderStar();
 }
@@ -1062,22 +967,7 @@ function setTf(k) {
 function syncTf() { if (R.tfs) for (const b of R.tfs.children) b.setAttribute('aria-pressed', String(b.dataset.tf === S.tf)); }
 
 /* ───────────────── tabs ───────────────── */
-/* The 시세 정보 tabs are a real tablist (aria-selected), which KH.ui.seg (rows of aria-pressed buttons) does not read: the same raised
-   indicator is placed here with the template's segment CSS (.seg::before at --il/--ir/--it/--ib, data-ind; data-dir = which edge
-   leads: --c-fast, the other follows in --c-base). */
-let tabI = -1;
-function tabInd(snap) {
-  const row = R.tabs;
-  if (!row) return;
-  const bs = [...row.children], i = bs.findIndex(b => b.getAttribute('aria-selected') === 'true'), b = bs[i];
-  if (!b || !b.offsetWidth || !row.clientWidth) { delete row.dataset.ind; tabI = i; return; }
-  const v = [b.offsetLeft, row.clientWidth - b.offsetLeft - b.offsetWidth, b.offsetTop, row.clientHeight - b.offsetTop - b.offsetHeight].map(x => Math.round(x * 2) / 2 + 'px');
-  const moved = !snap && tabI >= 0 && i !== tabI && row.dataset.ind != null;
-  row.dataset.dir = moved ? (i > tabI ? 'r' : 'l') : '';
-  ['--il', '--ir', '--it', '--ib'].forEach((x, j) => row.style.setProperty(x, v[j]));
-  row.dataset.ind = '';
-  tabI = i;
-}
+/* The 시세 정보 tabs are a real tablist (aria-selected); KH.ui.seg reads aria-selected too and moves the raised indicator (build()). */
 function setTab(k, focus) {
   if (!TAB[k]) k = TABS[0].key;
   const from = S.tab, slide = fancy() && S.open && from !== k && R.panels[from] && !R.panels[from].hidden;
@@ -1088,7 +978,6 @@ function setTab(k, focus) {
     b.tabIndex = on ? 0 : -1;
     if (on && focus) b.focus();
   }
-  tabInd(!S.open);
   for (const t of TABS) {
     R.panels[t.key].hidden = t.key !== k;
     if (t.key !== k && t.hide) t.hide();
@@ -2032,7 +1921,7 @@ function stopTimers() {
 function stopAll() { stopTimers(); abortAll(); }
 
 function show(code, opener) {
-  gpClose(false);
+  pickClose(false);
   build();
   const switching = S.open;
   S.gen++;
@@ -2065,7 +1954,7 @@ function show(code, opener) {
 
 function hide() {
   if (!S.open) return;
-  gpClose(false);
+  pickClose(false);
   S.open = false;
   S.gen++;
   stopAll();
@@ -2126,7 +2015,7 @@ addEventListener('popstate', onHash);
 // capture phase: the page owns Esc and '/' while it is open (the heatmap would otherwise zoom out / focus its search)
 addEventListener('keydown', e => {
   if (!S.open) return;
-  if (e.key === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); if (gp) gpClose(true); else close(); }
+  if (e.key === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); if (pickOpen()) pickClose(true); else close(); }
   else if (e.key === '/') e.stopImmediatePropagation();
 }, true);
 document.addEventListener('visibilitychange', () => {
@@ -2138,7 +2027,7 @@ document.addEventListener('kh:palette', () => { if (root) { applyColors(); if (S
 document.addEventListener('kh:data', () => { if (S.open) { renderPeers(); renderHead(); if (LIVE) renderMeta(); } });
 document.addEventListener('kh:basis', () => { if (S.open) renderHead(); });   // the headline is the row in the chosen basis   // 업종 path / provisional price arrive with the quotes
 document.addEventListener('kh:motion', () => { if (!fancy() && R.price) { settleRoll(R.price); settleRoll(R.chg); } });
-document.addEventListener('kh:watch', () => { if (S.open) { renderStar(); if (gp && !usePicker()) gpClose(false); else gpSync(); } });
+document.addEventListener('kh:watch', () => { if (S.open) renderStar(); });   // the picker keeps its own ticks and counts in step
 
 window.KHStock = { open, close, isOpen: () => S.open };
 onHash();
