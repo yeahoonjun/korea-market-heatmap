@@ -966,6 +966,7 @@ html[data-motion="fancy"] .kl.on .kck{transform:none;transition-delay:var(--c-fa
 .kck,.kwn{flex:none;width:15px;height:15px}
 /* a short note under an icon-only key: no layout, nothing to press (KH.ui.bubble) */
 .kbub{position:fixed;z-index:140;padding:6px 10px;border-radius:9px;background:var(--tip-bg);box-shadow:inset 0 0 0 1px var(--tip-bd),var(--tip-sh);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);color:var(--fg);font-size:12.5px;font-weight:600;white-space:nowrap;pointer-events:none;opacity:0;transform:translateY(-4px);transition:opacity var(--c-fast) var(--c-in),transform var(--c-fast) var(--c-in)}
+.kbub.up{transform:translateY(4px)}
 .kbub.on{opacity:1;transform:none;transition-timing-function:var(--c-out)}
 .kbub svg{width:13px;height:13px;vertical-align:-2px;margin-right:5px;color:var(--acc)}
 /* segments and tab rows: one raised indicator each (KH.ui.seg) */
@@ -1580,9 +1581,12 @@ function uiBubble(anchor, text, kind) {
   if (kind) b.append(uiIcon(kind === 'fail' ? 'warn' : 'check'));
   b.append(String(text));
   document.body.append(b);
-  const w = b.offsetWidth;
+  const w = b.offsetWidth, bh = b.offsetHeight;
   b.style.left = Math.round(Math.max(8, Math.min(innerWidth - w - 8, r.right - w))) + 'px';
-  b.style.top = Math.round(r.bottom + 8) + 'px';
+  // 아래 자리가 모자라면(맨 아래 저작권 줄 등) 위에 띄워요 — 사용자 2026-11-13 23:27 "복사했어요가 아래에 보여서 잘려"
+  const up = r.bottom + 8 + bh > innerHeight - 8 && r.top - 8 - bh >= 8;
+  if (up) b.classList.add('up');
+  b.style.top = Math.round(up ? r.top - 8 - bh : r.bottom + 8) + 'px';
   requestAnimationFrame(() => b.classList.add('on'));
   setTimeout(() => { b.classList.remove('on'); setTimeout(() => b.remove(), 400); }, 1680);   // --c-dwell + --c-slow: a hold time, the same in every effect level
   uiLive(text);
