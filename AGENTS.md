@@ -546,3 +546,25 @@ python3 tmp/shot.py /home/claude/heatmap/dist/index.html    # 1440×900 / 390×8
 - 엣지 캐시: 그날 전체 응답을 `dis-today` 키로 30초, ETag·`x-as-of`를 같이 저장해요. 요청마다 그 캐시에서 304를 판단하고 `after`를 잘라요(캐시 적중이면 KV·DART를 건드리지 않아요). ETag 전 Worker가 캐시한 항목(태그 없음)은 304 없이 그대로 200.
 - 화면이 쓰는 법: ⓐ 가장 쉬운 길 — 같은 주소(`after` 없이)를 기본 `fetch`로 60초마다. 브라우저가 30초 뒤부터 알아서 `If-None-Match`로 다시 확인하고, 304면 저장해 둔 본문을 그대로 줘요(본문 `asOf`는 옛값일 수 있으니 시각은 `res.headers.get('x-as-of')`). ⓑ 직접 — 마지막 `ETag`를 `If-None-Match`로 보내고 `after=<가진 것 중 가장 새 r>`로 받으면, 304 = 변화 없음, 200 + `after` = 새 행만(앞에 붙이기), 200인데 `after` 없음 = 날짜가 바뀜(통째로 바꾸기). **새 행이 없는데 태그만 바뀌면**(빈 `rows`) 예전 행의 비고·`stale`이 바뀐 것 → 가끔 `after` 없이 통째로 다시 받으세요.
 - `after`는 접수번호 앞 8자리(접수일)로 날짜를 비교해요(접수번호 = 접수일 8자리 + 일련번호 6자리).
+
+## 3-30. 공시 배지 — 화면 (§3-23b ①, 사용자 2026-11-14 01:44~01:46 "C안으로 할게" · "나머지는 추천대로")
+
+규칙 문서 `docs/standards/disclosure.md`(C안), 구현 `feat/disclosure-ui`. 서버는 §3-29 그대로 쓰고 Worker는 고치지 않았어요.
+- **타일**: 오늘 공시가 있는 종목은 오른쪽 아래 **접힌 귀퉁이**(중립색 `--dm-flap`·`--dm-crease`·`--dm-cut`=지도 바닥, 빨강·초록·앰버 아님). 짧은 변 8px 미만 타일은 없음, 크기는 짧은 변 비례(보통 4~10px, 30분 안 새 공시 5~14px — 짧은 변 10px 이상이면 7px부터). 기본 표시 종류 **실적 · 주요**(설정에서 정기·지분·기타 추가, 끄기). 화려하게면 새 귀퉁이가 한 번 접히며 나타나요(공시마다 한 번). 타일 aria-label 끝에 ", 오늘 공시 N건[, 새 공시 있음]".
+- **새 공시 = 점**(사용자 01:46 "'새'로 표기보다는 시간 앞 초록색 동그라미라던지"): 글자 "새" 대신 **시각 앞 작은 채운 점**(7px, `aria-label`/sr "새 공시"). 색은 테마마다 토큰 하나 **`--new-dot`**(읽지 않음 파랑 — 기본 `#4da3ff` · 신문 `#1d5fc4` · 글라스 어둡게 `#5aaeff` · 글라스 밝게 `#1f66d1`, 모두 바탕 대비 3:1 이상). 초록으로 바꾸려면 그 한 줄만 바꾸면 돼요(초록은 하락색과 겹쳐서 파랑으로 둠 — HTS 팔레트에선 파랑이 하락색이라 그때는 점 모양 + 글자로만 구분돼요). 새 = `date`가 오늘 · `since`가 있고 `s > since` · `0 ≤ 지금 − s ≤ 30분`(지금 = `KH.now()`, 오늘 다시 보기 중이면 그 시각).
+- **찾는 길**: 지도 머리줄 `#stage-tools`의 **공시 칩**("공시 N", 누르면 공시 없는 종목이 흐려짐 `.mdim` — 검색·등락 분포 강조와 AND, 기억하지 않음) · 범례 "공시 N종목"(+ "큰 귀퉁이 = 30분 안") · 뉴스 카드의 **오늘 공시** 탭(시장 뉴스 옆; 종류 탭 `실적·주요 · 정기 · 지분 · 기타 · 전체`, `지도 종목만` 기본 켬, 종목 칩 → 빠른 보기, 줄에 올리거나 포커스하면 그 타일 강조, 제목 → DART 새 탭, 카드 높이만큼 + 더보기 30줄). 휴장일·주말·새벽엔 탭 이름이 "11월 13일 (금) 공시".
+- **툴팁 · 빠른 보기**: 머리 아래 "오늘 공시 N건" + 표시 종류 3건까지(같은 제목은 "· 4건"), 표시하지 않는 종류는 "그 밖에 …" 한 줄. 빠른 보기 줄은 DART 링크(44px, 휴대폰 54px) + **공시 모두 보기 (N)** → 종목 페이지 뉴스·공시 › 공시.
+- **받기**: `/api/disclosures/today`를 평일 07~19시 60초, 그 밖 5분마다(숨은 탭·해외 탭·설정 꺼짐이면 멈춤), 마지막 `ETag`를 `If-None-Match`로 직접 보내고(`cache:'no-store'` — 브라우저 자동 재검증은 믿지 않아요) 304면 `x-as-of`로 시각만. `after=`는 쓰지 않아요. 실패 1→2→4→5분, 5분 넘게 못 받으면 "HH:MM 기준" 앰버 + 다시 시도. 404(옛 Worker)면 공시 UI 전부 숨김. 다시 보기: 같은 날이면 `s ≤ 프레임 시각`만, 다른 날이면 귀퉁이·칩을 숨기고 범례에 안내. 스냅샷은 탭에 "공시는 실시간 버전에서 볼 수 있어요" + 링크.
+- **저장** `khm.set.disc`(공시 보기, 기본 켬) · `khm.set.discKinds`(`'실적,주요'`처럼 쉼표) · `khm.feedTab`(`news`|`disc`, 마지막 탭).
+
+**히트맵이 더한 API** (`window.KH`, 다른 배지도 같이 쓰게)
+- `KH.marks.set(name, Map(code → {size:'n'|'new', label, title?, fresh?}) | null)` · `get(name)` · `only(name|null)` · `onlyName()` — 귀퉁이 그림(`<i class="dm">` 하나, `--s`), aria-label 꼬리, 표 보기 이름 칸의 작은 견본, `KH.layout()` 타일 `mark:{kind,size,isNew}`(이미지 저장이 같은 귀퉁이를 그려요). `only`면 그 표시가 없는 타일 `.mdim`, 표는 표시된 행만.
+- `KH.cardExtra.add(key, fn(st, how:'tip'|'sheet') → el|null)` · `remove(key)` · `refresh()` — 툴팁·빠른 보기 머리 아래 덩어리(`.cx`, 포커스가 안에 있으면 다시 그리지 않음).
+- `KH.legendItem(key, fn → el|[el]|null)` · `KH.legendRefresh()` — 범례 `크기` 앞 항목(테마 개요 제외).
+- `KH.addSetting({key, label, hint, multi:true, options:[..], default:[..], min})` → 여러 개 고르는 칩(값은 배열, 저장은 `'a,b'`, `min`개 아래로는 못 끔). `KH.settingState(key, {disabled?, counts?:{값:n}, hint?})`.
+- `KH.mapCodes()` → 지금 지도 종목 코드(탭·종목 수 반영, 해외·테마 개요는 `[]`). `KH.replay()` → `{t, date}|null`. `KH.openStock(code, {opener, tab, newsKind})` → 빠른 보기를 닫고 종목 페이지.
+- 마운트: 지도 머리줄 `지도 · 표` 앞 `<span id="stage-tools">`(비면 자리 없음, 지수 선 B는 그 앞에서 끝나요), 출처 줄 `<p id="foot-disc">`("공시: 금융감독원 DART (제목 · 링크만)").
+- **뉴스 카드 탭** (`src/news`): `KHNews.addTab({key, label: 글자|() → 글자, count?: () → 글자, pane, list, at?: el → 머리 오른쪽 내용, render(L), onShow?})` — `L` = `{measure, base, two, phone, rowsMax}`(뉴스와 같은 채우기: PC는 줄 수를 재서 옆 칸 끝까지, 1200px 이상 두 단) · `removeTab(key)` · `select(key)` · `tab()` · `update()` · `relayout()` — 탭이 둘 이상이면 카드 제목이 탭(←/→/Home/End, 고른 탭 기억 `khm.feedTab`), 하나면 지금 제목 그대로. 탭을 다 빼면 카드가 숨어요.
+- **종목 페이지** (`src/stock`): `KHStock.open(code, {opener, tab:'news', newsKind:'disc'})`, 오늘 DART 줄에 `KHDisc.info(rcpNo)`의 처음 본 시각과 새 공시 점.
+- **공시 모듈** `src/disclosure/disc.js · disc.css`(빌드: 뉴스 다음): `window.KHDisc = {refresh(), rows(code), info(rcpNo) → {s, isNew, date}}`, `KH.disclosures(code?)`.
+- 점검 `qa/disclosure/test_disclosure.py`(목 `qa/news/mock_api.py`의 `/__mode?disc=ok|busy|holiday|empty|fail|slow|none|stale|etag|drift|nosince`, 공시가 없으면 기본 테마가 `main` 빌드와 같은지 픽셀 비교 포함).

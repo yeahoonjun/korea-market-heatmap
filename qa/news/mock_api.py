@@ -227,6 +227,8 @@ class H(SimpleHTTPRequestHandler):
             return self.send_json(news_body(mode))
         if path == '/api/disclosures/today':
             mode = MODE['disc']
+            if mode == 'none' or MODE['news'] == 'html404':      # news html404 = a Worker older than both routes
+                return self.send_body(b'{"error":"not found"}', 404) if mode == 'none' else self.send_body(b'Not found', 404, 'text/plain')
             if mode == 'none':
                 return self.send_body(b'{"error":"not found"}', 404)
             if mode == 'fail':

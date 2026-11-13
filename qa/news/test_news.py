@@ -270,8 +270,12 @@ def run(br):
     check('펼침 stays when the tab changes', o2['rows'] == 30 and o2['exp'] == 'true', o2)
     pg.click('#news .nw-more'); pg.click('#news .nw-tabs button[data-k="all"]'); pg.wait_for_timeout(150)
     pg.click('#news .nw-only'); pg.wait_for_timeout(200)
-    oc = pg.evaluate("() => ({ n: +document.querySelector('#news .nw-only .nw-n').textContent, rows: [...document.querySelectorAll('#news .nw-row')].length, all: [...document.querySelectorAll('#news .nw-row')].every(r => r.dataset.codes && r.querySelector('.nw-chip')), pressed: document.querySelector('#news .nw-only').getAttribute('aria-pressed') })")
-    check('지도 종목 기사만: only rows with chips, count = the number on the chip', oc['all'] and oc['pressed'] == 'true' and oc['n'] == 12 and oc['rows'] == min(oc['n'], pg.evaluate("document.querySelectorAll('#news .nw-row').length")), oc)
+    # the expected count comes from the data (the fixture's headlines × the stocks on today's universe — it moves with the daily refresh)
+    oc = pg.evaluate("""async () => { const j = await (await fetch('api/news', { cache: 'no-store' })).json();
+      const idx = KHNewsMatch.build(KH.stocks().filter(r => /0$/.test(r.c)).map(r => ({ c: r.c, n: r.n })));
+      const want = j.items.filter(it => KHNewsMatch.match(it.title, idx).marks.some(x => x.codes.some(c => KH.stock(c)))).length;
+      return { n: +document.querySelector('#news .nw-only .nw-n').textContent, want, rows: [...document.querySelectorAll('#news .nw-row')].length, all: [...document.querySelectorAll('#news .nw-row')].every(r => r.dataset.codes && r.querySelector('.nw-chip')), pressed: document.querySelector('#news .nw-only').getAttribute('aria-pressed') }; }""")
+    check('지도 종목 기사만: only rows with chips, count = the number on the chip = headlines naming a map stock', oc['all'] and oc['pressed'] == 'true' and oc['n'] == oc['want'] and oc['n'] > 0 and oc['rows'] == min(oc['n'], pg.evaluate("document.querySelectorAll('#news .nw-row').length")), oc)
     cred = pg.evaluate("() => [document.querySelector('#news .nw-ft small').textContent, document.getElementById('foot-news').textContent, document.getElementById('foot-news').hidden, document.getElementById('foot').textContent.includes('© 2026 blue_crude'), document.getElementById('foot').textContent.includes('데이터: 네이버 증권 (finance.naver.com)')]")
     check('credit lines: card + page footer name the three outlets; © and 네이버 lines stay', cred[0].startswith('연합인포맥스 · 한국경제 · 매일경제 RSS — 제목과 시각만') and cred[1] == '시장 뉴스: 연합인포맥스 · 한국경제 · 매일경제 RSS (제목 · 링크만)' and not cred[2] and cred[3] and cred[4], cred)
     ctx.close()
@@ -298,7 +302,7 @@ def run(br):
     mode('slow')
     ctx, pg = open_page(br, LIVE, 1280, 800)
     pg.wait_for_timeout(200)
-    l = pg.evaluate("() => ({ sk: document.querySelectorAll('#news .nw-row.skel').length, at: document.querySelector('#news .nw-at').textContent, dis: [...document.querySelectorAll('#news .nw-tabs button, #news .nw-only')].every(b => b.getAttribute('aria-disabled') === 'true'), h: document.getElementById('news').offsetHeight })")
+    l = pg.evaluate("() => ({ sk: document.querySelectorAll('#news .nw-row.skel').length, at: document.querySelector('#news .nw-at').textContent, dis: [...document.querySelectorAll('#news .nw-tabs button, #news .nw-only:not(.dc-only)')].every(b => b.getAttribute('aria-disabled') === 'true'), h: document.getElementById('news').offsetHeight })")
     pg.wait_for_selector('#news .nw-row:not(.skel)', timeout=8000); pg.wait_for_timeout(200)
     h2 = pg.evaluate("document.getElementById('news').offsetHeight")
     check('loading: skeleton rows, "불러오는 중", tabs + chip off, same card height after', l['sk'] >= 5 and l['at'] == '불러오는 중' and l['dis'] and l['h'] == h2, f'{l} → {h2}')
@@ -351,13 +355,18 @@ def run(br):
     ctx.close()
 
     # ── 8 · polling only near the screen; reading guard ──
+    # phones put the card right under the map (user 2026-11-14 02:00), so it is near from the start: scroll it far away, then back
     mode('drift')
-    ctx, pg = open_page(br, LIVE, 390, 844)
-    pg.wait_for_timeout(1500)
-    far = mock('/__stats').get('/api/news', 0)
-    pg.evaluate("document.getElementById('news').scrollIntoView({block: 'start'})"); pg.wait_for_timeout(1200)
-    near = mock('/__stats').get('/api/news', 0)
-    check('no request while the card is far off screen; one when it comes within 400 px', far == 0 and near == 1, f'{far} → {near}')
+    ctx, pg = open_page(br, LIVE, 390, 844, clock=True)
+    pg.wait_for_selector('#news .nw-row:not(.skel)', timeout=8000)
+    n0 = mock('/__stats').get('/api/news', 0)
+    pg.evaluate("scrollTo(0, document.documentElement.scrollHeight)"); pg.wait_for_timeout(600)
+    gap = pg.evaluate("-document.getElementById('news').getBoundingClientRect().bottom")
+    pg.clock.run_for(4 * 60 * 1000); pg.wait_for_timeout(600)
+    far = mock('/__stats').get('/api/news', 0) - n0
+    pg.evaluate("document.getElementById('news').scrollIntoView({block: 'start'})"); pg.wait_for_timeout(600); pg.clock.run_for(1000); pg.wait_for_timeout(600)
+    near = mock('/__stats').get('/api/news', 0) - n0
+    check('no request while the card is far off screen (4 min); one when it comes within 400 px', n0 == 1 and gap > 400 and far == 0 and near == 1, f'n0 {n0} · {round(gap)} px above · {far} → {near}')
     ctx.close()
     mode('drift')
     ctx, pg = open_page(br, LIVE, 1280, 800)
@@ -365,7 +374,8 @@ def run(br):
     first = pg.evaluate("document.querySelector('#news .nw-row .nw-tt a').textContent")
     pg.hover('#news .nw-row:nth-child(3)'); pg.evaluate("KHNews.refresh()"); pg.wait_for_timeout(600)
     during = pg.evaluate("document.querySelector('#news .nw-row .nw-tt a').textContent")
-    pg.mouse.move(640, 300); pg.wait_for_timeout(300)
+    out = pg.evaluate("(() => { const r = document.getElementById('news').getBoundingClientRect(); return r.top > 40 ? [r.left + 10, r.top - 20] : [r.left + 10, r.bottom + 20]; })()")
+    pg.mouse.move(*out); pg.wait_for_timeout(300)
     after = pg.evaluate("document.querySelector('#news .nw-row .nw-tt a').textContent")
     check('a new list waits while the pointer is in the card, then comes in', during == first and after != first and '새 기사 2' in after, f'{first[:16]} / {during[:16]} / {after[:16]}')
     ctx.close()
@@ -393,9 +403,9 @@ def run(br):
       const tt = rows[0].querySelector('.nw-tt'), cs = getComputedStyle(tt);
       return { rows: rows.length, clamp: cs.webkitLineClamp, fs: cs.fontSize, lh: cs.lineHeight, chipH: chip.getBoundingClientRect().height, chipHit: getComputedStyle(chip, '::before').height,
         tabH: tab.getBoundingClientRect().height, moreH: n.querySelector('.nw-more').getBoundingClientRect().height, last: n === document.querySelector('main.layout').lastElementChild,
-        afterSide: n.getBoundingClientRect().top > document.querySelector('.side').getBoundingClientRect().bottom }; }""")
-    check('phone: 5 rows, title 15/21 px two lines, chip 32 (hit 44), tabs 40, 더보기 42, card after the side cards', ph['rows'] == 5 and ph['clamp'] == '2' and ph['fs'] == '15px' and ph['lh'] == '21px'
-          and round(ph['chipH']) == 32 and ph['chipHit'] == '44px' and ph['tabH'] >= 40 and ph['moreH'] >= 42 and ph['last'] and ph['afterSide'], ph)
+        underMap: n.getBoundingClientRect().top >= document.getElementById('legend').getBoundingClientRect().bottom - 1 && n.getBoundingClientRect().bottom <= document.querySelector('.side').getBoundingClientRect().top + 1 }; }""")
+    check('phone: 5 rows, title 15/21 px two lines, chip 32 (hit 44), tabs 40, 더보기 42, card right under the map, above the side cards', ph['rows'] == 5 and ph['clamp'] == '2' and ph['fs'] == '15px' and ph['lh'] == '21px'
+          and round(ph['chipH']) == 32 and ph['chipHit'] == '44px' and ph['tabH'] >= 40 and ph['moreH'] >= 42 and ph['last'] and ph['underMap'], ph)
     if SHOTS:
         pg.evaluate("document.getElementById('news').scrollIntoView({block: 'start'}); scrollBy(0, -70)"); pg.wait_for_timeout(400)
         pg.screenshot(path='/tmp/news_390_card.png')

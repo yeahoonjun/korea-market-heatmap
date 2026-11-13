@@ -175,6 +175,11 @@ class H(SimpleHTTPRequestHandler):
             return self.send_json({'dates': []})
         if path == '/api/themes':
             return self.send_json({'asOf': None, 'themes': []})
+        if path == '/api/disclosures/today':        # 공시 (§3-29/§3-30): an empty, healthy day keeps the console quiet (qa/disclosure has the real cases)
+            kst = time.gmtime(time.time() + 9 * 3600)
+            z = {k: 0 for k in ('실적', '주요', '지분', '정기', '기타')}
+            return self.send_json({'date': time.strftime('%Y-%m-%d', kst), 'asOf': time.strftime('%Y-%m-%dT%H:%M:%S+09:00', kst), 'rows': [],
+                                   'counts': {'K': 0, 'Q': 0, 'total': 0, 'byKind': z, 'byKindMarket': {'K': dict(z), 'Q': dict(z)}}, 'since': '07:00'})
         if path == '/api/news':                       # news panel (§3-27): an empty, healthy answer keeps the console quiet
             return self.send_json({'asOf': None, 'items': [], 'sources': {}})
         if path == '/api/breadth':

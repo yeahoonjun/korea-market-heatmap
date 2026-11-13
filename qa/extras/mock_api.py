@@ -136,6 +136,11 @@ class H(SimpleHTTPRequestHandler):
             return super().do_GET()
         if path.startswith('/api/chart/'):
             return self.send_json({'day': '20261109', 'points': []})
+        if path == '/api/disclosures/today':        # 공시 (§3-29/§3-30): an empty, healthy day keeps the console quiet (qa/disclosure has the real cases)
+            kst = time.gmtime(time.time() + 9 * 3600)
+            z = {k: 0 for k in ('실적', '주요', '지분', '정기', '기타')}
+            return self.send_json({'date': time.strftime('%Y-%m-%d', kst), 'asOf': time.strftime('%Y-%m-%dT%H:%M:%S+09:00', kst), 'rows': [],
+                                   'counts': {'K': 0, 'Q': 0, 'total': 0, 'byKind': z, 'byKindMarket': {'K': dict(z), 'Q': dict(z)}}, 'since': '07:00'})
         if path == '/api/news':                    # src/news polls it once the card is near the screen (qa/news has the real fixtures)
             at = time.strftime('%Y-%m-%dT%H:%M:%S+09:00', time.gmtime(time.time() + 9 * 3600))
             return self.send_json({'asOf': at, 'items': [], 'sources': {k: {'ok': True, 'n': 0, 'at': at} for k in ('einfomax', 'hankyung', 'mk')}})

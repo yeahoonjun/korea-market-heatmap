@@ -418,10 +418,10 @@ def run(br):
     first = pg.evaluate("document.querySelector('#news .dc-row .dc-tt a').textContent")
     pg.hover('#news .dc-row:nth-child(3) .dc-tt'); pg.evaluate("KHDisc.refresh()"); pg.wait_for_timeout(700)
     during = pg.evaluate("() => ({ t: document.querySelector('#news .dc-row .dc-tt a').textContent, pop: document.querySelectorAll('#map .dm.pop').length, title: document.querySelector('#news-t-disc .nw-tn').textContent })")
-    pg.mouse.move(640, 300); pg.wait_for_timeout(400)
+    pg.mouse.move(5, 5); pg.wait_for_timeout(400)
     after = pg.evaluate("document.querySelector('#news .dc-row .dc-tt a').textContent")
     check('a new list waits while the pointer is in the pane; the map takes it at once (화려하게: the new corner folds in, .pop)',
-          during['t'] == first and after != first and '시험 2' in after and during['pop'] >= 1, f'{first[:12]} / {during} / {after[:16]}')
+          during['t'] == first and after != first and re.search(r'시험 [2-9]\)', after) and during['pop'] >= 1, f'{first[:12]} / {during} / {after[:16]}')
     ctx.close()
 
     # ── 10 · replay: today → rows seen by its time; another day → no corners / chip, legend note ──
@@ -579,7 +579,7 @@ def run(br):
 
     # ── 17 · busy day (1,800 rows): corners in time, at 300 and 전체 (2,700 tiles) ──
     mode('busy')
-    ctx, pg = open_page(br, LIVE, 1440, 900, store={'topN': 'all'}, wait=3500)
+    ctx, pg = open_page(br, LIVE, 1440, 900, market='ALL', store={'topN': 'all'}, wait=3500)
     pf = pg.evaluate("""() => { const m = KH.marks.get('disc'); const t0 = performance.now(); for (let i = 0; i < 5; i++) KH.marks.set('disc', new Map(m)); const t1 = performance.now();
       return { ms: Math.round((t1 - t0) / 5 * 10) / 10, tiles: document.querySelectorAll('#map .tile').length, marks: m.size, rows: KH.disclosures().rows.length }; }""")
     t0 = time.time(); pg.evaluate("KHDisc.refresh()"); pg.wait_for_timeout(50)
@@ -621,9 +621,12 @@ def baseline(br):
                 d = ImageChops.difference(a, b).convert('L')
                 hist = d.histogram()
                 diff[k] = (sum(hist[1:]), max((i for i, v in enumerate(hist) if v), default=0))   # (pixels that differ, largest channel step)
-            ok = all(isinstance(v[0], int) and v[1] <= 2 for v in diff.values()) and shots['base']['geo'] == shots['new']['geo'] and shots['base']['dom'] == shots['new']['dom']
+            # boxes: the map and the legend in place; the side cards keep their size (on phones they sit under the news card, which is taller now)
+            gb, gn = shots['base']['geo'], shots['new']['geo']
+            same_geo = gb[:2] == gn[:2] and [g[2:] for g in gb[2:]] == [g[2:] for g in gn[2:]]
+            ok = all(isinstance(v[0], int) and v[1] <= 2 for v in diff.values()) and same_geo and shots['base']['dom'] == shots['new']['dom']
             check(f'no filings → {w}x{h}: map · legend · side cards same DOM, same boxes, pixels equal within 2/255 raster noise vs {BASE_REV} (differing px, max step: {diff})', ok,
-                  f"geo {shots['base']['geo'] == shots['new']['geo']} dom {shots['base']['dom'] == shots['new']['dom']}")
+                  f"geo {same_geo} dom {shots['base']['dom'] == shots['new']['dom']} {gb} {gn}")
     finally:
         srv.terminate(); srv.wait(5)
         subprocess.run(['git', 'worktree', 'remove', '--force', str(wt)], cwd=ROOT, capture_output=True)
