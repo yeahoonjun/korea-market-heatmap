@@ -723,6 +723,10 @@ span.cdb.cdb > i{position:absolute;top:50%;width:auto;height:1px;margin-top:-.5p
 footer{padding:4px 18px 18px;font-size:12px;color:var(--faint);line-height:1.6}
 footer p{margin:0;max-width:92ch}
 footer a{color:var(--muted)}
+footer .credit{margin-top:6px;color:var(--muted)}   /* 사용자 2026-11-13 23:04: SSSlot처럼 맨 아래 저작권 한 줄 */
+footer .credit button{font:inherit;color:var(--fg2);background:none;border:0;padding:10px 0;margin:-10px 0;cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px}
+footer .credit button:hover,footer .credit button:focus-visible{color:#5865f2;transition:color var(--c-fast,180ms) var(--c-out,ease)}   /* 마우스를 올리면 디스코드 색 */
+footer .credit button:focus-visible{outline:3px solid var(--focus,var(--amber));outline-offset:2px;border-radius:3px}
 
 /* ── Tooltip & detail ───────────────────────────── */
 .tip{position:fixed;z-index:80;pointer-events:none;width:300px;background:var(--tip-bg);border:1px solid var(--tip-bd);border-radius:var(--tip-r);box-shadow:var(--tip-sh);font-size:13px;opacity:0;transform:translateY(4px);transition:opacity .12s,transform .12s;-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur)}
@@ -4582,10 +4586,20 @@ function renderStatus() {
   }
 }
 // the colour's wording in the footer for today's change, by the price basis
+// 맨 아래 저작권 줄 — 이름을 누르면 디스코드 사용자 이름을 복사해요
+function creditLine() {
+  const b = h('button', { type: 'button', title: '디스코드 사용자 이름 · 눌러서 복사', 'aria-label': '디스코드 blue_crude, 눌러서 복사', text: 'blue_crude' });
+  b.addEventListener('click', () => {
+    const done = ok => { try { uiBubble(b, ok ? '복사했어요' : 'blue_crude', ok ? 'done' : 'fail'); } catch (e) { /* bubble is optional */ } };
+    try { navigator.clipboard.writeText('blue_crude').then(() => done(true), () => done(false)); } catch (e) { done(false); }
+  });
+  // 디스코드 아이콘 자리: 사용자가 준 공식 아이콘 파일을 넣을 곳(.dc). 글자 '디스코드'는 쓰지 않아요(사용자 23:07).
+  return h('p', { class: 'credit' }, '© 2026 ', b);
+}
 function renderFooter() {
   const asOf = DATA.asOf ? kstFmt.format(new Date(DATA.asOf)) : '';
   if (isWorld()) {
-    $('#foot').replaceChildren(h('p', {}, '데이터: 네이버 증권 (finance.naver.com). 투자 판단의 근거로 쓰지 마세요.'));
+    $('#foot').replaceChildren(h('p', {}, '데이터: 네이버 증권 (finance.naver.com). 투자 판단의 근거로 쓰지 마세요.'), creditLine());
     return;
   }
   const k = kind();
@@ -4599,6 +4613,7 @@ function renderFooter() {
   if (daily.length) parts.push(h('p', {}, daily.join('. ') + '.'));
   if (MODE === 'snapshot') parts.push(h('p', {}, `이 화면은 ${asOf} 시세를 담은 스냅샷이라 자동으로 갱신되지 않아요. `,
     h('a', { href: LIVE_URL, target: '_blank', rel: 'noopener', text: '실시간 버전 열기' })));
+  parts.push(creditLine());
   $('#foot').replaceChildren(...parts);
 }
 
