@@ -100,6 +100,7 @@ python3 tmp/shot.py /home/claude/heatmap/dist/index.html    # 1440×900 / 390×8
 | `/api/market` | `{asOf, items:[{key, name, value, change, ratio, delayed?, spark?:[[t,v],…]}]}` key 순서: `KOSPI`,`KOSDAQ`,`USDKRW`,`SPX_F`,`NDX_F`,`WTI`,`GOLD`,`BTC`. 지수만 오늘 5분봉 `spark`(t는 유닉스 초). 미국 선물은 `delayed:10`(분) | 30초 |
 | `/api/stock/{code}/news` | `{rows:[{title, press, datetime(ISO KST), url}]}` 최신 20개, 제목 HTML 엔티티 풀어서 | 5분 |
 | `/api/stock/{code}/disclosures` | `{source:'dart'\|'naver', rows:[{title, kind?, datetime, date?, filer?, note?, url}]}` DART는 최근 6개월 최대 40개(`kind`: 정기·실적·주요·지분·기타), 네이버는 최신 20개. Worker 비밀값 `DART_KEY`가 있고 `web/dart_corp.json`에 corp_code가 있으면 OpenDART(최근 6개월, `datetime`은 `null`이고 접수일 `date`만, `note`는 DART 비고: 정=정정·연=연결·유/코=시장 소관, `url`=`https://dart.fss.or.kr/dsaf001/main.do?rcpNo=…`), 아니면·실패하면 네이버(`url`=`https://m.stock.naver.com/domestic/stock/{code}/notice/{id}`) | 5분 |
+| `/api/disclosures/today` | `{date:'YYYY-MM-DD', asOf, rows:[{c, t, k, n?, r, s?, f?}], counts:{K, Q, total}, since?, stale?}` — 그날 OpenDART 공시 중 유니버스(`K`·`Q`·`X`) 종목 것만, 최신순(`r` 내림차순). `c` 종목 코드, `t` 제목(앞의 `[기재정정]` 같은 꼬리표는 `n`으로), `k` 정기·실적·주요·지분·기타, `n` 꼬리표·비고("기재정정", "철회", "정정본 있음"), `r` 접수번호 — 링크는 `https://dart.fss.or.kr/dsaf001/main.do?rcpNo=` + `r`, `s` 판세가 처음 본 시각 `HH:MM`(KST), `f` 제출인(회사와 다를 때만). 오늘 공시가 아직 없으면(밤·주말·휴일) 최근 평일(4일 안)이고 `date`가 그날. `counts`는 행 수(코스피 `K`·코스닥 `Q`). `since`·`stale`·예산은 §3-29. `DART_KEY`가 없으면 503 | 30초 (+ KV 스냅숏 60초/5분) |
 | `/api/replay/dates` | `{dates:['YYYY-MM-DD',…]}` 최신순 | 60초 |
 | `/api/replay?date=YYYY-MM-DD` | `{date, codes:[…], frames:[{t:'HHMM', p:[…], r:[…]}], index:{KOSPI:[…],KOSDAQ:[…]}, base:{KOSPI,KOSDAQ}\|null}` — `p`·`r`·지수는 `codes`/`frames` 순서, `base`는 지수 전일 종가. 날짜 없으면 최신 | 60초(지난 날 1시간) |
 | `/data/themes.json`, `/data/periods.json`, `/data/flows.json` | ASSET_BASE의 `web/*.json` 그대로 | 10분 |
@@ -499,3 +500,30 @@ python3 tmp/shot.py /home/claude/heatmap/dist/index.html    # 1440×900 / 390×8
 - 원천: 원화 환율 4개 + 달러인덱스 = `api.stock.naver.com/marketindex/exchange` 목록 한 번(polling 호스트엔 `exchange`가 없어요). **달러/엔 = 원/달러 ÷ (원/엔 ÷ 100)**, 같은 하나은행 고시 회차로 계산한 값이 먼저예요(`calc:true`, `via:'하나은행 고시로 계산'`, 장중/마감은 두 값 모두 OPEN일 때만 OPEN, 오케스트레이터 2026-11-13) — 화면은 상태 칸에 "계산값", 시트 출처 줄에 "차트는 레피니티브 종가". 계산할 수 없을 때만 `exchangeWorld/USDJPY`(polling, 레피니티브 **하루 한 번 종가**, `eod:true` — "마감 · 하루 한 번 종가", 기준일만). 차트 경로는 언제나 `exchangeWorld/USDJPY` 일봉 종가(마지막 점은 계산값). 국채 = `bond/{코드}` 7번(목록·polling 없음, 일본 2시간 지연). 네이버가 한국 국채를 밤에도 `OPEN`으로 두어서, 지연 + 2시간보다 오래된 금리 시세는 `CLOSE`로 바꿔요.
 - **화면(world.js)**: 지표 탭은 `kind=commodity&with=fx,rates`를 받아 목록을 두 덩어리로 — 제목 줄 "원자재"(에너지·금속·농산물, 등락률순이면 원자재끼리만 순위) · "환율 · 금리"(언제나 묶음별). 환율 머리 "오르면 원화 약세", 달러인덱스·달러/엔 행 보조 글자 "오르면 달러 강세"·"오르면 엔화 약세", 금리 머리 "변화는 bp(0.01%p)". 금리 행 = `3.756%` + 색 칩 `+2.3bp`(변화 칸은 비워요), 색은 그날 변화의 부호(빨강 오름·초록 내림). 요약 줄·많이 오른·내린은 원자재만("원자재 17개 중"). 시트: 단위(원 (1달러당)·원 (100엔당)·포인트·엔 (1달러당)·연 %), 기준(via), 금리는 `+2.3bp (+0.023%p)`, 차트 눈금 %·기간 변화 bp. 옛 Worker(그룹 없음)면 예전 원자재 화면 그대로.
 - **티커**(extras): 띠의 원/달러(`m:USDKRW`)를 누르면 `FX_USDKRW` 시트가 열려요(`TK_WORLD`). 티커 고르기의 환율·금리 분류는 아직 그대로.
+
+## 3-29. 공시 배지 — 서버 (§3-23 ①, 사용자 2026-11-14 "다음 로드맵")
+
+**경로** `GET /api/disclosures/today` (모양은 §3-2 표). 화면은 이걸로 타일에 "공시" 표시 + 제목, 최근 N분의 "새 공시"를 그려요. 구현 `worker/src/index.js`의 `getDisclosuresToday`·`dt*`, 점검 `node qa/worker/test_disclosures_today.mjs`(가짜 KV·시계·OpenDART 모양 응답, 네트워크·진짜 키 없이).
+
+**데이터**
+- 원천: OpenDART `list.json`(Worker 비밀값 `DART_KEY`), 하루(`bgn_de=end_de`) · 시장별(`corp_cls` `Y` 코스피, `K` 코스닥) · 100건씩. 코넥스(`N`)·기타 법인(`E`)은 부르지 않아요.
+- 행은 `stock_code`가 6자이고 유니버스(`web/universe.json` `K`·`Q`·`X`)에 있는 것만. 같은 접수번호는 한 번만(받는 사이 페이지가 밀려도). 시장(`counts`)은 유니버스 기준.
+- 제목: 공백 정리, 앞의 `[기재정정]`·`[첨부정정]`·`[발행조건확정]` 같은 꼬리표는 떼어 `n`으로. DART 비고 `rm`의 `철` → "철회", `정`(이 보고서 뒤에 정정본이 나왔다는 뜻) → "정정본 있음". 연·유·코 같은 나머지 비고는 버려요. 정정 공시도 자기 행으로 따로 나와요(접수번호가 달라요). `k`는 `dartKind()`(종목 페이지 공시와 같은 분류). 증분 갱신은 1쪽만 다시 읽어서, 오래된 행의 비고(나중에 붙는 철회·정정본)는 그날 처음 받은 값 그대로일 수 있어요.
+- `date`: KST 오늘에 공시가 있으면 오늘. 없으면(새벽·주말·휴일) 오늘을 확인한 뒤 4일 안의 평일을 거꾸로 찾아 공시가 있는 첫날. 지난날은 끝난 날이라 한 번 다 받으면 다시 받지 않고, 비어 있던 평일도 기억해요 → 밤·주말엔 확인마다 "오늘" 두 번(시장별 1쪽)만 물어요. 자정 직후 첫 확인에서 어제를 한 번 마무리해요.
+- `asOf` = 마지막으로 성공한 확인 시각(지난날을 보여 줄 때도 오늘 확인한 시각). `stale:true` = 마지막 시도가 실패해서 그 전 스냅숏을 보여 주는 중(요청 한도·키·네트워크·시간 초과·DART 오류·한쪽 시장만 성공·쉬는 중).
+
+**처음 본 시각 `s` · `since`**
+- DART는 접수 날짜만 줘요. 판세가 그 공시를 처음 본 확인 시각을 KV `dart:seen:YYYYMMDD` → `{접수번호: 'HH:MM'}`(8일)에 남기고 `s`로 내보내요. 확인 간격만큼 늦어요(평일 07~19시 1~2분, 그 밖 5분 안팎, 스냅숏을 쓰지 않은 colo에서 보면 +2분까지).
+- 확인은 누군가 이 경로를 부를 때만 일어나요(cron은 쓰지 않아요). 그래서 **그날 첫 확인**, 또는 **15분 넘게 확인이 끊긴 뒤의 확인**에서 찾은 공시는 그 확인 시각을 받아요 — 실제 접수는 더 이르다는 뜻이에요. `since`(`HH:MM`, `date`가 오늘일 때만) = 끊김 없이 지켜보기 시작한 시각. 화면은 **`s > since`인 공시만 "새 공시"**로 보여 주세요(`s === since`는 지켜보기 시작할 때 이미 있던 것).
+- 지난날(`date` < 오늘)은 그날 남긴 시각만 쓰고 새로 만들지 않아요(없으면 `s` 생략, `since` 없음).
+
+**호출 예산** (OpenDART 키당 하루 약 20,000번)
+- KV `REPLAY`의 스냅숏 `dart:today` 하나를 모든 colo·isolate가 같이 써요. 나이가 **60초**(평일 07:00~19:00 KST) / **5분**(그 밖, 그리고 평일인데 10시가 지나도록 오늘 공시가 없으면 휴일로 보고) 미만이면 그대로 내주고, 넘으면 다시 받아요. 그 위에 엣지 캐시 30초. 같은 isolate 안의 동시 요청은 한 번만 받아요.
+- 다시 받기는 **증분**: 시장마다 1쪽(최신 100건), DART `total_count`가 아는 건수(가진 접수번호 + 방금 받은 것)보다 클 때만 다음 쪽을 필요한 만큼(한 번에 최대 3쪽 병렬, 시장당 30쪽 = 3,000건까지). 모든 쪽을 다 돌아도 모자라는 건수는 기억해서 다시 돌지 않아요.
+- 스냅숏을 쓴 colo가 아닌 곳은 **2분 더** 기다려요(KV는 다른 colo에 최대 약 60초 늦게 닿아요) → 평소엔 한 colo만 DART를 불러요. `request.cf.colo`가 없으면 isolate 단위로 같은 규칙.
+- 실측(점검 스크립트, KV는 문서대로 colo별 60초 읽기 캐시 + 마지막 쓰기 승리 모형): 상장사 공시 3,040건인 바쁜 평일에 24시간 내내 30초마다 요청 → **1,729번/일**, colo 세 곳이 함께 물어도 **1,729번**. 계산: 07~19시 720번 × 2(시장) + 그 밖 144번 × 2 + 몰릴 때 100건마다 1쪽 + 첫 동기화(≤ 시장당 30쪽). 주말·휴일 ≈ 288번 × 2 = 576번. KV 쓰기 ≈ 1,600번/일.
+- 안전장치: 그날 호출이 4,000번을 넘으면 10분 간격, 8,000번이면 그날은 더 부르지 않고 `stale:true`(계수는 스냅숏에 있어서 colo끼리 겹쳐 쓰면 조금 덜 셀 수 있어요). 쪽마다 6초 시간 제한, 같은 요청 안에서 다시 시도하지 않아요.
+- 실패하면 `dart:cool`로 모든 colo가 쉬어요: `020`(요청 제한) **10분**, 키 오류(`010`·`011`·`012`·`901`) 30분, 그 밖(네트워크·시간 초과·HTTP·`800`·`900`·JSON) 한 번의 갱신 간격. 스냅숏이 있으면 `stale:true`로 내주고, 없으면 502/503(오류는 엣지 캐시하지 않아요). 오늘 공시가 있던 시장이 갑자기 `013`이면 실패로 보고 이전 행을 지켜요.
+- 키는 요청 URL에만 들어가요 — 오류 문구·KV·응답·로그에 남지 않아요. User-Agent는 `Mozilla/5.0 (compatible; panse/1.0; +https://panse.pages.dev)`.
+
+**KV 키** (`REPLAY`, `list` 안 씀): `dart:today`(스냅숏, 8일, 바쁜 날 약 300KB), `dart:seen:YYYYMMDD`(8일, 약 70KB), `dart:cool`(쉬는 동안만). **크기**: 3,000행 응답 약 364KB, gzip 21KB.
