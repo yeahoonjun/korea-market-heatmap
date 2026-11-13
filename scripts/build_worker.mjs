@@ -10,6 +10,7 @@ await esbuild.build({
   entryPoints: [root + 'worker/src/index.js'],
   bundle: true, format: 'esm', target: 'es2022', charset: 'utf8', legalComments: 'none',
   minifyWhitespace: true, minifySyntax: true,       // identifiers stay readable
+  external: ['cloudflare:*'],                        // runtime modules (cloudflare:workers …) resolve on Cloudflare, not in the bundle
   outfile: root + 'worker/dist/worker.js',
 });
 console.log('worker/dist/worker.js', readFileSync(root + 'worker/dist/worker.js').length, 'bytes');

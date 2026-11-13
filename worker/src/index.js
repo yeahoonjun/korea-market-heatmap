@@ -29,8 +29,15 @@
 //                                        never throws — each outcome goes to console + KV replay:status (cron weekdays must be MON-FRI: 1 = Sunday on Cloudflare)
 //   GET /api/health                    → {ok:true}
 //   GET /api/time                      → {t: server ms} (no-store; the page clock's offset, §3-17)
+//   GET /api/live (WebSocket), /api/live/state → 실시간 갱신 hub (Durable Object MarketHub, live.js; docs/standards/realtime.md):
+//                                        top 300 × 2 every LIVE_POLL_MS in the regular session, budget-guarded to stay inside the $5 plan
 // Contract: AGENTS.md §3, sources and pitfalls: data/ENDPOINTS_DETAIL.md.
 // The Worker has no build-generated modules: page and stock universe come from ASSET_BASE.
+
+import { MarketHub, liveRoute, configureLive } from './live.js';
+export { MarketHub };                // the Durable Object class (wrangler.toml [exports.MarketHub]) must be exported by the main module
+// the hub polls the same rows as /api/quotes (quotesCore is a hoisted function declaration below)
+configureLive((env, ms) => quotesCore(env, null, false, ms));
 
 const DEFAULT_ASSET_BASE = 'https://raw.githubusercontent.com/yeahoonjun/korea-market-heatmap/main/web/';
 const QUOTES_TTL = 8;                // seconds
@@ -50,6 +57,7 @@ export default {
       if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: { 'access-control-allow-origin': ORIGIN, 'access-control-allow-methods': 'GET, OPTIONS', vary: 'origin' } });
       if (path === '/' || path === '/index.html') return await getPage(request, env, ctx);
       if (path === '/api/health') return json({ ok: true });
+      if (path === '/api/live' || path === '/api/live/state') return await liveRoute(request, env, ctx, url);   // 실시간 갱신 (live.js)
       if (path === '/api/time') return json({ t: Date.now() });   // §3-17: server clock (ms) for the page clock's offset — never cached
       if (path === '/api/quotes') {
         const raw = url.searchParams.get('codes'), scope = url.searchParams.get('scope');
@@ -306,11 +314,14 @@ async function getUniverse(env) {
   const now = Date.now();
   if (universeMem && now - universeMem.at < 600e3) return universeMem.map;
   const base = assetBase(env);
-  const cache = caches.default;
+  // the live hub (a Durable Object) also lands here: the Cache API is only an optimisation, so a runtime without it — or one
+  // whose match() throws — falls through to the fetch below instead of failing the poll
+  const cache = typeof caches !== 'undefined' ? caches.default : null;
   const cacheKey = new Request(base + 'universe.json#edge');
   try {
     let parsed = null;
-    const hit = await cache.match(cacheKey);
+    let hit = null;
+    try { hit = cache ? await cache.match(cacheKey) : null; } catch (_) { hit = null; }
     if (hit) {
       try { parsed = parseUniverse(await hit.text()); }
       catch (e) { try { await cache.delete(cacheKey); } catch (_) { /* no delete here */ } }   // a bad cached copy must not stick for an hour
@@ -320,7 +331,7 @@ async function getUniverse(env) {
       if (!r.ok) throw new Error('universe ' + r.status);
       const text = await r.text();
       parsed = parseUniverse(text);                                   // validate first, then cache
-      try { await cache.put(cacheKey, new Response(text, { headers: { 'cache-control': 'public, max-age=3600' } })); } catch (_) { /* cache is an optimisation */ }
+      try { if (cache) await cache.put(cacheKey, new Response(text, { headers: { 'cache-control': 'public, max-age=3600' } })); } catch (_) { /* cache is an optimisation */ }
     }
     universeMem = { at: now, ...parsed };
     return parsed.map;
@@ -353,10 +364,14 @@ function ohlcInto(row, op, hi, lo) {
 // fetched in parallel (2,700 codes → 3 calls; with the index call that stays under the 6 connections
 // waiting for headers). A failed chunk is retried once; if it fails again the whole call fails (never cached).
 const POLL_MAX = 900;
-async function pollStocks(codes, ms) {
+const NAVER_POLL = 'https://polling.finance.naver.com';
+// dev only: `wrangler dev --var NAVER_POLL_BASE:http://127.0.0.1:8912` (workerd cannot reach Naver from the sandbox; the
+// prototype's upstream_mock.mjs answers in Naver's shape). Never set in production (the deploy script uploads no vars).
+const pollBase = env => (env && env.NAVER_POLL_BASE ? String(env.NAVER_POLL_BASE).replace(/\/+$/, '') : NAVER_POLL);
+async function pollStocks(codes, ms, base = NAVER_POLL) {
   const n = Math.max(1, Math.ceil(codes.length / POLL_MAX)), size = Math.ceil(codes.length / n);
   const one = cs => {
-    const u = `https://polling.finance.naver.com/api/realtime/domestic/stock/${cs.join(',')}`;
+    const u = `${base}/api/realtime/domestic/stock/${cs.join(',')}`;
     return naver(u, ms).catch(e => { if (e && e.status) throw e; return naver(u, ms); });
   };
   const res = await Promise.all(Array.from({ length: n }, (_, k) => one(codes.slice(k * size, (k + 1) * size))));
@@ -375,9 +390,10 @@ async function quotesCore(env, only, all, ms) {
   const codes = only || (all
     ? (U.allCodes || (U.allCodes = [...new Set([...STOCKS.keys(), ...U.extra.keys()])]))
     : (U.codes || (U.codes = [...STOCKS.keys()])));
+  const base = pollBase(env);
   const [datas, idx] = await Promise.all([
-    pollStocks(codes, ms),
-    naver('https://polling.finance.naver.com/api/realtime/domestic/index/KOSPI,KOSDAQ', ms).catch(() => null),
+    pollStocks(codes, ms, base),
+    naver(`${base}/api/realtime/domestic/index/KOSPI,KOSDAQ`, ms).catch(() => null),
   ]);
   const stocks = [];
   let asOf = '', stockOpen = false, endTime = '', nxOpen = '', nxSess = '';

@@ -14,6 +14,11 @@ on:
       - scripts/deploy_worker.mjs
       - .github/workflows/deploy-worker.yml
   workflow_dispatch:
+    inputs:
+      allow_do_lifecycle:
+        description: "Create a Durable Object class (first deploy of the 실시간 hub MarketHub). Cannot be rolled back — run while watching."
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -39,3 +44,5 @@ jobs:
       - run: node scripts/deploy_worker.mjs
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          # only a hand-run with the box ticked may create a DO class; pushes skip such an upload with a warning
+          ALLOW_DO_LIFECYCLE: ${{ github.event_name == 'workflow_dispatch' && inputs.allow_do_lifecycle && '1' || '' }}
