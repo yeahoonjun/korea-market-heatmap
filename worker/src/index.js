@@ -519,8 +519,9 @@ for (const kind of Object.keys(WORLD_CFG)) for (const g of WORLD_CFG[kind]) for 
    Item key = code without the leading dot and the "=RR" suffix. Charts: …/marketindex/{exchange|exchangeWorld|bond}/{code}/prices. */
 const MACRO_CFG = {
   fx: { key: 'fx', name: '환율', items: [
-    ['FX_USDKRW', '원/달러', 'exchange'], ['FX_JPYKRW', '원/엔(100엔)', 'exchange'], ['FX_EURKRW', '원/유로', 'exchange'], ['FX_CNYKRW', '원/위안', 'exchange'],
-    ['.DXY', '달러인덱스', 'exchange'], ['USDJPY', '달러/엔', 'exchangeWorld'],
+    // 원/달러 바로 다음에 달러인덱스 — 사용자 2026-11-14 02:14
+    ['FX_USDKRW', '원/달러', 'exchange'], ['.DXY', '달러인덱스', 'exchange'], ['FX_JPYKRW', '원/엔(100엔)', 'exchange'], ['FX_EURKRW', '원/유로', 'exchange'],
+    ['FX_CNYKRW', '원/위안', 'exchange'], ['USDJPY', '달러/엔', 'exchangeWorld'],
   ] },
   rates: { key: 'rates', name: '금리', items: [
     ['KR1YT=RR', '한국 국고채 1년', 'bond', 'Asia/Seoul'], ['KR3YT=RR', '한국 국고채 3년', 'bond', 'Asia/Seoul'], ['KR10YT=RR', '한국 국고채 10년', 'bond', 'Asia/Seoul'],

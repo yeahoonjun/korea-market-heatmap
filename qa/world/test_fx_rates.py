@@ -91,9 +91,9 @@ def worker_pass():
         g = {x['key']: x for x in j.get('groups', [])}
         fx = {it['key']: it for it in g.get('fx', {}).get('items', [])}
         rt = {it['key']: it for it in g.get('rates', {}).get('items', [])}
-        want_fx = ['FX_USDKRW', 'FX_JPYKRW', 'FX_EURKRW', 'FX_CNYKRW', 'DXY', 'USDJPY']
+        want_fx = ['FX_USDKRW', 'DXY', 'FX_JPYKRW', 'FX_EURKRW', 'FX_CNYKRW', 'USDJPY']
         want_rt = ['KR1YT', 'KR3YT', 'KR10YT', 'US2YT', 'US10YT', 'US30YT', 'JP10YT']
-        check('worker: 환율 = 원/달러 · 원/엔(100엔) · 원/유로 · 원/위안 · 달러인덱스 · 달러/엔', list(fx) == want_fx, str([(k, v['name']) for k, v in fx.items()]))
+        check('worker: 환율 = 원/달러 · 달러인덱스 · 원/엔(100엔) · 원/유로 · 원/위안 · 달러/엔', list(fx) == want_fx, str([(k, v['name']) for k, v in fx.items()]))
         check('worker: 금리 = 국고채 1·3·10년, 미국 2·10·30년, 일본 10년', list(rt) == want_rt, str([(k, v['name']) for k, v in rt.items()]))
         rng = {'FX_USDKRW': (900, 2500), 'FX_JPYKRW': (500, 1500), 'FX_EURKRW': (1000, 2600), 'FX_CNYKRW': (100, 400), 'DXY': (70, 130), 'USDJPY': (80, 250)}
         bad = [f"{k} {fx[k]['value']}" for k, (lo, hi) in rng.items() if k in fx and not lo <= fx[k]['value'] <= hi]
