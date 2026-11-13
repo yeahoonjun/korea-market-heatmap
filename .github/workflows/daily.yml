@@ -51,7 +51,7 @@ jobs:
       - name: Market strip for the snapshot
         if: steps.day.outputs.trading == 'true' && github.event.schedule != '30 12 * * 1-5'
         run: |
-          if curl -fsS --retry 3 --max-time 20 https://kospimap.pages.dev/api/market -o /tmp/market.json \
+          if curl -fsS --retry 3 --max-time 20 https://panse.pages.dev/api/market -o /tmp/market.json \
              && python3 -c "import json,sys; d=json.load(open('/tmp/market.json')); sys.exit(0 if d else 1)"; then
             mv /tmp/market.json web/market.json
           else

@@ -1,4 +1,4 @@
-# AGENTS.md — 한국 증시 히트맵
+# AGENTS.md — 판세 (한국 증시 히트맵)
 
 코스피·코스닥을 섹터 › 업종 › 종목 트리맵으로 보여 주는 Finviz 스타일 히트맵과, 종목을 누르면 열리는 종목 페이지예요.
 사람과 에이전트가 모두 따르는 규칙이에요. 여기에 없는 작업 방식은 `agent-orchestration` 스킬 기본값을 따릅니다.
@@ -11,7 +11,7 @@
 - **글꼴**: Pretendard Variable. 숫자는 `font-variant-numeric: tabular-nums`.
 - **실시간 데이터**: 네이버 증권(비공식). 브라우저는 네이버를 직접 부를 수 없어요(외부 Origin → 403). 항상 Worker가 대신 받아요.
 - **배포**: GitHub 공개 저장소 `yeahoonjun/korea-market-heatmap` + Cloudflare Worker `korea-market-heatmap`. Worker는 화면 파일을 저장소에서 읽어 와요.
-- **주소**: **`https://kospimap.pages.dev`** (사용자 선택, 2026-11-09). Cloudflare Pages 프로젝트 `kospimap`의 `_worker.js`가 모든 요청을 서비스 바인딩 `API`로 Worker에 넘겨요. Worker 주소 `korea-market-heatmap.ssslot.workers.dev`도 그대로 동작해요(cron·KV는 Worker에 있어요). 계정 서브도메인 `ssslot`은 SSSlot 게임 주소라 바꾸지 않아요.
+- **주소**: **`https://panse.pages.dev`** — 사이트 이름 **판세**(사용자 2026-11-13 19:58, §3-26). Cloudflare Pages 프로젝트 `panse`의 `_worker.js`가 모든 요청을 서비스 바인딩 `API`로 Worker에 넘겨요. 옛 주소 `kospimap.pages.dev`(2026-11-09~11-13)는 이사 다리예요. Worker 주소 `korea-market-heatmap.ssslot.workers.dev`도 그대로 동작해요(cron·KV는 Worker에 있어요). 계정 서브도메인 `ssslot`은 SSSlot 게임 주소라 바꾸지 않아요.
 - **종목 상세**: 전체 화면 종목 페이지. 차트(1일·5일 분봉, 3개월·1년 일봉, 3년 주봉, 10년 월봉) + 탭(호가 5단계 · 투자자 · 일별 시세 · 뉴스·공시). 공매도는 KRX 로그인이 필요해서 빼요. 뒤로 가기로 히트맵 복귀, 주소로 공유 가능.
 - **스냅샷 아티팩트**(claude.ai): 네트워크가 막힌 미리보기예요. 종목 페이지의 실시간 기능은 "실시간 버전에서 볼 수 있어요" 안내 + 링크로 대신해요.
 
@@ -71,7 +71,7 @@ python3 tmp/shot.py /home/claude/heatmap/dist/index.html    # 1440×900 / 390×8
 - 정규장 이후(15:30~20:00) 오늘 봉과 현재가에는 NXT가 섞여요. 일별 시세(`daily`)의 오늘 행도 KRX+NXT 통합 가격이라 KRX 종가(15:30)와 다를 수 있어요. 화면에 표시해요.
 
 **히트맵 → 종목 페이지 연결** (`src/template.html`이 제공)
-- `window.KH`: `MODE('snapshot'|'live')`, `LIVE_URL`(= `https://kospimap.pages.dev/`), `MKT_NAME`, `stock(code)`, `stocks()`, `asOf()`, `colorOf(r)`, `palette()` → `{key,label,stops,up,down,flat,upText,dnText}`, `fmt.{pct,int,chg,eok,cls}`, `h(tag, props, ...kids)`.
+- `window.KH`: `MODE('snapshot'|'live')`, `LIVE_URL`(= `https://panse.pages.dev/`), `MKT_NAME`, `stock(code)`, `stocks()`, `asOf()`, `colorOf(r)`, `palette()` → `{key,label,stops,up,down,flat,upText,dnText}`, `fmt.{pct,int,chg,eok,cls}`, `h(tag, props, ...kids)`.
 - 이벤트(document): `kh:data`(시세 갱신 뒤), `kh:palette`(색상·범위 변경 뒤).
 - 종목 페이지가 제공: `window.KHStock = { open(code, {opener}), close(), isOpen() }`. 주소 해시는 `#s-005930` 형식(아티팩트는 `#이름`만 허용).
 - 스냅샷 모드에서는 헤더를 `KH.stock(code)`로 그리고, 차트·호가·투자자·일별 자리에 "실시간 버전에서 볼 수 있어요" + `LIVE_URL#s-코드` 링크를 둬요.
@@ -169,7 +169,7 @@ python3 tmp/shot.py /home/claude/heatmap/dist/index.html    # 1440×900 / 390×8
 **리플레이 기록 (KV 무료 한도 대응)**
 - `list` 호출을 기록·조회 경로에서 쓰지 않아요. 중복 확인은 `get(fkey)`, 날짜 목록은 키 `replay:days`(최신순 날짜 배열, 40일 넘으면 잘라 냄)에 써요. 하루 프레임은 09:00~(장 마감 시각)까지 5분 단위 키를 직접 만들어 `get`해요.
 - 장 마감 시각은 시세의 `stockExchangeType.endTime`(보통 `1530`, 수능·첫 거래일 `1630`)을 따라요. cron은 `* 0-7 * * 1-5`(UTC, 매분, §3-15), 마감 시각 프레임은 지수가 CLOSE여도 기록해요.
-- CORS: `access-control-allow-origin`은 `https://kospimap.pages.dev`로 좁혀요(같은 출처 요청에는 영향 없음).
+- CORS: `access-control-allow-origin`은 `https://panse.pages.dev`로 좁혀요(같은 출처 요청에는 영향 없음, Worker v14).
 
 **등락 분포 = 전 종목** (사용자 요청 2026-11-09 23:43: "300종목만 말고 전 종목으로")
 - Worker `/api/breadth?m=K|Q&part=N` → `{m, part, parts, asOf, rows:[[코드, 등락률, lim?]]}` — 시장 `m`의 전 종목(`universe.json`의 `K`/`Q` + `X` 중 그 시장, 우선주 포함)을 코드 순으로 600개씩 나눈 `part`번째 묶음 — **`part`는 1부터** (`1..parts`). `parts`는 묶음 수(코스피 2, 코스닥 3). 한 호출에 polling 1번(600개 이하) — 무료 플랜 CPU 한도 때문에 나눠요. 행은 작게(가격·이름 없이). 캐시: 정규장 중 30초, 그 밖 10분. `part`가 범위 밖이면 400.
@@ -448,3 +448,19 @@ python3 tmp/shot.py /home/claude/heatmap/dist/index.html    # 1440×900 / 390×8
 - 진행: **크리에이티브 웹 제작 에이전트**(§3-24)가 먼저 사이트의 모든 컨트롤 목록 → 규칙 문서(docs/standards/controls.md, 모션 토큰) → 시안(drafts/controls.html, 실제 컨트롤을 새 규칙으로, 변주 2안) → 사용자 승인 → 모듈별 구현.
 - 효과 단계 매핑: reduced = 즉시(끝 상태만), standard = 누름·표시 이동·글자 교체, fancy = + 체크 pop·숫자 굴림·고리 등 전부.
 - **결정 (사용자 2026-11-13 12:32)**: ① **V1 입체**(레퍼런스 표면 그대로 — 솟은 키·고른 칸 그림자, 깊은 트레이) ② 기존 `docs/motion-brief.md` 개정: 컨트롤 누름은 1px 가라앉기(0.97 축소 대신), `--ease-pop`은 완료 체크에만 허용, 데이터 모션 토큰(`--m-*` 120/240/480)은 그대로 ③ 아이콘만 있는 키의 결과 문구는 키 아래 자리 차지 없는 말풍선 + aria-live ④ 적용 순서: 히트맵 첫 화면(template) → extras(티커·시계·진행 막대·이미지 저장·다시 보기) → 종목 페이지 → 해외·원자재, 단계마다 스크린샷 검증·커밋, 단계마다 오케스트레이터가 병합·배포. 완료·실패는 앰버 + ✓/! + 글자(빨강·초록 금지). 레이아웃 고정(글자 상자 최장 폭, 지도 위치 불변).
+
+## 3-26. 판세 · 테마 · 휴대폰 아래 줄 (사용자 2026-11-13 19:45~20:01)
+
+**이름과 주소**: 사이트 이름 **판세**(영문 Panse), 주소 **`https://panse.pages.dev`**(pando.pages.dev는 남이 쓰고 있어 판세로 정함).
+- 제목 `판세 · 코스피·코스닥 히트맵`, 머리글 제목·시계 aria "판세 · 지금 HH:MM · 눌러서 새로고침", 종목 페이지 제목 "… · 판세", 매니페스트 name·short_name "판세". 저장소·Worker 이름은 그대로.
+- **이사**: 옛 Pages 프로젝트 `kospimap`의 `_worker.js`는 화면 요청에 작은 다리 페이지를 줘요 — 그 브라우저의 `khm.*` localStorage를 `#khm-import=<base64 JSON>~<원래 해시>`로 실어 `panse.pages.dev`로 `location.replace`. `/api/*`·`/data/*`는 계속 Worker로 프록시(열려 있던 옛 탭용), 그 밖은 301. 해시는 서버로 가지 않아요.
+- 판세 쪽(`src/template.html` 머리의 첫 스크립트): `#khm-import=`가 오면 **첫 이사(`khm.migrated` 없음)는 옛 값으로 덮고**, 그 뒤엔 빈 키만 채운 뒤 `khm.migrated`를 적고 해시를 원래 값으로 돌려놔요. 홈 화면 앱은 새 주소에서 다시 설치해야 해요(출처가 달라요).
+
+**테마 결정** (시안 `drafts/themes.html`, 표준 `docs/standards/themes.md`)
+- 내보낼 테마: **기본**(지금 다크) · **신문**(따뜻한 종이 A + `명조 제목` 선택, 기본 꺼짐) · **글라스 어둡게(A)** · **글라스 밝게(B)**. 신문 B는 버림.
+- 밝은 테마(신문·글라스 밝게)는 §4 "다크 톤"의 **이번 한 번 예외**(사용자 승인). 기본 테마는 계속 다크.
+- **시계는 모든 테마에서 지금 모양 그대로**(플랩 판·아날로그 판·빨간 초침 색을 테마가 바꾸지 않음).
+- 스크롤하면 머리글(휴대폰은 탭 줄)이 따라와요: **글라스**(유리 판, 휴대폰 포함 — 블러를 못 쓰면 불투명 판)와 **신문**(불투명 종이 띠 + 먹 줄).
+- 크기·배치는 테마와 무관(지도 위치 불변), 빨강·초록은 데이터에만.
+
+**휴대폰 아래 떠 있는 줄** (요청, 시안 후 사용자 선택): 스크롤을 내리면 화면 아래에 따라오는 작은 줄 — 내용은 고를 수 있게(관심종목 / 내가 고른 지수 / 등락 분포, 끄기 포함), 한쪽 끝에 **종목 검색 돋보기**(내용을 꺼도 남음). 시트·종목 페이지가 열리면 숨고, 마지막 내용이 가리지 않게 아래 여백. 숫자는 페이지의 다른 곳과 같은 출처·같은 가격 기준.

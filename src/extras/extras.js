@@ -1302,7 +1302,7 @@ function initPWA() {
   headTag('meta', { name: 'theme-color', content: '#131418' });
   headTag('meta', { name: 'apple-mobile-web-app-capable', content: 'yes' });
   headTag('meta', { name: 'mobile-web-app-capable', content: 'yes' });
-  headTag('meta', { name: 'apple-mobile-web-app-title', content: '증시 히트맵' });
+  headTag('meta', { name: 'apple-mobile-web-app-title', content: '판세' });
   headTag('meta', { name: 'apple-mobile-web-app-status-bar-style', content: 'black' });
   const secure = window.isSecureContext || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
   if ('serviceWorker' in navigator && secure && /^https?:$/.test(location.protocol)) {
@@ -1991,7 +1991,7 @@ function ckRender(instant) {
   const ph = ckPhase(n);
   if (ck.lastMin !== n.min || ck.lastTxt !== ph.text || ck.lastRev !== tsync.rev) {
     ck.lastMin = n.min; ck.lastTxt = ph.text; ck.lastRev = tsync.rev;
-    ck.btn.setAttribute('aria-label', `한국 증시 히트맵 · 지금 ${two(n.h)}:${two(n.m)} · 눌러서 새로고침`);
+    ck.btn.setAttribute('aria-label', `판세 · 지금 ${two(n.h)}:${two(n.m)} · 눌러서 새로고침`);
     const tl = timeLine();
     ck.btn.title = `${ph.text} · 눌러서 새로고침${tl ? '\n' + tl : ''}`;
     if (tl) { ck.desc.textContent = tl; ck.btn.setAttribute('aria-describedby', 'ck-desc'); } else { ck.desc.textContent = ''; ck.btn.removeAttribute('aria-describedby'); }

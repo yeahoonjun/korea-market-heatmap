@@ -1,7 +1,7 @@
 {
- "name": "한국 증시 히트맵",
- "short_name": "증시 히트맵",
- "description": "코스피·코스닥 실시간 히트맵",
+ "name": "판세",
+ "short_name": "판세",
+ "description": "판세 — 코스피·코스닥 실시간 히트맵",
  "start_url": "/",
  "scope": "/",
  "display": "standalone",

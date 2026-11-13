@@ -376,7 +376,7 @@ function renderHead() {
   renderLim();
   renderNxt();
   renderStar();
-  if (name) document.title = `${name} ${price != null ? int(price) : ''} ${price != null ? pct(ratio) : ''} · 한국 증시 히트맵`.replace(/\s+/g, ' ');
+  if (name) document.title = `${name} ${price != null ? int(price) : ''} ${price != null ? pct(ratio) : ''} · 판세`.replace(/\s+/g, ' ');
 }
 
 // 상한가·하한가: the quote row's lim (1/−1). Rows without lim (older data) or stocks outside the quote universe fall back to

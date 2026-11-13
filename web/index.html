@@ -3,7 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>한국 증시 히트맵</title>
+<title>판세 · 코스피·코스닥 히트맵</title>
+<script>/* §3-26 kospimap → 판세 이사: 옛 주소가 #khm-import=<설정>~<원래 해시>로 넘겨준 설정·관심종목을 옮겨요. 첫 이사는 옛 값으로 덮고, 그 뒤엔 빈 키만 채워요. */
+(function(){var p='#khm-import=',h=location.hash;if(h.indexOf(p)!==0)return;var rest=h.slice(p.length),i=rest.indexOf('~'),keep=i<0?'':rest.slice(i+1);
+try{var o=JSON.parse(decodeURIComponent(escape(atob(decodeURIComponent(i<0?rest:rest.slice(0,i)))))),first=localStorage.getItem('khm.migrated')==null;
+for(var k in o)if(k.indexOf('khm.')===0&&k!=='khm.migrated'&&typeof o[k]==='string'&&(first||localStorage.getItem(k)==null))localStorage.setItem(k,o[k]);
+localStorage.setItem('khm.migrated',new Date().toISOString());}catch(e){}
+try{history.replaceState(null,'',location.pathname+location.search+(keep?'#'+keep:''));}catch(e){location.hash=keep;}})();</script>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%23000'/%3E%3Crect x='2' y='2' width='7' height='7' fill='%232bb553'/%3E%3Crect x='10' y='2' width='4' height='7' fill='%238b444e'/%3E%3Crect x='2' y='10' width='4' height='4' fill='%23414554'/%3E%3Crect x='7' y='10' width='7' height='4' fill='%23f63538'/%3E%3C/svg%3E">
 <link rel="stylesheet" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
@@ -304,6 +310,7 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 .wgadd:hover{color:var(--fg);background:var(--key-hover)}
 .wgpop{position:fixed;z-index:95;width:max-content;min-width:220px;max-width:min(320px,calc(100vw - 16px));padding:10px;border-radius:12px;background:rgba(32,34,40,.99);border:1px solid var(--line2);box-shadow:0 18px 50px rgba(0,0,0,.55);font-size:13.5px;color:var(--fg)}
 .wgpop[hidden]{display:none}
+.wgpop.in-dlg{z-index:210}   /* KH.watch.pick from a dialog (the stock page, z 200): it moves into it, above its own layers */
 .wgpop h3{margin:2px 6px 8px;font-size:13px;font-weight:600;color:var(--fg2);overflow-wrap:anywhere}
 .wgpop .row{display:flex;align-items:center;gap:10px;width:100%;min-height:36px;padding:0 8px;border-radius:var(--r-in);text-align:left;color:var(--fg);cursor:pointer;transition:filter var(--c-fast) var(--c-out)}
 .wgpop .row:active{filter:var(--press-f);transition-duration:0s}
@@ -312,6 +319,7 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 .wgpop label.row input{-webkit-appearance:none;appearance:none;width:18px;height:18px;margin:0;flex:none;border-radius:5px;background:var(--tray-bg) no-repeat center/0 0;box-shadow:var(--tray-sh);cursor:pointer;transition:background-color var(--c-fast) var(--c-out),background-size var(--c-base) var(--c-out),box-shadow var(--c-fast) var(--c-out)}
 .wgpop label.row input:checked{background-color:var(--amber);background-size:14px 14px;box-shadow:inset 0 1px 0 rgba(255,255,255,.3);background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M4.5 10.5l3.6 3.6 7.4-8' fill='none' stroke='%231b1404' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")}
 .wgpop label.row input:focus-visible{outline-offset:2px}
+.wgpop .row .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .wgpop .row .n{margin-left:auto;padding-left:12px;color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums}
 .wgpop .row .ck{margin-left:auto;padding-left:12px;color:var(--amber);font-weight:700}
 .wgpop input[type="text"]{width:100%;height:38px;border-radius:var(--r-key);border:0;background:var(--tray-bg);box-shadow:var(--tray-sh);color:var(--fg);font:inherit;padding:0 11px;outline:none}
@@ -765,6 +773,12 @@ html[data-motion="reduced"] .tip{transition:none}
 .rs[data-o]::before{display:block;content:attr(data-o)}
 .rs.dn[data-o]::before{content:none}
 .rs.dn[data-o]::after{display:block;content:attr(data-o)}
+/* async keys (KH.ui.akey · KH.ui.retry): ✓ = the amber surface, ! = the dark amber one with a ring (never red / green). The
+   element-qualified selector outranks a module's own key :hover, so a touch screen's leftover hover never hides the state. */
+:is(button,a).kasync[aria-busy="true"]{cursor:progress}
+:is(button,a).kasync[data-st="done"]{background:var(--done-bg);color:var(--done-fg)}
+:is(button,a).kasync[data-st="fail"]{background:var(--fail-bg);color:var(--fail-fg);box-shadow:inset 0 0 0 1px var(--fail-ring),var(--key-sh)}
+:is(button,a).kasync[data-st="fail"] .kwn{color:var(--amber)}
 /* ring while it works, check when done (KH.ui) */
 .kspn{display:inline-block;flex:none;width:14px;height:14px;animation:kspn var(--c-spin) linear infinite}
 .kspn circle{fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-dasharray:30 48}
@@ -794,8 +808,8 @@ html[data-motion="fancy"] .kl.on .kck{transform:none;transition-delay:var(--c-fa
 :is(.seg,.tabs,.movers-tabs)[data-ind]::before,.tabs[data-ind]::after{opacity:1}
 :is(.seg,.tabs,.movers-tabs)[data-dir="r"]::before,.tabs[data-dir="r"]::after{transition:right var(--c-fast) var(--c-out),left var(--c-base) var(--c-out),top var(--c-base) var(--c-out),bottom var(--c-base) var(--c-out)}
 :is(.seg,.tabs,.movers-tabs)[data-dir="l"]::before,.tabs[data-dir="l"]::after{transition:left var(--c-fast) var(--c-out),right var(--c-base) var(--c-out),top var(--c-base) var(--c-out),bottom var(--c-base) var(--c-out)}
-:is(.seg,.tabs,.movers-tabs):not([data-ind])>button[aria-pressed="true"]{background:var(--ind-bg);box-shadow:var(--ind-sh)}
-.tabs:not([data-ind])>button[aria-pressed="true"]{box-shadow:var(--ind-sh),inset 0 -2px 0 var(--amber)}
+:is(.seg,.tabs,.movers-tabs):not([data-ind])>button:is([aria-pressed="true"],[aria-selected="true"]){background:var(--ind-bg);box-shadow:var(--ind-sh)}
+.tabs:not([data-ind])>button:is([aria-pressed="true"],[aria-selected="true"]){box-shadow:var(--ind-sh),inset 0 -2px 0 var(--amber)}
 :is(.seg,.tabs,.movers-tabs)>button:active,:is(.seg,.tabs,.movers-tabs)>button.is-press{filter:var(--press-f);transition-duration:0s}
 .seg>button:focus-visible,.movers-tabs>button:focus-visible{outline-offset:-1px}
 .seg button[aria-busy="true"]{color:transparent;cursor:progress}
@@ -817,6 +831,7 @@ html[data-motion="fancy"] .kl.on .kck{transform:none;transition-delay:var(--c-fa
 /* touch screens keep no hover look after a tap */
 @media (hover:none){
   :is(.wstar,.wgm,.sheet .x,.ctls-hd .x,.wbtn):hover{background:none}
+  .wgpop .row:hover{background:none}
   :is(.setbtn,.swbtn,.wgadd,.movers .more,.secs .more,.sheet .acts .sec2,.ddbtn,.morebtn):hover{background:var(--key-bg)}
 }
 </style>
@@ -825,7 +840,7 @@ html[data-motion="fancy"] .kl.on .kck{transform:none;transition-delay:var(--c-fa
 
 <header class="top">
   <div id="session-bar"></div><!-- §3-12: full-width session progress (src/extras draws it) -->
-  <div class="brand"><i aria-hidden="true"><b style="background:#ef3e4a"></b><b style="background:#1f5a41"></b><b style="background:#383c46"></b><b style="background:#12a15b"></b></i><div id="clock"></div><span class="ttl">한국 증시 히트맵</span></div>
+  <div class="brand"><i aria-hidden="true"><b style="background:#ef3e4a"></b><b style="background:#1f5a41"></b><b style="background:#383c46"></b><b style="background:#12a15b"></b></i><div id="clock"></div><span class="ttl">판세</span></div>
   <div class="tabs" role="group" aria-label="시장">
     <button data-mkt="K"><span class="tn">코스피</span><span class="tp" aria-hidden="true"></span></button>
     <button data-mkt="Q"><span class="tn">코스닥</span><span class="tp" aria-hidden="true"></span></button>
@@ -999,7 +1014,7 @@ if (typeof d3 === 'undefined' || !d3 || typeof d3.treemap !== 'function') {
 
 /* ───────────────── config ───────────────── */
 const MODE = document.documentElement.dataset.mode === 'live' ? 'live' : 'snapshot';
-const LIVE_URL = 'https://kospimap.pages.dev/';
+const LIVE_URL = 'https://panse.pages.dev/';
 const SNAP = JSON.parse(document.getElementById('snapshot').textContent);
 const MKT_NAME = { K: '코스피', Q: '코스닥', ALL: '전체', THEME: '테마', WORLD: '해외', CMDTY: '원자재', WATCH: '관심종목' };
 const HASH_TO = { kospi: 'K', kosdaq: 'Q', all: 'ALL', theme: 'THEME', world: 'WORLD', cmdty: 'CMDTY', watch: 'WATCH' };
@@ -1080,11 +1095,12 @@ const sgn = v => v > 0 ? '+' : v < 0 ? MINUS : '';
 const fmtPct = (v, d = 2) => sgn(v) + Math.abs(v).toFixed(d) + '%';
 
 /* ───────────────── living controls (docs/standards/controls.md) — KH.ui, shared with extras · stock · world ─────────────────
-   seg(el): the raised indicator of a segment / tab row follows its aria-pressed button (leading edge --c-fast, trailing --c-base;
-   a resize only re-places it). swap(el, text, from?): a label changes in place. roll(el, text, dir): 화려하게 digits roll (the
+   seg(el): the raised indicator of a segment / tab row follows its pressed button — aria-pressed, or aria-selected in a tablist
+   (leading edge --c-fast, trailing --c-base; a resize only re-places it). swap(el, text, from?): a label changes in place. roll(el, text, dir): 화려하게 digits roll (the
    element's text is the value at every moment). busy(btn, promise): a ring in place of the label while it works. state(el, st):
    .klb/.kl stacked labels (the box keeps the widest one). bubble(anchor, text, 'done'|'fail'): a short note under an icon-only key
    (no layout) + aria-live. sw(btn): a switch row whose knob can be dragged. live(text): a polite announcement. icon(name).
+   akey(cls, says, st): an async key (.kasync). retry({run, render, …}): the 다시 시도 key every module uses (✓ / ! on the key).
    Lengths are the --c-* tokens ('줄이기' sets them to 0, so every helper lands in its final state at once). */
 const UI_SVG = {
   check: '<svg class="kck" viewBox="0 0 20 20" aria-hidden="true"><path d="M4.5 10.5l3.6 3.6 7.4-8" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>',
@@ -1097,7 +1113,7 @@ const UI_SEG = new WeakMap(), SEG_SEL = '.seg, .tabs, .movers-tabs';
 function uiSegPlace(seg, snap) {
   const st = UI_SEG.get(seg); if (!st) return;
   const bs = [...seg.children].filter(x => x.tagName === 'BUTTON');
-  const i = bs.findIndex(b => b.getAttribute('aria-pressed') === 'true' && !b.hidden), b = bs[i];
+  const i = bs.findIndex(b => (b.getAttribute('aria-pressed') === 'true' || b.getAttribute('aria-selected') === 'true') && !b.hidden), b = bs[i];
   if (!b || !b.offsetWidth || !seg.clientWidth) { st.i = i; st.v = ''; delete seg.dataset.ind; return; }
   const inset = parseFloat(getComputedStyle(seg).getPropertyValue('--ind-in')) || 0;
   const v = [b.offsetLeft + inset, seg.clientWidth - b.offsetLeft - b.offsetWidth + inset, b.offsetTop + inset, seg.clientHeight - b.offsetTop - b.offsetHeight + inset]
@@ -1121,7 +1137,7 @@ function uiSegKids(seg) { if (uiSegRO) for (const b of seg.children) if (b.tagNa
 function uiSeg(seg) {
   if (!seg || UI_SEG.has(seg)) return;
   UI_SEG.set(seg, { i: -1, v: '' });
-  uiSegMO.observe(seg, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ['aria-pressed', 'hidden'] });
+  uiSegMO.observe(seg, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ['aria-pressed', 'aria-selected', 'hidden'] });
   if (uiSegRO) { uiSegRO.observe(seg); uiSegKids(seg); }
   uiSegPlace(seg, true);
 }
@@ -1178,6 +1194,39 @@ function uiState(el, st) {
   const on = el.querySelector('.kl.on');
   if (on && el.tagName === 'BUTTON' && el.dataset.keepLabel === undefined) el.setAttribute('aria-label', (on.dataset.say || on.textContent).trim());
 }
+/* an async key (controls.md §5-3): one label per state stacked in one box (.klb), so the key keeps its widest label; 'work' carries
+   the ring, 'done' ✓, 'fail' !. akey(cls, says, st) → the button; says = {idle, work, done, fail} (any subset, in this order). */
+const UI_KICON = { work: 'spin', done: 'check', fail: 'warn' };
+function uiAkey(cls, says, st) {
+  st = st || 'idle';
+  return h('button', { type: 'button', class: ('kasync ' + (cls || '')).trim(), 'data-st': st, 'data-busy': 'work', 'aria-label': says[st] },
+    h('span', { class: 'klb' }, Object.entries(says).map(([k, t]) => h('span', { class: 'kl' + (k === st ? ' on' : ''), 'data-l': k }, UI_KICON[k] ? uiIcon(UI_KICON[k]) : null, t))));
+}
+/* 다시 시도 (§5-3), for every module: the message stays while it works — ring "받는 중", then ✓ "받았어요" held for --c-slow before
+   the content comes in (none under 줄이기), or ! "아직 안 돼요 · 다시" until the next press.
+   retry({run, render, cls, fail, alive, onStart, onFail, says}) → the key. run() → true (arrived) · false (failed) · null (no longer
+   wanted: the key goes back to idle). alive() false (another stock, the sheet closed) drops the result. fail: start with ! (a message
+   drawn again after a failed retry). onStart / onFail: the caller's own bookkeeping. */
+const UI_RETRY = { idle: '다시 시도', work: '받는 중', done: '받았어요', fail: '아직 안 돼요 · 다시' };
+function uiRetry(o) {
+  o = o || {};
+  const alive = typeof o.alive === 'function' ? o.alive : () => true;
+  const b = uiAkey(o.cls, o.says || UI_RETRY, o.fail ? 'fail' : 'idle');
+  b.addEventListener('click', async () => {
+    if (b.dataset.st === 'work') return;
+    if (o.onStart) o.onStart();
+    uiState(b, 'work');
+    let r = null;
+    try { r = await o.run(); } catch (e) { r = false; }
+    if (!alive()) return;
+    if (r == null) { if (b.isConnected) uiState(b, 'idle'); return; }
+    if (!r) { if (o.onFail) o.onFail(); if (b.isConnected) uiState(b, 'fail'); uiLive('아직 안 돼요. 잠시 뒤 다시 눌러 주세요.'); return; }
+    if (b.isConnected && MOTION !== 'reduced') { uiState(b, 'done'); await new Promise(res => setTimeout(res, uiMs('--c-slow'))); if (!alive()) return; }
+    uiLive('불러왔어요.');
+    if (o.render) o.render();
+  });
+  return b;
+}
 let uiLiveEl = null;
 function uiLive(text) {
   if (!uiLiveEl) { uiLiveEl = h('div', { class: 'sr', role: 'status', 'aria-live': 'polite' }); document.body.append(uiLiveEl); }
@@ -1224,7 +1273,7 @@ function uiSwitch(btn) {
 document.addEventListener('keydown', e => { if ((e.key === ' ' || e.key === 'Enter') && !e.repeat && e.target instanceof HTMLElement && e.target.matches('button, a[href]')) e.target.classList.add('is-press'); });
 for (const t of ['keyup', 'blur', 'pointerdown']) document.addEventListener(t, e => { const el = e.target; if (el instanceof HTMLElement && el.classList.contains('is-press')) el.classList.remove('is-press'); }, true);
 document.addEventListener('touchstart', () => {}, { passive: true });     // Android Chrome: :active follows the finger at once
-const KHUI = { seg: uiSeg, swap: uiSwap, roll: uiRoll, busy: uiBusy, state: uiState, bubble: uiBubble, sw: uiSwitch, live: uiLive, icon: uiIcon, ms: uiMs };
+const KHUI = { seg: uiSeg, swap: uiSwap, roll: uiRoll, busy: uiBusy, state: uiState, bubble: uiBubble, sw: uiSwitch, live: uiLive, icon: uiIcon, ms: uiMs, akey: uiAkey, retry: uiRetry };
 // cached formatters: toLocaleString builds one per call (≈20 µs), and a 300-row table or 600 candle labels call it thousands of times
 const NF0 = new Intl.NumberFormat('ko-KR'), NF1 = new Intl.NumberFormat('ko-KR', { maximumFractionDigits: 1 });
 const fmtInt = v => NF0.format(Math.round(v));
@@ -1520,6 +1569,14 @@ const watchApi = {
     if (v !== WG.active) { WG.active = v; state.focus = null; wgCommit(null); }
     return true;
   },
+  /* the ☆ group picker for every module (§3-11): pick(code, opener, {name, cls}) → true when the picker shows (several groups),
+     false after a plain toggle (one group). The same opener pressed again closes it. Opened inside a dialog (the stock page makes the
+     rest of the page inert) it lives in that dialog, above its layers. name: the title (default: the stock's name); cls: a class
+     prefix for the module's own hooks (cls on the popover, cls-row · cls-add · cls-in on its parts, cls-sheet when it is the phone
+     sheet). pickOpen() → the code it shows, or null; pickClose(restore) closes it (restore: focus back to the opener). */
+  pick: (code, opener, opts) => wgPickOpen(code, opener, opts),
+  pickOpen: () => (wgPick && !wgPop.hidden ? wgPick.code : null),
+  pickClose: restore => { if (!wgPop.hidden) wgClose(!!restore); },
 };
 
 /* ───────────────── quotes ───────────────── */
@@ -4575,10 +4632,21 @@ for (const t of ['pointerup', 'pointercancel', 'pointerleave']) $('#wgchips').ad
 $('#wgchips').addEventListener('scroll', () => clearTimeout(wgLongT), { passive: true });
 
 function wgOpen(opener, sel, label, kids) {
+  if (wgOpener && wgOpener.el && wgOpener.el !== opener && wgOpener.el.hasAttribute('aria-haspopup')) wgOpener.el.setAttribute('aria-expanded', 'false');
   wgOpener = { el: opener, sel };
+  // opened from a modal dialog drawn above the popover's own layer (the stock page, z 200, sets the rest of the page inert) the
+  // popover moves into that dialog and sits above its layers; the map's own sheet (z 90) keeps it in <body>
+  const dlg = opener && opener.closest ? opener.closest('[aria-modal="true"]') : null;
+  const host = dlg && (parseInt(getComputedStyle(dlg).zIndex, 10) || 0) > 95 ? dlg : document.body;
+  if (wgPop.parentElement !== host) host.append(wgPop);
+  wgPop.inert = false;
+  wgPop.classList.toggle('in-dlg', host !== document.body);
+  wgTag();
   wgPop.replaceChildren(...kids);
+  wgTag(true);
   wgPop.setAttribute('aria-label', label);
   wgPop.hidden = false;
+  if (opener && opener.hasAttribute('aria-haspopup')) opener.setAttribute('aria-expanded', 'true');
   // under the opener, inside the viewport (phones: a bottom sheet, by CSS)
   if (!narrowMQ.matches) {
     const r = opener.getBoundingClientRect(), pw = wgPop.offsetWidth, ph = wgPop.offsetHeight;
@@ -4593,7 +4661,10 @@ function wgOpen(opener, sel, label, kids) {
 function wgClose(restore = true) {
   if (wgPop.hidden) return;
   wgPop.hidden = true; wgPop.replaceChildren();
+  wgTag(); wgPick = null;
+  if (wgPop.parentElement !== document.body) { wgPop.classList.remove('in-dlg'); document.body.append(wgPop); }
   const o = wgOpener; wgOpener = null;
+  if (o && o.el && o.el.hasAttribute('aria-haspopup')) o.el.setAttribute('aria-expanded', 'false');
   if (!restore || !o) return;
   const el = o.el && o.el.isConnected && o.el.offsetParent ? o.el : o.sel ? document.querySelector(o.sel) : null;
   if (el) el.focus({ preventScroll: true });
@@ -4603,7 +4674,8 @@ document.addEventListener('pointerdown', e => {
   wgClose(false);
 }, true);
 wgPop.addEventListener('keydown', e => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); wgClose(); } });
-wgPop.addEventListener('focusout', e => { if (e.relatedTarget && !wgPop.contains(e.relatedTarget)) wgClose(false); });
+// Tab out closes it; focus going to its own opener does not (the press that follows closes it, as a toggle)
+wgPop.addEventListener('focusout', e => { const t = e.relatedTarget; if (t && !wgPop.contains(t) && !(wgOpener && wgOpener.el && wgOpener.el.contains(t))) wgClose(false); });
 const wgChipSel = id => `#wgchips .wgc[data-g="${id}"]`;
 // ⋯ : rename · move earlier / later · delete
 function wgMenu(id, opener) {
@@ -4627,12 +4699,12 @@ function wgMenu(id, opener) {
 // a name for a new group (id null) or a new name; done(newId) after creating
 function wgForm(id, opener, done) {
   const g = id ? wgGet(id) : null;
-  if (!g && WG.groups.length >= WG_MAX) return;
-  const inp = h('input', { type: 'text', maxlength: String(WG_NAME), value: g ? g.name : '', placeholder: '예: 반도체', 'aria-label': '그룹 이름', autocomplete: 'off', enterkeyhint: 'done' });
+  if (!g && watchApi.groups().length >= WG_MAX) return;
+  const inp = h('input', { type: 'text', 'data-wg': 'in', maxlength: String(WG_NAME), value: g ? g.name : '', placeholder: '예: 반도체', 'aria-label': '그룹 이름', autocomplete: 'off', enterkeyhint: 'done' });
   const msg = h('p', { class: 'msg', 'aria-live': 'polite', text: `${WG_NAME}자까지` });
   const ok = h('button', { class: 'pri', type: 'submit', text: g ? '바꾸기' : '만들기' });
   const check = () => {
-    const nm = wgName(inp.value), dup = !!nm && WG.groups.some(x => x !== g && x.name === nm);
+    const nm = wgName(inp.value), dup = !!nm && watchApi.groups().some(x => x.id !== id && x.name === nm);
     ok.disabled = !nm || dup;
     msg.textContent = dup ? '같은 이름의 그룹이 있어요' : `${WG_NAME}자까지`;
   };
@@ -4660,22 +4732,53 @@ function wgAskDelete(id, opener) {
     h('div', { class: 'acts' }, h('button', { type: 'button', onclick: () => wgClose(), text: '취소' }),
       h('button', { class: 'pri', type: 'button', onclick: () => { watchApi.deleteGroup(id); wgClose(false); const b = document.querySelector(wgChipSel('all')); if (b) b.focus({ preventScroll: true }); }, text: '지우기' }))]);
 }
-// ☆ with several groups: tick the groups this stock belongs to (applied at once); one group: a plain toggle
-function starClick(code, el) {
-  if (WG.groups.length < 2) { setWatch(code); return; }
-  wgPicker(code, el);
+/* ☆ with several groups: tick the groups this stock belongs to (applied at once); one group: a plain toggle. One picker for the map's
+   stars, the tooltip / sheet star and the stock page (KH.watch.pick). It reads the groups through KH.watch, so what it shows is what
+   the API says. */
+let wgPick = null;       // {code, opener, opts} while the popover is (or was last drawn as) the ☆ picker
+function starClick(code, el) { wgPickOpen(code, el); }
+function wgPickOpen(code, opener, opts) {
+  code = normCode(code);
+  if (!CODE_RE.test(code)) return false;
+  if (watchApi.groups().length < 2) { watchApi.toggle(code); return false; }
+  if (wgPick && !wgPop.hidden && wgPick.code === code && wgOpener && wgOpener.el === opener) { wgClose(true); return true; }   // the same ☆ again
+  wgPicker(code, opener, opts);
+  return true;
 }
-function wgPicker(code, opener) {
-  const st = rawGet(code), nm = (st && st.n) || code;
-  const boxes = WG.groups.map(g => h('label', { class: 'row' },
-    h('input', { type: 'checkbox', 'data-g': g.id, checked: g.codes.includes(code), onchange: () => watchApi.setGroups(code, [...wgPop.querySelectorAll('input[data-g]')].filter(x => x.checked).map(x => x.dataset.g)) }),
-    h('span', { text: g.name }), h('span', { class: 'n', text: fmtInt(g.codes.length) })));
-  const sel = `button[data-w="${code}"]`;
-  wgOpen(opener, opener === tstar ? null : sel, `${nm} 관심 그룹`, [h('h3', { text: `${nm} · 관심 그룹` }), ...boxes,
-    WG.groups.length < WG_MAX ? h('div', { class: 'sep' }) : null,
-    WG.groups.length < WG_MAX ? h('button', { class: 'row', type: 'button', onclick: () => wgForm(null, opener, nid => { watchApi.add(code, nid); wgPicker(code, opener); }), text: '＋ 새 그룹에 담기' }) : null,
+// a module's hooks (KH.watch.pick opts.cls): cls on the popover, cls-row / cls-add / cls-in on the parts, cls-sheet on phones
+function wgTag(on) {
+  const c = on && wgPick && wgPick.opts && wgPick.opts.cls;
+  for (const x of [...wgPop.classList]) if (x !== 'wgpop' && x !== 'in-dlg') wgPop.classList.remove(x);
+  if (!c) return;
+  wgPop.classList.add(c);
+  if (narrowMQ.matches) wgPop.classList.add(c + '-sheet');
+  for (const [k, sel] of [['row', 'label.row'], ['add', '[data-wg="add"]'], ['in', '[data-wg="in"]']]) for (const x of wgPop.querySelectorAll(sel)) x.classList.add(c + '-' + k);
+}
+function wgPicker(code, opener, opts) {
+  opts = opts || (wgPick && wgPick.code === code && wgPick.opener === opener ? wgPick.opts : null);
+  const st = rawGet(code), nm = (opts && opts.name) || (st && st.n) || code;
+  const groups = watchApi.groups(), mine = new Set(watchApi.groupsOf(code) || []), more = groups.length < WG_MAX;
+  const boxes = groups.map(g => h('label', { class: 'row' },
+    h('input', { type: 'checkbox', 'data-g': g.id, checked: mine.has(g.id), onchange: () => watchApi.setGroups(code, [...wgPop.querySelectorAll('input[data-g]')].filter(x => x.checked).map(x => x.dataset.g)) }),
+    h('span', { class: 'nm', text: g.name }), h('span', { class: 'n', text: fmtInt(g.count) })));
+  const sel = opener && opener !== tstar && opener.matches && opener.matches('button[data-w]') ? `button[data-w="${code}"]` : null;   // the map's stars are redrawn
+  wgPick = { code, opener, opts };
+  wgOpen(opener, sel, `${nm} 관심 그룹`, [h('h3', { text: `${nm} · 관심 그룹` }), ...boxes,
+    more ? h('div', { class: 'sep' }) : null,
+    more ? h('button', { class: 'row', type: 'button', 'data-wg': 'add', onclick: () => wgForm(null, opener, nid => { watchApi.add(code, nid); wgPicker(code, opener, opts); }), text: '＋ 새 그룹에 담기' }) : null,
     h('div', { class: 'acts' }, h('button', { class: 'pri', type: 'button', onclick: () => wgClose(), text: '완료' }))].filter(Boolean));
 }
+// a change while the picker shows: ticks and counts in place (focus stays); other groups draw it again; one group left closes it
+document.addEventListener('kh:watch', () => {
+  if (!wgPick || wgPop.hidden) return;
+  const boxes = [...wgPop.querySelectorAll('input[data-g]')];
+  if (!boxes.length) return;                                         // the name form is showing
+  const groups = watchApi.groups();
+  if (groups.length < 2) { wgClose(true); return; }
+  if (groups.length !== boxes.length || groups.some((g, i) => boxes[i].dataset.g !== g.id)) { wgPicker(wgPick.code, wgPick.opener, wgPick.opts); return; }
+  const mine = new Set(watchApi.groupsOf(wgPick.code) || []);
+  groups.forEach((g, i) => { boxes[i].checked = mine.has(g.id); const n = boxes[i].closest('label').querySelector('.n'); if (n) n.textContent = fmtInt(g.count); });
+});
 
 /* search: the current map's stocks first, then every other listed stock (names.json live, the embedded rows in the snapshot) —
    other markets and preferred shares outside the stream. Picking one that is not on the map opens its stock page. */
@@ -5891,43 +5994,31 @@ const uiIcon = n => (UI && typeof UI.icon === 'function' ? UI.icon(n) : null);
 const uiSeg = el => { if (UI && typeof UI.seg === 'function') UI.seg(el); };
 const cMs = (name, d) => (UI && typeof UI.ms === 'function' ? UI.ms(name) : d);          // '줄이기' sets --c-fast/base/switch to 0
 const say = t => { if (UI && typeof UI.live === 'function') UI.live(t); };
-const wait = ms => new Promise(r => setTimeout(r, ms));
 function setState(el, st) {
   if (!el) return;
   if (UI) { UI.state(el, st); return; }
   el.dataset.st = st;
   for (const x of el.querySelectorAll('.kl')) x.classList.toggle('on', x.matches(`[data-l~="${st}"]`));
 }
-// an async key (§5-3): one label per state stacked in one box, so the key keeps the width of its longest label; 'work' carries the
-// ring, 'done' ✓, 'fail' ! (KH.ui.state switches them)
-const KICON = { work: 'spin', done: 'check', fail: 'warn' };
+// an async key (§5-3): the template's KH.ui.akey — one label per state stacked in one box (the key keeps its longest label); 'work'
+// carries the ring, 'done' ✓, 'fail' ! (KH.ui.state switches them). Without KH.ui: the idle label only.
 function asyncKey(cls, says, st) {
-  st = st || 'idle';
-  return h('button', { type: 'button', class: cls, 'data-st': st, 'data-busy': 'work', 'aria-label': says[st] },
-    h('span', { class: 'klb' }, Object.entries(says).map(([k, t]) => h('span', { class: 'kl' + (k === st ? ' on' : ''), 'data-l': k }, KICON[k] ? uiIcon(KICON[k]) : null, t))));
+  if (UI && typeof UI.akey === 'function') return UI.akey(cls, says, st);
+  return h('button', { type: 'button', class: cls, 'data-st': st || 'idle', text: says[st || 'idle'] });
 }
-/* 다시 시도 (§5-3): the message stays while it works — ring "받는 중", then ✓ "받았어요" for --c-slow before the content comes in, or
-   ! "아직 안 돼요 · 다시" until the next press. run() → true (arrived) / false (failed) / null (no longer wanted: another stock, aborted);
-   render() draws the area once the data is in. A message drawn again after a failed retry keeps the ! (failed). */
-const RETRY_SAY = { idle: '다시 시도', work: '받는 중', done: '받았어요', fail: '아직 안 돼요 · 다시' };
+/* 다시 시도 (§5-3): the template's KH.ui.retry, shared with the 해외 tab — the message stays while it works (ring "받는 중"), then ✓
+   "받았어요" for --c-slow before the content comes in, or ! "아직 안 돼요 · 다시" until the next press. run() → true / false / null (no
+   longer wanted). A result for another stock (S.gen moved on) is dropped. failed: the areas whose last retry failed, so a message
+   drawn again keeps the !. */
 const failed = new Set();
 function retryKey(area, run, render, cls) {
-  const b = asyncKey(cls || 'sp-btn sp-retry', RETRY_SAY, failed.has(area) ? 'fail' : 'idle');
-  b.addEventListener('click', async () => {
-    if (b.dataset.st === 'work') return;
-    const g = S.gen;
-    failed.delete(area);
-    setState(b, 'work');
-    let r = null;
-    try { r = await run(); } catch (e) { r = false; }
-    if (g !== S.gen) return;
-    if (r == null) { if (b.isConnected) setState(b, 'idle'); return; }
-    if (!r) { failed.add(area); if (b.isConnected) setState(b, 'fail'); say('아직 안 돼요. 잠시 뒤 다시 눌러 주세요.'); return; }
-    if (b.isConnected && !reducedNow()) { setState(b, 'done'); await wait(cMs('--c-slow', 560)); if (g !== S.gen) return; }
-    say('불러왔어요.');
-    render();
-  });
-  return b;
+  cls = cls || 'sp-btn sp-retry';
+  let g = S.gen;
+  if (UI && typeof UI.retry === 'function') {
+    return UI.retry({ cls, run, render, fail: failed.has(area), alive: () => g === S.gen,
+      onStart: () => { g = S.gen; failed.delete(area); }, onFail: () => failed.add(area) });
+  }
+  return h('button', { type: 'button', class: cls, onclick: async () => { g = S.gen; const r = await run(); if (g === S.gen && r) render(); }, text: '다시 시도' });
 }
 function errSub(e) {
   if (e && e.status === 404) return '이 종목의 정보를 찾지 못했어요.';
@@ -6051,7 +6142,7 @@ function buildLive() {
     e.preventDefault();
     setTab(keys[i], true);
   });
-  if ('ResizeObserver' in window) new ResizeObserver(() => tabInd(true)).observe(R.tabs);
+  uiSeg(R.tabs);
   for (const t of TABS) if (t.build) t.build(R.panels[t.key]);
   R.body.append(chartcol, h('section', { class: 'sp-side', 'aria-label': TABS.map(t => t.label).join('·') }, h('div', { class: 'sp-tabwrap' }, R.tabs), ...Object.values(R.panels)));
   R.foot.append(h('p', {}, '데이터: 네이버 증권(비공식). 투자 판단의 근거로 쓰지 마세요. 차트: ',
@@ -6149,7 +6240,7 @@ function renderHead() {
   renderLim();
   renderNxt();
   renderStar();
-  if (name) document.title = `${name} ${price != null ? int(price) : ''} ${price != null ? pct(ratio) : ''} · 한국 증시 히트맵`.replace(/\s+/g, ' ');
+  if (name) document.title = `${name} ${price != null ? int(price) : ''} ${price != null ? pct(ratio) : ''} · 판세`.replace(/\s+/g, ' ');
 }
 
 // 상한가·하한가: the quote row's lim (1/−1). Rows without lim (older data) or stocks outside the quote universe fall back to
@@ -6215,101 +6306,18 @@ function renderStar() {
 // 관심 그룹 (AGENTS.md §3-11): with KH.watch.groups() and more than the single 기본 group, ☆ opens a picker; otherwise it toggles instantly
 const groupsApi = () => { const W = watchApi(); return W && ['groups', 'groupsOf', 'setGroups', 'createGroup'].every(k => typeof W[k] === 'function') ? W : null; };
 const usePicker = () => { const W = groupsApi(); if (!W) return false; try { return W.groups().length > 1; } catch (e) { return false; } };
-/* The 관심 그룹 picker is the template's group popover (.wgpop, §3-11): its look (rows with check boxes and counts, ＋ 새 그룹에 담기,
-   완료; a bottom sheet up to 760px) and its flow — ticks apply at once, the name form takes the popover's place, Esc · a tap outside
-   · Tab out closes it, focus goes back to ☆. The template does not hand its own popover out through KH, so this one is drawn here
-   with the same classes inside the stock page (whose stacking context it has to sit in). */
-let gp = null;   // {el}
-const GP_MAX = 20, GP_NAME = 12;   // the template's group limits (§3-11)
-const gpPhone = () => matchMedia('(max-width: 760px)').matches;
-function gpClose(refocus) {
-  if (!gp) return;
-  gp.el.remove();
-  gp = null;
-  R.star.setAttribute('aria-expanded', 'false');
-  if (refocus) R.star.focus({ preventScroll: true });
-}
-function gpShow(label, kids) {
-  const el = gp.el;
-  el.replaceChildren(...kids);
-  el.setAttribute('aria-label', label);
-  el.classList.toggle('sp-gp-sheet', gpPhone());
-  if (gpPhone()) { el.style.left = el.style.top = ''; }
-  else {   // under ☆, inside the viewport (above it when there is no room below)
-    const r = R.star.getBoundingClientRect(), pw = el.offsetWidth, ph = el.offsetHeight;
-    let top = r.bottom + 6;
-    if (top + ph > innerHeight - 8) top = Math.max(8, r.top - ph - 6);
-    el.style.left = Math.round(Math.min(Math.max(8, r.left), innerWidth - pw - 8)) + 'px';
-    el.style.top = Math.round(top) + 'px';
-  }
-  const f = el.querySelector('input[type="text"], input:checked, input, button:not([disabled])');
-  if (f) f.focus({ preventScroll: true });
-}
+/* The 관심 그룹 picker is the template's (KH.watch.pick, §3-11): one implementation for the map's ☆, the tooltip and this page — rows
+   with check boxes and counts (ticks apply at once), ＋ 새 그룹에 담기, 완료; a bottom sheet up to 760px; Esc · a tap outside · Tab
+   out closes it and focus goes back to ☆. Opened from here it moves into this dialog (the rest of the page is inert) and sits above
+   it. 'sp-gp' tags its parts for the stock page's tests. */
+const pickApi = () => { const W = groupsApi(); return W && typeof W.pick === 'function' ? W : null; };
+const pickOpen = () => { const W = pickApi(); return !!(W && typeof W.pickOpen === 'function' && W.pickOpen()); };
+const pickClose = restore => { const W = pickApi(); if (W && typeof W.pickClose === 'function') W.pickClose(restore); };
 function gpName() { const st = KH.stock(S.code); return (S.sum && S.sum.code === S.code && S.sum.name) || (st && st.n) || S.code; }
-function gpPick() {
-  const W = groupsApi();
-  if (!gp || !W || !S.code) return;
-  const mine = new Set(W.groupsOf(S.code) || []), groups = W.groups(), nm = gpName(), add = groups.length < GP_MAX;
-  gpShow(`${nm} 관심 그룹`, [h('h3', { text: `${nm} · 관심 그룹` }),
-    ...groups.map(g => h('label', { class: 'row sp-gp-row' },
-      h('input', { type: 'checkbox', 'data-id': g.id, checked: mine.has(g.id), onchange: gpApply }),
-      h('span', { class: 'nm', text: g.name }), h('span', { class: 'n num', text: String(g.count) }))),
-    add ? h('div', { class: 'sep' }) : null,
-    add ? h('button', { class: 'row sp-gp-add', type: 'button', onclick: gpForm, text: '＋ 새 그룹에 담기' }) : null,
-    h('div', { class: 'acts' }, h('button', { class: 'pri', type: 'button', onclick: () => gpClose(true), text: '완료' }))].filter(Boolean));
-}
-function gpApply() {
-  const W = groupsApi();
-  if (!gp || !W) return;
-  W.setGroups(S.code, [...gp.el.querySelectorAll('input[data-id]:checked')].map(i => i.dataset.id));
-  renderStar();
-}
-// kh:watch while the picker shows: ticks and counts change in place (focus stays); another set of groups draws it again
-function gpSync() {
-  const W = groupsApi(), boxes = gp ? [...gp.el.querySelectorAll('input[data-id]')] : [];
-  if (!W || !boxes.length) return;                       // the name form is showing
-  const groups = W.groups(), mine = new Set(W.groupsOf(S.code) || []);
-  if (groups.length !== boxes.length || groups.some((g, i) => boxes[i].dataset.id !== g.id)) { gpPick(); return; }
-  groups.forEach((g, i) => { boxes[i].checked = mine.has(g.id); const n = boxes[i].closest('label').querySelector('.n'); if (n) n.textContent = String(g.count); });
-}
-// ＋ 새 그룹에 담기: a name (12 characters, no duplicate), then this stock goes into it and the picker comes back
-function gpForm() {
-  const W = groupsApi();
-  if (!gp || !W) return;
-  const inp = h('input', { type: 'text', class: 'sp-gp-in', maxlength: String(GP_NAME), placeholder: '예: 반도체', 'aria-label': '그룹 이름', autocomplete: 'off', enterkeyhint: 'done' });
-  const msg = h('p', { class: 'msg', 'aria-live': 'polite', text: `${GP_NAME}자까지` });
-  const ok = h('button', { class: 'pri', type: 'submit', text: '만들기' });
-  const name = () => inp.value.replace(/\s+/g, ' ').trim().slice(0, GP_NAME);
-  const check = () => {
-    const nm = name(), dup = !!nm && W.groups().some(g => g.name === nm);
-    ok.disabled = !nm || dup;
-    msg.textContent = dup ? '같은 이름의 그룹이 있어요' : `${GP_NAME}자까지`;
-  };
-  inp.addEventListener('input', check);
-  const form = h('form', { onsubmit: ev => {
-    ev.preventDefault(); check(); if (ok.disabled) return;
-    const id = W.createGroup(name());
-    if (!id) return;
-    W.setGroups(S.code, [...new Set([...(W.groupsOf(S.code) || []), id])]);
-    renderStar(); gpPick();
-  } }, inp, msg, h('div', { class: 'acts' }, h('button', { type: 'button', onclick: () => gpClose(true), text: '취소' }), ok));
-  gpShow('새 그룹', [h('h3', { text: '새 그룹' }), form]);
-  check();
-}
-function gpOpen() {
-  if (gp) { gpClose(true); return; }
-  const el = h('div', { class: 'wgpop sp-gp', role: 'dialog', tabindex: '-1' });
-  el.addEventListener('focusout', e => { if (gp && e.relatedTarget && !el.contains(e.relatedTarget)) gpClose(false); });
-  gp = { el };
-  root.append(el);
-  R.star.setAttribute('aria-expanded', 'true');
-  gpPick();
-}
-document.addEventListener('pointerdown', e => { if (gp && !gp.el.contains(e.target) && !R.star.contains(e.target)) gpClose(false); }, true);
 function toggleWatch() {
   const W = watchApi();
   if (!W || !S.code) return;
-  if (usePicker()) { gpOpen(); return; }
+  if (usePicker() && pickApi()) { W.pick(S.code, R.star, { name: gpName(), cls: 'sp-gp' }); renderStar(); return; }
   W.toggle(S.code);
   renderStar();
 }
@@ -6823,22 +6831,7 @@ function setTf(k) {
 function syncTf() { if (R.tfs) for (const b of R.tfs.children) b.setAttribute('aria-pressed', String(b.dataset.tf === S.tf)); }
 
 /* ───────────────── tabs ───────────────── */
-/* The 시세 정보 tabs are a real tablist (aria-selected), which KH.ui.seg (rows of aria-pressed buttons) does not read: the same raised
-   indicator is placed here with the template's segment CSS (.seg::before at --il/--ir/--it/--ib, data-ind; data-dir = which edge
-   leads: --c-fast, the other follows in --c-base). */
-let tabI = -1;
-function tabInd(snap) {
-  const row = R.tabs;
-  if (!row) return;
-  const bs = [...row.children], i = bs.findIndex(b => b.getAttribute('aria-selected') === 'true'), b = bs[i];
-  if (!b || !b.offsetWidth || !row.clientWidth) { delete row.dataset.ind; tabI = i; return; }
-  const v = [b.offsetLeft, row.clientWidth - b.offsetLeft - b.offsetWidth, b.offsetTop, row.clientHeight - b.offsetTop - b.offsetHeight].map(x => Math.round(x * 2) / 2 + 'px');
-  const moved = !snap && tabI >= 0 && i !== tabI && row.dataset.ind != null;
-  row.dataset.dir = moved ? (i > tabI ? 'r' : 'l') : '';
-  ['--il', '--ir', '--it', '--ib'].forEach((x, j) => row.style.setProperty(x, v[j]));
-  row.dataset.ind = '';
-  tabI = i;
-}
+/* The 시세 정보 tabs are a real tablist (aria-selected); KH.ui.seg reads aria-selected too and moves the raised indicator (build()). */
 function setTab(k, focus) {
   if (!TAB[k]) k = TABS[0].key;
   const from = S.tab, slide = fancy() && S.open && from !== k && R.panels[from] && !R.panels[from].hidden;
@@ -6849,7 +6842,6 @@ function setTab(k, focus) {
     b.tabIndex = on ? 0 : -1;
     if (on && focus) b.focus();
   }
-  tabInd(!S.open);
   for (const t of TABS) {
     R.panels[t.key].hidden = t.key !== k;
     if (t.key !== k && t.hide) t.hide();
@@ -7793,7 +7785,7 @@ function stopTimers() {
 function stopAll() { stopTimers(); abortAll(); }
 
 function show(code, opener) {
-  gpClose(false);
+  pickClose(false);
   build();
   const switching = S.open;
   S.gen++;
@@ -7826,7 +7818,7 @@ function show(code, opener) {
 
 function hide() {
   if (!S.open) return;
-  gpClose(false);
+  pickClose(false);
   S.open = false;
   S.gen++;
   stopAll();
@@ -7887,7 +7879,7 @@ addEventListener('popstate', onHash);
 // capture phase: the page owns Esc and '/' while it is open (the heatmap would otherwise zoom out / focus its search)
 addEventListener('keydown', e => {
   if (!S.open) return;
-  if (e.key === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); if (gp) gpClose(true); else close(); }
+  if (e.key === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); if (pickOpen()) pickClose(true); else close(); }
   else if (e.key === '/') e.stopImmediatePropagation();
 }, true);
 document.addEventListener('visibilitychange', () => {
@@ -7899,7 +7891,7 @@ document.addEventListener('kh:palette', () => { if (root) { applyColors(); if (S
 document.addEventListener('kh:data', () => { if (S.open) { renderPeers(); renderHead(); if (LIVE) renderMeta(); } });
 document.addEventListener('kh:basis', () => { if (S.open) renderHead(); });   // the headline is the row in the chosen basis   // 업종 path / provisional price arrive with the quotes
 document.addEventListener('kh:motion', () => { if (!fancy() && R.price) { settleRoll(R.price); settleRoll(R.chg); } });
-document.addEventListener('kh:watch', () => { if (S.open) { renderStar(); if (gp && !usePicker()) gpClose(false); else gpSync(); } });
+document.addEventListener('kh:watch', () => { if (S.open) renderStar(); });   // the picker keeps its own ticks and counts in step
 
 window.KHStock = { open, close, isOpen: () => S.open };
 onHash();
@@ -9599,7 +9591,7 @@ function initPWA() {
   headTag('meta', { name: 'theme-color', content: '#131418' });
   headTag('meta', { name: 'apple-mobile-web-app-capable', content: 'yes' });
   headTag('meta', { name: 'mobile-web-app-capable', content: 'yes' });
-  headTag('meta', { name: 'apple-mobile-web-app-title', content: '증시 히트맵' });
+  headTag('meta', { name: 'apple-mobile-web-app-title', content: '판세' });
   headTag('meta', { name: 'apple-mobile-web-app-status-bar-style', content: 'black' });
   const secure = window.isSecureContext || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
   if ('serviceWorker' in navigator && secure && /^https?:$/.test(location.protocol)) {
@@ -10288,7 +10280,7 @@ function ckRender(instant) {
   const ph = ckPhase(n);
   if (ck.lastMin !== n.min || ck.lastTxt !== ph.text || ck.lastRev !== tsync.rev) {
     ck.lastMin = n.min; ck.lastTxt = ph.text; ck.lastRev = tsync.rev;
-    ck.btn.setAttribute('aria-label', `한국 증시 히트맵 · 지금 ${two(n.h)}:${two(n.m)} · 눌러서 새로고침`);
+    ck.btn.setAttribute('aria-label', `판세 · 지금 ${two(n.h)}:${two(n.m)} · 눌러서 새로고침`);
     const tl = timeLine();
     ck.btn.title = `${ph.text} · 눌러서 새로고침${tl ? '\n' + tl : ''}`;
     if (tl) { ck.desc.textContent = tl; ck.btn.setAttribute('aria-describedby', 'ck-desc'); } else { ck.desc.textContent = ''; ck.btn.removeAttribute('aria-describedby'); }
@@ -10590,9 +10582,11 @@ document.addEventListener('keyup', e => { if (spaceTaken && (e.key === ' ' || e.
 .kw-gh .s{flex:none;font-size:11px;font-weight:500;color:#a6abb5}
 .kw-gh .s:empty{display:none}
 .kw-gh .v{flex:none;font-weight:600;font-variant-numeric:tabular-nums;margin-left:auto}
-.kw-tile{position:absolute;display:flex;align-items:center;justify-content:center;overflow:hidden;color:#fff;text-align:center;padding:0;margin:0;border:0;border-radius:0;cursor:pointer;z-index:2;transition:background-color .6s,filter .2s;-webkit-tap-highlight-color:transparent}
+.kw-tile{position:absolute;display:flex;align-items:center;justify-content:center;overflow:hidden;color:#fff;text-align:center;padding:0;margin:0;border:0;border-radius:0;cursor:pointer;z-index:2;transition:background-color .6s,filter var(--c-fast) var(--c-out);-webkit-tap-highlight-color:transparent}
 .kw-tile:hover{box-shadow:inset 0 0 0 2px rgba(255,255,255,.92);z-index:4}
-.kw-tile:focus-visible{outline:2px solid var(--amber);outline-offset:-2px;z-index:5}
+/* data never sinks (controls.md §5-8): a tile, a row or a country only darkens under the finger; focus = the 3px amber ring, inside */
+.kw-tile:active{filter:brightness(.85);transition:background-color .6s,filter 0s}
+.kw-tile:focus-visible{outline:var(--focus-w) solid var(--amber);outline-offset:calc(var(--focus-w) * -1);box-shadow:inset 0 0 0 4px rgba(0,0,0,.55);z-index:5}
 .kw-tile.sel{box-shadow:inset 0 0 0 3px var(--amber),0 0 0 1px #000;z-index:5}
 .kw-tile.ref,.kw-tile.nod{background-image:repeating-linear-gradient(135deg,rgba(255,255,255,.07) 0 3px,transparent 3px 8px)}
 .kw-lab{display:flex;flex-direction:column;align-items:center;max-width:100%;padding:0 4px;line-height:1.08;text-shadow:0 1px 2px rgba(0,0,0,.45);pointer-events:none}
@@ -10611,17 +10605,19 @@ document.addEventListener('keyup', e => { if (spaceTaken && (e.key === ' ' || e.
 
 .kw-msg{display:flex;flex-direction:column;align-items:center;gap:6px;max-width:360px;padding:24px;text-align:center;color:var(--muted);font-size:13.5px;line-height:1.6}
 .kw-msg b{color:var(--fg);font-size:16px;font-weight:700}
-.kw-msg.busy b::after{content:"";display:inline-block;width:8px;height:8px;margin-left:8px;border-radius:50%;background:var(--amber);vertical-align:2px;animation:kwPulse 1.2s ease-in-out infinite}
-@keyframes kwPulse{0%,100%{opacity:.25}50%{opacity:1}}
-.kw-retry{margin-top:8px;height:36px;padding:0 14px;border-radius:8px;border:1px solid rgba(255,181,71,.4);background:var(--amber-soft);color:var(--amber);font-size:13px;font-weight:600}
-.kw-retry:hover{background:rgba(255,181,71,.22)}
-.kw-retry.sm{height:30px;margin:0 0 0 6px;padding:0 10px;font-size:12.5px}
+/* loading: the template's ring (KH.ui.icon('spin'), still under 줄이기) after the title */
+.kw-msg.busy b .kspn{width:14px;height:14px;margin-left:8px;vertical-align:-1px;color:var(--amber)}
+/* 다시 시도 = the standard raised key with the shared async states (KH.ui.retry: ring → ✓ amber surface → content, or ! dark amber
+   surface; the template's .kasync rules colour them). The box keeps its widest label, so nothing beside it moves. */
+.kw-retry{position:relative;margin-top:8px;height:36px;padding:0 15px;border-radius:var(--r-key);border:0;background:var(--key-bg);box-shadow:var(--key-sh);color:var(--key-fg);font-size:13px;font-weight:600;transition:transform var(--c-fast) var(--c-out),box-shadow var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out),background-color var(--c-base) var(--c-out),color var(--c-base) var(--c-out)}
+.kw-retry:hover{background:var(--key-hover)}
+.kw-retry:is(:active,.is-press):not([data-st="work"]){transform:translateY(1px);box-shadow:var(--key-dn);filter:var(--press-f);transition-duration:0s,0s,0s,var(--c-base),var(--c-base)}
+.kw-retry.sm{height:30px;margin:0 0 0 6px;padding:0 11px;font-size:12.5px}
 
-/* header toggles: 지역순 · 등락률순, 목록 · 지도 (the heatmap's .seg look) */
+/* header toggles: 지역순 · 등락률순, 목록 · 지도 — the template's segment (deep tray + one raised indicator that slides, KH.ui.seg) */
 .kw-tools{display:flex;align-items:center;gap:8px}
 .kw-seg[hidden]{display:none}
 .kw-seg button{padding:4px 10px;font-size:12.5px}
-.kw-seg button:focus-visible{outline-offset:-2px}
 
 /* list view */
 .kw-list{display:grid;grid-template-columns:repeat(var(--kw-n,1),minmax(0,1fr));gap:12px;align-items:start}
@@ -10638,7 +10634,8 @@ document.addEventListener('keyup', e => { if (spaceTaken && (e.key === ' ' || e.
 .kw-rows{display:flex;flex-direction:column}
 .kw-lr{display:grid;grid-template-columns:minmax(0,1fr) 64px var(--kw-vw,76px) var(--kw-cw,62px) 66px 48px;grid-template-areas:"n s v c p b";align-items:center;column-gap:8px;width:100%;min-height:36px;padding:0 6px;border-radius:6px;text-align:left;font-size:13.5px;line-height:1.25;color:var(--fg)}
 .kw-lr:hover{background:rgba(255,255,255,.045)}
-.kw-lr:focus-visible{outline:2px solid var(--amber);outline-offset:-2px}
+.kw-lr:active{filter:brightness(.85);transition:filter 0s}
+.kw-lr:focus-visible{outline:var(--focus-w) solid var(--amber);outline-offset:calc(var(--focus-w) * -1)}
 .kw-lr.sel{background:var(--amber-soft);box-shadow:inset 3px 0 0 var(--amber)}
 .kw-ln{grid-area:n;display:flex;align-items:baseline;gap:7px;min-width:0;overflow:hidden;white-space:nowrap}
 .kw-ln .rk{flex:none;min-width:17px;text-align:right;font-size:11.5px;color:var(--faint);font-variant-numeric:tabular-nums}
@@ -10693,6 +10690,7 @@ document.addEventListener('keyup', e => { if (spaceTaken && (e.key === ' ' || e.
 .kw-ggrat{fill:none;stroke:rgba(255,255,255,.045);stroke-width:.6}
 .kw-cp{fill:#1f2126;stroke:none}
 .kw-cp.has{cursor:pointer;transition:fill .48s cubic-bezier(.2,.7,.2,1)}
+.kw-cp.has:active,.kw-gdot:active,.kw-gmk:active{opacity:.8}
 /* layers above the fills (motion brief (e)): night → borders → open-market glow → selection / hover → leader lines → markers */
 .kw-gnight,.kw-gbord,.kw-gglow,.kw-gsel,.kw-ghov,.kw-glines{pointer-events:none}
 .kw-gn{fill:#050814;fill-opacity:.12}
@@ -10739,7 +10737,10 @@ document.addEventListener('keyup', e => { if (spaceTaken && (e.key === ' ' || e.
 .kw-gl:hover{z-index:2}
 .kw-gl.chip:hover{border-color:rgba(255,255,255,.4)}
 .kw-gl.in:hover{background:rgba(0,0,0,.35)}
-.kw-gl:focus-visible{outline:2px solid var(--amber);outline-offset:1px;z-index:3}
+/* country labels and the boxes beside the map: press = darker (no sink), focus = the 3px amber ring (selection keeps its 2px) */
+.kw-gb{transition:filter var(--c-fast) var(--c-out)}
+.kw-gb:active{filter:brightness(.85);transition-duration:0s}
+.kw-gl:focus-visible{outline:var(--focus-w) solid var(--amber);outline-offset:var(--focus-off);z-index:3}
 .kw-gl.sel{z-index:2;outline:2px solid var(--amber);outline-offset:1px}
 .kw-goff{position:absolute;left:8px;bottom:8px;width:218px;padding:7px 6px 5px;border-radius:8px;background:rgba(17,18,22,.92);border:1px solid var(--line);z-index:2}
 .kw-goff.below{position:static;width:auto;margin-top:12px;background:var(--panel);border-radius:10px;padding:6px;display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));column-gap:12px}
@@ -10748,7 +10749,7 @@ document.addEventListener('keyup', e => { if (spaceTaken && (e.key === ' ' || e.
 .kw-go{display:grid;grid-template-columns:8px minmax(0,1fr) auto;align-items:center;gap:7px;width:100%;min-height:26px;padding:0 4px;border-radius:5px;font-size:12px;text-align:left}
 .kw-go .t{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .kw-go:hover{background:rgba(255,255,255,.05)}
-.kw-go:focus-visible{outline:2px solid var(--amber);outline-offset:-2px}
+.kw-go:focus-visible{outline:var(--focus-w) solid var(--amber);outline-offset:calc(var(--focus-w) * -1)}
 .kw-go.sel{background:var(--amber-soft)}
 .kw-pchip.sm{height:19px;line-height:19px;min-width:58px;font-size:11.5px;padding:0 6px}
 .kw-ggrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px;margin-top:10px}
@@ -10758,16 +10759,19 @@ document.addEventListener('keyup', e => { if (spaceTaken && (e.key === ' ' || e.
 .kw-gc .t b{font-size:13.5px;font-weight:600}
 .kw-gc .t small{font-size:11px;color:var(--faint);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .kw-gc .p{font-size:13px;font-weight:650;font-variant-numeric:tabular-nums}
-.kw-gc:focus-visible{outline:2px solid var(--amber);outline-offset:-2px}
+.kw-gc:focus-visible{outline:var(--focus-w) solid var(--amber);outline-offset:calc(var(--focus-w) * -1)}
 .kw-gc.sel{border-color:var(--amber);background:var(--amber-soft)}
 .kw-geo.narrow .kw-go{min-height:44px;font-size:13px}
-/* detail sheet: a country's indices */
+/* detail sheet: a country's indices = choice chips (controls.md §5-6): raised off, the shown one filled (--chip-on) with the 1.5px
+   amber ring and no check; 1px + darker under the finger. The % is data (up / down colour). */
 .kw-peers{display:flex;flex-wrap:wrap;gap:5px;padding:12px 48px 2px 14px}
 .kw-peers-h{width:100%;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:1px}
-.kw-peers button{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 9px;border-radius:7px;border:1px solid var(--line2);background:var(--panel2);font-size:12px;color:var(--fg2);white-space:nowrap;font-variant-numeric:tabular-nums}
+.kw-peers button{position:relative;display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 11px;border-radius:var(--r-chip);border:0;background:var(--chip-bg);box-shadow:var(--key-sh);font-size:12px;color:var(--fg2);white-space:nowrap;font-variant-numeric:tabular-nums;transition:transform var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out),background-color var(--c-fast) var(--c-out),box-shadow var(--c-fast) var(--c-out),color var(--c-fast) var(--c-out)}
 .kw-peers button .v{font-weight:600}
-.kw-peers button[aria-pressed="true"]{border-color:rgba(255,181,71,.6);background:var(--amber-soft);color:var(--fg)}
+.kw-peers button[aria-pressed="true"]{background:var(--chip-on);box-shadow:inset 0 0 0 1.5px var(--chip-ring);color:var(--fg)}
 .kw-peers button:hover{color:var(--fg)}
+.kw-peers button:is(:active,.is-press){transform:translateY(1px);filter:var(--press-f);transition-duration:0s}
+.kw-peers button:not([aria-pressed="true"]):is(:active,.is-press){box-shadow:var(--key-dn)}
 .kw-sheet.has-peers .kw-dh{padding-top:8px}
 
 /* legend dots */
@@ -10788,7 +10792,8 @@ document.addEventListener('keyup', e => { if (spaceTaken && (e.key === ' ' || e.
 .kw-rh.second{margin-top:10px}
 .kw-row{display:grid;grid-template-columns:10px minmax(0,1fr) auto 62px;gap:8px;align-items:center;padding:6px;margin:0 -6px;border-radius:6px;font-size:13px;text-align:left;width:calc(100% + 12px)}
 .kw-row:hover{background:rgba(255,255,255,.045)}
-.kw-row:focus-visible{outline-offset:-2px}
+.kw-row:active{filter:brightness(.85);transition:filter 0s}
+.kw-row:focus-visible{outline-offset:calc(var(--focus-w) * -1)}
 .kw-sw{width:10px;height:10px;border-radius:2px;display:inline-block;flex:none}
 .kw-row .nm{display:flex;align-items:baseline;gap:6px;min-width:0;overflow:hidden;white-space:nowrap;font-weight:500}
 .kw-row .nm small{color:var(--faint);font-size:11px;font-weight:400;overflow:hidden;text-overflow:ellipsis;min-width:0}
@@ -10809,8 +10814,10 @@ document.addEventListener('keyup', e => { if (spaceTaken && (e.key === ' ' || e.
 .kw-snap-in{display:flex;flex-direction:column;align-items:center;gap:8px;max-width:420px;text-align:center}
 .kw-snap-in b{font-size:17px;font-weight:700;color:var(--fg)}
 .kw-snap-in p{margin:0;color:var(--muted);font-size:13.5px;line-height:1.65}
-.kw-snap-a{margin-top:10px;display:inline-flex;align-items:center;height:40px;padding:0 16px;border-radius:8px;background:var(--amber);color:#1b1404;font-size:14px;font-weight:700;text-decoration:none}
-.kw-snap-a:hover{filter:brightness(1.06)}
+/* the one action here = the primary key (the light plate, controls.md §5-2) */
+.kw-snap-a{position:relative;margin-top:10px;display:inline-flex;align-items:center;height:40px;padding:0 17px;border-radius:var(--r-key);background:var(--pri-bg);color:var(--pri-fg);box-shadow:var(--pri-sh);font-size:14px;font-weight:700;text-decoration:none;transition:transform var(--c-fast) var(--c-out),box-shadow var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out)}
+.kw-snap-a:hover{background:#fff}
+.kw-snap-a:is(:active,.is-press){transform:translateY(1px);box-shadow:var(--key-dn);filter:var(--press-f);transition-duration:0s}
 
 /* detail sheet */
 .kw-scrim{display:none}
@@ -10820,8 +10827,10 @@ document.addEventListener('keyup', e => { if (spaceTaken && (e.key === ' ' || e.
 .kw-sheet.kw-noanim{animation:none}
 @keyframes kwIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
 .kw-grab{display:none}
-.kw-x{position:absolute;right:8px;top:8px;width:32px;height:32px;border-radius:8px;display:grid;place-items:center;color:var(--muted);font-size:19px;line-height:1}
+/* × = a key without a surface (controls.md §5-2): 1px + darker under the finger, 44px to press on touch screens */
+.kw-x{position:absolute;right:8px;top:8px;width:32px;height:32px;border-radius:var(--r-in);display:grid;place-items:center;color:var(--muted);font-size:19px;line-height:1;transition:transform var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out),color var(--c-fast) var(--c-out)}
 .kw-x:hover{background:rgba(255,255,255,.07);color:var(--fg)}
+.kw-x:is(:active,.is-press){transform:translateY(1px);filter:var(--press-f);transition-duration:0s}
 .kw-dh{padding:12px 14px 10px;border-bottom:1px solid var(--line)}
 .kw-path{font-size:11.5px;color:var(--muted);margin:0 40px 6px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .kw-nmrow{display:flex;align-items:center;gap:8px;margin-right:36px;min-width:0}
@@ -10884,18 +10893,31 @@ document.addEventListener('keyup', e => { if (spaceTaken && (e.key === ' ' || e.
   .kw-peers button .n{min-width:0;overflow:hidden;text-overflow:ellipsis}
   .kw-peers button .v{flex:none}
 }
+/* 44px to press on touch screens, the drawn size unchanged; segment buttons (40px on phones) grow only up and down, into the tray */
+@media (pointer:coarse){
+  :is(.kw-x,.kw-retry,.kw-peers button,.kw-snap-a)::before{content:"";position:absolute;left:50%;top:50%;width:max(100%,44px);height:max(100%,44px);transform:translate(-50%,-50%)}
+  :is(.kw-seg,.kw-tf)>button::before{content:"";position:absolute;left:0;right:0;top:50%;height:max(100%,44px);transform:translateY(-50%)}
+}
+/* touch screens keep no hover look after a tap; ✓ / ! keep their surfaces (the template's .kasync rules) */
+@media (hover:none){
+  .kw-retry:not([data-st="done"]):not([data-st="fail"]):hover{background:var(--key-bg)}
+  .kw-x:hover{background:none;color:var(--muted)}
+  .kw-tile:not(.sel):hover{box-shadow:none;z-index:2}
+  .kw-lr:not(.sel):hover,.kw-row:hover,.kw-go:not(.sel):hover,.kw-gl.in:hover{background:none}
+  .kw-gl.chip:hover{border-color:rgba(255,255,255,.12)}
+  .kw-peers button:not([aria-pressed="true"]):hover{color:var(--fg2)}
+  .kw-snap-a:hover{background:var(--pri-bg)}
+}
 /* the device's reduced-motion setting, only when the page has no 효과 setting of its own (no <html data-motion>):
    with one, KH.motion() decides (a user may pick 기본 on such a device) and .kw-rm below applies */
 @media (prefers-reduced-motion: reduce){
   html:not([data-motion]) .kw-fl,html:not([data-motion]) .kw-pchip.kw-fl{animation:none}
   html:not([data-motion]) .kw-tile,html:not([data-motion]) .kw-cp.has{transition:none}
   html:not([data-motion]) .kw-sheet{animation:none}
-  html:not([data-motion]) .kw-msg.busy b::after{animation:none;opacity:.8}
 }
 /* 효과: 줄이기 (KH.motion() 'reduced') — the same, whatever the OS says */
 .kw-rm .kw-fl,.kw-rm .kw-pchip.kw-fl,.kw-rm .kw-gin *{animation:none!important}
 .kw-rm .kw-tile,.kw-rm .kw-cp.has{transition:none}
-.kw-rm .kw-msg.busy b::after{animation:none;opacity:.8}
 
 /* ticker → 코스피 / 코스닥: today's line in the detail sheet */
 .kw-today{padding:8px 14px 2px}
@@ -11101,6 +11123,19 @@ function syncMotion() {
   if (sheet) sheet.classList.toggle('kw-noanim', m === 'reduced');
 }
 
+/* living controls (docs/standards/controls.md): the template's KH.ui — segments with one raised indicator (seg), the shared
+   다시 시도 key (retry: the message stays while it works, ring "받는 중" → ✓ "받았어요" held --c-slow → the content, or ! "아직 안 돼요 ·
+   다시" until the next press). failedW: areas whose last retry failed, so a message drawn again keeps the !. */
+const UI = KH.ui && typeof KH.ui.retry === 'function' ? KH.ui : null;
+const uiSeg = el => { if (UI && typeof UI.seg === 'function') UI.seg(el); return el; };
+const uiSpin = () => (UI && typeof UI.icon === 'function' ? UI.icon('spin') : null);
+const failedW = new Set();
+function retryKey(area, run, done, cls, alive) {
+  cls = 'kw-retry' + (cls ? ' ' + cls : '');
+  if (UI) return UI.retry({ cls, run, render: done, alive, fail: failedW.has(area), onStart: () => failedW.delete(area), onFail: () => failedW.add(area) });
+  return h('button', { type: 'button', class: cls, onclick: async () => { if (await run()) done(); } }, '다시 시도');
+}
+
 /* normalise one /api/world payload; throws on a wrong shape */
 function normalise(j, kind) {
   if (!j || !Array.isArray(j.groups)) throw new Error('응답 모양이 달라요');
@@ -11143,10 +11178,12 @@ function scaffold() {
   const map = h('div', { class: 'kw-map', role: 'group' });
   const list = h('div', { class: 'kw-list', role: 'group', hidden: true });
   const geo = h('div', { class: 'kw-geo', hidden: true });
+  // the world map could not load: the list stands in; 다시 시도 fetches the atlas again (the note stays until the map is in)
   const note = h('p', { class: 'kw-gnote', role: 'status', hidden: true }, '세계지도를 불러오지 못해서 목록으로 보여 드려요. ',
-    h('button', { type: 'button', class: 'kw-retry sm', onclick: () => { GEO.state = 'idle'; render(); } }, '다시 시도'));
-  const seg = (name, label, opts) => h('div', { class: 'seg kw-seg', role: 'group', 'aria-label': label, 'data-kw': name },
-    opts.map(([v, t]) => h('button', { type: 'button', 'data-v': v, 'aria-pressed': 'false' }, t)));
+    retryKey('geo', async () => { GEO.state = 'idle'; await loadAtlas(true); return GEO.state === 'ready'; }, () => render(), 'sm',
+      () => S.shown && S.kind === 'index' && S.view === 'map'));
+  const seg = (name, label, opts) => uiSeg(h('div', { class: 'seg kw-seg', role: 'group', 'aria-label': label, 'data-kw': name },
+    opts.map(([v, t]) => h('button', { type: 'button', 'data-v': v, 'aria-pressed': 'false' }, t))));
   const sortSeg = seg('sort', '정렬', [['group', '지역순'], ['pct', '등락률순']]);
   const viewSeg = seg('view', '보기', [['list', '목록'], ['map', '지도']]);
   const tools = h('div', { class: 'kw-tools' }, sortSeg, viewSeg);
@@ -11290,9 +11327,11 @@ function errText(e) {
   if (e.status === 404 && !e.json) return '서버에 아직 이 기능이 없어요. 잠시 뒤 다시 시도할게요.';
   return e.status ? '서버가 시세를 받아 오지 못했어요. 15초 뒤 다시 시도할게요.' : '네트워크 연결을 확인해 주세요. 15초 뒤 다시 시도할게요.';
 }
+// retry: 다시 시도 fetches this kind again; the message stays until the answer is in (busy: the ring while the first answer comes)
 function msgBox(title, body, retry, busy) {
-  return h('div', { class: 'kw-msg' + (busy ? ' busy' : '') }, h('b', { text: title }), body ? h('span', { text: body }) : null,
-    retry ? h('button', { type: 'button', class: 'kw-retry', onclick: () => load(S.kind) }, '다시 시도') : null);
+  const kind = S.kind;
+  return h('div', { class: 'kw-msg' + (busy ? ' busy' : '') }, h('b', {}, title, busy ? uiSpin() : null), body ? h('span', { text: body }) : null,
+    retry ? retryKey('data:' + kind, () => load(kind, true), () => render(), '', () => S.shown && S.kind === kind) : null);
 }
 
 function renderBar(d, err) {
@@ -11947,7 +11986,7 @@ function topoFeatures(topo, name) {
       return f;
     });
 }
-async function loadAtlas() {
+async function loadAtlas(quiet) {
   if (GEO.state === 'loading' || GEO.state === 'ready') return;
   GEO.state = 'loading';
   const ac = new AbortController();
@@ -11964,7 +12003,7 @@ async function loadAtlas() {
     GEO.state = 'failed';
     GEO.err = e;
   } finally { clearTimeout(timer); }
-  if (S.shown) render();
+  if (S.shown && !quiet) render();          // quiet: the 다시 시도 key shows ✓ first, then draws
 }
 function geoGroups(d) {
   const used = new Set(), cs = [];
@@ -12399,7 +12438,7 @@ function renderSource(d) {
 /* snapshot (artifact) mode: no network → a pointer to the live page */
 function renderSnapshot() {
   const K = KINDS[S.kind];
-  const url = (KH.LIVE_URL || 'https://kospimap.pages.dev/') + '#' + K.hash;
+  const url = (KH.LIVE_URL || 'https://panse.pages.dev/') + '#' + K.hash;
   root.replaceChildren(h('div', { class: 'kw-snap' },
     h('div', { class: 'kw-snap-in' },
       h('b', { text: K.snapTitle }),
@@ -12574,20 +12613,46 @@ async function loadChart() {
   if (fresh) { D.chart = c; drawChart(); return; }
   D.chart = { loading: true };
   drawChart();
+  const res = await fetchChart(D.key, D.tf);
+  if (!S.detail || S.detail.key !== D.key || S.detail.tf !== D.tf) return;
+  if (!S.chartRoute) { box.replaceChildren(); box.hidden = true; return; }
+  S.detail.chart = res;
+  drawChart();
+}
+async function fetchChart(key, tf) {
   let res;
   try {
-    const j = await getJSON(`api/world/chart/${encodeURIComponent(D.key)}?tf=${D.tf}`);
+    const j = await getJSON(`api/world/chart/${encodeURIComponent(key)}?tf=${tf}`);
     const bars = (j && Array.isArray(j.bars) ? j.bars : []).filter(b => b && b.t != null && isFinite(+b.c)).map(b => ({ t: String(b.t), c: +b.c }));
     res = { at: Date.now(), bars };
   } catch (e) {
     if (e.status === 404 && !e.json) S.chartRoute = false;          // the Worker has no chart route at all
     res = { at: Date.now(), err: e, gone: e.status === 404 || e.status === 400 };
   }
-  CH.set(k, res);
-  if (!S.detail || S.detail.key !== D.key || S.detail.tf !== D.tf) return;
-  if (!S.chartRoute) { box.replaceChildren(); box.hidden = true; return; }
-  S.detail.chart = res;
-  drawChart();
+  CH.set(key + '|' + tf, res);
+  return res;
+}
+// 다시 시도 under a failed chart: the message stays while it works; ✓ then the chart, or ! (KH.ui.retry)
+function chartRetry(D) {
+  const k = D.key, tf = D.tf, same = () => !!S.detail && S.detail.key === k && S.detail.tf === tf;
+  return retryKey('chart:' + k + '|' + tf, async () => {
+    CH.delete(k + '|' + tf);
+    const res = await fetchChart(k, tf);
+    if (!same()) return null;
+    if (!S.chartRoute) { const box = $('.kw-chart', sheet); if (box) { box.replaceChildren(); box.hidden = true; } return null; }
+    S.detail.chart = res;
+    return !res.err;
+  }, () => drawChart(), 'sm', same);
+}
+// the 기간 segment lives as long as the sheet: KH.ui.seg slides its indicator from one period to the other
+let tfSeg = null;
+function tfSegment(D) {
+  if (!tfSeg) {
+    tfSeg = uiSeg(h('div', { class: 'seg kw-tf', role: 'group', 'aria-label': '차트 기간' }, TFS.map(([v, lab]) =>
+      h('button', { type: 'button', 'data-v': v, 'aria-pressed': 'false', onclick: () => { const X = S.detail; if (!X || X.tf === v) return; X.tf = v; loadChart(); } }, lab))));
+  }
+  for (const b of tfSeg.children) b.setAttribute('aria-pressed', String(D.tf === b.dataset.v));
+  return tfSeg;
 }
 function svg(tag, attrs, ...kids) {
   const el = document.createElementNS(SVGNS, tag);
@@ -12603,14 +12668,15 @@ function drawChart() {
   const box = $('.kw-chart', sheet);
   if (!box || box.hidden) return;
   const it = S.data[D.kind] && S.data[D.kind].byKey.get(D.key);
-  const seg = h('div', { class: 'seg kw-tf', role: 'group', 'aria-label': '차트 기간' }, TFS.map(([v, lab]) =>
-    h('button', { type: 'button', 'aria-pressed': String(D.tf === v), onclick: () => { if (D.tf === v) return; D.tf = v; loadChart(); } }, lab)));
+  const seg = tfSegment(D);
   const C = D.chart;
+  // the segment moves into the new top row: a focused period button keeps the focus
+  const keep = seg.contains(document.activeElement) ? document.activeElement : null;
+  const put2 = (...kids) => { box.replaceChildren(...kids); if (keep && !keep.isConnected) return; if (keep && document.activeElement !== keep) keep.focus({ preventScroll: true }); };
   const top = h('div', { class: 'kw-ctop' }, seg, h('span', { class: 'kw-cnote', text: '일봉 종가 · 마지막 점은 현재 값' }));
-  if (!C || C.loading) { box.replaceChildren(top, h('div', { class: 'kw-cmsg', text: '차트를 불러오는 중이에요…' })); return; }
+  if (!C || C.loading) { put2(top, h('div', { class: 'kw-cmsg', text: '차트를 불러오는 중이에요…' })); return; }
   if (C.err) {
-    box.replaceChildren(top, h('div', { class: 'kw-cmsg' }, C.gone ? '이 항목은 차트 자료가 없어요.' : '차트를 불러오지 못했어요. ',
-      C.gone ? null : h('button', { type: 'button', class: 'kw-retry sm', onclick: () => { CH.delete(D.key + '|' + D.tf); loadChart(); } }, '다시 시도')));
+    put2(top, h('div', { class: 'kw-cmsg' }, C.gone ? '이 항목은 차트 자료가 없어요.' : '차트를 불러오지 못했어요. ', C.gone ? null : chartRetry(D)));
     return;
   }
   const bars = C.bars.slice();
@@ -12621,7 +12687,7 @@ function drawChart() {
     if (lastB.t === day) { if (lastB.c !== it.value) bars[bars.length - 1] = { t: day, c: it.value }; }
     else if (lastB.t < day) bars.push({ t: day, c: it.value });
   }
-  if (bars.length < 2) { box.replaceChildren(top, h('div', { class: 'kw-cmsg', text: '차트 자료가 아직 없어요.' })); return; }
+  if (bars.length < 2) { put2(top, h('div', { class: 'kw-cmsg', text: '차트 자료가 아직 없어요.' })); return; }
   const W = Math.max(220, Math.round(box.clientWidth || 300)), H = 150, padL = 2, padR = 58, padT = 10, padB = 20;
   const cs = bars.map(b => b.c);
   const lo = Math.min(...cs), hi = Math.max(...cs), first = cs[0], last = cs[cs.length - 1];
@@ -12667,7 +12733,7 @@ function drawChart() {
   });
   s.addEventListener('pointerleave', reset);
   reset();
-  box.replaceChildren(top, read, s);
+  put2(top, read, s);
 }
 
 /* ───────── polling ───────── */
@@ -12676,30 +12742,34 @@ function schedule(ms) {
   if (!S.shown || !LIVE) return;
   S.timer = setTimeout(() => load(S.kind), ms);
 }
-async function load(kind) {
+// → true (arrived) · false (failed) · null (superseded). quiet (the 다시 시도 key): the message stays while it works and nothing is
+// drawn here — the key shows ✓ and then draws, or ! and the message stays
+async function load(kind, quiet) {
   clearTimeout(S.timer); S.timer = 0;
-  if (!S.shown || S.kind !== kind || !LIVE || document.hidden) return;
+  if (!S.shown || S.kind !== kind || !LIVE || document.hidden) return null;
   const seq = ++S.seq;
   if (S.ac) S.ac.abort();
   const ac = S.ac = new AbortController();
   S.busy = kind;
-  if (!S.data[kind] && S.err[kind]) { S.err[kind] = null; render(); }   // a retry from the error box shows "loading" again
+  if (!quiet && !S.data[kind] && S.err[kind]) { S.err[kind] = null; render(); }   // the automatic retry shows "loading" again
   let ok = false;
   try {
     const j = await getJSON('api/world?kind=' + kind, ac.signal);
-    if (seq !== S.seq) return;
+    if (seq !== S.seq) return null;
     S.data[kind] = normalise(j, kind);
     S.at[kind] = Date.now();
     S.err[kind] = null;
+    failedW.delete('data:' + kind);
     ok = true;
   } catch (e) {
-    if (seq !== S.seq) return;
+    if (seq !== S.seq) return null;
     S.err[kind] = e;
   }
   S.busy = null;
-  render();
+  if (!quiet) render();
   announce(kind, ok);
   schedule(ok ? POLL_MS : RETRY_MS);
+  return ok;
 }
 function announce(kind, ok) {
   const K = KINDS[kind], key = kind + (ok ? ':ok' : ':err');

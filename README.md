@@ -1,6 +1,6 @@
-# 한국 증시 히트맵
+# 판세 — 코스피·코스닥 히트맵
 
-**주소: https://kospimap.pages.dev**
+**주소: https://panse.pages.dev** (옛 주소 kospimap.pages.dev는 설정·관심종목을 가지고 여기로 넘어와요)
 
 코스피·코스닥 종목을 섹터 › 업종 › 종목 트리맵으로 보여 주는 Finviz 스타일 히트맵이에요.
 타일 크기는 시가총액·거래대금·외국인/기관 순매수, 색은 등락률(오늘·1주·1개월·3개월·올해·1년)이에요.
@@ -31,7 +31,7 @@ web/                       실시간 버전 정적 파일 — Worker가 GitHub�
 | 모드 | 어디서 | 데이터 |
 |---|---|---|
 | 스냅샷 | `dist/index.html` (네트워크 없이도 열려요) | 빌드할 때의 15:30 종가 |
-| 실시간 | https://kospimap.pages.dev | 네이버 증권, 정규장 중 몇 초마다 갱신 |
+| 실시간 | https://panse.pages.dev | 네이버 증권, 정규장 중 몇 초마다 갱신 |
 
 브라우저는 네이버 API를 직접 부를 수 없어요(다른 사이트의 요청을 403으로 막아요).
 그래서 Worker가 서버에서 대신 받아 오고 엣지 캐시에 잠깐 담아 둬요.
@@ -40,7 +40,7 @@ web/                       실시간 버전 정적 파일 — Worker가 GitHub�
 
 - **화면**: `python3 scripts/build_page.py` 뒤 `web/`를 커밋·푸시하면 끝이에요. Worker가 `raw.githubusercontent.com`에서 읽어요(캐시 몇 분).
 - **Worker**: `node scripts/build_worker.mjs` → `worker/dist/worker.js`를 Cloudflare에 올려요(`worker/wrangler.toml`: KV `REPLAY`, cron `* 0-7 * * 1-5`, 매분). 비밀값 `DART_KEY`(OpenDART)는 Cloudflare에만 있어요.
-- **주소**: Cloudflare Pages 프로젝트 `kospimap`이 서비스 바인딩으로 Worker에 넘겨요.
+- **주소**: Cloudflare Pages 프로젝트 `panse`가 서비스 바인딩 `API`로 Worker에 넘겨요. 옛 프로젝트 `kospimap`은 이사 다리(설정을 #khm-import로 넘기고 panse로 이동, `/api/*`는 계속 프록시)예요.
 - **매일 데이터**: `.github/workflows/daily.yml` — 평일 16:40 KST(장 마감 확인 뒤) 스냅샷·테마·기간 수익률·투자자 동향을 만들어 커밋, 21:30에 투자자 동향만 한 번 더.
 
 ## Worker API (요약)

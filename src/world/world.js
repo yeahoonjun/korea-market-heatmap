@@ -1506,7 +1506,7 @@ function renderSource(d) {
 /* snapshot (artifact) mode: no network → a pointer to the live page */
 function renderSnapshot() {
   const K = KINDS[S.kind];
-  const url = (KH.LIVE_URL || 'https://kospimap.pages.dev/') + '#' + K.hash;
+  const url = (KH.LIVE_URL || 'https://panse.pages.dev/') + '#' + K.hash;
   root.replaceChildren(h('div', { class: 'kw-snap' },
     h('div', { class: 'kw-snap-in' },
       h('b', { text: K.snapTitle }),

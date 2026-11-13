@@ -376,7 +376,7 @@ with sync_playwright() as p:
     if not LIVE:
         ctx, pg, log = fresh(b, 'd1280')
         a = pg.evaluate("(() => { const a = [...document.querySelectorAll('#foot a')].find(x => x.textContent === '실시간 버전 열기'); return a ? a.href : null; })()")
-        ok('snapshot footer links the live page', a == 'https://kospimap.pages.dev/', a)
+        ok('snapshot footer links the live page', a == 'https://panse.pages.dev/', a)
         ok('no Worker deploy text in the footer', 'Worker' not in pg.evaluate("document.getElementById('foot').innerText"))
         ctx.close()
     src = open(ROOT + 'src/template.html', encoding='utf-8').read()
