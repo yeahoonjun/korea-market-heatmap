@@ -117,15 +117,17 @@ globalThis.fetch = async (input, init) => {
 let nInst = 0;
 const fresh = async () => (await import(SRC + '?i=' + (++nInst))).default;
 const env0 = kv => ({ ASSET_BASE: ASSET, REPLAY: kv, DART_KEY: KEY });
-async function hit(W, env, colo) {
-  const req = new Request('https://panse.pages.dev/api/disclosures/today');
+async function hit(W, env, colo, opt = {}) {
+  const req = new Request('https://panse.pages.dev/api/disclosures/today' + (opt.after != null ? '?after=' + opt.after : ''),
+    { headers: opt.inm ? { 'if-none-match': opt.inm } : {} });
   if (colo) Object.defineProperty(req, 'cf', { value: { colo } });
   const pending = [];
   const res = await W.fetch(req, env, { waitUntil: p => pending.push(p) });
   await Promise.all(pending);
   const text = await res.text();
   assert.ok(!text.includes(KEY), 'key never in a response');
-  return { status: res.status, body: JSON.parse(text), cc: res.headers.get('cache-control') };
+  const h = n => res.headers.get(n);
+  return { status: res.status, body: text ? JSON.parse(text) : null, text, cc: h('cache-control'), etag: h('etag'), xAsOf: h('x-as-of'), expose: h('access-control-expose-headers') };
 }
 const since = () => calls.splice(0).length;              // upstream calls since the last check
 const at = s => { clock = KST(s); };
@@ -174,7 +176,15 @@ await test('busy day: full first sync, filter, shape, kinds, notes, filer, first
   assert.equal(b.since, '10:00');
   assert.equal(b.stale, undefined);
   // 254 Y − 10 outside universe − 5 without code = 239; K all 130 in universe
-  assert.deepEqual(b.counts, { K: 239, Q: 130, total: 369 });
+  assert.deepEqual({ K: b.counts.K, Q: b.counts.Q, total: b.counts.total }, { K: 239, Q: 130, total: 369 });
+  assert.deepEqual(Object.keys(b.counts.byKind), ['실적', '주요', '지분', '정기', '기타']);
+  for (const k of Object.keys(b.counts.byKind)) {
+    assert.equal(b.counts.byKind[k], b.rows.filter(x => x.k === k).length, 'byKind ' + k);
+    assert.equal(b.counts.byKindMarket.K[k] + b.counts.byKindMarket.Q[k], b.counts.byKind[k]);
+  }
+  assert.equal(Object.values(b.counts.byKindMarket.Q).reduce((a, v) => a + v, 0), 130);
+  assert.equal(Object.values(b.counts.byKind).reduce((a, v) => a + v, 0), 369);
+  assert.ok(b.counts.byKind['주요'] > 0 && b.counts.byKind['지분'] > 0 && b.counts.byKind['실적'] > 0 && b.counts.byKind['정기'] > 0 && b.counts.byKind['기타'] > 0);
   assert.equal(b.rows.length, 369);
   const rs = b.rows.map(x => x.r);
   assert.deepEqual(rs, rs.slice().sort().reverse(), 'newest first');
@@ -549,6 +559,131 @@ await test('total_count the pages never deliver: one full pass, then page 1 only
   at('2026-11-13T15:01:01');
   await hit(W, env0(kv));
   assert.equal(since(), 2, 'no endless paging');
+});
+
+await test('ETag: weak, ignores asOf, 304 on If-None-Match (single, list, *), changes with rows/stale', async () => {
+  const kv = makeKV(), W = await fresh();
+  busyFriday();
+  at('2026-11-13T10:00:00');
+  const a = await hit(W, env0(kv));
+  assert.match(a.etag, /^W\/"\d{14}\.369\.[0-9a-f]{12}"$/);
+  assert.ok(a.etag.startsWith('W/"' + a.body.rows[0].r + '.'), 'newest rcept_no in the tag');
+  assert.equal(a.xAsOf, '2026-11-13T10:00:00+09:00');
+  assert.equal(a.expose, 'etag, x-as-of');
+  at('2026-11-13T10:00:30');
+  const b = await hit(W, env0(kv), null, { inm: a.etag });
+  assert.equal(b.status, 304);
+  assert.equal(b.text, '');
+  assert.equal(b.etag, a.etag);
+  assert.equal(b.cc, 'public, max-age=30');
+  assert.equal(b.xAsOf, '2026-11-13T10:00:00+09:00');
+  // a refresh that finds nothing new: asOf moves, the tag doesn't → still 304, x-as-of carries the new time
+  at('2026-11-13T10:01:01');
+  const c = await hit(W, env0(kv), null, { inm: a.etag });
+  assert.equal(since(), 2 + 5, 'it did refresh (plus the first sync)');
+  assert.equal(c.status, 304);
+  assert.equal(c.xAsOf, '2026-11-13T10:01:01+09:00');
+  assert.equal((await hit(W, env0(kv), null, { inm: '"nope", ' + a.etag.replace('W/', '') })).status, 304, 'list + weak comparison');
+  assert.equal((await hit(W, env0(kv), null, { inm: '*' })).status, 304);
+  const d = await hit(W, env0(kv), null, { inm: 'W/"nope"' });
+  assert.equal(d.status, 200);
+  assert.equal(d.etag, a.etag);
+  assert.equal(d.body.asOf, '2026-11-13T10:01:01+09:00');
+  // a new filing → new tag, 200
+  at('2026-11-13T10:02:02');
+  addTop(FRI, 'K', [item(FRI, 'K', kosdaq[9])]);
+  const e = await hit(W, env0(kv), null, { inm: a.etag });
+  assert.equal(e.status, 200);
+  assert.notEqual(e.etag, a.etag);
+  assert.equal(e.body.rows.length, 370);
+  // a flag change on a row already held (page 1 re-read) → new tag even though count and newest are the same
+  at('2026-11-13T10:03:03');
+  db[FRI].K[0].rm = '철';
+  const f = await hit(W, env0(kv), null, { inm: e.etag });
+  assert.equal(f.status, 200);
+  assert.notEqual(f.etag, e.etag);
+  assert.equal(f.body.rows.find(x => x.r === db[FRI].K[0].rcept_no).n, '철회');
+  // stale → new tag
+  at('2026-11-13T10:04:04');
+  dartImpl = () => ({ status: '020', message: '요청 제한' });
+  const g = await hit(W, env0(kv), null, { inm: f.etag });
+  assert.equal(g.status, 200);
+  assert.equal(g.body.stale, true);
+  assert.notEqual(g.etag, f.etag);
+});
+
+await test('edge cache keeps ETag/304 and after= working; an old entry without ETag is still served', async () => {
+  const kv = makeKV(), W = await fresh();
+  busyFriday();
+  cacheOn = true;
+  at('2026-11-13T11:00:00');
+  const a = await hit(W, env0(kv));
+  assert.ok(cachePuts.some(p => p.url.endsWith('/__cache/dis-today') && p.status === 200));
+  const gets = kv.log.gets;
+  calls.length = 0;
+  at('2026-11-13T11:00:20');
+  const b = await hit(W, env0(kv), null, { inm: a.etag });
+  assert.equal(b.status, 304);
+  assert.equal(b.xAsOf, a.xAsOf);
+  const c = await hit(W, env0(kv), null, { after: a.body.rows[2].r });
+  assert.equal(c.status, 200);
+  assert.deepEqual(c.body.rows.map(x => x.r), a.body.rows.slice(0, 2).map(x => x.r));
+  assert.equal(c.etag, a.etag);
+  assert.equal(kv.log.gets, gets, 'served from the edge cache: no KV read');
+  assert.equal(since(), 0);
+  // an entry cached by the previous Worker version (no etag / x-as-of headers)
+  cacheStore.set('https://panse.pages.dev/__cache/dis-today', { exp: clock + 30e3, res: new Response(a.text, { headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'public, max-age=30' } }) });
+  const d = await hit(W, env0(kv), null, { inm: a.etag });
+  assert.equal(d.status, 200, 'no tag stored → no 304');
+  assert.equal(d.body.rows.length, 369);
+  const e = await hit(W, env0(kv), null, { after: a.body.rows[1].r });
+  assert.equal(e.body.rows.length, 1);
+  // errors are still never cached
+  cacheStore.clear();
+  cachePuts.length = 0;
+  const W2 = await fresh(), kv2 = makeKV();
+  dartImpl = () => { throw new TypeError('fetch failed'); };
+  at('2026-11-13T11:01:00');
+  assert.equal((await hit(W2, env0(kv2))).status, 502);
+  assert.ok(!cachePuts.some(p => p.url.includes('dis-today')), 'the 502 was not cached');
+});
+
+await test('?after=: delta of the same date, full day when the date moved, 400 on junk, 304 when unchanged', async () => {
+  const kv = makeKV(), W = await fresh();
+  busyFriday();
+  at('2026-11-13T12:00:00');
+  const a = (await hit(W, env0(kv))).body;
+  const d = await hit(W, env0(kv), null, { after: a.rows[3].r });
+  assert.equal(d.status, 200);
+  assert.deepEqual(Object.keys(d.body), ['date', 'asOf', 'rows', 'counts', 'since', 'after']);
+  assert.equal(d.body.after, a.rows[3].r);
+  assert.deepEqual(d.body.rows, a.rows.slice(0, 3));
+  assert.deepEqual(d.body.counts, a.counts, 'counts stay whole-day');
+  assert.equal((await hit(W, env0(kv), null, { after: a.rows[0].r })).body.rows.length, 0, 'nothing newer');
+  const old = await hit(W, env0(kv), null, { after: '20261112000123' });
+  assert.equal(old.body.after, undefined, 'another date → the whole day');
+  assert.equal(old.body.rows.length, 369);
+  assert.equal((await hit(W, env0(kv), null, { after: 'abc' })).status, 400);
+  assert.equal((await hit(W, env0(kv), null, { after: '2026111300001' })).status, 400);
+  const tag = (await hit(W, env0(kv))).etag;
+  assert.equal((await hit(W, env0(kv), null, { after: a.rows[0].r, inm: tag })).status, 304);
+  // new filings arrive → the delta from the previous newest has exactly them
+  at('2026-11-13T12:01:01');
+  addTop(FRI, 'Y', [item(FRI, 'Y', kospi[5]), item(FRI, 'Y', kospi[6])]);
+  const n = await hit(W, env0(kv), null, { after: a.rows[0].r, inm: tag });
+  assert.equal(n.status, 200);
+  assert.equal(n.body.rows.length, 2);
+  assert.ok(n.body.rows.every(x => x.s === '12:01'));
+  assert.equal(n.body.counts.total, 371);
+  // Saturday: the day is still Friday → a Friday `after` stays a delta, a Saturday one gets Friday whole
+  const kv2 = makeKV(), W2 = await fresh();
+  at('2026-11-14T09:00:00');
+  const s1 = (await hit(W2, env0(kv2))).body;
+  assert.equal(s1.date, '2026-11-13');
+  assert.equal((await hit(W2, env0(kv2), null, { after: s1.rows[1].r })).body.rows.length, 1);
+  const s2 = (await hit(W2, env0(kv2), null, { after: '20261114000001' })).body;
+  assert.equal(s2.after, undefined);
+  assert.equal(s2.rows.length, 371);
 });
 
 // Workers KV as documented: one last-write-wins store; each colo serves what it last read (or wrote) from a local

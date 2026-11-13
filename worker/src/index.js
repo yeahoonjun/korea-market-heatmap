@@ -11,7 +11,7 @@
 //   GET /api/stock/:code/daily?page=N  → daily price table, 60 rows per page
 //   GET /api/stock/:code/news          → latest 20 news items
 //   GET /api/stock/:code/disclosures   → latest 20 disclosures
-//   GET /api/disclosures/today         → the day's OpenDART filings of universe stocks (공시 배지; KV-shared snapshot, AGENTS §3-29)
+//   GET /api/disclosures/today[?after=rcept_no] → the day's OpenDART filings of universe stocks (공시 배지; KV-shared snapshot, ETag/304; AGENTS §3-29)
 //   GET /api/quotes?codes=c1,c2,…      → same shape for the given codes (≤ 300)
 //   GET /api/quotes?scope=all          → same shape for every listed stock (universe K + Q + X, ~2,700), polled in parallel chunks
 //   GET /api/breadth?m=K|Q[&part=N]    → [code, ratio, lim?, nxr?] for the whole market (no part) or one 600-code chunk
@@ -93,7 +93,7 @@ export default {
         return await edgeCached(request, ctx, `wch-${item.key}-${tf}`, 600, () => getWorldChart(item, tf));
       }
       if (path === '/api/themes') return await edgeCached(request, ctx, 'themes', 30, () => getThemes());
-      if (path === '/api/disclosures/today') return await edgeCached(request, ctx, 'dis-today', 30, () => getDisclosuresToday(request, env));   // 공시 배지 (AGENTS §3-29)
+      if (path === '/api/disclosures/today') return await dtServe(request, env, ctx, url);   // 공시 배지 (AGENTS §3-29): ETag/304, ?after=
       if (path === '/api/market') return await edgeCached(request, ctx, 'market', 30, () => getMarket());
       if (path === '/api/replay/dates') return await edgeCached(request, ctx, 'replay-dates', 60, () => getReplayDates(env));
       if (path === '/api/replay/status') return json(await getReplayStatus(env));   // recorder health, never cached
@@ -1333,11 +1333,17 @@ async function dtStamp(env, day, rows, hm) {
   for (const r of rows) if (r.s) out[r.r] = r.s;
   await env.REPLAY.put(key, JSON.stringify(out), { expirationTtl: DT_KEEP }).catch(() => {});
 }
+const DT_KINDS = ['실적', '주요', '지분', '정기', '기타'];
 function dtBody(snap, now) {
-  const today = ymd(dtK(now)), counts = { K: 0, Q: 0, total: 0 };
+  const today = ymd(dtK(now));
+  const zero = () => Object.fromEntries(DT_KINDS.map(k => [k, 0]));
+  const counts = { K: 0, Q: 0, total: 0, byKind: zero(), byKindMarket: { K: zero(), Q: zero() } };
   const rows = snap.rows.map(x => {
-    counts[x.m === 'Q' ? 'Q' : 'K']++;
+    const mk = x.m === 'Q' ? 'Q' : 'K', kd = DT_KINDS.includes(x.k) ? x.k : '기타';
+    counts[mk]++;
     counts.total++;
+    counts.byKind[kd]++;
+    counts.byKindMarket[mk][kd]++;
     const o = { c: x.c, t: x.t, k: x.k };
     if (x.n) o.n = x.n;
     o.r = x.r;
@@ -1349,6 +1355,46 @@ function dtBody(snap, now) {
   if (snap.date === today && snap.watch && snap.watch.d === today) body.since = snap.watch.t;
   if (snap.err) body.stale = true;
   return body;
+}
+// The route: the full day is edge-cached 30 s (key dis-today) together with a weak ETag over everything but asOf, so a
+// refresh that found nothing new keeps the ETag and If-None-Match gets a bodiless 304 (asOf travels in `x-as-of`).
+// ?after=<rcept_no>: only rows newer than it, cut per request from the cached day (`after` echoed = this is a delta);
+// when after belongs to another date than `date`, the whole day comes back (no `after` field).
+async function dtServe(request, env, ctx, url) {
+  const after = url.searchParams.get('after');
+  if (after != null && !/^\d{14}$/.test(after)) return fail(400, 'after는 14자리 접수번호(rcept_no)여야 해요');
+  const cacheKey = new Request(new URL('/__cache/dis-today', request.url).toString());
+  let res = await caches.default.match(cacheKey), body = null;
+  if (!res) {
+    body = await getDisclosuresToday(request, env);                   // throws on failure → never cached
+    res = dtResponse(JSON.stringify(body), await dtTag(body), body.asOf);
+    ctx.waitUntil(caches.default.put(cacheKey, res.clone()));
+  }
+  const etag = res.headers.get('etag');                              // null on an entry cached before ETags existed
+  if (etag && dtMatch(request.headers.get('if-none-match'), etag)) return dtResponse(null, etag, res.headers.get('x-as-of'));
+  if (after == null) return res;
+  const full = body || await res.json();
+  const out = after.slice(0, 8) === full.date.replace(/-/g, '') ? { ...full, rows: full.rows.filter(x => x.r > after), after } : full;
+  return dtResponse(JSON.stringify(out), etag, full.asOf);
+}
+async function dtTag(body) {
+  const { asOf, ...rest } = body;
+  const h = new Uint8Array(await crypto.subtle.digest('SHA-1', new TextEncoder().encode(JSON.stringify(rest))));
+  const hex = [...h.slice(0, 6)].map(b => b.toString(16).padStart(2, '0')).join('');
+  return `W/"${(body.rows[0] && body.rows[0].r) || body.date.replace(/-/g, '')}.${body.rows.length}.${hex}"`;
+}
+function dtMatch(inm, etag) {
+  if (!inm) return false;
+  if (inm.trim() === '*') return true;
+  const op = s => s.trim().replace(/^W\//, '');                       // weak comparison (RFC 9110 §13.1.2)
+  return inm.split(',').some(x => op(x) === op(etag));
+}
+function dtResponse(text, etag, asOf) {
+  const headers = { 'cache-control': 'public, max-age=30', 'access-control-allow-origin': ORIGIN, 'access-control-expose-headers': 'etag, x-as-of' };
+  if (text != null) headers['content-type'] = 'application/json; charset=utf-8';
+  if (etag) headers.etag = etag;
+  if (asOf) headers['x-as-of'] = asOf;
+  return new Response(text, { status: text == null ? 304 : 200, headers });
 }
 
 /* ── /api/stock/:code/finance, /research ─────────────────────────────── */
