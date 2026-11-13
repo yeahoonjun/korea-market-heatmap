@@ -91,9 +91,9 @@ def worker_pass():
         g = {x['key']: x for x in j.get('groups', [])}
         fx = {it['key']: it for it in g.get('fx', {}).get('items', [])}
         rt = {it['key']: it for it in g.get('rates', {}).get('items', [])}
-        want_fx = ['FX_USDKRW', 'FX_JPYKRW', 'FX_EURKRW', 'FX_CNYKRW', 'DXY', 'USDJPY']
+        want_fx = ['FX_USDKRW', 'DXY', 'FX_JPYKRW', 'FX_EURKRW', 'FX_CNYKRW', 'USDJPY']
         want_rt = ['KR1YT', 'KR3YT', 'KR10YT', 'US2YT', 'US10YT', 'US30YT', 'JP10YT']
-        check('worker: 환율 = 원/달러 · 원/엔(100엔) · 원/유로 · 원/위안 · 달러인덱스 · 달러/엔', list(fx) == want_fx, str([(k, v['name']) for k, v in fx.items()]))
+        check('worker: 환율 = 원/달러 · 달러인덱스 · 원/엔(100엔) · 원/유로 · 원/위안 · 달러/엔', list(fx) == want_fx, str([(k, v['name']) for k, v in fx.items()]))
         check('worker: 금리 = 국고채 1·3·10년, 미국 2·10·30년, 일본 10년', list(rt) == want_rt, str([(k, v['name']) for k, v in rt.items()]))
         rng = {'FX_USDKRW': (900, 2500), 'FX_JPYKRW': (500, 1500), 'FX_EURKRW': (1000, 2600), 'FX_CNYKRW': (100, 400), 'DXY': (70, 130), 'USDJPY': (80, 250)}
         bad = [f"{k} {fx[k]['value']}" for k, (lo, hi) in rng.items() if k in fx and not lo <= fx[k]['value'] <= hi]
@@ -287,9 +287,9 @@ def ui_tab_pass(browser, theme, width, height):
         lay = page.evaluate(LAYOUT_JS)
         check(f'{tag}: tab is "{TAB}" (one constant), aria names 원자재 · 환율 · 금리, stage title {TAB}',
               lay['tab'] == TAB and lay['tabAria'].startswith(TAB) and '환율' in lay['tabAria'] and lay['title'] == TAB, f"{lay['tab']} / {lay['tabAria']} / {lay['title']}")
-        check(f'{tag}: order 원자재 (에너지 · 금속 · 농산물) → 환율 → 금리, two captioned blocks',
-              lay['secs'] == ['energy', 'metals', 'agri', 'fx', 'rates'] and [k for k in lay['kids'] if k.startswith('cap:')] == ['cap:원자재', 'cap:환율 · 금리']
-              and lay['kids'][0] == 'cap:원자재', ' | '.join(lay['kids']))
+        check(f'{tag}: order 환율 → 금리 → 원자재 (에너지 · 금속 · 농산물), two captioned blocks (user 2026-11-14 02:11)',
+              lay['secs'] == ['fx', 'rates', 'energy', 'metals', 'agri'] and [k for k in lay['kids'] if k.startswith('cap:')] == ['cap:환율 · 금리', 'cap:원자재']
+              and lay['kids'][0] == 'cap:환율 · 금리', ' | '.join(lay['kids']))
         fxh, rh = lay['fx'], lay['rates']
         check(f'{tag}: 환율 head note "오르면 원화 약세", 금리 head says bp, both visible, no average', fxh and fxh['a'] == '오르면 원화 약세' and rh and 'bp' in rh['a']
               and fxh['noteVisible'] and rh['noteVisible'] and '%' not in fxh['a'], f'{fxh} {rh}')
@@ -404,8 +404,8 @@ def pct_sort_pass(browser):
         lay = page.evaluate(LAYOUT_JS)
         flat = page.evaluate("[...document.querySelectorAll('#world .kw-col[data-b=cm] .kw-lr')].map(r => r.dataset.k)")
         ratios = [ITEMS[k]['ratio'] for k in flat]
-        check('등락률순: 원자재 ranked alone (no FX / yields), 환율 · 금리 stay grouped below', len(flat) == N_CM and ratios == sorted(ratios, reverse=True)
-              and lay['secs'][-2:] == ['fx', 'rates'] and 'cap:환율 · 금리' in lay['kids'], f"{len(flat)} ranked; {lay['kids']}")
+        check('등락률순: 원자재 ranked alone (no FX / yields), 환율 · 금리 stay grouped above', len(flat) == N_CM and ratios == sorted(ratios, reverse=True)
+              and lay['secs'][:2] == ['fx', 'rates'] and 'cap:환율 · 금리' in lay['kids'], f"{len(flat)} ranked; {lay['kids']}")
         rows = page.evaluate(ROWS_JS, ITEMS)
         check('등락률순: rows still = API', not rows['bad'] and not rows['clip'], '; '.join((rows['bad'] + rows['clip'])[:3]))
         page.screenshot(path='/tmp/fx_pct_1280.png', full_page=True)
@@ -459,7 +459,7 @@ def norates_pass(browser):
         try:
             wait_list(page, N_CM + 6)
             lay = page.evaluate(LAYOUT_JS)
-            check('금리 source down: 환율 alone, caption "환율"', lay['secs'] == ['energy', 'metals', 'agri', 'fx'] and 'cap:환율' in lay['kids'] and not lay['bad'], str(lay['kids']))
+            check('금리 source down: 환율 alone, caption "환율"', lay['secs'] == ['fx', 'energy', 'metals', 'agri'] and 'cap:환율' in lay['kids'] and not lay['bad'], str(lay['kids']))
         finally:
             ctx.close()
     finally:
