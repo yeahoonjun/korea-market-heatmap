@@ -101,6 +101,7 @@ function dpOf(it) {
 const valText = it => fixed(it.value, dpOf(it));
 const chgText = it => it.change == null || !isFinite(it.change) ? '—' : sgn(it.change) + fixed(it.change, dpOf(it));
 const isRef = it => !!it.ref;
+const isFut = it => it.gkey === 'usf';                 // 미국 선물: listed under 미국, never part of its average
 const colorOf = it => isRef(it) ? tok().ref : (it.ratio == null || !isFinite(it.ratio)) ? tok().nodata : KH.colorOf(it.ratio);
 const weightOf = it => WEIGHT[it.key] || 1;
 const delayText = it => it.delayed > 0 ? `${it.delayed}분 지연` : '실시간';
@@ -747,6 +748,7 @@ const ROW_H = 36, ROW_HC = 52, HEAD_H = 42, SEC_PAD = 12;
 const placeOf = it => PLACE[it.key] || cityOf(it, null) || '';
 function listSub(it, flat) {
   const u = S.kind === 'commodity' ? unitOf(it) : null;
+  if (!flat && isFut(it)) return '선물';
   if (flat) return [it.group, u ? u[1] : null].filter(Boolean).join(' · ');
   return u ? u[1] : placeOf(it);
 }
@@ -826,11 +828,23 @@ function distribute(secs, n, rowH) {
   const pick = best && best.m <= lpt * 1.08 ? best.cols : cols;
   return pick.map(c => c.map(i => secs[i]));
 }
+/* 지역순 sections. A future belongs with its country's index and VIX is the US VIX (사용자 2026-11-13 22:26), so on the index
+   tab the Worker's 미국 선물 and 참고 groups are folded into 미국 here (the Worker keeps its groups): cash indices first, then
+   the futures ("선물" tag), then VIX last (a grey 참고 row). `cash` = the coloured indices — the only rows the 미국 header's
+   average and 장중/마감 summary use; futures trade almost around the clock and VIX is not a price index. */
+function regionSections(d) {
+  const secs = d.groups.map(g => ({ key: g.key, name: g.name, head: true, items: g.list, cash: g.list, ref: g.list.every(isRef), rank: 0 }));
+  if (S.kind !== 'index') return secs;
+  const us = secs.find(s => s.key === 'us');
+  if (!us) return secs;
+  const fold = secs.filter(s => s.key === 'usf' || s.key === 'ref');
+  us.items = us.items.concat(...fold.filter(s => s.key === 'usf').map(s => s.items), ...fold.filter(s => s.key === 'ref').map(s => s.items));
+  return secs.filter(s => !fold.includes(s));
+}
 function buildColumns(d, geo) {
   const rowH = geo.compact ? ROW_HC : ROW_H;
   if (S.sort !== 'pct') {
-    const secs = d.groups.map(g => ({ key: g.key, name: g.name, head: true, items: g.list, ref: g.list.every(isRef), rank: 0 }));
-    return distribute(secs, geo.n, rowH);
+    return distribute(regionSections(d), geo.n, rowH);
   }
   // 등락률순: one ranked list (missing values last, ties in the Worker's order), split evenly over the columns; VIX at the end
   const rv = it => it.ratio == null ? -Infinity : it.ratio;
@@ -879,7 +893,7 @@ function fillRow(el, it, sub, rank, R) {
   const subText = ref ? '참고' : sub || '';
   sb.textContent = subText;
   sb.hidden = !subText;
-  sb.className = 'sub' + (ref ? ' tag' : '');
+  sb.className = 'sub' + (ref || (isFut(it) && !rank) ? ' tag' : '');
   ls.children[0].className = 'kw-sd ' + (open ? 'open' : 'close');
   ls.children[1].textContent = open ? (it.delayed ? `${it.delayed}분 지연` : '실시간') : '마감';
   ls.children[1].className = 'st' + (open && it.delayed ? ' dl' : '');
@@ -916,11 +930,12 @@ function fillHead(sec, hd) {
   const [t, s, a] = hd.children;
   t.textContent = sec.name;
   if (sec.flat && !sec.ref) { s.replaceChildren(); a.replaceChildren(); return; }
-  const st = stateOf(sec.items);
+  const cash = sec.cash || sec.items;                    // 미국: only the cash indices speak for the section
+  const st = stateOf(cash);
   s.replaceChildren(h('i', { class: 'kw-sd ' + (st.open ? 'open' : 'close'), 'aria-hidden': 'true' }), st.text);
   if (sec.ref) { a.replaceChildren(h('small', { text: '색칠하지 않는 지표' })); return; }
-  const avg = avgOf(sec.items);
-  put(a, avg == null ? null : h('small', { text: '평균' }), avg == null ? null : h('b', { class: cls(avg), text: pct(avg) }));
+  const avg = avgOf(cash);
+  put(a, avg == null ? null : h('small', { text: cash.length < sec.items.length ? '지수 평균' : '평균' }), avg == null ? null : h('b', { class: cls(avg), text: pct(avg) }));
 }
 function renderList(d) {
   const L = els.list;
@@ -945,8 +960,9 @@ function renderList(d) {
   for (const col of cols) for (const sec of col) {
     // a place shared by every row of a section (미국 · 뉴욕) says nothing: leave it out
     const ss = sec.items.map(it => listSub(it, sec.flat));
-    const same = !sec.flat && ss.length > 1 && ss.every(x => x === ss[0]) && S.kind !== 'commodity';
-    sec.items.forEach((it, i) => subs.set(it.key, same ? '' : ss[i]));
+    const base = ss.filter((x, i) => !isFut(sec.items[i]) && !isRef(sec.items[i]));
+    const same = !sec.flat && base.length > 1 && base.every(x => x === base[0]) && S.kind !== 'commodity';
+    sec.items.forEach((it, i) => subs.set(it.key, same && !isFut(it) ? '' : ss[i]));
   }
   if (sig !== els.listSig) {
     // structure changed (first draw, sort, width class, a new order in 등락률순): rebuild the shells, keep the row elements
@@ -1043,6 +1059,9 @@ const COUNTRIES = [
   { id: '356', name: '인도', keys: ['BSESN'], at: [78.5, 21.5], big: true },
   { id: '156', name: '중국', keys: ['SSEC', 'SZSC', 'CSI300'], at: [101, 32], big: true },
   { id: '410', name: '한국', keys: ['KOSPI', 'KOSDAQ'], at: [127.8, 36.4], col: 'kor' },
+  // 유로스톡스 50 has no single country: a chip of its own in the Europe callout column (사용자 2026-11-13 22:26), its leader
+  // line ending in the middle of the euro area; no country is painted for it (no map path with this id)
+  { id: 'EZ', name: '유로존', keys: ['STOXX50E'], at: [8.6, 49.4], col: 'eur', area: true },
   { id: '392', name: '일본', keys: ['N225', 'TOPX'], at: [138.6, 36.4], col: 'pac' },
   { id: '158', name: '대만', keys: ['TWII'], at: [121, 23.7], col: 'pac' },
   { id: '344', name: '홍콩', keys: ['HSI', 'HSCE'], at: [114.17, 22.3], col: 'pac', marker: true },
@@ -1104,10 +1123,16 @@ function geoGroups(d) {
     items.forEach(it => used.add(it.key));
     if (items.length) cs.push({ c, items, rep: items[0] });
   }
-  // every index the Worker files under 미국 belongs to the US
-  const us = cs.find(x => x.c.id === '840');
-  if (us) for (const it of d.all) if (it.gkey === 'us' && !used.has(it.key)) { us.items.push(it); used.add(it.key); }
-  return { cs, off: d.all.filter(it => !used.has(it.key)) };
+  // every index the Worker files under 미국 belongs to the US: cash indices first, then the futures, then VIX (a reference row)
+  const us = cs.find(x => x.c.id === '840'), ez = cs.find(x => x.c.id === 'EZ');
+  const add = (x, pick) => { if (x) for (const it of d.all) if (pick(it) && !used.has(it.key)) { x.items.push(it); used.add(it.key); } };
+  add(us, it => it.gkey === 'us');
+  add(us, isFut);
+  add(us, it => isRef(it) && /VIX/i.test(it.key + it.name));
+  add(ez, it => it.gkey === 'eu');                                  // a euro-area index the table does not know yet
+  // side box 미국 선물 및 변동성 지수 (사용자 2026-11-13 22:32): the futures and VIX stay in a box beside the map; they are also
+  // listed in the US sheet. 유로스톡스 50 sits with Europe (the 유로존 chip). Anything else unplaced is still on the list.
+  return { cs, off: d.all.filter(it => isFut(it) || (isRef(it) && /VIX/i.test(it.key + it.name))) };
 }
 // one column of callouts: keep them in anchor order, at least CHIP_H + 3 apart, centred on their anchors, inside the map
 function dodge(list, top, bottom) {
@@ -1230,7 +1255,7 @@ function buildGeo(d, W, narrow, G, sig) {
     if (x.c.marker) addDot(x, ax, ay, true);                    // 홍콩: too small for the 110m map, a dot in its colour
     if (narrow) {
       // phones: the big markets carry a % on the map, the others a marker; the buttons under the map are the way in
-      if (!x.c.big) { if (!x.c.marker) addDot(x, ax, ay, false); continue; }
+      if (!x.c.big) { if (!x.c.marker && !x.c.area) addDot(x, ax, ay, false); continue; }
       const b = h('span', { class: 'kw-gl in sm', 'data-c': x.c.id, 'aria-hidden': 'true', style: `--pd:${delay(x)}` }, h('i', { class: 'kw-sd' }), h('span', { class: 'p' }));
       labs.append(b); btns.set(x.c.id, b); inLabs.push({ el: b, x: ax, y: ay });
       continue;
@@ -1258,9 +1283,9 @@ function buildGeo(d, W, narrow, G, sig) {
     }
     colList.push({ x: P([C.lon, C.lat])[0], end, items: cols[k] });
   }
-  // indices not tied to one country (US futures, Euro Stoxx 50, VIX): a small box beside the map
+  // US futures and VIX: a small box beside the map (below it on narrow maps)
   const offBelow = narrow || mid;
-  const off = h('div', { class: 'kw-goff' + (offBelow ? ' below' : '') }, h('div', { class: 'kw-goh', text: '나라에 묶이지 않는 지수' }),
+  const off = h('div', { class: 'kw-goff' + (offBelow ? ' below' : '') }, h('div', { class: 'kw-goh', text: '미국 선물 및 변동성 지수' }),
     G.off.map(it => h('button', { type: 'button', class: 'kw-gb kw-go', 'data-k': it.key, 'data-f': 'k' + it.key, tabindex: '-1' },
       h('i', { class: 'kw-sd' }), h('span', { class: 't' }, it.name), h('span', { class: 'kw-pchip sm' }))));
   const mapBox = h('div', { class: 'kw-gmap', style: `height:${H}px;--gs:${Math.max(1, Math.min(1.22, W / 1150)).toFixed(3)}` }, s, labs, offBelow || !G.off.length ? null : off);
@@ -1291,7 +1316,7 @@ function renderGeo(d) {
   const selKey = S.detail && S.detail.key;
   const openIds = [];
   for (const x of G.cs) {
-    const it = x.rep, col = colorOf(it), open = x.items.some(i => i.status === 'OPEN');
+    const it = x.rep, col = colorOf(it), open = cashOf(x.items).some(i => i.status === 'OPEN');   // futures trade all but round the clock: they do not make 미국 "open"
     if (open) openIds.push(x.c.id);
     const sel = !!selKey && x.items.some(i => i.key === selKey);
     const tip = `${x.c.name} · ${it.name} ${pct(it.ratio)}${x.items.length > 1 ? ` 외 ${x.items.length - 1}개` : ''} · ${open ? '장중' : '마감'}`;
@@ -1306,7 +1331,7 @@ function renderGeo(d) {
       if (open && g.was.get(x.c.id) === false) { m.pr.classList.add('just'); setTimeout(() => m.pr.classList.remove('just'), 2500); }
     }
     g.was.set(x.c.id, open);
-    const aria = `${x.c.name} ${it.name} ${valText(it)}, ${pct(it.ratio)}, ${open ? '장중' : '마감'}${x.items.length > 1 ? `, 지수 ${x.items.length}개` : ''}`;
+    const aria = `${x.c.name} ${it.name} ${valText(it)}, ${pct(it.ratio)}, ${open ? '장중' : '마감'}${x.items.length > 1 ? `, 항목 ${x.items.length}개` : ''}`;
     const b = g.btns.get(x.c.id);
     if (b) {
       if (b.classList.contains('in')) labInk(b, col);
@@ -1420,6 +1445,7 @@ function placeLabels() {
   }
   g.lines.replaceChildren(...kids);
 }
+const cashOf = items => { const c = items.filter(i => !isFut(i) && !isRef(i)); return c.length ? c : items; };
 const shortIdx = (c, it) => it.name.startsWith(c.name + ' ') ? it.name.slice(c.name.length + 1) : it.name;
 function setGeoFocus(f) {
   S.geoFocus = f;
