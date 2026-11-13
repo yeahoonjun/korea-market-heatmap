@@ -12,7 +12,7 @@
 - **실시간 데이터**: 네이버 증권(비공식). 브라우저는 네이버를 직접 부를 수 없어요(외부 Origin → 403). 항상 Worker가 대신 받아요.
 - **배포**: GitHub 공개 저장소 `yeahoonjun/korea-market-heatmap` + Cloudflare Worker `korea-market-heatmap`. Worker는 화면 파일을 저장소에서 읽어 와요.
 - **주소**: **`https://panse.pages.dev`** — 사이트 이름 **판세**(사용자 2026-11-13 19:58, §3-26). Cloudflare Pages 프로젝트 `panse`의 `_worker.js`가 모든 요청을 서비스 바인딩 `API`로 Worker에 넘겨요. 옛 주소 `kospimap.pages.dev`(2026-11-09~11-13)는 이사 다리예요. Worker 주소 `korea-market-heatmap.ssslot.workers.dev`도 그대로 동작해요(cron·KV는 Worker에 있어요). 계정 서브도메인 `ssslot`은 SSSlot 게임 주소라 바꾸지 않아요.
-- **종목 상세**: 전체 화면 종목 페이지. 차트(1일·5일 분봉, 3개월·1년 일봉, 3년 주봉, 10년 월봉) + 탭(호가 5단계 · 투자자 · 일별 시세 · 뉴스·공시). 공매도는 KRX 로그인이 필요해서 빼요. 뒤로 가기로 히트맵 복귀, 주소로 공유 가능.
+- **종목 상세**: 전체 화면 종목 페이지. 차트(탭 = 봉 간격 `1분 · 5분 · 일 · 주 · 월 · 년`, 사용자 2026-11-13 22:38; 년봉은 월봉을 화면에서 묶음; 5·20·60·120 이동평균선 + 켜고 끄는 칩 `khm.stock.ma`, 간격 `khm.stock.iv`) + 탭(호가 5단계 · 투자자 · 일별 시세 · 뉴스·공시). 공매도는 KRX 로그인이 필요해서 빼요. 뒤로 가기로 히트맵 복귀, 주소로 공유 가능.
 - **스냅샷 아티팩트**(claude.ai): 네트워크가 막힌 미리보기예요. 종목 페이지의 실시간 기능은 "실시간 버전에서 볼 수 있어요" 안내 + 링크로 대신해요.
 
 ## 1. 폴더와 담당
@@ -59,7 +59,8 @@ python3 tmp/shot.py /home/claude/heatmap/dist/index.html    # 1440×900 / 390×8
 | 경로 | 응답 | 엣지 캐시 |
 |---|---|---|
 | `/api/stock/{code}/summary` | `{code, name, market:'K'\|'Q', price, change, ratio, marketStatus, per, eps, pbr, bps, dividendYield, high52, low52, marketCap(억원), foreignRate, asOf}` 없는 값은 `null` | 30초 |
-| `/api/stock/{code}/chart?tf=1d\|5d\|3m\|1y\|3y\|10y` | `{tf, interval, prevClose, bars:[{t,o,h,l,c,v}]}` — `1d`=오늘 1분봉, `5d`=5분봉 약 5거래일, `3m`·`1y`=일봉, `3y`=주봉, `10y`=월봉. 분봉 `t`는 유닉스 초(UTC), 일·주·월봉 `t`는 `YYYY-MM-DD` | 분봉 20초, 그 외 10분 |
+| `/api/stock/{code}/chart?tf=1d\|5d\|3m\|1y\|3y\|10y[&warm=N]` | `{tf, interval, prevClose, bars:[{t,o,h,l,c,v}], pre?:[…]}` — `1d`=오늘 1분봉, `5d`=5분봉 약 5거래일, `3m`·`1y`=일봉, `3y`=주봉, `10y`=월봉. 분봉 `t`는 유닉스 초(UTC), 일·주·월봉 `t`는 `YYYY-MM-DD`. **`warm=N`(0~120, 이동평균용)이면 `pre`에 `bars` 바로 앞 봉을 최대 N개 같은 모양으로** — `bars`·`prevClose`는 그대로, 없으면 `pre` 생략(옛 화면 영향 없음) | 분봉 20초, 그 외 10분 |
+| `/api/stock/{code}/chart?iv=1m\|5m\|day\|week\|month[&to=YYYYMMDD\|YYYYMMDDHHMM][&count=N][&warm=N]` | `{iv, interval, prevClose, bars, pre?, more}` — `to`(KST, 기본 지금) **앞쪽** 봉 `count`개(기본 250, 최대 1500, 오래된 순), `pre`는 위와 같고, `more`=더 오래된 봉이 있을 수 있음. 화면은 이걸로 스크롤하면 과거를 이어 받아요. 네이버가 분봉(1m·5m)은 약 6거래일만 줘서 거기서 끝나요. `tf=` 형식은 그대로 | 분봉·`to` 없음 20초, 그 외 10분 |
 | `/api/stock/{code}/orderbook` | `{asks:[{price,qty}], bids:[{price,qty}], totalAsk, totalBid, prevClose, asOf}` — 5단계, 둘 다 **최우선 호가가 먼저** | 2초 |
 | `/api/stock/{code}/investors` | `{rows:[{date, close, ratio, individual, foreign, institution, foreignHoldRatio}]}` 최신순, 최대 60일, 순매수 주식 수(부호 있음) | 10분 |
 | `/api/stock/{code}/daily?page=N` | `{page, rows:[{date, close, change, ratio, open, high, low, volume}], hasMore}` 최신순 60행 | 60초 |
