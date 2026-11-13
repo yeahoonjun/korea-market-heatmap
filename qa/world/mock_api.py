@@ -175,6 +175,8 @@ class H(SimpleHTTPRequestHandler):
             return self.send_json({'dates': []})
         if path == '/api/themes':
             return self.send_json({'asOf': None, 'themes': []})
+        if path == '/api/news':                       # news panel (§3-27): an empty, healthy answer keeps the console quiet
+            return self.send_json({'asOf': None, 'items': [], 'sources': {}})
         if path == '/api/breadth':
             return self.send_json({'m': q.get('m'), 'part': 1, 'parts': 1, 'asOf': None, 'rows': []})
         if path.startswith('/data/'):
