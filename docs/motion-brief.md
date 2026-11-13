@@ -1,5 +1,7 @@
 # 모션 브리프 — `효과: 화려하게` (fancy)
 
+> 개정 2026-11-13 (AGENTS §3-25): 누르는 컨트롤(버튼 · 칩 · 세그먼트 · 탭 · 스위치)의 움직임과 효과 단계는 [`docs/standards/controls.md`](standards/controls.md)가 정해요. 이 문서는 데이터 모션(플래시 · 굴림 · 첫 진입 · 리플레이 · 세계지도)과 시트 · 팝오버가 열리고 닫히는 움직임을 정해요. 토큰: 데이터 `--m-*` 120/240/480 그대로, 컨트롤 `--c-*` 180/320/560.
+
 AGENTS.md §3-5의 새 효과를 구현할 때 따르는 값이에요. `KH.motion()`이 `'fancy'`일 때만 적용하고, `'standard'`는 지금 동작 그대로, `'reduced'`는 모든 전환을 끄고 최종 상태를 바로 그려요. 색 규칙(§4: 빨강·초록 = 데이터, 앰버 `#ffb547` = UI)은 효과에서도 그대로예요.
 조사 2026-11-10: 쇼룸 HTML의 CSS·JS를 직접 읽고 Playwright로 렌더, 사이트는 Playwright로 `getAnimations()`·스타일시트 easing·hover 시간 측정, X 글은 공식 oEmbed로 읽음.
 
@@ -72,7 +74,7 @@ AGENTS.md §3-5의 새 효과를 구현할 때 따르는 값이에요. `KH.motio
 
 ### (g) 작은 상호작용
 - 타일: hover 흰 고리를 `--m-1`로 페이드(지금은 즉시). 누름 `scale(.985)` `--m-1`, 놓으면 `--m-2 --m-out`(짧은 변 40px 이상만).
-- 버튼·칩·분할 버튼: 누름 `.97→1` `--m-2 --m-out`, hover 배경 `--m-1`. 분할 버튼(지도·3D·표, 기본·화려하게, 1×·2×·4×, 목록·지도)과 시장 탭의 활성 표시는 칸 사이를 미끄러져요(`translateX` + `scaleX`, `--m-2 --m-out`).
+- 버튼·칩·분할 버튼 → **`docs/standards/controls.md`가 정해요** (개정 2026-11-13, 사용자 결정 AGENTS §3-25): 누름은 `.97→1` 축소 대신 **1px 가라앉기 + 그림자 짧아짐 + `filter`**(내려갈 때 0ms, 올라올 때 `--c-fast` 180ms `--c-out`), 분할 버튼 · 시장 탭의 고른 칸 표시는 **앞 가장자리 `--c-fast` · 뒤 가장자리 `--c-base`**로 미끄러져요. 컨트롤 길이는 `--c-fast/base/slow` 180 · 320 · 560ms(이 문서의 `--m-*`은 데이터 모션 전용으로 그대로). (예전 줄: 버튼·칩·분할 버튼: 누름 '.97→1' '--m-2 --m-out', hover 배경 '--m-1'. 분할 버튼(지도·3D·표, 기본·화려하게, 1×·2×·4×, 목록·지도)과 시장 탭의 활성 표시는 칸 사이를 미끄러져요('translateX' + 'scaleX', '--m-2 --m-out').)
 - 시장 탭 바꿈: 지원하면 View Transition으로 지도 교차 페이드(나감 `--m-1`, 들어옴 `--m-2`, 쇼룸 `ky-seg` 방식), 아니면 지금처럼.
 - 시트: 데스크톱 `translateY(8px) scale(.985)`+opacity → 끝 `--m-2 --m-out`, 휴대폰 아래 시트 `translateY(100%)` → 0 `--m-3 --m-out`, 배경막 opacity `--m-2`, 안의 블록 `rise`(8px) `--m-stagger` 간격(최대 8개). 닫힘 `--m-1` opacity + 4px.
 - 종목 페이지 열기(`fancy`, View Transition 지원 시): 누른 타일과 종목 페이지 머리를 같은 `view-transition-name`으로 이어 `--m-3 --m-inout`(쇼룸 `ky-photo`처럼 사진이 시트로 커지는 느낌). 미지원이면 지금 그대로.
@@ -94,7 +96,7 @@ AGENTS.md §3-5의 새 효과를 구현할 때 따르는 값이에요. `KH.motio
 - **blur 등장**(aerive `filter: blur` 700ms): 타일 수백 개에 filter 애니메이션은 비싸고 숫자를 흐려요.
 - **끝없는 장식 반복**(이미지 마키, 떠다니는 물체, 링 회전, 글자 광택 5초, `gradient-shift`): 숫자를 읽는 동안 주변 시야를 뺏어요. 예외는 정보인 것(시장 띠 티커, 열린 시장 맥동, 갱신 맥동).
 - **영문 대문자 고정폭 라벨·화면을 덮는 거대 제목**: 쇼룸·Shopify의 크기·굵기·자간만 가져오고, §4(해요체, 대문자·영문 장식 없음)를 따라요. 새 글꼴(JetBrains Mono 등)은 추가하지 않고 Pretendard tabular로.
-- **overshoot·탄성**(`backOut`, `(.34,1.56,.64,1)`, pop 1.08): 값보다 큰 순간이 생겨요. 자동 회전 카메라, 지도 위 `mix-blend-mode` 겹(색 왜곡), HTML-in-Canvas(Shopify, Chrome 오리진 트라이얼)도 제외.
+- **overshoot·탄성**(`backOut`, `(.34,1.56,.64,1)`, pop 1.08): 값보다 큰 순간이 생겨요. **예외(개정 2026-11-13)**: 완료 체크 아이콘(✓)의 크기 `.6→1`에만 `--c-pop` `cubic-bezier(.34,1.3,.64,1)`을 써요(`화려하게`만, 값 · 데이터 · 누름에는 여전히 금지 — `docs/standards/controls.md` §2). 자동 회전 카메라, 지도 위 `mix-blend-mode` 겹(색 왜곡), HTML-in-Canvas(Shopify, Chrome 오리진 트라이얼)도 제외.
 - **예산**: 중급 휴대폰(390px, CPU 4배 감속 프로파일)에서 타일 300개(전체 600개) 60fps. 프레임당 JS ≤ 4ms, 애니메이션 중 레이아웃 0(transform·opacity·`::after` opacity만; 색 트윈은 리플레이에서 30Hz 이하만). 좌표는 DOM 측정 대신 `KH.layout()` 값, 읽기를 먼저 모으고 쓰기는 나중에. `will-change`는 애니메이션 동안만 붙였다 떼요(600개 상시 금지). 동시 실행: 플래시 ≤ 60, 오도미터 자리 ≤ 120(보이는 것만), 맥동 고리 ≤ 25. `document.hidden`이면 rAF 취소 + 무한 CSS 애니메이션 `paused`, 화면 밖(IntersectionObserver)도 같음. long task 50ms 미만.
 - **레벨 지키기**: 모든 새 코드는 `KH.motion() === 'fancy'`를 확인하고 아니면 최종 상태만 그려요. `reduced`면 기존 전환도 끄고(지금 FLIP 포함), 3D는 정적 자세, 숫자는 즉시 교체. `kh:motion`을 듣고 진행 중인 것은 `finish()`.
 
