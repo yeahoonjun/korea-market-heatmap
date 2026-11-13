@@ -1205,7 +1205,7 @@ html[data-theme="paper"] .ss-list > button[aria-selected="true"]{background:var(
   <aside class="side">
     <section class="card">
       <h2><span id="distTitle">등락 분포</span> <small id="breadthScope"></small></h2>
-      <div class="wavg"><b id="wavg">—</b><span id="wavgLab">시가총액 가중 등락률</span></div>
+      <div class="wavg"><b id="wavg">—</b><span id="wavgLab">시가총액 가중</span></div>
       <div class="breadth" id="breadth"></div>
       <div class="breadth-lab" id="breadthLab"></div>
       <div class="hist" id="hist"></div>
@@ -3638,6 +3638,13 @@ async function loadSpark(st) {
 function renderAll({ animate = false } = {}) {
   render({ animate }); renderCrumbs(); renderSide(); renderLegend(); renderFooter();
 }
+// 탭 주소(#world 등)를 바꿀 때 location.hash를 쓰면 브라우저가 같은 id의 요소(<div id="world">)로 화면을 내려요 —
+// 사용자 2026-11-13 23:47 "해외탭을 누르면 아래로 자동으로 스크롤". 기록(뒤로 가기)은 그대로 남기고 스크롤만 막아요.
+function setHash(h) {
+  if (location.hash.slice(1) === h) return;
+  try { history.pushState(history.state, '', location.pathname + location.search + '#' + h); }
+  catch (e) { const y = scrollY; location.hash = h; if (scrollY !== y) scrollTo(scrollX, y); }
+}
 function zoomTo(f) {
   state.focus = f && f.s ? f : null;
   state.hoverSector = null;
@@ -3665,7 +3672,7 @@ function openTheme(id, { writeHash = true, focusAfter = false } = {}) {
   setHover(null); tip.classList.remove('show');
   closeSheet({ restore: false });
   need('themes');
-  if (writeHash) { const want = state.theme == null ? 'theme' : 'theme-' + state.theme; if (location.hash.slice(1) !== want) location.hash = want; }
+  if (writeHash) setHash(state.theme == null ? 'theme' : 'theme-' + state.theme);
   renderHeader(); syncControls();
   renderAll({ animate: true });
   syncPollers();
@@ -4268,7 +4275,7 @@ function distSummary() {
     const F = isFlow() ? FLO() : null;
     if (F && F.stale) { let st = 0; for (const x of list) if (F.stale[x.c] && amt(x) != null) st++; if (st) note = (note + ` ${fmtInt(st)}종목은 전일 기준이에요.`).trim(); }
     return { vals, opts: { scope, big: grpText(list, 2), bigCls: grpCls(list), note, mapVals: pool.scope !== 'map' ? universe().filter(inFocus).filter(s => !s.nonx).map(cval) : null,
-      bigLab: (k === 'flow' ? `${flowShort()} 순매수 합계` : k === 'day' ? '시가총액 가중 등락률' : `시가총액 가중 ${COLOR_METRICS[state.colorBy].long}`) + capNote, unit: '종목' } };
+      bigLab: (k === 'flow' ? `${flowShort()} 순매수 합계` : k === 'day' ? '시가총액 가중' :   /* 사용자 2026-11-13 23:50: "시가총액 가중이라고만" */ `시가총액 가중 ${COLOR_METRICS[state.colorBy].long}`) + capNote, unit: '종목' } };
   }
 }
 function rankButton(label, sub, v, text, frac, onclick, cur) {
@@ -4847,7 +4854,7 @@ function setMarket(m, writeHash) {
   state.focus = null; state.bucket = null; state.selected = null; state.forced.clear();
   closeSheet();
   if (m === 'THEME') need('themes');
-  if (writeHash && location.hash.slice(1) !== TO_HASH[m]) location.hash = TO_HASH[m];
+  if (writeHash) setHash(TO_HASH[m]);
   if (wasWorld !== isWorld()) { rebuildColor(); document.dispatchEvent(new CustomEvent('kh:palette')); }
   syncWorld();
   renderHeader(); syncControls(); renderStatus(); renderWG();
