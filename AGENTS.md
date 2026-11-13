@@ -102,6 +102,7 @@ python3 tmp/shot.py /home/claude/heatmap/dist/index.html    # 1440×900 / 390×8
 | `/api/stock/{code}/disclosures` | `{source:'dart'\|'naver', rows:[{title, kind?, datetime, date?, filer?, note?, url}]}` DART는 최근 6개월 최대 40개(`kind`: 정기·실적·주요·지분·기타), 네이버는 최신 20개. Worker 비밀값 `DART_KEY`가 있고 `web/dart_corp.json`에 corp_code가 있으면 OpenDART(최근 6개월, `datetime`은 `null`이고 접수일 `date`만, `note`는 DART 비고: 정=정정·연=연결·유/코=시장 소관, `url`=`https://dart.fss.or.kr/dsaf001/main.do?rcpNo=…`), 아니면·실패하면 네이버(`url`=`https://m.stock.naver.com/domestic/stock/{code}/notice/{id}`) | 5분 |
 | `/api/replay/dates` | `{dates:['YYYY-MM-DD',…]}` 최신순 | 60초 |
 | `/api/replay?date=YYYY-MM-DD` | `{date, codes:[…], frames:[{t:'HHMM', p:[…], r:[…]}], index:{KOSPI:[…],KOSDAQ:[…]}, base:{KOSPI,KOSDAQ}\|null}` — `p`·`r`·지수는 `codes`/`frames` 순서, `base`는 지수 전일 종가. 날짜 없으면 최신 | 60초(지난 날 1시간) |
+| `/api/replay/status` | 기록기 상태(§3-15 ①): KV `replay:status` `{v, at(ms), day:'YYYY-MM-DD', t:'HHMM', result:'wrote'\|'skipped:<이유>'\|'error', error?, rows?, since(ms), lastWrote:'HHMM'\|null, errors(그날, 근사), lastError?:{t,error}, cron}` + `{now(ms), nowKst, atKst, ageSec, due, recent, stale}` — 아직 없으면 `result:null`. `due`=평일 09:06~마감, `recent`=최근 5분 프레임 키가 있는지(`{'HHMM':bool}`), `stale`=`due`인데 그 5분에 프레임이 하나도 없음. 이유: `after-end`·`closed`(휴장) | 없음(`no-store`) |
 | `/data/themes.json`, `/data/periods.json`, `/data/flows.json` | ASSET_BASE의 `web/*.json` 그대로 | 10분 |
 | `/manifest.webmanifest`, `/sw.js`, `/icon.svg`, `/icon-192.png`, `/icon-512.png`, `/apple-touch-icon.png` | ASSET_BASE에서 올바른 content-type으로 | 1시간 |
 
@@ -366,6 +367,8 @@ python3 tmp/shot.py /home/claude/heatmap/dist/index.html    # 1440×900 / 390×8
   - `/api/replay/dates` — 지금 응답에 `minute: [1분 기록이 있는 날짜…]` 추가.
   - 캐시: 지난 날 1시간, 오늘 1분. 하루치 1분 전체를 한 번에 주지 않아요(휴대폰 데이터 — 프레임 하나 ~10KB × 391).
   - 오늘 요청에서 KV 읽기가 많아지니 묶음 읽기·Promise.all을 쓰되 응답 시간 목표 1초 안.
+- **cron 요일 번호 주의** (2026-11-13 금요일 기록 0건의 원인): Cloudflare cron은 요일을 **1=일요일 … 7=토요일**로 세요. 그래서 `* 0-7 * * 1-5`는 **일~목**에만 돌고 금요일엔 한 번도 돌지 않아요(일요일 480번은 기록기가 그냥 건너뜀). 평일은 **`MON-FRI`**(=`2-6`)로 써야 해요 — `wrangler.toml`을 바꾸면 배포 작업(`ensureCrons`)이 맞춰 줘요. 점검: `node qa/worker/test_replay_recorder.mjs`가 cron이 월~금을 다 덮지 않으면 종료 코드 2.
+- **기록기 상태** (2026-11-14): `scheduled()`는 예외를 던지지 않아요 — 실패는 `console.error`(Workers Logs·tail) + KV `replay:status`, 확인은 `GET /api/replay/status`(§3-2). 상태는 결과 종류가 바뀔 때·오류마다·그 밖엔 5분에 한 번만 써요(장중 하루 약 80번, 프레임 391번과 별도). 장 시간 밖(평일 09:00 전·16:30 뒤, 주말)은 지금처럼 KV·네트워크를 건드리지 않아 상태도 안 써요. 한 분이 실패해도 그 분만 잃어요: 네이버 5xx(덩어리마다 1번 재시도)·호출당 40초 시간 초과·빈 응답이나 가격 있는 행이 코드의 절반 미만(널 프레임을 쓰지 않음)·KV 읽기/쓰기 오류·`universe.json` 실패(15초 시간 초과, 검사를 통과한 본문만 엣지 캐시에). Isolate 메모리(`recMem`)에는 실제로 저장된 값만 남겨요. 휴장 판단은 지수 둘 다 CLOSE **이고** 오늘 체결 시각이 최근 10분 안에 없을 때 — 지수 상태가 멈춰도 거래일 하루를 잃지 않게. 이상한 `endTime`(1500~1630 밖)은 1530으로 봐요.
 - **extras(다시 보기 UI)**: 5분 뼈대를 먼저 받아 바로 재생 가능 → 뒤에서 1분 조각을 시간대별로 채워 넣기(지금 보는 위치 근처 먼저). 채워진 구간은 슬라이더가 **1분 단위**로 움직이고, 재생 속도 선택(예: 1분=0.25초/0.5초/1초) — 1분이면 하루가 391칸이라 기본 속도를 지금보다 빠르게. 아직 안 채워진 구간은 5분 칸 그대로. `minute`에 없는 날은 지금처럼 5분.
 
 ### ② 전 종목 (Worker + 히트맵)

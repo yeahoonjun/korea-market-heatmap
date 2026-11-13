@@ -19,10 +19,12 @@
 //   GET /api/world?kind=index|commodity, /api/world/chart/:key?tf=3m|1y → world indices / futures / commodities (AGENTS §3-4)
 //   GET /api/replay/dates, /api/replay?date=YYYY-MM-DD → intraday replay frames recorded in KV (env.REPLAY, one key per frame)
 //   GET /api/replay?date=…&step=1&from=HHMM&to=HHMM → 1-minute frames of that window (≤ 120, both ends included; AGENTS §3-15)
+//   GET /api/replay/status             → the recorder's last outcome (KV replay:status) + server time, recent frames (no-store; AGENTS §3-15)
 //   GET /api/stock/:code/finance?period=annual|quarter → financial statements (cols oldest→newest)
 //   GET /api/stock/:code/research      → broker reports (target / opinion parsed from the preview) + consensus
 //   GET /data/{themes,periods,flows,names,close}.json, PWA files → static from ASSET_BASE (whitelist)
-//   scheduled()                        → cron (every minute): appends a replay frame on weekdays 09:00 → session end (stockExchangeType.endTime) KST
+//   scheduled()                        → cron (every minute): appends a replay frame on weekdays 09:00 → session end (stockExchangeType.endTime) KST;
+//                                        never throws — each outcome goes to console + KV replay:status (cron weekdays must be MON-FRI: 1 = Sunday on Cloudflare)
 //   GET /api/health                    → {ok:true}
 //   GET /api/time                      → {t: server ms} (no-store; the page clock's offset, §3-17)
 // Contract: AGENTS.md §3, sources and pitfalls: data/ENDPOINTS_DETAIL.md.
@@ -82,6 +84,7 @@ export default {
       if (path === '/api/themes') return await edgeCached(request, ctx, 'themes', 30, () => getThemes());
       if (path === '/api/market') return await edgeCached(request, ctx, 'market', 30, () => getMarket());
       if (path === '/api/replay/dates') return await edgeCached(request, ctx, 'replay-dates', 60, () => getReplayDates(env));
+      if (path === '/api/replay/status') return json(await getReplayStatus(env));   // recorder health, never cached
       if (path === '/api/replay') {
         const d = url.searchParams.get('date') || '';
         if (d && !/^\d{4}-\d{2}-\d{2}$/.test(d)) return fail(400, 'date는 YYYY-MM-DD 형식이어야 해요');
@@ -148,7 +151,9 @@ export default {
     }
   },
   async scheduled(event, env, ctx) {
-    await recordFrame(event, env || {});
+    const run = runRecorder(event, env || {});   // never rejects: errors → console.error + KV replay:status
+    if (ctx && typeof ctx.waitUntil === 'function') ctx.waitUntil(run);
+    await run;
   },
 };
 
@@ -177,12 +182,15 @@ async function edgeCached(request, ctx, key, ttl, produce) {
   return res;
 }
 // Build fresh headers: Naver answers 403 to any foreign Origin, so the viewer's headers must not be forwarded.
-async function naver(url) {
-  const r = await fetch(url, { headers: { 'user-agent': UA, accept: 'application/json' } });
+// `ms` (optional): abort after that many ms — the replay recorder uses it so a hung upstream costs one minute, not more.
+async function naver(url, ms) {
+  const r = await fetch(url, { headers: { 'user-agent': UA, accept: 'application/json' }, ...(ms ? { signal: AbortSignal.timeout(ms) } : {}) });
   if (r.status >= 400 && r.status < 500 && r.status !== 429 && r.status !== 403) throw new HttpError(404, '종목을 찾을 수 없어요');
-  if (!r.ok) throw new Error(`naver ${r.status} ${url}`);
+  if (!r.ok) throw new Error(`naver ${r.status} ${shortUrl(url)}`);
   return r.json();
 }
+// error text without a 600-code list in it
+const shortUrl = u => String(u).replace(/([0-9A-Z]{6},){2,}[0-9A-Z]{6}/g, m => `{${m.split(',').length} codes}`);
 // legacy: missing → 0 (used by /api/quotes, whose shape is fixed)
 const num = v => {
   if (v == null) return 0;
@@ -256,7 +264,31 @@ async function getPage(request, env, ctx) {
 /* ── stock universe (ASSET_BASE/universe.json) ─────────────────────────────── */
 // {K, Q, I}: K/Q = 8 chars per stock = 6-char code + 2-char base36 index into I ([업종, 섹터]).
 let lastEndTime = '1530';               // session end seen in the latest polling data
-let universeMem = null;                 // { at, map }
+let universeMem = null;                 // { at, map, extra, codes?, allCodes?, byMkt? }
+// universe.json text → {map, extra}; throws on a body that isn't a usable universe (so it is never cached or kept)
+function parseUniverse(text) {
+  const U = JSON.parse(text);
+  if (!U || !Array.isArray(U.I) || typeof U.K !== 'string' || typeof U.Q !== 'string') throw new Error('universe: unexpected shape');
+  const ind = k => U.I[parseInt(k, 36)] || ['기타', '기타'];          // a bad index → 기타, not a TypeError for the whole file
+  const map = new Map();
+  for (const m of ['K', 'Q']) {
+    const str = U[m];
+    for (let k = 0; k + 8 <= str.length; k += 8) {
+      const [i, s] = ind(str.slice(k + 6, k + 8));
+      map.set(str.slice(k, k + 6), { m, i, s });
+    }
+  }
+  if (map.size < 100) throw new Error(`universe: only ${map.size} stocks`);
+  // X: every other listed stock (not streamed) — 9 chars each: code + base36 index into I + market — so
+  // /api/quotes?codes= (watchlist, themes) can still give them a sector instead of 기타.
+  const extra = new Map();
+  const xs = typeof U.X === 'string' ? U.X : '';
+  for (let k = 0; k + 9 <= xs.length; k += 9) {
+    const [i, s] = ind(xs.slice(k + 6, k + 8));
+    extra.set(xs.slice(k, k + 6), { m: xs[k + 8], i, s });
+  }
+  return { map, extra };
+}
 async function getUniverse(env) {
   const now = Date.now();
   if (universeMem && now - universeMem.at < 600e3) return universeMem.map;
@@ -264,34 +296,23 @@ async function getUniverse(env) {
   const cache = caches.default;
   const cacheKey = new Request(base + 'universe.json#edge');
   try {
-    let res = await cache.match(cacheKey);
-    if (!res) {
-      const r = await fetch(base + 'universe.json');
+    let parsed = null;
+    const hit = await cache.match(cacheKey);
+    if (hit) {
+      try { parsed = parseUniverse(await hit.text()); }
+      catch (e) { try { await cache.delete(cacheKey); } catch (_) { /* no delete here */ } }   // a bad cached copy must not stick for an hour
+    }
+    if (!parsed) {
+      const r = await fetch(base + 'universe.json', { signal: AbortSignal.timeout(15e3) });
       if (!r.ok) throw new Error('universe ' + r.status);
-      res = new Response(await r.text(), { headers: { 'cache-control': 'public, max-age=3600' } });
-      await cache.put(cacheKey, res.clone());
+      const text = await r.text();
+      parsed = parseUniverse(text);                                   // validate first, then cache
+      try { await cache.put(cacheKey, new Response(text, { headers: { 'cache-control': 'public, max-age=3600' } })); } catch (_) { /* cache is an optimisation */ }
     }
-    const U = await res.json();
-    const map = new Map();
-    for (const m of ['K', 'Q']) {
-      const str = U[m] || '';
-      for (let k = 0; k + 8 <= str.length; k += 8) {
-        const [i, s] = U.I[parseInt(str.slice(k + 6, k + 8), 36)];
-        map.set(str.slice(k, k + 6), { m, i, s });
-      }
-    }
-    // X: every other listed stock (not streamed) — 9 chars each: code + base36 index into I + market — so
-    // /api/quotes?codes= (watchlist, themes) can still give them a sector instead of 기타.
-    const extra = new Map();
-    const xs = U.X || '';
-    for (let k = 0; k + 9 <= xs.length; k += 9) {
-      const [i, s] = U.I[parseInt(xs.slice(k + 6, k + 8), 36)];
-      extra.set(xs.slice(k, k + 6), { m: xs[k + 8], i, s });
-    }
-    universeMem = { at: now, map, extra };
-    return map;
+    universeMem = { at: now, ...parsed };
+    return parsed.map;
   } catch (e) {
-    if (universeMem) return universeMem.map;      // stale beats nothing
+    if (universeMem) return universeMem.map;      // stale beats nothing (retried on the next call: `at` is not refreshed)
     throw e;
   }
 }
@@ -319,11 +340,11 @@ function ohlcInto(row, op, hi, lo) {
 // fetched in parallel (2,700 codes → 3 calls; with the index call that stays under the 6 connections
 // waiting for headers). A failed chunk is retried once; if it fails again the whole call fails (never cached).
 const POLL_MAX = 900;
-async function pollStocks(codes) {
+async function pollStocks(codes, ms) {
   const n = Math.max(1, Math.ceil(codes.length / POLL_MAX)), size = Math.ceil(codes.length / n);
   const one = cs => {
     const u = `https://polling.finance.naver.com/api/realtime/domestic/stock/${cs.join(',')}`;
-    return naver(u).catch(e => { if (e && e.status) throw e; return naver(u); });
+    return naver(u, ms).catch(e => { if (e && e.status) throw e; return naver(u, ms); });
   };
   const res = await Promise.all(Array.from({ length: n }, (_, k) => one(codes.slice(k * size, (k + 1) * size))));
   return res.flatMap(r => (r && r.datas) || []);
@@ -334,15 +355,16 @@ async function pollStocks(codes) {
 // `only` (array of codes) → those codes instead of the universe; stocks outside the universe get s/i '기타'.
 // `all` → every listed stock of the universe (K + Q top 300, then X), same row shape (AGENTS §3-15).
 async function getQuotes(env, only, all) { return (await quotesCore(env, only, all)).body; }
-async function quotesCore(env, only, all) {
+// `ms` (optional): per-upstream-call timeout (the replay recorder passes one; page requests don't)
+async function quotesCore(env, only, all, ms) {
   const STOCKS = only ? await getUniverse(env).catch(() => new Map()) : await getUniverse(env);
   const U = universeMem;
   const codes = only || (all
     ? (U.allCodes || (U.allCodes = [...new Set([...STOCKS.keys(), ...U.extra.keys()])]))
     : (U.codes || (U.codes = [...STOCKS.keys()])));
   const [datas, idx] = await Promise.all([
-    pollStocks(codes),
-    naver('https://polling.finance.naver.com/api/realtime/domestic/index/KOSPI,KOSDAQ').catch(() => null),
+    pollStocks(codes, ms),
+    naver('https://polling.finance.naver.com/api/realtime/domestic/index/KOSPI,KOSDAQ', ms).catch(() => null),
   ]);
   const stocks = [];
   let asOf = '', stockOpen = false, endTime = '', nxOpen = '', nxSess = '';
@@ -1153,42 +1175,81 @@ async function getReplayMinutes(env, date, from, to) {
 // Cron entry, every minute. event.scheduledTime (ms) is the cron's nominal time; the dev harness passes a fake one.
 // Outside 09:00–16:30 KST or on weekends it returns before touching KV or the network.
 // KV reads can be ~60 s stale (edge cache), so the day's codes and list updates are also remembered per isolate.
-let recMem = { day: '', codes: null, days: false, minute: false };
-async function recordFrame(event, env) {
-  if (!env.REPLAY) return { skipped: 'no-kv' };
-  const at = new Date((event && event.scheduledTime) || Date.now());
-  const k = new Date(at.getTime() + 9 * 3600e3);                       // KST wall clock via getUTC*
-  const wd = k.getUTCDay(), mins = k.getUTCHours() * 60 + k.getUTCMinutes();
-  if (wd < 1 || wd > 5 || mins < FIRST_MIN || mins > LAST_MIN) return { skipped: 'outside-hours' };
-  const t = minHm(mins), offGrid = mins % 5 !== 0;
-  const day = ymd(k), fkey = `replay:${day}:${t}`, ckey = `replay:${day}:codes`, endKey = `replay:${day}:1530`;
-  if (recMem.day !== day) recMem = { day, codes: null, days: false, minute: false };
-  const got = await kvMany(env.REPLAY, [fkey, ckey, DAYS_KEY, MINUTE_KEY, ...(t > '1530' ? [endKey] : [])]);
-  if (got.get(fkey)) return { skipped: 'duplicate', t };
-  if (t > '1530') {                                                    // a normal day ended at 15:30: its frame says so → no fetch needed
-    const f = got.get(endKey);
-    if (f && (f.e || '1530') <= '1530') return { skipped: 'after-end', t };
+// Every minute stands alone (2026-11-14): a failed upstream / KV call, a timeout or a bad polling answer loses that minute
+// only — recordFrame throws, runRecorder logs it (Workers Logs) and keeps it in replay:status. Per-isolate memory holds
+// only values already written for the same day, and a bad universe.json is never cached.
+// The cron itself lives in wrangler.toml: Cloudflare numbers days of the week 1 = Sunday … 7 = Saturday, so weekdays
+// are MON-FRI (= 2-6); "1-5" runs Sunday–Thursday and never fires on a Friday (2026-11-13 recorded nothing).
+const STATUS_KEY = 'replay:status';
+const STATUS_EVERY = 5 * 60e3;          // an unchanged outcome is re-written at most every 5 minutes (heartbeat)
+const RECORD_TIMEOUT = 40e3;            // per upstream call in the recorder (env.REPLAY_TIMEOUT_MS overrides it — tests only)
+const MIN_PRICED = 0.5;                 // a polling answer pricing fewer than half the codes is not a frame (minute lost, not a frame of nulls)
+let recMem = { day: '', codes: null, days: false, minute: false, lastWrote: '' };
+let statusMem = null;                   // the last replay:status this isolate wrote
+
+// scheduled event → KST slot {day:'YYYYMMDD', t:'HHMM', mins, wd}
+function slotOf(event) {
+  const k = new Date(((event && event.scheduledTime) || Date.now()) + 9 * 3600e3);   // KST wall clock via getUTC*
+  const mins = k.getUTCHours() * 60 + k.getUTCMinutes();
+  return { day: ymd(k), t: minHm(mins), mins, wd: k.getUTCDay() };
+}
+const errText = e => shortUrl(String((e && (e.message || e)) || 'error')).slice(0, 300);
+const validCodes = c => Array.isArray(c) && c.length > 0 && c.every(x => typeof x === 'string' && CODE_RE.test(x));
+const kstText = ms => new Date(ms + 9 * 3600e3).toISOString().slice(0, 19).replace('T', ' ');
+
+// → {result:'wrote'|'skipped:<why>', day, t, rows?}; throws when the minute can't be recorded (runRecorder makes it 'error').
+// io.prev receives replay:status from the same KV batch read (null = none yet), so writing the status costs no extra read.
+async function recordFrame(event, env, io = {}) {
+  const { day, t, mins, wd } = slotOf(event);
+  if (!env.REPLAY) return { result: 'skipped:no-kv', day, t };
+  if (wd < 1 || wd > 5 || mins < FIRST_MIN || mins > LAST_MIN) return { result: 'skipped:outside-hours', day, t };
+  const offGrid = mins % 5 !== 0;
+  const fkey = `replay:${day}:${t}`, ckey = `replay:${day}:codes`, endKey = `replay:${day}:1530`;
+  if (recMem.day !== day) recMem = { day, codes: null, days: false, minute: false, lastWrote: '' };
+  let got = null, readErr = null;
+  try { got = await kvMany(env.REPLAY, [fkey, ckey, DAYS_KEY, MINUTE_KEY, STATUS_KEY, ...(t > '1530' ? [endKey] : [])]); }
+  catch (e) { readErr = e; }
+  if (got) {
+    io.prev = got.get(STATUS_KEY) || null;
+    if (got.get(fkey)) return { result: 'skipped:duplicate', day, t };
+    if (t > '1530') {                                                  // a normal day ended at 15:30: its frame says so → no fetch needed
+      const f = got.get(endKey);
+      if (f && (f.e || '1530') <= '1530') return { result: 'skipped:after-end', day, t };
+    }
+  } else if (!validCodes(recMem.codes)) {
+    throw new Error('KV read failed: ' + errText(readErr));           // the day's code list is unknown → no frame can be aligned
   }
-  const { body: q, endTime } = await quotesCore(env);
-  if (t > endTime) return { skipped: 'after-end', t };
+  const { body: q, endTime: et } = await quotesCore(env, null, false, +env.REPLAY_TIMEOUT_MS || RECORD_TIMEOUT);
+  const endTime = et >= '1500' && et <= minHm(LAST_MIN) ? et : '1530';  // an odd endTime must not skip a whole day
+  if (t > endTime) return { result: 'skipped:after-end', day, t };
+  // Holiday guard: both indices CLOSE and no trade stamped today within the last 10 minutes. So an index status stuck
+  // at CLOSE on a trading day can't skip the day; the last frame (endTime) is allowed whenever the data is stamped today.
   const closed = q.marketStatus.KOSPI !== 'OPEN' && q.marketStatus.KOSDAQ !== 'OPEN';
-  // Holiday guard: both indices CLOSE. The last frame (endTime) is allowed when the data is stamped today (the close may already have flipped).
-  if (closed && !(t === endTime && (q.asOf || '').slice(0, 10) === dash(day))) return { skipped: 'closed', t };
+  const asOf = q.asOf || '', today = asOf.slice(0, 10) === dash(day);
+  const asOfMin = today ? hmMin(asOf.slice(11, 13) + asOf.slice(14, 16)) : -1;
+  const fresh = today && asOfMin >= mins - 10 && asOfMin <= mins + 2;
+  if (closed && !fresh && !(t === endTime && today)) return { result: 'skipped:closed', day, t };
+  // the day's code order: what this isolate wrote, else KV, else the universe (fixed for the day)
+  let codes = validCodes(recMem.codes) ? recMem.codes : got && got.get(ckey);
+  const newCodes = !validCodes(codes);
+  if (newCodes) codes = universeMem && universeMem.codes;
+  if (!validCodes(codes)) throw new Error('no code list for the day');
+  const by = new Map();
+  for (const s of q.stocks) if (s.p > 0 && Number.isFinite(s.r)) by.set(s.c, s);
+  const priced = codes.reduce((n, c) => n + (by.has(c) ? 1 : 0), 0);
+  if (priced < codes.length * MIN_PRICED) throw new Error(`upstream: ${priced}/${codes.length} codes priced`);
+  // writes — only after every check above passed, so a failing minute writes nothing
   const writes = [];
-  const put = (key, val, ttl) => writes.push(env.REPLAY.put(key, JSON.stringify(val), ttl ? { expirationTtl: ttl } : undefined));
-  let codes = recMem.codes || got.get(ckey);
-  if (!Array.isArray(codes)) {
-    // universe order is fixed for the day, so a stale "not found" read that rewrites this key writes the same list
-    codes = (universeMem && universeMem.codes) || q.stocks.map(s => s.c);
-    put(ckey, codes, REPLAY_TTL);
-  }
+  const put = (key, val, ttl) => writes.push({ key, p: env.REPLAY.put(key, JSON.stringify(val), ttl ? { expirationTtl: ttl } : undefined) });
+  if (newCodes) put(ckey, codes, REPLAY_TTL);
   const withDay = list => [...new Set([day, ...(Array.isArray(list) ? list : [])])].sort().reverse().slice(0, REPLAY_DAYS);
-  const days = got.get(DAYS_KEY), mdays = got.get(MINUTE_KEY);
-  if (!recMem.days && !(Array.isArray(days) && days.includes(day))) put(DAYS_KEY, withDay(days));
-  if (offGrid && !recMem.minute && !(Array.isArray(mdays) && mdays.includes(day))) put(MINUTE_KEY, withDay(mdays));
-  const by = new Map(q.stocks.map(s => [s.c, s]));
-  const ix = x => (q.index[x] ? round2(q.index[x].value) : null);
-  const bx = x => (q.index[x] ? round2(q.index[x].value - q.index[x].change) : null);
+  if (got) {                                                           // lists only from a fresh read (a blind write would drop history)
+    const days = got.get(DAYS_KEY), mdays = got.get(MINUTE_KEY);
+    if (!recMem.days && !(Array.isArray(days) && days.includes(day))) put(DAYS_KEY, withDay(days));
+    if (offGrid && !recMem.minute && !(Array.isArray(mdays) && mdays.includes(day))) put(MINUTE_KEY, withDay(mdays));
+  }
+  const ix = x => (q.index[x] && q.index[x].value > 0 ? round2(q.index[x].value) : null);
+  const bx = x => (q.index[x] && q.index[x].value > 0 ? round2(q.index[x].value - q.index[x].change) : null);
   put(fkey, {
     p: codes.map(c => (by.has(c) ? Math.round(by.get(c).p) : null)),
     r: codes.map(c => (by.has(c) ? round2(by.get(c).r) : null)),
@@ -1196,9 +1257,79 @@ async function recordFrame(event, env) {
     b: [bx('KOSPI'), bx('KOSDAQ')],
     e: endTime,
   }, REPLAY_TTL);
-  await Promise.all(writes);
-  recMem.codes = codes;
-  recMem.days = true;
-  if (offGrid) recMem.minute = true;
-  return { wrote: t };
+  const res = await Promise.allSettled(writes.map(w => w.p));
+  const ok = key => { const i = writes.findIndex(w => w.key === key); return i < 0 || res[i].status === 'fulfilled'; };
+  if (ok(ckey)) recMem.codes = codes;                                  // remember only what is really stored
+  if (got && ok(DAYS_KEY)) recMem.days = true;
+  if (got && offGrid && ok(MINUTE_KEY)) recMem.minute = true;
+  if (ok(fkey)) recMem.lastWrote = t;
+  const bad = writes.map((w, i) => (res[i].status === 'rejected' ? `${w.key.replace(`replay:${day}:`, '')}: ${errText(res[i].reason)}` : '')).filter(Boolean);
+  if (bad.length) throw new Error('KV put failed: ' + bad.join('; '));
+  return { result: 'wrote', day, t, rows: priced };
+}
+
+// scheduled() body: never throws. Errors go to console.error (Workers Logs / tail) and to replay:status.
+async function runRecorder(event, env) {
+  const io = {};
+  let res;
+  try { res = await recordFrame(event, env, io); }
+  catch (e) {
+    const { day, t } = slotOf(event);
+    res = { result: 'error', day, t, error: errText(e) };
+    console.error(`replay recorder ${day} ${t}: ${res.error}`);
+  }
+  try { await saveStatus(env, res, io.prev, event); }
+  catch (e) { console.error(`replay status ${res.day} ${res.t}: ${errText(e)}`); }
+  return res;
+}
+
+// replay:status = {v, at(ms), day:'YYYY-MM-DD', t:'HHMM', result:'wrote'|'skipped:<why>'|'error', error?, rows?, since(ms, this
+// result kind began), lastWrote:'HHMM'|null (today's last frame known here), errors (today, approximate), lastError?:{t,error}, cron}
+// Written when the result kind changes, on every error, else at most every STATUS_EVERY. Not written for outside-hours,
+// duplicate or no-kv minutes (outside-hours touches no KV at all).
+const STATUS_QUIET = new Set(['skipped:outside-hours', 'skipped:duplicate', 'skipped:no-kv']);
+async function saveStatus(env, res, prev, event) {
+  if (!env.REPLAY || STATUS_QUIET.has(res.result)) return null;
+  if (prev === undefined && !statusMem) prev = await env.REPLAY.get(STATUS_KEY, 'json').catch(() => null);   // the batch read didn't happen
+  if (statusMem && (!prev || statusMem.at > (prev.at || 0))) prev = statusMem;   // a KV read can lag this isolate's own write
+  const now = Date.now(), day = dash(res.day), same = !!prev && prev.day === day, err = res.result === 'error';
+  const changed = !same || prev.result !== res.result;
+  if (!changed && !err && now - (prev.at || 0) < STATUS_EVERY) return null;
+  const lastWrote = [res.result === 'wrote' ? res.t : '', same ? prev.lastWrote : '', recMem.day === res.day ? recMem.lastWrote : '']
+    .filter(Boolean).sort().pop() || null;
+  const st = {
+    v: 1, at: now, day, t: res.t, result: res.result,
+    ...(err ? { error: res.error } : {}),
+    ...(res.rows != null ? { rows: res.rows } : {}),
+    since: changed ? now : prev.since || prev.at,
+    lastWrote,
+    errors: (same ? prev.errors || 0 : 0) + (err ? 1 : 0),
+    ...(err ? { lastError: { t: res.t, error: res.error } } : same && prev.lastError ? { lastError: prev.lastError } : {}),
+    cron: (event && event.cron) || null,
+  };
+  await env.REPLAY.put(STATUS_KEY, JSON.stringify(st));
+  statusMem = st;
+  if (changed && !err) console.log(`replay recorder ${day} ${res.t}: ${res.result}`);
+  return st;
+}
+
+// GET /api/replay/status → replay:status + {now, nowKst, atKst, ageSec, due, recent, stale} (no-store).
+// due = a weekday 09:06 → session end (KST), when the last minutes should have frames; recent = which of the last
+// 5 minutes have a frame key (KV may answer ~60 s late); stale = due and none of them has one.
+async function getReplayStatus(env) {
+  if (!env.REPLAY) throw new HttpError(503, '리플레이 저장소가 연결되지 않았어요');
+  const now = Date.now(), k = kstNow(), day = ymd(k), wd = k.getUTCDay(), mins = k.getUTCHours() * 60 + k.getUTCMinutes();
+  const due = wd >= 1 && wd <= 5 && mins >= FIRST_MIN + 6 && mins <= hmMin(lastEndTime) + 1;
+  const ts = due ? [1, 2, 3, 4, 5].map(i => minHm(mins - i)) : [];
+  const got = await kvMany(env.REPLAY, [STATUS_KEY, ...ts.map(t => `replay:${day}:${t}`)], 'text');
+  let st = null;
+  try { st = JSON.parse(got.get(STATUS_KEY) || 'null'); } catch (e) { st = null; }
+  const recent = due ? Object.fromEntries(ts.map(t => [t, got.get(`replay:${day}:${t}`) != null])) : null;
+  return {
+    ...(st && typeof st === 'object' ? st : { result: null }),
+    now, nowKst: kstText(now),
+    atKst: st && Number.isFinite(st.at) ? kstText(st.at) : null,
+    ageSec: st && Number.isFinite(st.at) ? Math.round((now - st.at) / 1000) : null,
+    due, recent, stale: due && !Object.values(recent).some(Boolean),
+  };
 }
