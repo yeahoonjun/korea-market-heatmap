@@ -13676,7 +13676,7 @@ function regionSections(d) {
   return secs.filter(s => !fold.includes(s));
 }
 /* blocks of columns. The 지표 tab with 환율 · 금리 (§3-28) has two captioned blocks — 원자재 (에너지 · 금속 · 농산물, or their
-   등락률순 ranking) and 환율 · 금리 (always by group: a yield's bp and a currency's % do not rank against a commodity's %).
+   등락률순 ranking) and 환율 · 금리 (shown first since 2026-11-14; always by group: a yield's bp and a currency's % do not rank against a commodity's %).
    Every other case is one block without a caption, laid out exactly as before. */
 function buildColumns(d, geo) {
   const rowH = geo.compact ? ROW_HC : ROW_H;
@@ -13684,9 +13684,9 @@ function buildColumns(d, geo) {
   const macro = secs.filter(s => MACRO_NOTE[s.key]);
   if (!macro.length) return [{ key: 'all', title: null, cols: S.sort !== 'pct' ? distribute(secs, geo.n, rowH) : ranked(d.all, geo) }];
   const base = secs.filter(s => !MACRO_NOTE[s.key]);
-  const blocks = [];
+  // 환율 · 금리를 원자재보다 먼저 — 사용자 2026-11-14 02:11 "지표 순서도 환율/금리를 원자재보다 먼저 보이게"
+  const blocks = [{ key: 'mx', title: macro.map(s => s.name).join(' · '), cols: distribute(macro, geo.n, rowH) }];
   if (base.length) blocks.push({ key: 'cm', title: '원자재', cols: S.sort !== 'pct' ? distribute(base, geo.n, rowH) : ranked(d.all.filter(it => !isMacro(it)), geo) });
-  blocks.push({ key: 'mx', title: macro.map(s => s.name).join(' · '), cols: distribute(macro, geo.n, rowH) });
   return blocks;
 }
 // 등락률순: one ranked list (missing values last, ties in the Worker's order), split evenly over the columns; VIX at the end
