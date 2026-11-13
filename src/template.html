@@ -481,7 +481,7 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 .wgpop .sep{height:1px;background:var(--line);margin:6px 0}
 @media (max-width:760px){
   .wgc{height:40px} .wgm{height:40px;width:38px} .wgadd{height:42px;width:44px}
-  .wgpop{left:8px!important;right:8px;top:auto!important;bottom:calc(8px + env(safe-area-inset-bottom));width:auto;max-width:none}
+  .wgpop{left:8px!important;right:8px;top:auto!important;bottom:calc(8px + env(safe-area-inset-bottom));width:auto;max-width:none;background:var(--sheet-bg);border-color:var(--sheet-bd);border-radius:max(4px,calc(var(--sheet-r) - 4px));box-shadow:var(--sheet-fl-sh)}   /* phones: a floating sheet, in the theme's sheet material */
   .wgpop .row{min-height:44px} .wgpop .acts button{height:44px}
 }
 /* the table's 그룹 column (★관심) */
@@ -5512,6 +5512,7 @@ function refreshOpenViews() {
 }
 // the map as drawn now (for saving it as an image); sector / industry bands and the tile type in the theme's colours
 let LC = null;
+const INK_HEX = { black: '#000', white: '#fff' };
 const layoutColours = () => ({ theme: THEME, sec: cssVar('--sec-bg'), ind: cssVar('--ihd-bg'), secFg: cssVar('--sec-fg'), indFg: cssVar('--ihd-fg'), tile: cssVar('--tile-fg') });
 function khLayout() {
   if (state.view !== 'map') return [];
@@ -5521,7 +5522,7 @@ function khLayout() {
     if (!el.__g || el.classList.contains('leaving')) continue;
     const [x, y, w, hh] = el.__g;
     if (el.classList.contains('tile')) {
-      const t = { kind: 'tile', x, y, w, h: hh, color: el.__col || NODATA, label: el.__name || '', sub: el.__sub || '', ink: el.style.color || LC.tile };   // ink: the label colour as drawn
+      const t = { kind: 'tile', x, y, w, h: hh, color: el.__col || NODATA, label: el.__name || '', sub: el.__sub || '', ink: INK_HEX[el.style.color] || LC.tile };   // ink: the label colour as drawn (light themes: black / white by contrast)
       if (el.dataset.c) { t.code = el.dataset.c; if (el.__px) t.px = el.__px; if (el.__mc) t.mc = el.__mc; }   // px: the price as drawn (basis / replay); mc: the cap line when shown
       if (el.classList.contains('dim')) t.dim = true;                              // dimmed by search / 등락 분포 bucket / sector hover
       if (el.classList.contains('nonx')) t.nonx = true;                            // NXT prices drawn, no NXT trade: the KRX value (§3-8)
@@ -5975,6 +5976,7 @@ function openWins() {
 }
 let STOCK_OPEN = false;                  // 'kh:stock' {open} from the stock page (KHStock.isOpen() and the hash cover older builds)
 document.addEventListener('kh:stock', e => { STOCK_OPEN = !!(e.detail && e.detail.open); dkSync(); });
+document.addEventListener('kh:worlddetail', () => setTimeout(dkSync, 0));   // the 해외 detail sheet (KHWorld.detailOpen() is read in openWins)
 const kbdOpen = () => { const vv = window.visualViewport; return !!vv && vv.height < innerHeight * 0.75; };
 function dkWant() {
   if (!DK.el || !narrowMQ.matches || !DATA) return false;
