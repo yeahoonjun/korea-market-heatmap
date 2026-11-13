@@ -5,42 +5,49 @@
 //   GET /api/live[?ch=top][&epoch=…&ver=…]  WebSocket only. Refusals ({t:'off', reason, retryAt} then close 4003) come from the
 //                                            Worker when it can (clock, kill switch, a refusal the hub gave recently in this data
 //                                            center) so they cost no Durable Object request.
-//   GET /api/live/state                      hub counters + budget guard (JSON, edge-cached 60 s per data center)
+//   GET /api/live/state                      hub counters + budget guard (JSON, edge-cached 60 s in the session, 10 min otherwise)
 //
 // Budget (user 2026-11-14: nothing beyond the $5 Workers Paid base): see live_core.js LIMITS and realtime.md §12. The hub keeps
 // its counters in its own storage (no KV writes); the Worker remembers refusals in the Cache API (free); the only KV access is a
 // read of the kill-switch key `live:off`.
 //
 // No `import … from 'cloudflare:workers'`: a plain class keeps index.js importable by the Node test harnesses (qa/worker/*).
-import { LIVE_POLL_MS, LIMITS, GATE_TTL, RING, SLOW_EVERY, HB_MS, UNIT, kst, nextOpen, sessionState, newGuard, roll, charge, overBudget, diffRow, applyPatch, cloneRow, sameJson } from './live_core.js';
+import { LIVE_POLL_MS, GATE_TTL, RING, SLOW_EVERY, HB_MS, UNIT, IDLE_RESET_MS, HOLIDAY_LATCH_MS, limitsFrom, kst, openAt, sessionState, isHoliday, validBody, newGuard, roll, charge, overBudget, diffRow, applyPatch, cloneRow, sameJson } from './live_core.js';
 
 const PROTO = 1;
 const ORIGINS = ['https://panse.pages.dev', 'https://korea-market-heatmap.ssslot.workers.dev'];
 const KILL_KEY = 'live:off';                       // REPLAY KV: any value = realtime off (pages poll); delete the key to turn it back on
-let SOURCE = null;                                 // (env, ms) → {endTime, body}: quotesCore of index.js (same rows as /api/quotes)
+let SOURCE = null;                                 // (env, ms) → {endTime, startTime, body}: quotesCore of index.js (same rows as /api/quotes)
 export function configureLive(source) { SOURCE = source; }
 
-const limitsOf = env => { try { return env && env.LIVE_LIMITS ? { ...LIMITS, ...JSON.parse(env.LIVE_LIMITS) } : LIMITS; } catch (e) { return LIMITS; } };   // tests only (wrangler dev --var)
-const devOpen = env => !!(env && env.LIVE_DEV_OPEN === '1');                   // tests only: treat every hour as the session
-const originOk = (o, env) => ORIGINS.includes(o) || String((env && env.LIVE_ORIGINS) || '').split(',').map(s => s.trim()).filter(Boolean).includes(o);
+// test-only switches (wrangler dev --var …) work only for requests to localhost / 127.0.0.1, and LIVE_LIMITS can only tighten
+// (live_core.limitsFrom), so a stray production variable can never open the clock, widen the origins or loosen a cap
+const isLocal = host => host === 'localhost' || host === '127.0.0.1' || host === '[::1]';
+const devOpen = (env, url) => !!(env && env.LIVE_DEV_OPEN === '1' && url && isLocal(url.hostname));
+const originOk = (o, env, url) => ORIGINS.includes(o) || (!!url && isLocal(url.hostname) && String((env && env.LIVE_ORIGINS) || '').split(',').map(s => s.trim()).filter(Boolean).includes(o));
 const hubOf = env => env.MARKET.get(env.MARKET.idFromName('top'), { locationHint: 'apac' });
 const jsonRes = (body, status = 200, maxAge = 0) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': maxAge ? `public, max-age=${maxAge}` : 'no-store', 'access-control-allow-origin': 'https://panse.pages.dev' } });
+const newEpoch = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 
 /* ── Worker side ─────────────────────────────── */
 export async function liveRoute(request, env, ctx, url) {
   const ch = url.searchParams.get('ch') || 'top';
   if (ch !== 'top') return jsonRes({ error: 'ch는 top만 있어요' }, 400);           // one hub, one name: no stray Durable Objects
   if (!env.MARKET) return jsonRes({ error: '이 배포에는 실시간 허브가 없어요' }, 503);
-  if (url.pathname === '/api/live/state') return stateRoute(request, env, ctx);
+  if (url.pathname === '/api/live/state') return stateRoute(request, env, ctx, url);
   if (request.method !== 'GET') return jsonRes({ error: 'GET만 받아요' }, 405);
   if ((request.headers.get('upgrade') || '').toLowerCase() !== 'websocket') return jsonRes({ error: 'WebSocket 연결만 받아요' }, 426);
   const origin = request.headers.get('origin');
-  if (origin && !originOk(origin, env)) return jsonRes({ error: '허용되지 않은 출처예요' }, 403);
+  if (origin && !originOk(origin, env, url)) return jsonRes({ error: '허용되지 않은 출처예요' }, 403);
   const now = Date.now();
-  if (!devOpen(env) && sessionState(now, null) !== 'open') return offSocket('closed', nextOpen(now));   // weekends, nights: no DO request
+  if (!devOpen(env, url) && sessionState(now, null, null) !== 'open') return offSocket('closed', openAt(now, null));   // weekends, nights: no DO request
   const gate = await gateGet(request);
   if (gate) return offSocket(gate.reason, gate.retryAt);
-  if (await killed(env)) return offSocket('paused', now + GATE_TTL.paused * 1000);
+  if (await killed(env)) {                                   // remembered like a refusal: repeat connects cost no KV read for 60 s
+    const retryAt = now + GATE_TTL.paused * 1000;
+    ctx.waitUntil(gatePut(request, 'paused', retryAt));
+    return offSocket('paused', retryAt);
+  }
   let res;
   try { res = await hubOf(env).fetch(request); }
   catch (e) { ctx.waitUntil(gatePut(request, 'error', now + GATE_TTL.error * 1000)); return offSocket('error', now + GATE_TTL.error * 1000); }
@@ -83,18 +90,19 @@ async function gatePut(request, reason, retryAt) {
     await caches.default.put(gateKey(request), new Response(JSON.stringify({ reason, retryAt }), { headers: { 'content-type': 'application/json', 'cache-control': `public, max-age=${ttl}` } }));
   } catch (e) { /* the gate is an optimisation; the hub still counts and refuses */ }
 }
-async function stateRoute(request, env, ctx) {
+async function stateRoute(request, env, ctx, url) {
   const key = new Request(new URL('/__cache/live-state', request.url).toString());
-  const cache = typeof caches !== 'undefined' && !devOpen(env) ? caches.default : null;   // tests read it fresh
+  const cache = typeof caches !== 'undefined' && !devOpen(env, url) ? caches.default : null;   // tests read it fresh
   if (cache) { try { const hit = await cache.match(key); if (hit) return hit; } catch (e) { /* miss */ } }
   let body;
   try {
-    const r = await hubOf(env).fetch(new Request('https://hub/__state'));
+    const r = await hubOf(env).fetch(new Request(new URL('/__state', request.url).toString()));
     body = await r.json();
   } catch (e) { return jsonRes({ error: '허브 상태를 읽지 못했어요' }, 502); }
   body.killSwitch = await killed(env);
-  // while the guard has tripped, this data center asks the hub at most every 10 minutes (each ask is a DO request)
-  const res = jsonRes(body, 200, body.guard && body.guard.trip ? GATE_TTL.budget : 60);
+  // each miss is a DO request: once a minute per data center in the session, every 10 minutes outside it or while tripped
+  const quiet = (body.guard && body.guard.trip) || body.session !== 'open';
+  const res = jsonRes(body, 200, quiet ? GATE_TTL.budget : 60);
   if (cache) ctx.waitUntil(cache.put(key, res.clone()).catch(() => {}));
   return res;
 }
@@ -104,23 +112,31 @@ export class MarketHub {
   constructor(state, env) {
     this.state = state;
     this.env = env || {};
-    this.lim = limitsOf(this.env);
+    this.lim = limitsFrom(this.env.LIVE_LIMITS);
     this.rows = null;             // Map code → row exactly as every connected page holds it (/api/quotes row shape)
     this.order = [];
     this.meta = null;             // {asOf, source, marketStatus, afterHours, nxt, index}
     this.ver = 0;
-    this.epoch = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    this.epoch = newEpoch();
     this.ring = [];               // [{v, text}]
-    this.snap = null;             // {v, text}: one serialisation per version
+    this.snap = null;             // {v, epoch, text}: one serialisation per version
     this.tick = 0;
     this.lastSent = 0;
     this.lastPollAt = 0;
     this.backoff = 0;
-    this.stats = { polls: 0, fails: 0, upstreamMs: 0, lastErr: null, lastBytes: 0, lastRows: 0, sent: 0, snaps: 0, startedAt: Date.now() };
+    this.polling = false;         // an alarm is running: a connect must not schedule another one on top of it
+    this.devHost = false;         // requests reach this hub through localhost (wrangler dev) — gates the test-only clock
+    this.stats = { polls: 0, fails: 0, upstreamMs: 0, lastErr: null, lastBytes: 0, lastRows: 0, sent: 0, snaps: 0, refused: 0, saveErrors: 0, startedAt: Date.now() };
     this.g = null;
     try { state.setWebSocketAutoResponse(new WebSocketRequestResponsePair('ping', 'pong')); } catch (e) { /* older runtime */ }
-    state.blockConcurrencyWhile(async () => { this.g = (await state.storage.get('guard')) || newGuard(Date.now()); });
+    state.blockConcurrencyWhile(async () => {
+      this.g = (await state.storage.get('guard')) || newGuard(Date.now());
+      this.devHost = !!(await state.storage.get('devHost'));
+    });
   }
+
+  devOpen() { return this.env.LIVE_DEV_OPEN === '1' && this.devHost; }
+  today(now) { const day = kst(now).day; return { day, start: this.g.startDay === day ? this.g.startTime : null, end: this.g.endDay === day ? this.g.endTime : null }; }
 
   // every handler: roll the day, charge what Cloudflare bills for this event, persist once at the end
   begin(units) { const t = Date.now(); roll(this.g, t); charge(this.g, units); return t; }
@@ -128,9 +144,11 @@ export class MarketHub {
     const now = Date.now();
     charge(this.g, 0, Math.max(1, now - t0));        // handler wall time = the duration proxy
     this.tripped(now);                                 // a limit reached by this event shuts the hub now, not on the next one
-    await this.state.storage.put('guard', this.g);    // one SQLite row per event (≤ ~20k a day of the 50M a month included)
+    // one SQLite row per event; a failed write must not lose the 101 of an accepted socket (it would hold a slot unseen)
+    try { await this.state.storage.put('guard', this.g); }
+    catch (e) { this.stats.saveErrors++; console.error('live: could not save the budget counters:', String((e && e.message) || e)); }
   }
-  refuse(reason, retryAt) { this.stats.refused = (this.stats.refused || 0) + 1; return new Response(JSON.stringify({ reason, retryAt }), { status: 503, headers: { 'content-type': 'application/json' } }); }
+  refuse(reason, retryAt) { this.stats.refused++; return new Response(JSON.stringify({ reason, retryAt }), { status: 503, headers: { 'content-type': 'application/json' } }); }
 
   // an active trip, or a new one when a limit has just been reached (then every socket is told and closed, polling stops)
   tripped(now) {
@@ -143,40 +161,46 @@ export class MarketHub {
     this.shutdown('budget', o.until);
     return this.g.trip;
   }
-  closedNow(now) {
-    if (devOpen(this.env)) return false;
-    const day = kst(now).day;
-    if (this.g.closedDay === day) return true;
-    return sessionState(now, this.g.endDay === day ? this.g.endTime : null) !== 'open';
+  // → null while the session is open, else when to come back (today's start on a 10:00 day, the holiday re-check, next weekday)
+  closedUntil(now) {
+    if (this.devOpen()) return null;
+    if (this.g.closedUntil && now < this.g.closedUntil) return this.g.closedUntil;
+    const t = this.today(now);
+    return sessionState(now, t.end, t.start) === 'open' ? null : openAt(now, t.start);
   }
   shutdown(reason, retryAt) {
     const text = JSON.stringify({ t: 'off', reason, retryAt, at: Date.now() });
     for (const ws of this.state.getWebSockets()) { try { ws.send(text); ws.close(4003, reason); } catch (e) { /* gone */ } }
-    this.state.storage.deleteAlarm().catch(() => {});
+    Promise.resolve(this.state.storage.deleteAlarm()).catch(() => {});
   }
 
   async fetch(request) {
     const url = new URL(request.url);
     const t0 = this.begin(UNIT);
     try {
+      if (isLocal(url.hostname) && !this.devHost) { this.devHost = true; try { await this.state.storage.put('devHost', true); } catch (e) { } }
       if (url.pathname === '/__state') return jsonRes(this.status(t0));
       if (this.tripped(t0)) return this.refuse('budget', this.g.trip.until);
-      if (this.closedNow(t0)) return this.refuse('closed', nextOpen(t0));
+      const closed = this.closedUntil(t0);
+      if (closed) return this.refuse('closed', closed);
       if (this.state.getWebSockets().length >= this.lim.maxSockets) return this.refuse('full', t0 + 5 * 60e3);
       if ((request.headers.get('upgrade') || '').toLowerCase() !== 'websocket') return this.refuse('error', t0 + 15e3);
       this.g.dConn++;
       if (this.tripped(t0)) return this.refuse('budget', this.g.trip.until);
+      // idle hub (no poll for 10 min): drop the old rows and their epoch — the hello below already carries the new epoch,
+      // the next poll sends everyone a snapshot under it, and no page can resume old versions against new rows
+      if (this.rows && !this.polling && t0 - this.lastPollAt > IDLE_RESET_MS) this.dropRows();
       const [client, server] = Object.values(new WebSocketPair());
       this.state.acceptWebSocket(server);
       server.serializeAttachment({ at: t0, n: 0 });
       server.send(JSON.stringify(this.hello(t0)));
-      if (this.rows && t0 - this.lastPollAt > 10 * 60e3) { this.rows = null; this.ring = []; this.snap = null; }   // idle > 10 min: wait for a fresh snapshot
       if (this.rows) {
         const ep = url.searchParams.get('epoch'), since = Number(url.searchParams.get('ver'));
         const missed = ep === this.epoch && since > 0 ? this.since(since) : null;
         if (missed) for (const t of missed) server.send(t); else this.sendSnap(server);
       }
-      if ((await this.state.storage.getAlarm()) == null) await this.state.storage.setAlarm(Date.now());
+      // a running alarm reschedules itself; only an idle hub needs waking
+      if (!this.polling && (await this.state.storage.getAlarm()) == null) await this.state.storage.setAlarm(Date.now());
       return new Response(null, { status: 101, webSocket: client });
     } finally { await this.finish(t0); }
   }
@@ -204,20 +228,28 @@ export class MarketHub {
 
   async alarm() {
     const t0 = this.begin(UNIT);
+    this.polling = true;
     try {
       if (this.tripped(t0)) return;
-      if (!this.state.getWebSockets().length) return;              // nobody listening: stop (the next page wakes the hub)
-      if (this.closedNow(t0)) { this.shutdown('closed', nextOpen(t0)); return; }
+      if (!this.state.getWebSockets().length) return;               // nobody listening: stop (the next page wakes the hub)
+      let closed = this.closedUntil(t0);
+      if (closed) { this.shutdown('closed', closed); return; }
       if (this.tick % 20 === 0 && await killed(this.env)) { this.shutdown('paused', t0 + GATE_TTL.paused * 1000); return; }
       let ok = true;
       try {
         if (!SOURCE) throw new Error('live source not configured');
-        const { endTime, body } = await SOURCE(this.env, 8000);
+        const { endTime, startTime, body } = await SOURCE(this.env, 8000);
         this.stats.polls++; this.stats.upstreamMs = Date.now() - t0; this.lastPollAt = Date.now();
         this.g.dPolls++; this.g.mPolls++;
-        const k = kst(t0);
-        if (/^\d{4}$/.test(endTime || '')) { this.g.endTime = endTime; this.g.endDay = k.day; }
-        if (!devOpen(this.env) && isHoliday(body, t0)) { this.g.closedDay = k.day; this.shutdown('closed', nextOpen(t0)); return; }
+        const day = kst(t0).day;
+        if (/^\d{4}$/.test(endTime || '')) { this.g.endTime = endTime; this.g.endDay = day; }
+        if (/^\d{4}$/.test(startTime || '')) { this.g.startTime = startTime; this.g.startDay = day; }
+        if (!validBody(body)) throw new Error(`thin answer: ${((body && body.stocks) || []).filter(r => r && r.p > 0).length} priced rows`);
+        if (!this.devOpen() && isHoliday(body, t0, this.today(t0).start)) {
+          this.g.closedUntil = t0 + HOLIDAY_LATCH_MS;                // re-checked after 30 minutes, never latched for the whole day
+          this.shutdown('closed', this.g.closedUntil);
+          return;
+        }
         this.ingest(body);
         this.backoff = 0;
       } catch (e) {
@@ -227,20 +259,24 @@ export class MarketHub {
         this.backoff = Math.min(30000, Math.max(LIVE_POLL_MS * 2, this.backoff * 2));
         this.broadcast(JSON.stringify({ t: 'st', ok: false, msg: '시세를 받지 못했어요', retryMs: this.backoff, at: Date.now() }));
       }
-      if (this.closedNow(Date.now())) { this.shutdown('closed', nextOpen(Date.now())); return; }
+      closed = this.closedUntil(Date.now());                          // today's start / end may have just been learned
+      if (closed) { this.shutdown('closed', closed); return; }
       await this.state.storage.setAlarm(Math.max(t0 + (ok ? LIVE_POLL_MS : this.backoff), Date.now() + 250));
-    } finally { await this.finish(t0); }
+    } finally { this.polling = false; await this.finish(t0); }
   }
 
+  dropRows() { this.rows = null; this.ring = []; this.snap = null; this.ver = 0; this.epoch = newEpoch(); }
   ingest(body) {
     const slow = this.tick++ % SLOW_EVERY === 0;
     const now = Date.now();
-    if (!this.rows) {                                      // first data of this instance: everyone gets a snapshot
+    if (!this.rows) {                                      // first data of this instance or after an idle reset
+      if (this.ver > 0) this.epoch = newEpoch();           // an epoch already used for versions is never reused (belt: dropRows renews it)
       this.rows = new Map(body.stocks.map(r => [r.c, cloneRow(r)]));
       this.order = body.stocks.map(r => r.c);
       this.meta = metaOf(body);
       this.ver = 1;
       this.ring = [];
+      this.snap = null;
       for (const ws of this.state.getWebSockets()) this.sendSnap(ws);
       return;
     }
@@ -276,8 +312,8 @@ export class MarketHub {
   }
   hello(now) { return { t: 'hello', proto: PROTO, ch: 'top', epoch: this.epoch, v: this.ver, poll: LIVE_POLL_MS, now }; }
   sendSnap(ws) {
-    if (!this.snap || this.snap.v !== this.ver) {
-      this.snap = { v: this.ver, text: JSON.stringify({ t: 'snap', ch: 'top', epoch: this.epoch, v: this.ver, at: Date.now(), body: { ...this.meta, stocks: this.order.map(c => this.rows.get(c)) } }) };
+    if (!this.snap || this.snap.v !== this.ver || this.snap.epoch !== this.epoch) {
+      this.snap = { v: this.ver, epoch: this.epoch, text: JSON.stringify({ t: 'snap', ch: 'top', epoch: this.epoch, v: this.ver, at: Date.now(), body: { ...this.meta, stocks: this.order.map(c => this.rows.get(c)) } }) };
     }
     this.stats.snaps++;
     try { ws.send(this.snap.text); } catch (e) { try { ws.close(1011, 'send failed'); } catch (_) { } }
@@ -289,10 +325,10 @@ export class MarketHub {
     this.lastSent = Date.now();
   }
   status(now) {
-    const g = this.g, L = this.lim;
+    const g = this.g, L = this.lim, t = this.today(now);
     return {
       ch: 'top', epoch: this.epoch, v: this.ver, sockets: this.state.getWebSockets().length, rows: this.rows ? this.rows.size : 0,
-      pollMs: LIVE_POLL_MS, session: this.closedNow(now) ? 'closed' : 'open', ...this.stats,
+      pollMs: LIVE_POLL_MS, session: this.closedUntil(now) ? 'closed' : 'open', sessionToday: { start: t.start, end: t.end }, closedUntil: g.closedUntil || null, ...this.stats,
       guard: {
         day: g.day, month: g.month, trip: g.trip, trips: g.trips || 0,
         doRequests: { today: Math.ceil(g.dU / UNIT), dayLimit: L.dayDoReq, month: Math.ceil(g.mU / UNIT), monthLimit: L.monthDoReq },
@@ -305,10 +341,3 @@ export class MarketHub {
 }
 
 const metaOf = b => ({ asOf: b.asOf, source: b.source, marketStatus: b.marketStatus, afterHours: b.afterHours, nxt: b.nxt, index: b.index });
-// a weekday without trading: after 09:05 both indices still CLOSE and the newest KRX trade is from another day (§4-5)
-function isHoliday(body, now) {
-  const k = kst(now);
-  if (k.hm < 905) return false;
-  const st = Object.values((body && body.marketStatus) || {});
-  return st.length > 0 && st.every(s => s === 'CLOSE') && String((body && body.asOf) || '').slice(0, 10) !== k.date;
-}

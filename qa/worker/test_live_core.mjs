@@ -1,7 +1,7 @@
 // 실시간 갱신 허브의 순수 부품 점검 (worker/src/live_core.js, docs/standards/realtime.md §5 · §12). 네트워크·Workers 없이 Node만.
 //   node qa/worker/test_live_core.mjs        → 실패가 있으면 종료 코드 1
 import assert from 'node:assert/strict';
-import { LIVE_POLL_MS, LIMITS, UNIT, kst, nextOpen, nextKstMidnight, nextKstMonth, sessionState, newGuard, roll, charge, overBudget, diffRow, applyPatch, cloneRow } from '../../worker/src/live_core.js';
+import { LIVE_POLL_MS, LIMITS, UNIT, MIN_PRICED, limitsFrom, kst, nextOpen, openAt, isHoliday, validBody, nextKstMidnight, nextKstMonth, sessionState, newGuard, roll, charge, overBudget, diffRow, applyPatch, cloneRow } from '../../worker/src/live_core.js';
 
 let pass = 0, fail = 0;
 const t = (name, fn) => { try { fn(); pass++; console.log('  ok  ', name); } catch (e) { fail++; console.log('  FAIL', name, '\n       ', e.message); } };
@@ -31,6 +31,17 @@ t('nextOpen: Saturday → Monday 09:00', () => assert.equal(iso(nextOpen(K('2026
 t('nextOpen: Friday after the close → Monday 09:00', () => assert.equal(iso(nextOpen(K('2026-11-20T15:40:00'))), '2026-11-23 09:00:00'));
 t('nextOpen: Monday 08:00 → the same day 09:00; Monday 09:00 → Tuesday (strictly after)', () => { assert.equal(iso(nextOpen(K('2026-11-16T08:00:00'))), '2026-11-16 09:00:00'); assert.equal(iso(nextOpen(K('2026-11-16T09:00:00'))), '2026-11-17 09:00:00'); });
 t('next KST midnight / month start', () => { assert.equal(iso(nextKstMidnight(K('2026-11-16T23:59:59'))), '2026-11-17 00:00:00'); assert.equal(iso(nextKstMonth(K('2026-11-30T23:00:00'))), '2026-12-01 00:00:00'); assert.equal(iso(nextKstMonth(K('2026-12-31T10:00:00'))), '2027-01-01 00:00:00'); });
+
+console.log('10:00-open days (수능 · first trading day) and holidays — review 2026-11-14');
+t('start 1000: closed at 09:30, open at 10:00, open until 16:32', () => { assert.equal(sessionState(K('2026-11-19T09:30:00'), '1630', '1000'), 'closed'); assert.equal(sessionState(K('2026-11-19T10:00:00'), '1630', '1000'), 'open'); assert.equal(sessionState(K('2026-11-19T16:31:00'), '1630', '1000'), 'open'); });
+t('openAt: 09:10 on a 10:00 day → 10:00 the same day; unknown start → 09:00 rule', () => { assert.equal(iso(openAt(K('2026-11-19T09:10:00'), '1000')), '2026-11-19 10:00:00'); assert.equal(iso(openAt(K('2026-11-19T08:10:00'), null)), '2026-11-19 09:00:00'); assert.equal(iso(openAt(K('2026-11-19T16:40:00'), '1000')), '2026-11-20 09:00:00'); assert.equal(iso(openAt(K('2026-11-21T10:00:00'), null)), '2026-11-23 09:00:00'); });
+const closedBody = day => ({ asOf: `${day}T15:30:00+09:00`, marketStatus: { KOSPI: 'CLOSE', KOSDAQ: 'CLOSE' } });
+t('isHoliday: never before start + 5 min (09:04 on a 09:00 day, 10:04 on a 10:00 day)', () => { assert.equal(isHoliday(closedBody('2026-11-18'), K('2026-11-19T09:04:00'), null), false); assert.equal(isHoliday(closedBody('2026-11-18'), K('2026-11-19T10:04:00'), '1000'), false); assert.equal(isHoliday(closedBody('2026-11-18'), K('2026-11-19T09:30:00'), '1000'), false); });
+t('isHoliday: all indices CLOSE and no trade today after start + 5 min → true', () => { assert.equal(isHoliday(closedBody('2026-11-18'), K('2026-11-19T10:06:00'), '1000'), true); assert.equal(isHoliday(closedBody('2026-11-16'), K('2026-11-17T09:06:00'), '0900'), true); });
+t('isHoliday: a trade dated today, or one index OPEN → false', () => { assert.equal(isHoliday(closedBody('2026-11-19'), K('2026-11-19T15:00:00'), null), false); assert.equal(isHoliday({ asOf: '2026-11-18T15:30:00+09:00', marketStatus: { KOSPI: 'OPEN', KOSDAQ: 'CLOSE' } }, K('2026-11-19T10:06:00'), '1000'), false); });
+const priced = n => ({ stocks: Array.from({ length: 600 }, (_, i) => ({ c: String(i), p: i < n ? 1000 : 0 })) });
+t(`validBody: at least ${MIN_PRICED} priced rows (half of 600)`, () => { assert.equal(validBody(priced(600)), true); assert.equal(validBody(priced(MIN_PRICED)), true); assert.equal(validBody(priced(MIN_PRICED - 1)), false); assert.equal(validBody({ stocks: [] }), false); assert.equal(validBody(null), false); });
+t('limitsFrom: smaller numbers taken, larger ones and garbage ignored', () => { const l = limitsFrom(JSON.stringify({ maxSockets: 4, dayDoReq: 1e12, monthAwakeMs: -1, socketMsgs: 'x' })); assert.equal(l.maxSockets, 4); assert.equal(l.dayDoReq, LIMITS.dayDoReq); assert.equal(l.monthAwakeMs, LIMITS.monthAwakeMs); assert.equal(l.socketMsgs, LIMITS.socketMsgs); assert.deepEqual(limitsFrom('{bad'), LIMITS); assert.deepEqual(limitsFrom(undefined), LIMITS); });
 
 console.log('budget guard');
 t('roll(): a new KST day clears day counters, keeps month; a new month clears both', () => {

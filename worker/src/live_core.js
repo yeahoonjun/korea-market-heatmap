@@ -16,6 +16,19 @@ export const LIMITS = {
   monthAwakeMs: 1.6e9,            // = 200,000 GB-s at 128 MB, half the included 400,000
   socketMsgs: 20,                 // messages a page may send on one socket before it is closed (the page normally sends none)
 };
+// test-only overrides (wrangler dev --var LIVE_LIMITS:{…}) can only TIGHTEN: each number is min(override, default), so a stray
+// production variable can never loosen a cap
+export function limitsFrom(json) {
+  let o = null;
+  try { o = json ? JSON.parse(json) : null; } catch (e) { o = null; }
+  if (!o || typeof o !== 'object') return LIMITS;
+  const out = { ...LIMITS };
+  for (const k of Object.keys(LIMITS)) { const v = Number(o[k]); if (Number.isFinite(v) && v > 0) out[k] = Math.min(v, LIMITS[k]); }
+  return out;
+}
+export const IDLE_RESET_MS = 10 * 60e3;   // a hub idle this long throws its rows away: the next page waits for a fresh snapshot
+export const HOLIDAY_LATCH_MS = 30 * 60e3; // a weekday that looks like a holiday is re-checked after this (수능 / first day open at 10:00)
+export const MIN_PRICED = 300;            // an answer with fewer priced rows than half the 600-row stream is not data (recorder rule)
 // seconds a data center remembers a refusal, so refused pages cost no Durable Object request (Cache API, no KV)
 export const GATE_TTL = { full: 30, closed: 600, budget: 600, paused: 60, error: 15 };
 export const RING = 40;             // deltas kept for resume (≈ 2 min at 3 s)
@@ -43,14 +56,36 @@ export function nextOpen(ms) {
   }
   return ms + 86400e3;
 }
-// 'open' from 09:00 to the session end (+ GRACE) on weekdays. endTime 'HHMM' from the quotes (1530, or 1630 on 수능 / the
-// year's first trading day); null = not known yet today → assume the longest day (the first poll tells the hub).
-export function sessionState(ms, endTime) {
+const hmSec = hm => (+hm.slice(0, 2)) * 3600 + (+hm.slice(2)) * 60;
+const isHm = v => /^\d{4}$/.test(v || '');
+// 'open' from the session start to the session end (+ GRACE) on weekdays. startTime / endTime 'HHMM' from the quotes
+// (stockExchangeType: 0900 / 1530, or 1000 / 1630 on 수능 and the year's first trading day). Unknown today → 09:00 and the
+// longest day (the first poll tells the hub).
+export function sessionState(ms, endTime, startTime) {
   const k = kst(ms);
   if (k.wd === 0 || k.wd === 6) return 'closed';
-  const e = /^\d{4}$/.test(endTime || '') ? endTime : '1630';
-  const end = (+e.slice(0, 2)) * 3600 + (+e.slice(2)) * 60 + GRACE_MS / 1000;
-  return k.sod >= 9 * 3600 && k.sod < end ? 'open' : 'closed';
+  const start = hmSec(isHm(startTime) ? startTime : '0900');
+  const end = hmSec(isHm(endTime) ? endTime : '1630') + GRACE_MS / 1000;
+  return k.sod >= start && k.sod < end ? 'open' : 'closed';
+}
+// when a refused page should come back: today's start if it is still ahead (a 10:00 day), else the next weekday 09:00
+export function openAt(ms, startTime) {
+  const k = kst(ms);
+  if (k.wd >= 1 && k.wd <= 5 && isHm(startTime) && k.sod < hmSec(startTime)) return kstDayStart(ms) + hmSec(startTime) * 1000;
+  return nextOpen(ms);
+}
+// a weekday without trading: 5 minutes after the start both indices are still CLOSE and the newest KRX trade is from another
+// day. Before start + 5 min it is never a holiday (a 10:00 day must not latch at 09:05).
+export function isHoliday(body, ms, startTime) {
+  const k = kst(ms);
+  if (k.sod < hmSec(isHm(startTime) ? startTime : '0900') + 300) return false;
+  const st = Object.values((body && body.marketStatus) || {});
+  return st.length > 0 && st.every(x => x === 'CLOSE') && String((body && body.asOf) || '').slice(0, 10) !== k.date;
+}
+// a usable answer: at least MIN_PRICED rows with a price (an empty or price-0 answer must never become the snapshot)
+export function validBody(body) {
+  const rows = (body && Array.isArray(body.stocks)) ? body.stocks : [];
+  return rows.filter(r => r && r.p > 0).length >= MIN_PRICED;
 }
 
 /* ── budget guard (persisted in the hub's own storage — no KV) ── */

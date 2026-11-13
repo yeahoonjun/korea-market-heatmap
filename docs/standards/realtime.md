@@ -169,6 +169,7 @@ N = 허브가 네이버에 묻는 간격, C = 동시 시청자, F ≈ 1초로 �
 ### 4-5. 휴장일 · 장 마감
 - 허브 간격은 KST 시계로: 정규장 3초, NXT만 열린 시간 5초, 그 밖엔 폴링을 멈추고 `phase:'closed'`를 알려 화면이 연결을 닫고 지금처럼 60초 폴링으로.
 - 평일 장 시간인데 휴장일이면: 두 지수가 CLOSE이고 2분 동안 아무 행도 안 바뀌면 60초로(기록기의 휴장 판단과 같은 생각, §3-15).
+- **구현(1단계 a, 리뷰 2026-11-14 반영)**: 개장 시각은 시세의 `stockExchangeType.startTime`(보통 0900, **수능 · 첫 거래일 1000** — 예: 2026-11-19 목)을 `endTime`처럼 읽어 그날 값으로 기억해요. 개장 전 연결은 `closed` + `retryAt` = **그날 개장 시각**(10:00). 휴장 판단은 **개장 + 5분 전에는 절대 하지 않고**, 그 뒤 두 지수 CLOSE + 오늘 체결 없음이면 **30분만** 닫았다가(`HOLIDAY_LATCH_MS`) 다시 봐요 — 하루 종일 잠그지 않아요. 시세가 600행 중 가격 있는 행이 절반(300) 미만이면 데이터가 아니라 실패로 세요(기록기 규칙, 스냅숏이 되지 않음).
 
 ### 4-6. 남용
 - `Origin` 확인(브라우저가 남의 사이트에서 붙는 것 차단), 허브당 소켓 5,000개 넘으면 503 → 그 화면은 폴링. 2단계에서 IP당 8개(`cf-connecting-ip`를 소켓 첨부에 저장).
@@ -191,17 +192,17 @@ N = 허브가 네이버에 묻는 간격, C = 동시 시청자, F ≈ 1초로 �
 | 경로 | 응답 |
 |---|---|
 | `GET /api/live[?ch=top][&epoch=…&ver=…]` | **WebSocket만**(`Upgrade: websocket` 아니면 426, `ch`가 `top`이 아니면 400, 허용 안 된 `Origin`이면 403 — 허브까지 가지 않아서 DO 요청이 안 생겨요). `epoch`+`ver`가 있으면 이어 받기. **거절은 소켓으로 말해요**: 받아들인 뒤 `{t:'off', reason, retryAt}`를 보내고 4003으로 닫아요(HTTP 오류는 브라우저에 1006으로만 보여서 까닭을 못 읽어요) |
-| `GET /api/live/state` | 허브 상태 JSON(데이터센터마다 60초 엣지 캐시, 차단기가 걸려 있으면 10분): `{ch, epoch, v, sockets, rows, pollMs, session:'open'\|'closed', polls, fails, upstreamMs, lastErr, lastBytes, lastRows, sent, snaps, refused, killSwitch, guard:{day, month, trip, trips, doRequests:{today, dayLimit, month, monthLimit}, connects:{today, dayLimit}, maxSockets, awakeMs:{…}, upstreamPolls:{today, month}, messagesToday}}` — 배포 점검 · 예산 확인용 |
+| `GET /api/live/state` | 허브 상태 JSON(데이터센터마다 장중 60초 엣지 캐시, 장 밖이거나 차단기가 걸려 있으면 10분): `{ch, epoch, v, sockets, rows, pollMs, session:'open'\|'closed', polls, fails, upstreamMs, lastErr, lastBytes, lastRows, sent, snaps, refused, killSwitch, guard:{day, month, trip, trips, doRequests:{today, dayLimit, month, monthLimit}, connects:{today, dayLimit}, maxSockets, awakeMs:{…}, upstreamPolls:{today, month}, messagesToday}}` — 배포 점검 · 예산 확인용 |
 
 `ch`는 `top` 하나뿐이에요(사용자 결정: 600행 = `/api/quotes`와 같은 종목). 다른 이름으로 DO가 생기지 않게 Worker가 막아요.
 
 **`off` 이유와 다시 시도** (`retryAt` = ms, 화면은 그때까지 폴링)
 | `reason` | 누가 | 언제 | `retryAt` | 같은 데이터센터가 기억(DO 요청 없이 답) |
 |---|---|---|---|---|
-| `closed` | Worker 시계 / 허브 | 주말 · 09:00 전 · 마감+2분 뒤 · 휴장일(09:05 뒤 두 지수 CLOSE + 오늘 체결 없음) | 다음 평일 09:00 | Worker 시계는 늘 DO 없이, 허브가 말하면 10분 |
+| `closed` | Worker 시계 / 허브 | 주말 · 09:00 전 · 마감+2분 뒤 · 그날 개장(`startTime`, 10:00인 날 포함) 전 · 휴장 의심(개장+5분 뒤 두 지수 CLOSE + 오늘 체결 없음) | 다음 개장(그날 10:00일 수 있음) · 휴장 의심이면 +30분 | Worker 시계는 늘 DO 없이, 허브가 말하면 `retryAt`까지(최대 10분) |
 | `full` | 허브 | 소켓 50개 | +5분 | 30초 |
 | `budget` | 허브 | §12 상한에 닿음 | 다음 KST 자정(월 상한이면 다음 달 1일) | 10분 |
-| `paused` | Worker / 허브 | KV `live:off` 끄개(§13-4) | +60초 | — (KV 읽기, 60초 캐시) |
+| `paused` | Worker / 허브 | KV `live:off` 끄개(§13-4) | +60초 | 60초(거절 기억에 넣어서 그동안 KV 읽기도 없음) |
 | `error` | Worker | 허브 호출 실패 | +15초 | 15초 |
 
 ### 5-2. 메시지 (모두 JSON 글자 프레임, 허브 → 화면)
@@ -229,6 +230,7 @@ N = 허브가 네이버에 묻는 간격, C = 동시 시청자, F ≈ 1초로 �
 - 효과: 시총(`cap`)이 30초마다만 바뀌어서 **타일 크기·배치가 3초마다 흔들리지 않고 색과 숫자만** 바뀌어요(크기 기준 거래대금도 30초).
 - 허브는 "화면이 가진 값"(보낸 것)만 기억해요 → 스냅숏 + 델타가 언제나 맞아떨어져요(보내지 않은 느린 키는 다음 느린 틱에 차이로 잡혀요).
 - 버전: `d.b`(기준) = 화면의 `v`일 때만 적용, 아니면 `{t:'snap'}`. 허브가 새로 뜨면 `epoch`가 바뀌고 `v`가 1부터.
+- **epoch 규칙(리뷰 2026-11-14)**: 버전 줄이 다시 1부터 시작하는 모든 경우에 epoch가 새로 생겨요 — 허브가 새로 뜰 때, 그리고 10분 넘게 폴링이 없어 행을 버릴 때(`dropRows`: 그 자리에서 새 epoch, `v:0`). 그래서 그 뒤 연결의 `hello`가 이미 새 epoch를 말하고, 옛 epoch로 이어 받으려는 화면은 델타가 아니라 스냅숏을 받아요. 화면은 `snap`의 `epoch`를 기준으로 삼아요.
 - 같은 행이 두 경로로 오면(델타와 `?codes=` 폴링) 지금 템플릿의 `fresher`(체결 시각이 더 최근인 쪽) 규칙이 그대로 이겨요.
 
 ### 5-4. 간격
@@ -243,7 +245,7 @@ N = 허브가 네이버에 묻는 간격, C = 동시 시청자, F ≈ 1초로 �
 
 ## 6. 배포 — `wrangler.toml` · 빌드 · 배포 스크립트 (질문 4)
 
-> **구현됨 (1단계 a)** — 아래 6-1 · 6-2 · 6-3이 그대로 들어갔고, 더해서 **DO 클래스를 만드는 업로드는 푸시로는 절대 안 일어나요**: `deploy_worker.mjs`가 지금 돌고 있는 번들에 `MarketHub`가 없으면(= 만들기) `ALLOW_DO_LIFECYCLE=1`(Actions 손 실행의 `allow_do_lifecycle` 칸) 없이는 **아무것도 올리지 않고** 경고만 남겨요. 그 업로드는 스모크가 실패해도 되돌리기를 시도하지 않고(Cloudflare가 거절) "고쳐서 앞으로"라고 실패해요. `/api/live/state`는 스모크 뒤 경고로만 봐요(실시간은 덤 — 페이지는 폴링으로 돌아가요). `[exports.X] state = "deleted"` 같은 묘비도 그대로 올리고, 그것도 손 실행에서만. 점검 `node qa/worker/test_deploy_script.mjs`(API 흉내, 5/5).
+> **구현됨 (1단계 a)** — 아래 6-1 · 6-2 · 6-3이 그대로 들어갔고, 더해서 **DO 클래스를 만드는 업로드는 푸시로는 절대 안 일어나요**: `deploy_worker.mjs`가 **돌고 있는 Worker의 바인딩**(`GET …/scripts/korea-market-heatmap/settings`의 `durable_object_namespace`.`class_name`)에 `MarketHub`가 없으면(= 만들기) `ALLOW_DO_LIFECYCLE=1`(Actions 손 실행의 `allow_do_lifecycle` 칸) 없이는 **아무것도 올리지 않고** 제목 붙은 경고(`Worker NOT deployed`, 작업 요약에도)만 남겨요. settings나 돌고 있는 번들을 못 읽으면 추측하지 않고 **실패(exit 1)** 해요(리뷰 2026-11-14 — 예전엔 번들을 못 읽으면 "새 클래스"로 보고 조용히 건너뛰었어요). 그 업로드는 스모크가 실패해도 되돌리기를 시도하지 않고(Cloudflare가 거절) "고쳐서 앞으로"라고 실패해요. `/api/live/state`는 스모크 뒤 경고로만 봐요(실시간은 덤 — 페이지는 폴링으로 돌아가요). 묘비는 `state = "deleted"`와 `state = "renamed"` + `renamed_to`(그 이름의 살아 있는 `[exports]`가 있어야)만 받고, 그 밖(`transferred` 등)은 로컬에서 거절 — 바꾸는 배포는 손 실행에서만. 살아 있는 클래스는 모두 바인딩이 있어야 해요(스크립트가 바인딩으로 클래스를 세니까). 점검 `node qa/worker/test_deploy_script.mjs`(API 흉내, 15/15).
 
 ### 6-1. `worker/wrangler.toml`에 더할 것
 ```toml
@@ -450,7 +452,7 @@ node prototypes/realtime/test_delta.mjs
 | **DO duration** | 알람 처리 중(네이버 기다림 ~1.2초 / 3초)만 ≈ 2.6시간/일 | 허브가 장 내내(09:00 ~ 16:32) 깨어 있음 | 깨어 있는 시간 프록시 **하루 8시간 · 한 달 200,000 GB-s** → `budget` | 31일 × 27,120초 × 0.125 GB = 10.5만 GB-s = **26%** (장이 아닌 날·시간엔 소켓이 없어 0) |
 | DO SQLite 쓰기 | 일이 하나 끝날 때 1행 + 알람 1행 ≈ 1.6만/일 | 하루 상한까지 | 위 요청 상한이 함께 묶음 | ≤ 90만/월 = **1.8%** |
 | DO 저장 | 상태 하나(약 1 KB) | 같음 | — | ≈ 0 |
-| KV | 끄개 `live:off` 읽기: 연결 시도마다 1번(60초 캐시) + 허브 1분에 1번 · **쓰기 0** | — | — | 읽기 수천/월 ≪ 1,000만 · 쓰기 0 |
+| KV | 끄개 `live:off` 읽기: 장중 연결 시도마다 1번(꺼져 있으면 `paused`를 거절 기억에 넣어 데이터센터당 60초에 1번) + 상태 캐시가 빌 때 1번 + 허브 1분에 1번 · **쓰기 0** | — | — | 읽기 수천/월 ≪ 1,000만 · 쓰기 0 |
 | Workers 요청 | 연결 · 상태 · 거절만(시세 폴링은 연결된 페이지에서 멈춰서 오히려 줄어요) | 페이지의 다시 시도 | 화면 규칙: `off`면 `retryAt`까지, 실패면 30초까지 늘린 뒤 5분 간격 | 지금 사이트 전체가 가족 10명 장중 내내 약 90만/월(9%) |
 | 네이버 | 틱마다 2번(600종목 1번 + 지수 1번) | 장 내내 | 소켓이 없거나 장이 아니면 0 | ≤ 9,040틱/일 |
 
@@ -464,22 +466,23 @@ node prototypes/realtime/test_delta.mjs
 ### 13-1. 파일
 | 파일 | 내용 |
 |---|---|
-| `worker/src/live_core.js` | 순수 부품: `LIVE_POLL_MS = 3000`(하나뿐인 간격), `LIMITS`, KST 시계 · 장 창 · 다음 개장, 예산 셈(`newGuard`/`roll`/`charge`/`overBudget`), 델타 규칙(`diffRow`/`applyPatch`) |
-| `worker/src/live.js` | `MarketHub`(보통 클래스 — `cloudflare:workers`를 import하지 않아 Node 점검이 `index.js`를 그대로 불러요), Worker 쪽 `liveRoute`(426/400/403, 시계 문지기, 거절 기억, KV 끄개, `off` 소켓), `/api/live/state` |
-| `worker/src/index.js` | `export { MarketHub }`, `configureLive(quotesCore)`(허브가 `/api/quotes`와 같은 함수로 받음), 경로 2개, 개발 전용 `env.NAVER_POLL_BASE`, `getUniverse`가 Cache API 없이도 동작 |
+| `worker/src/live_core.js` | 순수 부품: `LIVE_POLL_MS = 3000`(하나뿐인 간격), `LIMITS` + `limitsFrom`(시험용 값은 기본값보다 작게만), KST 시계 · 장 창(`startTime`/`endTime`) · `openAt` · 휴장 판단(`isHoliday`, 개장+5분 전엔 안 함) · `validBody`(가격 있는 행 300 이상), 예산 셈(`newGuard`/`roll`/`charge`/`overBudget`), 델타 규칙(`diffRow`/`applyPatch`) |
+| `worker/src/live.js` | `MarketHub`(보통 클래스 — `cloudflare:workers`를 import하지 않아 Node 점검이 `index.js`를 그대로 불러요), Worker 쪽 `liveRoute`(426/400/403, 시계 문지기, 거절 기억, KV 끄개도 거절 기억에, `off` 소켓), `/api/live/state`. 저장 실패는 `console.error` + `saveErrors`로 세고 101은 그대로, 폴링 중 연결은 알람을 다시 걸지 않음(`polling` 표시), 시험용 `LIVE_DEV_OPEN`·`LIVE_ORIGINS`는 localhost/127.0.0.1 주소로 온 요청에만 |
+| `worker/src/index.js` | `export { MarketHub }`, `configureLive(quotesCore)`(허브가 `/api/quotes`와 같은 함수로 받음 — `endTime`과 함께 `startTime`도 돌려줘요), 경로 2개, 개발 전용 `env.NAVER_POLL_BASE`, `getUniverse`가 Cache API 없이도 동작 |
 | `worker/wrangler.toml` | `[[durable_objects.bindings]] MARKET → MarketHub`, `[exports.MarketHub] type="durable-object" storage="sqlite"` (cron · KV 그대로) |
 | `scripts/build_worker.mjs` | `external: ['cloudflare:*']` |
-| `scripts/deploy_worker.mjs` | DO 바인딩 + `exports`(묘비 포함)를 메타데이터에, 클래스 만들기·지우기는 `ALLOW_DO_LIFECYCLE=1`일 때만, 그 업로드는 되돌리기 시도 없음, `/api/live/state` 경고 점검 |
+| `scripts/deploy_worker.mjs` | DO 바인딩 + `exports`(묘비 `deleted` · `renamed`+`renamed_to`)를 메타데이터에. **클래스가 있는지는 돌고 있는 Worker의 바인딩(`GET …/settings`)으로 판단**(코드 정규식 아님). 만들기 · 지우기 · 이름 바꾸기는 `ALLOW_DO_LIFECYCLE=1`일 때만, 그 업로드는 되돌리기 시도 없음. settings나 돌고 있는 번들(`/content/v2`)을 못 읽으면 **실패(exit 1)** — 추측하지 않아요. `/api/live/state` 경고 점검 |
 | `.github/workflows/deploy-worker.yml` | 손 실행 입력 `allow_do_lifecycle`(기본 꺼짐) → `ALLOW_DO_LIFECYCLE` |
-| `qa/worker/test_live_core.mjs` | 상한이 포함량 안인지(62% · 60% · 50% · 26%), 장 창 · 다음 개장 · 자정 · 월말, 차단기 단계별, 평범한 하루 · 최악의 달 모의, 델타 왕복 24,000쌍 — **33/33** |
+| `qa/worker/test_live_core.mjs` | 상한이 포함량 안인지(62% · 60% · 50% · 26%), 장 창 · 다음 개장 · 자정 · 월말, **10:00 개장일 · `openAt` · 휴장 판단 · `validBody` · `limitsFrom`**, 차단기 단계별, 평범한 하루 · 최악의 달 모의, 델타 왕복 24,000쌍 — **40/40** |
+| `qa/worker/test_live_hub.mjs` | 가짜 DO 상태 · 소켓 · 시계로 허브 자체: 유휴 뒤 새 epoch(hello부터), 저장 실패에도 101, 폴링 중 연결이 알람을 겹쳐 걸지 않음, 빈 응답은 스냅숏이 안 됨, 2026-11-19(10:00 개장) 09:10 → `closed` 10:00 · 10:02 스트리밍 · 10:06 휴장 의심 30분 · 그 뒤 다시, 시험용 변수 제한, 끄개의 거절 기억, 상태 캐시 10분/60초 — **32/32** |
 | `qa/worker/test_live_local.mjs` | `wrangler dev`(workerd) + 흉내 네이버 + `web/` — 426 · 400 · 403, hello → 스냅숏 600행 → 델타, 이어 받기, 소켓 상한(5번째 `full`, 6번째는 Worker 기억이 답해서 허브 거절 수 그대로), 하루 연결 상한 → `budget`으로 기존 페이지까지 닫힘 · 알람 멈춤, 주말 실제 시계로 `closed` + 월 09:00 — **16/16** |
-| `qa/worker/test_deploy_script.mjs` | API 흉내: 푸시면 아무것도 안 올림 / 손 실행이면 메타데이터 정확 / 이후 푸시는 평소처럼 / 만드는 배포가 스모크 실패하면 되돌리기 시도 없이 실패 / 평소 배포는 되돌리기 — **5/5** |
+| `qa/worker/test_deploy_script.mjs` | API 흉내(`/settings` 바인딩 포함): 푸시면 아무것도 안 올림 + 제목 붙은 경고 + 작업 요약 / 손 실행이면 메타데이터 정확 / 이후 푸시는 평소처럼 / 같은 번들이면 그대로 / 만드는 배포가 스모크 실패하면 되돌리기 시도 없이 실패 / 평소 배포는 되돌리기 / `/content/v2` · settings를 못 읽으면 exit 1 / 모르는 클래스를 바인딩 중이면 exit 1 / `renamed`에 `renamed_to` 없음 · `transferred`는 로컬에서 거절 / 이름 바꾸기는 손 실행에서만 — **15/15** |
 | `qa/worker/live_probe.mjs` | 운영 확인용 한 연결 요약 + `/api/live/state` |
 
-그 밖: 기존 `test_replay_recorder.mjs` 74/74, `test_disclosures_today.mjs` 16/16 그대로 통과(기록기 · KV 손대지 않음). **실제 Pages 코드**(`worker/pages/panse_worker.js`)를 앞단으로 세운 로컬 다중 Worker 실행에서도 업그레이드가 서비스 바인딩을 통과(101, 압축 협상, hello · 스냅숏 600 · 델타).
+그 밖: 기존 `test_replay_recorder.mjs` 74/74, `test_disclosures_today.mjs` 16/16, `qa/news/worker_test.mjs` 62/62, `qa/world/test_fx_rates.py` 205/205 그대로 통과(기록기 · KV 손대지 않음). **실제 Pages 코드**(`worker/pages/panse_worker.js`)를 앞단으로 세운 로컬 다중 Worker 실행에서도 업그레이드가 서비스 바인딩을 통과(101, 압축 협상, hello · 스냅숏 600 · 델타).
 
 ### 13-2. 첫 배포에 들어가야 하는 것 (오케스트레이터가 손으로)
-1. `main`에 이 브랜치를 병합. **주의: 병합 푸시로 도는 배포 작업은 `MarketHub`가 새 클래스라서 아무것도 올리지 않고 경고만 남겨요 — 그리고 첫 DO 배포를 하기 전까지는 다른 Worker 변경의 자동 배포도 같은 이유로 멈춰 있어요.** 병합 직후 2번을 하세요.
+1. `main`에 이 브랜치를 병합. **주의: 병합 푸시로 도는 배포 작업은 돌고 있는 Worker의 바인딩에 `MarketHub`가 없어서(= 만들기) 아무것도 올리지 않고 `Worker NOT deployed` 경고(작업 요약에도)만 남겨요(초록 체크) — 그리고 첫 DO 배포를 하기 전까지는 다른 Worker 변경의 자동 배포도 같은 이유로 멈춰 있어요.** 병합 직후 2번을 하세요.
 2. GitHub Actions › `deploy-worker` › Run workflow › **`allow_do_lifecycle` 체크** › Run. (또는 로컬에서 `ALLOW_DO_LIFECYCLE=1 CLOUDFLARE_API_TOKEN=… node scripts/deploy_worker.mjs`.) 올라가는 것:
    - 번들: `index.js` + `live.js` + `live_core.js`(`var MarketHub=class…`, `export{MarketHub, … as default}`)
    - 메타데이터(로컬 `DRY_RUN=1` 출력 그대로):
@@ -490,7 +493,7 @@ node prototypes/realtime/test_delta.mjs
       "exports":{"MarketHub":{"type":"durable-object","storage":"sqlite"}},
       "keep_bindings":["secret_text"]}
      ```
-   - 로그에 `do      lifecycle change for MarketHub`, `smoke … /api/time → 200`, `live    /api/live/state → 200 (sockets 0, DO requests today 1/20000, trip none)`가 보이면 끝.
+   - 로그에 `do      running classes: (none)`, `do      lifecycle change: MarketHub (create)`, `smoke … /api/time → 200`, `live    /api/live/state → 200 (sockets 0, DO requests today 1/20000, trip none)`가 보이면 끝.
 3. 이 배포는 화면이 아직 허브를 쓰지 않아서(1단계 b 전) **사용자에게 보이는 변화 · 비용이 없어요**(시청자 0 → 허브 안 돎).
 
 ### 13-3. panse.pages.dev에서 확인
@@ -507,4 +510,4 @@ node prototypes/realtime/test_delta.mjs
 - **완전히 걷어내기**(나중에, 배포 2번): ① 경로를 빼고 클래스는 남긴 코드 배포 ② `[exports.MarketHub]`를 `state = "deleted"`로, 바인딩과 클래스 코드를 지우고 손 실행(`allow_do_lifecycle`) — 허브 저장소(상태 1 KB)도 지워져요.
 
 ### 13-5. 상한 숫자 한눈에
-`LIVE_POLL_MS 3,000 ms` · 소켓 50 · DO 요청 하루 20,000 / 한 달 600,000 · 연결 하루 2,000 · 깨어 있는 시간 하루 8시간 / 한 달 1.6×10⁹ ms(=200,000 GB-s) · 소켓당 메시지 20 · 거절 기억 `full` 30초 · `closed`/`budget` 10분 · `paused` 60초 · `error` 15초 · 상태 캐시 60초(차단 중 10분) · 장 창 09:00 ~ 마감 + 2분.
+`LIVE_POLL_MS 3,000 ms` · 소켓 50 · DO 요청 하루 20,000 / 한 달 600,000 · 연결 하루 2,000 · 깨어 있는 시간 하루 8시간 / 한 달 1.6×10⁹ ms(=200,000 GB-s) · 소켓당 메시지 20 · 거절 기억 `full` 30초 · `closed`/`budget` 10분 · `paused` 60초 · `error` 15초 · 상태 캐시 장중 60초(장 밖 · 차단 중 10분) · 장 창 개장(`startTime`, 보통 09:00 · 10:00인 날도) ~ 마감 + 2분 · 휴장 의심 잠금 30분(개장+5분 전엔 판단 안 함) · 유휴 10분이면 행 버리고 새 epoch · 가격 있는 행 300 미만이면 실패. `LIVE_LIMITS`(시험용)는 위 숫자보다 **작게만** 바꿀 수 있어요.

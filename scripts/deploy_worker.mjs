@@ -13,10 +13,12 @@
 //
 // Durable Objects (실시간 갱신 hub, docs/standards/realtime.md §6): wrangler.toml [[durable_objects.bindings]] and
 // [exports.<Class>] go into the upload metadata (`bindings` + declarative `exports`, the same PUT wrangler itself uses when a
-// Worker declares DO exports). An upload that would CREATE a class (its namespace) cannot be rolled back past, so it is never
+// Worker declares DO exports). An upload that would CREATE, DELETE or RENAME a class cannot be rolled back past, so it is never
 // done on a push: it needs ALLOW_DO_LIFECYCLE=1 (workflow_dispatch input allow_do_lifecycle) and then skips the automatic
-// rollback. /api/live/state is checked after the upload as a warning only (realtime is optional; pages fall back to polling).
-import { readFileSync } from 'node:fs';
+// rollback. Whether a class exists is read from the running Worker's bindings (GET …/settings), never guessed from its code;
+// if Cloudflare cannot tell us (settings or the running bundle unreadable while versions exist) the deploy FAILS instead of
+// guessing. /api/live/state is checked after the upload as a warning only (realtime is optional; pages fall back to polling).
+import { readFileSync, appendFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 
 const root = new URL('..', import.meta.url).pathname;
@@ -46,14 +48,21 @@ const dos = [...toml.matchAll(/\[\[durable_objects\.bindings\]\][^[]*?\bname\s*=
 const doExports = {};
 for (const m of toml.matchAll(/^\[exports\.([A-Za-z_$][\w$]*)\][ \t]*\n((?:(?!\[)[^\n]*(?:\n|$))*)/gm)) {
   const val = k => (m[2].match(new RegExp(`^${k}\\s*=\\s*"([^"]+)"`, 'm')) || [])[1];
-  const type = val('type'), storage = val('storage'), state = val('state');
+  const type = val('type'), storage = val('storage'), state = val('state'), renamedTo = val('renamed_to');
   if (type !== 'durable-object') continue;
-  // live entry (state absent / "created") → {type, storage}; a tombstone ("deleted" …) goes up as written
-  doExports[m[1]] = !state || state === 'created' ? { type, storage: storage || 'sqlite' } : { type, state };
+  if (!state || state === 'created') doExports[m[1]] = { type, storage: storage || 'sqlite' };          // live class
+  else if (state === 'deleted') doExports[m[1]] = { type, state };                                       // tombstone: data goes
+  else if (state === 'renamed') {                                                                        // tombstone: data moves
+    if (!renamedTo) fail(`[exports.${m[1]}] state = "renamed" needs renamed_to = "<NewClass>"`);
+    doExports[m[1]] = { type, state, renamed_to: renamedTo };
+  } else fail(`[exports.${m[1]}] has state = "${state}" — only "created", "deleted" or "renamed" (with renamed_to) are understood here`);
 }
-const liveClass = c => !doExports[c].state;
-for (const b of dos) if (!doExports[b.class_name] || !liveClass(b.class_name)) fail(`Durable Object binding ${b.name} → ${b.class_name} needs a live [exports.${b.class_name}] block in wrangler.toml`);
-// esbuild writes `export class X` as `var X=class{…}` — accept both spellings
+const liveClass = c => !!doExports[c] && !doExports[c].state;
+for (const [c, e] of Object.entries(doExports)) if (e.state === 'renamed' && !liveClass(e.renamed_to)) fail(`[exports.${c}] is renamed to ${e.renamed_to}, which needs its own live [exports.${e.renamed_to}] block`);
+for (const b of dos) if (!liveClass(b.class_name)) fail(`Durable Object binding ${b.name} → ${b.class_name} needs a live [exports.${b.class_name}] block in wrangler.toml`);
+// every live class is bound: the running Worker's bindings are how this script tells which classes already exist
+for (const c of Object.keys(doExports)) if (liveClass(c) && !dos.some(b => b.class_name === c)) fail(`[exports.${c}] is live but no [[durable_objects.bindings]] uses it — bind it (this script reads existing classes from the running bindings)`);
+// esbuild writes `export class X` as `var X=class{…}` — accept both spellings (only our own bundle is checked this way)
 const hasClass = (src, c) => new RegExp(`\\bclass ${c}\\b|\\b${c}\\s*=\\s*class\\b`).test(src);
 for (const c of Object.keys(doExports)) {
   if (liveClass(c) && !hasClass(code, c)) fail(`[exports.${c}] is declared but worker/dist/worker.js has no class ${c}`);
@@ -89,7 +98,7 @@ async function deployedVersions() {
   return list.length ? list[0].versions || [] : [];
 }
 async function liveCode() {
-  // the stored module, as a multipart body; read the first file part
+  // the stored module, as a multipart body; read the first file part (null = Cloudflare did not give it to us)
   try {
     const r = await cf('/content/v2');
     if (!r.ok) return null;
@@ -101,6 +110,13 @@ async function liveCode() {
     }
     return await r.text();
   } catch (e) { return null; }
+}
+// the Durable Object classes the running Worker has, from its own bindings (cfJson fails the deploy if this cannot be read)
+async function liveClasses() {
+  const res = await cfJson('/settings');
+  const b = res && Array.isArray(res.bindings) ? res.bindings : null;
+  if (!b || !b.some(x => x.type === 'kv_namespace' && x.name === 'REPLAY')) fail('GET /settings did not return the running bindings (REPLAY missing) — cannot tell which Durable Object classes exist; nothing uploaded');
+  return new Set(b.filter(x => x.type === 'durable_object_namespace' && x.class_name && (!x.script_name || x.script_name === SCRIPT)).map(x => x.class_name));
 }
 async function smoke() {
   for (let i = 0; i < 8; i++) {
@@ -132,16 +148,23 @@ await ensureCrons();
 const before = await deployedVersions();
 log(`live    ${before.map(v => `${v.version_id} ${v.percentage}%`).join(', ') || '(none)'}`);
 const now = await liveCode();
+if (now == null && before.length) fail('Cloudflare runs a version but GET /content/v2 did not return its bundle — cannot compare; nothing uploaded (try again, or run by hand)');
 if (now != null && sha(now) === sha(code)) { log('same bundle is already live — nothing to upload'); process.exit(0); }
-// DO class lifecycle changes (Cloudflare cannot roll back past them): a live class the running bundle does not have yet
-// (= create; unknown live code counts as new), or a tombstone whose class the running bundle still has (= delete/rename)
-const newClasses = Object.keys(doExports).filter(c => liveClass(c) ? !(now != null && hasClass(now, c)) : (now == null || hasClass(now, c)));
-if (newClasses.length) {
+// DO class lifecycle changes (Cloudflare cannot roll back past them), decided from the running bindings:
+//   create = a live [exports] class the running Worker does not bind; delete/rename = a tombstone whose class it still binds
+const have = await liveClasses();
+log(`do      running classes: ${[...have].join(', ') || '(none)'}`);
+for (const c of have) if (!doExports[c]) fail(`the running Worker binds Durable Object class ${c} but wrangler.toml has no [exports.${c}] (live or tombstone) — refusing an upload that would drop it`);
+const lifecycle = Object.keys(doExports).filter(c => liveClass(c) ? !have.has(c) : have.has(c));
+if (lifecycle.length) {
+  const what = lifecycle.map(c => `${c} (${liveClass(c) ? 'create' : doExports[c].state === 'renamed' ? `rename → ${doExports[c].renamed_to}` : 'delete'})`).join(', ');
   if (!ALLOW_LIFECYCLE) {
-    console.log(`::warning::this upload changes the Durable Object class ${newClasses.join(', ')} (create / delete) — Cloudflare cannot roll back past that, so it is not done on a push and NOTHING was uploaded. Run the workflow by hand with allow_do_lifecycle (docs/standards/realtime.md §13).`);
+    const msg = `this upload changes Durable Object classes: ${what}. Cloudflare cannot roll back past that, so it is never done on a push and NOTHING was uploaded (the running Worker is unchanged). Run "deploy-worker" by hand (Actions › deploy-worker › Run workflow) with allow_do_lifecycle checked — docs/standards/realtime.md §13.`;
+    console.log(`::warning title=Worker NOT deployed::${msg}`);
+    if (process.env.GITHUB_STEP_SUMMARY) { try { appendFileSync(process.env.GITHUB_STEP_SUMMARY, `### Worker NOT deployed\n\n${msg}\n`); } catch (e) { /* summary is optional */ } }
     process.exit(0);
   }
-  log(`do      lifecycle change for ${newClasses.join(', ')} (ALLOW_DO_LIFECYCLE=1) — no automatic rollback for this upload`);
+  log(`do      lifecycle change: ${what} (ALLOW_DO_LIFECYCLE=1) — no automatic rollback for this upload`);
 }
 
 const form = new FormData();
@@ -161,7 +184,7 @@ async function smokeLive() {
   } catch (e) { console.log(`::warning::/api/live/state: ${e.message} — realtime is off, pages keep polling`); }
 }
 if (await smoke()) { await smokeLive(); log('deployed'); process.exit(0); }
-if (newClasses.length) fail(`the new version did not answer ${SMOKE}, and it created ${newClasses.join(', ')}: Cloudflare cannot roll back past a Durable Object class creation — fix forward (keep the class and its [exports] block)`);
+if (lifecycle.length) fail(`the new version did not answer ${SMOKE}, and it changed Durable Object classes (${lifecycle.join(', ')}): Cloudflare cannot roll back past that — fix forward (keep the classes and their [exports] blocks as uploaded)`);
 
 const prev = before.find(v => v.percentage === 100) || before[0];
 if (prev) {

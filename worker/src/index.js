@@ -396,7 +396,7 @@ async function quotesCore(env, only, all, ms) {
     naver(`${base}/api/realtime/domestic/index/KOSPI,KOSDAQ`, ms).catch(() => null),
   ]);
   const stocks = [];
-  let asOf = '', stockOpen = false, endTime = '', nxOpen = '', nxSess = '';
+  let asOf = '', stockOpen = false, endTime = '', startTime = '', nxOpen = '', nxSess = '';
   for (const s of datas) {
     let meta = STOCKS.get(s.itemCode) || ((only || all) && U && U.extra && U.extra.get(s.itemCode));
     if (!meta) {
@@ -406,6 +406,7 @@ async function quotesCore(env, only, all, ms) {
     }
     if (s.marketStatus === 'OPEN') stockOpen = true;
     if (!endTime && s.stockExchangeType && s.stockExchangeType.endTime) endTime = String(s.stockExchangeType.endTime);
+    if (!startTime && s.stockExchangeType && s.stockExchangeType.startTime) startTime = String(s.stockExchangeType.startTime);   // 1000 on 수능 · the year's first day
     if (s.localTradedAt && s.localTradedAt > asOf) asOf = s.localTradedAt;
     const limName = s.compareToPreviousPrice && s.compareToPreviousPrice.name;
     const row = {
@@ -443,6 +444,7 @@ async function quotesCore(env, only, all, ms) {
   const regularOpen = Object.values(marketStatus).includes('OPEN');
   return {
     endTime: /^\d{4}$/.test(endTime) ? (lastEndTime = endTime) : '1530',
+    startTime: /^\d{4}$/.test(startTime) ? startTime : null,       // the live hub's session window (live.js); the recorder ignores it
     body: {
       asOf,
       source: '네이버 증권 (polling.finance.naver.com)',
