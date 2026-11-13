@@ -1285,12 +1285,14 @@ function rpSpeedUI(mode) {
 function rpBuild() {
   const R = replay;
   const ui = R.ui = {};
-  ui.play = h('button', { type: 'button', class: 'rp-play', 'aria-label': '재생', onclick: () => togglePlay() }, icon(ICON.play, true));
+  // ▶ ↔ ⏸ change in place (rotate · scale · opacity, controls.md §5-9): both shapes are drawn once, the button's data-on picks one
+  ui.play = h('button', { type: 'button', class: 'rp-play', 'aria-label': '재생', onclick: () => togglePlay() },
+    h('i', { class: 'rp-pi', 'aria-hidden': 'true' }, icon(ICON.play, true), icon(ICON.pause, true)));
   ui.time = h('div', { class: 'rp-time', 'aria-live': 'off', text: '--:--' });
   ui.day = h('div', { class: 'rp-day', text: '' });
   ui.idx = h('div', { class: 'rp-idx' });
   ui.date = h('select', { class: 'rp-date', 'aria-label': '날짜', onchange: e => loadDay(e.target.value, false) });
-  ui.speed = h('div', { class: 'rp-speed', role: 'group', 'aria-label': '재생 속도' });
+  ui.speed = h('div', { class: 'rp-speed seg', role: 'group', 'aria-label': '재생 속도' });     // a segment: one raised indicator (KH.ui.seg)
   ui.slider = h('input', { type: 'range', class: 'rp-slider', min: 0, max: SESSION.slots, step: 1, value: 0, 'aria-label': '시각' });
   ui.slider.addEventListener('input', () => { pause(); seekSlot(+ui.slider.value); });
   ui.ticks = h('div', { class: 'rp-ticks', 'aria-hidden': 'true' });
@@ -1311,6 +1313,7 @@ function rpBuild() {
   R.el = h('section', { class: 'rp-player', id: 'replay-player', role: 'region', 'aria-label': '장중 리플레이', hidden: true }, ui.close, ui.msg, ui.body, ui.note);
   document.body.append(R.el);
   rpTicks(); rpSpeedUI(5);
+  if (UI && typeof UI.seg === 'function') UI.seg(ui.speed);         // placed once the player shows (the template's ResizeObserver)
   new ResizeObserver(rpSetH).observe(R.el);
   addEventListener('resize', rpSetH);
 }
@@ -1421,10 +1424,13 @@ function dayIxs(day) {
   day.ixs = out; day.ixsN = day.frames.length;
   return out;
 }
-function showFrame(i) {
+// how: 'step' (←/→) or 'play' (a scene of playback) may roll the time's changed digits ('화려하게', KH.ui.roll); a drag or a new day
+// writes it at once
+function showFrame(i, how) {
   const R = replay, day = R.day;
   if (!day) return;
   i = Math.max(0, Math.min(day.frames.length - 1, i));
+  const prevMin = R.curMin;
   R.i = i;
   const f = day.frames[i];
   R.frameT = hhmm(f.t); R.curMin = hmMin(f.t);
@@ -1447,7 +1453,9 @@ function showFrame(i) {
   const tw = R.playing && motion() === 'fancy' ? Math.round(R.delay * 0.92) : 0;
   R.raf = requestAnimationFrame(() => { try { KH.setReplay({ t: String(f.t), date: day.date, prices, index: ixr, ixs }, tw ? { tween: tw } : undefined); } catch (e) { /* map keeps its last frame */ } });
   const ui = R.ui, sl = slotOfT(f.t);
-  ui.time.textContent = R.frameT;
+  // a scene shorter than the roll (fast playback) is written at once: digits that never settle say nothing
+  const roll = UI && typeof UI.roll === 'function' && (how === 'step' || (how === 'play' && R.delay >= 400)) && isFinite(prevMin) && prevMin !== R.curMin;
+  if (roll) UI.roll(ui.time, R.frameT, R.curMin > prevMin ? 1 : -1); else ui.time.textContent = R.frameT;
   bigUpdate();
   ui.slider.value = sl;
   ui.slider.setAttribute('aria-valuetext', `${dayLabel(day.date)} ${R.frameT}`);
@@ -1596,17 +1604,17 @@ function seekSlot(sl) {
   for (let i = 0; i < day.frames.length; i++) if (slotOfT(day.frames[i].t) <= sl) best = i;
   showFrame(best);
 }
-function step(d) { pause(); showFrame(replay.i + d); }
+function step(d) { pause(); showFrame(replay.i + d, 'step'); }
 function setPlayIcon() {
   const ui = replay.ui;
-  ui.play.replaceChildren(icon(replay.playing ? ICON.pause : ICON.play, true));
+  ui.play.toggleAttribute('data-on', replay.playing);
   ui.play.setAttribute('aria-label', replay.playing ? '멈춤' : '재생');
 }
 function tick() {
   const R = replay;
   if (!R.playing || !R.day) return;
   if (R.i >= R.day.frames.length - 1) { pause(); return; }
-  showFrame(R.i + 1);
+  showFrame(R.i + 1, 'play');
   R.timer = setTimeout(tick, R.delay);
 }
 function play() {

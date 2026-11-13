@@ -96,17 +96,20 @@ section.rp-player[hidden]{display:none}
 @keyframes rpIn{from{opacity:0;transform:translate(-50%,12px)}to{opacity:1;transform:translate(-50%,0)}}
 @keyframes rpUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
 .rp-player .rp-x{position:absolute;right:6px;top:6px;width:40px;height:40px;border-radius:8px;display:grid;place-items:center;color:var(--muted);z-index:1}
-.rp-player .rp-x:hover{background:rgba(255,255,255,.07);color:var(--fg)}
 .rp-player .rp-hd{display:flex;align-items:center;gap:7px;font-size:12.5px;font-weight:600;color:var(--fg2)}
 .rp-player .rp-badge{font-size:11px;font-weight:500;color:var(--amber);border:1px solid rgba(255,181,71,.4);background:var(--amber-soft);border-radius:5px;padding:0 6px;line-height:17px}
 .rp-player .rp-msg{padding:2px 48px 4px 0;color:var(--fg2);font-size:13.5px;line-height:1.55}
 .rp-player .rp-msg[hidden],.rp-player .rp-main[hidden]{display:none}
 .rp-player .rp-msg p{margin:8px 0 10px}
-.rp-player .rp-retry{height:40px;padding:0 16px;border-radius:8px;border:1px solid var(--line2);color:var(--fg);font-size:13px}
-.rp-player .rp-retry:hover{background:rgba(255,255,255,.05)}
+.rp-player .rp-retry{position:relative;height:40px;padding:0 17px;border-radius:var(--r-key);background:var(--key-bg);box-shadow:var(--key-sh);color:var(--key-fg);font-size:13px}
+.rp-player .rp-retry:hover{background:var(--key-hover)}
 .rp-player .rp-main{display:flex;flex-wrap:wrap;align-items:center;gap:6px 16px;padding-right:44px}
-.rp-player .rp-play{order:1;flex:none;width:40px;height:40px;border-radius:50%;display:grid;place-items:center;background:var(--amber);color:#1b1404}
+.rp-player .rp-play{position:relative;order:1;flex:none;width:40px;height:40px;border-radius:50%;display:grid;place-items:center;background:var(--amber);color:#1b1404;box-shadow:var(--key-sh)}
 .rp-player .rp-play:hover{filter:brightness(1.08)}
+/* ▶ ↔ ⏸ in place: the shape that leaves turns a quarter and shrinks, the other comes back (--c-base --c-inout) */
+.rp-pi{display:grid;place-items:center}
+.rp-pi svg{grid-area:1/1;transition:transform var(--c-base) var(--c-inout),opacity var(--c-base) var(--c-inout)}
+.rp-play:not([data-on]) .rp-pi svg:last-child,.rp-play[data-on] .rp-pi svg:first-child{opacity:0;transform:rotate(90deg) scale(.6)}
 .rp-player .rp-when{order:2;display:flex;flex-direction:column;gap:2px;min-width:0}
 .rp-player .rp-time{flex:none;font-size:26px;font-weight:700;line-height:1.05;letter-spacing:-.02em;font-variant-numeric:tabular-nums;color:var(--fg)}
 .rp-player .rp-more{display:none}
@@ -114,21 +117,23 @@ section.rp-player[hidden]{display:none}
 .rp-player .rp-ix{display:flex;align-items:baseline;gap:6px;white-space:nowrap}
 .rp-player .rp-k{color:var(--muted)} .rp-player .rp-v{font-weight:600;color:var(--fg)} .rp-player .rp-r{font-weight:600}
 .rp-player .rp-set{order:4;display:flex;align-items:center;gap:12px}
-.rp-player .rp-date{flex:none;height:32px;max-width:150px;padding:0 6px;border:1px solid var(--line);border-radius:7px;background:var(--panel2);color:var(--fg);font:inherit;font-size:13px;color-scheme:dark;cursor:pointer}
-.rp-player .rp-date:hover{border-color:var(--line2)}
-.rp-player .rp-date:focus-visible{outline:2px solid var(--amber);outline-offset:1px}
+/* the date picker is a field: a deep tray, focus drawn as the same ring with box-shadow (controls.md §5-15) */
+.rp-player .rp-date{flex:none;height:32px;max-width:150px;padding:0 7px;border:0;border-radius:var(--r-in);background:var(--tray-bg);box-shadow:var(--tray-sh);color:var(--fg);font:inherit;font-size:13px;color-scheme:dark;cursor:pointer;outline:none;transition:box-shadow var(--c-fast) var(--c-out)}
+.rp-player .rp-date:focus-visible{box-shadow:var(--tray-sh),0 0 0 var(--focus-off) var(--panel),0 0 0 calc(var(--focus-off) + var(--focus-w)) var(--amber)}
 .rp-player .rp-day{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;font-variant-numeric:tabular-nums}
-.rp-player .rp-speed{display:flex;flex:none;padding:2px;border:1px solid var(--line);border-radius:8px;background:var(--panel2)}
-.rp-player .rp-speed button{min-width:36px;padding:0 6px;white-space:nowrap;height:32px;border-radius:6px;font-size:13px;color:var(--fg2);font-variant-numeric:tabular-nums}
-.rp-player .rp-speed button:hover{color:var(--fg)}
-.rp-player .rp-speed button[aria-pressed="true"]{background:#2c2f37;color:var(--fg);box-shadow:inset 0 0 0 1px var(--line2)}
+/* speed = a segment (.seg: the template's deep tray + one raised indicator, KH.ui.seg) */
+.rp-player .rp-speed{flex:none}
+.rp-player .rp-speed button{min-width:36px;padding:0 6px;height:32px;font-size:13px;font-variant-numeric:tabular-nums}
 .rp-player .rp-track{order:6;position:relative;flex:1 1 100%;margin-right:-44px;padding-bottom:16px}
 .rp-player .rp-slider{display:block;width:100%;height:26px;margin:0;background:transparent;cursor:pointer;-webkit-appearance:none;appearance:none}
-.rp-player .rp-slider:focus-visible{outline:2px solid var(--amber);outline-offset:2px;border-radius:6px}
-.rp-player .rp-slider::-webkit-slider-runnable-track{height:6px;border-radius:3px;background:linear-gradient(90deg,var(--amber) 0 var(--pos,0%),transparent var(--pos,0%)),var(--m1,linear-gradient(transparent,transparent)),linear-gradient(90deg,transparent 0 var(--rec0,0%),#4a4d57 var(--rec0,0%) var(--rec1,100%),transparent var(--rec1,100%)),#26282e}
-.rp-player .rp-slider::-moz-range-track{height:6px;border-radius:3px;background:linear-gradient(90deg,var(--amber) 0 var(--pos,0%),transparent var(--pos,0%)),var(--m1,linear-gradient(transparent,transparent)),linear-gradient(90deg,transparent 0 var(--rec0,0%),#4a4d57 var(--rec0,0%) var(--rec1,100%),transparent var(--rec1,100%)),#26282e}
-.rp-player .rp-slider::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;margin-top:-6px;border-radius:50%;border:3px solid var(--amber);background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.5)}
-.rp-player .rp-slider::-moz-range-thumb{width:12px;height:12px;border-radius:50%;border:3px solid var(--amber);background:#fff}
+.rp-player .rp-slider:focus-visible{border-radius:6px}
+.rp-player .rp-slider::-webkit-slider-runnable-track{height:6px;border-radius:3px;background:linear-gradient(90deg,var(--amber) 0 var(--pos,0%),transparent var(--pos,0%)),var(--m1,linear-gradient(transparent,transparent)),linear-gradient(90deg,transparent 0 var(--rec0,0%),#4a4d57 var(--rec0,0%) var(--rec1,100%),transparent var(--rec1,100%)),var(--tray-bg);box-shadow:var(--tray-sh)}
+.rp-player .rp-slider::-moz-range-track{height:6px;border-radius:3px;background:linear-gradient(90deg,var(--amber) 0 var(--pos,0%),transparent var(--pos,0%)),var(--m1,linear-gradient(transparent,transparent)),linear-gradient(90deg,transparent 0 var(--rec0,0%),#4a4d57 var(--rec0,0%) var(--rec1,100%),transparent var(--rec1,100%)),var(--tray-bg);box-shadow:var(--tray-sh)}
+/* the handle is the switch knob (controls.md §5-15): raised, its shadow shortens while it is held */
+.rp-player .rp-slider::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;margin-top:-6px;border-radius:50%;border:0;background:var(--knob);box-shadow:var(--knob-sh);transition:box-shadow var(--c-fast) var(--c-out)}
+.rp-player .rp-slider::-moz-range-thumb{width:18px;height:18px;border-radius:50%;border:0;background:var(--knob);box-shadow:var(--knob-sh)}
+.rp-player .rp-slider:active::-webkit-slider-thumb{box-shadow:var(--knob-dn)}
+.rp-player .rp-slider:active::-moz-range-thumb{box-shadow:var(--knob-dn)}
 .rp-player .rp-ticks{position:absolute;left:9px;right:9px;bottom:0;height:14px;font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums;pointer-events:none}
 .rp-player .rp-ticks span{position:absolute;top:0;transform:translateX(-50%)}
 .rp-player .rp-ticks span:first-child{transform:translateX(-9px)}
@@ -147,9 +152,9 @@ section.rp-player[hidden]{display:none}
   .rp-player .rp-ticks{display:none}
   .rp-player .rp-slider{height:40px}
   .rp-player .rp-slider::-webkit-slider-thumb{width:22px;height:22px;margin-top:-8px}
-  .rp-player .rp-more{order:0;grid-column:4;grid-row:1;display:grid;place-items:center;width:40px;height:40px;border-radius:8px;color:var(--fg2);font-size:20px;line-height:1;letter-spacing:1px}
-  .rp-player .rp-more:hover,.rp-player .rp-more[aria-expanded="true"]{background:rgba(255,255,255,.07);color:var(--fg)}
-  .rp-player .rp-more[aria-expanded="true"]{color:var(--amber)}
+  .rp-player .rp-more{position:relative;order:0;grid-column:4;grid-row:1;display:grid;place-items:center;width:40px;height:40px;border-radius:var(--r-key);background:var(--key-bg);box-shadow:var(--key-sh);color:var(--key-ic);font-size:20px;line-height:1;letter-spacing:1px}
+  .rp-player .rp-more:hover{background:var(--key-hover)}
+  .rp-player .rp-more[aria-expanded="true"]{color:var(--amber);box-shadow:var(--key-on)}
   .rp-player .rp-idx{order:0;grid-column:1/-1;grid-row:2;margin:0;gap:14px;font-size:12.5px;line-height:1.3;flex-wrap:nowrap;overflow:hidden;padding-bottom:2px}
   .rp-player .rp-set{order:0;grid-column:1/-1;grid-row:3;display:none;justify-content:space-between;flex-wrap:wrap;gap:6px 10px;padding:2px 0 4px}
   .rp-player.rp-more-on .rp-set{display:flex}
@@ -174,6 +179,13 @@ section.rp-player[hidden]{display:none}
 }
 /* 줄이기 (the template's html[data-motion], which also follows the device setting until the viewer picks one) */
 html[data-motion="reduced"] section.rp-player{animation:none}
+/* the player's keys (controls.md §5-1): raised ones (▶, ⋯, 다시 시도) sink 1px with a shorter shadow, × only sinks and darkens */
+.rp-player :is(.rp-play,.rp-more,.rp-retry,.rp-x){transition:transform var(--c-fast) var(--c-out),box-shadow var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out),background-color var(--c-base) var(--c-out),color var(--c-base) var(--c-out)}
+.rp-player :is(.rp-play,.rp-more,.rp-retry):is(:active,.is-press){transform:translateY(1px);box-shadow:var(--key-dn);filter:var(--press-f);transition-duration:0s,0s,0s,var(--c-base),var(--c-base)}
+.rp-player .rp-x:is(:active,.is-press){transform:translateY(1px);filter:var(--press-f);transition-duration:0s}
+.rp-player .rp-x:hover{background:rgba(255,255,255,.07);color:var(--fg)}
+@media (pointer:coarse){.rp-player :is(.rp-play,.rp-more,.rp-retry,.rp-x)::before{content:"";position:absolute;left:50%;top:50%;width:max(100%,44px);height:max(100%,44px);transform:translate(-50%,-50%)}}
+@media (hover:none){.rp-player .rp-x:hover{background:none;color:var(--muted)}.rp-player :is(.rp-more,.rp-retry):hover{background:var(--key-bg)}.rp-player .rp-play:hover{filter:none}}
 html[data-motion="reduced"] .xt-toast{transition:none}
 
 @media (prefers-reduced-motion:reduce){.xs-track{animation:none}}
