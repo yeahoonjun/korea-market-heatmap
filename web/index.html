@@ -5265,10 +5265,10 @@ html.sp-on, html.sp-on body { overflow: hidden; }
 }
 @container spid (max-width: 104px) { .sp-mkt { display: none; } }
 @media (max-width: 430px) { .sp-nxt .t { display: none; } }
-.sp-star { flex: none; display: inline-grid; place-items: center; width: 42px; height: 44px; margin-left: 2px; border-radius: 10px; color: var(--muted); }
+.sp-star { position: relative; flex: none; display: inline-grid; place-items: center; width: 42px; height: 44px; margin-left: 2px; border-radius: 10px; color: var(--muted); }
 .sp-star[hidden], .sp-nf .sp-star { display: none; }
 .sp-star:hover { background: rgba(255, 255, 255, .06); color: var(--fg); }
-.sp-star svg { width: 23px; height: 23px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linejoin: round; transition: fill .15s, color .15s; }
+.sp-star svg { width: 23px; height: 23px; fill: transparent; stroke: currentColor; stroke-width: 1.8; stroke-linejoin: round; transition: fill var(--c-fast) var(--c-out), color var(--c-fast) var(--c-out); }   /* ☆ → ★ (§5-9): the fill comes in, no pop */
 .sp-star[aria-pressed="true"] { color: var(--amber); }
 .sp-star[aria-pressed="true"] svg { fill: var(--amber); }
 
@@ -5283,7 +5283,8 @@ html.sp-on, html.sp-on body { overflow: hidden; }
 .sp-nxt { color: var(--fg2); text-decoration: underline dotted var(--faint); text-underline-offset: 3px; cursor: help; }
 .sp-phase-note { color: var(--fg2); }
 .sp-meta-err { display: inline-flex; align-items: center; gap: 8px; color: var(--fg); }
-.sp-link { color: var(--amber); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; min-height: 32px; padding: 0 2px; }
+.sp-link { position: relative; display: inline-flex; align-items: center; justify-content: center; min-height: 32px; padding: 0 11px; border-radius: var(--r-key); background: var(--key-bg); box-shadow: var(--key-sh); color: var(--key-fg); font-size: 12px; font-weight: 600; }
+.sp-link:hover { background: var(--key-hover); }
 
 .sp-stats { display: grid; grid-template-columns: minmax(0, 1.25fr) repeat(3, minmax(0, 1fr)); gap: 1px; margin: 10px 0 0; background: var(--line); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
 .sp-stats[hidden] { display: none; }
@@ -5314,10 +5315,15 @@ html.sp-on, html.sp-on body { overflow: hidden; }
 .sp-nf .sp-body, .sp-nf .sp-stats { display: none; }
 .sp-chartcol, .sp-side { min-width: 0; }
 .sp-tfbar { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
-.sp-seg { display: flex; gap: 2px; padding: 3px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; }
-.sp-seg button { flex: 1 1 0; min-height: 40px; padding: 0 4px; border-radius: 7px; font-size: 14px; font-weight: 600; color: var(--muted); white-space: nowrap; transition: background .15s, color .15s; }
+/* segments (docs/standards/controls.md §5-4): the template's .seg is the deep tray and draws the raised indicator (KH.ui.seg; the
+   tablist's own placement in stock.js). The old 1px border is padding now, so every box keeps its size. */
+.sp-seg { display: flex; gap: 2px; padding: 4px; border-radius: var(--r-tray); }
+.sp-seg button { flex: 1 1 0; min-height: 40px; padding: 0 4px; border-radius: var(--r-in); font-size: 14px; font-weight: 600; color: var(--muted); white-space: nowrap; transition: color var(--c-fast) var(--c-out), filter var(--c-fast) var(--c-out); }
 .sp-seg button:hover { color: var(--fg); }
-.sp-seg button[aria-pressed="true"], .sp-seg button[aria-selected="true"] { background: var(--panel2); color: var(--fg); box-shadow: inset 0 -2px 0 var(--amber); }
+.sp-seg button[aria-pressed="true"], .sp-seg button[aria-selected="true"] { color: var(--fg); }
+.sp-tabs:not([data-ind]) > button[aria-selected="true"] { background: var(--ind-bg); box-shadow: var(--ind-sh); }
+.sp-tabs > button:active { filter: var(--press-f); transition-duration: 0s; }
+.sp-tabs > button:focus-visible { outline-offset: -1px; }
 .sp-tfs { flex: 1; }
 .sp-period { display: none; font-size: 12.5px; color: var(--muted); white-space: nowrap; }
 .sp-period b { font-weight: 600; }
@@ -5343,10 +5349,15 @@ html.sp-on, html.sp-on body { overflow: hidden; }
 .sp-peers { display: flex; align-items: center; gap: 10px; margin-top: 10px; min-width: 0; }
 .sp-peers[hidden] { display: none; }
 .sp-peers-t { flex: none; font-size: 12px; font-weight: 600; color: var(--muted); }
-.sp-peer-list { display: flex; gap: 6px; overflow-x: auto; min-width: 0; padding: 4px; margin: -4px; scrollbar-width: none; -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 24px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 24px), transparent); }
+.sp-peer-list { display: flex; gap: 6px; overflow-x: auto; min-width: 0; padding: 4px 4px 10px; margin: -4px -4px -10px; scrollbar-width: none; -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 24px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 24px), transparent); }
 .sp-peer-list::-webkit-scrollbar { display: none; }
-.sp-peer { flex: none; display: inline-flex; align-items: center; gap: 7px; height: 40px; padding: 0 12px; border-radius: 20px; background: var(--panel); border: 1px solid var(--line); font-size: 13px; white-space: nowrap; }
-.sp-peer:hover { border-color: var(--line2); background: var(--panel2); }
+/* same-industry stocks = going chips (§5-7): raised, 1px press, the › steps 2px toward where it goes; the row keeps room for the shadow */
+.sp-peer { position: relative; flex: none; display: inline-flex; align-items: center; gap: 7px; height: 40px; padding: 0 11px 0 13px; border-radius: var(--r-chip); border: 0; background: var(--chip-bg); box-shadow: var(--key-sh); font-size: 13px; white-space: nowrap; }
+.sp-peer::after { content: "›"; flex: none; margin: -2px 0 0 -2px; color: var(--muted); font-size: 16px; line-height: 1; transition: transform var(--c-fast) var(--c-out); }
+.sp-peer:hover { background: var(--key-hover); }
+.sp-peer:is(:hover, :active, .is-press)::after { transform: translateX(2px); }
+.sp-peer:focus-visible { outline-offset: calc(var(--focus-w) * -1); }
+@media (hover: none) { .sp-peer:hover { background: var(--chip-bg); } .sp-peer:hover:not(:active)::after { transform: none; } }
 .sp-peer .pk { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 10px; height: 16px; margin-right: -2px; }
 .sp-peer .pk svg, .sp-peer .pk canvas { display: block; }
 .sp-peer .nm { font-weight: 600; }
@@ -5359,18 +5370,28 @@ html.sp-on, html.sp-on body { overflow: hidden; }
 .sp-tabwrap { position: sticky; top: var(--sp-hh); z-index: 5; padding: 6px 0; margin-top: -6px; background: var(--page); }
 .sp-tabs button { flex: 1 1 auto; padding: 0 6px; }
 .sp-panel { container-type: inline-size; padding-top: 10px; outline: none; }
-.sp-panel:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; border-radius: 6px; }
+.sp-panel:focus-visible { border-radius: 6px; }
 .sp-panel[hidden] { display: none; }
 
 /* messages & skeletons */
 .sp-msgbox { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 28px 16px; text-align: center; }
 .sp-msg-t { font-size: 14.5px; font-weight: 600; color: var(--fg); }
 .sp-msg-s { font-size: 13px; color: var(--muted); max-width: 34ch; }
-.sp-btn { display: inline-flex; align-items: center; justify-content: center; min-height: 40px; padding: 0 16px; margin-top: 6px; border-radius: 9px; border: 1px solid var(--line2); background: var(--panel2); color: var(--fg); font-size: 13.5px; font-weight: 600; text-decoration: none; }
-.sp-btn:hover { border-color: var(--muted); }
-.sp-btn.pri { background: var(--amber); border-color: var(--amber); color: #1b1404; }
-.sp-btn.pri:hover { filter: brightness(1.06); }
-.sp-btn[disabled] { opacity: .6; cursor: default; }
+/* keys (docs/standards/controls.md §5-2): raised; the one primary key per screen is the light plate */
+.sp-btn { position: relative; display: inline-flex; align-items: center; justify-content: center; min-height: 40px; padding: 0 17px; margin-top: 6px; border-radius: var(--r-key); border: 0; background: var(--key-bg); box-shadow: var(--key-sh); color: var(--key-fg); font-size: 13.5px; font-weight: 600; text-decoration: none; }
+.sp-btn:hover { background: var(--key-hover); }
+.sp-btn.pri { background: var(--pri-bg); color: var(--pri-fg); box-shadow: var(--pri-sh); }
+.sp-btn.pri:hover { background: #fff; }
+.sp-btn[disabled] { opacity: .45; box-shadow: none; cursor: default; }
+/* async keys (다시 시도 · 60일 더 보기, §5-3): ring while it works, ✓ = the amber surface, ! = the dark amber one (never red / green) */
+.sp :is(.sp-retry, .sp-more)[aria-busy="true"] { cursor: progress; }
+.sp :is(.sp-retry, .sp-more)[data-st="done"] { background: var(--done-bg); color: var(--done-fg); }
+.sp :is(.sp-retry, .sp-more)[data-st="fail"] { background: var(--fail-bg); color: var(--fail-fg); box-shadow: inset 0 0 0 1px var(--fail-ring), var(--key-sh); }
+.sp :is(.sp-retry, .sp-more)[data-st="fail"] .kwn { color: var(--amber); }
+/* 리포트 더 보기 ↔ 접기: the chevron turns (the template's chevFlip replays it on the redrawn key) */
+.sp-fold { gap: 8px; }
+.sp-fold::after { content: ""; flex: none; width: 6px; height: 6px; margin-top: -3px; border: solid var(--key-ic); border-width: 0 1.6px 1.6px 0; transform: rotate(45deg); }
+.sp-fold[aria-expanded="true"]::after { margin-top: 3px; transform: rotate(225deg); }
 .sp-inline-err { font-size: 12.5px; color: var(--fg2); padding: 6px 2px; }
 .sp-inline-err[hidden] { display: none; }
 .sp-note { font-size: 12px; color: var(--muted); line-height: 1.55; margin-top: 10px; }
@@ -5449,10 +5470,10 @@ html.sp-on, html.sp-on body { overflow: hidden; }
 .sp-ci[hidden] { display: none; }
 .sp-ci-hd { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 40px; margin-bottom: 8px; }
 .sp-ci-hd h3 { font-size: 16px; font-weight: 700; letter-spacing: -.01em; }
-.sp-mseg { flex: none; display: flex; gap: 2px; padding: 2px; border-radius: 9px; background: var(--panel); border: 1px solid var(--line); }
-.sp-mseg button { min-height: 40px; min-width: 52px; padding: 0 10px; border-radius: 7px; font-size: 13px; font-weight: 600; color: var(--muted); }
+.sp-mseg { flex: none; display: flex; gap: 2px; padding: 3px; border-radius: var(--r-tray); }   /* a small segment (.seg) */
+.sp-mseg button { min-height: 40px; min-width: 52px; padding: 0 10px; border-radius: var(--r-in); font-size: 13px; font-weight: 600; color: var(--muted); transition: color var(--c-fast) var(--c-out), filter var(--c-fast) var(--c-out); }
 .sp-mseg button:hover { color: var(--fg); }
-.sp-mseg button[aria-pressed="true"] { background: var(--panel2); color: var(--fg); box-shadow: inset 0 -2px 0 var(--amber); }
+.sp-mseg button[aria-pressed="true"] { color: var(--fg); }
 .sp-tag { display: inline-block; font-size: 11px; font-weight: 600; line-height: 1.5; padding: 0 6px; border-radius: 4px; border: 1px solid var(--line2); color: var(--fg2); white-space: nowrap; }
 .sp-ci .dot { display: inline-block; flex: none; width: 9px; height: 9px; border-radius: 2px; }
 .dot.s0, .sp-fin-col .b.s0 { --c: var(--s0); } .dot.s1, .sp-fin-col .b.s1 { --c: var(--s1); } .dot.s2, .sp-fin-col .b.s2 { --c: var(--s2); }
@@ -5499,7 +5520,7 @@ html.sp-on, html.sp-on body { overflow: hidden; }
 .sp-fin-tbl { margin-top: 6px; }
 .sp-fin-tbl summary { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 2px; font-size: 13px; font-weight: 600; color: var(--fg2); cursor: pointer; list-style: none; border-radius: 6px; }
 .sp-fin-tbl summary::-webkit-details-marker { display: none; }
-.sp-fin-tbl summary::after { content: ""; width: 7px; height: 7px; margin-top: -3px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg); }
+.sp-fin-tbl summary::after { content: ""; width: 7px; height: 7px; margin-top: -3px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg); transition: transform var(--c-base) var(--c-inout), margin-top var(--c-base) var(--c-inout); }
 .sp-fin-tbl[open] summary::after { margin-top: 3px; transform: rotate(-135deg); }
 .sp-fin-tbl summary:hover { color: var(--fg); }
 .sp-fin-t { margin-top: 2px; }
@@ -5566,11 +5587,13 @@ a.sp-rp:visited .sp-rp-t { color: var(--fg2); }
 
 /* ── 뉴스·공시 ───────────────────────── */
 .sp-nwseg { display: flex; flex-wrap: wrap; gap: 6px; }
-.sp-nwseg button { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 15px; border-radius: 20px; border: 1px solid var(--line); background: var(--panel); color: var(--fg2); font-size: 13.5px; font-weight: 600; }
+/* 뉴스 · 공시 = choice chips (§5-7): picked = fill + 1.5px amber ring + amber count, no check (the width never changes); 1px press */
+.sp-nwseg button { position: relative; display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 16px; border-radius: var(--r-chip); border: 0; background: var(--chip-bg); box-shadow: inset 0 0 0 1px var(--line); color: var(--fg2); font-size: 13.5px; font-weight: 600; transition: background-color var(--c-fast) var(--c-out), box-shadow var(--c-fast) var(--c-out), color var(--c-fast) var(--c-out), transform var(--c-fast) var(--c-out), filter var(--c-fast) var(--c-out); }
+.sp-nwseg button:is(:active, .is-press) { transform: translateY(1px); filter: var(--press-f); transition-duration: 0s; }
 .sp-nwseg button small { font-size: 12px; font-weight: 500; color: var(--muted); font-variant-numeric: tabular-nums; }
 .sp-nwseg button small:empty { display: none; }
-.sp-nwseg button:hover { color: var(--fg); border-color: var(--line2); }
-.sp-nwseg button[aria-pressed="true"] { color: var(--fg); border-color: rgba(255, 181, 71, .55); background: var(--amber-soft); }
+.sp-nwseg button:hover { color: var(--fg); box-shadow: inset 0 0 0 1px var(--line2); }
+.sp-nwseg button[aria-pressed="true"] { color: var(--fg); background: var(--chip-on); box-shadow: inset 0 0 0 1.5px var(--chip-ring); }
 .sp-nwseg button[aria-pressed="true"] small { color: var(--amber); }
 .sp-nw-body { margin-top: 6px; }
 .sp-nw-list { list-style: none; margin: 0; padding: 0; }
@@ -5584,22 +5607,25 @@ a.sp-nw-a:visited .sp-nw-t { color: var(--fg2); }
 .sp-nw-tag { font-size: 11px; line-height: 1.5; padding: 0 6px; border-radius: 4px; border: 1px solid var(--line2); color: var(--fg2); }
 /* 공시: kind filter (DART), source line + 지분 switch, tags */
 .sp-dfilt { display: flex; gap: 2px; margin-top: 8px; overflow-x: auto; scrollbar-width: none; border-bottom: 1px solid var(--line); }
+/* the underline row (§5-6): .seg's indicator becomes a 2px amber bar along the bottom; it slides like the segments */
+.sp-dfilt.seg { padding: 0; border-radius: 0; background: none; box-shadow: none; }
+.sp-dfilt.seg::before { top: auto; height: 2px; border-radius: 2px 2px 0 0; background: var(--amber); box-shadow: none; }
+.sp-dfilt.seg:not([data-ind]) > button[aria-pressed="true"] { background: none; box-shadow: inset 0 -2px 0 var(--amber); }
+.sp-dfilt button:focus-visible { outline-offset: calc(var(--focus-w) * -1); }
 .sp-dfilt::-webkit-scrollbar { display: none; }
 .sp-dfilt[hidden], .sp-dfilt button[hidden], .sp-nw-src[hidden], .sp-switch[hidden] { display: none; }
-.sp-dfilt button { flex: none; display: inline-flex; align-items: center; gap: 5px; min-height: 40px; padding: 0 10px; font-size: 13.5px; font-weight: 600; color: var(--muted); box-shadow: inset 0 -2px 0 transparent; }
+.sp-dfilt button { flex: none; display: inline-flex; align-items: center; gap: 5px; min-height: 40px; padding: 0 10px; font-size: 13.5px; font-weight: 600; color: var(--muted); }
 .sp-dfilt button small { font-size: 11.5px; font-weight: 500; color: var(--muted); font-variant-numeric: tabular-nums; }
 .sp-dfilt button:hover { color: var(--fg); }
-.sp-dfilt button[aria-pressed="true"] { color: var(--fg); box-shadow: inset 0 -2px 0 var(--amber); }
+.sp-dfilt button[aria-pressed="true"] { color: var(--fg); }
 .sp-dfilt button[aria-pressed="true"] small { color: var(--fg2); }
 .sp-nw-src { display: flex; flex-wrap: wrap; align-items: center; gap: 0 12px; margin-top: 4px; font-size: 12px; color: var(--muted); }
 .sp-nw-src > span { padding: 6px 0; }
+/* 지분 공시 포함: the template's switch (.swbtn + .swt: deep track, raised knob, 44 × 26, --c-switch, drag) without its row surface */
 .sp-switch { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; margin-left: auto; padding: 0 2px; font-size: 12.5px; font-weight: 600; color: var(--fg2); }
-.sp-switch i { position: relative; flex: none; width: 32px; height: 18px; border-radius: 9px; background: var(--line2); transition: background .15s; }
-.sp-switch i::after { content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: var(--fg2); transition: transform .15s; }
-.sp-switch:hover { color: var(--fg); }
+.sp-switch.swbtn { width: auto; justify-content: flex-end; border-radius: var(--r-in); background: none; box-shadow: none; }
+.sp-switch.swbtn:hover { background: none; color: var(--fg); }
 .sp-switch[aria-checked="true"] { color: var(--fg); }
-.sp-switch[aria-checked="true"] i { background: var(--amber); }
-.sp-switch[aria-checked="true"] i::after { transform: translateX(14px); background: #1b1404; }
 .sp-nw-tag.k { color: var(--fg2); background: var(--panel2); border-color: transparent; }
 .sp-nw-tag.fix { color: var(--fg); border-color: var(--fg2); }
 .sp-vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
@@ -5697,47 +5723,39 @@ a.sp-nw-a:visited .sp-nw-t { color: var(--fg2); }
   .sp-chartwrap { flex: 1; height: auto; max-height: none; min-height: 320px; }
   .sp-side { display: flex; flex-direction: column; min-height: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 10px 10px 0; }
   .sp-tabwrap { position: static; padding: 0; margin: 0; background: none; }
-  .sp-side .sp-seg { background: var(--page); }
   .sp-panel { flex: 1; min-height: 0; overflow-y: auto; padding: 10px 4px 14px; margin: 0 -4px; scrollbar-width: thin; scrollbar-color: var(--line2) transparent; }
   .sp-tbl th { top: 0; background: var(--panel); }
   #sp-p-ob:not([hidden]) { display: flex; flex-direction: column; }
   .sp-ob-grid { flex: 1 1 auto; max-height: 560px; background: var(--page); grid-template-rows: repeat(10, minmax(34px, 1fr)); }
-  .sp-cum, .sp-today, .sp-m, .sp-mseg { background: var(--page); }
+  .sp-cum, .sp-today, .sp-m { background: var(--page); }
   .sp-ln .pt { background: var(--panel); }
   .sp-foot { margin-top: 10px; }
   .sp-foot p { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 }
 @media (min-width: 1100px) and (max-height: 760px) { .sp-ob-grid { grid-template-rows: repeat(10, 32px); } }
 
+/* ── controls (docs/standards/controls.md §5-1 · §6): raised keys sink 1px with a shorter shadow and darken (0 ms down, --c-fast
+   up); keys without a surface (← · ☆ · 표로 보기) only sink and darken; data rows only darken; 44 px to press on touch screens ── */
+.sp :is(.sp-btn, .sp-link, .sp-peer) { transition: transform var(--c-fast) var(--c-out), box-shadow var(--c-fast) var(--c-out), filter var(--c-fast) var(--c-out), background-color var(--c-base) var(--c-out), color var(--c-base) var(--c-out); }
+.sp :is(.sp-btn, .sp-link, .sp-peer):is(:active:not(:disabled):not([aria-busy="true"]), .is-press) { transform: translateY(1px); box-shadow: var(--key-dn); filter: var(--press-f); transition-duration: 0s, 0s, 0s, var(--c-base), var(--c-base); }
+.sp :is(.sp-back, .sp-star, .sp-fin-tbl summary) { transition: transform var(--c-fast) var(--c-out), filter var(--c-fast) var(--c-out); }   /* ☆'s colour fades on the svg itself */
+.sp :is(.sp-back, .sp-star, .sp-fin-tbl summary):is(:active, .is-press) { transform: translateY(1px); filter: var(--press-f); transition-duration: 0s; }
+.sp :is(.sp-nw-a, .sp-rp, .sp-fin-col):active { filter: brightness(.85); transition: filter 0s; }
+@media (pointer: coarse) { .sp :is(.sp-btn, .sp-link, .sp-star)::before { content: ""; position: absolute; left: 50%; top: 50%; width: max(100%, 44px); height: max(100%, 44px); transform: translate(-50%, -50%); } }
+@media (hover: none) { .sp :is(.sp-btn, .sp-link):not([data-st="done"]):not([data-st="fail"]):hover { background: var(--key-bg); } .sp .sp-btn.pri:hover { background: var(--pri-bg); } .sp :is(.sp-back, .sp-star):hover { background: none; } }
+
 html[data-motion="reduced"] .sp.sp-in { animation: none; }
 html[data-motion="reduced"] .sp-chip.live i, html[data-motion="reduced"] .sp-skel, html[data-motion="reduced"] .sp-chart-skel i, html[data-motion="reduced"] .sp-fin-skel i { animation: none; }
-html[data-motion="reduced"] .sp-q .bar, html[data-motion="reduced"] .sp-seg button, html[data-motion="reduced"] .sp-star svg, html[data-motion="reduced"] .sp-switch i, html[data-motion="reduced"] .sp-switch i::after { transition: none; }
+html[data-motion="reduced"] .sp-q .bar { transition: none; }   /* the controls run on the --c-* tokens, which 줄이기 sets to 0 */
 @media (prefers-reduced-motion: reduce) {   /* fallback only when the heatmap sets no data-motion */
   html:not([data-motion]) .sp.sp-in { animation: none; }
   html:not([data-motion]) .sp-chip.live i, html:not([data-motion]) .sp-skel, html:not([data-motion]) .sp-chart-skel i, html:not([data-motion]) .sp-fin-skel i { animation: none; }
-  html:not([data-motion]) .sp-q .bar, html:not([data-motion]) .sp-seg button, html:not([data-motion]) .sp-star svg, html:not([data-motion]) .sp-switch i, html:not([data-motion]) .sp-switch i::after { transition: none; }
+  html:not([data-motion]) .sp-q .bar { transition: none; }
 }
 
-/* 관심 그룹 picker: popover under the ☆ (desktop), bottom sheet on phones */
-.sp-gp { position: fixed; z-index: 60; max-width: calc(100vw - 16px); max-height: min(70vh, 420px); overflow-y: auto; padding: 10px; border-radius: 12px; background: var(--panel2, var(--panel)); border: 1px solid var(--line2); box-shadow: 0 10px 30px rgba(0, 0, 0, .45); outline: none; text-align: left; }
-.sp-gp-h { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px; font-size: 13px; color: var(--fg2); }
-.sp-gp-x { min-height: 36px; padding: 0 8px; border-radius: 8px; font-size: 12.5px; color: var(--muted); }
-.sp-gp-x:hover { color: var(--fg); background: rgba(255, 255, 255, .06); }
-.sp-gp-row { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 6px; border-radius: 8px; font-size: 14px; color: var(--fg); cursor: pointer; }
-.sp-gp-row:hover { background: rgba(255, 255, 255, .05); }
-.sp-gp-row input { flex: none; width: 18px; height: 18px; accent-color: var(--amber); }
-.sp-gp-row .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.sp-gp-row small { flex: none; color: var(--muted); font-size: 12px; }
-.sp-gp-add { width: 100%; min-height: 44px; padding: 0 6px; border-radius: 8px; text-align: left; font-size: 14px; font-weight: 600; color: var(--amber); }
-.sp-gp-add:hover { background: rgba(255, 255, 255, .05); }
-.sp-gp-new { display: flex; gap: 6px; align-items: center; }
-.sp-gp-in { flex: 1; min-width: 0; height: 44px; padding: 0 10px; border-radius: 8px; border: 1px solid var(--line2); background: var(--page); color: var(--fg); font-size: 16px; }
-.sp-gp-ok { flex: none; height: 44px; padding: 0 12px; border-radius: 8px; background: var(--amber); color: #111; font-size: 14px; font-weight: 700; }
-.sp-gp-bd { position: fixed; inset: 0; z-index: 59; background: rgba(0, 0, 0, .5); }
-.sp-gp.sp-gp-sheet { left: 0; right: 0; bottom: 0; top: auto; width: auto; max-width: none; max-height: 75vh; padding: 12px 14px calc(14px + env(safe-area-inset-bottom)); border-radius: 16px 16px 0 0; }
-.sp-gp.sp-gp-sheet { animation: spGpUp .24s cubic-bezier(.2, .7, .2, 1); }
-@keyframes spGpUp { from { transform: translateY(24px); opacity: 0; } }
-html[data-motion="reduced"] .sp-gp.sp-gp-sheet { animation: none; }
+/* 관심 그룹 picker: the template's .wgpop (look, sizes and the phone bottom sheet come from there); only the name column needs room */
+.sp-gp .row .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
 
 </style>
 <script>
@@ -5860,11 +5878,56 @@ function hexRgba(hex, a) {
 }
 const chevron = () => svg('svg', { viewBox: '0 0 24 24', 'aria-hidden': 'true', fill: 'none', stroke: 'currentColor', 'stroke-width': '2.2', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, svg('path', { d: 'M15 5l-7 7 7 7' }));
 function skel(w, hgt) { return h('span', { class: 'sp-skel', style: `width:${w};height:${hgt || '1em'}` }); }
+// retry: a key from retryKey() (or a plain function: a plain 다시 시도 key)
 function msgBox(title, sub, retry) {
   return h('div', { class: 'sp-msgbox', role: 'status' },
     h('p', { class: 'sp-msg-t', text: title }),
     sub ? h('p', { class: 'sp-msg-s', text: sub }) : null,
-    retry ? h('button', { type: 'button', class: 'sp-btn', onclick: retry, text: '다시 시도' }) : null);
+    retry ? (retry.nodeType ? retry : h('button', { type: 'button', class: 'sp-btn', onclick: retry, text: '다시 시도' })) : null);
+}
+/* ───────────────── living controls (docs/standards/controls.md): the template's KH.ui helpers and --c-* tokens, when present ───────────────── */
+const UI = KH.ui && typeof KH.ui.state === 'function' ? KH.ui : null;
+const uiIcon = n => (UI && typeof UI.icon === 'function' ? UI.icon(n) : null);
+const uiSeg = el => { if (UI && typeof UI.seg === 'function') UI.seg(el); };
+const cMs = (name, d) => (UI && typeof UI.ms === 'function' ? UI.ms(name) : d);          // '줄이기' sets --c-fast/base/switch to 0
+const say = t => { if (UI && typeof UI.live === 'function') UI.live(t); };
+const wait = ms => new Promise(r => setTimeout(r, ms));
+function setState(el, st) {
+  if (!el) return;
+  if (UI) { UI.state(el, st); return; }
+  el.dataset.st = st;
+  for (const x of el.querySelectorAll('.kl')) x.classList.toggle('on', x.matches(`[data-l~="${st}"]`));
+}
+// an async key (§5-3): one label per state stacked in one box, so the key keeps the width of its longest label; 'work' carries the
+// ring, 'done' ✓, 'fail' ! (KH.ui.state switches them)
+const KICON = { work: 'spin', done: 'check', fail: 'warn' };
+function asyncKey(cls, says, st) {
+  st = st || 'idle';
+  return h('button', { type: 'button', class: cls, 'data-st': st, 'data-busy': 'work', 'aria-label': says[st] },
+    h('span', { class: 'klb' }, Object.entries(says).map(([k, t]) => h('span', { class: 'kl' + (k === st ? ' on' : ''), 'data-l': k }, KICON[k] ? uiIcon(KICON[k]) : null, t))));
+}
+/* 다시 시도 (§5-3): the message stays while it works — ring "받는 중", then ✓ "받았어요" for --c-slow before the content comes in, or
+   ! "아직 안 돼요 · 다시" until the next press. run() → true (arrived) / false (failed) / null (no longer wanted: another stock, aborted);
+   render() draws the area once the data is in. A message drawn again after a failed retry keeps the ! (failed). */
+const RETRY_SAY = { idle: '다시 시도', work: '받는 중', done: '받았어요', fail: '아직 안 돼요 · 다시' };
+const failed = new Set();
+function retryKey(area, run, render, cls) {
+  const b = asyncKey(cls || 'sp-btn sp-retry', RETRY_SAY, failed.has(area) ? 'fail' : 'idle');
+  b.addEventListener('click', async () => {
+    if (b.dataset.st === 'work') return;
+    const g = S.gen;
+    failed.delete(area);
+    setState(b, 'work');
+    let r = null;
+    try { r = await run(); } catch (e) { r = false; }
+    if (g !== S.gen) return;
+    if (r == null) { if (b.isConnected) setState(b, 'idle'); return; }
+    if (!r) { failed.add(area); if (b.isConnected) setState(b, 'fail'); say('아직 안 돼요. 잠시 뒤 다시 눌러 주세요.'); return; }
+    if (b.isConnected && !reducedNow()) { setState(b, 'done'); await wait(cMs('--c-slow', 560)); if (g !== S.gen) return; }
+    say('불러왔어요.');
+    render();
+  });
+  return b;
 }
 function errSub(e) {
   if (e && e.status === 404) return '이 종목의 정보를 찾지 못했어요.';
@@ -5959,8 +6022,10 @@ function build() {
 }
 
 function buildLive() {
-  R.tfs = h('div', { class: 'sp-seg sp-tfs', role: 'group', 'aria-label': '차트 기간' },
+  // segments (docs/standards/controls.md §5-4): the template's deep tray (.seg) + one raised indicator that slides (KH.ui.seg)
+  R.tfs = h('div', { class: 'sp-seg sp-tfs seg', role: 'group', 'aria-label': '차트 기간' },
     TFS.map(([k, label]) => h('button', { type: 'button', 'data-tf': k, 'aria-pressed': 'false', onclick: () => setTf(k), text: label })));
+  uiSeg(R.tfs);
   R.period = h('div', { class: 'sp-period num' });
   R.chart = h('div', { class: 'sp-chart', role: 'img', 'aria-label': '가격 차트' });
   R.legend = h('div', { class: 'sp-legend num', 'aria-hidden': 'true' });
@@ -5969,7 +6034,7 @@ function buildLive() {
     h('div', { class: 'sp-tfbar' }, R.tfs, R.period),
     h('div', { class: 'sp-chartwrap' }, R.chart, R.legend, R.chartMsg),
     R.peers);
-  R.tabs = h('div', { class: 'sp-seg sp-tabs', role: 'tablist', 'aria-label': '시세 정보' });
+  R.tabs = h('div', { class: 'sp-seg sp-tabs seg', role: 'tablist', 'aria-label': '시세 정보' });
   R.panels = {};
   for (const { key: k, label } of TABS) {
     R.tabs.append(h('button', { type: 'button', role: 'tab', id: 'sp-t-' + k, 'aria-controls': 'sp-p-' + k, 'aria-selected': 'false', tabindex: '-1', 'data-tab': k, onclick: () => setTab(k), text: label }));
@@ -5986,6 +6051,7 @@ function buildLive() {
     e.preventDefault();
     setTab(keys[i], true);
   });
+  if ('ResizeObserver' in window) new ResizeObserver(() => tabInd(true)).observe(R.tabs);
   for (const t of TABS) if (t.build) t.build(R.panels[t.key]);
   R.body.append(chartcol, h('section', { class: 'sp-side', 'aria-label': TABS.map(t => t.label).join('·') }, h('div', { class: 'sp-tabwrap' }, R.tabs), ...Object.values(R.panels)));
   R.foot.append(h('p', {}, '데이터: 네이버 증권(비공식). 투자 판단의 근거로 쓰지 마세요. 차트: ',
@@ -6149,76 +6215,97 @@ function renderStar() {
 // 관심 그룹 (AGENTS.md §3-11): with KH.watch.groups() and more than the single 기본 group, ☆ opens a picker; otherwise it toggles instantly
 const groupsApi = () => { const W = watchApi(); return W && ['groups', 'groupsOf', 'setGroups', 'createGroup'].every(k => typeof W[k] === 'function') ? W : null; };
 const usePicker = () => { const W = groupsApi(); if (!W) return false; try { return W.groups().length > 1; } catch (e) { return false; } };
-let gp = null;   // {el, list, add, backdrop}
+/* The 관심 그룹 picker is the template's group popover (.wgpop, §3-11): its look (rows with check boxes and counts, ＋ 새 그룹에 담기,
+   완료; a bottom sheet up to 760px) and its flow — ticks apply at once, the name form takes the popover's place, Esc · a tap outside
+   · Tab out closes it, focus goes back to ☆. The template does not hand its own popover out through KH, so this one is drawn here
+   with the same classes inside the stock page (whose stacking context it has to sit in). */
+let gp = null;   // {el}
+const GP_MAX = 20, GP_NAME = 12;   // the template's group limits (§3-11)
+const gpPhone = () => matchMedia('(max-width: 760px)').matches;
 function gpClose(refocus) {
   if (!gp) return;
-  gp.el.remove(); if (gp.backdrop) gp.backdrop.remove();
+  gp.el.remove();
   gp = null;
+  R.star.setAttribute('aria-expanded', 'false');
   if (refocus) R.star.focus({ preventScroll: true });
 }
-function gpFill() {
+function gpShow(label, kids) {
+  const el = gp.el;
+  el.replaceChildren(...kids);
+  el.setAttribute('aria-label', label);
+  el.classList.toggle('sp-gp-sheet', gpPhone());
+  if (gpPhone()) { el.style.left = el.style.top = ''; }
+  else {   // under ☆, inside the viewport (above it when there is no room below)
+    const r = R.star.getBoundingClientRect(), pw = el.offsetWidth, ph = el.offsetHeight;
+    let top = r.bottom + 6;
+    if (top + ph > innerHeight - 8) top = Math.max(8, r.top - ph - 6);
+    el.style.left = Math.round(Math.min(Math.max(8, r.left), innerWidth - pw - 8)) + 'px';
+    el.style.top = Math.round(top) + 'px';
+  }
+  const f = el.querySelector('input[type="text"], input:checked, input, button:not([disabled])');
+  if (f) f.focus({ preventScroll: true });
+}
+function gpName() { const st = KH.stock(S.code); return (S.sum && S.sum.code === S.code && S.sum.name) || (st && st.n) || S.code; }
+function gpPick() {
   const W = groupsApi();
   if (!gp || !W || !S.code) return;
-  const mine = new Set(W.groupsOf(S.code) || []);
-  const had = gp.list.contains(document.activeElement) ? document.activeElement.dataset.id : null;
-  gp.list.replaceChildren(...W.groups().map(g => {
-    const cb = h('input', { type: 'checkbox', 'data-id': g.id, onchange: () => gpApply() });
-    cb.checked = mine.has(g.id);
-    return h('label', { class: 'sp-gp-row' }, cb, h('span', { class: 'nm', text: g.name }), h('small', { class: 'num', text: String(g.count) }));
-  }));
-  if (had) { const el = gp.list.querySelector(`input[data-id="${CSS.escape(had)}"]`); if (el) el.focus({ preventScroll: true }); }
+  const mine = new Set(W.groupsOf(S.code) || []), groups = W.groups(), nm = gpName(), add = groups.length < GP_MAX;
+  gpShow(`${nm} 관심 그룹`, [h('h3', { text: `${nm} · 관심 그룹` }),
+    ...groups.map(g => h('label', { class: 'row sp-gp-row' },
+      h('input', { type: 'checkbox', 'data-id': g.id, checked: mine.has(g.id), onchange: gpApply }),
+      h('span', { class: 'nm', text: g.name }), h('span', { class: 'n num', text: String(g.count) }))),
+    add ? h('div', { class: 'sep' }) : null,
+    add ? h('button', { class: 'row sp-gp-add', type: 'button', onclick: gpForm, text: '＋ 새 그룹에 담기' }) : null,
+    h('div', { class: 'acts' }, h('button', { class: 'pri', type: 'button', onclick: () => gpClose(true), text: '완료' }))].filter(Boolean));
 }
 function gpApply() {
   const W = groupsApi();
   if (!gp || !W) return;
-  W.setGroups(S.code, [...gp.list.querySelectorAll('input:checked')].map(i => i.dataset.id));
-  renderStar(); gpFill();
+  W.setGroups(S.code, [...gp.el.querySelectorAll('input[data-id]:checked')].map(i => i.dataset.id));
+  renderStar();
 }
-function gpNew() {
+// kh:watch while the picker shows: ticks and counts change in place (focus stays); another set of groups draws it again
+function gpSync() {
+  const W = groupsApi(), boxes = gp ? [...gp.el.querySelectorAll('input[data-id]')] : [];
+  if (!W || !boxes.length) return;                       // the name form is showing
+  const groups = W.groups(), mine = new Set(W.groupsOf(S.code) || []);
+  if (groups.length !== boxes.length || groups.some((g, i) => boxes[i].dataset.id !== g.id)) { gpPick(); return; }
+  groups.forEach((g, i) => { boxes[i].checked = mine.has(g.id); const n = boxes[i].closest('label').querySelector('.n'); if (n) n.textContent = String(g.count); });
+}
+// ＋ 새 그룹에 담기: a name (12 characters, no duplicate), then this stock goes into it and the picker comes back
+function gpForm() {
   const W = groupsApi();
   if (!gp || !W) return;
-  const inp = h('input', { class: 'sp-gp-in', type: 'text', maxlength: '12', placeholder: '새 그룹 이름', 'aria-label': '새 그룹 이름', enterkeyhint: 'done' });
-  const ok = () => {
-    const name = inp.value.trim();
-    if (!name) { inp.focus(); return; }
-    const id = W.createGroup(name);
-    if (id) W.setGroups(S.code, [...(W.groupsOf(S.code) || []), id].filter((x, i, a) => a.indexOf(x) === i));
-    renderStar(); gp.add.replaceChildren(gpAddBtn()); gpFill();
-    const nb = gp.add.querySelector('button'); if (nb) nb.focus({ preventScroll: true });
+  const inp = h('input', { type: 'text', class: 'sp-gp-in', maxlength: String(GP_NAME), placeholder: '예: 반도체', 'aria-label': '그룹 이름', autocomplete: 'off', enterkeyhint: 'done' });
+  const msg = h('p', { class: 'msg', 'aria-live': 'polite', text: `${GP_NAME}자까지` });
+  const ok = h('button', { class: 'pri', type: 'submit', text: '만들기' });
+  const name = () => inp.value.replace(/\s+/g, ' ').trim().slice(0, GP_NAME);
+  const check = () => {
+    const nm = name(), dup = !!nm && W.groups().some(g => g.name === nm);
+    ok.disabled = !nm || dup;
+    msg.textContent = dup ? '같은 이름의 그룹이 있어요' : `${GP_NAME}자까지`;
   };
-  inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); ok(); } });
-  gp.add.replaceChildren(h('div', { class: 'sp-gp-new' }, inp, h('button', { type: 'button', class: 'sp-gp-ok', onclick: ok, text: '만들기' })));
-  inp.focus();
+  inp.addEventListener('input', check);
+  const form = h('form', { onsubmit: ev => {
+    ev.preventDefault(); check(); if (ok.disabled) return;
+    const id = W.createGroup(name());
+    if (!id) return;
+    W.setGroups(S.code, [...new Set([...(W.groupsOf(S.code) || []), id])]);
+    renderStar(); gpPick();
+  } }, inp, msg, h('div', { class: 'acts' }, h('button', { type: 'button', onclick: () => gpClose(true), text: '취소' }), ok));
+  gpShow('새 그룹', [h('h3', { text: '새 그룹' }), form]);
+  check();
 }
-const gpAddBtn = () => h('button', { type: 'button', class: 'sp-gp-add', onclick: gpNew, text: '＋ 새 그룹' });
 function gpOpen() {
   if (gp) { gpClose(true); return; }
-  const phone = matchMedia('(max-width: 699px)').matches;
-  const list = h('div', { class: 'sp-gp-list' }), add = h('div', { class: 'sp-gp-addw' }, gpAddBtn());
-  const el = h('div', { class: 'sp-gp' + (phone ? ' sp-gp-sheet' : ''), role: 'dialog', 'aria-label': '관심종목 그룹 고르기', tabindex: '-1' },
-    h('div', { class: 'sp-gp-h' }, h('b', { text: '관심종목 그룹' }), h('button', { type: 'button', class: 'sp-gp-x', 'aria-label': '닫기', onclick: () => gpClose(true), text: '닫기' })), list, add);
-  const backdrop = phone ? h('div', { class: 'sp-gp-bd', onclick: () => gpClose(true) }) : null;
-  gp = { el, list, add, backdrop };
-  if (backdrop) root.append(backdrop);
+  const el = h('div', { class: 'wgpop sp-gp', role: 'dialog', tabindex: '-1' });
+  el.addEventListener('focusout', e => { if (gp && e.relatedTarget && !el.contains(e.relatedTarget)) gpClose(false); });
+  gp = { el };
   root.append(el);
-  if (!phone) {
-    const r = R.star.getBoundingClientRect(), w = Math.min(280, innerWidth - 16);
-    el.style.width = w + 'px';
-    el.style.left = Math.max(8, Math.min(innerWidth - w - 8, r.right - w)) + 'px';
-    el.style.top = Math.min(innerHeight - 120, r.bottom + 6) + 'px';
-  }
-  gpFill();
-  (list.querySelector('input') || el).focus({ preventScroll: true });
-  el.addEventListener('keydown', e => {
-    if (e.key !== 'Tab') return;
-    const f = [...el.querySelectorAll('input, button')].filter(x => !x.disabled && x.offsetParent !== null);
-    if (!f.length) return;
-    const first = f[0], last = f[f.length - 1];
-    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
-    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
-  });
+  R.star.setAttribute('aria-expanded', 'true');
+  gpPick();
 }
-document.addEventListener('pointerdown', e => { if (gp && !gp.backdrop && !gp.el.contains(e.target) && !R.star.contains(e.target)) gpClose(false); }, true);
+document.addEventListener('pointerdown', e => { if (gp && !gp.el.contains(e.target) && !R.star.contains(e.target)) gpClose(false); }, true);
 function toggleWatch() {
   const W = watchApi();
   if (!W || !S.code) return;
@@ -6243,7 +6330,7 @@ function renderMeta() {
     if (!S.sum && !S.sumErr) kids.push(skel('14em', '0.9em'));
     if (S.sumErr) {
       kids.push(h('span', { class: 'sp-meta-err', role: 'status' }, S.sumErr.status === 404 ? '이 코드의 종목을 찾지 못했어요.' : '시세 요약을 불러오지 못했어요.',
-        h('button', { type: 'button', class: 'sp-link', onclick: () => { S.sumErr = null; renderMeta(); renderStats(); loadSummary(); }, text: '다시 시도' })));
+        retryKey('sum', async () => { const r = await fetchSummary(false); if (r === false) scheduleSummary(); return r; }, applySummary, 'sp-link sp-retry')));
     }
   }
   R.meta.replaceChildren(...kids);
@@ -6394,18 +6481,27 @@ function renderOffline() {
 }
 
 /* ───────────────── summary ───────────────── */
-async function loadSummary(quiet) {
+// → true (arrived) / false (failed) / null (another stock, aborted)
+async function fetchSummary(quiet) {
   const g = S.gen;
   clearTimeout(S.timers.sum);
   try {
     const j = await api('summary', 'sum');
-    if (g !== S.gen) return;
-    S.sum = j; S.sumErr = null;
+    if (g !== S.gen) return null;
+    S.sum = j; S.sumErr = null; failed.delete('sum');
     feedStore(j);
+    return true;
   } catch (e) {
-    if (aborted(e) || g !== S.gen) return;
+    if (aborted(e) || g !== S.gen) return null;
     if (!quiet || !S.sum) S.sumErr = e;
+    return false;
   }
+}
+async function loadSummary(quiet) {
+  if ((await fetchSummary(quiet)) === null) return;
+  applySummary();
+}
+function applySummary() {
   const before = S.phase;
   S.phase = phaseOf(S.sum);
   root.classList.toggle('sp-nf', !!(S.sumErr && S.sumErr.status === 404 && !KH.stock(S.code)));
@@ -6531,14 +6627,27 @@ function chartState(kind, err) {
   if (kind === 'loading') {
     if (C.bars && C.bars.length) { m.classList.add('dim'); m.replaceChildren(h('span', { class: 'sp-loading-t', role: 'status', text: '불러오는 중…' })); }
     else { m.classList.add('skel'); m.replaceChildren(h('div', { class: 'sp-chart-skel', role: 'status', 'aria-label': '차트 불러오는 중' }, Array.from({ length: 28 }, (_, i) => h('i', { style: `height:${18 + Math.round(Math.abs(Math.sin(i * 1.7)) * 46)}%` })))); }
-  } else if (kind === 'error') m.replaceChildren(msgBox('차트를 불러오지 못했어요.', errSub(err), () => loadChart(true)));
-  else if (kind === 'lib') m.replaceChildren(msgBox('차트 도구를 불러오지 못했어요.', '네트워크 연결을 확인하고 다시 시도해 주세요.', () => loadChart(true)));
+  } else if (kind === 'error') m.replaceChildren(msgBox('차트를 불러오지 못했어요.', errSub(err), retryKey('chart', chartFetch, () => loadChart())));
+  else if (kind === 'lib') m.replaceChildren(msgBox('차트 도구를 불러오지 못했어요.', '네트워크 연결을 확인하고 다시 시도해 주세요.', retryKey('chart', chartFetch, () => loadChart())));
   else if (kind === 'empty') {
     const pre = (S.tf === '1d') && S.phase === 'pre';
     m.replaceChildren(msgBox(pre ? '오늘은 아직 거래가 없어요.' : '이 기간에는 거래 기록이 없어요.', pre ? '9시에 정규장이 열리면 차트가 그려져요.' : '다른 기간을 골라 보세요.'));
   }
 }
 
+// the retry key's fetch: the chart tool and this period's bars into the cache, nothing drawn (loadChart() then draws from the cache)
+async function chartFetch() {
+  const g = S.gen, tf = S.tf, code = S.code;
+  try { await ensureChart(); } catch (e) { return g === S.gen ? false : null; }
+  if (g !== S.gen || tf !== S.tf) return null;
+  try {
+    const j = await api('chart?tf=' + tf, 'chart');
+    if (g !== S.gen || tf !== S.tf) return null;
+    C.cache.set(code + '|' + tf, { at: Date.now(), j });
+    failed.delete('chart');
+    return true;
+  } catch (e) { return aborted(e) || g !== S.gen ? null : false; }
+}
 async function loadChart(force) {
   const g = S.gen, tf = S.tf, code = S.code;
   const key = code + '|' + tf;
@@ -6714,6 +6823,22 @@ function setTf(k) {
 function syncTf() { if (R.tfs) for (const b of R.tfs.children) b.setAttribute('aria-pressed', String(b.dataset.tf === S.tf)); }
 
 /* ───────────────── tabs ───────────────── */
+/* The 시세 정보 tabs are a real tablist (aria-selected), which KH.ui.seg (rows of aria-pressed buttons) does not read: the same raised
+   indicator is placed here with the template's segment CSS (.seg::before at --il/--ir/--it/--ib, data-ind; data-dir = which edge
+   leads: --c-fast, the other follows in --c-base). */
+let tabI = -1;
+function tabInd(snap) {
+  const row = R.tabs;
+  if (!row) return;
+  const bs = [...row.children], i = bs.findIndex(b => b.getAttribute('aria-selected') === 'true'), b = bs[i];
+  if (!b || !b.offsetWidth || !row.clientWidth) { delete row.dataset.ind; tabI = i; return; }
+  const v = [b.offsetLeft, row.clientWidth - b.offsetLeft - b.offsetWidth, b.offsetTop, row.clientHeight - b.offsetTop - b.offsetHeight].map(x => Math.round(x * 2) / 2 + 'px');
+  const moved = !snap && tabI >= 0 && i !== tabI && row.dataset.ind != null;
+  row.dataset.dir = moved ? (i > tabI ? 'r' : 'l') : '';
+  ['--il', '--ir', '--it', '--ib'].forEach((x, j) => row.style.setProperty(x, v[j]));
+  row.dataset.ind = '';
+  tabI = i;
+}
 function setTab(k, focus) {
   if (!TAB[k]) k = TABS[0].key;
   const from = S.tab, slide = fancy() && S.open && from !== k && R.panels[from] && !R.panels[from].hidden;
@@ -6724,6 +6849,7 @@ function setTab(k, focus) {
     b.tabIndex = on ? 0 : -1;
     if (on && focus) b.focus();
   }
+  tabInd(!S.open);
   for (const t of TABS) {
     R.panels[t.key].hidden = t.key !== k;
     if (t.key !== k && t.hide) t.hide();
@@ -6749,6 +6875,22 @@ function obStart() {
   obTick(++obLoop);
 }
 function obStop() { obLoop++; clearTimeout(S.timers.ob); S.timers.ob = 0; abort('ob'); }
+// the retry key's fetch: the polling stops while the key works; a failure picks the 3-second retries up again (they draw the message)
+async function obOnce() {
+  obStop();
+  const id = obLoop;
+  try {
+    const j = await api('orderbook', 'ob');
+    if (id !== obLoop) return null;
+    S.ob = j; S.obErr = null; S.obAt = new Date(); failed.delete('ob');
+    return true;
+  } catch (e) {
+    if (aborted(e) || id !== obLoop) return null;
+    S.obErr = e;
+    if (obPolling()) S.timers.ob = setTimeout(() => obTick(id), OB_MS);
+    return false;
+  }
+}
 async function obTick(id) {
   S.timers.ob = 0;
   if (id !== obLoop || !obShouldPoll()) return;
@@ -6756,7 +6898,7 @@ async function obTick(id) {
   try {
     const j = await api('orderbook', 'ob');
     if (id !== obLoop) return;
-    S.ob = j; S.obErr = null; S.obAt = new Date();
+    S.ob = j; S.obErr = null; S.obAt = new Date(); failed.delete('ob');
   } catch (e) {
     if (aborted(e) || id !== obLoop) return;
     S.obErr = e;
@@ -6800,7 +6942,7 @@ function renderOb() {
   ob.msg.hidden = has && !S.obErr;
   if (!o) {
     ob.note.replaceChildren();
-    ob.msg.replaceChildren(S.obErr ? msgBox('호가를 불러오지 못했어요.', errSub(S.obErr) + (obPolling() ? ' 3초마다 다시 시도해요.' : ''), obStart)
+    ob.msg.replaceChildren(S.obErr ? msgBox('호가를 불러오지 못했어요.', errSub(S.obErr) + (obPolling() ? ' 3초마다 다시 시도해요.' : ''), retryKey('ob', obOnce, () => { renderOb(); if (obPolling()) { const id = obLoop; S.timers.ob = setTimeout(() => obTick(id), OB_MS); } }))
       : h('div', { class: 'sp-skel-rows', role: 'status', 'aria-label': '호가 불러오는 중' }, Array.from({ length: 10 }, () => skel('100%', '28px'))));
     return;
   }
@@ -6880,20 +7022,21 @@ function growBars(panel, tab, sel, axis) {
 
 /* ── 투자자 ── */
 function invReset() { S.inv = null; S.invErr = null; S.invLoading = false; }
-async function loadInv() {
+// quiet (the retry key): no loading picture, nothing drawn at the end → true / false / null
+async function loadInv(quiet) {
   const g = S.gen;
-  S.invLoading = true; S.invErr = null;
-  renderInv();
+  if (!quiet) { S.invLoading = true; S.invErr = null; renderInv(); }
   try {
     const j = await api('investors', 'inv');
-    if (g !== S.gen) return;
-    S.inv = Array.isArray(j.rows) ? j.rows : [];
+    if (g !== S.gen) return null;
+    S.inv = Array.isArray(j.rows) ? j.rows : []; S.invErr = null; failed.delete('inv');
   } catch (e) {
-    if (aborted(e) || g !== S.gen) return;
+    if (aborted(e) || g !== S.gen) return null;
     S.invErr = e;
   }
   S.invLoading = false;
-  renderInv();
+  if (!quiet) renderInv();
+  return !S.invErr;
 }
 const GROUPS = [['individual', '개인'], ['foreign', '외국인'], ['institution', '기관']];
 function sparkline(series, lo, hi) {
@@ -6922,7 +7065,7 @@ function todayCard(r, when) {
 function netCell(v) { return h('td', { class: 'num ' + cls(v) }, h('span', { class: 'l', text: signed(v) }), h('span', { class: 's', text: signedCompact(v) })); }
 function renderInv() {
   const P = R.panels.inv;
-  if (S.invErr) { P.replaceChildren(msgBox('투자자별 매매를 불러오지 못했어요.', errSub(S.invErr), loadInv)); return; }
+  if (S.invErr) { P.replaceChildren(msgBox('투자자별 매매를 불러오지 못했어요.', errSub(S.invErr), retryKey('inv', () => loadInv(true), renderInv))); return; }
   if (!S.inv) { P.replaceChildren(h('div', { class: 'sp-skel-rows', role: 'status', 'aria-label': '투자자 정보 불러오는 중' }, skel('100%', '96px'), Array.from({ length: 8 }, () => skel('100%', '26px')))); return; }
   const rows = S.inv;
   if (!rows.length) { P.replaceChildren(msgBox('투자자별 매매 기록이 없어요.', '새로 상장했거나 거래가 적은 종목일 수 있어요.')); return; }
@@ -6957,26 +7100,44 @@ function renderInv() {
 
 /* ── 일별 시세 ── */
 function dailyReset() { S.daily = null; R.dailyTbody = null; }
-async function loadDaily(page) {
+// quiet (the retry key, 60일 더 보기): the message / rows stay as they are while it works, nothing drawn at the end → true / false / null
+async function loadDaily(page, quiet) {
   const g = S.gen;
   if (!S.daily) S.daily = { rows: [], page: 0, hasMore: false, loading: false, err: null };
   const D = S.daily;
-  if (D.loading) return;
-  D.loading = true; D.err = null;
-  renderDaily();
+  if (D.loading) return null;
+  D.loading = true;
+  if (!quiet) { D.err = null; renderDaily(); }
   try {
     const j = await api('daily?page=' + page, 'daily');
-    if (g !== S.gen) return;
+    if (g !== S.gen) return null;
     const rows = Array.isArray(j.rows) ? j.rows : [];
     const seen = new Set(D.rows.map(r => r.date));
     D.rows.push(...rows.filter(r => r && r.date && !seen.has(r.date)));
-    D.page = page; D.hasMore = !!j.hasMore && rows.length > 0;
+    D.page = page; D.hasMore = !!j.hasMore && rows.length > 0; D.err = null; failed.delete('daily');
   } catch (e) {
-    if (aborted(e) || g !== S.gen) return;
+    if (aborted(e) || g !== S.gen) return null;
     D.err = e;
   }
   D.loading = false;
+  if (!quiet) renderDaily();
+  return !D.err;
+}
+/* 60일 더 보기 (§5-3): ring "불러오는 중" → the rows go in, ✓ "60일 더 불러왔어요" for --c-dwell; ! "못 불러왔어요 · 다시" (the reason
+   stays on the line above). The key keeps one width; on the last page it goes away. */
+const MORE_SAY = { idle: '60일 더 보기', work: '불러오는 중', done: '60일 더 불러왔어요', fail: '못 불러왔어요 · 다시' };
+async function dailyMore() {
+  const b = R.dailyMore, g = S.gen;
+  if (!b || b.dataset.st === 'work' || !S.daily) return;
+  clearTimeout(R.dailyMoreT);
+  setState(b, 'work');
+  const r = await loadDaily(S.daily.page + 1, true);
+  if (g !== S.gen) return;
+  if (r == null) { setState(b, 'idle'); return; }
+  setState(b, r ? 'done' : 'fail');
   renderDaily();
+  if (r) { say('60일 더 불러왔어요.'); R.dailyMoreT = setTimeout(() => { if (b.dataset.st === 'done') setState(b, 'idle'); }, cMs('--c-dwell', 1120) || 1120); }
+  else say('더 불러오지 못했어요.');
 }
 function dailyRow(r) {
   return h('tr', {},
@@ -6996,14 +7157,15 @@ function renderDaily() {
   const P = R.panels.daily, D = S.daily;
   if (!D) return;
   if (!D.rows.length) {
-    if (D.err) P.replaceChildren(msgBox('일별 시세를 불러오지 못했어요.', errSub(D.err), () => loadDaily(1)));
+    if (D.err) P.replaceChildren(msgBox('일별 시세를 불러오지 못했어요.', errSub(D.err), retryKey('daily', () => loadDaily(1, true), renderDaily)));
     else if (D.loading) P.replaceChildren(h('div', { class: 'sp-skel-rows', role: 'status', 'aria-label': '일별 시세 불러오는 중' }, Array.from({ length: 12 }, () => skel('100%', '26px'))));
     else P.replaceChildren(msgBox('일별 시세가 없어요.', '새로 상장한 종목이면 거래가 쌓인 뒤에 보여요.'));
     return;
   }
   if (!R.dailyTbody || !P.contains(R.dailyTbody)) {
     R.dailyTbody = h('tbody');
-    R.dailyMore = h('button', { type: 'button', class: 'sp-btn sp-more', onclick: () => loadDaily(S.daily.page + 1) });
+    R.dailyMore = asyncKey('sp-btn sp-more', MORE_SAY);
+    R.dailyMore.addEventListener('click', dailyMore);
     R.dailyErr = h('p', { class: 'sp-inline-err', role: 'status' });
     R.dailyNote = h('p', { class: 'sp-note', text: '정규장 이후에는 오늘 행에 NXT 거래가 섞여 KRX 종가(15:30)와 다를 수 있어요.' });
     const thead = h('thead', {}, h('tr', {}, [['날짜', ''], ['종가', ''], ['전일 대비', 'c-chg'], ['등락률', 'c-pct2'], ['시가', 'c-o'], ['고가', 'c-o'], ['저가', 'c-o'], ['고가·저가', 'c-hl'], ['거래량', '']]
@@ -7016,8 +7178,6 @@ function renderDaily() {
   R.dailyErr.hidden = !D.err;
   R.dailyErr.textContent = D.err ? '더 불러오지 못했어요. ' + errSub(D.err) : '';
   R.dailyMore.hidden = !D.hasMore && !D.err;
-  R.dailyMore.disabled = D.loading;
-  R.dailyMore.textContent = D.loading ? '불러오는 중…' : D.err ? '다시 시도' : '더 보기';
 }
 
 /* ── 뉴스·공시 ── */
@@ -7049,22 +7209,26 @@ function setDiscEquity(on) {
   if (!on && discFilter === '지분') { discFilter = '전체'; store.set('stockDiscFilter', '전체'); }
   renderNews();
 }
-async function loadNews(kind) {
+// quiet (the retry key): the error stays on screen while it works, nothing drawn at the end → true / false / null
+async function loadNews(kind, quiet) {
   const code = S.code, g = S.gen, key = code + '|' + kind;
   const hit = newsCache.get(key);
-  if ((hit && Date.now() - hit.at < NEWS_TTL) || (S.news[kind] && S.news[kind].loading)) return;
-  S.news[kind] = { loading: true, err: null };
+  if (hit && Date.now() - hit.at < NEWS_TTL) return true;
+  if (S.news[kind] && S.news[kind].loading) return null;
+  const prev = S.news[kind];
+  S.news[kind] = quiet && prev ? { loading: true, err: prev.err } : { loading: true, err: null };
   try {
     const j = await api(NEWS_KIND[kind].path, 'nw-' + kind);
-    if (g !== S.gen) return;
+    if (g !== S.gen) return null;
     newsCache.set(key, { at: Date.now(), rows: Array.isArray(j.rows) ? j.rows.filter(r => r && r.title) : [],
       source: j.source === 'dart' ? 'dart' : kind === 'disc' ? 'naver' : null });
-    S.news[kind] = null;
+    S.news[kind] = null; failed.delete('news:' + kind);
   } catch (e) {
-    if (aborted(e) || g !== S.gen) return;
+    if (aborted(e) || g !== S.gen) return null;
     S.news[kind] = { loading: false, err: e };
   }
-  if (S.tab === 'news') renderNews();
+  if (!quiet && S.tab === 'news') renderNews();
+  return !S.news[kind];
 }
 
 // Worker datetimes are ISO in KST; a value without a zone (Naver 공시) or Naver's YYYYMMDDHHmm is read as KST too
@@ -7108,7 +7272,8 @@ function buildNews(panel) {
     seg: h('div', { class: 'sp-nwseg', role: 'group', 'aria-label': '뉴스·공시 고르기' },
       NEWS_KINDS.map(k => h('button', { type: 'button', 'data-kind': k.key, 'aria-pressed': 'false', onclick: () => setNewsKind(k.key) },
         h('span', { text: k.label }), h('small', { class: 'num' })))),
-    filters: h('div', { class: 'sp-dfilt', role: 'group', 'aria-label': '공시 종류', hidden: true },
+    // 공시 종류: an underline row (§5-6) — the template's segment indicator drawn as a 2px amber bar that slides
+    filters: h('div', { class: 'sp-dfilt seg', role: 'group', 'aria-label': '공시 종류', hidden: true },
       DISC_FILTERS.map(f => h('button', { type: 'button', 'data-f': f, 'aria-pressed': 'false', onclick: () => setDiscFilter(f) },
         h('span', { text: f }), h('small', { class: 'num' })))),
     src: h('div', { class: 'sp-nw-src', hidden: true }),
@@ -7116,10 +7281,13 @@ function buildNews(panel) {
     note: h('p', { class: 'sp-note' }),
   };
   R.nw.srcText = h('span');
-  R.nw.equity = h('button', { type: 'button', class: 'sp-switch', role: 'switch', 'aria-checked': 'false', onclick: () => setDiscEquity(!discEquity) },
-    h('span', { class: 'sp-switch-t', text: '지분 공시 포함' }), h('i', { 'aria-hidden': 'true' }));
+  // the template's switch (§5-8: .swbtn + .swt, 44 × 26, --c-switch, the knob can be dragged with KH.ui.sw)
+  R.nw.equity = h('button', { type: 'button', class: 'sp-switch swbtn', role: 'switch', 'aria-checked': 'false', onclick: () => setDiscEquity(!discEquity) },
+    h('span', { class: 'sp-switch-t', text: '지분 공시 포함' }), h('span', { class: 'swt', 'aria-hidden': 'true' }));
+  if (UI && typeof UI.sw === 'function') UI.sw(R.nw.equity);
   R.nw.src.append(R.nw.srcText, R.nw.equity);
   panel.append(R.nw.seg, R.nw.filters, R.nw.src, R.nw.body, R.nw.note);
+  uiSeg(R.nw.filters);
 }
 function tag(text, cls) { return h('span', { class: 'sp-nw-tag' + (cls ? ' ' + cls : ''), text }); }
 function newsRow(r, kind, now) {
@@ -7179,7 +7347,7 @@ function renderNews() {
     const onlyEquity = !discEquity && discFilter === '전체' && hit.rows.every(r => r.kind === '지분');
     body = msgBox(onlyEquity ? '최근 6개월 공시가 모두 지분 공시예요.' : `최근 6개월 동안 ${discFilter} 공시가 없어요.`, onlyEquity ? "'지분 공시 포함'을 켜면 볼 수 있어요." : '다른 종류를 골라 보세요.');
   } else if (hit) body = msgBox(meta.empty, meta.emptySub);
-  else if (st && st.err) body = msgBox(`${meta.label}를 불러오지 못했어요.`, errSub(st.err), () => { loadNews(kind); renderNews(); });
+  else if (st && st.err) body = msgBox(`${meta.label}를 불러오지 못했어요.`, errSub(st.err), retryKey('news:' + kind, () => loadNews(kind, true), renderNews));
   else body = h('div', { class: 'sp-skel-rows', role: 'status', 'aria-label': `${meta.label} 불러오는 중` }, Array.from({ length: 6 }, () => skel('100%', '52px')));
   R.nw.body.replaceChildren(body);
   R.nw.note.textContent = meta.note;
@@ -7211,27 +7379,34 @@ function infoSummary() {
   if (!R.ci || S.tab !== 'info') return;
   renderMetrics(); renderDiv(); renderTargetGap();
 }
-async function loadCi(kind, force) {
+// quiet (the retry keys): the section keeps its error while it works (ciState stays 'err'), nothing drawn at the end → true / false / null
+async function loadCi(kind, force, quiet) {
   const code = S.code, g = S.gen, key = code + '|' + kind, hit = ciCache.get(key);
-  if ((!force && hit && Date.now() - hit.at < CI_TTL) || (S.ci[kind] && S.ci[kind].loading)) return;
-  S.ci[kind] = { loading: true, err: null };
+  if (!force && hit && Date.now() - hit.at < CI_TTL) return true;
+  if (S.ci[kind] && S.ci[kind].loading) return null;
+  const prev = S.ci[kind];
+  S.ci[kind] = quiet && prev ? { loading: true, err: prev.err } : { loading: true, err: null };
   try {
     const j = await api(CI_SRC[kind], 'ci-' + kind);
-    if (g !== S.gen) return;
+    if (g !== S.gen) return null;
     ciCache.set(key, { at: Date.now(), j: j && typeof j === 'object' ? j : {} });
     S.ci[kind] = null;
   } catch (e) {
-    if (aborted(e) || g !== S.gen) return;
+    if (aborted(e) || g !== S.gen) return null;
     S.ci[kind] = { loading: false, err: e };
   }
-  if (S.tab === 'info') renderInfo();
+  if (!quiet && S.tab === 'info') renderInfo();
+  return ciState(kind) === 'ok';
 }
 const ciHit = k => ciCache.get(S.code + '|' + k) || null;
 const ciData = k => { const x = ciHit(k); return x ? x.j : null; };
 // 'ok' (data, even if a refresh is under way or failed) / 'err' / 'loading'
 const ciState = k => (ciData(k) ? 'ok' : S.ci[k] && S.ci[k].err ? 'err' : 'loading');
 const ciSig = (...k) => k.map(x => { const t = ciHit(x); return x + ':' + ciState(x) + ':' + (t ? t.at : ''); }).join('|');
-function retryCi(...kinds) { for (const k of kinds) { S.ci[k] = null; loadCi(k, true); } renderInfo(); }
+// the retry keys of 재무 (both periods) and 애널리스트 의견
+function ciRetry(area, ...kinds) {
+  return retryKey(area, () => Promise.all(kinds.map(k => loadCi(k, true, true))).then(r => (r.includes(null) ? null : r.every(Boolean))), renderInfo);
+}
 
 // finance helpers: cols oldest first; values in cols order; '-' arrives as null
 const finCols = fin => (fin && Array.isArray(fin.cols) ? fin.cols.filter(c => c && c.key != null) : []);
@@ -7297,8 +7472,8 @@ function buildInfo(panel) {
     const el = h('section', { class: 'sp-ci sp-ci-' + key, 'aria-labelledby': id }, h('div', { class: 'sp-ci-hd' }, h('h3', { id, text: title }), extra || null), body);
     return { el, body, sig: null };
   };
-  const periodSeg = () => h('div', { class: 'sp-mseg', role: 'group', 'aria-label': '재무 기간' },
-    [['quarter', '분기'], ['annual', '연간']].map(([k, l]) => h('button', { type: 'button', 'data-p': k, 'aria-pressed': 'false', onclick: () => setFinPeriod(k), text: l })));
+  const periodSeg = () => { const g = h('div', { class: 'sp-mseg seg', role: 'group', 'aria-label': '재무 기간' },
+    [['quarter', '분기'], ['annual', '연간']].map(([k, l]) => h('button', { type: 'button', 'data-p': k, 'aria-pressed': 'false', onclick: () => setFinPeriod(k), text: l }))); uiSeg(g); return g; };
   R.ci = {
     met: sec('met', '투자 지표'),
     fin: sec('fin', '재무', periodSeg()),
@@ -7306,8 +7481,9 @@ function buildInfo(panel) {
     div: sec('div', '배당'),
     ana: sec('ana', '애널리스트 의견'),
   };
-  R.ci.stabSeg = h('div', { class: 'sp-seg sp-stabseg', role: 'group', 'aria-label': '안정성 지표' },
+  R.ci.stabSeg = h('div', { class: 'sp-seg sp-stabseg seg', role: 'group', 'aria-label': '안정성 지표' },
     Object.keys(STAB).map(k => h('button', { type: 'button', 'data-k': k, 'aria-pressed': 'false', onclick: () => setStab(k), text: k })));
+  uiSeg(R.ci.stabSeg);
   R.ci.stabBody = h('div');
   R.ci.stab.body.append(R.ci.stabSeg, R.ci.stabBody);
   R.ci.stab.body = R.ci.stabBody;
@@ -7370,7 +7546,7 @@ function renderFin() {
   if (F0.sig === sig) return;
   F0.sig = sig;
   if (st === 'loading') { F0.body.replaceChildren(h('div', { class: 'sp-fin-skel', role: 'status', 'aria-label': '재무 정보 불러오는 중' }, Array.from({ length: 18 }, (_, i) => h('i', { style: `height:${20 + Math.round(Math.abs(Math.sin(i * 1.3)) * 60)}%` })))); return; }
-  if (st === 'err') { F0.body.replaceChildren(msgBox('재무 정보를 불러오지 못했어요.', errSub(S.ci[k].err), () => retryCi('fa', 'fq'))); return; }
+  if (st === 'err') { F0.body.replaceChildren(msgBox('재무 정보를 불러오지 못했어요.', errSub(S.ci[k].err), ciRetry('ci:fin', 'fa', 'fq'))); return; }
   const fin = ciData(k), list = finView(fin), period = finPeriod;
   if (!list.length) { F0.body.replaceChildren(msgBox('재무 정보가 없어요.', '새로 상장했거나 실적을 내지 않는 종목일 수 있어요.')); return; }
   const hasEst = list.some(x => x.c.estimate), estCols = finCols(fin).some(c => c.estimate);
@@ -7532,7 +7708,7 @@ function renderAna() {
   A.sig = sig;
   R.ci.gap = null;
   if (st === 'loading') { A.body.replaceChildren(ciSkel(4, '40px')); return; }
-  if (st === 'err') { A.body.replaceChildren(msgBox('애널리스트 의견을 불러오지 못했어요.', errSub(S.ci.res.err), () => retryCi('res'))); return; }
+  if (st === 'err') { A.body.replaceChildren(msgBox('애널리스트 의견을 불러오지 못했어요.', errSub(S.ci.res.err), ciRetry('ci:res', 'res'))); return; }
   const j = ciData('res'), rows = (Array.isArray(j.rows) ? j.rows : []).filter(r => r && r.title);
   const cons = j.consensus && typeof j.consensus === 'object' ? j.consensus : null;
   const tgt = cons && isNum(cons.targetMean) && +cons.targetMean > 0 ? +cons.targetMean : null;
@@ -7582,8 +7758,17 @@ function renderAna() {
         const kidsA = [h('span', { class: 'sp-rp-t', text: String(r.title) }), h('span', { class: 'sp-rp-m' }, meta)];
         return h('li', {}, url ? h('a', { class: 'sp-rp', href: url, target: '_blank', rel: 'noopener' }, kidsA, h('span', { class: 'sp-vh', text: ' (새 탭)' })) : h('div', { class: 'sp-rp' }, kidsA));
       })),
-      rows.length > RES_SHOW ? h('button', { type: 'button', class: 'sp-btn sp-more', 'aria-expanded': String(S.resAll),
-        onclick: () => { S.resAll = !S.resAll; renderAna(); const m = R.ci.ana.body.querySelector('.sp-more'); if (m) m.focus(); }, text: S.resAll ? '접기' : `리포트 ${rows.length - RES_SHOW}건 더 보기` }) : null,
+      // 더 보기 ↔ 접기 (§5-10): the label swaps in place and the chevron turns (the list is drawn again, so both are replayed on the new key)
+      rows.length > RES_SHOW ? h('button', { type: 'button', class: 'sp-btn sp-more sp-fold more', 'aria-expanded': String(S.resAll),
+        onclick: e => {
+          const was = e.currentTarget.textContent;
+          S.resAll = !S.resAll; renderAna();
+          const m = R.ci.ana.body.querySelector('.sp-more');
+          if (!m) return;
+          m.focus();
+          if (UI && typeof UI.swap === 'function') UI.swap(m.firstElementChild, m.textContent, was);
+          if (!reducedNow()) { m.dataset.flip = ''; m.addEventListener('animationend', function f(ev) { if (ev.animationName.startsWith('chevFlip')) { delete m.dataset.flip; m.removeEventListener('animationend', f); } }); }
+        } }, h('span', { class: 'mt', text: S.resAll ? '접기' : `리포트 ${rows.length - RES_SHOW}건 더 보기` })) : null,
       h('p', { class: 'sp-note', text: '리포트 본문은 증권사 원문에서 볼 수 있어요. 누르면 새 탭에서 열려요.' }));
   } else kids.push(h('p', { class: 'sp-ana-empty', text: '최근 리포트 목록이 없어요.' }));
   A.body.replaceChildren(...kids);
@@ -7614,6 +7799,7 @@ function show(code, opener) {
   S.gen++;
   stopAll();
   Object.assign(S, { code, sum: null, sumErr: null, phase: 'unknown' });
+  failed.clear();
   for (const t of TABS) if (t.reset) t.reset();
   if (!switching) {
     S.opener = opener && opener !== document.body ? opener : null;
@@ -7713,7 +7899,7 @@ document.addEventListener('kh:palette', () => { if (root) { applyColors(); if (S
 document.addEventListener('kh:data', () => { if (S.open) { renderPeers(); renderHead(); if (LIVE) renderMeta(); } });
 document.addEventListener('kh:basis', () => { if (S.open) renderHead(); });   // the headline is the row in the chosen basis   // 업종 path / provisional price arrive with the quotes
 document.addEventListener('kh:motion', () => { if (!fancy() && R.price) { settleRoll(R.price); settleRoll(R.chg); } });
-document.addEventListener('kh:watch', () => { if (S.open) { renderStar(); if (gp && !usePicker()) gpClose(false); else gpFill(); } });
+document.addEventListener('kh:watch', () => { if (S.open) { renderStar(); if (gp && !usePicker()) gpClose(false); else gpSync(); } });
 
 window.KHStock = { open, close, isOpen: () => S.open };
 onHash();
