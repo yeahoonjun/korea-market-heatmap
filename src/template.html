@@ -13,14 +13,14 @@ try{history.replaceState(null,'',location.pathname+location.search+(keep?'#'+kee
 <meta name="theme-color" content="#131418">
 <!--__SERIF__-->
 <script>/* themes (docs/standards/themes.md): <html data-theme · data-tone · data-labs · data-serif · data-blur> before the first paint, so a stored
-   theme never flashes the dark one. khm.theme = base|paper|glass-dark|glass-light; khm.set.serif (paper only); khm.set.glassBlur auto|off. */
+   theme never flashes the dark one. khm.theme = base|paper|glass-dark|glass-light; khm.set.serif (paper only); khm.set.glassBlur auto|on|off (on = 켜기: never switched off automatically, 사용자 2026-11-14 02:20). */
 (function(){var d=document.documentElement,g=function(k){var v=null;try{v=localStorage.getItem('khm.'+k);v=v==null?null:JSON.parse(v)}catch(e){}return v},
 t=g('theme'),P={base:'#131418',paper:'#f6e8da','glass-dark':'#0b0c10','glass-light':'#e7eaf0'};if(!P[t])t='base';
 var light=t==='paper'||t==='glass-light',lite=+g('glassLite')||0,n=navigator,c=n.connection||{},
 low=matchMedia('(pointer:coarse)').matches&&((n.deviceMemory&&n.deviceMemory<=3)||(n.hardwareConcurrency&&n.hardwareConcurrency<=4)),
 auto=!!c.saveData||low||(lite&&Date.now()-lite<12096e5);
 d.dataset.theme=t;d.dataset.tone=light?'light':'dark';d.dataset.labs=light?'auto':'halo';
-d.dataset.serif=t==='paper'&&g('set.serif')===true?'on':'off';d.dataset.blur=g('set.glassBlur')==='off'||auto?'off':'on';if(auto)d.dataset.blurAuto='1';
+d.dataset.serif=t==='paper'&&g('set.serif')===true?'on':'off';var gb=g('set.glassBlur');if(gb==='on')auto=false;d.dataset.blur=gb==='off'||auto?'off':'on';if(auto)d.dataset.blurAuto='1';
 var m=document.querySelector('meta[name="theme-color"]');if(m)m.content=P[t];
 if(d.dataset.serif==='on'){var s=document.getElementById('kh-serif');if(s&&window.FontFace)try{var f=new FontFace('KH 명조','url(data:font/woff2;base64,'+s.textContent.trim()+')',{weight:'200 900',display:'swap'});document.fonts.add(f);f.load();d.dataset.serifLoaded='1'}catch(e){}}})();</script>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%23000'/%3E%3Crect x='2' y='2' width='7' height='7' fill='%232bb553'/%3E%3Crect x='10' y='2' width='4' height='7' fill='%238b444e'/%3E%3Crect x='2' y='10' width='4' height='4' fill='%23414554'/%3E%3Crect x='7' y='10' width='7' height='4' fill='%23f63538'/%3E%3C/svg%3E">
@@ -5820,12 +5820,12 @@ if ('IntersectionObserver' in window) new IntersectionObserver(es => {
    data-labs · data-serif · data-blur> before the first paint). A change repaints the data colours (palette × theme, §8) and every
    theme-coloured view in place — the layout is the same in every theme — then fires 'kh:theme' {theme} and 'kh:palette'.
    표시 설정 › 화면: 테마 (안 A, four at once, 2 × 2 with swatches) · 명조 제목 (paper only, khm.set.serif, off by default; the Noto
-   Serif KR subset loads only when it is on) · 유리 흐림 자동 · 끄기 (glass only, khm.set.glassBlur). Rows that do not apply to the
+   Serif KR subset loads only when it is on) · 유리 흐림 자동 · 켜기 · 끄기 (glass only, khm.set.glassBlur). Rows that do not apply to the
    current theme stay in place, dimmed (controls §5-12), so the sheet keeps its height. */
 const THEME_SW = { base: ['#131418', '#25272e', '#ffb547'], paper: ['#f6e8da', '#211a15', '#f3b941'], 'glass-dark': ['#0b0c10', '#4a4e58', '#ffb547'], 'glass-light': ['#e7eaf0', '#ffffff', '#a86200'] };
 let SERIF = store.get('set.serif', false) === true;
-let GLASS_BLUR = store.get('set.glassBlur', 'auto') === 'off' ? 'off' : 'auto';
-let GLASS_AUTO_OFF = document.documentElement.dataset.blurAuto === '1';
+let GLASS_BLUR = ['on', 'off'].includes(store.get('set.glassBlur', 'auto')) ? store.get('set.glassBlur', 'auto') : 'auto';   // auto · on(켜기) · off(끄기)
+let GLASS_AUTO_OFF = GLASS_BLUR === 'auto' && document.documentElement.dataset.blurAuto === '1';
 function loadSerif() {
   const d = document.documentElement;
   if (d.dataset.serifLoaded || !window.FontFace) return;
@@ -5878,7 +5878,7 @@ const serifBtn = h('button', { type: 'button', class: 'swbtn', role: 'switch', '
   onclick: () => { if (THEME !== 'paper') return; SERIF = !SERIF; store.set('set.serif', SERIF); themeAttrs(); syncThemeUI(); stickMeasure(); } },
   h('span', { class: 'swl', text: '명조 제목' }), h('span', { class: 'swt', 'aria-hidden': 'true' }));
 const blurSeg = h('div', { class: 'seg', role: 'group', 'aria-labelledby': 'blurLbl' },
-  [['auto', '자동'], ['off', '끄기']].map(([v, t]) => h('button', { type: 'button', 'data-gb': v, 'aria-pressed': String(v === GLASS_BLUR), text: t })));
+  [['auto', '자동'], ['on', '켜기'], ['off', '끄기']].map(([v, t]) => h('button', { type: 'button', 'data-gb': v, 'aria-pressed': String(v === GLASS_BLUR), text: t })));
 const serifRow = h('div', { class: 'ctl', 'data-ctl': 'serif' }, serifBtn, h('small', { class: 'hint', id: 'serifHint' }));
 const blurRow = h('div', { class: 'ctl', 'data-ctl': 'glassBlur' }, h('span', { id: 'blurLbl', text: '유리 흐림' }), blurSeg, h('small', { class: 'hint', id: 'blurHint' }));
 $('.morehd', morePanel).after(
@@ -5890,7 +5890,7 @@ blurSeg.addEventListener('click', e => {
   const b = e.target.closest('button[data-gb]');
   if (!b || !THEME.startsWith('glass') || b.dataset.gb === GLASS_BLUR) return;
   GLASS_BLUR = b.dataset.gb; store.set('set.glassBlur', GLASS_BLUR);
-  if (GLASS_BLUR === 'auto') { GLASS_AUTO_OFF = autoLite(); }
+  GLASS_AUTO_OFF = GLASS_BLUR === 'auto' ? autoLite() : false;   // 켜기·끄기는 기기 판단을 쓰지 않아요
   themeAttrs(); syncThemeUI();
 });
 // 자동: the first-paint rules again (Save-Data, a low-end phone, an earlier automatic switch-off within 14 days)
@@ -5909,6 +5909,7 @@ function syncThemeUI() {
   blurRow.toggleAttribute('aria-disabled', !glass); if (!glass) blurRow.setAttribute('aria-disabled', 'true');
   for (const b of blurSeg.children) { b.setAttribute('aria-pressed', String(b.dataset.gb === GLASS_BLUR)); if (glass) b.removeAttribute('aria-disabled'); else b.setAttribute('aria-disabled', 'true'); }
   $('#blurHint').textContent = !glass ? '글라스 테마에서 쓸 수 있어요.' : GLASS_BLUR === 'off' ? '유리 판을 흐림 없이 불투명하게 그려요.'
+    : GLASS_BLUR === 'on' ? '항상 흐리게 그려요. 느린 휴대폰에서는 스크롤이 버벅일 수 있어요.'
     : GLASS_AUTO_OFF ? '이 기기에서는 화면이 느려 흐림을 스스로 껐어요.' : '자동이면 느린 휴대폰에서 스스로 불투명한 판으로 바뀌어요.';
 }
 uiSeg(themeSeg); uiSeg(blurSeg); uiSwitch(serifBtn);
@@ -5958,7 +5959,7 @@ addEventListener('load', () => setTimeout(() => {
   const f = t => { if (last) xs.push(t - last); last = t; if (xs.length < 30 && !document.hidden) requestAnimationFrame(f); else if (xs.length) { xs.sort((a, b) => a - b); GW.base = Math.max(6, xs[xs.length >> 1]); } };
   requestAnimationFrame(f);
 }, 600), { once: true });
-const glassLive = () => THEME.startsWith('glass') && document.documentElement.dataset.blur !== 'off' && STK.stuck;
+const glassLive = () => THEME.startsWith('glass') && GLASS_BLUR === 'auto' && document.documentElement.dataset.blur !== 'off' && STK.stuck;   // 켜기면 지켜보지 않아요
 function glassScroll() {
   GW.at = performance.now();
   if (GW.on || !glassLive() || cssVar('--blur-bar') === 'none') return;
