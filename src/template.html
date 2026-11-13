@@ -10,6 +10,19 @@ try{var o=JSON.parse(decodeURIComponent(escape(atob(decodeURIComponent(i<0?rest:
 for(var k in o)if(k.indexOf('khm.')===0&&k!=='khm.migrated'&&typeof o[k]==='string'&&(first||localStorage.getItem(k)==null))localStorage.setItem(k,o[k]);
 localStorage.setItem('khm.migrated',new Date().toISOString());}catch(e){}
 try{history.replaceState(null,'',location.pathname+location.search+(keep?'#'+keep:''));}catch(e){location.hash=keep;}})();</script>
+<meta name="theme-color" content="#131418">
+<!--__SERIF__-->
+<script>/* themes (docs/standards/themes.md): <html data-theme · data-tone · data-labs · data-serif · data-blur> before the first paint, so a stored
+   theme never flashes the dark one. khm.theme = base|paper|glass-dark|glass-light; khm.set.serif (paper only); khm.set.glassBlur auto|off. */
+(function(){var d=document.documentElement,g=function(k){var v=null;try{v=localStorage.getItem('khm.'+k);v=v==null?null:JSON.parse(v)}catch(e){}return v},
+t=g('theme'),P={base:'#131418',paper:'#f6e8da','glass-dark':'#0b0c10','glass-light':'#e7eaf0'};if(!P[t])t='base';
+var light=t==='paper'||t==='glass-light',lite=+g('glassLite')||0,n=navigator,c=n.connection||{},
+low=matchMedia('(pointer:coarse)').matches&&((n.deviceMemory&&n.deviceMemory<=3)||(n.hardwareConcurrency&&n.hardwareConcurrency<=4)),
+auto=!!c.saveData||low||(lite&&Date.now()-lite<12096e5);
+d.dataset.theme=t;d.dataset.tone=light?'light':'dark';d.dataset.labs=light?'auto':'halo';
+d.dataset.serif=t==='paper'&&g('set.serif')===true?'on':'off';d.dataset.blur=g('set.glassBlur')==='off'||auto?'off':'on';if(auto)d.dataset.blurAuto='1';
+var m=document.querySelector('meta[name="theme-color"]');if(m)m.content=P[t];
+if(d.dataset.serif==='on'){var s=document.getElementById('kh-serif');if(s&&window.FontFace)try{var f=new FontFace('KH 명조','url(data:font/woff2;base64,'+s.textContent.trim()+')',{weight:'200 900',display:'swap'});document.fonts.add(f);f.load();d.dataset.serifLoaded='1'}catch(e){}}})();</script>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%23000'/%3E%3Crect x='2' y='2' width='7' height='7' fill='%232bb553'/%3E%3Crect x='10' y='2' width='4' height='7' fill='%238b444e'/%3E%3Crect x='2' y='10' width='4' height='4' fill='%23414554'/%3E%3Crect x='7' y='10' width='7' height='4' fill='%23f63538'/%3E%3C/svg%3E">
 <!--__FONT__-->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
@@ -17,9 +30,36 @@ try{history.replaceState(null,'',location.pathname+location.search+(keep?'#'+kee
 :root{
   --page:#131418; --panel:#191a1f; --panel2:#202228; --line:#2b2d34; --line2:#373a42;
   --fg:#eef0f3; --fg2:#bcc0c8; --muted:#8a8f99; --faint:#858993;
-  --amber:#ffb547; --amber-soft:rgba(255,181,71,.14);
+  /* interface accent by role (themes.md §4-1): text · fill · tab bar · focus ring. --amber stays as an alias of --acc-fill */
+  --acc:#ffb547; --acc-fill:#ffb547; --acc-line:#ffb547; --focus:#ffb547; --acc-on:#1b1404;
+  --acc-soft:rgba(255,181,71,.14); --acc-bd:rgba(255,181,71,.35);
+  --amber:var(--acc-fill); --amber-soft:var(--acc-soft);
   --up-text:#ff5c66; --dn-text:#2fd67a;
   --nodata:#26282e;
+  --rule:transparent;
+  /* overlay ink (hover tints: color-mix with transparent) and shadow ink */
+  --ov:#fff; --shc:#000;
+  /* map (§4-2): floor, sector band, industry band (--ihd-*: --ind-bg is the segment indicator), tile type, hover / selection rings */
+  --map-bg:#000; --map-sh:none; --r-map:6px; --sec-bg:#000; --sec-fg:#f2f3f5; --sec-hov:#fff; --ihd-bg:#0d0e11; --ihd-fg:#a6abb5;
+  --tile-fg:#fff; --tile-hov:rgba(255,255,255,.92); --sel-1:var(--acc-fill); --sel-2:#000; --tile-ring-in:rgba(0,0,0,.55);
+  --lab-sh:0 0 1px rgba(0,0,0,.6),0 0 3px rgba(0,0,0,.42),0 1px 2px rgba(0,0,0,.5);
+  --lab-sh-sm:0 0 1px rgba(0,0,0,.95),0 0 2px rgba(0,0,0,.85),0 0 3px rgba(0,0,0,.7),0 1px 4px rgba(0,0,0,.5);
+  --hatch:rgba(255,255,255,.055); --hatch2:rgba(255,255,255,.12); --nonx-a:rgba(0,0,0,.55); --nonx-b:rgba(0,0,0,.3); --nonx-c:rgba(0,0,0,.25);
+  --flash-up:rgba(255,255,255,.38); --flash-dn:rgba(0,0,0,.45);
+  --badge-bg:rgba(0,0,0,.62); --badge-fg:#fff; --badge-ring:rgba(255,255,255,.45); --lim-bar:#fff; --lim-bar-sh:rgba(0,0,0,.35); --limsw:#5a5e69;
+  --ix-base:#626672; --ix-now:#4a4d56; --spark-fill:.2;
+  /* surfaces: cards, list rows, floating panels (tooltip · sheets · popovers), scrim, glass blur, the header strip, the phone dock */
+  --card-bg:var(--panel); --card-bd:var(--line); --card-r:10px; --card-sh:none; --row-bd:transparent; --th-bg:var(--panel2);
+  --tip-bg:rgba(24,25,30,.97); --tip-bd:var(--line2); --tip-sh:0 18px 50px rgba(0,0,0,.55); --tip-r:10px;
+  --sheet-bg:rgba(24,25,30,.98); --sheet-bd:var(--line2); --sheet-sh:0 -18px 60px rgba(0,0,0,.6); --sheet-r:16px;
+  --pop-bg:rgba(32,34,40,.99); --pop-solid:#202228; --pop-sh:0 14px 40px rgba(0,0,0,.5); --bub-bg:#26282f;
+  --sheet-fl-sh:0 24px 70px rgba(0,0,0,.6);
+  --scrim:rgba(0,0,0,.45); --blur:none; --blur-bar:none;
+  --bar-bg:var(--page); --bar-sh:none; --bar-stuck:0 1px 0 var(--line2);
+  --dock-bg:rgba(30,32,38,.97); --dock-sh:inset 0 0 0 1px var(--line2),inset 0 1px 0 rgba(255,255,255,.06),0 10px 30px rgba(0,0,0,.55); --dock-r:18px; --dock-div:var(--line2);
+  /* type (§5): weights and tracking only — sizes and line heights are the same in every theme */
+  --w-head:600; --w-strong:700; --track-head:normal; --font-head:var(--sans); --serif:'KH 명조','Noto Serif KR',var(--sans);
+  --cd-up:#ef3e4a; --cd-dn:#12a15b; --cd-flat:var(--muted);
   --sans:'Pretendard Variable',Pretendard,-apple-system,BlinkMacSystemFont,system-ui,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;
   /* motion tokens (docs/motion-brief.md 2-0): the '화려하게' effects read these; JS mirrors them in MT */
   --m-1:120ms; --m-2:240ms; --m-3:480ms;
@@ -38,19 +78,128 @@ try{history.replaceState(null,'',location.pathname+location.search+(keep?'#'+kee
   --key-on:inset 0 1px 3px rgba(0,0,0,.6),inset 0 0 0 1px rgba(255,181,71,.5),0 0 0 rgba(0,0,0,0);
   --pri-bg:#eef0f3; --pri-fg:#131418; --pri-sh:inset 0 1px 0 rgba(255,255,255,.7),0 1px 2px rgba(0,0,0,.55),0 4px 10px rgba(0,0,0,.3);
   --press-f:brightness(.86);
-  --done-bg:var(--amber); --done-fg:#1b1404; --fail-bg:#2d2519; --fail-fg:#ffd8a1; --fail-ring:rgba(255,181,71,.6);
+  --done-bg:var(--acc-fill); --done-fg:#1b1404; --fail-bg:#2d2519; --fail-fg:#ffd8a1; --fail-ring:rgba(255,181,71,.6);
   --r-key:12px; --r-pill:999px; --r-tray:12px; --r-in:8px; --r-chip:999px;
-  --trk:#0f1014; --knob:#f3f4f7;
+  --trk:#0f1014; --knob:#f3f4f7; --sw-on:var(--acc-fill);
   --knob-sh:0 1px 1px rgba(0,0,0,.3),0 3px 6px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.85);
   --knob-dn:0 1px 1px rgba(0,0,0,.4),0 1px 2px rgba(0,0,0,.3),inset 0 1px 0 rgba(255,255,255,.85);
   --chip-bg:#25272e; --chip-on:color-mix(in srgb,#ffb547 20%,#25272e); --chip-ring:rgba(255,181,71,.8);
 }
 html[data-motion="reduced"]{--c-fast:0ms; --c-base:0ms; --c-switch:0ms}
+/* ───────────────── themes (docs/standards/themes.md §4): one set of role tokens per theme — colour, light, corners, material and
+   type weight only; sizes, gaps, timing and layout are shared, so the map never moves when the theme changes. :root = 기본 (base). */
+html[data-theme="paper"]{
+  --page:#f6e8da; --panel:#f6e8da; --panel2:#eddac7; --line:rgba(46,30,18,.2); --line2:rgba(46,30,18,.34); --rule:#211a15;
+  --fg:#211a15; --fg2:#4a3f37; --muted:#6a5c51; --faint:#65584c;
+  --acc:#8a4b00; --acc-fill:#f3b941; --acc-line:#211a15; --focus:#211a15; --acc-on:#211a15; --acc-soft:rgba(243,185,65,.3); --acc-bd:rgba(138,75,0,.5);
+  --nodata:#e3d4c5; --ov:#211a15; --shc:#46280f;
+  --map-bg:#f6e8da; --map-sh:0 0 0 1px #211a15; --r-map:0px; --sec-bg:#f6e8da; --sec-fg:#211a15; --sec-hov:#000; --ihd-bg:#f6e8da; --ihd-fg:#5a4c41;
+  --tile-fg:#000; --tile-hov:#211a15; --sel-1:#211a15; --sel-2:#fbf1e6; --tile-ring-in:rgba(251,241,230,.9);
+  --lab-sh:none; --lab-sh-sm:none;
+  --hatch:rgba(33,26,21,.07); --hatch2:rgba(33,26,21,.16); --nonx-a:rgba(251,241,230,.62); --nonx-b:rgba(251,241,230,.36); --nonx-c:rgba(251,241,230,.2);
+  --flash-up:transparent; --flash-dn:transparent; --limsw:#9b8b7d; --ix-base:#8f8072; --ix-now:#b9ab9c; --spark-fill:.12;
+  --card-bg:transparent; --card-bd:transparent; --card-r:0px; --card-sh:inset 0 2px 0 #211a15; --row-bd:rgba(46,30,18,.2); --th-bg:#eddac7;
+  --tip-bg:#fbf1e6; --tip-bd:#211a15; --tip-sh:4px 4px 0 rgba(33,26,21,.88); --tip-r:2px;
+  --sheet-bg:#fbf1e6; --sheet-bd:#211a15; --sheet-sh:0 -10px 30px rgba(70,40,15,.2); --sheet-r:6px; --sheet-fl-sh:4px 4px 0 rgba(33,26,21,.88);
+  --pop-bg:#fbf1e6; --pop-solid:#fbf1e6; --pop-sh:4px 4px 0 rgba(33,26,21,.88); --bub-bg:#fbf1e6;
+  --scrim:rgba(46,28,12,.36); --bar-bg:#f6e8da; --bar-sh:0 1px 0 #211a15; --bar-stuck:0 1px 0 #211a15;
+  --dock-bg:#fbf1e6; --dock-sh:inset 0 0 0 1px #211a15,3px 3px 0 rgba(33,26,21,.88); --dock-r:4px; --dock-div:rgba(46,30,18,.28);
+  --tray-bg:#ead5c0; --tray-sh:inset 0 1px 2px rgba(70,40,15,.22),inset 0 0 0 1px rgba(33,26,21,.42);
+  --ind-bg:#fff8ef; --ind-sh:inset 0 0 0 1px #211a15,0 2px 0 #211a15;
+  --key-bg:#fff8ef; --key-hover:#fffcf8; --key-fg:#211a15; --key-ic:#3b3029;
+  --key-sh:inset 0 0 0 1px #211a15,0 2px 0 #211a15; --key-dn:inset 0 0 0 1px #211a15,0 1px 0 #211a15; --key-on:inset 0 0 0 1px #211a15,inset 0 -3px 0 #f3b941,0 0 0 #211a15;
+  --pri-bg:#211a15; --pri-fg:#fbf1e6; --pri-sh:0 2px 0 #6e5a49; --press-f:brightness(.95);
+  --done-bg:#f3b941; --done-fg:#211a15; --fail-bg:#fbf1e6; --fail-fg:#7a3f00; --fail-ring:#8a4b00;
+  --chip-bg:#fff8ef; --chip-on:#f7d68e; --chip-ring:#211a15;
+  --trk:#ead5c0; --knob:#fffaf3; --sw-on:#211a15; --knob-sh:inset 0 0 0 1px #211a15,0 2px 0 #211a15; --knob-dn:inset 0 0 0 1px #211a15,0 1px 0 #211a15;
+  --r-key:3px; --r-tray:4px; --r-in:2px; --r-chip:3px;
+  --w-head:800; --w-strong:800; --track-head:-.03em;
+}
+html[data-theme="glass-dark"]{
+  --page:#0b0c10; --panel:rgba(255,255,255,.045); --panel2:rgba(255,255,255,.08); --line:rgba(255,255,255,.09); --line2:rgba(255,255,255,.16);
+  --fg:#f5f6f8; --fg2:#c9cdd4; --muted:#9ea3ad; --faint:#8b909a;
+  --nodata:#24262c; --r-map:16px; --th-bg:#16181d;
+  --card-bg:linear-gradient(180deg,rgba(255,255,255,.075),rgba(255,255,255,.02) 46%),rgba(22,24,30,.72); --card-bd:transparent; --card-r:22px;
+  --card-sh:inset 0 1px 0 rgba(255,255,255,.16),inset 0 0 0 .5px rgba(255,255,255,.1),inset 0 -1px 0 rgba(0,0,0,.25),0 10px 30px rgba(0,0,0,.35);
+  --tip-bg:linear-gradient(180deg,rgba(255,255,255,.09),rgba(255,255,255,0) 30%),rgba(20,22,28,.84); --tip-bd:transparent; --tip-r:20px;
+  --tip-sh:inset 0 1px 0 rgba(255,255,255,.24),inset 0 0 0 .5px rgba(255,255,255,.12),0 18px 50px rgba(0,0,0,.5);
+  --sheet-bg:var(--tip-bg); --sheet-bd:transparent; --sheet-r:28px; --sheet-fl-sh:var(--tip-sh); --sheet-sh:inset 0 1px 0 rgba(255,255,255,.24),inset 0 0 0 .5px rgba(255,255,255,.12),0 -14px 40px rgba(0,0,0,.45);
+  --pop-bg:var(--tip-bg); --pop-solid:#1b1d23; --pop-sh:var(--tip-sh); --bub-bg:#1b1d23;
+  --scrim:rgba(0,0,0,.22); --blur:blur(24px) saturate(1.4); --blur-bar:blur(20px) saturate(1.6);
+  --bar-bg:linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,0) 60%),rgba(16,18,24,.62);
+  --bar-sh:inset 0 1px 0 rgba(255,255,255,.16),inset 0 0 0 .5px rgba(255,255,255,.1),0 10px 24px rgba(0,0,0,.3);
+  --dock-bg:linear-gradient(180deg,rgba(255,255,255,.09),rgba(255,255,255,0) 40%),rgba(22,24,30,.93); --dock-sh:inset 0 1px 0 rgba(255,255,255,.22),inset 0 0 0 .5px rgba(255,255,255,.14),0 12px 32px rgba(0,0,0,.5); --dock-r:28px; --dock-div:rgba(255,255,255,.12);
+  --tray-bg:rgba(0,0,0,.34); --tray-sh:inset 0 1px 2px rgba(0,0,0,.5),inset 0 0 0 .5px rgba(255,255,255,.1);
+  --ind-bg:linear-gradient(180deg,rgba(255,255,255,.24),rgba(255,255,255,.08));
+  --ind-sh:inset 0 1px 0 rgba(255,255,255,.38),inset 0 -1px 0 rgba(0,0,0,.2),inset 0 0 0 .5px rgba(255,255,255,.2),0 1px 2px rgba(0,0,0,.35),0 4px 10px rgba(0,0,0,.25);
+  --key-bg:linear-gradient(180deg,rgba(255,255,255,.17),rgba(255,255,255,.04) 62%),rgba(255,255,255,.035); --key-hover:linear-gradient(180deg,rgba(255,255,255,.22),rgba(255,255,255,.06) 62%),rgba(255,255,255,.05);
+  --key-sh:inset 0 1px 0 rgba(255,255,255,.32),inset 0 -1px 0 rgba(0,0,0,.25),inset 0 0 0 .5px rgba(255,255,255,.16),0 1px 2px rgba(0,0,0,.4),0 4px 10px rgba(0,0,0,.25);
+  --key-dn:inset 0 1px 0 rgba(255,255,255,.2),inset 0 -1px 0 rgba(0,0,0,.2),inset 0 0 0 .5px rgba(255,255,255,.14),0 1px 1px rgba(0,0,0,.35),0 0 0 rgba(0,0,0,0);
+  --key-on:inset 0 0 0 1px rgba(255,181,71,.62),inset 0 1px 3px rgba(0,0,0,.4),inset 0 0 12px rgba(255,181,71,.16),0 0 0 rgba(0,0,0,0),0 0 0 rgba(0,0,0,0);
+  --pri-bg:linear-gradient(180deg,#ffffff,#e6e9ee); --pri-fg:#101216; --pri-sh:inset 0 1px 0 #fff,inset 0 -1px 0 rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.4),0 4px 10px rgba(0,0,0,.3);
+  --press-f:brightness(1.2) saturate(1.1); --done-bg:rgba(255,181,71,.94); --fail-bg:rgba(255,181,71,.13);
+  --chip-bg:var(--key-bg); --chip-on:rgba(255,181,71,.2);
+  --trk:rgba(0,0,0,.36); --knob:linear-gradient(180deg,#ffffff,#e5e8ed);
+  --knob-sh:inset 0 1px 0 #fff,0 1px 1px rgba(0,0,0,.3),0 3px 8px rgba(0,0,0,.4); --knob-dn:inset 0 1px 0 #fff,0 1px 1px rgba(0,0,0,.35),0 1px 3px rgba(0,0,0,.3);
+  --r-key:999px; --r-tray:999px; --r-in:999px; --r-chip:999px;
+  --w-head:650; --track-head:-.02em;
+}
+html[data-theme="glass-light"]{
+  --page:#e7eaf0; --panel:rgba(255,255,255,.62); --panel2:rgba(255,255,255,.82); --line:rgba(15,17,21,.09); --line2:rgba(15,17,21,.15);
+  --fg:#0f1115; --fg2:#353b44; --muted:#535a65; --faint:#555c67;
+  --acc:#7f4700; --acc-fill:#ffb547; --acc-line:#a86200; --focus:#9a5600; --acc-on:#1b1404; --acc-soft:rgba(255,181,71,.26); --acc-bd:rgba(154,86,0,.45);
+  --nodata:#dde1e7; --ov:#0f1115; --shc:#14203a;
+  --map-bg:#f8f9fb; --map-sh:0 0 0 .5px rgba(15,17,21,.12),0 10px 30px rgba(20,30,50,.08); --r-map:16px; --sec-bg:#fff; --sec-fg:#0f1115; --sec-hov:#000; --ihd-bg:#eef1f5; --ihd-fg:#4a515c;
+  --tile-fg:#000; --tile-hov:#0f1115; --sel-1:#0f1115; --sel-2:#fff; --tile-ring-in:rgba(255,255,255,.85);
+  --lab-sh:none; --lab-sh-sm:none;
+  --hatch:rgba(15,17,21,.06); --hatch2:rgba(15,17,21,.14); --nonx-a:rgba(255,255,255,.62); --nonx-b:rgba(255,255,255,.36); --nonx-c:rgba(255,255,255,.2);
+  --flash-up:transparent; --flash-dn:transparent; --limsw:#8a919b; --ix-base:#8a919b; --ix-now:#b4bac3; --spark-fill:.12;
+  --card-bg:linear-gradient(180deg,rgba(255,255,255,.82),rgba(255,255,255,.56)); --card-bd:transparent; --card-r:22px; --th-bg:#f3f5f8;
+  --card-sh:inset 0 1px 0 #fff,inset 0 0 0 .5px rgba(255,255,255,.9),0 1px 2px rgba(20,30,50,.06),0 10px 30px rgba(20,30,50,.1);
+  --tip-bg:linear-gradient(180deg,rgba(255,255,255,.5),rgba(255,255,255,0) 30%),rgba(248,249,251,.86); --tip-bd:transparent; --tip-r:20px;
+  --tip-sh:inset 0 1px 0 #fff,inset 0 0 0 .5px rgba(255,255,255,.8),0 18px 50px rgba(20,30,50,.24);
+  --sheet-bg:var(--tip-bg); --sheet-bd:transparent; --sheet-r:28px; --sheet-fl-sh:var(--tip-sh); --sheet-sh:inset 0 1px 0 #fff,inset 0 0 0 .5px rgba(255,255,255,.8),0 -14px 40px rgba(20,30,50,.2);
+  --pop-bg:var(--tip-bg); --pop-solid:#f4f6f9; --pop-sh:var(--tip-sh); --bub-bg:#f4f6f9;
+  --scrim:rgba(30,40,60,.16); --blur:blur(24px) saturate(1.4); --blur-bar:blur(20px) saturate(1.6);
+  --bar-bg:linear-gradient(180deg,rgba(255,255,255,.5),rgba(255,255,255,0) 60%),rgba(246,247,250,.64);
+  --bar-sh:inset 0 1px 0 #fff,inset 0 0 0 .5px rgba(15,17,21,.08),0 10px 24px rgba(20,30,50,.1);
+  --dock-bg:linear-gradient(180deg,rgba(255,255,255,.6),rgba(255,255,255,0) 40%),rgba(248,249,251,.95); --dock-sh:inset 0 1px 0 #fff,inset 0 0 0 .5px rgba(15,17,21,.1),0 12px 32px rgba(20,30,50,.18); --dock-r:28px; --dock-div:rgba(15,17,21,.1);
+  --tray-bg:rgba(15,17,21,.06); --tray-sh:inset 0 1px 2px rgba(15,17,21,.13),inset 0 0 0 .5px rgba(15,17,21,.07);
+  --ind-bg:linear-gradient(180deg,#ffffff,#f3f5f8); --ind-sh:inset 0 1px 0 #fff,inset 0 0 0 .5px rgba(15,17,21,.06),0 1px 2px rgba(20,30,50,.16),0 4px 10px rgba(20,30,50,.1);
+  --key-bg:linear-gradient(180deg,rgba(255,255,255,.95),rgba(255,255,255,.6)); --key-hover:linear-gradient(180deg,#fff,rgba(255,255,255,.75)); --key-fg:#0f1115; --key-ic:#353b44;
+  --key-sh:inset 0 1px 0 #fff,inset 0 -1px 0 rgba(15,17,21,.05),inset 0 0 0 .5px rgba(15,17,21,.08),0 1px 2px rgba(20,30,50,.14),0 4px 10px rgba(20,30,50,.08);
+  --key-dn:inset 0 1px 0 #fff,inset 0 -1px 0 rgba(15,17,21,.04),inset 0 0 0 .5px rgba(15,17,21,.1),0 1px 1px rgba(20,30,50,.14),0 0 0 rgba(0,0,0,0);
+  --key-on:inset 0 0 0 1px rgba(154,86,0,.6),inset 0 1px 3px rgba(15,17,21,.14),inset 0 0 0 0 transparent,0 0 0 rgba(0,0,0,0),0 0 0 rgba(0,0,0,0);
+  --pri-bg:#14161b; --pri-fg:#ffffff; --pri-sh:inset 0 1px 0 rgba(255,255,255,.2),0 1px 2px rgba(20,30,50,.3),0 4px 10px rgba(20,30,50,.2);
+  --press-f:brightness(.95) saturate(1.1);
+  --done-bg:#ffb547; --done-fg:#1b1404; --fail-bg:rgba(255,181,71,.2); --fail-fg:#6b3b00; --fail-ring:rgba(154,86,0,.6);
+  --chip-bg:var(--key-bg); --chip-on:rgba(255,181,71,.3); --chip-ring:rgba(154,86,0,.75);
+  --trk:rgba(15,17,21,.12); --knob:#ffffff; --sw-on:#ffb547;
+  --knob-sh:inset 0 0 0 .5px rgba(15,17,21,.06),0 1px 1px rgba(20,30,50,.2),0 3px 8px rgba(20,30,50,.22); --knob-dn:inset 0 0 0 .5px rgba(15,17,21,.08),0 1px 1px rgba(20,30,50,.25),0 1px 3px rgba(20,30,50,.18);
+  --r-key:999px; --r-tray:999px; --r-in:999px; --r-chip:999px;
+  --w-head:650; --track-head:-.02em;
+}
+/* the glass fallback (§6-2): no backdrop-filter, reduced transparency, 유리 흐림 끄기, or the frame watchdog / a low-end phone → the same
+   shapes with opaque fills */
+html[data-theme="glass-dark"][data-blur="off"]{--blur:none;--blur-bar:none;--tip-bg:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,0) 30%),#1b1d23;--bar-bg:#14161b}
+html[data-theme="glass-light"][data-blur="off"]{--blur:none;--blur-bar:none;--tip-bg:linear-gradient(180deg,rgba(255,255,255,.5),rgba(255,255,255,0) 30%),#f4f6f9;--bar-bg:#eef1f5}
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
+  html[data-theme="glass-dark"]{--tip-bg:#1b1d23;--bar-bg:#14161b}
+  html[data-theme="glass-light"]{--tip-bg:#f4f6f9;--bar-bg:#eef1f5}
+}
+@media (prefers-reduced-transparency:reduce){
+  html[data-theme="glass-dark"]{--blur:none;--blur-bar:none;--tip-bg:#1b1d23;--bar-bg:#14161b}
+  html[data-theme="glass-light"]{--blur:none;--blur-bar:none;--tip-bg:#f4f6f9;--bar-bg:#eef1f5}
+}
+/* 명조 제목 (paper only, off by default): titles and big numbers only; line heights are fixed, so nothing moves */
+html[data-theme="paper"][data-serif="on"]{--font-head:var(--serif)}
+/* a theme change paints at once (no colour transitions half-way between two themes) */
+html.kh-swap *,html.kh-swap *::before,html.kh-swap *::after{transition:none!important}
 *{box-sizing:border-box}
 html,body{margin:0;background:var(--page);color:var(--fg);font-family:var(--sans);-webkit-font-smoothing:antialiased;-webkit-text-size-adjust:100%}
 body{min-height:100vh;display:flex;flex-direction:column}
 button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
-:focus-visible{outline:var(--focus-w) solid var(--amber);outline-offset:var(--focus-off)}
+:focus-visible{outline:var(--focus-w) solid var(--focus);outline-offset:var(--focus-off)}
 .num{font-variant-numeric:tabular-nums}
 .up{color:var(--up-text)} .dn{color:var(--dn-text)} .flat{color:var(--muted)}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
@@ -70,7 +219,7 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 .tabs button[aria-pressed="true"]{color:var(--fg)}
 .tabs button:hover{color:var(--fg)}
 .tabs .tn{line-height:16px}
-.tabs .st{color:var(--amber);margin-right:2px;font-size:.9em;line-height:1}
+.tabs .st{color:var(--acc);margin-right:2px;font-size:.9em;line-height:1}
 .tabs .tsep{width:1px;margin:5px 3px;background:var(--line2)}
 /* §3-16 today's change under 코스피 · 코스닥 · 전체 · ★관심 (blank → the name alone, centred; every tab keeps one height) */
 .tabs .tp{display:block;font-size:11px;line-height:12px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
@@ -80,10 +229,10 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 .idx .k{color:var(--muted)} .idx .v{font-weight:600}
 .status{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--fg2);white-space:nowrap}
 .status .dot{width:8px;height:8px;border-radius:50%;background:var(--faint)}
-.status.live .dot{background:var(--amber);box-shadow:0 0 0 0 rgba(255,181,71,.6);animation:pulse 1.8s infinite}
+.status.live .dot{background:var(--acc-fill);box-shadow:0 0 0 0 color-mix(in srgb,var(--acc-fill) 60%,transparent);animation:pulse 1.8s infinite}
 .status .badge{font-size:11.5px;padding:2px 7px;border-radius:5px;background:var(--panel2);color:var(--fg2);border:1px solid var(--line)}
-.status.live .badge,.status.replay .badge{color:var(--amber);border-color:rgba(255,181,71,.35);background:var(--amber-soft)}
-.status.replay .dot{background:var(--amber);animation:none}
+.status.live .badge,.status.replay .badge{color:var(--acc);border-color:var(--acc-bd);background:var(--acc-soft)}
+.status.replay .dot{background:var(--acc-fill);animation:none}
 .status.err .dot{background:var(--dn-text);animation:none}
 .status .tshort{display:none;font-size:12px;color:var(--fg2);font-variant-numeric:tabular-nums}
 /* §3-8 price basis outside the regular session: KRX · NXT choice + a badge saying what is drawn (short on phones) */
@@ -95,21 +244,21 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 @media (max-width:1279px){ .status.has-basis .txt{display:none} }
 /* §3-12 the clock is on and the drawn prices are live: no badge (the pressed button says the basis, the clock the time) */
 .has-clock .status.has-basis.bl-live .badge{display:none}
-@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(255,181,71,.55)}70%{box-shadow:0 0 0 7px rgba(255,181,71,0)}100%{box-shadow:0 0 0 0 rgba(255,181,71,0)}}
+@keyframes pulse{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--acc-fill) 55%,transparent)}70%{box-shadow:0 0 0 7px transparent}100%{box-shadow:0 0 0 0 transparent}}
 
 /* ── Toolbar ───────────────────────────── */
 .tools{position:relative;display:flex;align-items:center;gap:12px;padding:0 18px 10px;flex-wrap:wrap}
 .search{position:relative;flex:0 1 210px;min-width:170px}
 .search input{width:100%;height:34px;border-radius:var(--r-key);border:0;background:var(--tray-bg);box-shadow:var(--tray-sh);color:var(--fg);font:inherit;font-size:14px;padding:0 35px;outline:none;transition:box-shadow var(--c-fast) var(--c-out)}
-.search input:focus{box-shadow:var(--tray-sh),0 0 0 var(--focus-off) var(--page),0 0 0 calc(var(--focus-off) + var(--focus-w)) var(--amber)}
+.search input:focus{box-shadow:var(--tray-sh),0 0 0 var(--focus-off) var(--page),0 0 0 calc(var(--focus-off) + var(--focus-w)) var(--focus)}
 .search input::placeholder{color:var(--faint)}
 .search svg{position:absolute;left:10px;top:9px;width:16px;height:16px;color:var(--muted);pointer-events:none}
 .search kbd{position:absolute;right:8px;top:7px;font:500 11px var(--sans);color:var(--faint);border:1px solid var(--line2);border-radius:4px;padding:1px 6px}
 .search input:focus ~ kbd{display:none}
-.sugg{position:absolute;left:0;right:0;top:40px;z-index:60;background:var(--panel2);border:1px solid var(--line2);border-radius:10px;padding:4px;box-shadow:0 14px 40px rgba(0,0,0,.5);display:none;max-height:340px;overflow:auto}
+.sugg{position:absolute;left:0;right:0;top:40px;z-index:60;background:var(--pop-bg);border:1px solid var(--tip-bd);border-radius:var(--tip-r);padding:4px;box-shadow:var(--pop-sh);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);display:none;max-height:340px;overflow:auto}
 .sugg.open{display:block}
 .sugg button{display:grid;grid-template-columns:10px 1fr auto auto;align-items:center;gap:10px;width:100%;text-align:left;padding:8px 10px;border-radius:7px;font-size:14px}
-.sugg button[aria-selected="true"],.sugg button:hover{background:rgba(255,255,255,.06)}
+.sugg button[aria-selected="true"],.sugg button:hover{background:color-mix(in srgb,var(--ov) 6%,transparent)}
 .sugg .sw{width:10px;height:10px;border-radius:2px}
 .sugg .meta{color:var(--muted);font-size:12px}
 .sugg .empty{padding:10px;color:var(--muted);font-size:13px;line-height:1.5}
@@ -131,8 +280,8 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 .setbtn{display:none;align-items:center;gap:7px;height:34px;padding:0 13px;border-radius:var(--r-key);background:var(--key-bg);box-shadow:var(--key-sh);color:var(--key-fg);font-size:13px;font-weight:600;white-space:nowrap}
 .setbtn svg{width:16px;height:16px;color:var(--key-ic);flex:none}
 .setbtn:hover{background:var(--key-hover)}
-.setbtn[aria-expanded="true"]{color:var(--amber);box-shadow:var(--key-on)}
-.setbtn[aria-expanded="true"] svg{color:var(--amber)}
+.setbtn[aria-expanded="true"]{color:var(--acc);box-shadow:var(--key-on)}
+.setbtn[aria-expanded="true"] svg{color:var(--acc)}
 .ctls-hd{display:none}
 #extras-tools{display:flex;align-items:center;gap:8px;margin-left:auto}
 #extras-tools:empty{display:none}
@@ -151,7 +300,7 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 .swbtn:hover{background:var(--key-hover)}
 .swbtn:active,.swbtn.is-press{filter:var(--press-f);transition-duration:0s}
 .swbtn .swt{--t:0;position:relative;flex:none;width:44px;height:26px;border-radius:13px;background:var(--trk);box-shadow:var(--tray-sh)}
-.swbtn .swt::before{content:"";position:absolute;inset:0;border-radius:inherit;background:var(--amber);box-shadow:inset 0 1px 2px rgba(0,0,0,.28);opacity:var(--t);transition:opacity var(--c-switch) var(--c-inout)}
+.swbtn .swt::before{content:"";position:absolute;inset:0;border-radius:inherit;background:var(--sw-on);box-shadow:inset 0 1px 2px color-mix(in srgb,var(--shc) 28%,transparent);opacity:var(--t);transition:opacity var(--c-switch) var(--c-inout)}
 .swbtn .swt::after{content:"";position:absolute;left:2px;top:2px;width:22px;height:22px;border-radius:50%;background:var(--knob);box-shadow:var(--knob-sh);transform:translateX(calc(var(--t) * 18px));transition:transform var(--c-switch) var(--c-inout),box-shadow var(--c-fast) var(--c-out)}
 .swbtn[aria-checked="true"] .swt{--t:1}
 .swbtn:active .swt::after,.swbtn.is-press .swt::after,.swbtn.drag .swt::after{box-shadow:var(--knob-dn)}
@@ -171,18 +320,18 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
   .ddbtn svg{width:12px;height:12px;color:var(--key-ic);flex:none;transition:transform var(--c-base) var(--c-inout)}
   .ddbtn:hover{background:var(--key-hover)}
   .ddbtn[aria-expanded="true"]{box-shadow:var(--key-on)}
-  .ddbtn[aria-expanded="true"] svg{transform:rotate(180deg);color:var(--amber)}
-  .ctl.dd > .seg{display:none;position:absolute;top:calc(100% + 6px);left:0;z-index:75;flex-direction:column;min-width:128px;padding:4px;background:rgba(32,34,40,.99);border-radius:var(--r-tray);box-shadow:inset 0 0 0 1px var(--line2),0 14px 40px rgba(0,0,0,.5)}
+  .ddbtn[aria-expanded="true"] svg{transform:rotate(180deg);color:var(--acc)}
+  .ctl.dd > .seg{display:none;position:absolute;top:calc(100% + 6px);left:0;z-index:75;flex-direction:column;min-width:128px;padding:4px;background:var(--pop-bg);border-radius:var(--r-tray);box-shadow:inset 0 0 0 1px var(--tip-bd),var(--pop-sh);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur)}
   .ctl.dd.open > .seg{display:flex}
   .ctl.dd > .seg button{text-align:left;padding:8px 11px}
-  .ctl.dd > .seg button[aria-pressed="true"]{color:var(--amber)}
+  .ctl.dd > .seg button[aria-pressed="true"]{color:var(--acc)}
   .ctl.more{position:relative}
   .morebtn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:32px;padding:0 11px;border-radius:var(--r-key);background:var(--key-bg);box-shadow:var(--key-sh);color:var(--key-fg);font-size:13px;white-space:nowrap}
   .morebtn svg{width:16px;height:16px;color:var(--key-ic);flex:none}
   .morebtn:hover{background:var(--key-hover)}
-  .morebtn[aria-expanded="true"]{color:var(--amber);box-shadow:var(--key-on)}
-  .morebtn[aria-expanded="true"] svg{color:var(--amber)}
-  .morep{display:none;position:absolute;top:calc(100% + 6px);right:0;z-index:75;width:300px;padding:12px 14px 14px;background:var(--panel2);border:1px solid var(--line2);border-radius:12px;box-shadow:0 18px 50px rgba(0,0,0,.55)}
+  .morebtn[aria-expanded="true"]{color:var(--acc);box-shadow:var(--key-on)}
+  .morebtn[aria-expanded="true"] svg{color:var(--acc)}
+  .morep{display:none;position:absolute;top:calc(100% + 6px);right:0;z-index:75;width:300px;padding:12px 14px 14px;background:var(--pop-bg);border:1px solid var(--tip-bd);border-radius:calc(var(--tip-r) + 2px);box-shadow:var(--tip-sh);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur)}
   .ctl.more.open .morep{display:flex}
 }
 /* 1280–1439: the toolbar (with the 화면 button and the extras icons) still fits on one row */
@@ -203,7 +352,7 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
   .ctls.open{display:flex}
   .ctls-hd{display:flex;align-items:center;justify-content:space-between;font-size:14.5px;font-weight:700}
   .ctls-hd .x{position:relative;width:32px;height:32px;border-radius:var(--r-key);display:grid;place-items:center;color:var(--muted);font-size:19px;margin-right:-6px}
-  .ctls-hd .x:hover{background:rgba(255,255,255,.07);color:var(--fg)}
+  .ctls-hd .x:hover{background:color-mix(in srgb,var(--ov) 7%,transparent);color:var(--fg)}
   .ctls .ctl{flex-direction:column;align-items:stretch;gap:6px}
   .ctls .seg{flex-wrap:wrap}
   .ctls .seg button{flex:1 1 auto}
@@ -211,7 +360,7 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
   .ctls .morep{border-top:1px solid var(--line);padding-top:13px}
 }
 @media (min-width:761px) and (max-width:1279px){
-  .ctls{position:absolute;z-index:70;top:42px;width:410px;max-width:calc(100vw - 36px);background:var(--panel2);border:1px solid var(--line2);border-radius:12px;padding:12px 14px 15px;box-shadow:0 18px 50px rgba(0,0,0,.55)}
+  .ctls{position:absolute;z-index:70;top:42px;width:410px;max-width:calc(100vw - 36px);background:var(--pop-bg);border:1px solid var(--tip-bd);border-radius:calc(var(--tip-r) + 2px);padding:12px 14px 15px;box-shadow:var(--tip-sh);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur)}
 }
 
 /* ── Layout ───────────────────────────── */
@@ -241,8 +390,8 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 .ixl .ln{fill:none;stroke:currentColor;stroke-width:1.6;stroke-linejoin:round;stroke-linecap:round}
 .ixl g.k2 .ln{stroke-width:1.2;opacity:.7}
 .ixl .ar{stroke:none}
-.ixl .bl{stroke:#626672;stroke-width:1;stroke-dasharray:3 3}
-.ixl .nw{stroke:#4a4d56;stroke-width:1}
+.ixl .bl{stroke:var(--ix-base);stroke-width:1;stroke-dasharray:3 3}
+.ixl .nw{stroke:var(--ix-now);stroke-width:1}
 .ixl .dt{fill:currentColor;stroke:var(--page);stroke-width:1.5}
 .ixl .ixv,.ixl .ixt{display:flex;flex-direction:column;justify-content:center;line-height:1.2;font-size:11px;color:var(--muted)}
 .ixl .ixv b{font-size:12.5px;font-weight:600;color:var(--fg)}
@@ -252,7 +401,7 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 .ixl .ixv .k2 i{opacity:.75}
 .ixl .ixt{text-align:right;align-items:flex-end}
 .ixl .ixt b{color:var(--fg2);font-weight:600;font-size:11.5px}
-.ixl .ixtip{position:absolute;bottom:calc(100% + 4px);transform:translateX(-50%);z-index:5;background:rgba(24,25,30,.97);border:1px solid var(--line2);border-radius:6px;padding:4px 8px;font-size:11.5px;color:var(--fg);pointer-events:none;box-shadow:0 6px 18px rgba(0,0,0,.5);line-height:1.35}
+.ixl .ixtip{position:absolute;bottom:calc(100% + 4px);transform:translateX(-50%);z-index:5;background:var(--tip-bg);border:1px solid var(--tip-bd);border-radius:6px;padding:4px 8px;font-size:11.5px;color:var(--fg);pointer-events:none;box-shadow:0 6px 18px color-mix(in srgb,var(--shc) 50%,transparent);line-height:1.35}
 .ixl .ixtip[hidden]{display:none}
 .ixl .ixtip span{display:block}
 .ixl .ixx{position:absolute;top:0;bottom:0;width:1px;background:var(--fg2);opacity:.45;pointer-events:none}
@@ -303,27 +452,27 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 .wgc{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 12px;border-radius:var(--r-chip);font-size:13px;font-weight:600;color:var(--fg2);white-space:nowrap;transition:color var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out)}
 .wgc:hover,.wgi[data-on] .wgc{color:var(--fg)}
 .wgc .n{font-size:11.5px;font-weight:500;color:var(--muted);font-variant-numeric:tabular-nums;transition:color var(--c-fast) var(--c-out)}
-.wgi[data-on] .wgc .n{color:var(--amber)}
+.wgi[data-on] .wgc .n{color:var(--acc)}
 .wgm{position:relative;width:28px;height:30px;margin-left:-6px;border-radius:var(--r-chip);color:var(--fg2);font-size:15px;line-height:1}
-.wgm:hover{color:var(--fg);background:rgba(255,255,255,.06)}
+.wgm:hover{color:var(--fg);background:color-mix(in srgb,var(--ov) 6%,transparent)}
 .wgadd{position:relative;flex:none;width:34px;height:32px;border-radius:var(--r-chip);background:var(--key-bg);box-shadow:var(--key-sh);color:var(--fg2);font-size:16px}
 .wgadd:hover{color:var(--fg);background:var(--key-hover)}
-.wgpop{position:fixed;z-index:95;width:max-content;min-width:220px;max-width:min(320px,calc(100vw - 16px));padding:10px;border-radius:12px;background:rgba(32,34,40,.99);border:1px solid var(--line2);box-shadow:0 18px 50px rgba(0,0,0,.55);font-size:13.5px;color:var(--fg)}
+.wgpop{position:fixed;z-index:95;width:max-content;min-width:220px;max-width:min(320px,calc(100vw - 16px));padding:10px;border-radius:calc(var(--tip-r) + 2px);background:var(--pop-bg);border:1px solid var(--tip-bd);box-shadow:var(--tip-sh);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);font-size:13.5px;color:var(--fg)}
 .wgpop[hidden]{display:none}
 .wgpop.in-dlg{z-index:210}   /* KH.watch.pick from a dialog (the stock page, z 200): it moves into it, above its own layers */
 .wgpop h3{margin:2px 6px 8px;font-size:13px;font-weight:600;color:var(--fg2);overflow-wrap:anywhere}
 .wgpop .row{display:flex;align-items:center;gap:10px;width:100%;min-height:36px;padding:0 8px;border-radius:var(--r-in);text-align:left;color:var(--fg);cursor:pointer;transition:filter var(--c-fast) var(--c-out)}
 .wgpop .row:active{filter:var(--press-f);transition-duration:0s}
-.wgpop .row:hover{background:rgba(255,255,255,.06)}
+.wgpop .row:hover{background:color-mix(in srgb,var(--ov) 6%,transparent)}
 .wgpop .row[disabled]{opacity:.4;cursor:default;background:none}
 .wgpop label.row input{-webkit-appearance:none;appearance:none;width:18px;height:18px;margin:0;flex:none;border-radius:5px;background:var(--tray-bg) no-repeat center/0 0;box-shadow:var(--tray-sh);cursor:pointer;transition:background-color var(--c-fast) var(--c-out),background-size var(--c-base) var(--c-out),box-shadow var(--c-fast) var(--c-out)}
-.wgpop label.row input:checked{background-color:var(--amber);background-size:14px 14px;box-shadow:inset 0 1px 0 rgba(255,255,255,.3);background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M4.5 10.5l3.6 3.6 7.4-8' fill='none' stroke='%231b1404' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")}
+.wgpop label.row input:checked{background-color:var(--acc-fill);background-size:14px 14px;box-shadow:inset 0 1px 0 color-mix(in srgb,white 30%,transparent);background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M4.5 10.5l3.6 3.6 7.4-8' fill='none' stroke='%231b1404' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")}
 .wgpop label.row input:focus-visible{outline-offset:2px}
 .wgpop .row .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .wgpop .row .n{margin-left:auto;padding-left:12px;color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums}
-.wgpop .row .ck{margin-left:auto;padding-left:12px;color:var(--amber);font-weight:700}
+.wgpop .row .ck{margin-left:auto;padding-left:12px;color:var(--acc);font-weight:700}
 .wgpop input[type="text"]{width:100%;height:38px;border-radius:var(--r-key);border:0;background:var(--tray-bg);box-shadow:var(--tray-sh);color:var(--fg);font:inherit;padding:0 11px;outline:none}
-.wgpop input[type="text"]:focus{box-shadow:var(--tray-sh),0 0 0 var(--focus-off) rgba(32,34,40,.99),0 0 0 calc(var(--focus-off) + var(--focus-w)) var(--amber)}
+.wgpop input[type="text"]:focus{box-shadow:var(--tray-sh),0 0 0 var(--focus-off) var(--pop-solid),0 0 0 calc(var(--focus-off) + var(--focus-w)) var(--focus)}
 .wgpop .msg{min-height:18px;margin:6px 6px 0;font-size:12.5px;color:var(--fg2);line-height:1.45}
 .wgpop .acts{display:flex;gap:8px;justify-content:flex-end;margin-top:8px}
 .wgpop .acts button{height:34px;padding:0 15px;border-radius:var(--r-key);background:var(--key-bg);box-shadow:var(--key-sh);color:var(--key-fg);font-weight:600}
@@ -339,7 +488,7 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 .list td.k-g{color:var(--fg2);font-size:12.5px;max-width:12em;overflow:hidden;text-overflow:ellipsis;text-align:left}
 .list th.k-g{text-align:left}
 
-.map{position:relative;background:#000;border-radius:6px;overflow:hidden;height:calc(100vh - 200px);min-height:520px;touch-action:manipulation;user-select:none;-webkit-user-select:none}
+.map{position:relative;background:var(--map-bg);border-radius:var(--r-map);box-shadow:var(--map-sh);overflow:hidden;height:calc(100vh - 200px);min-height:520px;touch-action:manipulation;user-select:none;-webkit-user-select:none}
 .mapbox{position:relative;min-width:0}
 .node{position:absolute;overflow:hidden}
 .map.anim .node{transition:opacity .3s,background-color .6s}
@@ -351,29 +500,30 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 .ind{z-index:2}
 .sec .hd,.ind .hd{position:absolute;left:0;right:0;top:0;display:flex;align-items:center;gap:6px;padding:0 5px;pointer-events:auto;cursor:zoom-in;white-space:nowrap;overflow:hidden;text-align:left;border-radius:0;width:100%}
 .sec .hd:focus-visible,.ind .hd:focus-visible{outline-offset:calc(var(--focus-w) * -1);z-index:5}
-.sec .hd{background:#000;font-size:12px;font-weight:700;color:#f2f3f5}
-.ind .hd{background:#0d0e11;font-size:10.5px;font-weight:500;color:#a6abb5}
+.sec .hd{background:var(--sec-bg);font-size:12px;font-weight:700;color:var(--sec-fg)}
+.ind .hd{background:var(--ihd-bg);font-size:10.5px;font-weight:500;color:var(--ihd-fg)}
 .sec .hd .t,.ind .hd .t{overflow:hidden;text-overflow:ellipsis;min-width:0}
 .sec .hd .v,.ind .hd .v{font-variant-numeric:tabular-nums;flex:none;font-weight:600}
-.sec .hd:hover,.ind .hd:hover{color:#fff}
-.sec .hd:hover .t,.ind .hd:hover .t{text-decoration:underline;text-underline-offset:2px;text-decoration-color:var(--amber)}
+.sec .hd:hover,.ind .hd:hover{color:var(--sec-hov)}
+.sec .hd:hover .t,.ind .hd:hover .t{text-decoration:underline;text-underline-offset:2px;text-decoration-color:var(--acc)}
 .focus-leaf .ind .hd,.focus-leaf .sec .hd{cursor:default}
 .focus-leaf .sec .hd:hover .t,.focus-leaf .ind .hd:hover .t{text-decoration:none}
-.sec.hot{box-shadow:inset 0 0 0 2px var(--amber);z-index:4;pointer-events:none}
-.tile{z-index:3;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#fff;text-align:center}
-.tile.nod{background-image:repeating-linear-gradient(135deg,rgba(255,255,255,.055) 0 3px,transparent 3px 8px)}
+.sec.hot{box-shadow:inset 0 0 0 2px var(--sel-1);z-index:4;pointer-events:none}
+.tile{z-index:3;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--tile-fg);text-align:center}
+.tile.nod{background-image:repeating-linear-gradient(135deg,var(--hatch) 0 3px,transparent 3px 8px)}
 /* §3-8 NXT prices drawn, no NXT trade: the KRX value, darker and hatched */
-.tile.nonx{background-image:repeating-linear-gradient(135deg,rgba(0,0,0,.55) 0 3px,rgba(0,0,0,.3) 3px 8px)}
+.tile.nonx{background-image:repeating-linear-gradient(135deg,var(--nonx-a) 0 3px,var(--nonx-b) 3px 8px)}
 .tile.nonx .lab{opacity:.78}
 .tile:focus{outline:none}
-.tile:focus-visible{outline:var(--focus-w) solid var(--amber);outline-offset:calc(var(--focus-w) * -1);box-shadow:inset 0 0 0 4px rgba(0,0,0,.55);z-index:6}
-/* tile labels: a soft dark halo keeps white type readable on the brightest fills (#12a15b, #ef3e4a, #2bb553) */
-.tile .lab{display:flex;flex-direction:column;align-items:center;max-width:100%;padding:0 3px;line-height:1.08;text-shadow:0 0 1px rgba(0,0,0,.6),0 0 3px rgba(0,0,0,.42),0 1px 2px rgba(0,0,0,.5)}
+.tile:focus-visible{outline:var(--focus-w) solid var(--focus);outline-offset:calc(var(--focus-w) * -1);box-shadow:inset 0 0 0 4px var(--tile-ring-in);z-index:6}
+/* tile labels (data-labs): dark themes — white type with a soft dark halo (readable on the brightest fills); light themes — black or white
+   type per fill, whichever contrasts more (JS sets it), no halo */
+.tile .lab{display:flex;flex-direction:column;align-items:center;max-width:100%;padding:0 3px;line-height:1.08;text-shadow:var(--lab-sh)}
 /* 상한가 = a white bar on the top edge, 하한가 = on the bottom edge: fits any tile size and any palette */
-.tile.limu::before,.tile.limd::before{content:"";position:absolute;left:0;right:0;height:3px;background:#fff;pointer-events:none;z-index:1;box-shadow:0 0 0 .5px rgba(0,0,0,.35)}
+.tile.limu::before,.tile.limd::before{content:"";position:absolute;left:0;right:0;height:3px;background:var(--lim-bar);pointer-events:none;z-index:1;box-shadow:0 0 0 .5px var(--lim-bar-sh)}
 .tile.limu::before{top:0}
 .tile.limd::before{bottom:0}
-.tile .lab.sm{text-shadow:0 0 1px rgba(0,0,0,.95),0 0 2px rgba(0,0,0,.85),0 0 3px rgba(0,0,0,.7),0 1px 4px rgba(0,0,0,.5)}   /* small type: a firmer halo */
+.tile .lab.sm{text-shadow:var(--lab-sh-sm)}   /* small type: a firmer halo */
 .tile .lab.sm .pc{font-weight:600}
 .tile .lab[hidden]{display:none}
 .tile .nm{font-weight:600;white-space:nowrap;letter-spacing:-.02em;max-width:100%}
@@ -382,16 +532,19 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 .tile .px{font-size:.52em;font-weight:500;margin-top:.3em;opacity:.78;font-variant-numeric:tabular-nums}
 .tile .mc{font-size:.44em;font-weight:500;margin-top:.2em;opacity:.66;font-variant-numeric:tabular-nums;white-space:nowrap}
 .tile .pc[hidden],.tile .px[hidden],.tile .mc[hidden]{display:none}
-.tile .lim{position:absolute;z-index:2;left:2px;top:5px;font-size:10px;font-weight:700;line-height:14px;padding:0 3px;border-radius:3px;background:rgba(0,0,0,.62);color:#fff;box-shadow:0 0 0 1px rgba(255,255,255,.45)}
+.tile .lim{position:absolute;z-index:2;left:2px;top:5px;font-size:10px;font-weight:700;line-height:14px;padding:0 3px;border-radius:3px;background:var(--badge-bg);color:var(--badge-fg);box-shadow:0 0 0 1px var(--badge-ring)}
 .tile .lim[hidden]{display:none}
-.tile:hover,.tile.hov{box-shadow:inset 0 0 0 2px rgba(255,255,255,.92);z-index:5}
-.tile.sel{box-shadow:inset 0 0 0 3px var(--amber),0 0 0 1px #000;z-index:6}
+.tile:hover,.tile.hov{box-shadow:inset 0 0 0 2px var(--tile-hov);z-index:5}
+.tile.sel{box-shadow:inset 0 0 0 3px var(--sel-1),0 0 0 1px var(--sel-2);z-index:6}
 .tile.dim{filter:saturate(.25) brightness(.38)}
 .map.anim .tile{transition:opacity .3s,background-color .6s,filter .2s}
 .tile{transition:filter .2s}
 .tile.flash-up::after,.tile.flash-dn::after{content:"";position:absolute;inset:0;pointer-events:none;animation:flash .9s ease-out}
-.tile.flash-up::after{background:rgba(255,255,255,.38)}
-.tile.flash-dn::after{background:rgba(0,0,0,.45)}
+.tile.flash-up::after{background:var(--flash-up)}
+.tile.flash-dn::after{background:var(--flash-dn)}
+/* light themes: a white / black wash would not show — the 기본 flash is a ring in the tick colour, as in 화려하게 */
+html[data-tone="light"] .tile.flash-up::after{box-shadow:inset 0 0 0 2px var(--up-text)}
+html[data-tone="light"] .tile.flash-dn::after{box-shadow:inset 0 0 0 2px var(--dn-text)}
 @keyframes flash{from{opacity:1}to{opacity:0}}
 /* 화려하게 (motion-brief a): a tick-direction ring on ::after, only its opacity animates (JS drives it); short side < 24px → 1px ring */
 .tile.fl-u::after,.tile.fl-d::after{content:"";position:absolute;inset:0;pointer-events:none;opacity:0;z-index:2}
@@ -406,13 +559,13 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 .map.fx-intro .sec,.map.fx-intro .ind{animation:fx-fade var(--m-2) var(--m-out) var(--dl,0ms) both}
 @keyframes fx-in{from{opacity:0;transform:scale(.94)}}
 @keyframes fx-fade{from{opacity:0}}
-.tstar{position:absolute;z-index:7;width:24px;height:24px;display:grid;place-items:center;border-radius:6px;background:rgba(0,0,0,.6);color:#fff;font-size:14px;line-height:1;box-shadow:0 0 0 1px rgba(255,255,255,.35);transition:color var(--c-fast) var(--c-out),background-color var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out)}
-.tstar:hover{background:rgba(0,0,0,.85)}
-.tstar[aria-pressed="true"]{color:var(--amber)}
+.tstar{position:absolute;z-index:7;width:24px;height:24px;display:grid;place-items:center;border-radius:6px;background:var(--badge-bg);color:var(--badge-fg);font-size:14px;line-height:1;box-shadow:0 0 0 1px var(--badge-ring);transition:color var(--c-fast) var(--c-out),background-color var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out)}
+.tstar:hover{background:color-mix(in srgb,var(--shc) 85%,transparent)}
+.tstar[aria-pressed="true"]{color:var(--acc-fill)}
 .tstar[hidden]{display:none}
 .map-empty{position:absolute;inset:0;display:grid;place-items:center;color:var(--muted);font-size:14px;padding:20px;text-align:center;line-height:1.6}
 .map-empty .we{display:flex;flex-direction:column;align-items:center;gap:6px;max-width:340px}
-.map-empty .we .big{font-size:30px;color:var(--amber);line-height:1}
+.map-empty .we .big{font-size:30px;color:var(--acc);line-height:1}
 .map-empty .we b{font-size:16px;color:var(--fg);font-weight:700}
 .map-empty .we button{margin-top:8px;height:40px;padding:0 15px;border-radius:var(--r-key);background:var(--key-bg);box-shadow:var(--key-sh);color:var(--key-fg);font-size:13px;font-weight:600}
 .no-d3 .side,.no-d3 .legend,.no-d3 .tools,.no-d3 .stagebar,.no-d3 .tabs{display:none}
@@ -431,29 +584,29 @@ main.layout[hidden],#world[hidden]{display:none}
 .legend .tk{font-variant-numeric:tabular-nums;color:var(--fg2)}
 .legend .sw{width:10px;height:10px;border-radius:2px;display:inline-block;flex:none}
 /* inline `background:` shorthands on these chips would reset the hatch: !important */
-.legend .nxsw,.sw.nonx,.nmcell i.nonx,.movers i.nonx{background-image:repeating-linear-gradient(135deg,rgba(0,0,0,.55) 0 2px,rgba(0,0,0,.25) 2px 5px)!important}
+.legend .nxsw,.sw.nonx,.nmcell i.nonx,.movers i.nonx{background-image:repeating-linear-gradient(135deg,var(--nonx-a) 0 2px,var(--nonx-c) 2px 5px)!important}
 .legend .nxsw{background-color:var(--panel2);box-shadow:inset 0 0 0 1px var(--line2)}
-.legend .nodsw{background-color:var(--nodata);background-image:repeating-linear-gradient(135deg,rgba(255,255,255,.12) 0 2px,transparent 2px 5px);box-shadow:inset 0 0 0 1px var(--line2)}
-.legend .lg-replay{color:var(--amber);border:1px solid rgba(255,181,71,.4);background:var(--amber-soft);border-radius:5px;padding:1px 7px;font-weight:600}
-.legend .limsw{width:12px;height:10px;display:inline-block;flex:none;background:#5a5e69;border-radius:1px}
-.legend .limsw.u{box-shadow:inset 0 3px 0 #fff}
-.legend .limsw.d{box-shadow:inset 0 -3px 0 #fff}
+.legend .nodsw{background-color:var(--nodata);background-image:repeating-linear-gradient(135deg,var(--hatch2) 0 2px,transparent 2px 5px);box-shadow:inset 0 0 0 1px var(--line2)}
+.legend .lg-replay{color:var(--acc);border:1px solid var(--acc-bd);background:var(--acc-soft);border-radius:5px;padding:1px 7px;font-weight:600}
+.legend .limsw{width:12px;height:10px;display:inline-block;flex:none;background:var(--limsw);border-radius:1px}
+.legend .limsw.u{box-shadow:inset 0 3px 0 var(--lim-bar)}
+.legend .limsw.d{box-shadow:inset 0 -3px 0 var(--lim-bar)}
 .legend .note{color:var(--faint)}
 .legend .right{margin-left:auto}
 
 /* table view */
 .tablewrap{background:var(--panel);border:1px solid var(--line);border-radius:8px;overflow:auto;height:calc(100vh - 200px);min-height:520px}
 table.list{width:100%;border-collapse:collapse;font-size:13.5px}
-.list th{position:sticky;top:0;z-index:1;background:var(--panel2);color:var(--muted);font-weight:500;font-size:12.5px;text-align:right;padding:0;border-bottom:1px solid var(--line);white-space:nowrap;user-select:none}
+.list th{position:sticky;top:0;z-index:1;background:var(--th-bg);color:var(--muted);font-weight:500;font-size:12.5px;text-align:right;padding:0;border-bottom:1px solid var(--line);white-space:nowrap;user-select:none}
 .list th button{display:block;width:100%;padding:9px 12px;font-size:inherit;font-weight:inherit;color:inherit;text-align:inherit;white-space:nowrap}
 .list th button:hover{color:var(--fg)}
 .list th button:focus-visible,.list tbody tr:focus-visible{outline-offset:calc(var(--focus-w) * -1)}
 .list th:first-child,.list td:first-child,.list th:nth-child(2),.list td:nth-child(2){text-align:left}
 .list th[aria-sort]{color:var(--fg)}
 .list th[aria-sort="descending"] button::after{content:" ▾"} .list th[aria-sort="ascending"] button::after{content:" ▴"}
-.list td{padding:8px 12px;border-bottom:1px solid rgba(255,255,255,.04);text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.list td{padding:8px 12px;border-bottom:1px solid color-mix(in srgb,var(--ov) 4%,transparent);text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
 .list tbody tr{cursor:pointer}
-.list tbody tr:hover{background:rgba(255,255,255,.035)}
+.list tbody tr:hover{background:color-mix(in srgb,var(--ov) 3.5%,transparent)}
 .list tbody tr.sel{background:var(--amber-soft)}
 .list .nmcell{display:flex;align-items:center;gap:9px;font-weight:600}
 .list .nmcell i{width:10px;height:10px;border-radius:2px;flex:none}
@@ -466,8 +619,8 @@ table.list{width:100%;border-collapse:collapse;font-size:13.5px}
 @media (max-width:1023px){ .list .k-i,.list.x7 .k-vol{display:none} }
 .list .nd{color:var(--faint)}
 .wbtn{position:relative;flex:none;display:inline-grid;place-items:center;width:24px;height:24px;margin:-4px -4px -4px -6px;border-radius:6px;font-size:15px;line-height:1;color:var(--faint);transition:color var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out)}
-.wbtn:hover{color:var(--fg);background:rgba(255,255,255,.06)}
-.wbtn[aria-pressed="true"]{color:var(--amber)}
+.wbtn:hover{color:var(--fg);background:color-mix(in srgb,var(--ov) 6%,transparent)}
+.wbtn[aria-pressed="true"]{color:var(--acc)}
 .list tr.nonx .nmt{color:var(--fg2);font-weight:500}
 .nxtag{display:inline-block;flex:none;font-size:10.5px;font-weight:600;line-height:16px;padding:0 4px;border-radius:4px;color:var(--muted);border:1px solid var(--line2);white-space:nowrap}
 .card-head .nxrow{display:flex;align-items:baseline;gap:7px;margin-top:4px;font-size:12.5px;color:var(--fg2);font-variant-numeric:tabular-nums;flex-wrap:wrap}
@@ -482,12 +635,12 @@ table.list{width:100%;border-collapse:collapse;font-size:13.5px}
 
 /* ── Side ───────────────────────────── */
 .side{display:flex;flex-direction:column;gap:12px;min-width:0;padding-top:42px}
-.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px}
+.card{background:var(--card-bg);border:1px solid var(--card-bd);border-radius:var(--card-r);box-shadow:var(--card-sh);padding:14px}
 .card[hidden]{display:none}
-.card h2{margin:0 0 10px;font-size:13.5px;font-weight:600;color:var(--fg);display:flex;align-items:baseline;justify-content:space-between;gap:8px}
-.card h2 small{font-size:12px;font-weight:400;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.card h2{margin:0 0 10px;font-size:13.5px;font-weight:var(--w-head);letter-spacing:var(--track-head);font-family:var(--font-head);color:var(--fg);display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+.card h2 small{font-size:12px;font-weight:400;letter-spacing:normal;font-family:var(--sans);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 .wavg{display:flex;align-items:baseline;gap:10px;margin-bottom:10px}
-.wavg b{font-size:26px;font-weight:700;letter-spacing:-.02em;font-variant-numeric:tabular-nums;white-space:nowrap}
+.wavg b{font-size:26px;font-weight:700;font-family:var(--font-head);letter-spacing:-.02em;font-variant-numeric:tabular-nums;white-space:nowrap}
 .wavg span{font-size:12.5px;color:var(--muted)}
 .breadth{display:flex;height:8px;border-radius:4px;overflow:hidden;gap:2px;background:transparent}
 .breadth i{display:block;height:100%}
@@ -497,7 +650,7 @@ table.list{width:100%;border-collapse:collapse;font-size:13.5px}
 .hist button .bar{display:block;border-radius:3px 3px 1px 1px;min-height:2px;transition:opacity var(--c-fast) var(--c-out)}
 .hist button .cnt{font-size:10.5px;color:var(--fg2);text-align:center;margin-bottom:3px;font-variant-numeric:tabular-nums}
 .hist.has-sel button:not([aria-pressed="true"]) .bar{opacity:.28}
-.hist button[aria-pressed="true"] .cnt{color:var(--amber);font-weight:600}
+.hist button[aria-pressed="true"] .cnt{color:var(--acc);font-weight:600}
 .hist button:hover .bar{opacity:1!important;filter:brightness(1.15)}
 .hist-axis{display:grid;grid-template-columns:repeat(9,1fr);gap:3px;font-size:10.5px;color:var(--muted);margin-top:5px;text-align:center;font-variant-numeric:tabular-nums}
 .hist-axis span{white-space:nowrap;overflow:visible}
@@ -505,7 +658,7 @@ table.list{width:100%;border-collapse:collapse;font-size:13.5px}
 .secs{display:flex;flex-direction:column;gap:1px}
 .secs button{display:grid;grid-template-columns:minmax(0,1fr) 92px 58px;align-items:center;gap:8px;padding:6px 6px;margin:0 -6px;border-radius:6px;font-size:13px;text-align:left}
 .secs.wide button{grid-template-columns:minmax(0,1fr) 70px 70px}
-.secs button:hover{background:rgba(255,255,255,.045)}
+.secs button:hover{background:color-mix(in srgb,var(--ov) 4.5%,transparent)}
 .secs button.cur{background:var(--amber-soft)}
 .secs .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .secs .nm small{color:var(--faint);font-size:11px;margin-left:4px}
@@ -517,7 +670,6 @@ table.list{width:100%;border-collapse:collapse;font-size:13.5px}
 .dbar{position:relative;height:10px}
 /* §3-13 today's candle: the vertical icon (the 10 px square's place) and the horizontal one (the bar's place); colours = the stock
    page chart's (palette ends, flat grey) */
-:root{--cd-up:#ef3e4a;--cd-dn:#12a15b;--cd-flat:#8a8f99}
 .cdi{position:relative;display:inline-block;flex:none;width:9px;height:15px;vertical-align:middle;color:var(--cd-flat)}
 span.cdi.cdi > i{position:absolute;left:calc(50% - .5px);width:1px;height:auto;border-radius:0;background:currentColor}
 .cdi b{position:absolute;left:1px;right:1px;background:currentColor;border-radius:1px}
@@ -545,7 +697,7 @@ span.cdb.cdb > i{position:absolute;top:50%;width:auto;height:1px;margin-top:-.5p
 .movers{display:flex;flex-direction:column;gap:1px}
 .movers button{display:grid;grid-template-columns:10px minmax(0,1fr) auto 66px;gap:9px;align-items:center;padding:6px;margin:0 -6px;border-radius:6px;font-size:13px;text-align:left}
 .movers.amt button{grid-template-columns:10px minmax(0,1fr) auto 76px}
-.movers button:hover{background:rgba(255,255,255,.045)}
+.movers button:hover{background:color-mix(in srgb,var(--ov) 4.5%,transparent)}
 .movers i{width:10px;height:10px;border-radius:2px}
 .movers .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500}
 .movers .px{color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums}
@@ -569,31 +721,31 @@ footer p{margin:0;max-width:92ch}
 footer a{color:var(--muted)}
 
 /* ── Tooltip & detail ───────────────────────────── */
-.tip{position:fixed;z-index:80;pointer-events:none;width:300px;background:rgba(24,25,30,.97);border:1px solid var(--line2);border-radius:10px;box-shadow:0 18px 50px rgba(0,0,0,.55);font-size:13px;opacity:0;transform:translateY(4px);transition:opacity .12s,transform .12s;backdrop-filter:blur(6px)}
+.tip{position:fixed;z-index:80;pointer-events:none;width:300px;background:var(--tip-bg);border:1px solid var(--tip-bd);border-radius:var(--tip-r);box-shadow:var(--tip-sh);font-size:13px;opacity:0;transform:translateY(4px);transition:opacity .12s,transform .12s;-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur)}
 .tip.show{opacity:1;transform:none}
 .card-head{padding:11px 13px 10px;border-bottom:1px solid var(--line)}
 .card-head .path{font-size:11.5px;color:var(--muted);margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .card-head .nmrow{display:flex;align-items:baseline;gap:7px;flex-wrap:wrap}
 .card-head .nmrow b,.card-head .nmrow .nmbtn{font-size:17px;font-weight:700;letter-spacing:-.02em;text-align:left}
-.card-head .nmrow .nmbtn{text-decoration:underline;text-decoration-color:var(--amber);text-underline-offset:3px;border-radius:4px}
+.card-head .nmrow .nmbtn{text-decoration:underline;text-decoration-color:var(--acc);text-underline-offset:3px;border-radius:4px}
 .card-head .nmrow small{color:var(--faint);font-size:11.5px}
-.card-head .nmrow .wmark{color:var(--amber);font-size:12px;font-weight:600}
+.card-head .nmrow .wmark{color:var(--acc);font-size:12px;font-weight:600}
 .card-head .nmrow .limtag{align-self:center}
 .card-head .px{display:flex;align-items:baseline;gap:9px;margin-top:4px;font-variant-numeric:tabular-nums;flex-wrap:wrap}
-.card-head .px b{font-size:21px;font-weight:700;letter-spacing:-.01em}
+.card-head .px b{font-size:21px;font-weight:700;font-family:var(--font-head);letter-spacing:-.01em}
 .card-head .px span{font-weight:600;font-size:13.5px}
 .card-head .mrow{display:flex;align-items:baseline;gap:8px;margin-top:5px;font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums;flex-wrap:wrap}
 .card-head .mrow b{font-size:14px;font-weight:700}
 .card-head .meta{display:flex;gap:14px;margin-top:6px;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;flex-wrap:wrap}
 .card-head .meta em{font-style:normal;color:var(--fg2)}
 .wstar{position:relative;display:inline-grid;place-items:center;align-self:center;width:30px;height:30px;margin:-6px 0 -6px 0;border-radius:var(--r-in);color:var(--muted);font-size:18px;line-height:1;transition:color var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out),transform var(--c-fast) var(--c-out)}
-.wstar:hover{color:var(--fg);background:rgba(255,255,255,.06)}
-.wstar[aria-pressed="true"]{color:var(--amber)}
+.wstar:hover{color:var(--fg);background:color-mix(in srgb,var(--ov) 6%,transparent)}
+.wstar[aria-pressed="true"]{color:var(--acc)}
 .peers{padding:7px 7px 8px}
 .peers .ttl{font-size:11.5px;color:var(--muted);padding:2px 6px 5px}
 .peer{display:grid;grid-template-columns:9px minmax(0,1fr) 70px 54px;gap:8px;align-items:center;padding:3px 6px;border-radius:5px;font-size:12.5px}
 .peers.amt .peer{grid-template-columns:9px minmax(0,1fr) 60px 70px}
-.peer.me{background:rgba(255,255,255,.07);font-weight:600}
+.peer.me{background:color-mix(in srgb,var(--ov) 7%,transparent);font-weight:600}
 .peer i{width:9px;height:9px;border-radius:2px}
 .peer .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .peer .v{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
@@ -601,13 +753,13 @@ footer a{color:var(--muted)}
 .peer .dbar i{height:6px;top:1px}
 .tiphint{padding:6px 13px 9px;font-size:11.5px;color:var(--faint);border-top:1px solid var(--line)}
 
-.sheet{position:fixed;z-index:90;right:18px;bottom:18px;width:340px;max-height:min(640px,calc(100vh - 36px));overflow:auto;background:rgba(24,25,30,.98);border:1px solid var(--line2);border-radius:12px;box-shadow:0 24px 70px rgba(0,0,0,.6);display:none;font-size:13px}
+.sheet{position:fixed;z-index:90;right:18px;bottom:18px;width:340px;max-height:min(640px,calc(100vh - 36px));overflow:auto;background:var(--sheet-bg);border:1px solid var(--sheet-bd);border-radius:max(2px,calc(var(--sheet-r) - 4px));box-shadow:var(--sheet-fl-sh);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);display:none;font-size:13px}
 .sheet.open{display:block;animation:sheetIn .2s ease-out}
 .sheet:focus{outline:none}
 @keyframes sheetIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
 .sheet .grab{display:none}
 .sheet .x{position:absolute;right:8px;top:8px;width:30px;height:30px;border-radius:var(--r-in);display:grid;place-items:center;color:var(--muted);font-size:18px;transition:filter var(--c-fast) var(--c-out),transform var(--c-fast) var(--c-out)}
-.sheet .x:hover{background:rgba(255,255,255,.07);color:var(--fg)}
+.sheet .x:hover{background:color-mix(in srgb,var(--ov) 7%,transparent);color:var(--fg)}
 .sheet .acts{display:flex;flex-wrap:wrap;gap:8px;padding:10px 13px 13px;border-top:1px solid var(--line)}
 .sheet .acts button,.sheet .acts a{flex:1;display:inline-flex;justify-content:center;align-items:center;height:36px;border-radius:var(--r-key);font-size:13px;font-weight:600;text-decoration:none}
 .sheet .acts .pri{background:var(--pri-bg);color:var(--pri-fg);box-shadow:var(--pri-sh);flex:1 1 100%}
@@ -639,10 +791,10 @@ footer a{color:var(--muted)}
   .search{flex:1 1 0;min-width:0}
   .search kbd{display:none}
   .setbtn{height:40px;padding:0 13px}
-  .ctls{position:fixed;left:0;right:0;bottom:0;z-index:91;max-height:82svh;overflow:auto;background:rgba(24,25,30,.99);border-top:1px solid var(--line2);border-radius:16px 16px 0 0;box-shadow:0 -18px 60px rgba(0,0,0,.6);padding:8px 16px calc(18px + env(safe-area-inset-bottom))}
+  .ctls{position:fixed;left:0;right:0;bottom:0;z-index:91;max-height:82svh;overflow:auto;background:var(--sheet-bg);border:0;border-top:1px solid var(--sheet-bd);border-radius:var(--sheet-r) var(--sheet-r) 0 0;box-shadow:var(--sheet-sh);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);padding:8px 16px calc(18px + env(safe-area-inset-bottom))}
   .ctls-hd{min-height:44px}
   .ctls-hd .x{width:40px;height:40px}
-  .scrim2.open{display:block;position:fixed;inset:0;z-index:89;background:rgba(0,0,0,.45)}
+  .scrim2.open{display:block;position:fixed;inset:0;z-index:89;background:var(--scrim)}
   .layout{padding:0 12px 12px;gap:12px}
   .crumbs .stat{margin-left:0;width:100%;order:9}
   .crumbs .hint{display:none}
@@ -656,9 +808,9 @@ footer a{color:var(--muted)}
   .side{display:flex}
   .tip{display:none}
   .tstar{display:none}
-  .sheet{left:0;right:0;bottom:0;width:auto;border-radius:16px 16px 0 0;max-height:78svh;padding-bottom:env(safe-area-inset-bottom)}
+  .sheet{left:0;right:0;bottom:0;width:auto;border-radius:var(--sheet-r) var(--sheet-r) 0 0;box-shadow:var(--sheet-sh);max-height:78svh;padding-bottom:env(safe-area-inset-bottom)}
   .sheet .grab{display:block;width:38px;height:4px;border-radius:2px;background:var(--line2);margin:8px auto 0}
-  .scrim.open{display:block;position:fixed;inset:0;z-index:85;background:rgba(0,0,0,.45)}
+  .scrim.open{display:block;position:fixed;inset:0;z-index:85;background:var(--scrim)}
   footer{padding:4px 12px 24px}
   .tabs button,.seg button,.movers-tabs button,.crumbs button.c,.crumbs .back{min-height:40px;display:inline-flex;align-items:center;justify-content:center}
   .crumbs .back{padding:3px 12px}
@@ -717,21 +869,21 @@ footer a{color:var(--muted)}
 .bchip .bcs:empty{display:none}
 .bchip .bcc{display:inline-block;margin-left:5px;font-size:10px;color:var(--key-ic);transition:transform var(--c-base) var(--c-inout)}
 .bchip[aria-expanded="true"]{box-shadow:var(--key-on)}
-.bchip[aria-expanded="true"] .bcc{transform:rotate(180deg);color:var(--amber)}
-.bmenu{position:fixed;inset:0;z-index:95;display:flex;align-items:flex-end;justify-content:center;background:rgba(0,0,0,.45)}
+.bchip[aria-expanded="true"] .bcc{transform:rotate(180deg);color:var(--acc)}
+.bmenu{position:fixed;inset:0;z-index:95;display:flex;align-items:flex-end;justify-content:center;background:var(--scrim)}
 .bmenu[hidden]{display:none}
-.bm-in{width:100%;max-width:520px;background:rgba(24,25,30,.99);border-top:1px solid var(--line2);border-radius:16px 16px 0 0;padding:6px 12px calc(14px + env(safe-area-inset-bottom));box-shadow:0 -18px 60px rgba(0,0,0,.6)}
+.bm-in{width:100%;max-width:520px;background:var(--sheet-bg);border-top:1px solid var(--sheet-bd);border-radius:var(--sheet-r) var(--sheet-r) 0 0;-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);padding:6px 12px calc(14px + env(safe-area-inset-bottom));box-shadow:var(--sheet-sh)}
 .bm-in .bm-t{font-size:12.5px;color:var(--muted);margin:8px 8px 6px;font-weight:600}
 .bm-it{position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;min-height:54px;padding:8px 40px 8px 12px;border-radius:var(--r-in);text-align:left;transition:filter var(--c-fast) var(--c-out)}
 .bm-it:active{filter:var(--press-f);transition-duration:0s}
-.bm-it::after{content:"";position:absolute;right:14px;top:50%;width:16px;height:16px;margin-top:-8px;background:var(--amber);-webkit-mask:var(--ck-mask) center/contain no-repeat;mask:var(--ck-mask) center/contain no-repeat;clip-path:inset(0 100% 0 0);transition:clip-path var(--c-base) var(--c-out) var(--c-fast)}
+.bm-it::after{content:"";position:absolute;right:14px;top:50%;width:16px;height:16px;margin-top:-8px;background:var(--acc);-webkit-mask:var(--ck-mask) center/contain no-repeat;mask:var(--ck-mask) center/contain no-repeat;clip-path:inset(0 100% 0 0);transition:clip-path var(--c-base) var(--c-out) var(--c-fast)}
 .bm-it[aria-checked="true"]::after{clip-path:inset(0 0 0 0)}
 .bm-it b{font-size:15px;color:var(--fg);font-weight:600}
 .bm-it span{font-size:12px;color:var(--muted);white-space:normal}
 .bm-it[aria-checked="true"]{background:var(--amber-soft)}
-.bm-it[aria-checked="true"] b{color:var(--amber)}
+.bm-it[aria-checked="true"] b{color:var(--acc)}
 .bm-it:hover{background:var(--panel2)}
-.bm-it:focus-visible{outline:var(--focus-w) solid var(--amber);outline-offset:calc(var(--focus-w) * -1)}
+.bm-it:focus-visible{outline:var(--focus-w) solid var(--focus);outline-offset:calc(var(--focus-w) * -1)}
 /* phones: the table keeps a readable name column (two lines): 종목 · 현재가 · 등락률 · 거래대금 (거래량 · 시가총액 dropped; with a 기간 /
    순매수 column, that instead of 거래대금) */
 @media (max-width:430px){
@@ -778,7 +930,7 @@ html[data-motion="reduced"] .tip{transition:none}
 :is(button,a).kasync[aria-busy="true"]{cursor:progress}
 :is(button,a).kasync[data-st="done"]{background:var(--done-bg);color:var(--done-fg)}
 :is(button,a).kasync[data-st="fail"]{background:var(--fail-bg);color:var(--fail-fg);box-shadow:inset 0 0 0 1px var(--fail-ring),var(--key-sh)}
-:is(button,a).kasync[data-st="fail"] .kwn{color:var(--amber)}
+:is(button,a).kasync[data-st="fail"] .kwn{color:var(--acc)}
 /* ring while it works, check when done (KH.ui) */
 .kspn{display:inline-block;flex:none;width:14px;height:14px;animation:kspn var(--c-spin) linear infinite}
 .kspn circle{fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-dasharray:30 48}
@@ -797,19 +949,19 @@ html[data-motion="fancy"] .kl .kck{transform:scale(.6);transition:transform var(
 html[data-motion="fancy"] .kl.on .kck{transform:none;transition-delay:var(--c-fast)}
 .kck,.kwn{flex:none;width:15px;height:15px}
 /* a short note under an icon-only key: no layout, nothing to press (KH.ui.bubble) */
-.kbub{position:fixed;z-index:140;padding:6px 10px;border-radius:9px;background:#26282f;box-shadow:inset 0 0 0 1px var(--line2),0 8px 24px rgba(0,0,0,.5);color:var(--fg);font-size:12.5px;font-weight:600;white-space:nowrap;pointer-events:none;opacity:0;transform:translateY(-4px);transition:opacity var(--c-fast) var(--c-in),transform var(--c-fast) var(--c-in)}
+.kbub{position:fixed;z-index:140;padding:6px 10px;border-radius:9px;background:var(--bub-bg);box-shadow:inset 0 0 0 1px var(--tip-bd),0 8px 24px color-mix(in srgb,var(--shc) 50%,transparent);color:var(--fg);font-size:12.5px;font-weight:600;white-space:nowrap;pointer-events:none;opacity:0;transform:translateY(-4px);transition:opacity var(--c-fast) var(--c-in),transform var(--c-fast) var(--c-in)}
 .kbub.on{opacity:1;transform:none;transition-timing-function:var(--c-out)}
-.kbub svg{width:13px;height:13px;vertical-align:-2px;margin-right:5px;color:var(--amber)}
+.kbub svg{width:13px;height:13px;vertical-align:-2px;margin-right:5px;color:var(--acc)}
 /* segments and tab rows: one raised indicator each (KH.ui.seg) */
 .seg,.tabs,.movers-tabs{position:relative;isolation:isolate}
 .seg>button,.tabs>button,.movers-tabs>button{position:relative;z-index:1}
 .seg::before,.tabs::before,.movers-tabs::before{content:"";position:absolute;z-index:0;left:var(--il,0px);right:var(--ir,0px);top:var(--it,0px);bottom:var(--ib,0px);border-radius:var(--r-in);background:var(--ind-bg);box-shadow:var(--ind-sh);pointer-events:none;opacity:0}
-.tabs::after{content:"";position:absolute;z-index:2;left:calc(var(--il,0px) + 10px);right:calc(var(--ir,0px) + 10px);bottom:var(--ib,0px);height:2px;border-radius:2px 2px 0 0;background:var(--amber);pointer-events:none;opacity:0}
+.tabs::after{content:"";position:absolute;z-index:2;left:calc(var(--il,0px) + 10px);right:calc(var(--ir,0px) + 10px);bottom:var(--ib,0px);height:2px;border-radius:2px 2px 0 0;background:var(--acc-line);pointer-events:none;opacity:0}
 :is(.seg,.tabs,.movers-tabs)[data-ind]::before,.tabs[data-ind]::after{opacity:1}
 :is(.seg,.tabs,.movers-tabs)[data-dir="r"]::before,.tabs[data-dir="r"]::after{transition:right var(--c-fast) var(--c-out),left var(--c-base) var(--c-out),top var(--c-base) var(--c-out),bottom var(--c-base) var(--c-out)}
 :is(.seg,.tabs,.movers-tabs)[data-dir="l"]::before,.tabs[data-dir="l"]::after{transition:left var(--c-fast) var(--c-out),right var(--c-base) var(--c-out),top var(--c-base) var(--c-out),bottom var(--c-base) var(--c-out)}
 :is(.seg,.tabs,.movers-tabs):not([data-ind])>button:is([aria-pressed="true"],[aria-selected="true"]){background:var(--ind-bg);box-shadow:var(--ind-sh)}
-.tabs:not([data-ind])>button:is([aria-pressed="true"],[aria-selected="true"]){box-shadow:var(--ind-sh),inset 0 -2px 0 var(--amber)}
+.tabs:not([data-ind])>button:is([aria-pressed="true"],[aria-selected="true"]){box-shadow:var(--ind-sh),inset 0 -2px 0 var(--acc-line)}
 :is(.seg,.tabs,.movers-tabs)>button:active,:is(.seg,.tabs,.movers-tabs)>button.is-press{filter:var(--press-f);transition-duration:0s}
 .seg>button:focus-visible,.movers-tabs>button:focus-visible{outline-offset:-1px}
 .seg button[aria-busy="true"]{color:transparent;cursor:progress}
@@ -834,6 +986,136 @@ html[data-motion="fancy"] .kl.on .kck{transform:none;transition-delay:var(--c-fa
   .wgpop .row:hover{background:none}
   :is(.setbtn,.swbtn,.wgadd,.movers .more,.secs .more,.sheet .acts .sec2,.ddbtn,.morebtn):hover{background:var(--key-bg)}
 }
+
+/* ───────────────── the header follows on scroll, in every theme (themes.md §7) ─────────────────
+   Desktop: the whole header. Phones (the tab row on its own row under the clock row): the tab row only — top = −(the tab row's
+   offset), measured by JS (--stick) with the session bar between the two rows (§3-12b sb-mid), so the bar never shows on the strip.
+   기본: opaque page + a 1px line once stuck · 신문: opaque paper + the ink rule · 글라스: a thin glass panel, blurred only while stuck.
+   Narrow screens (dock.md §7): header + dock over 18% of the height → the header tucks away while scrolling down (.tuck). */
+html header.top{position:sticky;top:var(--stick,0px);z-index:40;background:var(--bar-bg);box-shadow:var(--bar-sh);transition:transform var(--m-2) var(--m-out)}
+html header.top.is-stuck{box-shadow:var(--bar-stuck);clip-path:inset(calc(-1 * var(--stick,0px)) -100vw -100vh -100vw)}   /* stuck on a phone: nothing of the clock row (the session bar's pill) shows above the tab row */
+html header.top.tuck{transform:translateY(calc(-1 * var(--stuck-h,60px) - 6px));transition-duration:var(--m-1)}
+html[data-motion="reduced"] header.top{transition:none}
+html{scroll-padding-top:calc(var(--stuck-h,0px) + 8px)}
+html[data-theme^="glass"] header.top,html[data-theme^="glass"] header.top.is-stuck{background:none;box-shadow:none}
+html[data-theme^="glass"] header.top::before{content:"";position:absolute;z-index:-1;inset:4px 6px 0;border-radius:18px;background:var(--bar-bg);box-shadow:var(--bar-sh);pointer-events:none}
+html[data-theme^="glass"] header.top.is-stuck::before{-webkit-backdrop-filter:var(--blur-bar);backdrop-filter:var(--blur-bar)}
+@media (max-width:760px){html[data-theme^="glass"] header.top::before{inset:2px 4px 0;border-radius:24px}}
+/* the glass falls back to the opaque panel in place (--m-2 cross-fade) when the frame watchdog trips */
+html[data-theme^="glass"] header.top::before{transition:background var(--m-2) var(--m-out)}
+
+/* ───────────────── materials (themes.md §6) ───────────────── */
+/* 신문: ink rules over cards and sector bands, square data marks, ruled list rows, a cut-out tooltip, letterpress keys (tokens) */
+html[data-theme="paper"] .sec > .hd{font-weight:800;box-shadow:inset 0 1px 0 var(--rule)}
+html[data-theme="paper"] :is(.breadth,.hist button .bar,.legend .grad,.dbar i,.cdb b){border-radius:0}
+html[data-theme="paper"] .legend .grad{box-shadow:0 0 0 1px var(--rule)}
+html[data-theme="paper"] :is(.secs > button,.movers > button){border-radius:0;box-shadow:inset 0 -1px 0 var(--row-bd)}
+@media (min-width:981px){html[data-theme="paper"] .side{position:relative} html[data-theme="paper"] .side::before{content:"";position:absolute;left:-8px;top:42px;bottom:0;width:1px;background:var(--line2)}}
+@media (max-width:760px){html[data-theme="paper"] :is(.sheet,.ctls,.bm-in,.ssheet){box-shadow:inset 0 2px 0 var(--pop-solid),inset 0 3px 0 var(--rule),var(--sheet-sh)}}
+/* 글라스: an edge highlight on the big floating glass (the tooltip and the header panel); cards, keys and the dock carry no blur */
+html[data-theme^="glass"] :is(.tip,header.top)::after{content:"";position:absolute;inset:0;border-radius:inherit;padding:1px;pointer-events:none;
+  background:linear-gradient(140deg,color-mix(in srgb,white 50%,transparent),transparent 28%,transparent 72%,color-mix(in srgb,white 20%,transparent));
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask:linear-gradient(#000 0 0) content-box exclude,linear-gradient(#000 0 0)}
+html[data-theme^="glass"] header.top::after{z-index:-1;inset:4px 6px 0;border-radius:18px}
+@media (max-width:760px){html[data-theme^="glass"] header.top::after{inset:2px 4px 0;border-radius:24px}}
+html[data-theme="glass-dark"] header.top::after{opacity:.5}
+
+/* ───────────────── 표시 설정 › 화면 › 테마 (안 A: four at once, 2 × 2 with swatches) · 명조 제목 · 유리 흐림 ───────────────── */
+.thm .seg{display:grid;grid-template-columns:1fr 1fr}
+.thm .seg button{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:34px}
+.tsw{display:inline-flex;gap:1px;flex:none}
+.tsw b{display:block;width:7px;height:13px;box-shadow:inset 0 0 0 .5px color-mix(in srgb,var(--fg) 30%,transparent)}
+.tsw b:first-child{border-radius:3px 0 0 3px} .tsw b:last-child{border-radius:0 3px 3px 0}
+.morep .ctl[aria-disabled="true"]{opacity:.45}
+.morep .ctl[aria-disabled="true"] button{cursor:not-allowed}
+/* 표시 설정 › 아래 막대: phones only (the dock exists ≤ 760) */
+.dkset{display:flex;flex-direction:column;gap:13px;border-top:1px solid var(--line);padding-top:13px}
+.dkset .dkh{font-size:12.5px;font-weight:700;color:var(--fg)}
+.dkset .hint{font-size:11.5px;color:var(--muted);line-height:1.45}
+@media (min-width:761px){.dkset{display:none!important}}
+@media (max-width:760px){.thm .seg button{min-height:40px}}
+
+/* ───────────────── 아래 막대 — the phone dock (docs/standards/dock.md, V2 two cells + swipe pages, 🔍 at the end) ─────────────────
+   Floats once the map has gone by (never over it), hides while any sheet / dialog / the stock page / the keyboard is open. No blur. */
+.dock{position:fixed;z-index:50;left:8px;right:8px;bottom:calc(8px + env(safe-area-inset-bottom));height:56px;display:flex;align-items:stretch;padding:6px;border-radius:var(--dock-r);background:var(--dock-bg);box-shadow:var(--dock-sh);color:var(--fg);
+  transform:translateY(calc(100% + 16px));opacity:0;visibility:hidden;transition:transform var(--m-1) var(--m-exit),opacity var(--m-1) var(--m-exit),visibility 0s linear var(--m-1)}
+.dock.on{transform:none;opacity:1;visibility:visible;transition:transform var(--m-2) var(--m-out),opacity var(--m-2) var(--m-out),visibility 0s}
+html[data-motion="reduced"] .dock{transition:none}
+.dock[data-side="left"]{flex-direction:row-reverse}
+.dock.keyonly{left:auto;width:56px}
+.dock.keyonly[data-side="left"]{left:8px;right:auto}
+.dock.keyonly .dk-pw{display:none}
+@media (min-width:761px){.dock,.ssheet,.ss-scrim{display:none!important}}
+/* the swipe area keeps ≥ 24 px from both screen edges (Android's back-gesture edge): the side without the 🔍 key gets 10 px more */
+.dk-pw{position:relative;flex:1;min-width:0;display:flex;margin-left:10px}
+.dock[data-side="left"] .dk-pw{margin-left:0;margin-right:10px}
+.dk-pages{flex:1;min-width:0;display:flex;overflow-x:auto;scroll-snap-type:x mandatory;overscroll-behavior-x:contain;scrollbar-width:none;border-radius:calc(var(--dock-r) - 6px)}
+.dk-pages::-webkit-scrollbar{display:none}
+.dk-pg{flex:0 0 100%;min-width:0;display:flex;scroll-snap-align:start;scroll-snap-stop:always}
+.dk-c{position:relative;flex:1 1 0;min-width:0;display:flex;flex-direction:column;justify-content:center;gap:3px;padding:0 9px 3px;border-radius:calc(var(--dock-r) - 6px);text-align:left;transition:filter var(--c-fast) var(--c-out)}
+.dk-c + .dk-c::before{content:"";position:absolute;left:0;top:6px;bottom:9px;width:1px;background:var(--dock-div)}
+.dk-c:active{filter:var(--press-f);transition-duration:0s}
+.dk-c:focus-visible{outline-offset:-3px}
+.dk-l1{display:flex;align-items:baseline;justify-content:space-between;gap:6px;font-size:11.5px;line-height:14px;color:var(--muted);white-space:nowrap}
+.dk-l1 > :first-child{overflow:hidden;text-overflow:ellipsis;min-width:0}
+.dk-l1 b{font-weight:700;color:var(--fg2)}
+.dk-l1 .st{color:var(--acc)}
+.dk-l1 .p{font-weight:700;font-variant-numeric:tabular-nums;flex:none}
+.dk-v{display:flex;align-items:center;justify-content:space-between;gap:6px;height:20px;font:700 16px/20px var(--font-head);letter-spacing:-.01em;font-variant-numeric:tabular-nums;color:var(--fg);white-space:nowrap}
+.dk-v > span:first-child{overflow:hidden;text-overflow:ellipsis;min-width:0}
+.dk-v svg{width:44px;height:18px;flex:none;overflow:visible}
+.dk-v small{font:600 11px/1 var(--sans);color:var(--muted);overflow:hidden;text-overflow:ellipsis;min-width:0;text-align:right}
+.dk-v small .up,.dk-v small .dn{font-weight:700}
+.dk-sp .ln{fill:none;stroke:currentColor;stroke-width:1.5;stroke-linejoin:round;stroke-linecap:round}
+.dk-sp .bl{stroke:var(--ix-base);stroke-width:1;stroke-dasharray:2 2}
+.dk-bar{display:flex;height:6px;gap:1px;border-radius:var(--r-pill);overflow:hidden}
+.dk-bar i{display:block;min-width:0}
+html[data-theme="paper"] .dk-bar{border-radius:0}
+.dk-n{display:flex;justify-content:space-between;gap:4px;font-size:11.5px;line-height:13px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
+.dk-empty{font-size:12.5px;color:var(--muted);white-space:normal;line-height:1.3}
+.dk-dots{position:absolute;left:0;right:0;bottom:-3px;display:flex;justify-content:center;gap:4px;pointer-events:none}
+.dk-dots i{width:4px;height:4px;border-radius:2px;background:var(--line2);transition:width var(--c-fast) var(--c-out),background-color var(--c-fast) var(--c-out)}
+.dk-dots i.on{width:12px;background:var(--fg2)}
+.dk-dots[hidden]{display:none}
+/* 🔍 — a raised key, 44 × 44 (controls §5-1 · §5-2) */
+.dk-k{position:relative;flex:none;width:44px;height:44px;display:grid;place-items:center;border-radius:var(--r-key);background:var(--key-bg);box-shadow:var(--key-sh);color:var(--key-fg);transition:transform var(--c-fast) var(--c-out),box-shadow var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out)}
+.dk-k svg{width:18px;height:18px;color:var(--key-ic)}
+.dk-k:is(:active,.is-press){transform:translateY(1px);box-shadow:var(--key-dn);filter:var(--press-f);transition-duration:0s}
+html[data-theme^="glass"] .dk-k{border-radius:var(--r-pill)}
+.dock:not([data-side="left"]) .dk-k{margin-left:6px}
+.dock[data-side="left"] .dk-k{margin-right:6px}
+.dock.keyonly .dk-k{margin:0}
+/* 화려하게: the cells rise 4 px, 20 ms apart, when the dock comes up */
+html[data-motion="fancy"] .dock.on .dk-c{animation:dkRise var(--m-2) var(--m-out) both}
+html[data-motion="fancy"] .dock.on .dk-c + .dk-c{animation-delay:20ms}
+@keyframes dkRise{from{opacity:0;transform:translateY(4px)}}
+/* the end of the page keeps the dock's room (8 + 56 + 8) whenever it can show, so the last line never hides under it */
+@media (max-width:760px){footer{padding-bottom:calc(24px + 72px + env(safe-area-inset-bottom))}}
+
+/* 🔍 → the search sheet: the same results as the search box (searchList · pick), its own ids; it sits on the keyboard */
+.ss-scrim{position:fixed;inset:0;z-index:89;background:var(--scrim)}
+.ss-scrim[hidden],.ssheet[hidden]{display:none}
+.ssheet{position:fixed;left:0;right:0;bottom:0;z-index:90;display:flex;flex-direction:column;height:78svh;background:var(--sheet-bg);border-top:1px solid var(--sheet-bd);border-radius:var(--sheet-r) var(--sheet-r) 0 0;box-shadow:var(--sheet-sh);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);padding-bottom:env(safe-area-inset-bottom);overflow:hidden}
+.ssheet .grab{width:38px;height:4px;border-radius:2px;background:var(--line2);margin:8px auto 4px;flex:none}
+.ss-top{display:flex;align-items:center;gap:8px;padding:2px 12px 6px;flex:none}
+.ss-top .search{flex:1 1 auto;min-width:0}
+.ss-top .search input{height:44px;font-size:16px;padding-right:12px}
+.ss-top .search svg{top:14px}
+.ss-top .search input::-webkit-search-cancel-button{-webkit-appearance:none;display:none}
+.ss-x{position:relative;flex:none;width:44px;height:44px;display:grid;place-items:center;border-radius:var(--r-key);color:var(--muted);font-size:20px;transition:transform var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out)}
+.ss-x:is(:active,.is-press){transform:translateY(1px);filter:var(--press-f);transition-duration:0s}
+.ss-hint{flex:none;margin:0;padding:2px 16px 6px;font-size:12px;color:var(--muted)}
+.ss-list{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;padding:0 6px 10px}
+.ss-list > button{display:grid;grid-template-columns:10px minmax(0,1fr) auto auto;align-items:center;gap:10px;width:100%;min-height:48px;padding:0 10px;border-radius:var(--r-in);text-align:left;font-size:14px;transition:filter var(--c-fast) var(--c-out)}
+.ss-list > button[aria-selected="true"]{background:color-mix(in srgb,var(--ov) 7%,transparent)}
+html[data-theme="paper"] .ss-list > button[aria-selected="true"]{background:var(--acc-soft)}
+.ss-list > button:active{filter:var(--press-f);transition-duration:0s}
+.ss-list > button:focus-visible{outline-offset:-3px}
+.ss-list > button > span:nth-child(2){overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ss-list .sw{width:10px;height:10px;border-radius:2px}
+.ss-list .meta{color:var(--muted);font-size:12px}
+.ss-list .empty{padding:12px 10px;color:var(--muted);font-size:13px;line-height:1.5}
+.ss-list .empty small{display:block;font-size:12px;color:var(--faint);margin-top:2px}
 </style>
 </head>
 <body>
@@ -1033,6 +1315,44 @@ const PALETTES = {
   global: { label: '초록 상승', stops: ['#f63538', '#bf4045', '#8b444e', '#414554', '#35764e', '#2f9e4f', '#2bb553'], upText: '#4fd27a', dnText: '#ff6b6e' },
   cvd:    { label: '색각 친화', stops: ['#ef8a1f', '#b8692a', '#7d5940', '#414554', '#3a5f86', '#3878c0', '#3d95ee'], upText: '#69b4ff', dnText: '#ffa046' },
 };
+/* palette × theme (themes.md §8): the same four palettes in every theme, re-inked for the ground. 기본 = the stops above; 글라스 어둡게 =
+   the same stops, a lighter red text; light themes (신문 · 글라스 밝게) = [deep down, 72 %, 42 %, neutral, 42 %, 72 %, deep up] between
+   the theme's neutral and its inks (tile type then goes black / white by contrast, ≥ 4.58:1 on every fill). */
+const hexRGB = c => { c = String(c).replace('#', ''); if (c.length === 3) c = c.replace(/./g, x => x + x); return [0, 2, 4].map(i => parseInt(c.slice(i, i + 2), 16)); };
+const mixHex = (a, b, t) => { const A = hexRGB(a), B = hexRGB(b); return '#' + A.map((v, i) => Math.round(v * (1 - t) + B[i] * t).toString(16).padStart(2, '0')).join(''); };
+function lightPal(N, ink, txt) {
+  const mk = (dn, up) => [ink[dn], mixHex(N, ink[dn], .72), mixHex(N, ink[dn], .42), N, mixHex(N, ink[up], .42), mixHex(N, ink[up], .72), ink[up]];
+  return {
+    krg: { label: PALETTES.krg.label, stops: mk('green', 'red'), upText: txt.red, dnText: txt.green },
+    krb: { label: PALETTES.krb.label, stops: mk('blue', 'red'), upText: txt.red, dnText: txt.blue },
+    global: { label: PALETTES.global.label, stops: mk('red', 'green'), upText: txt.green, dnText: txt.red },
+    cvd: { label: PALETTES.cvd.label, stops: mk('orange', 'blue'), upText: txt.blue, dnText: txt.orange },
+  };
+}
+const THEME_PAL = {
+  base: PALETTES,
+  'glass-dark': Object.assign({}, PALETTES, { krg: Object.assign({}, PALETTES.krg, { upText: '#ff6b74' }), krb: Object.assign({}, PALETTES.krb, { upText: '#ff6b74' }), global: Object.assign({}, PALETTES.global, { dnText: '#ff7a7c' }) }),
+  paper: lightPal('#dacbbb', { red: '#ad2a20', green: '#1a6a40', blue: '#22509a', orange: '#a95500' }, { red: '#ad2a20', green: '#1a6a40', blue: '#22509a', orange: '#934800' }),
+  'glass-light': lightPal('#cfd3da', { red: '#d0303a', green: '#0e8247', blue: '#2461cf', orange: '#c46800' }, { red: '#b8232d', green: '#0b6e3b', blue: '#1d55bd', orange: '#944c00' }),
+};
+const THEME_IDS = ['base', 'paper', 'glass-dark', 'glass-light'];
+const THEME_NAME = { base: '기본', paper: '신문', 'glass-dark': '글라스 어둡게', 'glass-light': '글라스 밝게' };
+let THEME = THEME_IDS.includes(document.documentElement.dataset.theme) ? document.documentElement.dataset.theme : 'base';
+const lightTone = () => THEME === 'paper' || THEME === 'glass-light';
+const cssVar = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+// tile type on light themes: black or white, whichever contrasts more with the fill ('#rrggbb' or d3's 'rgb(r, g, b)')
+const inkMemo = new Map();
+function inkFor(col) {
+  let v = inkMemo.get(col);
+  if (v) return v;
+  const m = /^rgba?\(([^)]+)\)/.exec(col || ''), c = m ? m[1].split(',').map(Number) : /^#[0-9a-f]{3,6}$/i.test(col || '') ? hexRGB(col) : null;
+  if (!c) return 'black';
+  const L = c.slice(0, 3).map(x => { x /= 255; return x <= .04045 ? x / 12.92 : ((x + .055) / 1.055) ** 2.4; }).reduce((s, x, i) => s + x * [.2126, .7152, .0722][i], 0);
+  v = (L + .05) / .05 >= 1.05 / (L + .05) ? 'black' : 'white';
+  if (inkMemo.size > 4000) inkMemo.clear();
+  inkMemo.set(col, v);
+  return v;
+}
 // colour metric: today's change, or the return since a base close in periods.json (c[code][ix])
 const COLOR_METRICS = {
   r:   { label: '오늘', long: '오늘 등락률', short: '등락', kind: 'day' },
@@ -1048,7 +1368,8 @@ const FLOW_WHO = { fgn: '외국인', inst: '기관' };
 const FLOW_IX = { fgn: { 1: 0, 5: 3, 20: 5 }, inst: { 1: 1, 5: 4, 20: 6 } };
 // colour range presets per metric kind; flow ranges are net buying as % of market cap
 const RANGES = { day: [3, 5, 10], period: [10, 20, 50], flow: { 1: [0.1, 0.3, 1], 5: [0.3, 1, 3], 20: [1, 3, 10] } };
-const NODATA = '#26282e';
+let NODATA = cssVar('--nodata');          // the theme's no-data fill (re-read on a theme change)
+const PAL = () => (THEME_PAL[THEME] || PALETTES)[state.palette] || PALETTES.krg;
 const CODE_RE = /^[0-9A-Z]{6}$/;
 const reduced = () => MOTION === 'reduced';
 const fancy = () => MOTION === 'fancy';
@@ -1332,7 +1653,7 @@ const state = {
   sort: { key: 'cap', dir: -1 },
   tsort: { key: 'v', dir: -1 },
 };
-if (!PALETTES[state.palette]) state.palette = 'krg';
+if (!PALETTES[state.palette]) state.palette = 'krg';   // (the key; the colours come from PAL(), per theme)
 if (!RANGES.day.includes(state.range)) state.range = 3;
 if (!RANGES.period.includes(state.rangeP)) state.rangeP = 20;
 if (![0, 1, 2].includes(state.rangeF)) state.rangeF = 1;
@@ -1349,6 +1670,8 @@ const isWorld = () => state.market === 'WORLD' || state.market === 'CMDTY';
 /* §3-20 today's index line in the map header row (state here; the drawing follows renderCrumbs) */
 const IX_NAME = { KOSPI: '코스피', KOSDAQ: '코스닥' };
 const ixKeys = () => ({ K: ['KOSPI'], Q: ['KOSDAQ'], ALL: ['KOSPI', 'KOSDAQ'] })[state.market] || [];   // a sector zoom keeps its market's index
+const isFlowSize = () => state.sizeBy === 'fgn' || state.sizeBy === 'inst';
+const ixWant = () => ixKeys().length > 0 || dkShows('ix');          // the map header's line, or the phone dock's index cell
 const IXM = { j: null, at: 0, busy: false, timer: null };     // the /api/market answer: index spark = today's 5-min bars [[unix s, value]]
 const RIX = { date: null, m: new Map() };                     // replay: frame minute → its {KOSPI, KOSDAQ} % (frames seen so far)
 const ixSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -2047,11 +2370,11 @@ const grpCls = list => { const v = isFlow() ? sumAmt(list) : groupVal(list); ret
 /* ───────────────── colour ───────────────── */
 let actScale, dayScale;
 function makeScale(R) {
-  const p = PALETTES[state.palette];
+  const p = PAL();
   return d3.scaleLinear().domain([-R, -R * 2 / 3, -R / 3, 0, R / 3, R * 2 / 3, R]).range(p.stops).interpolate(d3.interpolateLab).clamp(true);
 }
 function rebuildColor() {
-  const p = PALETTES[state.palette];
+  const p = PAL();
   dayScale = makeScale(state.range);
   actScale = kind() === 'day' ? dayScale : makeScale(curRange());
   document.documentElement.style.setProperty('--up-text', p.upText);
@@ -2059,9 +2382,9 @@ function rebuildColor() {
   document.documentElement.style.setProperty('--cd-up', p.stops[6]);
   document.documentElement.style.setProperty('--cd-dn', p.stops[0]);
 }
-const colorOf = v => v == null ? NODATA : v === 0 ? PALETTES[state.palette].stops[3] : actScale(v);
+const colorOf = v => v == null ? NODATA : v === 0 ? PAL().stops[3] : actScale(v);
 const colorFor = st => colorOf(cval(st));
-const dayColor = r => r === 0 ? PALETTES[state.palette].stops[3] : dayScale(r);
+const dayColor = r => r === 0 ? PAL().stops[3] : dayScale(r);
 
 /* buckets for the histogram legend */
 function bucketOf(r) {
@@ -2328,6 +2651,8 @@ function fitLabel(d, w, hh) {
 const chipRoom = (L, w, hh) => w >= 34 && hh >= 26 && (L.hidden || (hh - L.labH) / 2 >= 17 || (w - L.labW) / 2 >= 21);
 function paintTile(el, d, w, hh) {
   el.style.backgroundColor = d.col;
+  const ink = lightTone() ? inkFor(d.col) : '';                        // data-labs auto (light themes): black / white by contrast
+  if (el.style.color !== ink) el.style.color = ink;
   el.classList.toggle('nod', d.nod);
   el.classList.toggle('nonx', d.nonx);          // NXT prices drawn, this stock has none: KRX value, hatched
   el.__col = d.col; el.__name = d.name; el.__sub = d.sub; el.__px = d.px;
@@ -3189,7 +3514,8 @@ async function loadSpark(st) {
     const svg = document.createElementNS(NS, 'svg');
     svg.setAttribute('viewBox', `0 0 ${W} ${H}`); svg.setAttribute('preserveAspectRatio', 'none');
     const bl = document.createElementNS(NS, 'line');
-    Object.entries({ x1: 0, x2: W, y1: y(base), y2: y(base), stroke: '#555963', 'stroke-dasharray': '3 3', 'stroke-width': 1, 'vector-effect': 'non-scaling-stroke' }).forEach(([k, v]) => bl.setAttribute(k, v));
+    Object.entries({ x1: 0, x2: W, y1: y(base), y2: y(base), 'stroke-dasharray': '3 3', 'stroke-width': 1, 'vector-effect': 'non-scaling-stroke' }).forEach(([k, v]) => bl.setAttribute(k, v));
+    bl.style.stroke = 'var(--ix-base)';
     const path = document.createElementNS(NS, 'path');
     Object.entries({ d, fill: 'none', stroke: col, 'stroke-width': 2, 'stroke-linejoin': 'round', 'vector-effect': 'non-scaling-stroke' }).forEach(([k, v]) => path.setAttribute(k, v));
     svg.append(bl, path);
@@ -3476,7 +3802,7 @@ ixBgMQ.addEventListener('change', () => renderCrumbs());
 // live: /api/market every 60 s while 코스피 · 코스닥 · 전체 is shown (edge-cached 30 s); not in a hidden tab
 async function ixFetch() {
   clearTimeout(IXM.timer); IXM.timer = null;
-  if (MODE !== 'live' || document.hidden || !ixKeys().length || IXM.busy) return;
+  if (MODE !== 'live' || document.hidden || !ixWant() || IXM.busy) return;
   IXM.busy = true;
   const ac = new AbortController(), killer = setTimeout(() => ac.abort(), 8000);
   try {
@@ -3487,13 +3813,13 @@ async function ixFetch() {
   } catch (e) { /* keep the last answer */ }
   finally {
     clearTimeout(killer); IXM.busy = false;
-    try { renderCrumbs(); } catch (e2) {}
-    if (!document.hidden && ixKeys().length) IXM.timer = setTimeout(ixFetch, 60000);
+    try { renderCrumbs(); dkRefresh(); } catch (e2) {}
+    if (!document.hidden && ixWant()) IXM.timer = setTimeout(ixFetch, 60000);
   }
 }
 function ixSync(force) {
   if (MODE !== 'live') return;
-  if (!ixKeys().length || document.hidden) { clearTimeout(IXM.timer); IXM.timer = null; return; }
+  if (!ixWant() || document.hidden) { clearTimeout(IXM.timer); IXM.timer = null; return; }
   if (force || (!IXM.timer && !IXM.busy) || Date.now() - IXM.at > 65000) ixFetch();
 }
 // replay: remember each frame's index % (extras sends frame.index) so the line shows the day up to the frame. A frame may also carry
@@ -3517,7 +3843,7 @@ if (MODE !== 'live') domReady().then(() => {
 function renderLegend() {
   if (isWorld()) return;
   const el = $('#legend');
-  const k = kind(), R = curRange(), P = PALETTES[state.palette].stops;
+  const k = kind(), R = curRange(), P = PAL().stops;
   const kids = [];
   if (REPLAY) kids.push(h('span', { class: 'lg lg-replay', text: `리플레이 ${hhmm(REPLAY.t)}` }));
   const grad = h('span', { class: 'grad', style: `background:linear-gradient(90deg,${P.join(',')})`, 'aria-hidden': 'true' });
@@ -3584,22 +3910,27 @@ function bucketTitle(b) {
 }
 // the 등락 분포 card for a list of values (stocks or themes). note: a status line; mapVals: the map's own values when the card
 // counts more stocks than the map shows (full market), so a selected bucket can say how many of its stocks are on the map
+// the card's counts, kept for the phone dock's 등락 분포 cell (the same numbers, scope and wording as the card)
+let DIST = null;
+function distCount(vals) { let up = 0, dn = 0, fl = 0, nd = 0; for (const v of vals) v == null ? nd++ : v > 0 ? up++ : v < 0 ? dn++ : fl++; return { up, dn, fl, nd }; }
+const distTitle = k => k === 'day' ? '등락 분포' : k === 'period' ? `${COLOR_METRICS[state.colorBy].label} 수익률 분포` : '순매수 분포';
+const distWords = k => k === 'flow' ? ['순매수', '중립', '순매도'] : ['상승', '보합', '하락'];
 function renderDist(vals, { scope, big, bigCls, bigLab, unit, note = '', mapVals = null }) {
   const k = kind();
-  let up = 0, dn = 0, fl = 0, nd = 0;
-  for (const v of vals) v == null ? nd++ : v > 0 ? up++ : v < 0 ? dn++ : fl++;
+  const { up, dn, fl, nd } = distCount(vals);
   const n = (up + dn + fl) || 1;
-  $('#distTitle').textContent = k === 'day' ? '등락 분포' : k === 'period' ? `${COLOR_METRICS[state.colorBy].label} 수익률 분포` : '순매수 분포';
+  DIST = { up, dn, fl, nd, n: up + dn + fl, title: distTitle(k), words: distWords(k), scope, unit };
+  $('#distTitle').textContent = distTitle(k);
   $('#breadthScope').textContent = scope;
   $('#breadthScope').title = scope;
   const wv = $('#wavg'); wv.textContent = big; wv.className = bigCls;
   $('#wavgLab').textContent = bigLab;
-  const P = PALETTES[state.palette].stops;
+  const P = PAL().stops;
   $('#breadth').replaceChildren(
     h('i', { style: `width:${up / n * 100}%;background:${P[6]}` }),
     h('i', { style: `width:${fl / n * 100}%;background:${P[3]}` }),
     h('i', { style: `width:${dn / n * 100}%;background:${P[0]}` }));
-  const w = k === 'flow' ? ['순매수', '중립', '순매도'] : ['상승', '보합', '하락'];
+  const w = distWords(k);
   $('#breadthLab').replaceChildren(
     h('span', { class: 'up', text: `${w[0]} ${fmtInt(up)}` }), h('span', { class: 'flat', text: `${w[1]} ${fmtInt(fl)}` }), h('span', { class: 'dn', text: `${w[2]} ${fmtInt(dn)}` }));
   // histogram
@@ -3649,7 +3980,12 @@ const distClose = () => BASIS.v === 'krx' && BASIS.krx !== 'quote';
 const distNxt = () => nxDrawn();
 const sessionLive = () => marketOpen() || nxOpenNow();    // KRX regular session or an open NXT session: prices move
 function brWanted() {
-  if (MODE !== 'live' || kind() !== 'day' || distClose() || !fullScopeView() || !DATA.stocks.length) return [];
+  if (MODE !== 'live' || !DATA.stocks.length) return [];
+  if (isWorld()) {
+    if (!dkShows('brd') || isFlowSize() || COLOR_METRICS[state.colorBy].kind !== 'day' || distClose()) return [];
+    const m = dkDom(); return m === 'ALL' ? ['K', 'Q'] : [m];
+  }
+  if (kind() !== 'day' || distClose() || !fullScopeView()) return [];
   return state.market === 'ALL' ? ['K', 'Q'] : [state.market];
 }
 async function fetchBreadth(m) {
@@ -3677,12 +4013,13 @@ async function fetchBreadth(m) {
   } finally {
     b.busy = false; b.at = Date.now();
     renderSide();
+    if (isWorld()) dkRefresh();
   }
 }
 function syncBreadth() {
   clearTimeout(brState.timer); brState.timer = null;
   const want = brWanted();
-  if (!want.length || document.hidden || !brState.visible) return;
+  if (!want.length || document.hidden || !(brState.visible || dkShows('brd'))) return;
   const ivl = sessionLive() ? 60000 : 600000, now = Date.now();
   let next = ivl;
   for (const m of want) {
@@ -3789,6 +4126,18 @@ function renderSide() {
     renderDist(rows.map(t => t.v), { scope: `테마 ${rows.length}개`, big: vText(med, 2), bigCls: med == null ? 'flat' : cls(med),
       bigLab: k === 'flow' ? '테마별 시총 대비 순매수 중간값' : `테마 ${metricShort() === '등락' ? '등락률' : metricShort() + ' 수익률'} 중간값`, unit: '개' });
   } else {
+    const d = distSummary();
+    renderDist(d.vals, d.opts);
+  }
+  renderSecCard(themeMode);
+  renderMovers(ov);
+  syncBreadth();
+  dkRefresh();
+}
+// the 등락 분포 card of a stock view: its values and wording (renderSide; the dock under 해외 / 원자재)
+function distSummary() {
+  const themeMode = state.market === 'THEME', k = kind();
+  {
     const pool = distPool();
     const list = pool.list, vals = list.map(cval);
     const n = vals.filter(v => v != null).length;
@@ -3808,12 +4157,9 @@ function renderSide() {
     if (pool.partial) note = '일부 묶음을 받지 못해 받은 종목만 셌어요.';
     const F = isFlow() ? FLO() : null;
     if (F && F.stale) { let st = 0; for (const x of list) if (F.stale[x.c] && amt(x) != null) st++; if (st) note = (note + ` ${fmtInt(st)}종목은 전일 기준이에요.`).trim(); }
-    renderDist(vals, { scope, big: grpText(list, 2), bigCls: grpCls(list), note, mapVals: pool.scope !== 'map' ? universe().filter(inFocus).filter(s => !s.nonx).map(cval) : null,
-      bigLab: (k === 'flow' ? `${flowShort()} 순매수 합계` : k === 'day' ? '시가총액 가중 등락률' : `시가총액 가중 ${COLOR_METRICS[state.colorBy].long}`) + capNote, unit: '종목' });
+    return { vals, opts: { scope, big: grpText(list, 2), bigCls: grpCls(list), note, mapVals: pool.scope !== 'map' ? universe().filter(inFocus).filter(s => !s.nonx).map(cval) : null,
+      bigLab: (k === 'flow' ? `${flowShort()} 순매수 합계` : k === 'day' ? '시가총액 가중 등락률' : `시가총액 가중 ${COLOR_METRICS[state.colorBy].long}`) + capNote, unit: '종목' } };
   }
-  renderSecCard(themeMode);
-  renderMovers(ov);
-  syncBreadth();
 }
 function rankButton(label, sub, v, text, frac, onclick, cur) {
   return h('button', { class: cur ? 'cur' : '', onclick },
@@ -4271,7 +4617,8 @@ function renderFooter() {
 /* ───────────────── controls ───────────────── */
 function buildPaletteSeg() {
   const seg = $('#palseg');
-  seg.replaceChildren(...Object.entries(PALETTES).map(([k, p]) => h('button', { 'data-v': k, title: p.label },
+  // the swatches show the palette as this theme inks it
+  seg.replaceChildren(...Object.entries(THEME_PAL[THEME] || PALETTES).map(([k, p]) => h('button', { 'data-v': k, title: p.label },
     h('span', { class: 'pal', 'aria-hidden': 'true' }, h('b', { style: `background:${p.stops[0]}` }), h('b', { style: `background:${p.stops[3]}` }), h('b', { style: `background:${p.stops[6]}` })), h('span', { class: 'pl', text: p.label }))));
 }
 let rangeSegKey = '';
@@ -4830,18 +5177,7 @@ function renderSugg() {
   if (!q) { sugg.classList.remove('open'); qEl.setAttribute('aria-expanded', 'false'); qEl.removeAttribute('aria-activedescendant'); return; }
   const where = state.market === 'THEME' ? '테마가' : '종목이';
   const loadingNames = MODE === 'live' && namesSt.st === 'loading';
-  const opts = suggList.map((s, i) => {
-    if (s.theme) return suggOption(s, i, [h('i', { class: 'sw', style: `background:${colorOf(s.theme.v)}` }), h('span', {}, s.theme.name, ' ', h('span', { class: 'meta', text: `${s.theme.codes.length}종목` })),
-      h('span', { class: 'meta num', text: fmtEok(s.theme.cap) }), h('span', { class: 'num ' + ((isFlow() ? s.theme.a : s.theme.v) == null ? 'flat' : cls(isFlow() ? s.theme.a : s.theme.v)), text: thText(s.theme) })]);
-    if (s.ext) {
-      // outside the map: the quote when we have one, else just name · code · market and "종목 페이지"
-      const r = s.row, nm = s.n || (r && r.n) || `${s.c} 종목`, mk = s.m || (r && r.m);
-      return suggOption(s, i, [r && kind() === 'day' && ohlcOf(r) ? candleIcon(ohlcOf(r)) : h('i', { class: 'sw' + (r && r.nonx ? ' nonx' : ''), style: `background:${r ? colorFor(r) : NODATA}` }), h('span', {}, nm, ' ', h('span', { class: 'meta', text: `${s.c}${mk ? ' · ' + MKT_NAME[mk] : ''}${(s.n || r) && isPreferred({ c: s.c }) ? ' · 우선주' : ''}${r && r.nonx ? ' · NXT 없음' : ''}` })),
-        h('span', { class: 'meta num', text: r && r.p > 0 ? fmtInt(r.p) : '' }), r ? h('span', { class: 'num ' + cls(r.r), text: fmtPct(r.r) }) : h('span', { class: 'meta', text: '종목 페이지' })]);
-    }
-    return suggOption(s, i, [kind() === 'day' && ohlcOf(s) ? candleIcon(ohlcOf(s)) : h('i', { class: 'sw' + (s.nonx ? ' nonx' : ''), style: `background:${colorFor(s)}` }), h('span', {}, s.n, ' ', h('span', { class: 'meta', text: `${s.c} · ${s.i}${s.nonx ? ' · NXT 없음' : ''}` })),
-      h('span', { class: 'meta num', text: s.p > 0 ? fmtInt(s.p) : '—' }), h('span', { class: 'num ' + cls(s.r), text: fmtPct(s.r) })]);
-  });
+  const opts = suggList.map((s, i) => suggOption(s, i, suggKids(s)));
   if (!opts.length) opts.push(h('div', { class: 'empty' }, loadingNames ? '종목 목록을 불러오는 중…' : `'${q}'와 맞는 ${where} 없어요.`,
     MODE === 'live' && namesSt.st === 'fail' && where === '종목이' ? h('small', { text: '전체 종목 목록을 불러오지 못해 실시간 대상(시장별 시총 상위 300종목) 안에서만 찾았어요' } ) : null));
   else if (loadingNames && suggList.length < 8) opts.push(h('div', { class: 'empty' }, h('small', { text: '다른 종목도 찾는 중…' })));
@@ -4849,25 +5185,40 @@ function renderSugg() {
   sugg.classList.add('open'); qEl.setAttribute('aria-expanded', 'true');
   if (suggList.length) qEl.setAttribute('aria-activedescendant', 'sg-' + suggIdx); else qEl.removeAttribute('aria-activedescendant');
 }
-function pick(s) {
+// one search result's parts (the box's list and the dock's search sheet draw the same row)
+function suggKids(s) {
+  {
+    if (s.theme) return [h('i', { class: 'sw', style: `background:${colorOf(s.theme.v)}` }), h('span', {}, s.theme.name, ' ', h('span', { class: 'meta', text: `${s.theme.codes.length}종목` })),
+      h('span', { class: 'meta num', text: fmtEok(s.theme.cap) }), h('span', { class: 'num ' + ((isFlow() ? s.theme.a : s.theme.v) == null ? 'flat' : cls(isFlow() ? s.theme.a : s.theme.v)), text: thText(s.theme) })];
+    if (s.ext) {
+      // outside the map: the quote when we have one, else just name · code · market and "종목 페이지"
+      const r = s.row, nm = s.n || (r && r.n) || `${s.c} 종목`, mk = s.m || (r && r.m);
+      return [r && kind() === 'day' && ohlcOf(r) ? candleIcon(ohlcOf(r)) : h('i', { class: 'sw' + (r && r.nonx ? ' nonx' : ''), style: `background:${r ? colorFor(r) : NODATA}` }), h('span', {}, nm, ' ', h('span', { class: 'meta', text: `${s.c}${mk ? ' · ' + MKT_NAME[mk] : ''}${(s.n || r) && isPreferred({ c: s.c }) ? ' · 우선주' : ''}${r && r.nonx ? ' · NXT 없음' : ''}` })),
+        h('span', { class: 'meta num', text: r && r.p > 0 ? fmtInt(r.p) : '' }), r ? h('span', { class: 'num ' + cls(r.r), text: fmtPct(r.r) }) : h('span', { class: 'meta', text: '종목 페이지' })];
+    }
+    return [kind() === 'day' && ohlcOf(s) ? candleIcon(ohlcOf(s)) : h('i', { class: 'sw' + (s.nonx ? ' nonx' : ''), style: `background:${colorFor(s)}` }), h('span', {}, s.n, ' ', h('span', { class: 'meta', text: `${s.c} · ${s.i}${s.nonx ? ' · NXT 없음' : ''}` })),
+      h('span', { class: 'meta num', text: s.p > 0 ? fmtInt(s.p) : '—' }), h('span', { class: 'num ' + cls(s.r), text: fmtPct(s.r) })];
+  }
+}
+function pick(s, opener) {
   qEl.value = ''; state.query = ''; suggIdx = 0;
   sugg.classList.remove('open'); qEl.blur();
   if (s.theme) { openTheme(s.theme.id); return; }
   const onMap = nodes.get('T|' + s.c);
   if (s.ext || isWorld()) {
     applyHighlights();
-    if (onMap && !isWorld()) { openStock(s.c, onMap); return; }
+    if (onMap && !isWorld()) { openStock(s.c, opener || onMap); return; }
     const k = stockApi();
-    if (k) { tip.classList.remove('show'); k.open(s.c, { opener: qEl }); }
-    else if (get(s.c)) select(s.c, qEl);
+    if (k) { tip.classList.remove('show'); k.open(s.c, { opener: opener || qEl }); }
+    else if (get(s.c)) select(s.c, opener || qEl);
     else window.open(`https://m.stock.naver.com/domestic/stock/${encodeURIComponent(s.c)}`, '_blank', 'noopener');
     return;
   }
-  if (state.market === 'WATCH' || state.market === 'THEME') { applyHighlights(); openStock(s.c, onMap || null); return; }
+  if (state.market === 'WATCH' || state.market === 'THEME') { applyHighlights(); openStock(s.c, opener || onMap || null); return; }
   state.forced.add(s.c);
   state.focus = { s: s.s };
   render({ animate: true }); renderCrumbs(); renderSide(); renderLegend();
-  openStock(s.c, nodes.get('T|' + s.c) || null);
+  openStock(s.c, opener || nodes.get('T|' + s.c) || null);
 }
 // narrow phones: a shorter placeholder that fits the box
 const tinyMQ = matchMedia('(max-width: 400px)');
@@ -4883,7 +5234,7 @@ qEl.addEventListener('blur', () => setTimeout(() => sugg.classList.remove('open'
 qEl.addEventListener('focus', () => { needNames(); if (qEl.value.trim()) renderSugg(); });
 addEventListener('keydown', e => {
   if (stockOpen() || e.defaultPrevented) return;   // the stock page owns / and Esc while it is open
-  if (e.key === '/' && document.activeElement !== qEl && !e.metaKey && !e.ctrlKey) { e.preventDefault(); qEl.focus(); }
+  if (e.key === '/' && document.activeElement !== qEl && !e.metaKey && !e.ctrlKey && !(e.target instanceof HTMLInputElement)) { e.preventDefault(); qEl.focus(); }
   else if (e.key === 'Escape' && document.activeElement !== qEl) {
     if (ctlsOpen()) closeCtls();
     else if (sheet.classList.contains('open')) closeSheet();
@@ -5158,22 +5509,25 @@ function refreshOpenViews() {
     else if (ae && ae !== sheet && !ae.isConnected) sheet.focus({ preventScroll: true });
   }
 }
-// the map as drawn now (for saving it as an image)
+// the map as drawn now (for saving it as an image); sector / industry bands and the tile type in the theme's colours
+let LC = null;
+const layoutColours = () => ({ theme: THEME, sec: cssVar('--sec-bg'), ind: cssVar('--ihd-bg'), secFg: cssVar('--sec-fg'), indFg: cssVar('--ihd-fg'), tile: cssVar('--tile-fg') });
 function khLayout() {
   if (state.view !== 'map') return [];
+  if (!LC || LC.theme !== THEME) LC = layoutColours();
   const out = [];
   for (const el of nodes.values()) {
     if (!el.__g || el.classList.contains('leaving')) continue;
     const [x, y, w, hh] = el.__g;
     if (el.classList.contains('tile')) {
-      const t = { kind: 'tile', x, y, w, h: hh, color: el.__col || NODATA, label: el.__name || '', sub: el.__sub || '' };
+      const t = { kind: 'tile', x, y, w, h: hh, color: el.__col || NODATA, label: el.__name || '', sub: el.__sub || '', ink: el.style.color || LC.tile };   // ink: the label colour as drawn
       if (el.dataset.c) { t.code = el.dataset.c; if (el.__px) t.px = el.__px; if (el.__mc) t.mc = el.__mc; }   // px: the price as drawn (basis / replay); mc: the cap line when shown
       if (el.classList.contains('dim')) t.dim = true;                              // dimmed by search / 등락 분포 bucket / sector hover
       if (el.classList.contains('nonx')) t.nonx = true;                            // NXT prices drawn, no NXT trade: the KRX value (§3-8)
       out.push(t);
     } else {
       const sec = el.classList.contains('sec'), hd = el.firstChild, H = el.__hd || 0;
-      out.push({ kind: sec ? 'sector' : 'ind', x, y, w, h: hh, color: sec ? '#000' : '#0d0e11', label: H ? hd.children[0].textContent : '', sub: H ? hd.children[1].textContent : '', hd: H });
+      out.push({ kind: sec ? 'sector' : 'ind', x, y, w, h: hh, color: sec ? LC.sec : LC.ind, ink: sec ? LC.secFg : LC.indFg, label: H ? hd.children[0].textContent : '', sub: H ? hd.children[1].textContent : '', hd: H });
     }
   }
   const order = { sector: 0, ind: 1, tile: 2 };
@@ -5194,7 +5548,7 @@ window.KH = {
   stocks: () => (DATA ? DATA.stocks : []),
   asOf: () => (DATA ? DATA.asOf : null),
   colorOf: r => dayColor(r),
-  palette: () => { const p = PALETTES[state.palette]; return { key: state.palette, label: p.label, stops: p.stops.slice(), up: p.stops[6], down: p.stops[0], flat: p.stops[3], upText: p.upText, dnText: p.dnText }; },
+  palette: () => { const p = PAL(); return { key: state.palette, label: p.label, stops: p.stops.slice(), up: p.stops[6], down: p.stops[0], flat: p.stops[3], upText: p.upText, dnText: p.dnText }; },
   fmt: { pct: fmtPct, int: fmtInt, chg: fmtChg, eok: fmtEok, vol: fmtVol, cls },
   // §3-13 today's candle: ohlc(code | /api/quotes row) → {pc, o, h, l, c} | null in the price basis; candleIcon(o) / candleBar(o, range?)
   // → elements (o null → an empty slot of the same size)
@@ -5215,6 +5569,8 @@ window.KH = {
   market: () => ({ THEME: 'theme', WATCH: 'watch', WORLD: 'world', CMDTY: 'cmdty' })[state.market] || state.market,
   basis: basisId,
   ui: KHUI,
+  // themes.md: 'base' | 'paper' | 'glass-dark' | 'glass-light' (<html data-theme>, data-tone 'dark' | 'light'); 'kh:theme' {theme} on change
+  theme: () => THEME,
 };
 
 /* phones: the basis chip's menu (a bottom sheet): KRX · NXT · 통합 with a line each; arrows / Home / End move, Enter picks, Esc closes,
@@ -5278,9 +5634,549 @@ if ('IntersectionObserver' in window) new IntersectionObserver(es => {
   if (v) { syncBreadth(); renderSide(); } else { clearTimeout(brState.timer); brState.timer = null; }
 }).observe($('#hist').closest('.card'));
 
+/* ───────────────── themes (docs/standards/themes.md) ─────────────────
+   KH.theme() → 'base'|'paper'|'glass-dark'|'glass-light' (localStorage khm.theme; the head script set <html data-theme · data-tone ·
+   data-labs · data-serif · data-blur> before the first paint). A change repaints the data colours (palette × theme, §8) and every
+   theme-coloured view in place — the layout is the same in every theme — then fires 'kh:theme' {theme} and 'kh:palette'.
+   표시 설정 › 화면: 테마 (안 A, four at once, 2 × 2 with swatches) · 명조 제목 (paper only, khm.set.serif, off by default; the Noto
+   Serif KR subset loads only when it is on) · 유리 흐림 자동 · 끄기 (glass only, khm.set.glassBlur). Rows that do not apply to the
+   current theme stay in place, dimmed (controls §5-12), so the sheet keeps its height. */
+const THEME_SW = { base: ['#131418', '#25272e', '#ffb547'], paper: ['#f6e8da', '#211a15', '#f3b941'], 'glass-dark': ['#0b0c10', '#4a4e58', '#ffb547'], 'glass-light': ['#e7eaf0', '#ffffff', '#a86200'] };
+let SERIF = store.get('set.serif', false) === true;
+let GLASS_BLUR = store.get('set.glassBlur', 'auto') === 'off' ? 'off' : 'auto';
+let GLASS_AUTO_OFF = document.documentElement.dataset.blurAuto === '1';
+function loadSerif() {
+  const d = document.documentElement;
+  if (d.dataset.serifLoaded || !window.FontFace) return;
+  const el = document.getElementById('kh-serif');
+  if (!el) return;
+  try {
+    const f = new FontFace('KH 명조', `url(data:font/woff2;base64,${el.textContent.trim()})`, { weight: '200 900', display: 'swap' });
+    document.fonts.add(f); f.load().catch(() => {});
+    d.dataset.serifLoaded = '1';
+  } catch (e) { /* the titles keep Pretendard */ }
+}
+function themeAttrs() {
+  const d = document.documentElement;
+  d.dataset.theme = THEME; d.dataset.tone = lightTone() ? 'light' : 'dark'; d.dataset.labs = lightTone() ? 'auto' : 'halo';
+  d.dataset.serif = THEME === 'paper' && SERIF ? 'on' : 'off';
+  d.dataset.blur = GLASS_BLUR === 'off' || GLASS_AUTO_OFF ? 'off' : 'on';
+  if (GLASS_AUTO_OFF) d.dataset.blurAuto = '1'; else delete d.dataset.blurAuto;
+  if (d.dataset.serif === 'on') loadSerif();
+  const m = document.querySelector('meta[name="theme-color"]');
+  if (m) m.setAttribute('content', cssVar('--page'));
+}
+function repaintTheme() {
+  NODATA = cssVar('--nodata'); LC = null;
+  rebuildColor(); buildPaletteSeg(); syncControls();
+  if (!isWorld()) { render(); renderCrumbs(); renderSide(); renderLegend(); }
+  renderTabs(); refreshOpenViews();
+  if (sugg.classList.contains('open')) renderSugg();
+  if (SS.open) ssRender();
+  dkRefresh();
+}
+function applyTheme(t, persist) {
+  if (!THEME_IDS.includes(t)) t = 'base';
+  if (persist) store.set('theme', t);
+  if (t === THEME) { syncThemeUI(); return; }
+  THEME = t;
+  const d = document.documentElement;
+  d.classList.add('kh-swap');
+  themeAttrs();
+  repaintTheme();
+  syncThemeUI();
+  stickMeasure();
+  requestAnimationFrame(() => requestAnimationFrame(() => d.classList.remove('kh-swap')));
+  document.dispatchEvent(new CustomEvent('kh:theme', { detail: { theme: t } }));
+  document.dispatchEvent(new CustomEvent('kh:palette'));
+}
+const tsw = id => h('span', { class: 'tsw', 'aria-hidden': 'true' }, THEME_SW[id].map(c => h('b', { style: `background:${c}` })));
+const themeSeg = h('div', { class: 'seg', role: 'group', 'aria-labelledby': 'thmLbl' },
+  THEME_IDS.map(id => h('button', { type: 'button', 'data-th': id, 'aria-pressed': String(id === THEME) }, tsw(id), h('span', { text: THEME_NAME[id] }))));
+const serifBtn = h('button', { type: 'button', class: 'swbtn', role: 'switch', 'aria-checked': String(SERIF), 'aria-describedby': 'serifHint',
+  onclick: () => { if (THEME !== 'paper') return; SERIF = !SERIF; store.set('set.serif', SERIF); themeAttrs(); syncThemeUI(); stickMeasure(); } },
+  h('span', { class: 'swl', text: '명조 제목' }), h('span', { class: 'swt', 'aria-hidden': 'true' }));
+const blurSeg = h('div', { class: 'seg', role: 'group', 'aria-labelledby': 'blurLbl' },
+  [['auto', '자동'], ['off', '끄기']].map(([v, t]) => h('button', { type: 'button', 'data-gb': v, 'aria-pressed': String(v === GLASS_BLUR), text: t })));
+const serifRow = h('div', { class: 'ctl', 'data-ctl': 'serif' }, serifBtn, h('small', { class: 'hint', id: 'serifHint' }));
+const blurRow = h('div', { class: 'ctl', 'data-ctl': 'glassBlur' }, h('span', { id: 'blurLbl', text: '유리 흐림' }), blurSeg, h('small', { class: 'hint', id: 'blurHint' }));
+$('.morehd', morePanel).after(
+  h('div', { class: 'ctl thm', 'data-ctl': 'theme' }, h('span', { id: 'thmLbl', text: '테마' }), themeSeg,
+    h('small', { class: 'hint', text: '기본은 지금 화면이에요. 신문 · 글라스 밝게는 밝은 화면이에요. 크기와 배치는 그대로예요.' })),
+  serifRow, blurRow);
+themeSeg.addEventListener('click', e => { const b = e.target.closest('button[data-th]'); if (b) applyTheme(b.dataset.th, true); });
+blurSeg.addEventListener('click', e => {
+  const b = e.target.closest('button[data-gb]');
+  if (!b || !THEME.startsWith('glass') || b.dataset.gb === GLASS_BLUR) return;
+  GLASS_BLUR = b.dataset.gb; store.set('set.glassBlur', GLASS_BLUR);
+  if (GLASS_BLUR === 'auto') { GLASS_AUTO_OFF = autoLite(); }
+  themeAttrs(); syncThemeUI();
+});
+// 자동: the first-paint rules again (Save-Data, a low-end phone, an earlier automatic switch-off within 14 days)
+function autoLite() {
+  const n = navigator, c = n.connection || {}, lite = +store.get('glassLite', 0) || 0;
+  const low = matchMedia('(pointer: coarse)').matches && ((n.deviceMemory && n.deviceMemory <= 3) || (n.hardwareConcurrency && n.hardwareConcurrency <= 4));
+  return !!c.saveData || !!low || (lite > 0 && Date.now() - lite < 12096e5);
+}
+function syncThemeUI() {
+  for (const b of themeSeg.children) b.setAttribute('aria-pressed', String(b.dataset.th === THEME));
+  const paper = THEME === 'paper', glass = THEME.startsWith('glass');
+  serifRow.toggleAttribute('aria-disabled', !paper); if (!paper) serifRow.setAttribute('aria-disabled', 'true');
+  serifBtn.setAttribute('aria-checked', String(SERIF));
+  if (paper) serifBtn.removeAttribute('aria-disabled'); else serifBtn.setAttribute('aria-disabled', 'true');
+  serifRow.querySelector('.hint').textContent = paper ? '카드 · 시트 제목과 큰 숫자만 명조로 바뀌어요.' : '신문 테마에서 쓸 수 있어요.';
+  blurRow.toggleAttribute('aria-disabled', !glass); if (!glass) blurRow.setAttribute('aria-disabled', 'true');
+  for (const b of blurSeg.children) { b.setAttribute('aria-pressed', String(b.dataset.gb === GLASS_BLUR)); if (glass) b.removeAttribute('aria-disabled'); else b.setAttribute('aria-disabled', 'true'); }
+  $('#blurHint').textContent = !glass ? '글라스 테마에서 쓸 수 있어요.' : GLASS_BLUR === 'off' ? '유리 판을 흐림 없이 불투명하게 그려요.'
+    : GLASS_AUTO_OFF ? '이 기기에서는 화면이 느려 흐림을 스스로 껐어요.' : '자동이면 느린 휴대폰에서 스스로 불투명한 판으로 바뀌어요.';
+}
+uiSeg(themeSeg); uiSeg(blurSeg); uiSwitch(serifBtn);
+addEventListener('storage', e => { if (e.key === 'khm.theme') applyTheme(store.get('theme', 'base'), false); });
+
+/* ───────────────── the header follows on scroll (themes.md §7) + the narrow-screen rule (dock.md §7) ─────────────────
+   --stick: 0 (desktop: the whole header) or −(the tab row's offset) when the tab row sits on its own row under the clock row (the
+   same test as the session bar's sb-mid placement, §3-12b). --stuck-h: what stays visible once stuck (also the scroll padding, so
+   focus and scrollIntoView land below it). .is-stuck: 기본's line. .tuck: the narrow rule — header + dock over 18 % of the height →
+   the header steps away while scrolling down and comes back on the way up (more than 4 px). */
+const topEl = $('header.top');
+const STK = { stick: 0, vis: 0, stuck: false, y: scrollY };
+function stickMeasure() {
+  const tabs = topEl.querySelector('.tabs'), brand = topEl.querySelector('.brand');
+  const mid = !!(tabs && brand && tabs.offsetParent && tabs.offsetTop >= brand.offsetTop + brand.offsetHeight - 2);
+  const s = mid ? -tabs.offsetTop : 0;
+  if (s !== STK.stick) { STK.stick = s; topEl.style.setProperty('--stick', s + 'px'); }
+  const v = topEl.offsetHeight + s;
+  if (v !== STK.vis) { STK.vis = v; document.documentElement.style.setProperty('--stuck-h', v + 'px'); }
+}
+const stuckBottom = () => STK.stuck && !topEl.classList.contains('tuck') ? Math.max(0, topEl.getBoundingClientRect().bottom) : 0;
+let scrollRaf = 0;
+function scrollFrame() {
+  scrollRaf = 0;
+  const y = scrollY, dy = y - STK.y; STK.y = y;
+  const stuck = y > -STK.stick + 0.5;
+  if (stuck !== STK.stuck) { STK.stuck = stuck; topEl.classList.toggle('is-stuck', stuck); }
+  dkSync();
+  const tight = stuck && DK.shown && (STK.vis + DOCK_OUT) / innerHeight > 0.18;
+  if (!tight) topEl.classList.remove('tuck');
+  else if (dy > 4) topEl.classList.add('tuck');
+  else if (dy < -4) topEl.classList.remove('tuck');
+  glassScroll();
+}
+addEventListener('scroll', () => { if (!scrollRaf) scrollRaf = requestAnimationFrame(scrollFrame); }, { passive: true });
+addEventListener('resize', () => { stickMeasure(); if (!scrollRaf) scrollRaf = requestAnimationFrame(scrollFrame); });
+new ResizeObserver(() => { stickMeasure(); }).observe(topEl);
+// extras moves the session bar (html.sb-mid, --sb-mt) after boot: measure again when <html>'s class changes
+new MutationObserver(() => stickMeasure()).observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+
+/* glass frame watchdog (§6-2 ②): only while a glass header is stuck, blurred and scrolling — the rAF intervals of the last 90 frames;
+   from 60 on, when ≥ 25 % run over 1.5 × the device's idle interval (its median, any refresh rate), the glass turns into the opaque
+   panel on the spot (not back again) and khm.glassLite remembers it for 14 days. */
+const GW = { base: 16.7, d: [], last: 0, at: 0, on: false };
+addEventListener('load', () => setTimeout(() => {
+  const xs = []; let last = 0;
+  const f = t => { if (last) xs.push(t - last); last = t; if (xs.length < 30 && !document.hidden) requestAnimationFrame(f); else if (xs.length) { xs.sort((a, b) => a - b); GW.base = Math.max(6, xs[xs.length >> 1]); } };
+  requestAnimationFrame(f);
+}, 600), { once: true });
+const glassLive = () => THEME.startsWith('glass') && document.documentElement.dataset.blur !== 'off' && STK.stuck;
+function glassScroll() {
+  GW.at = performance.now();
+  if (GW.on || !glassLive() || cssVar('--blur-bar') === 'none') return;
+  GW.on = true; GW.last = 0;
+  requestAnimationFrame(glassFrame);
+}
+function glassFrame(now) {
+  if (!glassLive() || now - GW.at > 400) { GW.on = false; GW.d = []; return; }
+  if (GW.last && now - GW.at < 120) {
+    GW.d.push(now - GW.last); if (GW.d.length > 90) GW.d.shift();
+    if (GW.d.length >= 60 && GW.d.filter(x => x > GW.base * 1.5).length / GW.d.length >= 0.25) {
+      GW.on = false; GW.d = [];
+      GLASS_AUTO_OFF = true; store.set('glassLite', Date.now());
+      themeAttrs(); syncThemeUI();
+      return;
+    }
+  }
+  GW.last = now;
+  requestAnimationFrame(glassFrame);
+}
+
+/* ───────────────── 아래 막대 — the phone dock (docs/standards/dock.md: V2 two cells + swipe pages, 🔍 at one end) ─────────────────
+   ≤ 760 only. Page 1 = the index (follows the tab) + 등락 분포, page 2 = 관심 + the other market's index; dots show the page, ← →
+   move, each page is aria-roledescription "쪽". 🔍 sits outside the swipe area and stays when the cells are off. Values come from the
+   same stores as the rest of the page: KH.index / the frame's index (replay), the IXM line, the ★관심 tab's number and group
+   (khm.watchTabGroup), the 등락 분포 card's own counts. It floats once the map box has gone by (never over the map), hides while any
+   sheet / dialog / the stock page / the keyboard is open (openWins(): the one count). Settings: khm.set.dock · dockCells · dockPages ·
+   dockIndex · dockSide. */
+const DOCK_OUT = 72;                     // 8 + 56 + 8: the map's bottom has to pass this line before the dock comes up
+const dkPick = (k, ok, d) => { const v = store.get('set.' + k, d); return ok.includes(v) ? v : d; };
+const DKSET = {
+  content: store.get('set.dock', true) !== false,
+  cells: dkPick('dockCells', ['ix,brd', 'ix,watch', 'watch,brd'], 'ix,brd'),
+  pages: dkPick('dockPages', ['2', '1'], '2'),
+  index: dkPick('dockIndex', ['tab', 'KOSPI', 'KOSDAQ'], 'tab'),
+  side: dkPick('dockSide', ['right', 'left'], 'right'),
+};
+const DK = { el: null, pw: null, pages: null, dots: null, key: null, cells: [], shape: '', shown: false, page: 0, restore: null };
+const dkDom = () => (['K', 'Q', 'ALL'].includes(lastMarket) ? lastMarket : 'K');
+// "탭 따라": the tab's index; tabs without one (테마 · 관심 · 해외 · 원자재) → the last domestic tab's (전체 → 코스피)
+const dkIxKey = () => DKSET.index !== 'tab' ? DKSET.index : ({ Q: 'KOSDAQ' })[['K', 'Q', 'ALL'].includes(state.market) ? state.market : dkDom()] || 'KOSPI';
+function dkLayout() {
+  const c = DKSET.cells.split(','), rest = ['ix', 'watch', 'brd'].find(k => !c.includes(k));
+  const out = [c];
+  if (DKSET.pages === '2') out.push(rest === 'ix' ? ['ix', 'ix2'] : [rest, 'ix2']);
+  return out;
+}
+// a kind is "showing" while the dock is up with its cells on and the current page holds it (fetches follow this)
+function dkShows(kind) {
+  if (!DK.shown || !DKSET.content) return false;
+  const pg = dkLayout()[DK.page] || [];
+  return kind === 'ix' ? pg.includes('ix') || pg.includes('ix2') : pg.includes(kind);
+}
+const SVG_NS = 'http://www.w3.org/2000/svg';
+function dkCell(kind) {
+  const c = h('button', { type: 'button', class: 'dk-c', 'data-k': kind });
+  if (kind === 'ix' || kind === 'ix2') {
+    const sp = document.createElementNS(SVG_NS, 'svg'); sp.setAttribute('class', 'dk-sp'); sp.setAttribute('viewBox', '0 0 44 18'); sp.setAttribute('aria-hidden', 'true');
+    c.append(h('span', { class: 'dk-l1' }, h('b', { class: 'nm' }), h('span', { class: 'p' })), h('span', { class: 'dk-v' }, h('span', { class: 'val' }), sp));
+  } else if (kind === 'watch') {
+    c.append(h('span', { class: 'dk-l1' }, h('span', {}, h('span', { class: 'st', 'aria-hidden': 'true', text: '★' }), ' ', h('span', { class: 'nm' })), h('span', { class: 'cnt' })),
+      h('span', { class: 'dk-v' }, h('span', { class: 'val' }), h('small', {}, h('span', { class: 'mvn' }), ' ', h('span', { class: 'mvp' }))));
+  } else {
+    c.append(h('span', { class: 'dk-l1' }, h('b', { class: 'nm' }), h('span', { class: 'cnt' })),
+      h('span', { class: 'dk-bar', 'aria-hidden': 'true' }, h('i'), h('i'), h('i')),
+      h('span', { class: 'dk-n', 'aria-hidden': 'true' }, h('span', { class: 'up' }), h('span', { class: 'flat' }), h('span', { class: 'dn' })));
+  }
+  return c;
+}
+function dkBuild() {
+  const pages = dkLayout(), shape = [DKSET.content, DKSET.cells, DKSET.pages, DKSET.side].join('|');
+  if (shape === DK.shape) return;
+  DK.shape = shape;
+  const hadFocus = DK.el && DK.el.contains(document.activeElement);
+  DK.cells = [];
+  DK.pages = h('div', { class: 'dk-pages' }, pages.map((pg, i) => h('div', { class: 'dk-pg', role: 'group', 'aria-roledescription': '쪽', 'aria-label': `${i + 1}/${pages.length}` },
+    pg.map(k => { const c = dkCell(k); DK.cells.push(c); return c; }))));
+  DK.dots = h('div', { class: 'dk-dots', 'aria-hidden': 'true', hidden: pages.length < 2 }, pages.map((_, i) => h('i', { class: i === 0 ? 'on' : null })));
+  DK.pw = h('div', { class: 'dk-pw' }, DK.pages, DK.dots);
+  DK.el.replaceChildren(DK.pw, DK.key);
+  DK.el.dataset.side = DKSET.side;
+  DK.el.classList.toggle('keyonly', !DKSET.content);
+  DK.page = 0;
+  DK.pages.addEventListener('scroll', dkPageScroll, { passive: true });
+  if (hadFocus) DK.key.focus({ preventScroll: true });
+  if (DK.shown) dkFill();
+}
+function dkPageScroll() {
+  const w = DK.pages.clientWidth || 1, i = Math.max(0, Math.min(DK.pages.children.length - 1, Math.round(DK.pages.scrollLeft / w)));
+  if (i === DK.page) return;
+  DK.page = i;
+  [...DK.dots.children].forEach((x, j) => x.classList.toggle('on', j === i));
+  dkData();
+}
+function dkGoPage(i, focus) {
+  const n = DK.pages.children.length;
+  i = Math.max(0, Math.min(n - 1, i));
+  DK.pages.scrollTo({ left: i * DK.pages.clientWidth, behavior: reduced() ? 'auto' : 'smooth' });
+  if (focus) { const c = DK.pages.children[i].querySelector('.dk-c'); if (c) c.focus({ preventScroll: true }); }
+}
+// the cells' data: the index line (/api/market) and the 등락 분포 parts follow what is on screen
+function dkData() { ixSync(); syncBreadth(); }
+// a number that changes in place (화려하게: the digits roll)
+function dkText(el, text, dir) { if (el.textContent === text) return; if (dir && fancy() && DK.shown) uiRoll(el, text, dir); else el.textContent = text; }
+const dkNum = t => parseFloat(String(t).replace(/[−]/g, '-').replace(/[^\d.\-]/g, '')) || 0;
+function dkSpark(svg, s) {
+  if (!s || s.pts.length < 2) { svg.replaceChildren(); return; }
+  let lo = 0, hi = 0;
+  for (const p of s.pts) { if (p[1] < lo) lo = p[1]; if (p[1] > hi) hi = p[1]; }
+  const span = Math.max(hi - lo, 0.3), X = m => (Math.max(0, Math.min(s.end, m)) / s.end) * 44, Y = r => 1.5 + (hi - r) / span * 15;
+  const d = s.pts.map((p, j) => (j ? 'L' : 'M') + X(p[0]).toFixed(1) + ' ' + Y(p[1]).toFixed(1)).join('');
+  const bl = document.createElementNS(SVG_NS, 'line'), ln = document.createElementNS(SVG_NS, 'path');
+  Object.entries({ class: 'bl', x1: 0, x2: 44, y1: Y(0).toFixed(1), y2: Y(0).toFixed(1) }).forEach(([k, v]) => bl.setAttribute(k, v));
+  ln.setAttribute('class', 'ln'); ln.setAttribute('d', d);
+  svg.setAttribute('class', 'dk-sp ' + cls(s.r));
+  svg.replaceChildren(bl, ln);
+}
+// 해외 / 원자재: the card is not drawn, so the dock counts the last domestic tab with the card's own rules
+function dkDist() {
+  if (!isWorld()) return DIST;
+  const was = { m: state.market, f: state.focus, t: state.theme };
+  state.market = dkDom(); state.focus = null; state.theme = null;
+  try {
+    const d = distSummary(), c = distCount(d.vals), k = kind();
+    return Object.assign(c, { n: c.up + c.dn + c.fl, title: distTitle(k), words: distWords(k), scope: d.opts.scope, unit: '종목' });
+  } catch (e) { return null; } finally { state.market = was.m; state.focus = was.f; state.theme = was.t; }
+}
+function dkFill() {
+  if (!DK.el || !DATA || !DKSET.content) return;
+  const P = PAL().stops, k1 = dkIxKey(), k2 = k1 === 'KOSPI' ? 'KOSDAQ' : 'KOSPI';
+  for (const c of DK.cells) {
+    const kind = c.dataset.k;
+    if (kind === 'ix' || kind === 'ix2') {
+      const key = kind === 'ix' ? k1 : k2, m = key === 'KOSPI' ? 'K' : 'Q', t = tabIndex(m), x = DATA.index && DATA.index[key], s = ixSeries(key);
+      let v = null, ch = null;
+      if (REPLAY) { if (s && s.v != null) v = s.v; }
+      else if (x && +x.value > 0) { v = +x.value; ch = +x.change; }
+      const r = t && t.v != null && isFinite(t.v) ? Math.round(t.v * 100) / 100 : null;
+      c.dataset.key = key;
+      c.querySelector('.nm').textContent = IX_NAME[key];
+      const p = c.querySelector('.p'), val = c.querySelector('.val');
+      p.className = 'p ' + (r == null ? 'flat' : cls(r));
+      dkText(p, r == null ? '—' : fmtPct(r), r == null ? 0 : Math.sign(r - dkNum(p.textContent)));
+      dkText(val, v == null ? (REPLAY ? `다시 보기 ${hhmm(REPLAY.t)}` : '—') : NF2.format(v), v == null ? 0 : Math.sign(v - dkNum(val.textContent)));
+      dkSpark(c.querySelector('svg'), s);
+      c.setAttribute('aria-label', `${IX_NAME[key]} ${v == null ? '' : NF2.format(v) + ', '}${ch != null ? fmtChg2(ch) + ' ' : ''}${r == null ? '' : '(' + fmtPct(r) + ')'}${s ? `, ${REPLAY ? '다시 보기' : '오늘'} 흐름` : ''} — 누르면 지수 상세`);
+    } else if (kind === 'watch') {
+      const gid = wtabId(), codes = wtabCodes(), x = tabValue('WATCH');
+      const gname = gid === 'all' ? '전체 관심' : wgGet(gid).name;
+      c.querySelector('.nm').textContent = gname;
+      c.querySelector('.cnt').textContent = codes.length ? `${fmtInt(codes.length)}종목` : '';
+      const val = c.querySelector('.val'), mvn = c.querySelector('.mvn'), mvp = c.querySelector('.mvp');
+      if (!codes.length) {
+        val.className = 'val dk-empty'; val.textContent = '관심종목이 없어요'; mvn.textContent = ''; mvp.textContent = '';
+        c.setAttribute('aria-label', '관심종목이 없어요 — 누르면 ★관심 탭');
+        continue;
+      }
+      const v = x && x.v != null && isFinite(x.v) ? Math.round(x.v * 100) / 100 : null;
+      let mv = null;
+      for (const code of codes) { const st = get(code); if (st && isFinite(st.r) && (!mv || Math.abs(st.r) > Math.abs(mv.r))) mv = st; }
+      val.className = 'val ' + (v == null ? 'flat' : cls(v));
+      dkText(val, v == null ? '—' : fmtPct(v), v == null ? 0 : Math.sign(v - dkNum(val.textContent)));
+      mvn.textContent = mv ? mv.n : ''; mvp.className = 'mvp ' + (mv ? cls(mv.r) : 'flat'); mvp.textContent = mv ? fmtPct(mv.r, 1) : '';
+      c.setAttribute('aria-label', `관심 그룹 ${gname} ${fmtInt(codes.length)}종목, 시가총액 가중 ${v == null ? '시세를 받는 중' : fmtPct(v)}${mv ? `, 가장 많이 움직인 ${mv.n} ${fmtPct(mv.r)}` : ''} — 누르면 ★관심 탭`);
+    } else {
+      const D = dkDist();
+      c.querySelector('.nm').textContent = D ? D.title : '등락 분포';
+      c.querySelector('.cnt').textContent = D ? fmtInt(D.n) : '';
+      const [iu, ifl, idn] = c.querySelector('.dk-bar').children;
+      const tot = D && D.n ? D.n : 1;
+      iu.style.cssText = `flex:${D ? D.up / tot : 0};background:${P[6]}`; ifl.style.cssText = `flex:${D ? D.fl / tot : 1};background:${P[3]}`; idn.style.cssText = `flex:${D ? D.dn / tot : 0};background:${P[0]}`;
+      const [nu, nf, nd] = c.querySelector('.dk-n').children;
+      nu.textContent = D ? '▲' + fmtInt(D.up) : ''; nf.textContent = D ? fmtInt(D.fl) : ''; nd.textContent = D ? '▼' + fmtInt(D.dn) : '';
+      c.setAttribute('aria-label', D ? `${D.scope} ${D.title}: ${D.words[0]} ${fmtInt(D.up)}, ${D.words[1]} ${fmtInt(D.fl)}, ${D.words[2]} ${fmtInt(D.dn)} — 누르면 등락 분포 카드로` : '등락 분포 — 누르면 등락 분포 카드로');
+    }
+  }
+}
+const fmtChg2 = v => sgn(v) + NF2.format(Math.abs(v));
+function dkRefresh() { if (DK.el && DK.shown && narrowMQ.matches) dkFill(); }
+// the one count of open windows: sheets, the settings sheet, popovers, menus, the stock page, the 해외 detail, extras' dialogs, the
+// replay player, the dock's own search sheet
+function openWins() {
+  let n = 0;
+  if (sheet.classList.contains('open')) n++;
+  if (ctlsOpen() && narrowMQ.matches) n++;
+  if (!wgPop.hidden) n++;
+  if (!bmenu.hidden) n++;
+  if (SS.open) n++;
+  if (stockOpen() || STOCK_OPEN) n++;
+  const W = window.KHWorld;
+  if (W && typeof W.detailOpen === 'function') { try { if (W.detailOpen()) n++; } catch (e) { /* ignore */ } }
+  if (document.querySelector('dialog[open], section.rp-player:not([hidden])')) n++;
+  return n;
+}
+let STOCK_OPEN = false;                  // 'kh:stock' {open} from the stock page (KHStock.isOpen() and the hash cover older builds)
+document.addEventListener('kh:stock', e => { STOCK_OPEN = !!(e.detail && e.detail.open); dkSync(); });
+const kbdOpen = () => { const vv = window.visualViewport; return !!vv && vv.height < innerHeight * 0.75; };
+function dkWant() {
+  if (!DK.el || !narrowMQ.matches || !DATA) return false;
+  if (openWins() || kbdOpen()) return false;
+  const lim = innerHeight - DOCK_OUT;
+  if (isWorld()) {
+    const w = $('#world'), geo = w.querySelector('.kw-geo:not([hidden])'), bar = w.querySelector('.kw-bar');
+    if (geo && geo.offsetHeight) return geo.getBoundingClientRect().bottom <= lim;
+    return w.offsetHeight > 0 && (bar || w).getBoundingClientRect().bottom <= stuckBottom();
+  }
+  if (state.view === 'map') return mapEl.offsetHeight > 0 && mapEl.getBoundingClientRect().bottom <= lim;
+  const sb = $('.stagebar');
+  return !!sb && sb.getBoundingClientRect().bottom <= stuckBottom();
+}
+function dkSync() {
+  if (!DK.el) return;
+  const want = dkWant();
+  if (want === DK.shown) return;
+  DK.shown = want;
+  DK.el.classList.toggle('on', want);
+  DK.el.setAttribute('aria-hidden', String(!want));
+  if (want) {
+    dkFill(); dkData();
+    // a window opened from the dock has closed while the dock was hidden (focus could not go back then): now it can
+    const r = DK.restore; DK.restore = null;
+    if (r && r.isConnected && DK.el.contains(r) && (!document.activeElement || document.activeElement === document.body)) r.focus({ preventScroll: true });
+  } else if (DK.el.contains(document.activeElement) && !DK.restore) DK.restore = document.activeElement;
+}
+function dkScrollTo(el, gap) {
+  if (!el) return;
+  const y = el.getBoundingClientRect().top + scrollY - STK.vis - gap;
+  topEl.classList.remove('tuck');
+  scrollTo({ top: Math.max(0, Math.round(y)), behavior: reduced() ? 'auto' : 'smooth' });
+}
+async function dkTap(c) {
+  const kind = c.dataset.k;
+  if (kind === 'ix' || kind === 'ix2') {
+    const key = c.dataset.key || dkIxKey(), W = window.KHWorld;
+    DK.restore = c;
+    let ok = false;
+    if (W && typeof W.openDetail === 'function') {
+      const it = IXM.j && Array.isArray(IXM.j.items) ? IXM.j.items.find(x => x && x.key === key) : null;
+      const today = it && Array.isArray(it.spark) && it.spark.length > 1 ? { pts: it.spark.map(p => [+p[0], +p[1]]), base: isFinite(+it.change) ? +it.value - +it.change : null } : null;
+      try { ok = !!(await W.openDetail(key, { opener: c, today })); } catch (e) { ok = false; }
+    }
+    if (!ok) {
+      // no detail here (the snapshot, or the module missing): that index's tab and its line in the map header row
+      DK.restore = null;
+      setMarket(key === 'KOSPI' ? 'K' : 'Q', true);
+      requestAnimationFrame(() => { dkScrollTo($('.stagebar'), 4); const t = $(`.tabs button[data-mkt="${key === 'KOSPI' ? 'K' : 'Q'}"]`); if (t) t.focus({ preventScroll: true }); });
+    }
+    dkSync();
+  } else if (kind === 'watch') {
+    const gid = wtabId();
+    if (state.market !== 'WATCH') setMarket('WATCH', true);
+    if (WG.active !== gid) watchApi.setActive(gid);
+    requestAnimationFrame(() => {
+      dkScrollTo($('.stagebar'), 4);
+      const t = $(`#wgchips .wgc[data-g="${gid}"]`) || $('.tabs button[data-mkt="WATCH"]');
+      if (t) t.focus({ preventScroll: true });
+    });
+    uiLive(`★관심 탭, ${gid === 'all' ? '전체 관심' : wgGet(gid).name}으로 바꿨어요`);
+  } else {
+    if (isWorld()) setMarket(dkDom(), true);
+    requestAnimationFrame(() => {
+      const card = $('#hist') && $('#hist').closest('.card'), h2 = card && card.querySelector('h2');
+      if (!card) return;
+      dkScrollTo(card, 8);
+      h2.tabIndex = -1; h2.focus({ preventScroll: true });
+    });
+  }
+}
+function dkInit() {
+  DK.key = h('button', { type: 'button', class: 'dk-k', 'aria-label': '종목 검색', 'aria-haspopup': 'dialog' });
+  DK.key.innerHTML = '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="8.5" cy="8.5" r="6"/><path d="m13 13 4.5 4.5" stroke-linecap="round"/></svg>';
+  DK.el = h('div', { class: 'dock', role: 'region', 'aria-label': '아래 막대', 'aria-hidden': 'true' });
+  document.body.append(DK.el);
+  dkBuild();
+  DK.key.addEventListener('click', () => ssOpen(DK.key));
+  DK.el.addEventListener('click', e => { const c = e.target.closest('.dk-c'); if (c && DK.el.contains(c)) dkTap(c); });
+  DK.el.addEventListener('keydown', e => {
+    const c = e.target.closest && e.target.closest('.dk-c');
+    if (!c || (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft')) return;
+    const pg = c.closest('.dk-pg'), i = [...DK.pages.children].indexOf(pg), cs = [...pg.querySelectorAll('.dk-c')], j = cs.indexOf(c);
+    e.preventDefault();
+    if (e.key === 'ArrowRight') { if (j < cs.length - 1) cs[j + 1].focus(); else dkGoPage(i + 1, true); }
+    else { if (j > 0) cs[j - 1].focus(); else if (i > 0) { dkGoPage(i - 1, false); const p = DK.pages.children[i - 1].querySelectorAll('.dk-c'); if (p.length) p[p.length - 1].focus({ preventScroll: true }); } }
+  });
+  // the windows the dock hides for open and close in other modules too (dialogs, the 해외 detail, the replay player): a light check
+  // twice a second on phones, plus right after any press or Esc
+  setInterval(() => { if (narrowMQ.matches && !document.hidden) dkSync(); }, 500);
+  for (const t of ['click', 'keyup']) document.addEventListener(t, () => setTimeout(dkSync, 40), true);
+  addEventListener('hashchange', () => setTimeout(dkSync, 40));
+  if (window.visualViewport) visualViewport.addEventListener('resize', () => { dkSync(); if (SS.open) ssFit(); });
+  narrowMQ.addEventListener('change', () => { if (!narrowMQ.matches && SS.open) ssClose(false); dkSync(); });
+  document.addEventListener('kh:watch', dkRefresh);
+  document.addEventListener('kh:render', dkRefresh);
+}
+
+/* 🔍 → the search sheet: the same searchList() and pick() as the search box, its own ids (#dkq · #dksugg). It sits on the keyboard
+   (visualViewport); focus goes to the box, and back to 🔍 on ✕ · a tap outside · Esc; ↑ ↓ Enter move and pick. */
+const SS = { open: false, el: null, scrim: null, inp: null, list: null, hint: null, idx: 0, found: [] };
+function ssBuild() {
+  SS.inp = h('input', { id: 'dkq', type: 'search', placeholder: '종목명·코드', autocomplete: 'off', spellcheck: 'false', enterkeyhint: 'search', 'aria-label': '종목 검색', role: 'combobox', 'aria-autocomplete': 'list', 'aria-controls': 'dksugg', 'aria-expanded': 'false' });
+  const lab = h('label', { class: 'search' }); lab.innerHTML = '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="8.5" cy="8.5" r="6"/><path d="m13 13 4.5 4.5" stroke-linecap="round"/></svg>';
+  lab.append(SS.inp);
+  const x = h('button', { type: 'button', class: 'ss-x', 'aria-label': '검색 닫기', text: '×', onclick: () => ssClose(true) });
+  SS.hint = h('p', { class: 'ss-hint', 'aria-live': 'polite' });
+  SS.list = h('div', { class: 'ss-list', id: 'dksugg', role: 'listbox', 'aria-label': '찾은 종목' });
+  SS.el = h('div', { class: 'ssheet', role: 'dialog', 'aria-modal': 'true', 'aria-label': '종목 검색', hidden: true }, h('div', { class: 'grab', 'aria-hidden': 'true' }), h('div', { class: 'ss-top' }, lab, x), SS.hint, SS.list);
+  SS.scrim = h('div', { class: 'ss-scrim', hidden: true, onclick: () => ssClose(true) });
+  document.body.append(SS.scrim, SS.el);
+  SS.inp.addEventListener('input', () => { SS.idx = 0; ssRender(); });
+  SS.el.addEventListener('keydown', e => {
+    if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); ssClose(true); return; }
+    if (e.target === SS.inp && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+      e.preventDefault(); if (!SS.found.length) return;
+      SS.idx = (SS.idx + (e.key === 'ArrowDown' ? 1 : -1) + SS.found.length) % SS.found.length; ssMark(); return;
+    }
+    if (e.target === SS.inp && e.key === 'Enter') { e.preventDefault(); if (SS.found[SS.idx]) ssPick(SS.idx); return; }
+    if (e.key === 'Tab') { const f = [SS.inp, x]; const i = f.indexOf(document.activeElement); e.preventDefault(); f[(i + (e.shiftKey ? -1 : 1) + f.length) % f.length].focus(); }
+  });
+}
+function ssFit() {
+  const vv = window.visualViewport, vh = vv ? vv.height : innerHeight, kb = vv ? Math.max(0, innerHeight - (vv.offsetTop + vv.height)) : 0;
+  SS.el.style.bottom = Math.round(kb) + 'px';
+  SS.el.style.height = Math.round(Math.max(220, Math.min(innerHeight * 0.78, vh - 40))) + 'px';
+}
+function ssMark() {
+  for (const [i, b] of [...SS.list.querySelectorAll('[role="option"]')].entries()) b.setAttribute('aria-selected', String(i === SS.idx));
+  if (SS.found.length) { SS.inp.setAttribute('aria-activedescendant', 'dksg-' + SS.idx); const b = $('#dksg-' + SS.idx); if (b) b.scrollIntoView({ block: 'nearest' }); }
+  else SS.inp.removeAttribute('aria-activedescendant');
+}
+function ssRender() {
+  const q = SS.inp.value.trim();
+  SS.found = searchList(q);
+  if (SS.idx >= SS.found.length) SS.idx = 0;
+  const where = state.market === 'THEME' ? '테마' : '종목';
+  const kids = SS.found.map((s, i) => h('button', { type: 'button', role: 'option', id: 'dksg-' + i, tabindex: '-1', 'aria-selected': String(i === SS.idx), onclick: () => ssPick(i) }, suggKids(s)));
+  if (q && !kids.length) kids.push(h('div', { class: 'empty' }, MODE === 'live' && namesSt.st === 'loading' ? '종목 목록을 불러오는 중…' : `'${q}'와 맞는 ${where}이 없어요.`));
+  SS.list.replaceChildren(...kids);
+  SS.inp.setAttribute('aria-expanded', String(SS.found.length > 0));
+  SS.hint.textContent = !q ? '이름이나 코드로 찾아요 · 지금 읽던 자리는 그대로예요' : SS.found.length ? `${SS.found.length}개 찾았어요` : '';
+  ssMark();
+}
+function ssPick(i) {
+  const s = SS.found[i];
+  if (!s) return;
+  ssClose(false);
+  DK.restore = DK.key;
+  pick(s, DK.key);
+  setTimeout(dkSync, 40);
+}
+function ssOpen(opener) {
+  if (!SS.el) ssBuild();
+  SS.opener = opener || DK.key;
+  SS.inp.value = ''; SS.idx = 0;
+  SS.open = true; SS.el.hidden = false; SS.scrim.hidden = false;
+  ssFit(); ssRender(); needNames(); dkSync();
+  SS.inp.focus({ preventScroll: true });
+}
+function ssClose(restore) {
+  if (!SS.open) return;
+  SS.open = false; SS.el.hidden = true; SS.scrim.hidden = true;
+  SS.inp.blur();
+  dkSync();                                    // the dock first (a hidden key cannot take the focus), then the key
+  if (restore && SS.opener && SS.opener.isConnected) { DK.restore = SS.opener; if (DK.shown) { DK.restore = null; SS.opener.focus({ preventScroll: true }); } }
+}
+
+/* 표시 설정 › 아래 막대 (phones): 막대 내용 · 1쪽 칸 · 쪽 수 · 지수 칸 · 돋보기 */
+const dkSetEl = (() => {
+  const sw = h('button', { type: 'button', class: 'swbtn', role: 'switch', 'aria-checked': String(DKSET.content), 'aria-describedby': 'dkSwH',
+    onclick: () => { DKSET.content = !DKSET.content; store.set('set.dock', DKSET.content); sw.setAttribute('aria-checked', String(DKSET.content)); dkBuild(); dkFill(); dkData(); } },
+    h('span', { class: 'swl', text: '막대 내용' }), h('span', { class: 'swt', 'aria-hidden': 'true' }));
+  uiSwitch(sw);
+  const segRow = (key, label, opts) => {
+    const id = 'dkl-' + key;
+    const sg = h('div', { class: 'seg', role: 'group', 'aria-labelledby': id }, opts.map(([v, t]) => h('button', { type: 'button', 'data-v': v, 'aria-pressed': String(DKSET[key] === v), text: t })));
+    sg.addEventListener('click', e => {
+      const b = e.target.closest('button[data-v]'); if (!b || DKSET[key] === b.dataset.v) return;
+      DKSET[key] = b.dataset.v; store.set('set.dock' + key[0].toUpperCase() + key.slice(1), b.dataset.v);
+      for (const x of sg.children) x.setAttribute('aria-pressed', String(x.dataset.v === DKSET[key]));
+      dkBuild(); dkFill(); dkData();
+    });
+    uiSeg(sg);
+    return h('div', { class: 'ctl' }, h('span', { id, text: label }), sg);
+  };
+  return h('div', { class: 'dkset', role: 'group', 'aria-labelledby': 'dkSetH' },
+    h('span', { class: 'dkh', id: 'dkSetH', text: '아래 막대' }),
+    h('div', { class: 'ctl' }, sw, h('small', { class: 'hint', id: 'dkSwH', text: '스크롤해서 지도를 지나가면 화면 아래에 떠요. 꺼도 🔍 돋보기는 남아요.' })),
+    segRow('cells', '1쪽 칸', [['ix,brd', '지수·분포'], ['ix,watch', '지수·관심'], ['watch,brd', '관심·분포']]),
+    segRow('pages', '쪽 수', [['2', '두 쪽 (넘겨 보기)'], ['1', '1쪽만']]),
+    segRow('index', '지수 칸', [['tab', '탭 따라'], ['KOSPI', '코스피'], ['KOSDAQ', '코스닥']]),
+    segRow('side', '돋보기', [['right', '오른쪽'], ['left', '왼쪽']]),
+    h('small', { class: 'hint', text: '2쪽은 나머지 칸과 다른 시장 지수예요. 관심 칸은 ★관심 탭 아래 숫자와 같은 그룹 · 같은 값이에요.' }));
+})();
+ctlsEl.append(dkSetEl);
+
 /* ───────────────── boot ───────────────── */
 for (const sg of document.querySelectorAll(SEG_SEL)) uiSeg(sg);
-if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { for (const sg of document.querySelectorAll(SEG_SEL)) uiSegPlace(sg, true); });
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { for (const sg of document.querySelectorAll(SEG_SEL)) uiSegPlace(sg, true); stickMeasure(); });
+syncThemeUI();
+dkInit();
 syncWorld(true);
 if (isWorld()) domReady().then(() => syncWorld());
 rebuildColor();
@@ -5299,6 +6195,7 @@ renderCrumbs();
 renderSide();
 renderLegend();
 if (MODE === 'live') { poll(); syncPollers(); loadClose(); }
+stickMeasure(); scrollFrame();
 })();
 </script>
 <!--__STOCK__-->

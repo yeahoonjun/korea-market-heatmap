@@ -28,6 +28,10 @@ FONT_INLINE = (
     + base64.b64encode((ROOT / "src/fonts/PretendardVariable-subset.woff2").read_bytes()).decode()
     + ") format('woff2-variations')}</style>"
 )
+# 명조 제목 (themes.md §5, paper only, off by default): a Noto Serif KR subset (titles + numbers) as a non-running block in <head>;
+# the page turns it into a FontFace only when the setting is on — no network in either mode
+SERIF_INLINE = ('<script type="application/octet-stream" id="kh-serif">'
+                + base64.b64encode((ROOT / "src/fonts/NotoSerifKR-head-subset.woff2").read_bytes()).decode() + '</script>')
 FONT_CDN = ('<link rel="stylesheet" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/'
             'dist/web/variable/pretendardvariable-dynamic-subset.min.css">')
 
@@ -49,7 +53,7 @@ def page(mode: str) -> str:
     if mode == "snapshot":                      # the snapshot must draw with no network at all: d3 rides inline
         assert len(D3_TAG.findall(out)) == 1, "d3 <script> tag not found exactly once in the template"
         out = D3_TAG.sub(lambda m: D3_INLINE, out)
-    return (out.replace("<!--__FONT__-->", font).replace("<!--__STOCK__-->", extra + stock_module())
+    return (out.replace("<!--__FONT__-->", font).replace("<!--__SERIF__-->", SERIF_INLINE).replace("<!--__STOCK__-->", extra + stock_module())
             .replace("__MODE__", mode).replace("__SNAPSHOT__", data))
 
 
