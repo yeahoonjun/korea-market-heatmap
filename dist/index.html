@@ -8078,7 +8078,7 @@ section.rp-player[hidden]{display:none}
   .rp-player.rp-more-on .rp-set{display:flex}
   .rp-player .rp-date{height:40px}
   .rp-player .rp-day{order:3;flex:1 1 100%;text-align:center}
-  .rp-player .rp-speed button{height:36px}
+  .rp-player .rp-speed button{height:36px;min-width:40px}
   .rp-player .rp-note{display:none}
   .rp-player.rp-more-on .rp-note{display:block}
   .rp-player .rp-x{right:4px;top:4px}
@@ -8151,6 +8151,64 @@ html[data-motion="reduced"] .xt-toast{transition:none}
   .xc-btn{height:40px;display:flex;align-items:center;margin:0;padding:0 4px 3px}
 }
 @media (prefers-reduced-motion:reduce){.xc-fill{transition:none!important}}
+/* long press opens the world clock: no text selection, no iOS callout, no double-tap zoom wait (Android's menu: contextmenu is cancelled) */
+.xc-btn{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:manipulation}
+.xc-btn[data-world]{background:rgba(255,255,255,.06)}
+/* countdown in the seconds slot (08:50 → open, 15:20 → close): fixed amber, the clock looks the same in every theme.
+   Desktop: the slot keeps its width (the tabs beside the clock never move, the header never wraps) and the countdown grows to the
+   left, under the minute digits; phones show the slot only while it counts down, in the free space right of the digits */
+.xc-sec{white-space:nowrap}
+.xc-sec.xc-cd{color:#ffb547;font-weight:650;letter-spacing:-.01em}
+@media (min-width:761px){
+  .xc-digits + .xc-sec.xc-cd{display:flex;justify-content:flex-end;width:1.4em;font-size:11.5px;margin-bottom:1px}
+  .xc-digits{transition:transform var(--c-base) var(--c-out)}
+  .xc-cdon .xc-digits{transform:translateY(-3px)}          /* room for the countdown under the minutes; transform: no layout */
+}
+@media (min-width:761px) and (max-width:900px){.xc-cdon .xc-digits{transform:translateY(-4px)}}
+.xc-dcol{display:flex;flex-direction:column;align-items:flex-start;gap:3px}
+.xc-dcol .xc-sec{align-self:flex-start;margin:0;min-width:0}
+.xc-dcol .xc-sec:not(.xc-cd){display:none}
+/* 마감 동시호가: a steady 1.5px amber outline; as it starts, one 1.2 s glow (기본 · 화려하게). Absolute: no layout */
+.xc-glo{position:absolute;inset:0;border-radius:inherit;pointer-events:none}
+.xc-btn.xc-auc .xc-glo{box-shadow:0 0 0 1.5px rgba(255,181,71,.9)}
+.xc-glo.run{animation:xcGlow 1.2s cubic-bezier(.2,.7,.2,1)}
+@keyframes xcGlow{0%{box-shadow:0 0 0 1.5px rgba(255,181,71,.9),0 0 0 0 rgba(255,181,71,0)}28%{box-shadow:0 0 0 2.5px #ffb547,0 0 18px 5px rgba(255,181,71,.55)}100%{box-shadow:0 0 0 1.5px rgba(255,181,71,.9),0 0 22px 8px rgba(255,181,71,0)}}
+html[data-motion="reduced"] .xc-glo.run{animation:none}
+@media (max-width:760px){
+  .xc-sec.xc-cd{display:block;align-self:center;margin:0 0 0 2px;font-size:13px}
+}
+
+/* world clock: the popover's look follows the template's group popover (.wgpop); phones: a bottom sheet */
+.xwc{position:fixed;z-index:96;width:300px;max-width:calc(100vw - 16px);padding:10px 10px 8px;border-radius:12px;background:rgba(32,34,40,.99);border:1px solid var(--line2);box-shadow:0 18px 50px rgba(0,0,0,.55);color:var(--fg);font-size:13.5px;outline:none}
+.xwc[hidden]{display:none}
+.xwc-hd{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 4px 6px}
+.xwc-h{margin:0;font-size:13px;font-weight:600;color:var(--fg2)}
+.xwc-x{position:relative;flex:none;display:grid;place-items:center;width:32px;height:32px;margin:-4px -2px -4px 0;border-radius:var(--r-in,8px);color:var(--muted);transition:transform var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out),color var(--c-fast) var(--c-out)}
+.xwc-x svg{width:16px;height:16px}
+.xwc-x:hover{background:rgba(255,255,255,.07);color:var(--fg)}
+.xwc-x:is(:active,.is-press){transform:translateY(1px);filter:var(--press-f);transition-duration:0s}
+@media (pointer:coarse){.xwc-x::before{content:"";position:absolute;left:50%;top:50%;width:max(100%,44px);height:max(100%,44px);transform:translate(-50%,-50%)}}
+@media (hover:none){.xwc-x:hover{background:none;color:var(--muted)}}
+.xwc-l{list-style:none;margin:0;padding:0}
+.xwc-r{display:grid;grid-template-columns:minmax(0,1fr) auto 4.4em;align-items:center;gap:10px;min-height:36px;padding:0 6px;border-top:1px solid var(--line);font-variant-numeric:tabular-nums}
+.xwc-r:first-child{border-top:0}
+.xwc-c{display:flex;align-items:baseline;gap:6px;min-width:0;white-space:nowrap}
+.xwc-c b{font-weight:650;color:var(--fg)}
+.xwc-c small{overflow:hidden;text-overflow:ellipsis;color:var(--muted);font-size:11.5px}
+.xwc-tm{display:flex;align-items:baseline;gap:5px;justify-content:flex-end}
+.xwc-t{font-size:15px;font-weight:650;letter-spacing:-.01em;color:var(--fg)}
+.xwc-d{color:var(--muted);font-size:11.5px}
+.xwc-st{display:flex;align-items:center;justify-content:flex-start;gap:5px;color:var(--muted);font-size:12.5px;white-space:nowrap}
+.xwc-st:not(:empty)::before{content:"";flex:none;width:7px;height:7px;border-radius:50%;box-sizing:border-box;border:1.5px solid #6b7079}
+.xwc-r[data-st="open"] .xwc-st{color:var(--fg)}
+.xwc-r[data-st="open"] .xwc-st::before{background:#ffb547;border-color:#ffb547}
+.xwc-n{margin:6px 6px 0;color:var(--muted);font-size:11.5px;line-height:1.45}
+.xwc-n a{color:var(--fg2);text-underline-offset:2px}
+@media (max-width:760px){
+  .xwc.xwc-sheet{left:8px;right:8px;top:auto;bottom:calc(8px + env(safe-area-inset-bottom));width:auto;max-width:none;padding:12px 12px 10px}
+  .xwc-x{width:40px;height:40px;margin:-6px -4px -6px 0}
+  .xwc-r{min-height:42px}
+}
 
 /* ── timelapse: big time readout in a corner of the map ── */
 .stage{position:relative}
@@ -10202,10 +10260,14 @@ async function cellSet(cell, ch, force) {
   } finally { cell.busy = false; }
 }
 
+const XA_ARC_R = 48.25, XA_ARC_W = 3.5;     // the rim band between the face (r 46.5) and the dial's edge (r 50)
 function ckAnalogSvg() {
   const S = (t, a, ...k) => svg(t, a, ...k);
   const root = S('svg', { viewBox: '0 0 100 100', class: 'xa', 'aria-hidden': 'true', focusable: 'false' });
-  root.append(S('circle', { cx: 50, cy: 50, r: 49, fill: '#2a2c33' }), S('circle', { cx: 50, cy: 50, r: 46.5, fill: '#f4f1e8' }), S('circle', { cx: 50, cy: 50, r: 41.6, fill: 'none', stroke: '#d9d5c8', 'stroke-width': 0.5 }));
+  // the dark rim (r 46.5 → 50) carries the KRX session arc (ckArc): outside the ticks, so hands and ticks read as before
+  const arc = S('g', { class: 'xa-arc', fill: 'none', 'stroke-width': XA_ARC_W, 'stroke-linecap': 'butt' });
+  root.append(S('circle', { cx: 50, cy: 50, r: 50, fill: '#2a2c33' }), arc, S('circle', { cx: 50, cy: 50, r: 46.5, fill: '#f4f1e8' }), S('circle', { cx: 50, cy: 50, r: 41.6, fill: 'none', stroke: '#d9d5c8', 'stroke-width': 0.5 }));
+  root._arc = arc;
   for (let i = 0; i < 60; i++) {
     const a = i * 6 * Math.PI / 180, big = i % 5 === 0, r1 = 45, r2 = big ? 36.5 : 42.6;
     if (big) root.append(S('line', { x1: 50 + Math.sin(a) * r1, y1: 50 - Math.cos(a) * r1, x2: 50 + Math.sin(a) * r2, y2: 50 - Math.cos(a) * r2, stroke: '#17181c', 'stroke-width': i % 15 === 0 ? 3.8 : 2.8, 'stroke-linecap': 'butt' }));
@@ -10214,10 +10276,11 @@ function ckAnalogSvg() {
   const gw = S('g', { class: 'xa-wig' });
   const hh = S('g', { class: 'xa-g xa-hh' }, S('polygon', { points: '47.2,57 52.8,57 51.9,27 48.1,27', fill: '#17181c' }), S('rect', { class: 'xa-in', x: 49.2, y: 33, width: 1.6, height: 15, fill: '#f4f1e8', opacity: 0.9 }));
   const mh = S('g', { class: 'xa-g xa-mh' }, S('polygon', { points: '47.6,58 52.4,58 51.5,10 48.5,10', fill: '#17181c' }), S('rect', { class: 'xa-in', x: 49.35, y: 17, width: 1.3, height: 24, fill: '#f4f1e8', opacity: 0.9 }));
-  // second hand: the station-clock red with its round disc near the tip — thicker so it reads on small dials (사용자 14:21)
+  // second hand: red (사용자 14:21) ending in a hollow ring, not the railway clock's solid disc (사용자 2026-11-13 20:19). The shaft
+  // stops inside the ring's stroke, so the ring's middle shows the face; ring stroke 2.8 + hole 7.2 still read on the 38px phone dial
   const SEC = '#e5231b';
-  const sh = S('g', { class: 'xa-g xa-sh' }, S('rect', { x: 48.7, y: 13, width: 2.6, height: 49, rx: 0.6, fill: SEC }), S('rect', { x: 48.3, y: 56, width: 3.4, height: 11, rx: 0.8, fill: SEC }),
-    S('circle', { cx: 50, cy: 19, r: 5.6, fill: SEC }));
+  const sh = S('g', { class: 'xa-g xa-sh' }, S('rect', { class: 'xa-shaft', x: 48.7, y: 24.6, width: 2.6, height: 37.4, rx: 0.6, fill: SEC }), S('rect', { x: 48.3, y: 56, width: 3.4, height: 11, rx: 0.8, fill: SEC }),
+    S('circle', { class: 'xa-tip', cx: 50, cy: 19.5, r: 5, fill: 'none', stroke: SEC, 'stroke-width': 2.8 }));
   gw.append(hh, mh, sh, S('circle', { cx: 50, cy: 50, r: 2.8, fill: SEC, stroke: '#17181c', 'stroke-width': 0.7 }));
   root.append(gw);
   root._h = hh; root._m = mh; root._s = sh; root._w = gw;
@@ -10235,6 +10298,42 @@ function ckAnalogSet(n, sweep) {
   a._s.style.display = lvl === 'reduced' ? 'none' : '';
   if (lvl === 'standard') tr(a._s, n.s * 6, n.s === 0 || first ? 'none' : 'transform .14s cubic-bezier(.4,2.2,.5,1)');
   else if (lvl === 'fancy' && !sweep) { const f = Math.min(1, (n.s + n.ms / 1000) / 58.5); tr(a._s, f * 360, 'none'); }
+}
+/* §3-6 + 사용자 2026-11-13 20:19: the KRX regular session as an arc on the dial's rim — 09:00 (the 9 o'clock spot) → the close
+   (3:30, or 4:30 on a 1630 day, from /api/market session). The session bar's hues: 오전 sky, 오후 amber, 마감 동시호가 deep orange
+   (never red / green); the part already past is strong, what is left faint. Weekends and holidays: one grey faint arc (the window
+   is shown, nothing in it is coming). Redrawn only when the minute, the session or the holiday state changes. */
+function ckArc(n, ph) {
+  const g = ck.analog && ck.analog._arc; if (!g) return;
+  const { start, mid, auc, end } = ph.seg, hol = ph.text === '휴장', t = n.min;
+  const sig = [start, mid, auc, end, hol ? 'h' : t].join();
+  if (g._sig === sig) return;
+  g._sig = sig;
+  const P = th => { const a = th * Math.PI / 180; return `${(50 + XA_ARC_R * Math.sin(a)).toFixed(2)} ${(50 - XA_ARC_R * Math.cos(a)).toFixed(2)}`; };
+  const ang = m => m / 60 * 30;                                   // minutes since 00:00 → degrees clockwise from 12 (unbounded)
+  const path = (a, b, color, op, cls) => {
+    if (b - a < 0.25) return null;
+    const t0 = ang(a), t1 = ang(b);
+    return svg('path', { class: cls, d: `M${P(t0)}A${XA_ARC_R} ${XA_ARC_R} 0 ${t1 - t0 > 180 ? 1 : 0} 1 ${P(t1)}`, stroke: color, 'stroke-opacity': op });
+  };
+  const out = [];
+  if (hol) out.push(path(start, end, '#8d929c', 0.55, 'xa-a-hol'));
+  else for (const [a, b, c] of [[start, mid, PH.am], [mid, auc, PH.pm], [auc, end, PH.auc]]) {
+    out.push(path(a, Math.min(b, Math.max(a, t)), c, 1, 'xa-a-past'), path(Math.max(a, Math.min(b, t)), b, c, 0.32, 'xa-a-left'));
+  }
+  g.replaceChildren(...out.filter(Boolean));
+}
+/* 사용자 2026-11-13 20:19: the last ten minutes before the open (08:50 → 09:00) and before the close (15:20 → close) count down in the
+   seconds slot, "−09:42" — from the corrected clock (kstNow, §3-17). Not on weekends / holidays. → {kind, secs, text, min} | null */
+function ckCountdown(n, ph) {
+  if (ph.text === '휴장' || n.dow === 0 || n.dow === 6) return null;
+  const { start, end } = ph.seg, now = n.min * 60 + n.s;
+  let kind = null, target = 0;
+  if (now >= (start - 10) * 60 && now < start * 60) { kind = 'open'; target = start * 60; }
+  else if (now >= (end - 10) * 60 && now < end * 60) { kind = 'close'; target = end * 60; }
+  if (!kind) return null;
+  const secs = target - now;
+  return { kind, secs, min: Math.ceil(secs / 60), text: `${MINUS}${two(Math.floor(secs / 60))}:${two(secs % 60)}` };
 }
 function ckSweep() {
   cancelAnimationFrame(ck.raf);
@@ -10257,8 +10356,13 @@ function ckBuild() {
   ck.style = style; ck.cells = []; ck.analog = null; ck.mAng = null; ck.shown = '';
   const face = h('span', { class: 'xc-face xc-' + style });
   if (style !== 'digital') { ck.analog = ckAnalogSvg(); face.append(ck.analog); }
-  if (style === 'analog') { ck.dig = h('span', { class: 'xc-dig', text: '' }); face.append(ck.dig); }
-  else {
+  ck.dig = null;
+  if (style === 'analog') {
+    // analog alone: HH:MM beside the dial, the countdown under it (same column: the clock keeps its width)
+    ck.dig = h('span', { class: 'xc-dig', text: '' });
+    ck.sec = h('span', { class: 'xc-sec', text: '' });
+    face.append(h('span', { class: 'xc-dcol' }, ck.dig, ck.sec));
+  } else {
     const n = kstNow();
     const cells = [...(two(n.h) + two(n.m))].map(flapCell);
     ck.cells = cells;
@@ -10268,8 +10372,13 @@ function ckBuild() {
   // while the refresh runs: a 14px ring just right of the digits (absolute: the clock keeps its size); the result is a bubble
   const ring = uiIcon('spin');
   if (ring) ring.classList.add('xc-ring');
-  ck.btn = h('button', { type: 'button', class: 'xc-btn', onclick: ckClick }, face, ring);
+  // 마감 동시호가: a thin amber outline (steady) and, as it starts, one glow (xc-glo, absolute: no layout)
+  ck.glo = h('span', { class: 'xc-glo', 'aria-hidden': 'true' });
+  // its press refreshes, so no aria-haspopup / aria-expanded: the world clock is its context menu (described in #ck-desc, Shift+F10)
+  ck.btn = h('button', { type: 'button', class: 'xc-btn', 'aria-keyshortcuts': 'Shift+F10', onclick: ckTap }, face, ck.glo, ring);
+  ckPressHooks(ck.btn);
   ck.desc = h('span', { id: 'ck-desc', class: 'xc-sr' });
+  ck.wasAuc = undefined;
   clockEl.replaceChildren(ck.btn, ck.desc);
 }
 
@@ -10278,21 +10387,44 @@ function ckRender(instant) {
   if (tsync.pend != null) { tsync.off = tsync.pend; tsync.pend = null; }
   const n = kstNow(), lvl = motion();
   const t = two(n.h) + two(n.m);
-  if (ck.cells.length) {
-    ck.cells.forEach((c, i) => cellSet(c, t[i]));
-    ck.sec.textContent = lvl === 'reduced' ? '' : two(n.s);
+  const ph = ckPhase(n), cd = ckCountdown(n, ph);
+  ck.cdNow = cd;
+  if (ck.cells.length) ck.cells.forEach((c, i) => cellSet(c, t[i]));
+  // the seconds slot: the seconds (none under 줄이기, which ticks once a minute), or the countdown — plain text at every effect
+  // level, like the seconds it replaces (a roll every second would be motion that never stops beside the map); never announced:
+  // the label below says it once a minute
+  ck.btn.classList.toggle('xc-cdon', !!cd);
+  if (ck.sec) {
+    ck.sec.classList.toggle('xc-cd', !!cd);
+    if (cd) ck.sec.dataset.kind = cd.kind; else delete ck.sec.dataset.kind;
+    const txt = cd ? cd.text : ck.cells.length && lvl !== 'reduced' ? two(n.s) : '';
+    if (ck.sec.textContent !== txt) ck.sec.textContent = txt;
   }
-  if (ck.analog) ckAnalogSet(n);
+  if (ck.analog) { ckAnalogSet(n); ckArc(n, ph); }
   if (ck.dig) ck.dig.textContent = `${two(n.h)}:${two(n.m)}`;
-  const ph = ckPhase(n);
-  if (ck.lastMin !== n.min || ck.lastTxt !== ph.text || ck.lastRev !== tsync.rev) {
-    ck.lastMin = n.min; ck.lastTxt = ph.text; ck.lastRev = tsync.rev;
-    ck.btn.setAttribute('aria-label', `판세 · 지금 ${two(n.h)}:${two(n.m)} · 눌러서 새로고침`);
+  ckAuction(n, ph, lvl);
+  const cdTxt = cd ? `${cd.kind === 'open' ? '개장' : '장 마감'}까지 ${cd.min}분` : '';
+  if (ck.lastMin !== n.min || ck.lastTxt !== ph.text || ck.lastRev !== tsync.rev || ck.lastCd !== cdTxt) {
+    ck.lastMin = n.min; ck.lastTxt = ph.text; ck.lastRev = tsync.rev; ck.lastCd = cdTxt;
+    ck.btn.setAttribute('aria-label', `판세 · 지금 ${two(n.h)}:${two(n.m)}${cdTxt ? ' · ' + cdTxt : ''} · 눌러서 새로고침`);
     const tl = timeLine();
-    ck.btn.title = `${ph.text} · 눌러서 새로고침${tl ? '\n' + tl : ''}`;
-    if (tl) { ck.desc.textContent = tl; ck.btn.setAttribute('aria-describedby', 'ck-desc'); } else { ck.desc.textContent = ''; ck.btn.removeAttribute('aria-describedby'); }
+    ck.btn.title = `${cdTxt || ph.text} · 눌러서 새로고침\n길게 누르거나 오른쪽 클릭하면 세계 시각 (Shift+F10)${tl ? '\n' + tl : ''}`;
+    ck.desc.textContent = `${tl ? tl + '. ' : ''}길게 누르거나 Shift+F10을 누르면 세계 시각을 보여 줘요.`;
+    ck.btn.setAttribute('aria-describedby', 'ck-desc');
   }
+  if (wc.open) wcRender();
   sbRender(n, ph, lvl);
+}
+/* 마감 동시호가 (end − 10 → end): a steady thin amber outline the whole time; as it starts (seen within its first minute) one amber
+   glow of 1.2 s — 기본 · 화려하게 only, 줄이기 = the outline alone. Fixed colours: the clock looks the same in every theme. */
+function ckAuction(n, ph, lvl) {
+  const on = ph.key === 'auc';
+  ck.btn.classList.toggle('xc-auc', on);
+  if (on && ck.wasAuc === false && lvl !== 'reduced' && !document.hidden && n.min * 60 + n.s - ph.seg.auc * 60 < 60) {
+    ck.glo.classList.remove('run'); void ck.glo.offsetWidth; ck.glo.classList.add('run');
+  }
+  if (!on) ck.glo.classList.remove('run');
+  ck.wasAuc = on;
 }
 
 /* ── session bar (#session-bar): a thick underline along the header's bottom edge, 08:00 → 20:00, with a sun / moon riding it ── */
@@ -10356,7 +10488,7 @@ function sbBuild() {
   sb.box.addEventListener('keydown', e => { if (e.key === 'Escape' && sb.tip.classList.contains('on')) { e.stopPropagation(); sbTip(false); } });
   sbEl.replaceChildren(sb.box);
   sb.built = true;
-  if (typeof ResizeObserver === 'function') new ResizeObserver(() => sbFit()).observe(sb.box);
+  if (typeof ResizeObserver === 'function') new ResizeObserver(() => sbFit(true)).observe(sb.box);
 }
 function sbTip(on) {
   clearTimeout(sb.tipT);
@@ -10367,11 +10499,13 @@ function sbTip(on) {
   sb.tipT = setTimeout(() => sb.tip.classList.remove('on'), 4000);
 }
 // the pill sits centred on the bar's position, clamped inside the bar; too wide → drop the words, then the % → icon only (never taller)
-function sbFit() {
+function sbFit(resized) {
   if (!sb.built || !sb.pos && sb.pos !== 0) return;
   const bw = sb.box.clientWidth;
   if (!bw) return;
   const p = sb.ico;
+  // a new width puts the pill in place at once ('화려하게' glides it second by second; across a resize it would sweep past the edge)
+  if (resized) p.style.transition = 'none';
   let mode = 'full';
   for (const m of ['full', 'short', 'icon']) {
     mode = m;
@@ -10458,9 +10592,10 @@ function ckSchedule() {
   clearTimeout(ck.timer);
   if (!ck.on || document.hidden) return;
   const lvl = motion();
-  const now = Date.now();
-  const per = lvl === 'reduced' ? 60000 : 1000;
-  ck.timer = setTimeout(() => { ckRender(); ckSchedule(); }, per - (now % per) + 20);
+  const now = nowMs();                                            // aligned to the corrected second (§3-17)
+  // 줄이기 ticks once a minute, except while a countdown runs (its seconds are plain text, not motion)
+  const per = lvl === 'reduced' && !ck.cdNow ? 60000 : 1000;
+  ck.timer = setTimeout(() => { ckRender(); ckSchedule(); }, per - (((now % per) + per) % per) + 20);
 }
 async function ckClick() {
   if (ck.busy) return;
@@ -10491,10 +10626,177 @@ async function ckClick() {
     else UI.bubble(ck.btn, '못 받았어요 · 다시 눌러 주세요', 'fail');
   }
 }
+/* a tap refreshes (KH.refresh); a long press (500 ms, no refresh), right-click, the context-menu key or Shift+F10 opens the world
+   clock. No Android context menu, no text selection (CSS: user-select / touch-callout none on .xc-btn). */
+const LONG_MS = 500;
+function ckTap(e) {
+  if (ck.lpFired) { ck.lpFired = false; e.preventDefault(); return; }     // the click that ends a long press
+  if (wc.open) { wcClose(true); return; }                                 // the clock pressed again closes the world clock
+  ckClick();
+}
+function ckPressHooks(btn) {
+  let t = 0, x0 = 0, y0 = 0;
+  const cancel = () => { clearTimeout(t); t = 0; };
+  btn.addEventListener('pointerdown', e => {
+    ck.lpFired = false;
+    if (e.button !== 0) return;
+    x0 = e.clientX; y0 = e.clientY;
+    cancel();
+    t = setTimeout(() => { t = 0; ck.lpFired = true; ck.ctxAt = performance.now(); wcOpen(); }, LONG_MS);
+  });
+  btn.addEventListener('pointermove', e => { if (t && Math.hypot(e.clientX - x0, e.clientY - y0) > 10) cancel(); });
+  for (const ev of ['pointercancel', 'pointerleave']) btn.addEventListener(ev, cancel);
+  // the finger lifts after a long press: the touch sequence may put focus back on the clock — the open dialog keeps it
+  btn.addEventListener('pointerup', () => {
+    cancel();
+    if (!ck.lpFired) return;
+    if (wc.open) setTimeout(() => { if (wc.open) wc.el.focus({ preventScroll: true }); }, 0);
+    setTimeout(() => { ck.lpFired = false; }, 400);                       // no click came (touch): the next Enter still refreshes
+  });
+  btn.addEventListener('contextmenu', e => {
+    e.preventDefault();                                                    // Android's long-press menu, the desktop menu
+    cancel();
+    if (performance.now() - (ck.ctxAt || 0) < 1000) return;                // already opened by the long press or the key
+    if (e.pointerType === 'touch' || (e.sourceCapabilities && e.sourceCapabilities.firesTouchEvents)) ck.lpFired = true;
+    if (wc.open) wcClose(true); else wcOpen();
+  });
+  btn.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && wc.open) { e.preventDefault(); wcClose(true); return; }
+    if (e.key === 'ContextMenu' || (e.shiftKey && e.key === 'F10')) {
+      e.preventDefault();
+      ck.ctxAt = performance.now();
+      if (wc.open) wcClose(true); else wcOpen();
+    }
+  });
+}
+
+/* ── world clock (long press on the clock): 뉴욕 · 런던 · 도쿄 · 홍콩 · 상해 — local time (Intl, timeZone) from the corrected clock and
+   whether that market is open, from /api/world?kind=index (the representative index's status, 네이버 증권; fetched on open, 30 s
+   cache). Desktop: a popover under the clock; phones: a bottom sheet. Esc · outside tap · × close it, focus back on the clock.
+   The snapshot shows the times and says the market state is in the live version. */
+const WC = [
+  { key: 'INX', city: '뉴욕', idx: 'S&P 500', tz: 'America/New_York' },
+  { key: 'FTSE', city: '런던', idx: 'FTSE 100', tz: 'Europe/London' },
+  { key: 'N225', city: '도쿄', idx: '니케이 225', tz: 'Asia/Tokyo' },
+  { key: 'HSI', city: '홍콩', idx: '항셍', tz: 'Asia/Hong_Kong' },
+  { key: 'SSEC', city: '상해', idx: '상해종합', tz: 'Asia/Shanghai' },
+];
+const wc = { open: false, el: null, rows: null, at: 0, okAt: 0, data: null, busy: false, err: false, sig: '' };
+const wcFmt = new Map();
+function wcParts(tz, ms) {
+  let f = wcFmt.get(tz);
+  if (!f) { try { f = new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }); } catch (e) { return null; } wcFmt.set(tz, f); }
+  const o = {}; for (const p of f.formatToParts(new Date(ms))) o[p.type] = p.value;
+  return { ymd: `${o.year}-${o.month}-${o.day}`, hm: `${o.hour === '24' ? '00' : o.hour}:${o.minute}` };
+}
+function wcBuild() {
+  const title = h('h3', { id: 'xwc-h', class: 'xwc-h', text: '세계 시각' });
+  const x = h('button', { type: 'button', class: 'xwc-x', 'aria-label': '닫기', onclick: () => wcClose(true) }, icon(ICON.close));
+  wc.rows = WC.map(c => {
+    const r = { c, t: h('span', { class: 'xwc-t' }), d: h('span', { class: 'xwc-d' }), st: h('span', { class: 'xwc-st' }) };
+    r.el = h('li', { class: 'xwc-r', 'data-k': c.key },
+      h('span', { class: 'xwc-c' }, h('b', { text: c.city }), h('small', { text: c.idx })),
+      h('span', { class: 'xwc-tm' }, r.d, r.t), r.st);
+    return r;
+  });
+  wc.note = h('p', { class: 'xwc-n' });
+  wc.el = h('div', { id: 'xwc', class: 'xwc', role: 'dialog', 'aria-labelledby': 'xwc-h', tabindex: '-1', hidden: true },
+    h('div', { class: 'xwc-hd' }, title, x), h('ul', { class: 'xwc-l' }, wc.rows.map(r => r.el)), wc.note);
+  wc.el.addEventListener('keydown', e => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); wcClose(true); } });
+  // Tab out closes it (focus moving back to the clock does not: the press that follows decides)
+  wc.el.addEventListener('focusout', e => { const t = e.relatedTarget; if (t && !wc.el.contains(t) && t !== ck.btn) wcClose(false); });
+  document.body.append(wc.el);
+}
+function wcOpen() {
+  if (!ck.btn || !ck.btn.isConnected) return;
+  if (!wc.el) wcBuild();
+  wc.open = true; wc.sig = '';
+  wc.el.hidden = false;
+  wc.el.classList.toggle('xwc-sheet', narrowMQ.matches);
+  ck.btn.dataset.world = '';
+  wcRender();
+  wcPlace();
+  wc.el.focus({ preventScroll: true });
+  const lvl = motion();
+  if (lvl !== 'reduced') {
+    try {
+      const sheet = narrowMQ.matches;
+      const k = lvl === 'fancy' ? (sheet ? [{ transform: 'translateY(100%)' }, { transform: 'none' }] : [{ opacity: 0, transform: 'translateY(8px) scale(.985)' }, { opacity: 1, transform: 'none' }])
+        : [{ opacity: 0 }, { opacity: 1 }];
+      wc.el.animate(k, { duration: lvl === 'fancy' ? (sheet ? 480 : 240) : 120, easing: 'cubic-bezier(.2,.7,.2,1)' });
+    } catch (e) { /* static is fine */ }
+  }
+  if (LIVE && Date.now() - wc.at > 30000) wcFetch();
+}
+function wcPlace() {
+  if (!wc.open) return;
+  if (narrowMQ.matches) { wc.el.style.left = wc.el.style.top = ''; return; }
+  const r = ck.btn.getBoundingClientRect(), pw = wc.el.offsetWidth, phh = wc.el.offsetHeight;
+  let top = r.bottom + 8;
+  if (top + phh > innerHeight - 8) top = Math.max(8, innerHeight - phh - 8);
+  wc.el.style.left = Math.round(Math.min(Math.max(8, r.left), innerWidth - pw - 8)) + 'px';
+  wc.el.style.top = Math.round(top) + 'px';
+}
+function wcClose(restore) {
+  if (!wc.open) return;
+  wc.open = false;
+  wc.el.hidden = true;
+  if (ck.btn) delete ck.btn.dataset.world;
+  if (restore && ck.btn && ck.btn.isConnected) ck.btn.focus({ preventScroll: true });
+}
+async function wcFetch() {
+  if (wc.busy) return;
+  wc.busy = true; wc.err = false; wc.sig = '';
+  if (wc.open) wcRender();
+  try {
+    const j = await getJSON('api/world?kind=index', 8000);
+    const m = new Map();
+    for (const g of (j && j.groups) || []) for (const it of g.items || []) if (it && it.key) m.set(it.key, it.status === 'OPEN' ? 'OPEN' : 'CLOSE');
+    wc.data = m; wc.at = Date.now(); wc.okAt = nowMs();
+  } catch (e) { wc.err = true; wc.at = Date.now() - 20000; }        // try again in 10 s, while it is open
+  wc.busy = false; wc.sig = '';
+  if (wc.open) wcRender();
+}
+function wcRender() {
+  if (!wc.el || !wc.open) return;
+  if (LIVE && !wc.busy && Date.now() - wc.at > 30000) { wcFetch(); return; }
+  const ms = nowMs(), seoul = kstNow().date;
+  const sig = [Math.floor(ms / 60000), wc.busy, wc.err, wc.at].join();
+  if (sig === wc.sig) return;
+  wc.sig = sig;
+  for (const r of wc.rows) {
+    const p = wcParts(r.c.tz, ms);
+    r.t.textContent = p ? p.hm : '—';
+    r.d.textContent = !p || p.ymd === seoul ? '' : p.ymd < seoul ? '어제' : '내일';
+    const s = LIVE && wc.data ? wc.data.get(r.c.key) : null;
+    r.el.dataset.st = s ? s.toLowerCase() : '';
+    r.st.textContent = !LIVE ? '' : s === 'OPEN' ? '장중' : s === 'CLOSE' ? '마감' : wc.busy ? '확인 중' : '—';
+  }
+  if (!LIVE) {
+    if (!wc.note.childNodes.length) {
+      const a = typeof KH.LIVE_URL === 'string' ? KH.LIVE_URL : null;
+      wc.note.append('장중·마감은 실시간 버전에서 볼 수 있어요.', ...(a ? [' ', h('a', { href: a, target: '_blank', rel: 'noopener', text: '실시간 버전 열기' })] : []));
+    }
+  } else if (wc.err && !wc.data) wc.note.textContent = '장중·마감을 불러오지 못했어요. 잠시 뒤 다시 확인할게요.';
+  else wc.note.textContent = `장중·마감은 네이버 증권 기준이에요${wc.okAt ? ` · ${fmtHM.format(new Date(wc.okAt))} 확인` : ''}.`;
+}
+// outside press closes it; once the press is over, focus goes back to the clock unless what was pressed took it (a key, a tile)
+document.addEventListener('pointerdown', e => {
+  if (!wc.open || wc.el.contains(e.target) || (ck.btn && ck.btn.contains(e.target))) return;
+  wcClose(false);
+  addEventListener('pointerup', () => setTimeout(() => {
+    const a = document.activeElement;
+    if ((!a || a === document.body || a === wc.el) && ck.btn && ck.btn.isConnected) ck.btn.focus({ preventScroll: true });
+  }, 60), { once: true, capture: true });
+}, true);
+addEventListener('resize', () => { if (!wc.open) return; wc.el.classList.toggle('xwc-sheet', narrowMQ.matches); wcPlace(); });
+addEventListener('scroll', () => { if (wc.open) wcPlace(); }, { passive: true });
+
 function ckApply() {
   if (!clockEl) return;
   const on = getSet('clock', true) !== false && getSet('clock', true) !== 'false';
   ck.on = on;
+  wcClose(false);
   document.documentElement.classList.toggle('has-clock', on);
   clockEl.hidden = !on;
   if (sbEl) sbEl.hidden = !on;
