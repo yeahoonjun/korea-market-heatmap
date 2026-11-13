@@ -86,6 +86,8 @@ if(d.dataset.serif==='on'){var s=document.getElementById('kh-serif');if(s&&windo
   --knob-sh:0 1px 1px rgba(0,0,0,.3),0 3px 6px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.85);
   --knob-dn:0 1px 1px rgba(0,0,0,.4),0 1px 2px rgba(0,0,0,.3),inset 0 1px 0 rgba(255,255,255,.85);
   --chip-bg:#25272e; --chip-on:color-mix(in srgb,#ffb547 20%,#25272e); --chip-ring:rgba(255,181,71,.8);
+  /* 시장 뉴스 (news.md §7 ✚): list-row hover tint · in-headline chip (A · B 안) · data chip (stock name + %) surface */
+  --row-hov:rgba(255,255,255,.045); --mk-bg:rgba(255,255,255,.06); --mk-line:var(--line2); --dchip-bg:var(--key-bg);
 }
 html[data-motion="reduced"]{--c-fast:0ms; --c-base:0ms; --c-switch:0ms}
 /* ───────────────── themes (docs/standards/themes.md §4): one set of role tokens per theme — colour, light, corners, material and
@@ -114,6 +116,7 @@ html[data-theme="paper"]{
   --pri-bg:#211a15; --pri-fg:#fbf1e6; --pri-sh:0 2px 0 #6e5a49; --press-f:brightness(.95);
   --done-bg:#f3b941; --done-fg:#211a15; --fail-bg:#fbf1e6; --fail-fg:#7a3f00; --fail-ring:#8a4b00;
   --chip-bg:#fff8ef; --chip-on:#f7d68e; --chip-ring:#211a15;
+  --row-hov:rgba(46,30,18,.06); --mk-bg:rgba(46,30,18,.07); --mk-line:rgba(46,30,18,.34);
   --trk:#ead5c0; --knob:#fffaf3; --sw-on:#211a15; --knob-sh:inset 0 0 0 1px #211a15,0 2px 0 #211a15; --knob-dn:inset 0 0 0 1px #211a15,0 1px 0 #211a15;
   --r-key:3px; --r-tray:4px; --r-in:2px; --r-chip:3px;
   --w-head:800; --w-strong:800; --track-head:-.03em;
@@ -142,6 +145,7 @@ html[data-theme="glass-dark"]{
   --pri-bg:linear-gradient(180deg,#ffffff,#e6e9ee); --pri-fg:#101216; --pri-sh:inset 0 1px 0 #fff,inset 0 -1px 0 rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.4),0 4px 10px rgba(0,0,0,.3);
   --press-f:brightness(1.2) saturate(1.1); --done-bg:rgba(255,181,71,.94); --fail-bg:rgba(255,181,71,.13);
   --chip-bg:var(--key-bg); --chip-on:rgba(255,181,71,.2);
+  --dchip-bg:linear-gradient(180deg,rgba(255,255,255,.10),rgba(255,255,255,.02) 62%),rgba(0,0,0,.25);   /* the raised key is too light under red / green % */
   --trk:rgba(0,0,0,.36); --knob:linear-gradient(180deg,#ffffff,#e5e8ed);
   --knob-sh:inset 0 1px 0 #fff,0 1px 1px rgba(0,0,0,.3),0 3px 8px rgba(0,0,0,.4); --knob-dn:inset 0 1px 0 #fff,0 1px 1px rgba(0,0,0,.35),0 1px 3px rgba(0,0,0,.3);
   --r-key:999px; --r-tray:999px; --r-in:999px; --r-chip:999px;
@@ -178,6 +182,7 @@ html[data-theme="glass-light"]{
   --press-f:brightness(.95) saturate(1.1);
   --done-bg:#ffb547; --done-fg:#1b1404; --fail-bg:rgba(255,181,71,.2); --fail-fg:#6b3b00; --fail-ring:rgba(154,86,0,.6);
   --chip-bg:var(--key-bg); --chip-on:rgba(255,181,71,.3); --chip-ring:rgba(154,86,0,.75);
+  --row-hov:rgba(15,17,21,.045); --mk-bg:rgba(255,255,255,.7); --mk-line:rgba(15,17,21,.16);
   --trk:rgba(15,17,21,.12); --knob:#ffffff; --sw-on:#ffb547;
   --knob-sh:inset 0 0 0 .5px rgba(15,17,21,.06),0 1px 1px rgba(20,30,50,.2),0 3px 8px rgba(20,30,50,.22); --knob-dn:inset 0 0 0 .5px rgba(15,17,21,.08),0 1px 1px rgba(20,30,50,.25),0 1px 3px rgba(20,30,50,.18);
   --r-key:999px; --r-tray:999px; --r-in:999px; --r-chip:999px;
@@ -369,6 +374,12 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 
 /* ── Layout ───────────────────────────── */
 .layout{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:14px;padding:0 18px 14px;flex:1;min-height:0}
+/* 시장 뉴스 (news.md §4-1): two rows while the card is shown — the side column spans both, so the second row (1fr) is "side end − map
+   column end" and the card under the legend stretches to the side's end. The map, legend and side cards don't move a pixel. */
+.layout:has(> .news:not([hidden])){grid-template-rows:auto 1fr}
+.layout:has(> .news:not([hidden])) > .stage{grid-row:1}
+.layout:has(> .news:not([hidden])) > .side{grid-row:1 / span 2}
+.layout > .news{grid-column:1;grid-row:2;align-self:stretch;min-width:0}
 .stage{display:flex;flex-direction:column;min-width:0}
 .stagebar{display:flex;align-items:center;gap:12px;padding-bottom:6px;min-height:36px}
 .crumbs{display:flex;align-items:center;gap:6px;min-height:30px;font-size:13.5px;flex-wrap:wrap;flex:1;min-width:0}
@@ -541,6 +552,9 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 .tile:hover,.tile.hov{box-shadow:inset 0 0 0 2px var(--tile-hov);z-index:5}
 .tile.sel{box-shadow:inset 0 0 0 3px var(--sel-1),0 0 0 1px var(--sel-2);z-index:6}
 .tile.dim{filter:saturate(.25) brightness(.38)}
+/* 뉴스 줄에 올리면 그 종목만 (KH.hover): weaker than the search / 등락 분포 highlight, which win while they are on */
+.tile.ndim{filter:saturate(.5) brightness(.6)}
+.tile.nhl{box-shadow:inset 0 0 0 2px var(--sel-1),0 0 0 1px var(--sel-2);z-index:5}
 .map.anim .tile{transition:opacity .3s,background-color .6s,filter .2s}
 .tile{transition:filter .2s}
 .tile.flash-up::after,.tile.flash-dn::after{content:"";position:absolute;inset:0;pointer-events:none;animation:flash .9s ease-out}
@@ -782,6 +796,9 @@ footer .credit button:focus-visible{outline:3px solid var(--focus,var(--amber));
 @media (max-width: 980px){
   .layout{grid-template-columns:1fr}
   .side{padding-top:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
+  /* one column: stage → side cards → news, in DOM order (news.md §11 위험 ②) */
+  .layout:has(> .news:not([hidden])){grid-template-rows:none}
+  .layout:has(> .news:not([hidden])) > :is(.stage,.side),.layout > .news{grid-row:auto}
 }
 @media (max-width: 760px){
   .top{padding:12px 12px 8px;gap:10px 12px}
@@ -1215,6 +1232,7 @@ html[data-theme="paper"] .ss-list > button[aria-selected="true"]{background:var(
       <div class="movers" id="movers"></div>
     </section>
   </aside>
+  <section class="card news" id="news" hidden></section><!-- 시장 뉴스 (src/news, docs/standards/news.md §4): PC = 지도 열 두 번째 줄 -->
 </main>
 <div id="world" hidden></div>
 
@@ -1281,7 +1299,10 @@ html[data-theme="paper"] .ss-list > button[aria-selected="true"]{background:var(
         stock(code) rows carry nx: {p, d, r, s 'pre'|'reg'|'after', o 1|0, t, tm, v, tv} | null (the Worker's NXT fields).
         layout() tiles gain nonx (true: NXT prices drawn, this stock has none, its KRX value is shown).
    §3-16 setReplay(frame) frame may carry index {KOSPI, KOSDAQ: ratio % | {ratio}} — the market tabs' numbers at that moment (without
-                         it they use the frame's cap-weighted change per market). localStorage khm.watchTabGroup = the ★관심 tab's group. */
+                         it they use the frame's cap-weighted change per market). localStorage khm.watchTabGroup = the ★관심 tab's group.
+   §3-27 시장 뉴스 (docs/standards/news.md): mount <section class="card news" id="news" hidden> = main.layout's last cell (src/news shows it);
+        quick(code, opener) → the quick view a tile opens; hover(codes | null) → those tiles lit on the map (weaker than search /
+        등락 분포, classes .nhl / .ndim); footer line <p id="foot-news"> (src/news writes "시장 뉴스: … RSS (제목 · 링크만)"). */
 
 /* ───────────────── 효과 level (AGENTS §3-5): 'reduced' | 'standard' | 'fancy', localStorage khm.motion ─────────────────
    No stored choice: the device's reduced-motion setting picks 'reduced', otherwise 'fancy' (사용자 2026-11-10 13:58: 화려하게가 기본). <html data-motion> mirrors it for CSS. */
@@ -3134,7 +3155,30 @@ function applyHighlights() {
     el.classList.toggle('dim', dimOn && !ok);
     el.classList.toggle('sel', st.c === state.selected);
   }
+  newsHighlight(dimOn);
   if (state.view === 'table') renderTable();
+}
+// 시장 뉴스 (news.md §9, KH.hover): the stocks of the news row under the pointer / focus stay lit, the rest dim a little. Only on the
+// map, only when one of them is drawn, and never over the search / 등락 분포 / sector highlight. Classes only — no redraw.
+let NEWS_HL = null, NEWS_ON = false;
+function newsHighlight(dimOn) {
+  if (!NEWS_HL && !NEWS_ON) return;                              // nothing lit, nothing to clear (the usual case)
+  if (dimOn == null) dimOn = !!state.query.trim() || state.bucket != null || !!state.hoverSector;
+  const tiles = [];
+  for (const [id, el] of nodes) if (id[0] === 'T' && id[1] === '|') tiles.push(el);
+  const on = !!NEWS_HL && !dimOn && state.view === 'map' && tiles.some(el => NEWS_HL.has(el.dataset.c));
+  NEWS_ON = on;
+  for (const el of tiles) {
+    const hit = on && NEWS_HL.has(el.dataset.c);
+    el.classList.toggle('nhl', hit);
+    el.classList.toggle('ndim', on && !hit);
+  }
+}
+function newsHover(codes) {
+  const next = Array.isArray(codes) && codes.length ? new Set(codes.map(String)) : null;
+  if (!next && !NEWS_HL) return;
+  NEWS_HL = next;
+  newsHighlight();
 }
 
 /* ───────────────── tooltip & detail ───────────────── */
@@ -4596,6 +4640,8 @@ function creditLine() {
   // 디스코드 아이콘 자리: 사용자가 준 공식 아이콘 파일을 넣을 곳(.dc). 글자 '디스코드'는 쓰지 않아요(사용자 23:07).
   return h('p', { class: 'credit' }, '© 2026 ', b);
 }
+// the news credit line keeps its text across footer redraws (one element, re-attached each time)
+function footNewsP() { return footNewsP.el || (footNewsP.el = h('p', { id: 'foot-news', hidden: true })); }
 function renderFooter() {
   const asOf = DATA.asOf ? kstFmt.format(new Date(DATA.asOf)) : '';
   if (isWorld()) {
@@ -4605,6 +4651,7 @@ function renderFooter() {
   const k = kind();
   // 사용자 2026-11-13 22:06: 크기·색·분류 설명과 갱신·가격 기준 설명은 아래 출처 줄에서 뺐어요(범례·버튼이 이미 말해요).
   const parts = [h('p', {}, '데이터: 네이버 증권 (finance.naver.com). 투자 판단의 근거로 쓰지 마세요.')];   // 사용자 22:16: 출처 주소는 finance.naver.com
+  parts.push(footNewsP());                       // "시장 뉴스: … RSS (제목 · 링크만)" — src/news fills it (news.md §2-5), hidden until then
   const daily = [];
   const P = PER(), F = FLO();
   if (P && P.asOf && k === 'period') daily.push(`기간 수익률 기준 종가는 ${dayName(P.asOf)}에 만든 자료예요`);
@@ -5575,6 +5622,10 @@ window.KH = {
   ui: KHUI,
   // themes.md: 'base' | 'paper' | 'glass-dark' | 'glass-light' (<html data-theme>, data-tone 'dark' | 'light'); 'kh:theme' {theme} on change
   theme: () => THEME,
+  // 시장 뉴스 (news.md §3 · §9): quick(code, opener) = the quick view a tile opens (select → openSheet; Esc returns focus to opener);
+  // hover(codes | null) = light those stocks on the map (weaker than search / 등락 분포; null = back to normal)
+  quick: (code, opener) => select(String(code), opener || null),
+  hover: codes => newsHover(codes),
 };
 
 /* phones: the basis chip's menu (a bottom sheet): KRX · NXT · 통합 with a line each; arrows / Home / End move, Enter picks, Esc closes,
@@ -5635,7 +5686,11 @@ if ('IntersectionObserver' in window) new IntersectionObserver(es => {
   const v = es[es.length - 1].isIntersecting;
   if (v === brState.visible) return;
   brState.visible = v;
-  if (v) { syncBreadth(); renderSide(); } else syncBreadth();     // off screen: it stops unless the dock's 등락 분포 cell shows
+  if (!v) { syncBreadth(); return; }                              // off screen: it stops unless the dock's 등락 분포 cell shows
+  // the redraw replaces the side cards' 더보기 / 접기 key: keep the keyboard focus on it (collapsing a long list scrolls this card back in)
+  const a = document.activeElement, card = a && a.classList && a.classList.contains('more') ? a.closest('.card') : null;
+  syncBreadth(); renderSide();
+  if (card && !a.isConnected) { const nb = card.querySelector('.more'); if (nb) nb.focus({ preventScroll: true }); }
 }).observe($('#hist').closest('.card'));
 
 /* ───────────────── themes (docs/standards/themes.md) ─────────────────

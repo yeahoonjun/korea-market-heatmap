@@ -69,8 +69,9 @@ def module(folder: str, name: str) -> str:
 
 
 def stock_module() -> str:
-    """The stock page (src/stock/) and the extras (src/extras/) are inlined after the heatmap script."""
-    return module("stock", "stock") + module("extras", "extras") + module("world", "world")
+    """The stock page (src/stock/), the extras (src/extras/), world (src/world/) and news (src/news/) are inlined after the heatmap script."""
+    # news (docs/standards/news.md §11 ④): match.js (headline names) before news.js; the snapshot shows only a note — no articles baked in
+    return module("stock", "stock") + module("extras", "extras") + module("world", "world") + module("news", "match") + module("news", "news")
 
 
 DATA_FILES = ("themes", "periods", "flows", "market")   # market: /api/market after the close (index spark for the §3-20 header line)

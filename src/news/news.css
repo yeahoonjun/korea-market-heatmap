@@ -1,0 +1,127 @@
+/* 시장 뉴스 패널 (src/news/news.js · docs/standards/news.md — C안, 사용자 2026-11-13 23:14). drafts/news.html의 C · 휴대폰 모양 그대로.
+   카드 = 템플릿의 <section class="card news" id="news">: PC는 지도 열의 두 번째 줄(옆 칸 끝까지 늘어나요), 980px 이하는 옆 카드 다음.
+   색은 모두 역할 토큰(themes.md §4) + 템플릿의 ✚ --row-hov · --mk-bg · --mk-line · --dchip-bg. 빨강 · 초록은 등락률 숫자에만. */
+:root{--nw-badge-r:6px}
+html[data-theme="paper"]{--nw-badge-r:2px}
+html[data-theme^="glass"]{--nw-badge-r:999px}
+
+.news{display:flex;flex-direction:column;min-width:0;min-height:0;--nw-rh:32px}
+.news[hidden]{display:none}
+@media (pointer:coarse) and (min-width:761px){.news{--nw-rh:44px}}
+.news .nw-hd{display:flex;align-items:center;gap:8px 14px;min-height:30px;margin:0 0 10px;min-width:0}
+.news .nw-hd h2{margin:0;flex:none}
+/* 언론사 탭 = 사이트의 .movers-tabs (KH.ui.seg: 앞 가장자리 --c-fast · 뒤 --c-base) */
+.news .nw-tabs{margin:0;flex:none;min-width:0}
+.news .nw-tabs > button{flex:1 1 auto;padding:3px 11px;min-height:24px}
+.news .nw-tabs > button .nw-bad{display:inline-block;margin-left:4px;color:var(--acc);font-weight:700}
+.news .nw-tabs > button[aria-disabled="true"],.news .nw-only[aria-disabled="true"]{opacity:.45;cursor:not-allowed}
+.news .nw-tabs > button[aria-disabled="true"]:active{filter:none}
+.news .nw-at{margin-left:auto;display:inline-flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums;min-width:0}
+.news .nw-at > span{overflow:hidden;text-overflow:ellipsis;min-width:0}
+.news .nw-at.stale{color:var(--acc);font-weight:600}
+.news .nw-at svg{width:15px;height:15px;flex:none}
+/* 켜고 끄기 칩 "지도 종목 기사만" (controls §5-7): 채움 + 테 + 체크가 0 → 14px (줄 끝이라 옆이 안 밀려요) */
+.news .nw-only{position:relative;display:inline-flex;align-items:center;gap:0;height:28px;padding:0 11px;border-radius:var(--r-chip);background:var(--chip-bg);box-shadow:var(--key-sh);font-size:12.5px;font-weight:600;color:var(--key-fg);white-space:nowrap;flex:none;
+  transition:background var(--c-fast) var(--c-out),box-shadow var(--c-fast) var(--c-out),transform var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out)}
+.news .nw-only .nw-ck{display:inline-block;width:0;height:14px;opacity:0;transform:scale(.6);background:currentColor;-webkit-mask:var(--ck-mask) center/14px no-repeat;mask:var(--ck-mask) center/14px no-repeat;
+  transition:width var(--c-fast) var(--c-out),opacity var(--c-fast) var(--c-out),transform var(--c-fast) var(--c-out),margin var(--c-fast) var(--c-out)}
+.news .nw-only[aria-pressed="true"]{background:var(--chip-on);box-shadow:inset 0 0 0 1.5px var(--chip-ring),var(--key-sh)}
+.news .nw-only[aria-pressed="true"] .nw-ck{width:14px;opacity:1;transform:none;margin-right:6px}
+.news .nw-only .nw-n{margin-left:6px;color:var(--fg2);font-variant-numeric:tabular-nums}
+.news .nw-only:not([aria-disabled="true"]):is(:active,.is-press){transform:translateY(1px);box-shadow:var(--key-dn);filter:var(--press-f);transition-duration:0s}
+
+/* 오래된 목록 한 줄 (한 곳이 이번에 실패해서 마지막으로 받은 목록을 보여 줄 때) */
+.news .nw-note{display:flex;align-items:center;gap:8px;min-height:30px;margin:-4px 0 4px;font-size:12.5px;color:var(--fg2);min-width:0}
+.news .nw-note[hidden]{display:none}
+.news .nw-note > span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.news .nw-note > svg{color:var(--acc);width:15px;height:15px;flex:none}
+.news .nw-note .kasync{margin-left:auto}
+
+/* 목록: 줄은 늘 통째로(반 줄 없음), 줄 높이 32 */
+.news .nw-list{flex:1 1 auto;min-height:0;list-style:none;margin:0;padding:0;display:grid;grid-auto-rows:var(--nw-rh);align-content:start}
+.news .nw-list.c2{grid-auto-flow:column;grid-template-columns:minmax(0,1fr) minmax(0,1fr);column-gap:28px;grid-template-rows:repeat(var(--nw-r,5),var(--nw-rh))}
+.news .nw-row{position:relative;display:grid;grid-template-columns:40px auto minmax(0,1fr) auto;grid-template-areas:"t s tt k";align-items:center;column-gap:10px;height:var(--nw-rh);padding:0 6px;margin:0 -6px;border-radius:6px;box-shadow:inset 0 -1px 0 var(--row-bd);min-width:0;transition:background var(--c-fast) var(--c-out)}
+.news .nw-row:hover{background:var(--row-hov)}
+.news .nw-row time{grid-area:t;font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.news .nw-row .nw-src{grid-area:s}
+.news .nw-row .nw-tt{grid-area:tt}
+.news .nw-row .nw-stk{grid-area:k}
+.news:not([data-tab="all"]) .nw-row .nw-src{display:none}
+.news:not([data-tab="all"]) .nw-row{grid-template-columns:40px 0 minmax(0,1fr) auto}
+/* 언론사 = 글자 배지 · 중립색 (빨강 · 초록 · 언론사 색 · 로고 없음) */
+.news .nw-src{display:inline-block;font-size:11px;font-weight:500;line-height:18px;padding:0 6px;border-radius:var(--nw-badge-r);color:var(--fg2);box-shadow:inset 0 0 0 1px var(--line2);white-space:nowrap;letter-spacing:-.01em}
+.news .nw-tt{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13.5px;color:var(--fg)}
+.news .nw-tt a{text-decoration:none;color:var(--fg)}
+.news .nw-tt a:hover{text-decoration:underline;text-decoration-color:var(--muted);text-underline-offset:3px}
+.news .nw-tt a:focus-visible{outline-offset:-2px;border-radius:3px}
+.news .nw-tt a:visited{color:var(--fg2)}
+/* 제목 안의 종목 이름: 점선 밑줄만(누르지 않음) — 누르는 곳은 오른쪽 칩 */
+.news .nw-tt mark{background:none;color:inherit;text-decoration:underline dotted;text-decoration-color:var(--muted);text-decoration-thickness:1.5px;text-underline-offset:3px}
+/* 종목 칩 = 가는 칩 (controls §5-7: 솟음, 누르면 1px) — 이름 + 오늘 등락률(지도와 같은 값) */
+.news .nw-stk{display:flex;gap:6px;justify-content:flex-end;align-items:center;min-width:0}
+.news .nw-chip{position:relative;display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 9px;border-radius:var(--r-chip);background:var(--dchip-bg);box-shadow:var(--key-sh);font-size:12.5px;font-weight:600;color:var(--key-fg);white-space:nowrap;
+  transition:transform var(--c-fast) var(--c-out),box-shadow var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out)}
+.news .nw-chip b{font-weight:600;font-variant-numeric:tabular-nums}
+.news .nw-chip:hover{filter:brightness(1.1)}
+.news .nw-chip:is(:active,.is-press){transform:translateY(1px);box-shadow:var(--key-dn);filter:var(--press-f);transition-duration:0s}
+.news .nw-moren{font-size:12px;color:var(--muted);align-self:center;font-variant-numeric:tabular-nums}
+/* 터치 화면: 누르는 곳 44px (보이는 크기는 그대로) */
+@media (pointer:coarse){ .news :is(.nw-chip,.nw-only,.nw-kbtn.sm)::before{content:"";position:absolute;left:50%;top:50%;width:max(100%,44px);height:44px;transform:translate(-50%,-50%)} }
+
+/* 줄 아래: 더보기(akey — 글자 상자가 가장 긴 글자 폭) · 출처 */
+.news .nw-ft{display:flex;align-items:center;gap:8px 14px;margin-top:8px;min-height:34px}
+.news .nw-ft small{margin-left:auto;font-size:11.5px;color:var(--faint);text-align:right;line-height:1.45;min-width:0}
+.news .nw-kbtn{position:relative;display:inline-flex;align-items:center;justify-content:center;gap:7px;height:34px;padding:0 14px;border-radius:var(--r-key);background:var(--key-bg);box-shadow:var(--key-sh);font-size:12.5px;font-weight:600;color:var(--key-fg);white-space:nowrap;flex:none;
+  transition:transform var(--c-fast) var(--c-out),box-shadow var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out),background var(--c-base) var(--c-out),color var(--c-fast) var(--c-out)}
+.news .nw-kbtn:hover{background:var(--key-hover)}
+.news .nw-kbtn:is(:active,.is-press){transform:translateY(1px);box-shadow:var(--key-dn);filter:var(--press-f);transition-duration:0s}
+.news .nw-kbtn.sm{height:26px;padding:0 10px;font-size:12px}
+.news .nw-kbtn[hidden]{display:inline-flex;visibility:hidden}
+.news .nw-more::after{content:"";width:6px;height:6px;margin-top:-3px;border:solid var(--key-ic);border-width:0 1.6px 1.6px 0;transform:rotate(45deg);transition:transform var(--c-base) var(--c-inout),margin var(--c-base) var(--c-inout)}
+.news .nw-more[aria-expanded="true"]::after{margin-top:3px;transform:rotate(225deg)}
+@media (hover:none){ .news .nw-kbtn:hover{background:var(--key-bg)} .news .nw-row:hover{background:none} .news .nw-chip:hover{filter:none} }
+/* 화려하게: 더보기로 펼친 줄이 4px 아래에서 (20ms 간격, 8줄까지) */
+html[data-motion="fancy"] .news .nw-row.in{animation:nwIn var(--c-base) var(--c-out) both;animation-delay:var(--d,0ms)}
+@keyframes nwIn{from{opacity:0;transform:translateY(4px)}}
+
+/* 빈 · 오류 · 불러오는 중: 목록 자리를 그대로 차지해요 — 상태가 바뀌어도 카드 높이 그대로 */
+.news .nw-list.is-msg{display:flex;flex-direction:column}
+.news .nw-msg{flex:1 1 auto;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;font-size:13.5px;color:var(--fg2);padding:8px}
+.news .nw-msg b{font-weight:600;color:var(--fg)}
+.news .nw-msg small{font-size:12px;color:var(--muted)}
+.news .nw-msg a{color:var(--fg);font-weight:600;text-underline-offset:3px}
+.news .nw-msg .kasync{margin-top:2px}
+.news .nw-sk{display:block;height:10px;border-radius:5px;background:var(--line);opacity:.8}
+.news .nw-row.skel .nw-tt .nw-sk{width:calc(60% + var(--w,0%))}
+html:not([data-motion="reduced"]) .news .nw-row.skel .nw-sk{animation:nwSk 1.4s var(--c-inout) infinite alternate}
+@keyframes nwSk{to{opacity:.35}}
+
+/* 휴대폰 (≤760): 맨 아래 카드 · 5개 + 더보기 · 시각 · 언론사 / 제목 두 줄 / 종목 칩 한 줄 */
+@media (max-width:760px){
+  .news{--nw-rh:auto}
+  .news .nw-hd{flex-wrap:wrap}
+  .news .nw-hd h2{flex:1 1 auto}
+  .news .nw-tabs{order:5;width:100%}
+  .news .nw-tabs > button{min-height:40px;padding:0 6px;font-size:13px}
+  .news .nw-at{margin-left:0}
+  .news .nw-only{order:6;height:32px}
+  .news .nw-list{grid-auto-rows:auto}
+  .news .nw-row{grid-template-columns:auto minmax(0,1fr);grid-template-areas:"t s" "tt tt" "k k";row-gap:4px;align-items:center;justify-items:start;height:auto;padding:11px 0 12px;margin:0;border-radius:0}
+  .news .nw-row:hover{background:none}
+  .news .nw-row time{font-size:12px}
+  .news .nw-row .nw-tt{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;font-size:15px;line-height:21px;font-weight:500;width:100%}
+  .news .nw-row .nw-tt a{display:block}
+  .news .nw-row .nw-stk{justify-content:flex-start;flex-wrap:wrap;gap:8px;margin-top:6px}
+  .news .nw-row .nw-stk:empty{display:none}
+  .news .nw-chip{height:32px;padding:0 12px;font-size:13px}
+  .news:not([data-tab="all"]) .nw-row{grid-template-columns:auto minmax(0,1fr)}
+  .news .nw-ft{flex-direction:column;align-items:stretch;gap:10px}
+  .news .nw-ft .nw-kbtn{height:42px;width:100%}
+  .news .nw-ft small{margin-left:0;text-align:left}
+  .news .nw-note{flex-wrap:wrap;margin:0 0 4px}
+  .news .nw-note > span{white-space:normal}
+  .news .nw-msg{min-height:300px}
+  .news .nw-wide{display:none}
+  .news.is-snap .nw-msg{min-height:0;padding:18px 8px}
+}
+html[data-motion="reduced"] .news *{animation:none!important}
