@@ -22,7 +22,8 @@ HERE = pathlib.Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
 SHOTS = ROOT / 'qa/shots/world'
 SHOTS.mkdir(parents=True, exist_ok=True)
-PORT, REAL_PORT = 8803, 8802
+import os
+PORT, REAL_PORT = int(os.environ.get('WORLD_QA_PORT', 8803)), 8802      # WORLD_QA_PORT: another worktree's mock may already own 8803
 LIVE = f'http://127.0.0.1:{PORT}/'
 SNAP = (ROOT / 'dist/index.html').as_uri()
 SHIM = (HERE / 'shim.js').read_text(encoding='utf-8')
@@ -240,18 +241,33 @@ SECS_JS = r"""
   const sgn = v => v > 0 ? '+' : v < 0 ? '−' : '';
   const pct = v => sgn(v) + Math.abs(v).toFixed(2) + '%';
   const secs = new Map([...document.querySelectorAll('#world .kw-sec')].map(s => [s.querySelector('.kw-sh .t').textContent, s]));
-  for (const g of fix.groups) {
+  // 지역순 on the index tab: 미국 선물 and 참고 (VIX) are folded into 미국 — cash first, then futures, then VIX. The header average
+  // and the 장중/마감 summary of 미국 use the cash indices only (`cash`).
+  let groups = fix.groups.map(g => ({ ...g, cash: g.items }));
+  const us = groups.find(g => g.key === 'us');
+  if (us && fix.groups.some(g => g.key === 'usf')) {
+    us.items = us.items.concat(groups.filter(g => g.key === 'usf').flatMap(g => g.items), groups.filter(g => g.key === 'ref').flatMap(g => g.items));
+    groups = groups.filter(g => g.key !== 'usf' && g.key !== 'ref');
+  }
+  for (const g of groups) {
     const s = secs.get(g.name);
     if (!s) { out.push('missing section ' + g.name); continue; }
     const keys = [...s.querySelectorAll('.kw-lr')].map(r => r.dataset.k).join(',');
     if (keys !== g.items.map(it => it.key).join(',')) out.push(`${g.name} rows ${keys}`);
-    const vals = g.items.filter(it => !it.ref).map(it => it.ratio);
+    const vals = g.cash.filter(it => !it.ref).map(it => it.ratio);
     const a = s.querySelector('.kw-sh .a b');
     if (vals.length) { const want = pct(vals.reduce((x, y) => x + y, 0) / vals.length); if (!a || a.textContent !== want) out.push(`${g.name} avg ${a && a.textContent} != ${want}`); }
-    const st = s.querySelector('.kw-sh .s').textContent, open = g.items.filter(it => it.status === 'OPEN').length;
-    if (!(open === 0 ? st === '마감' : open === g.items.length ? st.startsWith('장중') : st === `장중 ${open} · 마감 ${g.items.length - open}`)) out.push(`${g.name} state '${st}'`);
+    const st = s.querySelector('.kw-sh .s').textContent, open = g.cash.filter(it => it.status === 'OPEN').length;
+    if (!(open === 0 ? st === '마감' : open === g.cash.length ? st.startsWith('장중') : st === `장중 ${open} · 마감 ${g.cash.length - open}`)) out.push(`${g.name} state '${st}'`);
+    if (g.key === 'us' && fix.groups.some(x => x.key === 'usf')) {
+      const tags = [...s.querySelectorAll('.kw-lr')].map(r => [r.dataset.k, (r.querySelector('.kw-ln .sub') || {}).textContent || '']);
+      const fut = tags.filter(t => /cv1$/.test(t[0])), vix = tags[tags.length - 1];
+      if (!fut.length || fut.some(t => t[1] !== '선물')) out.push('미국 futures lack the 선물 tag: ' + JSON.stringify(fut));
+      if (vix[0] !== 'VIX' || vix[1] !== '참고' || !s.querySelector('.kw-lr[data-k="VIX"].ref')) out.push('VIX is not the last, grey 참고 row of 미국');
+      if (s.querySelector('.kw-sh .a small').textContent !== '지수 평균') out.push('미국 header should say 지수 평균 (cash only)');
+    }
   }
-  if (secs.size !== fix.groups.length) out.push(`sections ${secs.size} != ${fix.groups.length}`);
+  if (secs.size !== groups.length) out.push(`sections ${secs.size} != ${groups.length}`);
   return out;
 }"""
 
@@ -542,7 +558,7 @@ REP = {'840': 'INX', '484': 'MXX', '076': 'BVSP', '372': 'ISEQ', '826': 'FTSE', 
        '410': 'KOSPI', '392': 'N225', '158': 'TWII', '344': 'HSI', '704': 'VNI', '458': 'KLSE', '360': 'JKSE', '036': 'AXJO'}
 IDX = {it['key']: dict(it, gkey=g['key']) for g in FIX['index']['groups'] for it in g['items']}
 REP_HERE = {c: k for c, k in REP.items() if k in IDX}
-OFF = [k for k, it in IDX.items() if it['gkey'] in ('usf', 'ref') or k == 'STOXX50E']       # not tied to one country
+OFF = [k for k, it in IDX.items() if it['gkey'] in ('usf', 'ref')]       # the side box 미국 선물 및 변동성 지수 (유로스톡스 50 is the 유로존 chip in Europe)
 
 
 def subsolar(ms):
@@ -639,7 +655,10 @@ def geo_pass(browser, width, height):
         check(f'{tag}: labels inside the map, % never cut', not o['clip'], '; '.join(o['clip'][:3]))
         check(f'{tag}: labels do not overlap each other or the side box', not o['overlap'], '; '.join(o['overlap'][:3]))
         check(f'{tag}: open markets outlined + marked, closed ones not', not o['open'], '; '.join(o['open'][:3]))
-        check(f'{tag}: US futures · Euro Stoxx 50 · VIX in the side box, VIX grey', sorted(r['offKeys']) == sorted(OFF) and r['vixGrey'], str(r['offKeys']))
+        check(f'{tag}: side box 미국 선물 및 변동성 지수 = US futures + VIX (VIX grey), no 유로스톡스 50', sorted(r['offKeys']) == sorted(OFF) and 'STOXX50E' not in r['offKeys'] and r['vixGrey'], str(r['offKeys']))
+        ez = page.evaluate("""() => { const b = document.querySelector('#world .kw-gb[data-c="EZ"]'); const t = document.querySelector('#world .kw-goh');
+            return { has: !!b, text: b && b.textContent, title2: b && (b.title + b.getAttribute('aria-label')), title: t && t.textContent, grid: !!document.querySelector('#world .kw-gc[data-c="EZ"]') }; }""")
+        check(f'{tag}: 유로스톡스 50 as the 유로존 chip (or grid button on phones), box titled 미국 선물 및 변동성 지수', ez['title'] == '미국 선물 및 변동성 지수' and (ez['grid'] if mobile else (ez['has'] and '유로존' in ez['text'] and '유로스톡스 50' in ez['title2'])), str(ez))
         nt = r['night']
         lon, lat = subsolar(t0)
         check(f'{tag}: day/night — four 12 % caps + terminator around the antisolar point', nt['caps'] == 4 and nt['line'] == 1 and nt['empty'] == 0 and nt['op'] == '0.12'
@@ -656,6 +675,29 @@ def geo_pass(browser, width, height):
         ctx.close()
 
 
+def ticker_detail_pass(browser):
+    """KHWorld.openDetail(key, {opener}) (the ticker's way in) for a future and VIX, from the list tab and from another tab."""
+    for hsh, tag in (('#world', 'on 해외'), ('', 'from another tab')):
+        ctx, page = open_page(browser, LIVE + hsh, 1280, 800)
+        try:
+            page.evaluate("window.__wd = []; document.addEventListener('kh:worlddetail', e => window.__wd.push(e.detail.open))")
+            if hsh:
+                wait_list(page)
+            else:
+                page.wait_for_timeout(1200)
+            for key in ('NQcv1', 'VIX'):
+                ok = page.evaluate("async k => { const b = document.createElement('button'); document.body.append(b); return await KHWorld.openDetail(k, { opener: b }); }", key)
+                page.wait_for_selector('.kw-sheet:not([hidden])', timeout=6000)
+                st = page.evaluate("({ name: document.querySelector('#kw-dt').textContent, open: KHWorld.detailOpen(), ev: window.__wd.slice() })")
+                check(f'ticker openDetail({key}) {tag}: sheet opens, detailOpen() true, kh:worlddetail fired', st['name'] == IDX[key]['name'] and st['open'] and st['ev'] and st['ev'][-1] is True, f'{ok} {st}')
+                page.keyboard.press('Escape')
+                page.wait_for_timeout(150)
+                st = page.evaluate("({ open: KHWorld.detailOpen(), last: window.__wd[window.__wd.length - 1] })")
+                check(f'ticker openDetail({key}) {tag}: Esc closes, detailOpen() false, kh:worlddetail open=false', not st['open'] and st['last'] is False, str(st))
+        finally:
+            ctx.close()
+
+
 def geo_click_pass(browser):
     us = [k for k, it in IDX.items() if it['gkey'] == 'us']
     ctx, page = open_page(browser, LIVE + '#world', 1440, 900, view='map')
@@ -666,7 +708,7 @@ def geo_click_pass(browser):
         st = page.evaluate("""() => ({ name: document.querySelector('#kw-dt').textContent, peers: [...document.querySelectorAll('.kw-sheet .kw-peers button')].map(b => b.dataset.k),
             place: document.querySelector('.kw-peers-h') && document.querySelector('.kw-peers-h').textContent, sel: !!document.querySelector('#world .kw-gsel path'),
             pressed: document.querySelector('.kw-peers button[aria-pressed=true]').dataset.k })""")
-        check('world map click 미국: sheet with S&P 500 + every US index', st['name'] == IDX['INX']['name'] and sorted(st['peers']) == sorted(us) and st['pressed'] == 'INX' and st['place'] == '미국' and st['sel'], str(st))
+        check('world map click 미국: sheet with S&P 500 + every US index', st['name'] == IDX['INX']['name'] and sorted(st['peers']) == sorted(us + [k for k, it in IDX.items() if it['gkey'] in ('usf', 'ref')]) and st['pressed'] == 'INX' and st['place'] == '미국' and st['sel'], str(st))
         page.click('.kw-sheet .kw-peers button[data-k="IXIC"]')
         page.wait_for_timeout(150)
         check('world map sheet: switching to 나스닥 inside the country', page.evaluate("document.querySelector('#kw-dt').textContent") == IDX['IXIC']['name'])
@@ -682,6 +724,10 @@ def geo_click_pass(browser):
         page.wait_for_selector('.kw-sheet:not([hidden])')
         hk = page.evaluate("[document.querySelector('#kw-dt').textContent, [...document.querySelectorAll('.kw-sheet .kw-peers button')].map(b => b.dataset.k)]")
         check('world map: the 홍콩 marker opens 항셍 (+ H지수)', hk[0] == IDX['HSI']['name'] and sorted(hk[1]) == ['HSCE', 'HSI'], str(hk))
+        page.keyboard.press('Escape')
+        page.click('#world .kw-gb[data-c="EZ"]')
+        page.wait_for_selector('.kw-sheet:not([hidden])')
+        check('world map: the 유로존 chip opens 유로스톡스 50', page.evaluate("document.querySelector('#kw-dt').textContent") == IDX['STOXX50E']['name'])
         page.keyboard.press('Escape')
         page.click('#world .kw-go[data-k="NQcv1"]')
         page.wait_for_selector('.kw-sheet:not([hidden])')
@@ -1276,6 +1322,7 @@ def main():
                 kind_pass(browser, 'commodity', w, hgt)
                 geo_pass(browser, w, hgt)
             geo_click_pass(browser)
+            ticker_detail_pass(browser)
             geo_keyboard_pass(browser)
             geo_fallback_pass(browser)
             geo_refresh_pass(browser)
