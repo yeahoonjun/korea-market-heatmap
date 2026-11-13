@@ -5637,7 +5637,7 @@ if ('IntersectionObserver' in window) new IntersectionObserver(es => {
   const v = es[es.length - 1].isIntersecting;
   if (v === brState.visible) return;
   brState.visible = v;
-  if (v) { syncBreadth(); renderSide(); } else { clearTimeout(brState.timer); brState.timer = null; }
+  if (v) { syncBreadth(); renderSide(); } else syncBreadth();     // off screen: it stops unless the dock's 등락 분포 cell shows
 }).observe($('#hist').closest('.card'));
 
 /* ───────────────── themes (docs/standards/themes.md) ─────────────────
