@@ -24,12 +24,31 @@
   --m-flash:700ms; --m-roll:420ms; --m-fly:700ms; --m-stagger:40ms;
   --m-out:cubic-bezier(.2,.7,.2,1); --m-quint:cubic-bezier(.22,1,.36,1); --m-inout:cubic-bezier(.6,0,.2,1);
   --m-exit:cubic-bezier(.4,0,.2,1); --m-fly-ease:cubic-bezier(.83,0,.17,1);
+  /* control tokens (docs/standards/controls.md §2 · §4, V1 입체): '줄이기' sets the lengths to 0 (end states at once) */
+  --c-fast:180ms; --c-base:320ms; --c-slow:560ms; --c-switch:252ms; --c-spin:840ms; --c-dwell:1120ms; --c-arm:4000ms;
+  --c-out:cubic-bezier(.22,1,.36,1); --c-in:cubic-bezier(.4,0,1,1); --c-inout:cubic-bezier(.65,0,.35,1); --c-pop:cubic-bezier(.34,1.3,.64,1);
+  --focus-w:3px; --focus-off:2px;
+  --tray-bg:#0f1014; --tray-sh:inset 0 1px 3px rgba(0,0,0,.7),inset 0 0 0 1px rgba(255,255,255,.05);
+  --ind-bg:#2c2f37; --ind-sh:inset 0 1px 0 rgba(255,255,255,.13),0 1px 2px rgba(0,0,0,.55),0 4px 10px rgba(0,0,0,.35);
+  --key-bg:#25272e; --key-hover:#2b2d35; --key-fg:var(--fg); --key-ic:var(--fg2);
+  --key-sh:inset 0 1px 0 rgba(255,255,255,.12),0 1px 2px rgba(0,0,0,.55),0 4px 10px rgba(0,0,0,.3);
+  --key-dn:inset 0 1px 2px rgba(0,0,0,.55),0 0 0 rgba(0,0,0,0),0 0 0 rgba(0,0,0,0);
+  --key-on:inset 0 1px 3px rgba(0,0,0,.6),inset 0 0 0 1px rgba(255,181,71,.5),0 0 0 rgba(0,0,0,0);
+  --pri-bg:#eef0f3; --pri-fg:#131418; --pri-sh:inset 0 1px 0 rgba(255,255,255,.7),0 1px 2px rgba(0,0,0,.55),0 4px 10px rgba(0,0,0,.3);
+  --press-f:brightness(.86);
+  --done-bg:var(--amber); --done-fg:#1b1404; --fail-bg:#2d2519; --fail-fg:#ffd8a1; --fail-ring:rgba(255,181,71,.6);
+  --r-key:12px; --r-pill:999px; --r-tray:12px; --r-in:8px; --r-chip:999px;
+  --trk:#0f1014; --knob:#f3f4f7;
+  --knob-sh:0 1px 1px rgba(0,0,0,.3),0 3px 6px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.85);
+  --knob-dn:0 1px 1px rgba(0,0,0,.4),0 1px 2px rgba(0,0,0,.3),inset 0 1px 0 rgba(255,255,255,.85);
+  --chip-bg:#25272e; --chip-on:color-mix(in srgb,#ffb547 20%,#25272e); --chip-ring:rgba(255,181,71,.8);
 }
+html[data-motion="reduced"]{--c-fast:0ms; --c-base:0ms; --c-switch:0ms}
 *{box-sizing:border-box}
 html,body{margin:0;background:var(--page);color:var(--fg);font-family:var(--sans);-webkit-font-smoothing:antialiased;-webkit-text-size-adjust:100%}
 body{min-height:100vh;display:flex;flex-direction:column}
 button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
-:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+:focus-visible{outline:var(--focus-w) solid var(--amber);outline-offset:var(--focus-off)}
 .num{font-variant-numeric:tabular-nums}
 .up{color:var(--up-text)} .dn{color:var(--dn-text)} .flat{color:var(--muted)}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
@@ -44,9 +63,9 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 .has-clock #clock{display:flex}
 .has-clock #clock:empty{display:none}
 .has-clock #clock:not(:empty) ~ .ttl{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
-.tabs{display:flex;gap:2px;background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:3px}
-.tabs button{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;min-height:32px;padding:2px 14px;border-radius:6px;font-size:14px;font-weight:600;color:var(--muted);transition:background .15s,color .15s;white-space:nowrap}
-.tabs button[aria-pressed="true"]{background:var(--panel2);color:var(--fg);box-shadow:inset 0 -2px 0 var(--amber)}
+.tabs{display:flex;gap:2px;background:var(--tray-bg);box-shadow:var(--tray-sh);border-radius:var(--r-tray);padding:4px}
+.tabs button{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;min-height:32px;padding:2px 14px;border-radius:var(--r-in);font-size:14px;font-weight:600;color:var(--muted);transition:color var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out);white-space:nowrap}
+.tabs button[aria-pressed="true"]{color:var(--fg)}
 .tabs button:hover{color:var(--fg)}
 .tabs .tn{line-height:16px}
 .tabs .st{color:var(--amber);margin-right:2px;font-size:.9em;line-height:1}
@@ -54,8 +73,6 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 /* §3-16 today's change under 코스피 · 코스닥 · 전체 · ★관심 (blank → the name alone, centred; every tab keeps one height) */
 .tabs .tp{display:block;font-size:11px;line-height:12px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
 .tabs .tp:empty{display:none}
-html[data-motion="fancy"] .tabs .tp.fl{animation:tpfl .9s var(--m-out) 1}
-@keyframes tpfl{0%{text-shadow:0 0 7px currentColor;filter:brightness(1.45)}100%{text-shadow:0 0 0 transparent;filter:none}}
 .idx{display:flex;gap:18px;font-size:13px;margin-left:auto}
 .idx div{display:flex;gap:7px;align-items:baseline;white-space:nowrap}
 .idx .k{color:var(--muted)} .idx .v{font-weight:600}
@@ -81,8 +98,8 @@ html[data-motion="fancy"] .tabs .tp.fl{animation:tpfl .9s var(--m-out) 1}
 /* ── Toolbar ───────────────────────────── */
 .tools{position:relative;display:flex;align-items:center;gap:12px;padding:0 18px 10px;flex-wrap:wrap}
 .search{position:relative;flex:0 1 210px;min-width:170px}
-.search input{width:100%;height:34px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--fg);font:inherit;font-size:14px;padding:0 34px 0 34px;outline:none;transition:border-color .15s}
-.search input:focus{border-color:var(--amber)}
+.search input{width:100%;height:34px;border-radius:var(--r-key);border:0;background:var(--tray-bg);box-shadow:var(--tray-sh);color:var(--fg);font:inherit;font-size:14px;padding:0 35px;outline:none;transition:box-shadow var(--c-fast) var(--c-out)}
+.search input:focus{box-shadow:var(--tray-sh),0 0 0 var(--focus-off) var(--page),0 0 0 calc(var(--focus-off) + var(--focus-w)) var(--amber)}
 .search input::placeholder{color:var(--faint)}
 .search svg{position:absolute;left:10px;top:9px;width:16px;height:16px;color:var(--muted);pointer-events:none}
 .search kbd{position:absolute;right:8px;top:7px;font:500 11px var(--sans);color:var(--faint);border:1px solid var(--line2);border-radius:4px;padding:1px 6px}
@@ -101,18 +118,18 @@ html[data-motion="fancy"] .tabs .tp.fl{animation:tpfl .9s var(--m-out) 1}
 .ddbtn{display:none}
 .ctl.off{opacity:.42}
 .ctl.off .seg button{cursor:not-allowed}
-.seg{display:flex;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:2px}
-.seg button{padding:5px 9px;border-radius:6px;font-size:13px;color:var(--fg2);white-space:nowrap}
+.seg{display:flex;background:var(--tray-bg);box-shadow:var(--tray-sh);border-radius:var(--r-tray);padding:3px}
+.seg button{padding:5px 9px;border-radius:var(--r-in);font-size:13px;color:var(--muted);white-space:nowrap;transition:color var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out)}
 .seg button[hidden]{display:none!important}
 .seg button:hover{color:var(--fg)}
-.seg button[aria-pressed="true"]{background:var(--panel2);color:var(--fg);box-shadow:inset 0 0 0 1px var(--line2)}
+.seg button[aria-pressed="true"]{color:var(--fg)}
 .seg .pal{display:inline-flex;gap:1px;margin-right:6px;vertical-align:-1px}
 .seg .pal b{width:6px;height:11px;display:block}
 .seg .pal b:first-child{border-radius:2px 0 0 2px} .seg .pal b:last-child{border-radius:0 2px 2px 0}
-.setbtn{display:none;align-items:center;gap:7px;height:34px;padding:0 12px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--fg2);font-size:13px;white-space:nowrap}
-.setbtn svg{width:16px;height:16px;color:var(--muted);flex:none}
-.setbtn:hover{color:var(--fg);border-color:var(--line2)}
-.setbtn[aria-expanded="true"]{color:var(--amber);border-color:rgba(255,181,71,.45);background:var(--amber-soft)}
+.setbtn{display:none;align-items:center;gap:7px;height:34px;padding:0 13px;border-radius:var(--r-key);background:var(--key-bg);box-shadow:var(--key-sh);color:var(--key-fg);font-size:13px;font-weight:600;white-space:nowrap}
+.setbtn svg{width:16px;height:16px;color:var(--key-ic);flex:none}
+.setbtn:hover{background:var(--key-hover)}
+.setbtn[aria-expanded="true"]{color:var(--amber);box-shadow:var(--key-on)}
 .setbtn[aria-expanded="true"] svg{color:var(--amber)}
 .ctls-hd{display:none}
 #extras-tools{display:flex;align-items:center;gap:8px;margin-left:auto}
@@ -128,12 +145,16 @@ html[data-motion="fancy"] .tabs .tp.fl{animation:tpfl .9s var(--m-out) 1}
 .morep .hint[hidden]{display:none}
 .morep .seg.wrap{flex-wrap:wrap}
 .morep .seg.wrap button{max-width:100%;overflow:hidden;text-overflow:ellipsis}
-.swbtn{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;min-height:36px;padding:6px 10px;border-radius:8px;background:var(--panel);border:1px solid var(--line);font-size:13px;color:var(--fg);text-align:left}
-.swbtn:hover{border-color:var(--line2)}
-.swbtn .swt{position:relative;flex:none;width:34px;height:20px;border-radius:10px;background:var(--line2);transition:background-color .15s}
-.swbtn .swt::after{content:"";position:absolute;left:2px;top:2px;width:16px;height:16px;border-radius:50%;background:#c9ccd3;transition:transform .15s}
-.swbtn[aria-checked="true"] .swt{background:var(--amber)}
-.swbtn[aria-checked="true"] .swt::after{transform:translateX(14px);background:#1b1404}
+.swbtn{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;min-height:36px;padding:5px 9px 5px 11px;border-radius:var(--r-key);background:var(--key-bg);box-shadow:var(--key-sh);font-size:13px;color:var(--fg);text-align:left;touch-action:pan-y;transition:filter var(--c-fast) var(--c-out)}
+.swbtn:hover{background:var(--key-hover)}
+.swbtn:active,.swbtn.is-press{filter:var(--press-f);transition-duration:0s}
+.swbtn .swt{--t:0;position:relative;flex:none;width:44px;height:26px;border-radius:13px;background:var(--trk);box-shadow:var(--tray-sh)}
+.swbtn .swt::before{content:"";position:absolute;inset:0;border-radius:inherit;background:var(--amber);box-shadow:inset 0 1px 2px rgba(0,0,0,.28);opacity:var(--t);transition:opacity var(--c-switch) var(--c-inout)}
+.swbtn .swt::after{content:"";position:absolute;left:2px;top:2px;width:22px;height:22px;border-radius:50%;background:var(--knob);box-shadow:var(--knob-sh);transform:translateX(calc(var(--t) * 18px));transition:transform var(--c-switch) var(--c-inout),box-shadow var(--c-fast) var(--c-out)}
+.swbtn[aria-checked="true"] .swt{--t:1}
+.swbtn:active .swt::after,.swbtn.is-press .swt::after,.swbtn.drag .swt::after{box-shadow:var(--knob-dn)}
+.swbtn.drag .swt::after{transition:box-shadow var(--c-fast) var(--c-out)}
+.swbtn.drag .swt::before{transition:none}
 /* wide desktop: every control in one row; 색 기준 and 순매수 기간 open as small popovers; palette names from 1800px */
 @media (min-width:1280px){
   .ctls{display:contents}
@@ -144,23 +165,23 @@ html[data-motion="fancy"] .tabs .tp.fl{animation:tpfl .9s var(--m-out) 1}
   .wide-hide{display:none}
   .ctl[data-ctl="colorBy"].off{display:none}
   .ctl.dd{position:relative}
-  .ddbtn{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 9px 0 11px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--fg);font-size:13px;white-space:nowrap}
-  .ddbtn svg{width:12px;height:12px;color:var(--muted);flex:none}
-  .ddbtn:hover{border-color:var(--line2)}
-  .ddbtn[aria-expanded="true"]{border-color:rgba(255,181,71,.5)}
-  .ctl.dd > .seg{display:none;position:absolute;top:calc(100% + 6px);left:0;z-index:75;flex-direction:column;min-width:128px;padding:4px;background:var(--panel2);border-color:var(--line2);border-radius:10px;box-shadow:0 14px 40px rgba(0,0,0,.5)}
+  .ddbtn{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 10px 0 12px;border-radius:var(--r-key);background:var(--key-bg);box-shadow:var(--key-sh);color:var(--key-fg);font-size:13px;white-space:nowrap}
+  .ddbtn svg{width:12px;height:12px;color:var(--key-ic);flex:none;transition:transform var(--c-base) var(--c-inout)}
+  .ddbtn:hover{background:var(--key-hover)}
+  .ddbtn[aria-expanded="true"]{box-shadow:var(--key-on)}
+  .ddbtn[aria-expanded="true"] svg{transform:rotate(180deg);color:var(--amber)}
+  .ctl.dd > .seg{display:none;position:absolute;top:calc(100% + 6px);left:0;z-index:75;flex-direction:column;min-width:128px;padding:4px;background:rgba(32,34,40,.99);border-radius:var(--r-tray);box-shadow:inset 0 0 0 1px var(--line2),0 14px 40px rgba(0,0,0,.5)}
   .ctl.dd.open > .seg{display:flex}
   .ctl.dd > .seg button{text-align:left;padding:8px 11px}
-  .ctl.dd > .seg button[aria-pressed="true"]{color:var(--amber);box-shadow:none}
+  .ctl.dd > .seg button[aria-pressed="true"]{color:var(--amber)}
   .ctl.more{position:relative}
-  .morebtn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:32px;padding:0 10px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--fg2);font-size:13px;white-space:nowrap}
-  .morebtn svg{width:16px;height:16px;color:var(--muted);flex:none}
-  .morebtn:hover{color:var(--fg);border-color:var(--line2)}
-  .morebtn[aria-expanded="true"]{color:var(--amber);border-color:rgba(255,181,71,.45);background:var(--amber-soft)}
+  .morebtn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:32px;padding:0 11px;border-radius:var(--r-key);background:var(--key-bg);box-shadow:var(--key-sh);color:var(--key-fg);font-size:13px;white-space:nowrap}
+  .morebtn svg{width:16px;height:16px;color:var(--key-ic);flex:none}
+  .morebtn:hover{background:var(--key-hover)}
+  .morebtn[aria-expanded="true"]{color:var(--amber);box-shadow:var(--key-on)}
   .morebtn[aria-expanded="true"] svg{color:var(--amber)}
   .morep{display:none;position:absolute;top:calc(100% + 6px);right:0;z-index:75;width:300px;padding:12px 14px 14px;background:var(--panel2);border:1px solid var(--line2);border-radius:12px;box-shadow:0 18px 50px rgba(0,0,0,.55)}
   .ctl.more.open .morep{display:flex}
-  .morep .seg{background:var(--panel)}
 }
 /* 1280–1439: the toolbar (with the 화면 button and the extras icons) still fits on one row */
 @media (min-width:1280px) and (max-width:1439px){ .tools{gap:10px} .search{flex-basis:160px} .seg[data-key="topN"] button{padding:5px 6px} }
@@ -179,7 +200,7 @@ html[data-motion="fancy"] .tabs .tp.fl{animation:tpfl .9s var(--m-out) 1}
   .ctls{display:none;flex-direction:column;gap:13px}
   .ctls.open{display:flex}
   .ctls-hd{display:flex;align-items:center;justify-content:space-between;font-size:14.5px;font-weight:700}
-  .ctls-hd .x{width:32px;height:32px;border-radius:8px;display:grid;place-items:center;color:var(--muted);font-size:19px;margin-right:-6px}
+  .ctls-hd .x{position:relative;width:32px;height:32px;border-radius:var(--r-key);display:grid;place-items:center;color:var(--muted);font-size:19px;margin-right:-6px}
   .ctls-hd .x:hover{background:rgba(255,255,255,.07);color:var(--fg)}
   .ctls .ctl{flex-direction:column;align-items:stretch;gap:6px}
   .ctls .seg{flex-wrap:wrap}
@@ -189,7 +210,6 @@ html[data-motion="fancy"] .tabs .tp.fl{animation:tpfl .9s var(--m-out) 1}
 }
 @media (min-width:761px) and (max-width:1279px){
   .ctls{position:absolute;z-index:70;top:42px;width:410px;max-width:calc(100vw - 36px);background:var(--panel2);border:1px solid var(--line2);border-radius:12px;padding:12px 14px 15px;box-shadow:0 18px 50px rgba(0,0,0,.55)}
-  .ctls .seg{background:var(--panel)}
 }
 
 /* ── Layout ───────────────────────────── */
@@ -204,7 +224,7 @@ html[data-motion="fancy"] .tabs .tp.fl{animation:tpfl .9s var(--m-out) 1}
 .crumbs .sep{color:var(--faint)}
 .crumbs .ci{display:inline-flex;align-items:center;gap:6px;white-space:nowrap;min-width:0;max-width:100%}
 .crumbs .ci .c{overflow:hidden;text-overflow:ellipsis;min-width:0}
-.crumbs .back{margin-right:4px;display:inline-flex;align-items:center;gap:4px;font-size:12.5px;color:var(--amber);border:1px solid rgba(255,181,71,.35);background:var(--amber-soft);padding:3px 9px;border-radius:6px;white-space:nowrap}
+.crumbs .back{margin-right:4px;display:inline-flex;align-items:center;gap:4px;font-size:12.5px;font-weight:600;color:var(--key-fg);background:var(--key-bg);box-shadow:var(--key-sh);padding:4px 10px;border-radius:var(--r-key);white-space:nowrap}
 .crumbs .stat{margin-left:auto;color:var(--muted);font-size:12.5px;white-space:nowrap}
 .crumbs .stat b{font-weight:600}
 .crumbs .hint{color:var(--faint);font-size:12.5px;margin-left:8px}
@@ -276,31 +296,35 @@ html[data-motion="fancy"] .tabs .tp.fl{animation:tpfl .9s var(--m-out) 1}
 .wgbar[hidden]{display:none}
 .wgchips{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding:1px 1px 2px}
 .wgchips::-webkit-scrollbar{display:none}
-.wgi{display:inline-flex;flex:none;border-radius:8px;background:var(--panel);border:1px solid var(--line)}
-.wgi[data-on]{border-color:rgba(255,181,71,.5);background:var(--amber-soft)}
-.wgc{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 11px;border-radius:7px;font-size:13px;font-weight:600;color:var(--fg2);white-space:nowrap}
+.wgi{display:inline-flex;flex:none;padding:1px;border-radius:var(--r-chip);background:var(--chip-bg);box-shadow:var(--key-sh);transition:background-color var(--c-fast) var(--c-out),box-shadow var(--c-fast) var(--c-out)}
+.wgi[data-on]{background:var(--chip-on);box-shadow:inset 0 0 0 1.5px var(--chip-ring)}
+.wgc{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 12px;border-radius:var(--r-chip);font-size:13px;font-weight:600;color:var(--fg2);white-space:nowrap;transition:color var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out)}
 .wgc:hover,.wgi[data-on] .wgc{color:var(--fg)}
-.wgc .n{font-size:11.5px;font-weight:500;color:var(--muted);font-variant-numeric:tabular-nums}
-.wgm{width:28px;height:30px;margin-left:-6px;border-radius:7px;color:var(--fg2);font-size:15px;line-height:1}
+.wgc .n{font-size:11.5px;font-weight:500;color:var(--muted);font-variant-numeric:tabular-nums;transition:color var(--c-fast) var(--c-out)}
+.wgi[data-on] .wgc .n{color:var(--amber)}
+.wgm{position:relative;width:28px;height:30px;margin-left:-6px;border-radius:var(--r-chip);color:var(--fg2);font-size:15px;line-height:1}
 .wgm:hover{color:var(--fg);background:rgba(255,255,255,.06)}
-.wgadd{flex:none;width:34px;height:32px;border-radius:8px;border:1px dashed var(--line2);color:var(--fg2);font-size:16px}
-.wgadd:hover{color:var(--fg);border-color:var(--muted)}
+.wgadd{position:relative;flex:none;width:34px;height:32px;border-radius:var(--r-chip);background:var(--key-bg);box-shadow:var(--key-sh);color:var(--fg2);font-size:16px}
+.wgadd:hover{color:var(--fg);background:var(--key-hover)}
 .wgpop{position:fixed;z-index:95;width:max-content;min-width:220px;max-width:min(320px,calc(100vw - 16px));padding:10px;border-radius:12px;background:rgba(32,34,40,.99);border:1px solid var(--line2);box-shadow:0 18px 50px rgba(0,0,0,.55);font-size:13.5px;color:var(--fg)}
 .wgpop[hidden]{display:none}
 .wgpop h3{margin:2px 6px 8px;font-size:13px;font-weight:600;color:var(--fg2);overflow-wrap:anywhere}
-.wgpop .row{display:flex;align-items:center;gap:10px;width:100%;min-height:36px;padding:0 8px;border-radius:8px;text-align:left;color:var(--fg);cursor:pointer}
+.wgpop .row{display:flex;align-items:center;gap:10px;width:100%;min-height:36px;padding:0 8px;border-radius:var(--r-in);text-align:left;color:var(--fg);cursor:pointer;transition:filter var(--c-fast) var(--c-out)}
+.wgpop .row:active{filter:var(--press-f);transition-duration:0s}
 .wgpop .row:hover{background:rgba(255,255,255,.06)}
 .wgpop .row[disabled]{opacity:.4;cursor:default;background:none}
-.wgpop label.row input{width:16px;height:16px;margin:0;accent-color:var(--amber);flex:none}
+.wgpop label.row input{-webkit-appearance:none;appearance:none;width:18px;height:18px;margin:0;flex:none;border-radius:5px;background:var(--tray-bg) no-repeat center/0 0;box-shadow:var(--tray-sh);cursor:pointer;transition:background-color var(--c-fast) var(--c-out),background-size var(--c-base) var(--c-out),box-shadow var(--c-fast) var(--c-out)}
+.wgpop label.row input:checked{background-color:var(--amber);background-size:14px 14px;box-shadow:inset 0 1px 0 rgba(255,255,255,.3);background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M4.5 10.5l3.6 3.6 7.4-8' fill='none' stroke='%231b1404' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")}
+.wgpop label.row input:focus-visible{outline-offset:2px}
 .wgpop .row .n{margin-left:auto;padding-left:12px;color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums}
 .wgpop .row .ck{margin-left:auto;padding-left:12px;color:var(--amber);font-weight:700}
-.wgpop input[type="text"]{width:100%;height:38px;border-radius:8px;border:1px solid var(--line2);background:var(--panel);color:var(--fg);font:inherit;padding:0 10px;outline:none}
-.wgpop input[type="text"]:focus{border-color:var(--amber)}
+.wgpop input[type="text"]{width:100%;height:38px;border-radius:var(--r-key);border:0;background:var(--tray-bg);box-shadow:var(--tray-sh);color:var(--fg);font:inherit;padding:0 11px;outline:none}
+.wgpop input[type="text"]:focus{box-shadow:var(--tray-sh),0 0 0 var(--focus-off) rgba(32,34,40,.99),0 0 0 calc(var(--focus-off) + var(--focus-w)) var(--amber)}
 .wgpop .msg{min-height:18px;margin:6px 6px 0;font-size:12.5px;color:var(--fg2);line-height:1.45}
 .wgpop .acts{display:flex;gap:8px;justify-content:flex-end;margin-top:8px}
-.wgpop .acts button{height:34px;padding:0 14px;border-radius:8px;border:1px solid var(--line2);font-weight:600}
-.wgpop .acts .pri{background:var(--amber);color:#1b1404;border-color:var(--amber)}
-.wgpop .acts .pri[disabled]{opacity:.45;cursor:default}
+.wgpop .acts button{height:34px;padding:0 15px;border-radius:var(--r-key);background:var(--key-bg);box-shadow:var(--key-sh);color:var(--key-fg);font-weight:600}
+.wgpop .acts .pri{background:var(--pri-bg);color:var(--pri-fg);box-shadow:var(--pri-sh)}
+.wgpop .acts .pri[disabled]{opacity:.45;cursor:default;box-shadow:none}
 .wgpop .sep{height:1px;background:var(--line);margin:6px 0}
 @media (max-width:760px){
   .wgc{height:40px} .wgm{height:40px;width:38px} .wgadd{height:42px;width:44px}
@@ -322,7 +346,7 @@ html[data-motion="fancy"] .tabs .tp.fl{animation:tpfl .9s var(--m-out) 1}
 .sec{z-index:1}
 .ind{z-index:2}
 .sec .hd,.ind .hd{position:absolute;left:0;right:0;top:0;display:flex;align-items:center;gap:6px;padding:0 5px;pointer-events:auto;cursor:zoom-in;white-space:nowrap;overflow:hidden;text-align:left;border-radius:0;width:100%}
-.sec .hd:focus-visible,.ind .hd:focus-visible{outline-offset:-2px;z-index:5}
+.sec .hd:focus-visible,.ind .hd:focus-visible{outline-offset:calc(var(--focus-w) * -1);z-index:5}
 .sec .hd{background:#000;font-size:12px;font-weight:700;color:#f2f3f5}
 .ind .hd{background:#0d0e11;font-size:10.5px;font-weight:500;color:#a6abb5}
 .sec .hd .t,.ind .hd .t{overflow:hidden;text-overflow:ellipsis;min-width:0}
@@ -338,7 +362,7 @@ html[data-motion="fancy"] .tabs .tp.fl{animation:tpfl .9s var(--m-out) 1}
 .tile.nonx{background-image:repeating-linear-gradient(135deg,rgba(0,0,0,.55) 0 3px,rgba(0,0,0,.3) 3px 8px)}
 .tile.nonx .lab{opacity:.78}
 .tile:focus{outline:none}
-.tile:focus-visible{outline:2px solid var(--amber);outline-offset:-2px;box-shadow:inset 0 0 0 4px rgba(0,0,0,.55);z-index:6}
+.tile:focus-visible{outline:var(--focus-w) solid var(--amber);outline-offset:calc(var(--focus-w) * -1);box-shadow:inset 0 0 0 4px rgba(0,0,0,.55);z-index:6}
 /* tile labels: a soft dark halo keeps white type readable on the brightest fills (#12a15b, #ef3e4a, #2bb553) */
 .tile .lab{display:flex;flex-direction:column;align-items:center;max-width:100%;padding:0 3px;line-height:1.08;text-shadow:0 0 1px rgba(0,0,0,.6),0 0 3px rgba(0,0,0,.42),0 1px 2px rgba(0,0,0,.5)}
 /* 상한가 = a white bar on the top edge, 하한가 = on the bottom edge: fits any tile size and any palette */
@@ -378,7 +402,7 @@ html[data-motion="fancy"] .tabs .tp.fl{animation:tpfl .9s var(--m-out) 1}
 .map.fx-intro .sec,.map.fx-intro .ind{animation:fx-fade var(--m-2) var(--m-out) var(--dl,0ms) both}
 @keyframes fx-in{from{opacity:0;transform:scale(.94)}}
 @keyframes fx-fade{from{opacity:0}}
-.tstar{position:absolute;z-index:7;width:24px;height:24px;display:grid;place-items:center;border-radius:6px;background:rgba(0,0,0,.6);color:#fff;font-size:14px;line-height:1;box-shadow:0 0 0 1px rgba(255,255,255,.35)}
+.tstar{position:absolute;z-index:7;width:24px;height:24px;display:grid;place-items:center;border-radius:6px;background:rgba(0,0,0,.6);color:#fff;font-size:14px;line-height:1;box-shadow:0 0 0 1px rgba(255,255,255,.35);transition:color var(--c-fast) var(--c-out),background-color var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out)}
 .tstar:hover{background:rgba(0,0,0,.85)}
 .tstar[aria-pressed="true"]{color:var(--amber)}
 .tstar[hidden]{display:none}
@@ -386,7 +410,7 @@ html[data-motion="fancy"] .tabs .tp.fl{animation:tpfl .9s var(--m-out) 1}
 .map-empty .we{display:flex;flex-direction:column;align-items:center;gap:6px;max-width:340px}
 .map-empty .we .big{font-size:30px;color:var(--amber);line-height:1}
 .map-empty .we b{font-size:16px;color:var(--fg);font-weight:700}
-.map-empty .we button{margin-top:8px;height:40px;padding:0 14px;border-radius:8px;border:1px solid rgba(255,181,71,.4);background:var(--amber-soft);color:var(--amber);font-size:13px;font-weight:600}
+.map-empty .we button{margin-top:8px;height:40px;padding:0 15px;border-radius:var(--r-key);background:var(--key-bg);box-shadow:var(--key-sh);color:var(--key-fg);font-size:13px;font-weight:600}
 .no-d3 .side,.no-d3 .legend,.no-d3 .tools,.no-d3 .stagebar,.no-d3 .tabs{display:none}
 /* 해외 / 원자재 tabs: src/world fills #world; the map, table, side cards and stock-only tools step aside */
 main.layout[hidden],#world[hidden]{display:none}
@@ -419,7 +443,7 @@ table.list{width:100%;border-collapse:collapse;font-size:13.5px}
 .list th{position:sticky;top:0;z-index:1;background:var(--panel2);color:var(--muted);font-weight:500;font-size:12.5px;text-align:right;padding:0;border-bottom:1px solid var(--line);white-space:nowrap;user-select:none}
 .list th button{display:block;width:100%;padding:9px 12px;font-size:inherit;font-weight:inherit;color:inherit;text-align:inherit;white-space:nowrap}
 .list th button:hover{color:var(--fg)}
-.list th button:focus-visible,.list tbody tr:focus-visible{outline-offset:-2px}
+.list th button:focus-visible,.list tbody tr:focus-visible{outline-offset:calc(var(--focus-w) * -1)}
 .list th:first-child,.list td:first-child,.list th:nth-child(2),.list td:nth-child(2){text-align:left}
 .list th[aria-sort]{color:var(--fg)}
 .list th[aria-sort="descending"] button::after{content:" ▾"} .list th[aria-sort="ascending"] button::after{content:" ▴"}
@@ -437,7 +461,7 @@ table.list{width:100%;border-collapse:collapse;font-size:13.5px}
 @media (max-width:1439px){ .list .indt{max-width:9.5em} }
 @media (max-width:1023px){ .list .k-i,.list.x7 .k-vol{display:none} }
 .list .nd{color:var(--faint)}
-.wbtn{flex:none;display:inline-grid;place-items:center;width:24px;height:24px;margin:-4px -4px -4px -6px;border-radius:6px;font-size:15px;line-height:1;color:var(--faint)}
+.wbtn{position:relative;flex:none;display:inline-grid;place-items:center;width:24px;height:24px;margin:-4px -4px -4px -6px;border-radius:6px;font-size:15px;line-height:1;color:var(--faint);transition:color var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out)}
 .wbtn:hover{color:var(--fg);background:rgba(255,255,255,.06)}
 .wbtn[aria-pressed="true"]{color:var(--amber)}
 .list tr.nonx .nmt{color:var(--fg2);font-weight:500}
@@ -466,7 +490,7 @@ table.list{width:100%;border-collapse:collapse;font-size:13.5px}
 .breadth-lab{display:flex;justify-content:space-between;font-size:12.5px;margin-top:7px;font-variant-numeric:tabular-nums;gap:6px}
 .hist{display:grid;grid-template-columns:repeat(9,1fr);gap:3px;align-items:end;height:86px;margin-top:16px}
 .hist button{position:relative;height:100%;display:flex;flex-direction:column;justify-content:flex-end;align-items:stretch;border-radius:3px}
-.hist button .bar{display:block;border-radius:3px 3px 1px 1px;min-height:2px;transition:opacity .15s}
+.hist button .bar{display:block;border-radius:3px 3px 1px 1px;min-height:2px;transition:opacity var(--c-fast) var(--c-out)}
 .hist button .cnt{font-size:10.5px;color:var(--fg2);text-align:center;margin-bottom:3px;font-variant-numeric:tabular-nums}
 .hist.has-sel button:not([aria-pressed="true"]) .bar{opacity:.28}
 .hist button[aria-pressed="true"] .cnt{color:var(--amber);font-weight:600}
@@ -511,9 +535,9 @@ span.cdb.cdb > i{position:absolute;top:50%;width:auto;height:1px;margin-top:-.5p
 .movers .cdi{width:10px;height:15px} .list .nmcell .cdi{width:10px;height:15px}
 .dbar::before{content:"";position:absolute;left:50%;top:-2px;bottom:-2px;width:1px;background:var(--line2)}
 .dbar i{position:absolute;top:1px;height:8px;border-radius:2px}
-.movers-tabs{display:flex;gap:2px;margin-bottom:8px}
-.movers-tabs button{font-size:12.5px;padding:4px 9px;border-radius:6px;color:var(--muted)}
-.movers-tabs button[aria-pressed="true"]{background:var(--panel2);color:var(--fg);box-shadow:inset 0 0 0 1px var(--line2)}
+.movers-tabs{display:flex;gap:2px;margin-bottom:8px;padding:3px;border-radius:var(--r-tray);background:var(--tray-bg);box-shadow:var(--tray-sh)}
+.movers-tabs button{flex:1 1 0;font-size:12.5px;padding:4px 9px;border-radius:var(--r-in);color:var(--muted);white-space:nowrap;transition:color var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out)}
+.movers-tabs button[aria-pressed="true"]{color:var(--fg)}
 .movers{display:flex;flex-direction:column;gap:1px}
 .movers button{display:grid;grid-template-columns:10px minmax(0,1fr) auto 66px;gap:9px;align-items:center;padding:6px;margin:0 -6px;border-radius:6px;font-size:13px;text-align:left}
 .movers.amt button{grid-template-columns:10px minmax(0,1fr) auto 76px}
@@ -524,8 +548,14 @@ span.cdb.cdb > i{position:absolute;top:50%;width:auto;height:1px;margin-top:-.5p
 .movers .v{text-align:right;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
 .movers .none{font-size:12.5px;color:var(--faint);padding:4px 0}
 /* §3-14 더보기 / 접기 under a list; the 거래대금 number of a sector */
-.movers .more,.secs .more{display:block;width:100%;margin:6px 0 0;padding:7px 0;border-radius:7px;border:1px solid var(--line);font-size:12.5px;font-weight:600;color:var(--fg2);text-align:center}
-.movers .more:hover,.secs .more:hover{color:var(--fg);background:rgba(255,255,255,.04)}
+.movers .more,.secs .more{position:relative;display:flex;align-items:center;justify-content:center;gap:7px;width:100%;margin:8px 0 0;padding:8px 0;border-radius:var(--r-key);background:var(--key-bg);box-shadow:var(--key-sh);font-size:12.5px;font-weight:600;color:var(--key-fg);text-align:center}
+.movers .more:hover,.secs .more:hover{background:var(--key-hover)}
+.movers .more::after,.secs .more::after{content:"";width:6px;height:6px;margin-top:-3px;border:solid var(--key-ic);border-width:0 1.6px 1.6px 0;transform:rotate(45deg)}
+.movers .more[aria-expanded="true"]::after,.secs .more[aria-expanded="true"]::after{margin-top:3px;transform:rotate(225deg)}
+.more[data-flip]::after{animation:chevFlip var(--c-base) var(--c-inout)}
+.more[aria-expanded="true"][data-flip]::after{animation-name:chevFlip2}
+@keyframes chevFlip{from{margin-top:3px;transform:rotate(225deg)}}
+@keyframes chevFlip2{from{margin-top:-3px;transform:rotate(45deg)}}
 .secs .v.tvv{color:var(--fg2);font-weight:600}
 @media (max-width:760px){ .movers .more,.secs .more{min-height:42px} }
 .movers-tabs button[hidden]{display:none}
@@ -552,7 +582,7 @@ footer a{color:var(--muted)}
 .card-head .mrow b{font-size:14px;font-weight:700}
 .card-head .meta{display:flex;gap:14px;margin-top:6px;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;flex-wrap:wrap}
 .card-head .meta em{font-style:normal;color:var(--fg2)}
-.wstar{display:inline-grid;place-items:center;align-self:center;width:30px;height:30px;margin:-6px 0 -6px 0;border-radius:7px;color:var(--muted);font-size:18px;line-height:1}
+.wstar{position:relative;display:inline-grid;place-items:center;align-self:center;width:30px;height:30px;margin:-6px 0 -6px 0;border-radius:var(--r-in);color:var(--muted);font-size:18px;line-height:1;transition:color var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out),transform var(--c-fast) var(--c-out)}
 .wstar:hover{color:var(--fg);background:rgba(255,255,255,.06)}
 .wstar[aria-pressed="true"]{color:var(--amber)}
 .peers{padding:7px 7px 8px}
@@ -572,12 +602,13 @@ footer a{color:var(--muted)}
 .sheet:focus{outline:none}
 @keyframes sheetIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
 .sheet .grab{display:none}
-.sheet .x{position:absolute;right:8px;top:8px;width:30px;height:30px;border-radius:8px;display:grid;place-items:center;color:var(--muted);font-size:18px}
+.sheet .x{position:absolute;right:8px;top:8px;width:30px;height:30px;border-radius:var(--r-in);display:grid;place-items:center;color:var(--muted);font-size:18px;transition:filter var(--c-fast) var(--c-out),transform var(--c-fast) var(--c-out)}
 .sheet .x:hover{background:rgba(255,255,255,.07);color:var(--fg)}
 .sheet .acts{display:flex;flex-wrap:wrap;gap:8px;padding:10px 13px 13px;border-top:1px solid var(--line)}
-.sheet .acts button,.sheet .acts a{flex:1;display:inline-flex;justify-content:center;align-items:center;height:36px;border-radius:8px;font-size:13px;font-weight:600;text-decoration:none}
-.sheet .acts .pri{background:var(--amber);color:#1b1404;flex:1 1 100%}
-.sheet .acts .sec2{border:1px solid var(--line2);color:var(--fg)}
+.sheet .acts button,.sheet .acts a{flex:1;display:inline-flex;justify-content:center;align-items:center;height:36px;border-radius:var(--r-key);font-size:13px;font-weight:600;text-decoration:none}
+.sheet .acts .pri{background:var(--pri-bg);color:var(--pri-fg);box-shadow:var(--pri-sh);flex:1 1 100%}
+.sheet .acts .sec2{background:var(--key-bg);box-shadow:var(--key-sh);color:var(--key-fg)}
+.sheet .acts .sec2:hover{background:var(--key-hover)}
 .spark{padding:8px 13px 0}
 .spark svg{display:block;width:100%;height:70px}
 .spark .note{font-size:11.5px;color:var(--faint);padding:2px 0 6px}
@@ -603,7 +634,7 @@ footer a{color:var(--muted)}
   .tools{padding:0 12px 8px;gap:8px}
   .search{flex:1 1 0;min-width:0}
   .search kbd{display:none}
-  .setbtn{height:40px;padding:0 12px}
+  .setbtn{height:40px;padding:0 13px}
   .ctls{position:fixed;left:0;right:0;bottom:0;z-index:91;max-height:82svh;overflow:auto;background:rgba(24,25,30,.99);border-top:1px solid var(--line2);border-radius:16px 16px 0 0;box-shadow:0 -18px 60px rgba(0,0,0,.6);padding:8px 16px calc(18px + env(safe-area-inset-bottom))}
   .ctls-hd{min-height:44px}
   .ctls-hd .x{width:40px;height:40px}
@@ -642,10 +673,11 @@ footer a{color:var(--muted)}
   .wbtn{width:32px;height:40px;margin:-10px -4px -10px -4px}
   /* compact phone header: one tools row (search · 표시 설정 · extras icons), 지도/표 on the breadcrumb line */
   .top{padding:4px 12px 4px;gap:6px 12px;min-height:44px}
-  .tabs{padding:0;border:0}
-  .basis{padding:0;border:0}
+  .tabs{padding:0 0 4px;margin-bottom:-4px;background:none;box-shadow:none;border-radius:0}
+  .tabs button:focus-visible{outline-offset:calc(var(--focus-w) * -1)}
+  .basis{padding:0}
   .basis button{padding:4px 10px}
-  .viewseg{padding:0;border:0}
+  .viewseg{padding:0;--ind-in:3px}
   .tools{padding:0 12px 4px}
   .search{flex:1 1 0;min-width:120px}
   .search input{height:40px;padding-right:8px}
@@ -674,23 +706,28 @@ footer a{color:var(--muted)}
 }
 /* 32 px tall, centred in the 40 px row (its tap area reaches the header's top edge: 40 px), so the session bar's sun / moon, which
    rides just below the row, never meets it */
-.bchip{position:relative;align-items:center;gap:0;height:32px;padding:0 8px 0 10px;border-radius:9px;border:1px solid var(--line2);background:var(--panel2);color:var(--fg);font-size:13px;font-weight:600;white-space:nowrap;font-variant-numeric:tabular-nums}
+.bchip{position:relative;align-items:center;gap:0;height:32px;padding:0 9px 0 11px;border-radius:var(--r-key);background:var(--key-bg);box-shadow:var(--key-sh);color:var(--key-fg);font-size:13px;font-weight:600;white-space:nowrap;font-variant-numeric:tabular-nums}
+.bchip .bcv{display:inline-grid;min-width:2.1em;justify-items:center}
 .bchip::after{content:"";position:absolute;left:0;right:0;top:-8px;bottom:0}
 .bchip .bcs{margin-left:4px;font-size:11.5px;font-weight:500;color:var(--fg2)}
 .bchip .bcs:empty{display:none}
-.bchip .bcc{margin-left:5px;font-size:10px;color:var(--muted)}
-.bchip[aria-expanded="true"]{border-color:rgba(255,181,71,.55)}
+.bchip .bcc{display:inline-block;margin-left:5px;font-size:10px;color:var(--key-ic);transition:transform var(--c-base) var(--c-inout)}
+.bchip[aria-expanded="true"]{box-shadow:var(--key-on)}
+.bchip[aria-expanded="true"] .bcc{transform:rotate(180deg);color:var(--amber)}
 .bmenu{position:fixed;inset:0;z-index:95;display:flex;align-items:flex-end;justify-content:center;background:rgba(0,0,0,.45)}
 .bmenu[hidden]{display:none}
 .bm-in{width:100%;max-width:520px;background:rgba(24,25,30,.99);border-top:1px solid var(--line2);border-radius:16px 16px 0 0;padding:6px 12px calc(14px + env(safe-area-inset-bottom));box-shadow:0 -18px 60px rgba(0,0,0,.6)}
 .bm-in .bm-t{font-size:12.5px;color:var(--muted);margin:8px 8px 6px;font-weight:600}
-.bm-it{display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;min-height:54px;padding:8px 12px;border-radius:10px;text-align:left}
+.bm-it{position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;min-height:54px;padding:8px 40px 8px 12px;border-radius:var(--r-in);text-align:left;transition:filter var(--c-fast) var(--c-out)}
+.bm-it:active{filter:var(--press-f);transition-duration:0s}
+.bm-it::after{content:"";position:absolute;right:14px;top:50%;width:16px;height:16px;margin-top:-8px;background:var(--amber);-webkit-mask:var(--ck-mask) center/contain no-repeat;mask:var(--ck-mask) center/contain no-repeat;clip-path:inset(0 100% 0 0);transition:clip-path var(--c-base) var(--c-out) var(--c-fast)}
+.bm-it[aria-checked="true"]::after{clip-path:inset(0 0 0 0)}
 .bm-it b{font-size:15px;color:var(--fg);font-weight:600}
 .bm-it span{font-size:12px;color:var(--muted);white-space:normal}
 .bm-it[aria-checked="true"]{background:var(--amber-soft)}
 .bm-it[aria-checked="true"] b{color:var(--amber)}
 .bm-it:hover{background:var(--panel2)}
-.bm-it:focus-visible{outline:2px solid var(--amber);outline-offset:-2px}
+.bm-it:focus-visible{outline:var(--focus-w) solid var(--amber);outline-offset:calc(var(--focus-w) * -1)}
 /* phones: the table keeps a readable name column (two lines): 종목 · 현재가 · 등락률 · 거래대금 (거래량 · 시가총액 dropped; with a 기간 /
    순매수 column, that instead of 거래대금) */
 @media (max-width:430px){
@@ -715,7 +752,77 @@ html[data-motion="reduced"] .status.live .dot{animation:none}
 html[data-motion="reduced"] .tile.flash-up::after,html[data-motion="reduced"] .tile.flash-dn::after{animation:none}
 html[data-motion="reduced"] .sheet.open{animation:none}
 html[data-motion="reduced"] .tip{transition:none}
-html[data-motion="reduced"] .swbtn .swt,html[data-motion="reduced"] .swbtn .swt::after{transition:none}
+/* ───────────────── living controls (docs/standards/controls.md, V1 입체): shared parts ─────────────────
+   KH.ui.seg moves one raised indicator per segment / tab row (leading edge --c-fast, trailing --c-base); press = 1px down, shorter
+   shadow, darker (0 ms down, --c-fast up); labels swap in place; 44 px hit areas on touch screens. Other modules may reuse these. */
+:root{--ck-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M4.5 10.5l3.6 3.6 7.4-8' fill='none' stroke='%23000' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")}
+/* a label that changes in place: the old one leaves upward, the new one comes in from below (KH.ui.swap) */
+.sw-go{display:inline-grid}
+.sw-go>.sw-n,.sw-go::before{grid-area:1/1}
+.sw-go::before{content:attr(data-was);animation:swOut var(--c-fast) var(--c-in) forwards}
+.sw-go>.sw-n{animation:swIn var(--c-fast) var(--c-out) var(--c-fast) both}
+@keyframes swOut{to{opacity:0;transform:translateY(-6px)}}
+@keyframes swIn{from{opacity:0;transform:translateY(6px)}}
+/* 화려하게: digits that changed roll (up when the number rises); the text stays the value (KH.ui.roll) */
+.rc{display:inline-block;overflow:hidden;vertical-align:top}
+.rs{display:block}
+.rs[data-o]::before{display:block;content:attr(data-o)}
+.rs.dn[data-o]::before{content:none}
+.rs.dn[data-o]::after{display:block;content:attr(data-o)}
+/* ring while it works, check when done (KH.ui) */
+.kspn{display:inline-block;flex:none;width:14px;height:14px;animation:kspn var(--c-spin) linear infinite}
+.kspn circle{fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-dasharray:30 48}
+html[data-motion="fancy"] .kspn circle{animation:kspnArc var(--c-dwell) var(--c-inout) infinite alternate}
+html[data-motion="reduced"] .kspn,html[data-motion="reduced"] .kspn circle{animation:none}
+@keyframes kspn{to{transform:rotate(1turn)}}
+@keyframes kspnArc{from{stroke-dasharray:12 48}to{stroke-dasharray:34 48}}
+/* labels stacked in one cell (KH.ui.state): the box keeps the widest label, so neighbours never move */
+.klb{display:inline-grid;align-items:center;justify-items:center;min-width:0}
+.kl{grid-area:1/1;display:inline-flex;align-items:center;justify-content:center;gap:6px;opacity:0;transform:translateY(6px);pointer-events:none;white-space:nowrap;transition:opacity var(--c-fast) var(--c-in),transform var(--c-fast) var(--c-in)}
+.kl.out{transform:translateY(-6px)}
+.kl.on{opacity:1;transform:none;transition:opacity var(--c-fast) var(--c-out) var(--c-fast),transform var(--c-fast) var(--c-out) var(--c-fast)}
+.kl .kck path{stroke-dasharray:22;stroke-dashoffset:22;transition:stroke-dashoffset var(--c-base) var(--c-out)}
+.kl.on .kck path{stroke-dashoffset:0;transition-delay:var(--c-fast)}
+html[data-motion="fancy"] .kl .kck{transform:scale(.6);transition:transform var(--c-base) var(--c-pop)}
+html[data-motion="fancy"] .kl.on .kck{transform:none;transition-delay:var(--c-fast)}
+.kck,.kwn{flex:none;width:15px;height:15px}
+/* a short note under an icon-only key: no layout, nothing to press (KH.ui.bubble) */
+.kbub{position:fixed;z-index:140;padding:6px 10px;border-radius:9px;background:#26282f;box-shadow:inset 0 0 0 1px var(--line2),0 8px 24px rgba(0,0,0,.5);color:var(--fg);font-size:12.5px;font-weight:600;white-space:nowrap;pointer-events:none;opacity:0;transform:translateY(-4px);transition:opacity var(--c-fast) var(--c-in),transform var(--c-fast) var(--c-in)}
+.kbub.on{opacity:1;transform:none;transition-timing-function:var(--c-out)}
+.kbub svg{width:13px;height:13px;vertical-align:-2px;margin-right:5px;color:var(--amber)}
+/* segments and tab rows: one raised indicator each (KH.ui.seg) */
+.seg,.tabs,.movers-tabs{position:relative;isolation:isolate}
+.seg>button,.tabs>button,.movers-tabs>button{position:relative;z-index:1}
+.seg::before,.tabs::before,.movers-tabs::before{content:"";position:absolute;z-index:0;left:var(--il,0px);right:var(--ir,0px);top:var(--it,0px);bottom:var(--ib,0px);border-radius:var(--r-in);background:var(--ind-bg);box-shadow:var(--ind-sh);pointer-events:none;opacity:0}
+.tabs::after{content:"";position:absolute;z-index:2;left:calc(var(--il,0px) + 10px);right:calc(var(--ir,0px) + 10px);bottom:var(--ib,0px);height:2px;border-radius:2px 2px 0 0;background:var(--amber);pointer-events:none;opacity:0}
+:is(.seg,.tabs,.movers-tabs)[data-ind]::before,.tabs[data-ind]::after{opacity:1}
+:is(.seg,.tabs,.movers-tabs)[data-dir="r"]::before,.tabs[data-dir="r"]::after{transition:right var(--c-fast) var(--c-out),left var(--c-base) var(--c-out),top var(--c-base) var(--c-out),bottom var(--c-base) var(--c-out)}
+:is(.seg,.tabs,.movers-tabs)[data-dir="l"]::before,.tabs[data-dir="l"]::after{transition:left var(--c-fast) var(--c-out),right var(--c-base) var(--c-out),top var(--c-base) var(--c-out),bottom var(--c-base) var(--c-out)}
+:is(.seg,.tabs,.movers-tabs):not([data-ind])>button[aria-pressed="true"]{background:var(--ind-bg);box-shadow:var(--ind-sh)}
+.tabs:not([data-ind])>button[aria-pressed="true"]{box-shadow:var(--ind-sh),inset 0 -2px 0 var(--amber)}
+:is(.seg,.tabs,.movers-tabs)>button:active,:is(.seg,.tabs,.movers-tabs)>button.is-press{filter:var(--press-f);transition-duration:0s}
+.seg>button:focus-visible,.movers-tabs>button:focus-visible{outline-offset:-1px}
+.seg button[aria-busy="true"]{color:transparent;cursor:progress}
+.seg button .kov{position:absolute;left:50%;top:50%;width:13px;height:13px;margin:-6.5px 0 0 -6.5px;color:var(--fg)}
+/* raised keys */
+:is(.setbtn,.ddbtn,.morebtn,.bchip,.wgadd,.crumbs .back,.map-empty .we button,.wgpop .acts button,.sheet .acts > *,.movers .more,.secs .more){transition:transform var(--c-fast) var(--c-out),box-shadow var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out),background-color var(--c-base) var(--c-out),color var(--c-base) var(--c-out)}
+:is(.setbtn,.ddbtn,.morebtn,.bchip,.wgadd,.crumbs .back,.map-empty .we button,.wgpop .acts button,.sheet .acts > *,.movers .more,.secs .more):is(:active:not(:disabled):not([aria-disabled="true"]),.is-press){transform:translateY(1px);box-shadow:var(--key-dn);filter:var(--press-f);transition-duration:0s,0s,0s,var(--c-base),var(--c-base)}
+/* keys without a surface (☆ · × · ⋯ · 경로) and chips: 1px + darker, no shadow */
+:is(.sheet .x,.ctls-hd .x,.wstar,.wbtn,.wgm,.crumbs button.c,.wgc){transition:transform var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out),color var(--c-fast) var(--c-out)}
+:is(.sheet .x,.ctls-hd .x,.wstar,.wbtn,.wgm,.crumbs button.c:not(.cur),.wgc):is(:active,.is-press){transform:translateY(1px);filter:var(--press-f);transition-duration:0s}
+.tstar:is(:active,.is-press){filter:var(--press-f);transition-duration:0s}
+/* data rows and bars never sink: they only darken */
+:is(.secs button,.movers > button,.hist button,.bm-it,.sugg button):active{filter:brightness(.85);transition:filter 0s}
+.ctl.dd .ddv{display:inline-grid;justify-items:start}
+/* 44 px to press on touch screens, the drawn size unchanged */
+@media (pointer:coarse){
+  :is(.ctls-hd .x,.sheet .x,.wstar,.wbtn,.wgm,.wgadd,.movers .more,.secs .more)::before{content:"";position:absolute;left:50%;top:50%;width:max(100%,44px);height:max(100%,44px);transform:translate(-50%,-50%)}
+}
+/* touch screens keep no hover look after a tap */
+@media (hover:none){
+  :is(.wstar,.wgm,.sheet .x,.ctls-hd .x,.wbtn):hover{background:none}
+  :is(.setbtn,.swbtn,.wgadd,.movers .more,.secs .more,.sheet .acts .sec2,.ddbtn,.morebtn):hover{background:var(--key-bg)}
+}
 </style>
 </head>
 <body>
@@ -975,6 +1082,153 @@ function h(tag, props, ...kids) {
 const MINUS = '−';
 const sgn = v => v > 0 ? '+' : v < 0 ? MINUS : '';
 const fmtPct = (v, d = 2) => sgn(v) + Math.abs(v).toFixed(d) + '%';
+
+/* ───────────────── living controls (docs/standards/controls.md) — KH.ui, shared with extras · stock · world ─────────────────
+   seg(el): the raised indicator of a segment / tab row follows its aria-pressed button (leading edge --c-fast, trailing --c-base;
+   a resize only re-places it). swap(el, text, from?): a label changes in place. roll(el, text, dir): 화려하게 digits roll (the
+   element's text is the value at every moment). busy(btn, promise): a ring in place of the label while it works. state(el, st):
+   .klb/.kl stacked labels (the box keeps the widest one). bubble(anchor, text, 'done'|'fail'): a short note under an icon-only key
+   (no layout) + aria-live. sw(btn): a switch row whose knob can be dragged. live(text): a polite announcement. icon(name).
+   Lengths are the --c-* tokens ('줄이기' sets them to 0, so every helper lands in its final state at once). */
+const UI_SVG = {
+  check: '<svg class="kck" viewBox="0 0 20 20" aria-hidden="true"><path d="M4.5 10.5l3.6 3.6 7.4-8" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  warn: '<svg class="kwn" viewBox="0 0 20 20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><circle cx="10" cy="10" r="7.6"/><path d="M10 6v5M10 14.1v.2"/></svg>',
+  spin: '<svg class="kspn" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7.5"/></svg>',
+};
+function uiIcon(name) { const t = document.createElement('template'); t.innerHTML = UI_SVG[name] || ''; return t.content.firstElementChild || document.createElement('span'); }
+const uiMs = name => parseFloat(getComputedStyle(document.documentElement).getPropertyValue(name)) || 0;
+const UI_SEG = new WeakMap(), SEG_SEL = '.seg, .tabs, .movers-tabs';
+function uiSegPlace(seg, snap) {
+  const st = UI_SEG.get(seg); if (!st) return;
+  const bs = [...seg.children].filter(x => x.tagName === 'BUTTON');
+  const i = bs.findIndex(b => b.getAttribute('aria-pressed') === 'true' && !b.hidden), b = bs[i];
+  if (!b || !b.offsetWidth || !seg.clientWidth) { st.i = i; st.v = ''; delete seg.dataset.ind; return; }
+  const inset = parseFloat(getComputedStyle(seg).getPropertyValue('--ind-in')) || 0;
+  const v = [b.offsetLeft + inset, seg.clientWidth - b.offsetLeft - b.offsetWidth + inset, b.offsetTop + inset, seg.clientHeight - b.offsetTop - b.offsetHeight + inset]
+    .map(x => Math.round(x * 2) / 2 + 'px');
+  const moved = !snap && st.i >= 0 && i !== st.i && seg.dataset.ind != null;
+  if (!moved && v.join() === st.v) { st.i = i; return; }          // a redraw that changed nothing: a running move goes on
+  seg.dataset.dir = moved ? (i > st.i ? 'r' : 'l') : '';
+  ['--il', '--ir', '--it', '--ib'].forEach((k, j) => seg.style.setProperty(k, v[j]));
+  seg.dataset.ind = '';
+  st.i = i; st.v = v.join();
+}
+const uiSegMO = new MutationObserver(recs => {
+  const segs = new Set();
+  for (const r of recs) { const el = r.target.nodeType === 1 ? r.target : r.target.parentElement, sg = el && el.closest(SEG_SEL); if (sg && UI_SEG.has(sg)) segs.add(sg); }
+  for (const sg of segs) { uiSegKids(sg); uiSegPlace(sg); }
+});
+const uiSegRO = 'ResizeObserver' in window ? new ResizeObserver(es => {
+  for (const e of es) { const sg = e.target.matches(SEG_SEL) ? e.target : e.target.parentElement; if (sg && UI_SEG.has(sg)) uiSegPlace(sg, true); }
+}) : null;
+function uiSegKids(seg) { if (uiSegRO) for (const b of seg.children) if (b.tagName === 'BUTTON') uiSegRO.observe(b); }
+function uiSeg(seg) {
+  if (!seg || UI_SEG.has(seg)) return;
+  UI_SEG.set(seg, { i: -1, v: '' });
+  uiSegMO.observe(seg, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ['aria-pressed', 'hidden'] });
+  if (uiSegRO) { uiSegRO.observe(seg); uiSegKids(seg); }
+  uiSegPlace(seg, true);
+}
+function uiSwap(el, text, from) {
+  if (!el) return;
+  text = String(text);
+  const cur = from != null ? String(from) : el.textContent;
+  const wrapped = el.childElementCount === 1 && el.firstElementChild.classList.contains('sw-n');
+  if (cur === text) { if (!wrapped || el.textContent !== text) { const n = document.createElement('span'); n.className = 'sw-n'; n.textContent = text; el.replaceChildren(n); } return; }
+  const n = document.createElement('span'); n.className = 'sw-n'; n.textContent = text;
+  el.replaceChildren(n);
+  if (!cur || MOTION === 'reduced' || document.hidden || !el.isConnected) { el.classList.remove('sw-go'); delete el.dataset.was; return; }
+  el.dataset.was = cur; el.classList.remove('sw-go'); void el.offsetWidth; el.classList.add('sw-go');
+}
+document.addEventListener('animationend', e => {
+  if (e.animationName !== 'swIn') return;
+  const el = e.target.parentElement; if (el && el.classList.contains('sw-go')) { el.classList.remove('sw-go'); delete el.dataset.was; }
+});
+function uiRoll(el, text, dir) {
+  if (!el) return;
+  text = String(text);
+  const old = el.textContent;
+  if (old === text) return;
+  if (MOTION !== 'fancy' || !dir || !old || old.length !== text.length || document.hidden || !el.isConnected) { el.textContent = text; return; }
+  const H = parseFloat(getComputedStyle(el).lineHeight) || el.getBoundingClientRect().height || 14, dur = uiMs('--c-base');
+  el.textContent = '';
+  for (let i = 0; i < text.length; i++) {
+    const a = old[i], c = text[i];
+    if (a === c || !/\d/.test(a) || !/\d/.test(c)) { el.append(c); continue; }
+    const box = document.createElement('span'), col = document.createElement('span');
+    box.className = 'rc'; box.style.height = H + 'px';
+    col.className = dir > 0 ? 'rs' : 'rs dn'; col.dataset.o = a; col.textContent = c;
+    box.append(col); el.append(box);
+    const an = col.animate(dir > 0 ? [{ transform: 'translateY(0)' }, { transform: `translateY(${-H}px)` }] : [{ transform: `translateY(${-H}px)` }, { transform: 'translateY(0)' }],
+      { duration: dur, easing: 'cubic-bezier(.22,1,.36,1)', delay: (text.length - 1 - i) * 40, fill: 'both' });
+    an.onfinish = () => { delete col.dataset.o; an.cancel(); };
+  }
+}
+function uiBusy(btn, p) {
+  if (!btn || btn.getAttribute('aria-busy') === 'true') return p;
+  btn.setAttribute('aria-busy', 'true');
+  const ring = uiIcon('spin'); ring.classList.add('kov'); btn.append(ring);
+  const done = () => { btn.removeAttribute('aria-busy'); ring.remove(); };
+  Promise.resolve(p).then(done, done);
+  return p;
+}
+function uiState(el, st) {
+  if (!el) return;
+  for (const x of el.querySelectorAll('.kl.out')) x.classList.remove('out');
+  for (const x of el.querySelectorAll('.kl.on')) if (!x.matches(`[data-l~="${st}"]`)) { x.classList.remove('on'); x.classList.add('out'); }
+  el.dataset.st = st;
+  for (const x of el.querySelectorAll(`.kl[data-l~="${st}"]`)) { x.classList.remove('out'); x.classList.add('on'); }
+  if (el.dataset.busy !== undefined) el.setAttribute('aria-busy', String(el.dataset.busy.split(' ').includes(st)));
+  const on = el.querySelector('.kl.on');
+  if (on && el.tagName === 'BUTTON' && el.dataset.keepLabel === undefined) el.setAttribute('aria-label', (on.dataset.say || on.textContent).trim());
+}
+let uiLiveEl = null;
+function uiLive(text) {
+  if (!uiLiveEl) { uiLiveEl = h('div', { class: 'sr', role: 'status', 'aria-live': 'polite' }); document.body.append(uiLiveEl); }
+  uiLiveEl.textContent = '';
+  setTimeout(() => { uiLiveEl.textContent = String(text || ''); }, 40);
+}
+function uiBubble(anchor, text, kind) {
+  if (!anchor || !text) return null;
+  const r = anchor.getBoundingClientRect(), b = h('div', { class: 'kbub', 'aria-hidden': 'true' });
+  if (kind) b.append(uiIcon(kind === 'fail' ? 'warn' : 'check'));
+  b.append(String(text));
+  document.body.append(b);
+  const w = b.offsetWidth;
+  b.style.left = Math.round(Math.max(8, Math.min(innerWidth - w - 8, r.right - w))) + 'px';
+  b.style.top = Math.round(r.bottom + 8) + 'px';
+  requestAnimationFrame(() => b.classList.add('on'));
+  setTimeout(() => { b.classList.remove('on'); setTimeout(() => b.remove(), 400); }, 1680);   // --c-dwell + --c-slow: a hold time, the same in every effect level
+  uiLive(text);
+  return b;
+}
+function uiSwitch(btn) {
+  if (!btn || btn.__sw) return; btn.__sw = true;
+  const tr = btn.querySelector('.swt'); if (!tr) return;
+  let sx = 0, t0 = 0, t = 0, down = false, dragged = false, skipUntil = 0;
+  const on = () => btn.getAttribute('aria-checked') === 'true';
+  tr.addEventListener('pointerdown', e => { down = true; dragged = false; sx = e.clientX; t0 = t = on() ? 1 : 0; try { tr.setPointerCapture(e.pointerId); } catch (x) {} });
+  tr.addEventListener('pointermove', e => {
+    if (!down) return;
+    const dx = e.clientX - sx;
+    if (!dragged) { if (Math.abs(dx) < 4) return; dragged = true; btn.classList.add('drag'); }
+    t = Math.min(1, Math.max(0, t0 + dx / 18)); tr.style.setProperty('--t', t);
+  });
+  const up = () => {
+    if (!down) return; down = false;
+    if (!dragged) return;
+    void tr.offsetWidth; btn.classList.remove('drag'); tr.style.removeProperty('--t');
+    if ((t >= .5) !== on()) btn.click();                       // lands on the nearer side from where the finger left it
+    skipUntil = performance.now() + 400;                       // the click that follows the drag changes nothing
+  };
+  tr.addEventListener('pointerup', up); tr.addEventListener('pointercancel', up);
+  btn.addEventListener('click', e => { if (e.isTrusted && performance.now() < skipUntil) { e.stopImmediatePropagation(); e.preventDefault(); } }, true);
+}
+// keys sink while Space / Enter is held, as under a finger
+document.addEventListener('keydown', e => { if ((e.key === ' ' || e.key === 'Enter') && !e.repeat && e.target instanceof HTMLElement && e.target.matches('button, a[href]')) e.target.classList.add('is-press'); });
+for (const t of ['keyup', 'blur', 'pointerdown']) document.addEventListener(t, e => { const el = e.target; if (el instanceof HTMLElement && el.classList.contains('is-press')) el.classList.remove('is-press'); }, true);
+document.addEventListener('touchstart', () => {}, { passive: true });     // Android Chrome: :active follows the finger at once
+const KHUI = { seg: uiSeg, swap: uiSwap, roll: uiRoll, busy: uiBusy, state: uiState, bubble: uiBubble, sw: uiSwitch, live: uiLive, icon: uiIcon, ms: uiMs };
 // cached formatters: toLocaleString builds one per call (≈20 µs), and a 300-row table or 600 candle labels call it thousands of times
 const NF0 = new Intl.NumberFormat('ko-KR'), NF1 = new Intl.NumberFormat('ko-KR', { maximumFractionDigits: 1 });
 const fmtInt = v => NF0.format(Math.round(v));
@@ -3524,15 +3778,22 @@ function secTabs(themeMode) {
 }
 // a "더보기 (N개)" / "접기" button under a list; collapsing brings the card's head back into view
 function listMoreBtn(open, n, toggle, card) {
-  return h('button', { class: 'more', type: 'button', 'aria-expanded': String(open), onclick: () => {
+  return h('button', { class: 'more', type: 'button', 'aria-expanded': String(open), onclick: ev => {
+    const was = ev.currentTarget.textContent;
     toggle();
     renderSide();
-    if (open) {
-      const c = $(card), r = c && c.getBoundingClientRect();
-      if (r && r.top < 0) c.scrollIntoView({ block: 'start', behavior: reduced() ? 'auto' : 'smooth' });
-      const b = c && c.querySelector('.more'); if (b) b.focus({ preventScroll: true });
+    const c = $(card), nb = c && c.querySelector('.more');
+    if (nb && nb.firstElementChild && !reduced()) {
+      uiSwap(nb.firstElementChild, nb.textContent, was);
+      nb.dataset.flip = '';
+      nb.addEventListener('animationend', function f(e) { if (e.animationName.startsWith('chevFlip')) { delete nb.dataset.flip; nb.removeEventListener('animationend', f); } });
     }
-  }, text: open ? '접기' : `더보기 (${n}개)` });
+    if (open) {
+      const r = c && c.getBoundingClientRect();
+      if (r && r.top < 0) c.scrollIntoView({ block: 'start', behavior: reduced() ? 'auto' : 'smooth' });
+      if (nb) nb.focus({ preventScroll: true });
+    }
+  } }, h('span', { class: 'mt', text: open ? '접기' : `더보기 (${n}개)` }));
 }
 function renderSecCard(themeMode) {
   const box = $('#secs');
@@ -3799,13 +4060,11 @@ function renderTabs() {
     const was = tp.textContent;
     tp.classList.remove('up', 'dn', 'flat'); tp.classList.add(has ? cls(v) : 'flat');
     if (was === txt) continue;
-    tp.classList.remove('fl');
-    tp.textContent = txt;
-    if (fresh && was && txt) { void tp.offsetWidth; tp.classList.add('fl'); }
+    if (fresh && was && txt) uiRoll(tp, txt, Math.sign(v - parseFloat(was.replace('−', '-').replace('+', ''))) || 1);
+    else tp.textContent = txt;
   }
   tabSrc = DATA;
 }
-$('.tabs').addEventListener('animationend', e => { if (e.target.classList) e.target.classList.remove('fl'); });
 document.addEventListener('kh:render', renderTabs);
 // the group choice: 화면 (표시 설정) row — 전체 관심 · each group, shown once there are two groups to choose from
 let wtabKey = '';
@@ -3898,7 +4157,7 @@ function renderStatus() {
     badge.title = L.title;
     // phones: the chip — the venue, and the badge's time when the drawn prices are not live ("통합 · 15:30 기준", "NXT · 15:20 마감")
     const venue = { krx: 'KRX', nxt: 'NXT', int: '통합' }[BASIS.v] || 'KRX', sfx = basisLive() ? '' : L.short.replace(/^(KRX|NXT|통합)\s*/, '');
-    bchip.querySelector('.bcv').textContent = venue;
+    uiSwap(bchip.querySelector('.bcv'), venue);
     bchip.querySelector('.bcs').textContent = sfx ? `· ${sfx}` : '';
     bchip.setAttribute('aria-label', `가격 기준 ${venue}${sfx ? ', ' + sfx : ''}, 바꾸기`);
     bchip.title = L.title;
@@ -3981,8 +4240,8 @@ function syncControls() {
   }
   syncViewSeg();
   $('.ctl[data-ctl="flowWin"]').hidden = !isFlow();
-  $('.ctl[data-ctl="colorBy"] .ddv').textContent = COLOR_METRICS[state.colorBy].label;
-  $('.ctl[data-ctl="flowWin"] .ddv').textContent = `${state.flowWin}일`;
+  uiSwap($('.ctl[data-ctl="colorBy"] .ddv'), COLOR_METRICS[state.colorBy].label);
+  uiSwap($('.ctl[data-ctl="flowWin"] .ddv'), `${state.flowWin}일`);
   // 종목 수 only applies to market maps; the colour metric is replaced by net buying in a flow size mode
   const off = { topN: state.market === 'THEME' || state.market === 'WATCH', colorBy: isFlow() };
   for (const [k, v] of Object.entries(off)) {
@@ -4029,7 +4288,7 @@ document.addEventListener('click', e => {
   render({ animate: k === 'sizeBy' || k === 'topN' || k === 'flowWin' || k === 'colorBy' });
   renderCrumbs(); renderSide(); renderFooter(); renderLegend();
   // 전체 on / off: the other quotes stream now (the map draws what it has meanwhile)
-  if (k === 'topN' && allScope() !== scopeWas && MODE === 'live') poll();
+  if (k === 'topN' && allScope() !== scopeWas && MODE === 'live') uiBusy(document.querySelector('.seg[data-key="topN"] button[aria-pressed="true"]'), poll());
 });
 // phones: the tab row scrolls sideways; the active tab stays in view
 function keepTabInView() {
@@ -4221,13 +4480,15 @@ function settingRow(o) {
   const id = 'set-' + o.key;
   const hint = o.hint ? h('small', { class: 'hint', id: id + '-h', text: o.hint }) : null;
   if (!o.options) {
-    return h('div', { class: 'ctl', 'data-set': o.key },
-      h('button', { type: 'button', class: 'swbtn', role: 'switch', 'aria-checked': String(o.value), 'aria-describedby': hint ? id + '-h' : null, onclick: () => changeSetting(o, !o.value) },
-        h('span', { class: 'swl', text: o.label }), h('span', { class: 'swt', 'aria-hidden': 'true' })), hint);
+    const sw = h('button', { type: 'button', class: 'swbtn', role: 'switch', 'aria-checked': String(o.value), 'aria-describedby': hint ? id + '-h' : null, onclick: () => changeSetting(o, !o.value) },
+      h('span', { class: 'swl', text: o.label }), h('span', { class: 'swt', 'aria-hidden': 'true' }));
+    uiSwitch(sw);
+    return h('div', { class: 'ctl', 'data-set': o.key }, sw, hint);
   }
-  return h('div', { class: 'ctl', 'data-set': o.key }, h('span', { id: id + '-l', text: o.label }),
-    h('div', { class: 'seg', role: 'group', 'aria-labelledby': id + '-l' },
-      o.options.map((x, i) => h('button', { type: 'button', 'data-si': String(i), 'aria-pressed': String(x.v === o.value), onclick: () => changeSetting(o, x.v), text: x.label }))), hint);
+  const seg = h('div', { class: 'seg', role: 'group', 'aria-labelledby': id + '-l' },
+    o.options.map((x, i) => h('button', { type: 'button', 'data-si': String(i), 'aria-pressed': String(x.v === o.value), onclick: () => changeSetting(o, x.v), text: x.label })));
+  uiSeg(seg);
+  return h('div', { class: 'ctl', 'data-set': o.key }, h('span', { id: id + '-l', text: o.label }), seg, hint);
 }
 function syncSettingRow(o) {
   if (!o.options) o.el.querySelector('.swbtn').setAttribute('aria-checked', String(o.value));
@@ -4854,6 +5115,7 @@ window.KH = {
   range: () => curRange(),
   market: () => ({ THEME: 'theme', WATCH: 'watch', WORLD: 'world', CMDTY: 'cmdty' })[state.market] || state.market,
   basis: basisId,
+  ui: KHUI,
 };
 
 /* phones: the basis chip's menu (a bottom sheet): KRX · NXT · 통합 with a line each; arrows / Home / End move, Enter picks, Esc closes,
@@ -4918,6 +5180,8 @@ if ('IntersectionObserver' in window) new IntersectionObserver(es => {
 }).observe($('#hist').closest('.card'));
 
 /* ───────────────── boot ───────────────── */
+for (const sg of document.querySelectorAll(SEG_SEL)) uiSeg(sg);
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { for (const sg of document.querySelectorAll(SEG_SEL)) uiSegPlace(sg, true); });
 syncWorld(true);
 if (isWorld()) domReady().then(() => syncWorld());
 rebuildColor();
