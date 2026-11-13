@@ -45,16 +45,31 @@
 /* tools (#extras-tools, end of the toolbar) */
 #extras-tools.xt{display:flex;align-items:center;gap:8px;margin-left:auto}
 #extras-tools.xt:empty{display:none}
-.xt-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:34px;padding:0 11px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--fg2);font-size:13px;white-space:nowrap;transition:color .15s,border-color .15s}
-.xt-btn svg{flex:none;color:var(--muted);transition:color .15s}
-.xt-btn:hover{color:var(--fg);border-color:var(--line2)}
-.xt-btn:hover svg{color:var(--fg2)}
-.xt-btn[aria-expanded="true"]{color:var(--amber);border-color:rgba(255,181,71,.45);background:var(--amber-soft)}
+/* raised keys (controls.md §4 · §5-1 · §5-2, the template's tokens): 1px down at 0 ms, back in --c-fast; open = --key-on + amber */
+.xt-btn{position:relative;display:inline-flex;align-items:center;justify-content:center;gap:6px;height:34px;padding:0 12px;border-radius:var(--r-key);border:0;background:var(--key-bg);box-shadow:var(--key-sh);color:var(--key-fg);font-size:13px;white-space:nowrap;transition:transform var(--c-fast) var(--c-out),box-shadow var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out),background-color var(--c-base) var(--c-out),color var(--c-base) var(--c-out)}
+.xt-btn svg{flex:none;color:var(--key-ic);transition:color var(--c-base) var(--c-out)}
+.xt-btn:hover{background:var(--key-hover)}
+.xt-btn[aria-expanded="true"]{color:var(--amber);box-shadow:var(--key-on)}
 .xt-btn[aria-expanded="true"] svg{color:var(--amber)}
-.xt-btn[aria-disabled="true"]{opacity:.4;cursor:not-allowed}
-.xt-btn[aria-disabled="true"]:hover{color:var(--fg2);border-color:var(--line)}
-.xt-btn[aria-busy="true"]{opacity:.6;cursor:progress}
-@media (min-width:761px) and (max-width:1599px){.xt-btn{width:34px;padding:0}.xt-btn span{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}}
+.xt-btn:is(:active:not([aria-disabled="true"]):not([aria-busy="true"]),.is-press){transform:translateY(1px);box-shadow:var(--key-dn);filter:var(--press-f);transition-duration:0s,0s,0s,var(--c-base),var(--c-base)}
+.xt-btn[aria-disabled="true"]{opacity:.45;box-shadow:none;cursor:not-allowed}
+.xt-btn[aria-disabled="true"]:hover{background:var(--key-bg)}
+.xt-btn[aria-busy="true"]{cursor:progress}
+/* async key (이미지로 저장): picture → ring → ✓ / ! in one 18px cell; ✓ = amber surface, ! = the dark amber one (never red / green) */
+.xt-ic{display:inline-grid;flex:none;width:18px;height:18px}
+.xt-ic>.kl{width:18px;height:18px}
+.xt-ic svg{width:18px;height:18px}
+.xt-ic .kspn{width:16px;height:16px}
+.xt-ic .kl:not(.on) .kspn{animation-play-state:paused}
+.xt-async[data-st="work"] svg{color:var(--fg)}
+.xt-async[data-st="done"]{background:var(--done-bg);color:var(--done-fg)}
+.xt-async[data-st="done"] svg{color:var(--done-fg)}
+.xt-async[data-st="fail"]{background:var(--fail-bg);color:var(--fail-fg);box-shadow:inset 0 0 0 1px var(--fail-ring),var(--key-sh)}
+.xt-async[data-st="fail"] svg{color:var(--amber)}
+@media (min-width:761px) and (max-width:1599px){.xt-btn{width:34px;padding:0}.xt-btn .xt-l{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}}
+/* 44 px to press on touch screens, the drawn key unchanged */
+@media (pointer:coarse){.xt-btn::before{content:"";position:absolute;left:50%;top:50%;width:max(100%,44px);height:max(100%,44px);transform:translate(-50%,-50%)}}
+@media (hover:none){.xt-btn:hover{background:var(--key-bg)}.xt-async[data-st="done"]:hover{background:var(--done-bg)}.xt-async[data-st="fail"]:hover{background:var(--fail-bg)}}
 
 .xt-toast{position:fixed;left:50%;bottom:calc(18px + var(--rp-h, 0px));z-index:130;max-width:min(420px,calc(100% - 24px));transform:translate(-50%,8px);padding:9px 14px;border-radius:9px;border:1px solid var(--line2);background:#26282f;color:var(--fg);font-size:13px;line-height:1.45;box-shadow:0 12px 30px rgba(0,0,0,.5);opacity:0;pointer-events:none;transition:opacity .18s,transform .18s}
 .xt-toast.show{opacity:1;transform:translate(-50%,0)}
@@ -154,13 +169,12 @@ section.rp-player[hidden]{display:none}
   .xs-pp svg{width:14px;height:14px}
   #extras-tools.xt{flex:none;gap:6px}
   .xt-btn{width:40px;height:40px;padding:0}
-  .xt-btn span{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+  .xt-btn .xt-l{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
   .rp-player .rp-ticks .o{display:none}
 }
-@media (prefers-reduced-motion:reduce){
-  section.rp-player{animation:none}
-  .xt-toast,.xt-btn,.xt-btn svg{transition:none}
-}
+/* 줄이기 (the template's html[data-motion], which also follows the device setting until the viewer picks one) */
+html[data-motion="reduced"] section.rp-player{animation:none}
+html[data-motion="reduced"] .xt-toast{transition:none}
 
 @media (prefers-reduced-motion:reduce){.xs-track{animation:none}}
 
@@ -172,10 +186,14 @@ section.rp-player[hidden]{display:none}
 /* ── clock (#clock) + session progress bar ── */
 #clock{display:flex;flex-direction:column;align-items:flex-start;gap:2px;min-width:0}
 #clock[hidden]{display:none}
-.xc-btn{display:block;padding:2px 4px;margin:-2px -4px;border-radius:8px;color:var(--fg);text-align:left;cursor:pointer;-webkit-tap-highlight-color:transparent}
+/* the clock is a key without a surface (controls.md §5-1): 1px down + darker; refreshing = a ring right of the digits (no layout) */
+.xc-btn{position:relative;display:block;padding:2px 4px;margin:-2px -4px;border-radius:8px;color:var(--fg);text-align:left;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out)}
 .xc-btn:hover{background:rgba(255,255,255,.04)}
-.xc-btn:focus-visible{outline:2px solid var(--amber);outline-offset:1px}
+.xc-btn:is(:active:not([aria-busy="true"]),.is-press){transform:translateY(1px);filter:var(--press-f);transition-duration:0s}
 .xc-btn[aria-busy="true"]{cursor:progress}
+.xc-ring{position:absolute;left:calc(100% + 3px);top:50%;width:14px;height:14px;margin-top:-7px;color:var(--amber);opacity:0;pointer-events:none;transition:opacity var(--c-fast) var(--c-out);animation-play-state:paused}
+.xc-btn[aria-busy="true"] .xc-ring{opacity:1;animation-play-state:running}
+@media (hover:none){.xc-btn:hover{background:none}}
 .xc-face{display:flex;align-items:center;gap:8px}
 .xc-digits{display:inline-flex;align-items:center;font:650 30px/1 var(--sans,inherit);letter-spacing:-.02em;font-variant-numeric:tabular-nums;color:var(--fg)}
 .xdg{position:relative;display:inline-block;width:.6em;height:1.15em;overflow:hidden;text-align:center}

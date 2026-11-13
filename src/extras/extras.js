@@ -30,6 +30,19 @@ const ICON = {
 const icon = (d, fill) => svg('svg', { viewBox: '0 0 20 20', width: '18', height: '18', 'aria-hidden': 'true', fill: fill ? 'currentColor' : 'none',
   stroke: fill ? 'none' : 'currentColor', 'stroke-width': '1.7', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, svg('path', { d }));
 
+/* ───────── living controls (docs/standards/controls.md): the template's KH.ui helpers and --c-* tokens, used when present ───────── */
+const UI = KH.ui && typeof KH.ui.state === 'function' && typeof KH.ui.bubble === 'function' ? KH.ui : null;
+const tokMs = (name, d) => (UI && typeof UI.ms === 'function' ? UI.ms(name) : d);          // '줄이기' sets --c-fast/base/switch to 0
+// one label (or icon) per state, stacked in one cell; KH.ui.state(el, st) shows the one whose data-l names st (the box keeps the widest)
+const kl = (st, kids, tag) => h(tag || 'span', { class: 'kl' + (st === 'idle' ? ' on' : ''), 'data-l': st }, kids);
+const uiIcon = name => (UI && typeof UI.icon === 'function' ? UI.icon(name) : null);
+function setState(el, st) {
+  if (!el) return;
+  if (UI) { UI.state(el, st); return; }
+  el.dataset.st = st;
+  for (const x of el.querySelectorAll('.kl')) x.classList.toggle('on', x.matches(`[data-l~="${st}"]`));
+}
+
 /* ───────── formatting ───────── */
 const sgn = v => v > 0 ? '+' : v < 0 ? MINUS : '';
 const fixed = (v, dp) => Math.abs(v).toLocaleString('ko-KR', { minimumFractionDigits: dp, maximumFractionDigits: dp });
@@ -709,7 +722,24 @@ function initStrip() {
 /* ═════════════ tools row ═════════════ */
 const toolsEl = document.getElementById('extras-tools');
 function toolButton(key, label, onClick, extra) {
-  return h('button', Object.assign({ type: 'button', class: 'xt-btn', 'data-x': key, title: label, onclick: onClick }, extra || {}), icon(ICON[key]), h('span', { text: label }));
+  return h('button', Object.assign({ type: 'button', class: 'xt-btn', 'data-x': key, title: label, onclick: onClick }, extra || {}), icon(ICON[key]), h('span', { class: 'xt-l', text: label }));
+}
+/* 이미지로 저장 = an async key (controls.md §5-3): picture → ring → ✓ / ! in the icon's place, the label box (shown from 1600 px)
+   says the same; the box keeps its widest label, so nothing beside it moves. Icon-only keys say the result in a bubble under
+   the key (no layout) and every result is announced once. aria-label stays "이미지로 저장". */
+const IMG_SAY = { idle: '이미지로 저장', work: '만드는 중', done: '저장했어요', fail: '실패 · 다시' };
+function imageKey() {
+  if (!UI) return toolButton('image', IMG_SAY.idle, saveImage);
+  const ic = h('i', { class: 'klb xt-ic', 'aria-hidden': 'true' }, kl('idle', icon(ICON.image), 'i'), kl('work', uiIcon('spin'), 'i'), kl('done', uiIcon('check'), 'i'), kl('fail', uiIcon('warn'), 'i'));
+  const lab = h('span', { class: 'xt-l klb' }, Object.entries(IMG_SAY).map(([st, t]) => kl(st, t)));
+  return h('button', { type: 'button', class: 'xt-btn xt-async', 'data-x': 'image', 'data-st': 'idle', 'data-busy': 'work', 'data-keep-label': true,
+    title: IMG_SAY.idle, 'aria-label': IMG_SAY.idle, onclick: saveImage }, ic, lab);
+}
+const iconOnly = b => { const l = b && b.querySelector('.xt-l'); return !l || l.getBoundingClientRect().width < 2; };
+// a word from a tool key: a bubble under the key (always for a reason; for a result only when the key shows no label) + aria-live
+function keySay(btn, text, kind, reason) {
+  if (!UI) { toast(text); return; }
+  if (btn && btn.isConnected && (reason || iconOnly(btn))) UI.bubble(btn, text, kind); else UI.live(text);
 }
 
 /* ═════════════ 2. Save as image ═════════════ */
@@ -1080,16 +1110,20 @@ function drawMap(nodes, wt) {
   return cnv;
 }
 
-let saving = false;
+let saving = false, saveT = 0;
 async function saveImage(ev) {
   if (saving) return;
   const btn = ev && ev.currentTarget;
+  const async_ = !!(btn && btn.classList.contains('xt-async'));
+  clearTimeout(saveT);
+  if (async_ && btn.dataset.st !== 'idle') setState(btn, 'idle');              // ✓ still showing, or ! waiting for this press
   let nodes = [];
   const wt = isWorldTab();
   try { nodes = ((wt ? (window.KHWorld && typeof window.KHWorld.layout === 'function' ? window.KHWorld.layout() : []) : KH.layout()) || []).filter(n => n && isFinite(n.x) && isFinite(n.y) && n.w > 0 && n.h > 0); } catch (e) { nodes = []; }
-  if (!nodes.some(n => n.kind === 'tile')) { toast(wt ? '지도 탭에서만 저장할 수 있어요' : '저장할 지도가 없어요. 지도 보기에서 다시 눌러 주세요.'); return; }
+  if (!nodes.some(n => n.kind === 'tile')) { keySay(btn, wt ? '지도 탭에서만 저장할 수 있어요' : '지도 보기에서 저장할 수 있어요', 'fail', true); return; }
   saving = true;
-  if (btn) btn.setAttribute('aria-busy', 'true');
+  if (async_) setState(btn, 'work'); else if (btn) btn.setAttribute('aria-busy', 'true');
+  let st = 'idle';
   try {
     const fam = getComputedStyle(document.body).fontFamily;
     if (document.fonts && document.fonts.load) {
@@ -1104,15 +1138,21 @@ async function saveImage(ev) {
       const a = h('a', { href: url, download: name, hidden: true });
       document.body.append(a); a.click(); a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 30000);
-      toast('지도를 이미지로 저장했어요.');
+      st = 'done';
+      keySay(btn, '지도를 이미지로 저장했어요', 'done');
     } else {
-      showImageDialog(cnv.toDataURL('image/png'), name, cnv.width, cnv.height, btn);
+      showImageDialog(cnv.toDataURL('image/png'), name, cnv.width, cnv.height, btn);      // the preview is the result
     }
   } catch (e) {
-    toast('이미지를 만들지 못했어요. 잠시 뒤 다시 시도해 주세요.');
+    st = 'fail';
+    keySay(btn, '이미지를 만들지 못했어요 · 다시 눌러 주세요', 'fail');
   } finally {
     saving = false;
-    if (btn) btn.removeAttribute('aria-busy');
+    if (async_) {
+      setState(btn, st);
+      // ✓ stays --c-dwell, then the key is itself again; ! stays until the next press (that press tries again)
+      if (st === 'done') saveT = setTimeout(() => setState(btn, 'idle'), tokMs('--c-dwell', 1120) || 1120);
+    } else if (btn) btn.removeAttribute('aria-busy');
   }
 }
 
@@ -1812,7 +1852,10 @@ function ckBuild() {
     ck.sec = h('span', { class: 'xc-sec', text: two(n.s) });
     face.append(h('span', { class: 'xc-digits' }, cells[0], cells[1], h('span', { class: 'xc-colon', text: ':' }), cells[2], cells[3]), ck.sec);
   }
-  ck.btn = h('button', { type: 'button', class: 'xc-btn', onclick: ckClick }, face);
+  // while the refresh runs: a 14px ring just right of the digits (absolute: the clock keeps its size); the result is a bubble
+  const ring = uiIcon('spin');
+  if (ring) ring.classList.add('xc-ring');
+  ck.btn = h('button', { type: 'button', class: 'xc-btn', onclick: ckClick }, face, ring);
   ck.desc = h('span', { id: 'ck-desc', class: 'xc-sr' });
   clockEl.replaceChildren(ck.btn, ck.desc);
 }
@@ -2014,14 +2057,24 @@ async function ckClick() {
     if (ck.analog) { ck.analog._w.classList.remove('xa-do'); void ck.analog._w.getBoundingClientRect(); ck.analog._w.classList.add('xa-do'); }
   }
   const t0 = Date.now();
+  let ok = false;
   try {
-    if (LIVE) { if (has('refresh')) await KH.refresh(); else await pollStrip(); }      // the snapshot has nothing to refetch
-  } catch (e) { /* the next poll will try again */ }
+    if (LIVE) {                                              // the snapshot has nothing to refetch
+      if (has('refresh')) ok = (await KH.refresh()) !== false;
+      else { await pollStrip(); ok = !strip.failed; }
+    }
+  } catch (e) { ok = false; /* the next poll will try again */ }
   const left = 700 - (Date.now() - t0);
   if (left > 0) await new Promise(r => setTimeout(r, left));
   ck.busy = false;
   if (ck.btn) { ck.btn.removeAttribute('aria-busy'); ck.btn.classList.remove('xc-busy'); }
   ckRender();
+  // the result under the clock (controls.md §5-3): ✓ new quotes, ! why not and what to do; the snapshot says what it is
+  if (UI && ck.btn && ck.btn.isConnected) {
+    if (!LIVE) UI.bubble(ck.btn, '미리보기는 고정된 시세예요');
+    else if (ok) UI.bubble(ck.btn, '새 시세를 받았어요', 'done');
+    else UI.bubble(ck.btn, '못 받았어요 · 다시 눌러 주세요', 'fail');
+  }
 }
 function ckApply() {
   if (!clockEl) return;
@@ -2068,9 +2121,9 @@ function initClock() {
 /* ═════════════ boot ═════════════ */
 function initTools() {
   if (!toolsEl) return;
-  toast('');                                               // create the live region up front so the first message is announced
+  if (!UI) toast('');                                      // no KH.ui (older template): the toast region, made up front so the first message is announced
   toolsEl.classList.add('xt');
-  if (has('layout')) toolsEl.append(toolButton('image', '이미지로 저장', saveImage));
+  if (has('layout')) toolsEl.append(imageKey());
   if (LIVE && has('setReplay')) {
     const rb = toolButton('replay', '리플레이', openReplay, { 'aria-expanded': 'false' });
     toolsEl.append(rb);
