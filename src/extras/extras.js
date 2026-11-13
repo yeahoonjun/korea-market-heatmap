@@ -26,6 +26,8 @@ const ICON = {
   play: 'M6.5 4.6v10.8a.6.6 0 0 0 .9.5l8.6-5.4a.6.6 0 0 0 0-1L7.4 4.1a.6.6 0 0 0-.9.5z',
   pause: 'M6 4.5h2.6v11H6zM11.4 4.5H14v11h-2.6z',
   close: 'M5 5l10 10M15 5 5 15',
+  up: 'M10 15.5v-11M5.5 9 10 4.5 14.5 9',
+  down: 'M10 4.5v11M5.5 11l4.5 4.5 4.5-4.5',
 };
 const icon = (d, fill) => svg('svg', { viewBox: '0 0 20 20', width: '18', height: '18', 'aria-hidden': 'true', fill: fill ? 'currentColor' : 'none',
   stroke: fill ? 'none' : 'currentColor', 'stroke-width': '1.7', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, svg('path', { d }));
@@ -401,27 +403,61 @@ function tkLabel(id) {
 function tkPicker(opener) {
   let list = (tkIds() || tkDefaultIds()).slice();
   let cat = 'dom', names = null, q = '';
+  const say = t => (UI ? UI.live(t) : toast(t));
   const commit = () => { tkiSave(list); tk.sig = ''; renderStrip(); tkAux().then(() => renderStrip()).catch(() => {}); };
   const has_ = id => list.includes(id);
-  const toggle = id => { const i = list.indexOf(id); if (i >= 0) list.splice(i, 1); else list.push(id); commit(); draw(); };
-  const move = (i, d) => { const j = i + d; if (j < 0 || j >= list.length) return; [list[i], list[j]] = [list[j], list[i]]; commit(); draw(); const b = body.querySelector(`.xk-sel li:nth-child(${j + 1}) button[data-mv="${d}"]`); if (b) b.focus(); };
   const body = h('div', { class: 'xk-body' });
-  const chips = h('div', { class: 'xk-cats', role: 'tablist', 'aria-label': '분류' });
-  const pane = h('div', { class: 'xk-pane', role: 'tabpanel' });
+  const catName = k => (TK_CATS.find(c => c[0] === k) || [k, k])[1];
+  // 분류 = a segment (controls.md §5-4): deep tray, one raised indicator that slides (KH.ui.seg), the row scrolls sideways on phones
+  const cats = h('div', { class: 'xk-cats seg', role: 'group', 'aria-label': '분류' },
+    TK_CATS.map(([k, l]) => h('button', { type: 'button', class: 'xk-cat', 'data-c': k, 'aria-pressed': String(cat === k), onclick: e => pickCat(k, e.currentTarget) }, l)));
+  const pane = h('div', { class: 'xk-pane', role: 'group', 'aria-label': catName(cat) });
   const selBox = h('div', { class: 'xk-selbox' });
-  const pick = (id, label, sub) => h('button', { type: 'button', class: 'xk-row', 'aria-pressed': String(has_(id)), onclick: () => toggle(id) },
-    h('span', { class: 'xk-nm', text: label }), sub ? h('small', { text: sub }) : null, h('span', { class: 'xk-chk', 'aria-hidden': 'true', text: has_(id) ? '추가됨' : '추가' }));
+  // 추가 ↔ 추가됨 = a toggle chip at the end of its row (§5-7): fill + ring, a check that grows in, the label swapped in its box
+  const chip = on => h('span', { class: 'xk-chk', 'aria-hidden': 'true', 'data-st': on ? 'on' : 'off' }, h('i', { class: 'xk-ck' }),
+    h('span', { class: 'klb' }, h('span', { class: 'kl' + (on ? '' : ' on'), 'data-l': 'off' }, '추가'), h('span', { class: 'kl' + (on ? ' on' : ''), 'data-l': 'on' }, '추가됨')));
+  const pick = (id, label, sub) => h('button', { type: 'button', class: 'xk-row', 'data-id': id, 'aria-pressed': String(has_(id)), onclick: () => toggle(id) },
+    h('span', { class: 'xk-nm', text: label }), sub ? h('small', { text: sub }) : null, chip(has_(id)));
+  // rows change in place (the chip moves; focus stays on the row)
+  const syncRows = () => {
+    for (const b of pane.querySelectorAll('.xk-row[data-id]')) {
+      const on = has_(b.dataset.id);
+      if (b.getAttribute('aria-pressed') === String(on)) continue;
+      b.setAttribute('aria-pressed', String(on));
+      setState(b.querySelector('.xk-chk'), on ? 'on' : 'off');
+    }
+  };
+  const toggle = (id, fromSel) => {
+    const i = list.indexOf(id);
+    if (i >= 0) list.splice(i, 1); else list.push(id);
+    commit(); drawSel(); syncRows(); syncReset();
+    if (fromSel) {          // the ✕ of a row that is gone: focus the ✕ now in its place (or the 분류 row when the list is empty)
+      const rm = selBox.querySelectorAll('.xk-rm');
+      const nx = rm[Math.min(i, rm.length - 1)] || cats.querySelector('[aria-pressed="true"]');
+      if (nx) nx.focus();
+    }
+  };
+  const move = (i, d) => {
+    const j = i + d;
+    if (j < 0 || j >= list.length) return;
+    [list[i], list[j]] = [list[j], list[i]];
+    commit(); drawSel(); syncReset();
+    const b = selBox.querySelector(`.xk-sel li:nth-child(${j + 1}) button[data-mv="${d}"]`);
+    if (b && !b.disabled) b.focus(); else { const o = selBox.querySelector(`.xk-sel li:nth-child(${j + 1}) button[data-mv="${-d}"]`); if (o) o.focus(); }
+  };
   function drawSel() {
     selBox.replaceChildren(
       h('h3', { class: 'xk-h3' }, '지금 흐르는 항목 ', h('small', { text: `${list.length}개` })),
       list.length ? h('ol', { class: 'xk-sel' }, list.map((id, i) => h('li', {},
         h('span', { class: 'xk-nm', text: tkLabel(id) }),
-        h('button', { type: 'button', 'data-mv': '-1', 'aria-label': `${tkLabel(id)} 위로`, disabled: i === 0, onclick: () => move(i, -1) }, '↑'),
-        h('button', { type: 'button', 'data-mv': '1', 'aria-label': `${tkLabel(id)} 아래로`, disabled: i === list.length - 1, onclick: () => move(i, 1) }, '↓'),
-        h('button', { type: 'button', 'aria-label': `${tkLabel(id)} 빼기`, onclick: () => toggle(id) }, '✕')))) : h('p', { class: 'xd-p', text: '비어 있어요. 아래에서 골라 주세요. 모두 빼면 기본 구성으로 돌아가요.' }));
+        // ↑ ↓ ✕ = keys without a surface (§5-1), dimmed at the ends (§5-12)
+        h('button', { type: 'button', class: 'xk-mv', 'data-mv': '-1', 'aria-label': `${tkLabel(id)} 위로`, title: '위로', disabled: i === 0, onclick: () => move(i, -1) }, icon(ICON.up)),
+        h('button', { type: 'button', class: 'xk-mv', 'data-mv': '1', 'aria-label': `${tkLabel(id)} 아래로`, title: '아래로', disabled: i === list.length - 1, onclick: () => move(i, 1) }, icon(ICON.down)),
+        h('button', { type: 'button', class: 'xk-mv xk-rm', 'aria-label': `${tkLabel(id)} 빼기`, title: '빼기', onclick: () => toggle(id, true) }, icon(ICON.close))))) : h('p', { class: 'xd-p', text: '비어 있어요. 아래에서 골라 주세요. 모두 빼면 기본 구성으로 돌아가요.' }));
   }
   function drawPane() {
     const rows = [];
+    pane.setAttribute('aria-label', catName(cat));
     if (cat === 'wi') {
       const gs = (tkx.groups.get('index') || []).filter(g => ['us', 'eu', 'asia', 'am', 'ref'].includes(g.key));
       if (!gs.length) rows.push(h('p', { class: 'xd-p', text: tkx.groups.size ? '목록을 불러오지 못했어요.' : '목록을 불러오는 중이에요…' }));
@@ -457,19 +493,46 @@ function tkPicker(opener) {
     } else for (const [id, n] of TK_FIXED[cat] || []) rows.push(pick(id, n));
     pane.replaceChildren(...rows);
   }
-  function drawChips() {
-    chips.replaceChildren(...TK_CATS.map(([k, l]) => h('button', { type: 'button', role: 'tab', class: 'xk-cat', 'aria-selected': String(cat === k), onclick: () => { cat = k; drawChips(); drawPane(); } , text: l })));
+  function pickCat(k, b) {
+    if (cat === k) return;
+    cat = k;
+    for (const x of cats.children) x.setAttribute('aria-pressed', String(x.dataset.c === k));
+    drawPane();
+    try { b.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: motion() === 'reduced' ? 'auto' : 'smooth' }); } catch (e) { /* stays */ }
   }
-  function draw() { drawSel(); drawChips(); drawPane(); }
-  const reset = h('button', { type: 'button', class: 'xk-reset', onclick: () => { list = tkDefaultIds(); tkiSave(null); tk.sig = ''; renderStrip(); draw(); }, text: '기본값으로' });
-  body.append(selBox, chips, pane);
+  // 기본값으로 = two presses (controls.md §5-11): the first arms it (dark amber + ! "한 번 더 누르면 되돌려요", a bar that runs out in
+  // --c-arm), the second within that time does it (✓ "되돌렸어요" for --c-dwell); a second press within 0.4 s is a slip and is ignored
+  const reset = h('button', { type: 'button', class: 'xk-reset', 'data-st': 'idle', 'aria-label': '기본값으로', onclick: () => onReset() },
+    h('span', { class: 'klb' }, kl('idle', '기본값으로'), kl('arm', [uiIcon('warn'), '한 번 더 누르면 되돌려요']), kl('done', [uiIcon('check'), '되돌렸어요'])),
+    h('i', { class: 'xk-arm', 'aria-hidden': 'true' }));
+  let armT = 0, armAt = 0;
+  const toIdle = () => { setState(reset, 'idle'); syncReset(); };
+  function syncReset() { if ((reset.dataset.st || 'idle') === 'idle') reset.setAttribute('aria-disabled', String(!tkIds())); }
+  function onReset() {
+    const st = reset.dataset.st || 'idle';
+    if (st === 'done' || (st === 'idle' && reset.getAttribute('aria-disabled') === 'true')) return;
+    if (st !== 'arm') {
+      setState(reset, 'arm'); armAt = performance.now();
+      clearTimeout(armT); armT = setTimeout(toIdle, tokMs('--c-arm', 4000) || 4000);
+      say('한 번 더 누르면 기본 구성으로 되돌려요');
+      return;
+    }
+    if (performance.now() - armAt < 400) return;
+    clearTimeout(armT);
+    list = tkDefaultIds(); tkiSave(null); tk.sig = ''; renderStrip(); drawSel(); syncRows();
+    setState(reset, 'done'); say('기본 구성으로 되돌렸어요');
+    armT = setTimeout(toIdle, tokMs('--c-dwell', 1120) || 1120);
+  }
+  body.append(selBox, cats, pane);
   const dlg = makeDialog('xk', '티커 항목', opener, [
     h('h2', { class: 'xd-h', text: '티커 항목' }),
     h('p', { class: 'xd-p', text: '위쪽 시장 띠에 흐를 항목을 고르고 순서를 바꿔요. 이 기기에만 저장돼요.' }),
     body,
     h('div', { class: 'xk-foot' }, reset, h('button', { type: 'button', class: 'xk-done', onclick: () => dlg.close(), text: '완료' })),
   ]);
-  draw();
+  dlg.addEventListener('close', () => clearTimeout(armT));
+  drawSel(); drawPane(); syncReset();
+  if (UI && typeof UI.seg === 'function') UI.seg(cats);
   tkAux(true).then(() => { if (dlg.isConnected) { drawSel(); if (cat === 'wi' || cat === 'fut' || cat === 'cm') drawPane(); } }).catch(() => {});
 }
 function initTickerSetting() {

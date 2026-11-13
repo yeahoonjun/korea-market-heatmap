@@ -300,28 +300,58 @@ html.sb-mid .sb-tip{bottom:auto;top:calc(100% + 8px)}
 dialog.xk-info{width:min(360px,calc(100% - 24px))}
 .xk-v{margin:0 0 8px;font-size:18px;font-weight:700;font-variant-numeric:tabular-nums}
 .xk-v.up{color:var(--up-text)} .xk-v.dn{color:var(--dn-text)}
-.xk-link,.xk-open,.xk-reset,.xk-done{display:inline-flex;align-items:center;justify-content:center;min-height:40px;padding:0 16px;border-radius:9px;border:1px solid var(--line2);background:var(--panel2,#202228);color:var(--fg);font-size:13.5px;font-weight:600;text-decoration:none;cursor:pointer}
-.xk-done{background:var(--fg);color:#111;border-color:var(--fg)}
+/* keys in the picker and the info box (controls.md §5-2): raised; 완료 is the one primary key; 1px press */
+.xk-link,.xk-open,.xk-reset,.xk-done{position:relative;display:inline-flex;align-items:center;justify-content:center;min-height:40px;padding:0 17px;border-radius:var(--r-key);border:0;background:var(--key-bg);box-shadow:var(--key-sh);color:var(--key-fg);font-size:13.5px;font-weight:600;text-decoration:none;cursor:pointer;transition:transform var(--c-fast) var(--c-out),box-shadow var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out),background-color var(--c-base) var(--c-out),color var(--c-base) var(--c-out)}
+:is(.xk-link,.xk-open,.xk-reset):hover{background:var(--key-hover)}
+.xk-done{background:var(--pri-bg);color:var(--pri-fg);box-shadow:var(--pri-sh)}
+.xk-done:hover{background:#fff}
+:is(.xk-link,.xk-open,.xk-reset,.xk-done):is(:active:not([aria-disabled="true"]),.is-press){transform:translateY(1px);box-shadow:var(--key-dn);filter:var(--press-f);transition-duration:0s,0s,0s,var(--c-base),var(--c-base)}
+/* 기본값으로, two presses: armed = the dark amber surface + ! + a 3px bar running out over --c-arm; done = amber + ✓ */
+.xk-reset .kwn,.xk-reset .kck{color:inherit}
+.xk-reset[data-st="arm"]{background:var(--fail-bg);color:var(--fail-fg);box-shadow:inset 0 0 0 1px var(--fail-ring),var(--key-sh)}
+.xk-reset[data-st="arm"] .kwn{color:var(--amber)}
+.xk-reset[data-st="done"]{background:var(--done-bg);color:var(--done-fg)}
+.xk-reset[aria-disabled="true"]{opacity:.45;box-shadow:none;cursor:default}
+.xk-reset[aria-disabled="true"]:hover{background:var(--key-bg)}
+.xk-arm{position:absolute;left:12px;right:12px;bottom:5px;height:3px;border-radius:2px;background:var(--amber);opacity:0;transform-origin:left center;pointer-events:none}
+.xk-reset[data-st="arm"] .xk-arm{opacity:1;animation:xkArm var(--c-arm) linear forwards}
+@keyframes xkArm{from{transform:scaleX(1)}to{transform:scaleX(0)}}
+html[data-motion="reduced"] .xk-reset[data-st="arm"] .xk-arm{animation:none}
 dialog.xk{width:min(560px,calc(100% - 24px));max-height:min(760px,calc(100% - 24px))}
 .xk-body{display:flex;flex-direction:column;gap:10px}
 .xk-h3{margin:4px 0 6px;font-size:13px;font-weight:700;color:var(--fg2)} .xk-h3 small{color:var(--muted);font-weight:500}
 .xk-h4{margin:10px 0 2px;font-size:12px;color:var(--muted);font-weight:600}
 .xk-sel{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px;max-height:30svh;overflow:auto;border:1px solid var(--line);border-radius:10px}
-.xk-sel li{display:flex;align-items:center;gap:2px;min-height:40px;padding:0 2px 0 12px;border-bottom:1px solid var(--line)}
+.xk-sel li{display:flex;align-items:center;gap:4px;min-height:40px;padding:0 2px 0 12px;border-bottom:1px solid var(--line)}
 .xk-sel li:last-child{border-bottom:0}
 .xk-nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13.5px}
-.xk-sel li button{width:40px;height:40px;border-radius:8px;color:var(--fg2);font-size:16px}
-.xk-sel li button:disabled{opacity:.25}
-.xk-sel li button:hover:not(:disabled){background:rgba(255,255,255,.07)}
-.xk-cats{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}
-.xk-cat{flex:none;min-height:40px;padding:0 14px;border-radius:20px;border:1px solid var(--line2);color:var(--fg2);font-size:13px;white-space:nowrap}
-.xk-cat[aria-selected="true"]{background:var(--fg);color:#111;border-color:var(--fg);font-weight:700}
+/* ↑ ↓ ✕: keys without a surface (1px + darker), dimmed at the ends */
+.xk-mv{position:relative;flex:none;display:grid;place-items:center;width:40px;height:40px;border-radius:var(--r-in);color:var(--fg2);transition:transform var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out),color var(--c-fast) var(--c-out)}
+.xk-mv svg{width:18px;height:18px}
+.xk-mv:hover:not(:disabled){background:rgba(255,255,255,.07);color:var(--fg)}
+.xk-mv:is(:active:not(:disabled),.is-press){transform:translateY(1px);filter:var(--press-f);transition-duration:0s}
+.xk-mv:disabled{opacity:.45;cursor:default}
+/* 분류: a segment (.seg) that scrolls sideways; the raised indicator rides along */
+.xk-cats{gap:2px;overflow-x:auto;scrollbar-width:none;overscroll-behavior-x:contain}
+.xk-cats::-webkit-scrollbar{display:none}
+.xk-cats .xk-cat{flex:none;min-height:40px;padding:0 14px;font-size:13px}
 .xk-pane{display:flex;flex-direction:column;max-height:34svh;overflow:auto}
-.xk-row{display:flex;align-items:center;gap:8px;min-height:44px;padding:0 12px;border-bottom:1px solid var(--line);text-align:left;color:var(--fg);font-size:13.5px}
+.xk-row{display:flex;align-items:center;gap:8px;min-height:44px;padding:0 12px;border-bottom:1px solid var(--line);text-align:left;color:var(--fg);font-size:13.5px;transition:filter var(--c-fast) var(--c-out)}
+@media (hover:hover){.xk-row:hover{background:rgba(255,255,255,.035)}}
+.xk-row:active{filter:brightness(.85);transition-duration:0s}
+.xk-row:focus-visible{outline-offset:calc(var(--focus-w) * -1)}
 .xk-row small{color:var(--muted)}
-.xk-chk{margin-left:auto;flex:none;font-size:12px;padding:3px 9px;border-radius:12px;border:1px solid var(--line2);color:var(--fg2)}
-.xk-row[aria-pressed="true"] .xk-chk{background:rgba(138,180,255,.16);border-color:rgba(138,180,255,.5);color:var(--fg)}
-.xk-q{height:44px;margin-bottom:6px;padding:0 12px;border-radius:9px;border:1px solid var(--line2);background:var(--panel2,#202228);color:var(--fg);font-size:16px}
+/* 추가 ↔ 추가됨: a toggle chip at the row's end (§5-7) — fill + 1.5px amber ring, a check that grows 0 → 14px, the label swaps in its box */
+.xk-chk{margin-left:auto;flex:none;display:inline-flex;align-items:center;font-size:12px;padding:4px 10px;border-radius:var(--r-chip);background:var(--chip-bg);box-shadow:inset 0 0 0 1px var(--line2);color:var(--fg2);transition:background-color var(--c-fast) var(--c-out),box-shadow var(--c-fast) var(--c-out),color var(--c-fast) var(--c-out)}
+.xk-ck{display:block;flex:none;width:0;height:14px;margin-right:0;opacity:0;transform:scale(.6);background:var(--amber);-webkit-mask:var(--ck-mask) center/14px 14px no-repeat;mask:var(--ck-mask) center/14px 14px no-repeat;transition:width var(--c-fast) var(--c-out),margin-right var(--c-fast) var(--c-out),opacity var(--c-fast) var(--c-out),transform var(--c-fast) var(--c-out)}
+.xk-row[aria-pressed="true"] .xk-chk{background:var(--chip-on);box-shadow:inset 0 0 0 1.5px var(--chip-ring);color:var(--fg)}
+.xk-row[aria-pressed="true"] .xk-ck{width:14px;margin-right:4px;opacity:1;transform:none}
+/* search: a deep tray, focus = the same ring drawn with box-shadow (§5-15) */
+.xk-q{height:44px;margin-bottom:6px;padding:0 13px;border-radius:var(--r-key);border:0;background:var(--tray-bg);box-shadow:var(--tray-sh);color:var(--fg);font-size:16px;outline:none;transition:box-shadow var(--c-fast) var(--c-out)}
+.xk-q:focus{box-shadow:var(--tray-sh),0 0 0 var(--focus-off) var(--panel),0 0 0 calc(var(--focus-off) + var(--focus-w)) var(--amber)}
+.xk-q::placeholder{color:var(--faint)}
+@media (pointer:coarse){:is(.xk-link,.xk-open,.xk-reset,.xk-done,.xk-mv)::before{content:"";position:absolute;left:50%;top:50%;width:max(100%,44px);height:max(100%,44px);transform:translate(-50%,-50%)}}
+@media (hover:none){:is(.xk-link,.xk-open):hover,.xk-reset:not([data-st="arm"]):not([data-st="done"]):hover{background:var(--key-bg)}.xk-done:hover{background:var(--pri-bg)}.xk-mv:hover:not(:disabled){background:none;color:var(--fg2)}}
 .xk-foot{display:flex;justify-content:space-between;gap:8px;margin-top:12px}
 .xk-setrow{display:flex;align-items:center;justify-content:space-between;gap:10px}
 @media (max-width:600px){
