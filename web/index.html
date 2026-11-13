@@ -340,6 +340,8 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 }
 /* 1280–1439: the toolbar (with the 화면 button and the extras icons) still fits on one row */
 @media (min-width:1280px) and (max-width:1439px){ .tools{gap:10px} .search{flex-basis:160px} .seg[data-key="topN"] button{padding:5px 6px} }
+/* §3-27 the 자동 key costs ~39 px: below 1340 the one-line toolbar finds it by dropping the ± (3% · 5% · 10%; the names keep ±) */
+@media (min-width:1280px) and (max-width:1339px){ #rangeseg .pm{display:none} #rangeseg button{padding-left:7px;padding-right:7px} }
 @media (min-width:1280px) and (max-width:1599px){
   .morebtn{width:34px;padding:0}
   .morebtn .mbl{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
@@ -597,6 +599,8 @@ main.layout[hidden],#world[hidden]{display:none}
 .legend .limsw.d{box-shadow:inset 0 -3px 0 var(--lim-bar)}
 .legend .note{color:var(--faint)}
 .legend .right{margin-left:auto}
+/* §3-27 "자동 ±4%": a hairline tag before the scale's ends (an info mark, not a control — no amber) */
+.legend .rauto{padding:0 7px;line-height:18px;border-radius:var(--r-chip,999px);box-shadow:inset 0 0 0 1px var(--line2);color:var(--fg2);font-weight:600;font-variant-numeric:tabular-nums}
 
 /* table view */
 .tablewrap{background:var(--panel);border:1px solid var(--line);border-radius:8px;overflow:auto;height:calc(100vh - 200px);min-height:520px}
@@ -1266,6 +1270,8 @@ html[data-theme="paper"] .ss-list > button[aria-selected="true"]{background:var(
         setReplay(frame, {tween: ms, easing?: 'out'}) — 'fancy' + map view: colour (Lab), value text and boxes (FLIP) move from the
                          current picture to the frame over ms (linear unless easing 'out'); otherwise drawn at once as before.
         range()          → the colour range in use (± value at the palette ends: %, or % of market cap for 순매수 sizes).
+                         §3-27 today's range may be 자동 (the default): rangeInfo() → {value, auto, pick, p95, scope}; the 해외 ·
+                         원자재 module calls feedRange(kind, ratios) with what it draws. 'kh:palette' also fires when the 자동 step moves.
         view()           → 'map'|'table' (§3-9: the 3D view is gone). KH.layout() tiles gain dim (true when dimmed).
         'kh:data' detail {changed: [[code, ±1], …]} — the ticks since the previous quotes ([] in a replay or under 정규장 종가).
    §3-6 <div id="clock"> sits in the title spot; <html class="has-clock"> (set by src/extras) hides the title text visually.
@@ -1381,6 +1387,8 @@ const FLOW_WHO = { fgn: '외국인', inst: '기관' };
 const FLOW_IX = { fgn: { 1: 0, 5: 3, 20: 5 }, inst: { 1: 1, 5: 4, 20: 6 } };
 // colour range presets per metric kind; flow ranges are net buying as % of market cap
 const RANGES = { day: [3, 5, 10], period: [10, 20, 50], flow: { 1: [0.1, 0.3, 1], 5: [0.3, 1, 3], 20: [1, 3, 10] } };
+// §3-27 색 범위 자동 (today's change only): the 95th percentile of |change %| over what the tab draws, rounded up to one of these
+const AUTO_STEPS = [1, 2, 3, 4, 5, 7, 10, 15, 20, 30];
 let NODATA = cssVar('--nodata');          // the theme's no-data fill (re-read on a theme change)
 const PAL = () => (THEME_PAL[THEME] || PALETTES)[state.palette] || PALETTES.krg;
 const CODE_RE = /^[0-9A-Z]{6}$/;
@@ -1648,7 +1656,8 @@ const state = {
   flowWin: store.get('flowWin', 5),
   colorBy: store.get('colorBy', 'r'),
   topN: store.get('topN', narrowMQ.matches ? 100 : 300),
-  range: store.get('range', 3),                // today
+  range: store.get('range', 'auto'),           // today, 국내 tabs: 'auto' | 3 | 5 | 10 (the key predates 자동: a saved number stays)
+  rangeW: store.get('rangeW', 'auto'),         // today, 해외 · 원자재 tabs (§3-27: remembered apart from 국내)
   rangeP: store.get('rangeP', 20),             // period returns
   rangeF: store.get('rangeF', 1),              // flows: index into RANGES.flow[window]
   palette: store.get('palette2', 'krg'),
@@ -1667,7 +1676,8 @@ const state = {
   tsort: { key: 'v', dir: -1 },
 };
 if (!PALETTES[state.palette]) state.palette = 'krg';   // (the key; the colours come from PAL(), per theme)
-if (!RANGES.day.includes(state.range)) state.range = 3;
+// a saved number that is no longer offered falls back to ±3 % as before; anything else (none, garbage) is 자동
+for (const k of ['range', 'rangeW']) if (state[k] !== 'auto' && !RANGES.day.includes(state[k])) state[k] = typeof state[k] === 'number' ? 3 : 'auto';
 if (!RANGES.period.includes(state.rangeP)) state.rangeP = 20;
 if (![0, 1, 2].includes(state.rangeF)) state.rangeF = 1;
 if (![100, 200, 300, 500, 'all'].includes(state.topN)) state.topN = 300;
@@ -1696,8 +1706,80 @@ const bchip = document.getElementById('bchip'), bmenu = document.getElementById(
 const isFlow = () => !isWorld() && (state.sizeBy === 'fgn' || state.sizeBy === 'inst');
 // the colour metric family; 해외 / 원자재 colour today's change (KH.colorOf) so the range control shows the day ranges there
 const kind = () => isWorld() ? 'day' : isFlow() ? 'flow' : COLOR_METRICS[state.colorBy].kind;
-const rangeList = () => { const k = kind(); return k === 'day' ? RANGES.day : k === 'period' ? RANGES.period : RANGES.flow[state.flowWin]; };
-const curRange = () => { const k = kind(); return k === 'day' ? state.range : k === 'period' ? state.rangeP : RANGES.flow[state.flowWin][state.rangeF]; };
+// today's range choice on this side: 국내 (khm.range) or 해외 · 원자재 (khm.rangeW) — 'auto' | 3 | 5 | 10
+const dayPick = () => isWorld() ? state.rangeW : state.range;
+const dayR = () => { const v = dayPick(); return v === 'auto' ? autoR() : v; };
+const rangeList = () => { const k = kind(); return k === 'day' ? ['auto', ...RANGES.day] : k === 'period' ? RANGES.period : RANGES.flow[state.flowWin]; };
+const curRange = () => { const k = kind(); return k === 'day' ? dayR() : k === 'period' ? state.rangeP : RANGES.flow[state.flowWin][state.rangeF]; };
+// what the range control has pressed: 'auto' or the number
+const rangePick = () => kind() === 'day' ? dayPick() : curRange();
+const rangeAuto = () => kind() === 'day' && dayPick() === 'auto';
+
+/* ───────────────── §3-27 색 범위 자동 ─────────────────
+   value = the 95th percentile of |today's %| over the items the tab draws (국내: the tab's map universe — the market's top N, the
+   theme overview's themes or a theme's members, the ★관심 group — not narrowed by a sector zoom, so zooming never recolours; 해외 ·
+   원자재: the rows src/world hands over through KH.feedRange, VIX left out), rounded UP to the next AUTO_STEPS step, so one 상한가 does
+   not wash the rest out. Hysteresis, per scope (a tab keeps its own step): a higher step is taken at once; a lower one only when
+   p95 / 0.85 still fits it — i.e. p95 must sit at least 15 % under the lower step — so a value hovering at a step edge never flickers. */
+const AUTO = { at: new Map(), p: new Map() };      // scope → the step in use · scope → the last p95 measured
+function autoScope() {
+  const m = state.market;
+  if (m === 'WORLD' || m === 'CMDTY') return m;
+  if (m === 'THEME') return state.theme == null ? 'THEME' : 'THEME:' + state.theme;
+  if (m === 'WATCH') return 'WATCH:' + WG.active;
+  return m + ':' + state.topN;
+}
+const autoR = () => AUTO.at.get(autoScope()) || 3;  // before the tab has drawn anything: ±3 %, the old default
+function p95abs(vals) {
+  const a = [];
+  for (const v of vals) if (v != null && isFinite(v)) a.push(Math.abs(+v));
+  if (!a.length) return null;
+  a.sort((x, y) => x - y);
+  const i = (a.length - 1) * 0.95, lo = Math.floor(i), hi = Math.min(a.length - 1, lo + 1);
+  return a[lo] + (a[hi] - a[lo]) * (i - lo);
+}
+const autoStepOf = p => AUTO_STEPS.find(s => s >= p - 1e-9) || AUTO_STEPS[AUTO_STEPS.length - 1];
+function autoStep(scope, p) {
+  AUTO.p.set(scope, p);
+  const cur = AUTO.at.get(scope), up = autoStepOf(p);
+  const next = cur == null || up > cur ? up : Math.min(cur, autoStepOf(p / 0.85));
+  AUTO.at.set(scope, next);
+  return next;
+}
+// 국내: measure what this tab draws (today's colours only — a period / flow metric keeps its fixed ranges)
+function autoMeasure() {
+  if (isWorld() || kind() !== 'day') return;
+  const vals = state.market === 'THEME' && state.theme == null ? themeRows().map(t => t.v) : universe().map(cval);
+  const p = p95abs(vals);
+  if (p != null) autoStep(autoScope(), p);
+}
+// 해외 · 원자재 (KH.feedRange): src/world hands the ratios it is about to draw → the range now
+function feedRange(kindName, ratios) {
+  const m = kindName === 'commodity' || kindName === 'cmdty' ? 'CMDTY' : 'WORLD';
+  if (state.market === m && ratios && typeof ratios[Symbol.iterator] === 'function') {
+    const p = p95abs(ratios);
+    if (p != null) autoStep(m, p);
+    rangeMoved();
+  }
+  return curRange();
+}
+const autoTitle = () => `화면 등락률의 95%가 들어가게 맞춰요 · 지금 ±${fmtR(dayR())}%`;
+function syncAutoKey() {
+  const b = document.querySelector('#rangeseg button[data-v="auto"]');
+  if (!b) return;
+  b.title = autoTitle();
+  b.setAttribute('aria-label', `자동, 지금 ±${fmtR(dayR())}%`);
+}
+// the scale is built for scaleR; when today's range moved (a new auto step, another tab's step) rebuild it and tell the modules
+let scaleR = null, legendR = null;
+function rangeMoved() {
+  if (dayR() === scaleR) return false;
+  rebuildColor();
+  state.bucket = null;                 // a picked 등락 분포 bar meant the old edges
+  syncAutoKey();
+  document.dispatchEvent(new CustomEvent('kh:palette'));
+  return true;
+}
 const flowShort = () => `${FLOW_WHO[state.sizeBy]} ${state.flowWin}일`;
 const metricShort = () => isFlow() ? flowShort() : COLOR_METRICS[state.colorBy].short;
 const metricLong = () => isFlow() ? `${FLOW_WHO[state.sizeBy]} 순매수 ${state.flowWin}일` : COLOR_METRICS[state.colorBy].long;
@@ -2388,7 +2470,8 @@ function makeScale(R) {
 }
 function rebuildColor() {
   const p = PAL();
-  dayScale = makeScale(state.range);
+  scaleR = dayR();                     // today's range on this side (국내 or 해외 · 원자재): a number, or the tab's 자동 step
+  dayScale = makeScale(scaleR);
   actScale = kind() === 'day' ? dayScale : makeScale(curRange());
   document.documentElement.style.setProperty('--up-text', p.upText);
   document.documentElement.style.setProperty('--dn-text', p.dnText);
@@ -2999,6 +3082,11 @@ function emitRender() {
 }
 function render({ animate = false } = {}) {
   if (isWorld()) { emitRender(); return; }
+  // §3-27 자동: measure what this render draws first, so the tiles, the table and (right after, at every caller) the side cards
+  // and the legend share one range; the few callers that redraw the map alone get the legend and side cards a moment later
+  autoMeasure();
+  if (rangeMoved()) queueMicrotask(() => { if (legendR !== curRange() && !isWorld()) { renderSide(); renderLegend(); } });
+  else syncAutoKey();
   if (state.view !== 'map') { if (DATA.stocks.length) introLeft = false; renderTableFor(); emitRender(); return; }
   const W = mapEl.clientWidth, H = mapEl.clientHeight;
   if (!W || !H) { emitRender(); return; }
@@ -3883,7 +3971,8 @@ function renderLegend() {
     const Pd = PER();
     const base = k === 'period' && Pd && Pd.base ? dayName(Pd.base[m.key]) : '';
     kids.push(h('span', { class: 'lg' }, h('span', { class: 'k', text: '색' }), h('b', { text: themeOv && naverThemeDay() ? '테마 등락률' : m.long }),
-      base ? h('span', { class: 'note', text: `${base} 종가 대비` }) : null, ticks));
+      base ? h('span', { class: 'note', text: `${base} 종가 대비` }) : null,
+      rangeAuto() ? h('span', { class: 'rauto', title: autoTitle(), text: `자동 ±${fmtR(R)}%` }) : null, ticks));
     if (k === 'period' && DS.periods.st === 'loading') kids.push(h('span', { class: 'lg note', text: '기간 수익률 데이터를 불러오는 중…' }));
     else if (k === 'period' && DS.periods.st === 'fail') kids.push(h('span', { class: 'lg note', text: '기간 수익률 데이터를 불러오지 못했어요' }));
     kids.push(h('span', { class: 'lg right' }, h('span', { class: 'k', text: '크기' }), h('b', { text: themeOv ? '테마 시가총액' : sizeLabel() })));
@@ -3907,6 +3996,7 @@ function renderLegend() {
     }
   }
   el.replaceChildren(...kids);
+  legendR = R;
   requestAnimationFrame(fitMapHeight);
 }
 
@@ -4630,7 +4720,9 @@ function buildRangeSeg() {
   if (key === rangeSegKey) return;
   rangeSegKey = key;
   const flow = kind() === 'flow';
-  $('#rangeseg').replaceChildren(...list.map(v => h('button', { 'data-v': String(v), title: flow ? `시가총액 대비 ±${fmtR(v)}%` : null, text: `±${fmtR(v)}%` })));
+  // the ± is its own span: the 1280–1339 px toolbar has no room for 자동 otherwise and hides it there (the name keeps it)
+  $('#rangeseg').replaceChildren(...list.map(v => v === 'auto' ? h('button', { 'data-v': 'auto', text: '자동' })
+    : h('button', { 'data-v': String(v), title: flow ? `시가총액 대비 ±${fmtR(v)}%` : null, 'aria-label': `±${fmtR(v)}%` }, h('span', { class: 'pm', text: '±' }), `${fmtR(v)}%`)));
 }
 function trimControlsForMode() {
   if (MODE === 'live') { const b = document.querySelector('.seg[data-key="topN"] button[data-v="500"]'); if (b) b.remove(); }
@@ -4639,8 +4731,9 @@ function syncControls() {
   buildRangeSeg();
   for (const seg of document.querySelectorAll('.seg[data-key]')) {
     const k = seg.dataset.key;
-    for (const b of seg.children) b.setAttribute('aria-pressed', String(k === 'range' ? +b.dataset.v === curRange() : String(state[k]) === b.dataset.v));
+    for (const b of seg.children) b.setAttribute('aria-pressed', String(k === 'range' ? b.dataset.v === String(rangePick()) : String(state[k]) === b.dataset.v));
   }
+  syncAutoKey();
   syncViewSeg();
   $('.ctl[data-ctl="flowWin"]').hidden = !isFlow();
   uiSwap($('.ctl[data-ctl="colorBy"] .ddv'), COLOR_METRICS[state.colorBy].label);
@@ -4656,8 +4749,9 @@ function syncControls() {
 }
 function setRange(v) {
   const k = kind();
-  if (!rangeList().includes(v) || v === curRange()) return;
-  if (k === 'day') { state.range = v; store.set('range', v); }
+  if (!rangeList().includes(v) || v === rangePick()) return;
+  // today: 국내 and 해외 · 원자재 keep their own choice (§3-27); the 국내 key is the one that predates 자동
+  if (k === 'day') { const key = isWorld() ? 'rangeW' : 'range'; state[key] = v; store.set(key, v); if (v === 'auto') autoMeasure(); }
   else if (k === 'period') { state.rangeP = v; store.set('rangeP', v); }
   else { state.rangeF = rangeList().indexOf(v); store.set('rangeF', state.rangeF); }
   rebuildColor(); state.bucket = null;
@@ -4670,7 +4764,7 @@ document.addEventListener('click', e => {
   if (!b) return;
   const k = b.closest('.seg').dataset.key;
   if (b.getAttribute('aria-disabled') === 'true') return;
-  if (k === 'range') { setRange(+b.dataset.v); return; }
+  if (k === 'range') { setRange(b.dataset.v === 'auto' ? 'auto' : +b.dataset.v); return; }
   if (k === 'view') { setView(b.dataset.v); return; }
   let v = b.dataset.v;
   if (k === 'topN') v = v === 'all' ? 'all' : +v;
@@ -5570,6 +5664,11 @@ window.KH = {
   refresh,
   view: () => state.view,
   range: () => curRange(),
+  // §3-27 rangeInfo() → {value (= range()), auto (자동 is on for today's colours here), pick ('auto' | the number pressed), p95 (the
+  // last measure for this tab, or null), scope}; feedRange(kind 'index'|'commodity', ratios) — src/world hands the ratios it draws
+  // (reference rows such as VIX left out) before drawing them; when the 자동 step moves the scale is rebuilt and 'kh:palette' fires
+  rangeInfo: () => ({ value: curRange(), auto: rangeAuto(), pick: rangePick(), p95: AUTO.p.has(autoScope()) ? AUTO.p.get(autoScope()) : null, scope: autoScope() }),
+  feedRange,
   market: () => ({ THEME: 'theme', WATCH: 'watch', WORLD: 'world', CMDTY: 'cmdty' })[state.market] || state.market,
   basis: basisId,
   ui: KHUI,
@@ -12982,6 +13081,8 @@ function render() {
     renderBar(d, err); els.legend.replaceChildren(); renderSource(d);
     return;
   }
+  // §3-27 색 범위 자동: hand the template what this tab draws (VIX is a reference, never coloured) before anything takes a colour
+  if (typeof KH.feedRange === 'function') { try { KH.feedRange(S.kind, d.all.filter(it => !isRef(it)).map(it => it.ratio)); } catch (e) { /* fixed range */ } }
   renderBar(d, err);
   if (mode === 'geoload') {
     els.tiles.clear(); els.heads.clear(); els.boxes = null;
@@ -13288,14 +13389,18 @@ function onMapKey(e) {
 }
 
 /* legend: colour scale as the heatmap draws it, the VIX note, what size means */
+// KH.range() is the range the colours use (§3-27: 자동 steps such as ±4 / ±7 % too); older templates: probe the scale
 function rangeNow() {
+  try { if (typeof KH.range === 'function') { const R = +KH.range(); if (R > 0) return R; } } catch (e) { /* fall back */ }
   try { const hi = KH.colorOf(1000); for (const R of [1, 2, 3, 5, 10, 20, 30]) if (KH.colorOf(R) === hi) return R; } catch (e) { /* no colour scale */ }
   return null;
 }
+const rangeIsAuto = () => { try { return typeof KH.rangeInfo === 'function' && !!KH.rangeInfo().auto; } catch (e) { return false; } };
 function renderLegend(d) {
   const P = (KH.palette && KH.palette().stops) || [];
   const R = rangeNow();
   const kids = [h('span', { class: 'lg' }, h('span', { class: 'k', text: '색' }), h('b', { text: '오늘 등락률' }),
+    R && rangeIsAuto() ? h('span', { class: 'rauto', title: `화면 등락률의 95%가 들어가게 맞춰요 · 지금 ±${R}%`, text: `자동 ±${R}%` }) : null,
     R ? h('span', { class: 'tk', text: `${MINUS}${R}%` }) : null,
     P.length ? h('span', { class: 'grad', style: `background:linear-gradient(90deg,${P.join(',')})`, 'aria-hidden': 'true' }) : null,
     R ? h('span', { class: 'tk', text: `+${R}%` }) : null)];

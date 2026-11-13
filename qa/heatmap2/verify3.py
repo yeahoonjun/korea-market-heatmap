@@ -344,7 +344,7 @@ with sync_playwright() as p:
     ok('해외: KHWorld.show("index"), #world fills the area, map/side and stock tools hidden, palette/range kept', w['ws'] == ['show:index'] and w['m'] == 'world' and w['hash'] == '#world' and w['world'] > 1200 and w['kids'] > 0
        and w['stage'] == w['side'] == 'none' and w['tools'][:3] == ['none'] * 3 and 'none' not in w['tools'][3:] and w['basis'], w)
     rng = pg.evaluate("[...document.querySelectorAll('#rangeseg button')].map(b => b.textContent)")
-    ok('range control shows the day ranges there', rng == ['±3%', '±5%', '±10%'], rng)
+    ok('range control shows the day ranges there', rng == ['자동', '±3%', '±5%', '±10%'], rng)   # §3-27 자동 first
     pg.click('.tabs button[data-mkt="CMDTY"]'); pg.wait_for_timeout(300)
     pg.click('.tabs button[data-mkt="K"]'); pg.wait_for_timeout(1200)
     w = pg.evaluate("({ws: window.__ws, m: KH.market(), hash: location.hash, tiles: document.querySelectorAll('#map .tile').length, world: document.getElementById('world').hidden})")

@@ -260,7 +260,7 @@ python3 tmp/shot.py /home/claude/heatmap/dist/index.html    # 1440×900 / 390×8
 - `KH.motion()` → `'reduced'|'standard'|'fancy'`, `<html data-motion>`, 이벤트 `kh:motion`. 설정 UI: `화면`(1280px 이상은 색상 옆 팝오버, 그 아래는 `표시 설정` 시트) → `효과: 기본 · 화려하게`(기기가 동작 줄이기면 `줄이기`도 보임). 기기 설정보다 사용자 선택이 우선이라 모듈은 `prefers-reduced-motion` 대신 `html[data-motion]`/`KH.motion()`을 봐요.
 - `KH.addSetting({key,label,hint?,default, options?:[{v,label}], onChange})`, `KH.getSetting(key)`, 이벤트 `kh:setting`. 값은 `khm.set.<key>`.
 - `KH.refresh()` → `Promise<boolean>`(진행 중 요청을 기다렸다가 새로 받음) + 이벤트 `kh:refresh`(스냅샷에서는 내보내지 않아요).
-- `KH.marketStatus()` → `{KOSPI,KOSDAQ}`, `KH.view()` → `'map'|'3d'|'table'`, `KH.range()` → 지금 색 범위(숫자).
+- `KH.marketStatus()` → `{KOSPI,KOSDAQ}`, `KH.view()` → `'map'|'3d'|'table'`, `KH.range()` → 지금 색 범위(숫자, 자동이면 그 단계 — §3-27 `KH.rangeInfo()`·`KH.feedRange()`).
 - `kh:data`의 `detail.changed`(바뀐 종목 코드), `KH.layout()` 타일의 `dim`.
 - `KH.setReplay(frame, {tween:ms, easing?:'out'})` — `fancy`에서만 보간, 아니면 즉시.
 - `KH3D.show()`, `KH3D.hide()` → `Promise`(fancy면 접히는 0.36초 뒤 끝남), `KH3D.isOn()`, `KH3D.stats()`. `#map3d`는 템플릿이 `#map` 위에 놓고(`#map`은 visibility:hidden으로 계속 배치), 실패 시 `kh:3d-unavailable {reason,message}`.
@@ -481,6 +481,7 @@ python3 tmp/shot.py /home/claude/heatmap/dist/index.html    # 1440×900 / 390×8
 **색 범위 자동** (22:26 "현재 보이는 최고 최저에 맞게 자동 조절 … 코스닥에서 범위 10퍼센트로 하다가 해외나 원자재 탭으로 가면 … 색상 차이가 없어져서 불편해"): 템플릿이 테마 작업을 병합한 뒤 구현.
 - 색 범위에 `자동` 추가(기본값): 지금 화면에 그린 항목 등락률 절댓값의 95번째 백분위를 1·2·3·4·5·7·10·15·20·30% 중 올림 — 상한가 하나가 전체를 흐리게 만들지 않게. 범례에 "자동 ±4%"처럼 실제 값. 갱신 때 깜박이지 않게 단계가 바뀔 때만(작은 히스테리시스).
 - 수동 선택은 **국내(코스피·코스닥·전체·테마·관심)와 해외·원자재를 따로 기억**.
+- **구현 (feat/auto-range)**: 색 범위 `자동 · ±3% · ±5% · ±10%`(오늘 등락률일 때만; 기간·수급 색은 지금 범위 그대로). 저장 `khm.range`(국내, 옛 키 — 저장된 숫자는 그대로) · `khm.rangeW`(해외·원자재, 새 키), 값 `'auto'|3|5|10`, 없으면 자동. 측정 범위 = 그 탭이 그리는 항목(국내: 그 탭의 지도 종목 — 시장 상위 N·테마 개요의 테마·테마 종목·관심 그룹, **섹터 확대로 좁히지 않음**(확대해도 색이 안 바뀌게) / 해외·원자재: world.js가 `KH.feedRange(kind, ratios)`로 넘기는 항목, VIX 제외). 백분위는 선형 보간(p95). **히스테리시스**: 탭마다 따로 — 더 큰 단계는 바로, 더 작은 단계는 `p95 ÷ 0.85`가 그 단계에 들어갈 때만(= p95가 아래 단계보다 15% 이상 작을 때). 단계가 바뀔 때만 `kh:palette`. API `KH.rangeInfo()` → `{value, auto, pick, p95, scope}`, `KH.range()`는 지금 값(자동이면 그 단계). 범례 "자동 ±4%" 태그(앰버 아님, 가는 테). 1280~1339px 도구 줄은 자리가 모자라 `±`를 숨겨요(`3% · 5% · 10%`, 이름엔 ±). QA `qa/tabs/test_auto_range.py`.
 
 **해외 묶음** (22:26 "빅스는 미국 빅스니까 미국 지수쪽에 … 선물같은경우도 각 나라 지수랑 같이 묶여야"): 미국 선물·VIX를 미국 묶음으로(목록: 현물 → 선물 → VIX 참고), 세계지도의 옆 상자는 **남겨 두고 제목을 "미국 선물 및 변동성 지수"로**, 그 상자에서 **유로스톡스 50만 빼서** 유럽(유로존) 쪽으로(사용자 22:32 정정). 미국 시트에도 선물·VIX가 현물 다음에 나와요. Worker 묶음은 그대로, world.js가 화면에서 다시 묶어요.
 

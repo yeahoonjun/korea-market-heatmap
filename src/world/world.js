@@ -388,6 +388,8 @@ function render() {
     renderBar(d, err); els.legend.replaceChildren(); renderSource(d);
     return;
   }
+  // §3-27 색 범위 자동: hand the template what this tab draws (VIX is a reference, never coloured) before anything takes a colour
+  if (typeof KH.feedRange === 'function') { try { KH.feedRange(S.kind, d.all.filter(it => !isRef(it)).map(it => it.ratio)); } catch (e) { /* fixed range */ } }
   renderBar(d, err);
   if (mode === 'geoload') {
     els.tiles.clear(); els.heads.clear(); els.boxes = null;
@@ -694,14 +696,18 @@ function onMapKey(e) {
 }
 
 /* legend: colour scale as the heatmap draws it, the VIX note, what size means */
+// KH.range() is the range the colours use (§3-27: 자동 steps such as ±4 / ±7 % too); older templates: probe the scale
 function rangeNow() {
+  try { if (typeof KH.range === 'function') { const R = +KH.range(); if (R > 0) return R; } } catch (e) { /* fall back */ }
   try { const hi = KH.colorOf(1000); for (const R of [1, 2, 3, 5, 10, 20, 30]) if (KH.colorOf(R) === hi) return R; } catch (e) { /* no colour scale */ }
   return null;
 }
+const rangeIsAuto = () => { try { return typeof KH.rangeInfo === 'function' && !!KH.rangeInfo().auto; } catch (e) { return false; } };
 function renderLegend(d) {
   const P = (KH.palette && KH.palette().stops) || [];
   const R = rangeNow();
   const kids = [h('span', { class: 'lg' }, h('span', { class: 'k', text: '색' }), h('b', { text: '오늘 등락률' }),
+    R && rangeIsAuto() ? h('span', { class: 'rauto', title: `화면 등락률의 95%가 들어가게 맞춰요 · 지금 ±${R}%`, text: `자동 ±${R}%` }) : null,
     R ? h('span', { class: 'tk', text: `${MINUS}${R}%` }) : null,
     P.length ? h('span', { class: 'grad', style: `background:linear-gradient(90deg,${P.join(',')})`, 'aria-hidden': 'true' }) : null,
     R ? h('span', { class: 'tk', text: `+${R}%` }) : null)];
