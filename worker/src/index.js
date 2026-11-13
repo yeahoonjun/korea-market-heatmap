@@ -33,7 +33,7 @@ const QUOTES_TTL = 8;                // seconds
 const CHART_TTL = 30;
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36';
 const CODE_RE = /^[0-9A-Z]{6}$/;
-const ORIGIN = 'https://kospimap.pages.dev';
+const ORIGIN = 'https://panse.pages.dev';   // §3-26 판세
 const TFS = ['1d', '5d', '3m', '1y', '3y', '10y'];
 
 export default {
