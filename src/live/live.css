@@ -1,0 +1,29 @@
+/* 실시간 갱신 status mark (src/live/live.js, docs/standards/realtime.md §7-4): a dot + a word in the header's status area.
+   Neutral greys only — it reports, it is not a control (amber is for controls, red / green for prices). Its width does not touch the
+   header's height: phones show a short word (실시간 · 연결 중 · 10초 · 지연), the map stays where it was. */
+#live-mark{display:inline-flex;align-items:center;gap:5px;min-height:20px;font-size:12px;line-height:1;font-weight:500;color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums;cursor:default}
+#live-mark[hidden]{display:none}
+#live-mark .lm-s{display:none}
+#live-mark .lm-g{position:relative;flex:none;width:8px;height:8px;border-radius:50%;box-sizing:border-box}
+/* 실시간: a filled dot (beats once per update in 화려하게) */
+#live-mark[data-s="live"]{color:var(--fg2)}
+#live-mark[data-s="live"] .lm-g{background:var(--fg2)}
+#live-mark .lm-g.beat{animation:lm-beat 1.2s var(--m-out, ease-out) 1}
+@keyframes lm-beat{0%{box-shadow:0 0 0 0 color-mix(in srgb, var(--fg2) 45%, transparent)}70%{box-shadow:0 0 0 6px transparent}100%{box-shadow:0 0 0 0 transparent}}
+/* 연결하는 중 · 다시 연결하는 중: an open ring that turns (still under 줄이기) */
+#live-mark:is([data-s="connecting"], [data-s="reconnecting"]) .lm-g{border:1.5px solid var(--muted);border-right-color:transparent;animation:lm-spin .9s linear infinite}
+@keyframes lm-spin{to{transform:rotate(360deg)}}
+/* 10초마다 갱신: a hollow dot */
+#live-mark[data-s="polling"] .lm-g{border:1.5px solid var(--muted)}
+/* 시세 지연: a small dot inside a ring */
+#live-mark[data-s="delayed"]{color:var(--fg2)}
+#live-mark[data-s="delayed"] .lm-g{border:1.5px solid var(--fg2);background:radial-gradient(circle, var(--fg2) 0 1.6px, transparent 2.1px)}
+html[data-motion="reduced"] #live-mark .lm-g{animation:none}
+/* while the mark shows it speaks for the stream: the status dot and the "실시간" / "통합 실시간" badge step aside */
+.status.has-lm > .dot{display:none}
+.status.has-lm.live:not(.has-blab) .badge,.status.has-lm.has-blab.bl-live .badge,.status.has-lm.err .badge{display:none}
+@media (max-width:760px){
+  #live-mark{gap:4px;font-size:11.5px}
+  #live-mark .lm-l{display:none}
+  #live-mark .lm-s{display:inline}
+}

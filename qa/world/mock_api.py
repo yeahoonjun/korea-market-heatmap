@@ -26,6 +26,8 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 
 HERE = pathlib.Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
+sys.path.insert(0, str(ROOT / 'qa/live'))
+from ws_mock import answer_live   # GET /api/live: {t:'off', reason:'closed'} like the real Worker outside the session
 WEB = ROOT / 'web'
 FIX = HERE / 'fixtures'
 WORLD = {k: json.loads((FIX / f'world_{k}.json').read_text(encoding='utf-8')) for k in ('index', 'commodity')}
@@ -99,6 +101,8 @@ class H(SimpleHTTPRequestHandler):
             STATS[k] = STATS.get(k, 0) + 1
             if path == '/api/world':
                 STATS['world:' + q.get('kind', '')] = STATS.get('world:' + q.get('kind', ''), 0) + 1
+        if path == '/api/live':
+            return answer_live(self)
         if path == '/__mode':
             MODE.update({k: v for k, v in q.items() if k in MODE})
             return self.send_json(MODE)

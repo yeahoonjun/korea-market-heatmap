@@ -30,6 +30,8 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 
 HERE = pathlib.Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
+sys.path.insert(0, str(ROOT / 'qa/live'))
+from ws_mock import answer_live   # GET /api/live: {t:'off', reason:'closed'} like the real Worker outside the session
 WEB = pathlib.Path(__import__('os').environ['MOCK_WEB']) if __import__('os').environ.get('MOCK_WEB') else ROOT / 'web'   # MOCK_WEB: another build's web/ (a baseline)
 NEWS = json.loads((HERE / 'fixtures/news.json').read_text(encoding='utf-8'))
 MARKET_P = ROOT / 'qa/extras/fixtures/market.json'
@@ -208,6 +210,8 @@ class H(SimpleHTTPRequestHandler):
         path = u.path
         with LOCK:
             STATS[path] = STATS.get(path, 0) + 1
+        if path == '/api/live':
+            return answer_live(self)
         if path == '/__mode':
             MODE.update({k: v for k, v in q.items() if k in MODE})
             return self.send_json(MODE)

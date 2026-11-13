@@ -20,6 +20,8 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 
 HERE = pathlib.Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
+sys.path.insert(0, str(ROOT / 'qa/live'))
+from ws_mock import answer_live   # GET /api/live: {t:'off', reason:'closed'} like the real Worker outside the session
 WEB = ROOT / 'web'
 FIX = HERE / 'fixtures'
 if not (FIX / 'replay.json').exists():
@@ -85,6 +87,8 @@ class H(SimpleHTTPRequestHandler):
         path = u.path
         with LOCK:
             STATS[path] = STATS.get(path, 0) + 1
+        if path == '/api/live':
+            return answer_live(self)
         if path == '/__mode':
             MODE.update({k: v for k, v in q.items() if k in MODE})
             return self.send_json(MODE)

@@ -1216,7 +1216,7 @@ html[data-theme="paper"] .ss-list > button[aria-selected="true"]{background:var(
     <button data-mkt="WATCH" aria-label="관심종목"><span class="tn"><span class="st" aria-hidden="true">★</span>관심</span><span class="tp" aria-hidden="true"></span></button>
   </div>
   <div class="idx" id="idx"></div>
-  <div class="status" id="status"><span class="dot"></span><span class="txt"></span><span class="tshort"></span>
+  <div class="status" id="status"><span class="dot"></span><span id="live-mark" hidden></span><span class="txt"></span><span class="tshort"></span>
     <div class="seg basis" id="basis" role="group" aria-label="가격 기준" hidden><button type="button" data-v="krx">KRX</button><button type="button" data-v="nxt">NXT</button><button type="button" data-v="int">통합</button></div>
     <button type="button" class="bchip" id="bchip" aria-haspopup="menu" aria-expanded="false" aria-controls="bmenu" hidden><span class="bcv"></span><span class="bcs"></span><span class="bcc" aria-hidden="true">▾</span></button>
     <span class="badge"></span></div>
@@ -1366,7 +1366,11 @@ html[data-theme="paper"] .ss-list > button[aria-selected="true"]{background:var(
         items before 크기. addSetting({multi: true, options, default: [..], min}) → chips, value = array (stored 'a,b'); settingState(key,
         {disabled, counts:{v: n}, hint}). mapCodes() → the current map's stock codes (tab · 종목 수; [] on world / theme overview).
         replay() → {t, date} | null. openStock(code, {opener, tab, newsKind}) → the stock page (the quick view closes first).
-        Mount <span id="stage-tools"> in the map-header row before 지도 · 표; footer line <p id="foot-disc">. */
+        Mount <span id="stage-tools"> in the map-header row before 지도 · 표; footer line <p id="foot-disc">.
+   §3-23b 실시간 갱신 (docs/standards/realtime.md §7): feed(body) → bool — an /api/quotes-shaped body drawn the poll's way (refused in the
+        snapshot, under 전체, when empty); pausePoll(on) — the 10 s quotes timer off while the hub is live, back within one interval;
+        scope() → 'top' | 'all'; polling() → {paused, ok, last, wait}. Mount <span id="live-mark" hidden> in #status (src/live draws the
+        state; #status.has-lm while it shows: the status dot and the "실시간" badge give way to it). */
 
 /* ───────────────── 효과 level (AGENTS §3-5): 'reduced' | 'standard' | 'fancy', localStorage khm.motion ─────────────────
    No stored choice: the device's reduced-motion setting picks 'reduced', otherwise 'fancy' (사용자 2026-11-10 13:58: 화려하게가 기본). <html data-motion> mirrors it for CSS. */
@@ -3031,15 +3035,20 @@ function flashTiles(list) {
 function flashChanged(changed) {
   if (!changed.length || reduced() || isWorld() || REPLAY || document.hidden) return;
   if (!fancy()) {
-    // '기본': the original white / black overlay
+    // '기본': the original white / black overlay — one style flush for the whole batch (a forced reflow per tile cost ~0.2 ms × the
+    // ~300 tiles a 3 s 실시간 tick can move: ~65 ms of a 93 ms update at 1280 px)
     if (state.market === 'THEME') return;
+    const els = [];
     for (const [c, dir] of changed) {
       const el = nodes.get('T|' + c);
       if (!el) continue;
-      el.classList.remove('flash-up', 'flash-dn'); void el.offsetWidth;
-      el.classList.add(dir > 0 ? 'flash-up' : 'flash-dn');
-      setTimeout(() => el.classList.remove('flash-up', 'flash-dn'), 950);
+      el.classList.remove('flash-up', 'flash-dn');
+      els.push([el, dir > 0 ? 'flash-up' : 'flash-dn']);
     }
+    if (!els.length) return;
+    void mapEl.offsetWidth;
+    for (const [el, k] of els) el.classList.add(k);
+    setTimeout(() => { for (const [el, k] of els) el.classList.remove(k); }, 950);
     return;
   }
   if (introOn) return;                 // the first picture never flashes
@@ -5668,6 +5677,43 @@ function maybeReloadClose() {
   if (CLOSE && CLOSE.date === DATA.k.date) return;
   if (Date.now() - closeLoad.at > (CLOSE ? 600000 : 300000)) loadClose(true);
 }
+/* KH.feed(body) (docs/standards/realtime.md §7-1 ①): one /api/quotes-shaped body → the store, every view, the flashes, 'kh:data' —
+   the one road the quotes poll and the 실시간 hub (src/live) both take. Refused (→ false) in the snapshot, under 전체 (the hub carries
+   the 600 stream only) and for an empty body. A poll answer older than what the hub already drew is dropped while the hub is live
+   (an edge-cached answer must not move the index back for one tick). */
+function feed(raw, src) {
+  if (MODE !== 'live' || !raw || !Array.isArray(raw.stocks) || !raw.stocks.length) return false;
+  if (src !== 'poll' && allScope()) return false;
+  if (src === 'poll' && pollPaused && DATA.asOf && Date.parse(raw.asOf) < Date.parse(DATA.asOf)) { liveState.ok = true; return true; }
+  const hadBasis = BASIS.key;
+  const changed = setData(raw);
+  liveState.ok = true; liveState.last = new Date();
+  render({ animate: !REPLAY }); renderSide(); renderCrumbs(); renderHeader(); renderLegend();
+  if (hadBasis !== BASIS.key) renderFooter();
+  refreshOpenViews();                      // the open sheet / stock or theme tooltip follow every poll (they froze before)
+  maybeReloadClose();
+  // flashes follow the prices as drawn (NXT, KRX quotes); KRX closes do not move
+  flashChanged(changed);
+  if (fancy()) { const dot = $('#status .dot'); if (dot) { dot.classList.remove('beat'); void dot.offsetWidth; dot.classList.add('beat'); } }
+  if (extraWanted().length && !extra.live) pollExtra();     // first data, or 전체 → 300: codes outside the stream again
+  if (src !== 'poll') renderStatus();
+  return true;
+}
+// the quotes poll's next wait: 10 s while prices move (전체 15 s), 60 s otherwise, 15 s after a failure
+const pollWait = () => !liveState.ok ? 15000 : sessionLive() ? (allScope() ? 15000 : 10000) : 60000;
+/* KH.pausePoll(on) (§7-1 ②): the hub is live → the 10 s quotes timer stops (and an answer under way is dropped); off → the poll is
+   back within one interval of the last data (at once when that is older). KH.refresh() still asks once while paused. */
+let pollPaused = false;
+function pausePoll(on) {
+  on = !!on;
+  if (MODE !== 'live' || on === pollPaused) return;
+  pollPaused = on;
+  if (on) { clearTimeout(liveState.timer); liveState.timer = null; pollSeq++; liveState.inflight = null; return; }
+  if (document.hidden || liveState.inflight) return;        // the visible-again poll / the answer under way schedules the next one
+  clearTimeout(liveState.timer);
+  const age = liveState.last ? Date.now() - liveState.last : Infinity;
+  liveState.timer = setTimeout(poll, Math.max(0, Math.min(pollWait(), pollWait() - age)));
+}
 // one quotes request; liveState.inflight is the promise while it runs (KH.refresh waits for it instead of starting another)
 function poll() {
   const p = pollOnce();
@@ -5678,7 +5724,6 @@ function poll() {
 async function pollOnce() {
   const seq = ++pollSeq;
   clearTimeout(liveState.timer); liveState.timer = null;
-  let open = false;
   const ac = new AbortController();
   const killer = setTimeout(() => ac.abort(), allScope() ? 12000 : 8000);   // a stalled request must not stop the polling loop (전체: ~2,700 rows)
   try {
@@ -5686,20 +5731,10 @@ async function pollOnce() {
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const raw = await res.json();
     if (!raw || !Array.isArray(raw.stocks) || !raw.stocks.length) throw new Error('empty');
-    if (seq !== pollSeq) return;             // a newer poll took over (the tab came back, 종목 수 changed)
-    const hadBasis = BASIS.key;
-    const changed = setData(raw);
-    liveState.ok = true; liveState.last = new Date();
-    open = sessionLive();
-    render({ animate: !REPLAY }); renderSide(); renderCrumbs(); renderHeader(); renderLegend();
-    if (hadBasis !== BASIS.key) renderFooter();
-    refreshOpenViews();                      // the open sheet / stock or theme tooltip follow every poll (they froze before)
-    maybeReloadClose();
-    // flashes follow the prices as drawn (NXT, KRX quotes); KRX closes do not move
-    flashChanged(changed);
-    if (fancy()) { const dot = $('#status .dot'); if (dot) { dot.classList.remove('beat'); void dot.offsetWidth; dot.classList.add('beat'); } }
-    if (extraWanted().length && !extra.live) pollExtra();     // first data, or 전체 → 300: codes outside the stream again
+    if (seq !== pollSeq) return;             // a newer poll took over (the tab came back, 종목 수 changed, the hub went live)
+    feed(raw, 'poll');
   } catch (e) {
+    if (seq !== pollSeq) return;
     liveState.ok = false;
     try { if (!DATA.stocks.length) render(); } catch (e2) {}
   } finally {
@@ -5707,7 +5742,7 @@ async function pollOnce() {
     if (seq === pollSeq) {
       try { renderStatus(); } catch (e3) {}
       clearTimeout(liveState.timer); liveState.timer = null;
-      if (!document.hidden) liveState.timer = setTimeout(poll, !liveState.ok ? 15000 : open ? (allScope() ? 15000 : 10000) : 60000);
+      if (!document.hidden && !pollPaused) liveState.timer = setTimeout(poll, pollWait());
     }
   }
 }
@@ -5816,7 +5851,7 @@ document.addEventListener('visibilitychange', () => {
     clearTimeout(brState.timer); brState.timer = null;
     return;
   }
-  poll();
+  if (!pollPaused) poll();                 // the hub still connected (src/live): its quotes are drawn by the module
   if (state.market === 'THEME') pollThemes();
   if (extraWanted().length) pollExtra();
   syncBreadth();
@@ -5966,6 +6001,13 @@ window.KH = {
   settingState,
   mapCodes: () => (!DATA || isWorld() || (state.market === 'THEME' && state.theme == null)) ? [] : universe().map(s => s.c),
   replay: () => (REPLAY ? { t: REPLAY.t, date: REPLAY.date } : null),
+  // 실시간 갱신 (docs/standards/realtime.md §7-1, src/live): feed(body) → true when drawn (an /api/quotes-shaped body through the poll's
+  // own road: store, views, flashes, 'kh:data'); pausePoll(on) stops / restarts the 10 s quotes timer; scope() → 'top' (the 600 stream)
+  // | 'all' (전체, polled); polling() → {paused, ok, last (ms | null), wait (ms)}; the status mount is <span id="live-mark" hidden> in #status
+  feed: body => feed(body, 'live'),
+  pausePoll,
+  scope: () => (allScope() ? 'all' : 'top'),
+  polling: () => ({ paused: pollPaused, ok: !!liveState.ok, last: liveState.last ? +liveState.last : null, wait: pollWait() }),
   openStock(code, opts) {
     const k = stockApi();
     if (!k || !CODE_RE.test(String(code))) return false;

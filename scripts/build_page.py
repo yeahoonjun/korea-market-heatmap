@@ -69,12 +69,13 @@ def module(folder: str, name: str) -> str:
 
 
 def stock_module() -> str:
-    """The stock page (src/stock/), the extras (src/extras/), world (src/world/), news (src/news/) and disclosure (src/disclosure/) are
-    inlined after the heatmap script."""
+    """The stock page (src/stock/), the extras (src/extras/), world (src/world/), news (src/news/), disclosure (src/disclosure/) and
+    live (src/live/) are inlined after the heatmap script."""
     # news (docs/standards/news.md §11 ④): match.js (headline names) before news.js; the snapshot shows only a note — no articles baked in
     # 공시 배지 (docs/standards/disclosure.md §13 ⑧): after news (it adds the 오늘 공시 tab to the news card); the snapshot: a note only
+    # 실시간 갱신 (docs/standards/realtime.md §7-1): last — the WebSocket to the hub; it does nothing in the snapshot (KH.MODE)
     return (module("stock", "stock") + module("extras", "extras") + module("world", "world") + module("news", "match") + module("news", "news")
-            + module("disclosure", "disc"))
+            + module("disclosure", "disc") + module("live", "live"))
 
 
 DATA_FILES = ("themes", "periods", "flows", "market")   # market: /api/market after the close (index spark for the §3-20 header line)
