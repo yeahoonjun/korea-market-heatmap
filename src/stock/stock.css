@@ -7,7 +7,16 @@ html.sp-on, html.sp-on body { overflow: hidden; }
   --sp-hh: 61px;
   /* 재무 series (매출 · 영업이익 · 순이익): one violet ramp, so red/green stay for rises and falls only */
   --s0: #d9d3ff; --s1: #a491ff; --s2: #7a62e8;
+  /* themes (docs/standards/themes.md): translucent panels need an opaque twin where something must cover what is behind; the white
+     overlays of the dark page become the text colour at the same strength, so they follow the ink on paper and glass light */
+  --sp-solid: var(--panel, #191a1f); --sp-nest: var(--page, #131418);
+  --sp-w3: color-mix(in srgb, var(--fg) 3.5%, transparent); --sp-w5: color-mix(in srgb, var(--fg) 5%, transparent); --sp-w6: color-mix(in srgb, var(--fg) 6%, transparent);
+  --sp-hair: var(--sp-w5);
 }
+/* the analyst / finance violet ramp is only 1.3 – 3 : 1 on a light page — light themes get a darker set (each step >= 3 : 1 on paper and light glass) */
+html[data-tone="light"] .sp { --s0: #8a74d6; --s1: #6247c4; --s2: #3e2a96; --sp-w3: color-mix(in srgb, var(--fg) 5%, transparent); --sp-w5: color-mix(in srgb, var(--fg) 8%, transparent); --sp-w6: color-mix(in srgb, var(--fg) 10%, transparent); }
+html[data-theme="paper"] .sp { --sp-hair: var(--row-bd, rgba(46, 30, 18, .2)); }
+html[data-theme^="glass"] .sp { --sp-solid: var(--page); --sp-nest: var(--panel2, #202228); }
 .sp[hidden] { display: none; }
 .sp:focus { outline: none; }
 .sp.sp-in { animation: spIn .2s ease-out; }
@@ -17,15 +26,18 @@ html.sp-on, html.sp-on body { overflow: hidden; }
 .sp .num { font-variant-numeric: tabular-nums; }
 
 /* ── header ───────────────────────── */
-.sp-head { position: sticky; top: 0; z-index: 6; background: rgba(19, 20, 24, .94); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); padding-top: env(safe-area-inset-top); }
+.sp-head { position: sticky; top: 0; z-index: 6; background: color-mix(in srgb, var(--page, #131418) 94%, transparent); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); padding-top: env(safe-area-inset-top); }
+/* stuck header per theme (themes.md §7): paper = the opaque paper strip + 1px ink rule under it; glass = the thin glass (--blur-bar; the
+   template turns it opaque when blur is off). The 1px border stays, only transparent, so the height is the same in every theme. */
+html[data-theme="paper"] .sp-head, html[data-theme^="glass"] .sp-head { background: var(--bar-bg, color-mix(in srgb, var(--page, #131418) 94%, transparent)); box-shadow: var(--bar-sh, none); border-bottom-color: transparent; -webkit-backdrop-filter: var(--blur-bar, none); backdrop-filter: var(--blur-bar, none); }
 .sp-head-in { display: flex; align-items: center; gap: 4px; max-width: 1760px; margin: 0 auto; padding: 8px 14px 8px 4px; min-height: 60px; }
 .sp-back { flex: none; display: inline-flex; align-items: center; justify-content: center; gap: 2px; width: 44px; height: 44px; border-radius: 10px; color: var(--fg); }
-.sp-back:hover { background: rgba(255, 255, 255, .06); }
+.sp-back:hover { background: var(--sp-w6); }
 .sp-back svg { width: 24px; height: 24px; flex: none; }
 .sp-back-t { display: none; font-size: 14px; font-weight: 600; }
 /* phones: the name has line 1 to itself; code · market · 섹터 › 업종 share line 2 (ellipsis at the end) */
 .sp-id { flex: 1; min-width: 0; padding-left: 2px; }
-.sp-name { display: block; font-size: 18px; font-weight: 700; letter-spacing: -.02em; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; outline-offset: 2px; }
+.sp-name { display: block; font-size: 18px; font-weight: var(--w-strong, 700); letter-spacing: var(--track-head, -.02em); font-family: var(--sans); line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; outline-offset: 2px; }
 .sp-name:focus:not(:focus-visible) { outline: none; }
 .sp-sub { display: flex; align-items: baseline; gap: 0 6px; min-width: 0; margin-top: 1px; overflow: hidden; font-size: 12px; color: var(--muted); white-space: nowrap; }
 .sp-code, .sp-mkt { flex: none; font-size: 12px; color: var(--muted); white-space: nowrap; }
@@ -35,7 +47,7 @@ html.sp-on, html.sp-on body { overflow: hidden; }
 .sp-path { flex: 0 1 auto; min-width: 0; font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* phones: 상한가 sits on the price line, right above the change, so the quote stays narrow and the name keeps its room */
 .sp-quote { flex: none; display: grid; grid-template-columns: auto auto; grid-template-areas: "lim price" "chg chg" "nxt nxt"; justify-content: end; align-items: center; text-align: right; padding-left: 8px; }
-.sp-price { grid-area: price; font-size: 20px; font-weight: 700; letter-spacing: -.01em; line-height: 1.2; white-space: nowrap; }
+.sp-price { grid-area: price; font-family: var(--font-head, var(--sans)); font-size: 20px; font-weight: 700; letter-spacing: -.01em; line-height: 1.2; white-space: nowrap; }   /* with 명조 제목 on (paper) only the price is set in --font-head; the name stays Pretendard */
 .sp-price, .sp-chg { --od-lh: 1.2; line-height: var(--od-lh); font-variant-numeric: tabular-nums; }
 /* odometer (fancy only): a column holds the old glyph in ::before/::after and the new one as text; the strip slides */
 .od-c { display: inline-block; height: calc(var(--od-lh, 1.2) * 1em); line-height: var(--od-lh, 1.2); overflow: hidden; vertical-align: top; white-space: pre; }
@@ -66,26 +78,27 @@ html.sp-on, html.sp-on body { overflow: hidden; }
 @media (max-width: 430px) { .sp-nxt .t { display: none; } }
 .sp-star { position: relative; flex: none; display: inline-grid; place-items: center; width: 42px; height: 44px; margin-left: 2px; border-radius: 10px; color: var(--muted); }
 .sp-star[hidden], .sp-nf .sp-star { display: none; }
-.sp-star:hover { background: rgba(255, 255, 255, .06); color: var(--fg); }
+.sp-star:hover { background: var(--sp-w6); color: var(--fg); }
 .sp-star svg { width: 23px; height: 23px; fill: transparent; stroke: currentColor; stroke-width: 1.8; stroke-linejoin: round; transition: fill var(--c-fast) var(--c-out), color var(--c-fast) var(--c-out); }   /* ☆ → ★ (§5-9): the fill comes in, no pop */
-.sp-star[aria-pressed="true"] { color: var(--amber); }
-.sp-star[aria-pressed="true"] svg { fill: var(--amber); }
+.sp-star[aria-pressed="true"] { color: var(--acc, var(--amber)); }                  /* outline = the readable amber (dark ochre on paper) */
+.sp-star[aria-pressed="true"] svg { fill: var(--acc-fill, var(--amber)); }          /* fill = the highlighter amber */
 
 /* ── meta + stats ───────────────────── */
 .sp-main { max-width: 1760px; margin: 0 auto; padding: 10px 12px 28px; }
 .sp-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; min-height: 24px; font-size: 12px; color: var(--muted); }
 .sp-chip { display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 8px; border-radius: 6px; background: var(--panel2); border: 1px solid var(--line); color: var(--fg2); font-size: 11.5px; font-weight: 600; white-space: nowrap; }
 .sp-chip i { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); }
-.sp-chip.live { color: var(--amber); border-color: rgba(255, 181, 71, .35); background: var(--amber-soft); }
-.sp-chip.live i { background: var(--amber); animation: spPulse 1.8s infinite; }
-@keyframes spPulse { 0% { box-shadow: 0 0 0 0 rgba(255, 181, 71, .55); } 70% { box-shadow: 0 0 0 6px rgba(255, 181, 71, 0); } 100% { box-shadow: 0 0 0 0 rgba(255, 181, 71, 0); } }
+.sp-chip.live { color: var(--acc, var(--amber)); border-color: var(--acc-bd, rgba(255, 181, 71, .35)); background: var(--acc-soft, var(--amber-soft)); }
+.sp-chip.live i { background: var(--acc-fill, var(--amber)); animation: spPulse 1.8s infinite; }
+@keyframes spPulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--acc-fill, var(--amber)) 55%, transparent); } 70% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--acc-fill, var(--amber)) 0%, transparent); } 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--acc-fill, var(--amber)) 0%, transparent); } }
 .sp-nxt { color: var(--fg2); text-decoration: underline dotted var(--faint); text-underline-offset: 3px; cursor: help; }
 .sp-phase-note { color: var(--fg2); }
 .sp-meta-err { display: inline-flex; align-items: center; gap: 8px; color: var(--fg); }
 .sp-link { position: relative; display: inline-flex; align-items: center; justify-content: center; min-height: 32px; padding: 0 11px; border-radius: var(--r-key); background: var(--key-bg); box-shadow: var(--key-sh); color: var(--key-fg); font-size: 12px; font-weight: 600; }
 .sp-link:hover { background: var(--key-hover); }
 
-.sp-stats { display: grid; grid-template-columns: minmax(0, 1.25fr) repeat(3, minmax(0, 1fr)); gap: 1px; margin: 10px 0 0; background: var(--line); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.sp-stats { position: relative; display: grid; grid-template-columns: minmax(0, 1.25fr) repeat(3, minmax(0, 1fr)); gap: 1px; margin: 10px 0 0; background: var(--line); border: 1px solid var(--card-bd, var(--line)); border-radius: var(--card-r, 10px); overflow: hidden; }
+.sp-stats::after { content: ""; position: absolute; inset: 0; border-radius: inherit; box-shadow: var(--card-sh, none); pointer-events: none; }   /* the card's ink rule / glass rim, over the cells */
 .sp-stats[hidden] { display: none; }
 .sp-stat { background: var(--panel); padding: 7px 9px 8px; min-width: 0; }
 .sp-stat dt { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -127,9 +140,9 @@ html.sp-on, html.sp-on body { overflow: hidden; }
 .sp-period { display: none; font-size: 12.5px; color: var(--muted); white-space: nowrap; }
 .sp-period b { font-weight: 600; }
 
-.sp-chartwrap { position: relative; height: 45vh; height: 45svh; min-height: 250px; max-height: 620px; background: #191a1f; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.sp-chartwrap { position: relative; height: 45vh; height: 45svh; min-height: 250px; max-height: 620px; background: var(--card-bg, #191a1f); border: 1px solid var(--card-bd, var(--line)); border-radius: var(--card-r, 12px); box-shadow: var(--card-sh, none); overflow: hidden; }   /* the chart canvas is transparent: this card is its ground */
 .sp-chart { position: absolute; inset: 0; }
-.sp-legend { position: absolute; z-index: 3; left: 10px; top: 7px; right: 8px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 1px 10px; pointer-events: none; font-size: 11.5px; line-height: 1.45; color: var(--muted); text-shadow: 0 0 3px #191a1f, 0 0 6px #191a1f; }
+.sp-legend { position: absolute; z-index: 3; left: 10px; top: 7px; right: 8px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 1px 10px; pointer-events: none; font-size: 11.5px; line-height: 1.45; color: var(--muted); text-shadow: 0 0 3px var(--sp-solid), 0 0 6px var(--sp-solid); }
 .sp-legend .sp-lg-t { color: var(--fg2); font-weight: 600; }
 .sp-legend .sp-lg-ohlc { display: flex; flex-wrap: wrap; gap: 0 8px; order: 3; }
 .sp-legend .kv.vol { order: 2; }
@@ -137,12 +150,12 @@ html.sp-on, html.sp-on body { overflow: hidden; }
 .sp-legend .kv b, .sp-legend .sp-lg-r { color: var(--fg); font-weight: 600; }
 .sp-legend .kv b.up, .sp-legend .sp-lg-r.up { color: var(--up-text); }
 .sp-legend .kv b.dn, .sp-legend .sp-lg-r.dn { color: var(--dn-text); }
-.sp-chartmsg { position: absolute; inset: 0; z-index: 4; display: none; place-items: center; padding: 20px; text-align: center; background: #191a1f; }
+.sp-chartmsg { position: absolute; inset: 0; z-index: 4; display: none; place-items: center; padding: 20px; text-align: center; background: var(--sp-solid); }
 .sp-chartmsg.on { display: grid; }
-.sp-chartmsg.dim { background: rgba(25, 26, 31, .55); }
-.sp-loading-t { padding: 6px 12px; border-radius: 8px; background: var(--panel2); border: 1px solid var(--line2); font-size: 13px; color: var(--fg2); }
+.sp-chartmsg.dim { background: color-mix(in srgb, var(--sp-solid) 55%, transparent); }
+.sp-loading-t { padding: 6px 12px; border-radius: 8px; background: var(--tip-bg, var(--panel2)); border: 1px solid var(--tip-bd, var(--line2)); box-shadow: var(--tip-sh, none); font-size: 13px; color: var(--fg2); }
 .sp-chart-skel { position: absolute; left: 16px; right: 70px; top: 44px; bottom: 30px; display: flex; align-items: flex-end; gap: 6px; }
-.sp-chart-skel i { flex: 1; border-radius: 2px; background: #24262d; animation: spFade 1.3s ease-in-out infinite alternate; }
+.sp-chart-skel i { flex: 1; border-radius: 2px; background: var(--sp-w6); animation: spFade 1.3s ease-in-out infinite alternate; }
 
 /* peers */
 .sp-peers { display: flex; align-items: center; gap: 10px; margin-top: 10px; min-width: 0; }
@@ -180,13 +193,13 @@ html.sp-on, html.sp-on body { overflow: hidden; }
 .sp-btn { position: relative; display: inline-flex; align-items: center; justify-content: center; min-height: 40px; padding: 0 17px; margin-top: 6px; border-radius: var(--r-key); border: 0; background: var(--key-bg); box-shadow: var(--key-sh); color: var(--key-fg); font-size: 13.5px; font-weight: 600; text-decoration: none; }
 .sp-btn:hover { background: var(--key-hover); }
 .sp-btn.pri { background: var(--pri-bg); color: var(--pri-fg); box-shadow: var(--pri-sh); }
-.sp-btn.pri:hover { background: #fff; }
+.sp-btn.pri:hover { background: var(--pri-bg); filter: brightness(1.08); }
 .sp-btn[disabled] { opacity: .45; box-shadow: none; cursor: default; }
 /* async keys (다시 시도 · 60일 더 보기, §5-3): ring while it works, ✓ = the amber surface, ! = the dark amber one (never red / green) */
 .sp :is(.sp-retry, .sp-more)[aria-busy="true"] { cursor: progress; }
 .sp :is(.sp-retry, .sp-more)[data-st="done"] { background: var(--done-bg); color: var(--done-fg); }
 .sp :is(.sp-retry, .sp-more)[data-st="fail"] { background: var(--fail-bg); color: var(--fail-fg); box-shadow: inset 0 0 0 1px var(--fail-ring), var(--key-sh); }
-.sp :is(.sp-retry, .sp-more)[data-st="fail"] .kwn { color: var(--amber); }
+.sp :is(.sp-retry, .sp-more)[data-st="fail"] .kwn { color: var(--acc, var(--amber)); }
 /* 리포트 더 보기 ↔ 접기: the chevron turns (the template's chevFlip replays it on the redrawn key) */
 .sp-fold { gap: 8px; }
 .sp-fold::after { content: ""; flex: none; width: 6px; height: 6px; margin-top: -3px; border: solid var(--key-ic); border-width: 0 1.6px 1.6px 0; transform: rotate(45deg); }
@@ -195,7 +208,7 @@ html.sp-on, html.sp-on body { overflow: hidden; }
 .sp-inline-err[hidden] { display: none; }
 .sp-note { font-size: 12px; color: var(--muted); line-height: 1.55; margin-top: 10px; }
 .sp-note[hidden] { display: none; }
-.sp-skel { display: inline-block; vertical-align: middle; max-width: 100%; border-radius: 5px; background: linear-gradient(90deg, #202228 25%, #2b2d35 50%, #202228 75%); background-size: 200% 100%; animation: spShim 1.3s linear infinite; }
+.sp-skel { display: inline-block; vertical-align: middle; max-width: 100%; border-radius: 5px; background: linear-gradient(90deg, var(--sp-w5) 25%, var(--sp-w6) 50%, var(--sp-w5) 75%); background-size: 200% 100%; animation: spShim 1.3s linear infinite; }
 .sp-skel-rows { display: flex; flex-direction: column; gap: 6px; }
 .sp-skel-rows .sp-skel { display: block; }
 @keyframes spShim { from { background-position: 100% 0; } to { background-position: -100% 0; } }
@@ -204,15 +217,15 @@ html.sp-on, html.sp-on body { overflow: hidden; }
 /* ── 호가 ───────────────────────── */
 .sp-ob-msg[hidden], .sp-ob-grid[hidden] { display: none; }
 .sp-ob-msg + .sp-ob-grid { margin-top: 0; }
-.sp-ob-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(118px, auto) minmax(0, 1fr); grid-template-rows: repeat(10, 36px); background: var(--panel); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; font-variant-numeric: tabular-nums; }
-.sp-q { position: relative; display: flex; align-items: center; padding: 0 8px; font-size: 13px; color: var(--fg2); border-bottom: 1px solid rgba(255, 255, 255, .04); min-width: 0; }
+.sp-ob-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(118px, auto) minmax(0, 1fr); grid-template-rows: repeat(10, 36px); background: var(--card-bg, var(--panel)); border: 1px solid var(--card-bd, var(--line)); border-radius: var(--card-r, 10px); box-shadow: var(--card-sh, none); overflow: hidden; font-variant-numeric: tabular-nums; }
+.sp-q { position: relative; display: flex; align-items: center; padding: 0 8px; font-size: 13px; color: var(--fg2); border-bottom: 1px solid var(--sp-hair); min-width: 0; }
 .sp-q.ask { grid-column: 1; justify-content: flex-end; }
 .sp-q.bid { grid-column: 3; justify-content: flex-start; }
 .sp-q .bar { position: absolute; top: 6px; bottom: 6px; max-width: 100%; border-radius: 3px; transition: width .25s ease-out; }
 .sp-q.ask .bar { right: 0; border-radius: 3px 0 0 3px; background: color-mix(in srgb, var(--dn-text) 24%, transparent); }
 .sp-q.bid .bar { left: 0; border-radius: 0 3px 3px 0; background: color-mix(in srgb, var(--up-text) 24%, transparent); }
 .sp-q span { position: relative; }
-.sp-p { grid-column: 2; position: relative; display: flex; align-items: center; justify-content: center; gap: 7px; padding: 0 8px; border-left: 1px solid var(--line); border-right: 1px solid var(--line); border-bottom: 1px solid rgba(255, 255, 255, .04); white-space: nowrap; color: var(--fg); }
+.sp-p { grid-column: 2; position: relative; display: flex; align-items: center; justify-content: center; gap: 7px; padding: 0 8px; border-left: 1px solid var(--line); border-right: 1px solid var(--line); border-bottom: 1px solid var(--sp-hair); white-space: nowrap; color: var(--fg); }
 .sp-p.ask { background: color-mix(in srgb, var(--dn-text) 7%, transparent); }
 .sp-p.bid { background: color-mix(in srgb, var(--up-text) 7%, transparent); }
 .sp-p b { font-size: 14px; font-weight: 600; }
@@ -235,9 +248,9 @@ html.sp-on, html.sp-on body { overflow: hidden; }
 .sp-ob-ratio .b { flex: 1; background: color-mix(in srgb, var(--up-text) 60%, transparent); }
 
 /* ── 투자자 ───────────────────────── */
-.sp-cum { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 12px 10px; }
+.sp-cum { background: var(--card-bg, var(--panel)); border: 1px solid var(--card-bd, var(--line)); border-radius: var(--card-r, 10px); box-shadow: var(--card-sh, none); padding: 12px 12px 10px; }
 .sp-cum-h { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
-.sp-cum-h h3 { font-size: 13.5px; font-weight: 600; }
+.sp-cum-h h3 { font-size: 13.5px; font-weight: var(--w-head, 600); }
 .sp-cum-h small, .sp-cum-sub { font-size: 11.5px; color: var(--muted); }
 .sp-cum-sub { margin-top: 4px; text-align: right; }
 .sp-cum-r { display: grid; grid-template-columns: 46px minmax(0, 1fr) auto; align-items: center; gap: 10px; min-height: 34px; }
@@ -251,13 +264,13 @@ html.sp-on, html.sp-on body { overflow: hidden; }
 .sp-spark .zero { stroke: var(--line2); stroke-width: 1; stroke-dasharray: 3 3; vector-effect: non-scaling-stroke; }
 
 /* 오늘 순매수: bars from a centre line */
-.sp-today { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 12px 8px; margin-bottom: 10px; }
+.sp-today { background: var(--card-bg, var(--panel)); border: 1px solid var(--card-bd, var(--line)); border-radius: var(--card-r, 10px); box-shadow: var(--card-sh, none); padding: 12px 12px 8px; margin-bottom: 10px; }
 .sp-today-r { display: grid; grid-template-columns: 46px minmax(7.5em, auto) minmax(0, 1fr); align-items: center; gap: 10px; min-height: 32px; }
 .sp-today-r .k { font-size: 13px; color: var(--fg2); }
 .sp-today-r b { font-size: 13.5px; font-weight: 600; text-align: right; }
 .sp-today-r b.up { color: var(--up-text); } .sp-today-r b.dn { color: var(--dn-text); }
 .sp-today-r b .s { display: none; }
-.sp-today-r .bar { position: relative; height: 10px; border-radius: 5px; background: rgba(255, 255, 255, .05); }
+.sp-today-r .bar { position: relative; height: 10px; border-radius: 5px; background: var(--sp-w5); }
 .sp-today-r .bar::after { content: ""; position: absolute; left: 50%; top: -3px; bottom: -3px; width: 1px; background: var(--line2); }
 .sp-today-r .bar i { position: absolute; top: 0; bottom: 0; border-radius: 5px; }
 .sp-today-r .bar i.up { background: color-mix(in srgb, var(--up-text) 85%, transparent); }
@@ -268,7 +281,7 @@ html.sp-on, html.sp-on body { overflow: hidden; }
 .sp-ci + .sp-ci { border-top: 1px solid var(--line); padding-top: 14px; }
 .sp-ci[hidden] { display: none; }
 .sp-ci-hd { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 40px; margin-bottom: 8px; }
-.sp-ci-hd h3 { font-size: 16px; font-weight: 700; letter-spacing: -.01em; }
+.sp-ci-hd h3 { font-size: 16px; font-weight: var(--w-strong, 700); letter-spacing: -.01em; }
 .sp-mseg { flex: none; display: flex; gap: 2px; padding: 3px; border-radius: var(--r-tray); }   /* a small segment (.seg) */
 .sp-mseg button { min-height: 40px; min-width: 52px; padding: 0 10px; border-radius: var(--r-in); font-size: 13px; font-weight: 600; color: var(--muted); transition: color var(--c-fast) var(--c-out), filter var(--c-fast) var(--c-out); }
 .sp-mseg button:hover { color: var(--fg); }
@@ -280,7 +293,7 @@ html.sp-on, html.sp-on body { overflow: hidden; }
 .sp-ci .dot.hatch, .sp-fin-col.est .b { background: repeating-linear-gradient(135deg, var(--c, var(--fg2)) 0 2px, transparent 2px 5px); box-shadow: inset 0 0 0 1px var(--c, var(--fg2)); }
 /* 투자 지표 */
 .sp-mgrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin: 0; }
-.sp-m { min-width: 0; padding: 9px 6px 8px; border-radius: 10px; background: var(--panel); text-align: center; }
+.sp-m { min-width: 0; padding: 9px 6px 8px; border-radius: min(10px, var(--card-r, 10px)); background: var(--panel); box-shadow: inset 0 0 0 1px var(--row-bd, transparent); text-align: center; }
 .sp-m dt { font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .sp-m dd { margin: 2px 0 0; font-size: 15px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .sp-m dd.sub { margin-top: 1px; font-size: 10.5px; font-weight: 500; color: var(--muted); }
@@ -290,12 +303,12 @@ html.sp-on, html.sp-on body { overflow: hidden; }
 .sp-fin-lg span { display: inline-flex; align-items: center; gap: 5px; }
 .sp-fin-plot { position: relative; height: 172px; }
 .sp-fin-area { position: absolute; left: 0; right: 0; top: 8px; bottom: 2px; }
-.sp-fin-area .gl { position: absolute; left: 0; right: 0; border-top: 1px dashed rgba(255, 255, 255, .06); }
+.sp-fin-area .gl { position: absolute; left: 0; right: 0; border-top: 1px dashed var(--sp-w6); }
 .sp-fin-area .zero { position: absolute; left: 0; right: 0; height: 1px; margin-top: -.5px; background: var(--line2); }
 .sp-fin-cols { position: absolute; inset: 0; display: flex; }
 .sp-fin-col { position: relative; flex: 1 1 0; height: 100%; border-radius: 8px; }
-.sp-fin-col:hover { background: rgba(255, 255, 255, .03); }
-.sp-fin-col.on { background: rgba(255, 255, 255, .06); }
+.sp-fin-col:hover { background: var(--sp-w3); }
+.sp-fin-col.on { background: var(--sp-w6); }
 .sp-fin-col .grp { position: absolute; inset: 0 12%; display: flex; justify-content: center; gap: 3px; }
 .sp-fin-col .slot { position: relative; flex: 1 1 0; max-width: 16px; height: 100%; }
 .sp-fin-col .b { position: absolute; left: 0; right: 0; min-height: 2px; border-radius: 3px 3px 0 0; background: var(--c); }
@@ -324,10 +337,10 @@ html.sp-on, html.sp-on body { overflow: hidden; }
 .sp-fin-tbl summary:hover { color: var(--fg); }
 .sp-fin-t { margin-top: 2px; }
 .sp-fin-t th { position: static; background: none; }
-.sp-fin-t tbody th { text-align: left; font-size: 12.5px; font-weight: 500; color: var(--fg2); padding: 7px 2px; border-bottom: 1px solid rgba(255, 255, 255, .05); }
+.sp-fin-t tbody th { text-align: left; font-size: 12.5px; font-weight: 500; color: var(--fg2); padding: 7px 2px; border-bottom: 1px solid var(--sp-hair); }
 .sp-fin-t tbody th small { display: inline; margin-left: 4px; font-size: 11px; color: var(--muted); }
 .sp-fin-skel { display: flex; align-items: flex-end; gap: 5px; height: 200px; padding: 12px 6px 34px; }
-.sp-fin-skel i { flex: 1; border-radius: 3px; background: #24262d; animation: spFade 1.3s ease-in-out infinite alternate; }
+.sp-fin-skel i { flex: 1; border-radius: 3px; background: var(--sp-w6); animation: spFade 1.3s ease-in-out infinite alternate; }
 /* 안정성 */
 .sp-stabseg { margin-bottom: 8px; }
 .sp-ln { margin: 0; }
@@ -342,7 +355,7 @@ html.sp-on, html.sp-on body { overflow: hidden; }
 .sp-ln .lb.last { color: var(--fg); }
 /* 배당 · 컨센서스 rows */
 .sp-kv { margin: 0; }
-.sp-kv > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 48px; border-bottom: 1px solid rgba(255, 255, 255, .05); }
+.sp-kv > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 48px; border-bottom: 1px solid var(--sp-hair); }
 .sp-kv dt { display: flex; flex-direction: column; font-size: 14px; color: var(--fg2); }
 .sp-kv dt small { font-size: 11.5px; color: var(--muted); }
 .sp-kv dd { margin: 0; display: flex; flex-wrap: wrap; align-items: baseline; justify-content: flex-end; gap: 2px 8px; font-size: 16px; font-weight: 700; text-align: right; }
@@ -365,17 +378,17 @@ html.sp-on, html.sp-on body { overflow: hidden; }
 .sp-ana-h { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; font-size: 13.5px; }
 .sp-ana-h small { font-size: 11.5px; color: var(--muted); }
 .sp-ana-empty { margin-top: 8px; font-size: 13px; color: var(--fg2); }
-.sp-op .well { max-width: 46px; border-radius: 8px; background: rgba(255, 255, 255, .05); overflow: hidden; }
+.sp-op .well { max-width: 46px; border-radius: 8px; background: var(--sp-w5); overflow: hidden; }
 .sp-op .well i { border-radius: 8px; background: var(--muted); }
 .sp-op .max .well i { background: var(--fg2); }
 .sp-op .max .n, .sp-op .max .x { color: var(--fg); font-weight: 700; }
 .sp-op .x { color: var(--fg2); }
 .sp-op-note { margin-top: 6px; }
-.sp-cons { margin-top: 10px; border-top: 1px solid rgba(255, 255, 255, .05); }
+.sp-cons { margin-top: 10px; border-top: 1px solid var(--sp-hair); }
 .sp-rp-h { display: flex; align-items: baseline; gap: 6px; margin: 18px 0 2px; font-size: 14px; font-weight: 700; }
 .sp-rp-h small { font-size: 12px; font-weight: 500; color: var(--muted); }
 .sp-rp-list { list-style: none; margin: 0; padding: 0; }
-.sp-rp-list li + li { border-top: 1px solid rgba(255, 255, 255, .06); }
+.sp-rp-list li + li { border-top: 1px solid var(--sp-hair); }
 .sp-rp { display: flex; flex-direction: column; gap: 5px; min-height: 44px; padding: 11px 2px; color: var(--fg); text-decoration: none; border-radius: 6px; }
 a.sp-rp:hover .sp-rp-t { text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--muted); }
 a.sp-rp:visited .sp-rp-t { color: var(--fg2); }
@@ -393,10 +406,10 @@ a.sp-rp:visited .sp-rp-t { color: var(--fg2); }
 .sp-nwseg button small:empty { display: none; }
 .sp-nwseg button:hover { color: var(--fg); box-shadow: inset 0 0 0 1px var(--line2); }
 .sp-nwseg button[aria-pressed="true"] { color: var(--fg); background: var(--chip-on); box-shadow: inset 0 0 0 1.5px var(--chip-ring); }
-.sp-nwseg button[aria-pressed="true"] small { color: var(--amber); }
+.sp-nwseg button[aria-pressed="true"] small { color: var(--acc, var(--amber)); }
 .sp-nw-body { margin-top: 6px; }
 .sp-nw-list { list-style: none; margin: 0; padding: 0; }
-.sp-nw-list li + li { border-top: 1px solid rgba(255, 255, 255, .06); }
+.sp-nw-list li + li { border-top: 1px solid var(--sp-hair); }
 .sp-nw-a { display: flex; flex-direction: column; gap: 5px; min-height: 44px; padding: 12px 2px; color: var(--fg); text-decoration: none; border-radius: 6px; }
 a.sp-nw-a:hover .sp-nw-t { text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--muted); }
 a.sp-nw-a:visited .sp-nw-t { color: var(--fg2); }
@@ -408,8 +421,8 @@ a.sp-nw-a:visited .sp-nw-t { color: var(--fg2); }
 .sp-dfilt { display: flex; gap: 2px; margin-top: 8px; overflow-x: auto; scrollbar-width: none; border-bottom: 1px solid var(--line); }
 /* the underline row (§5-6): .seg's indicator becomes a 2px amber bar along the bottom; it slides like the segments */
 .sp-dfilt.seg { padding: 0; border-radius: 0; background: none; box-shadow: none; }
-.sp-dfilt.seg::before { top: auto; height: 2px; border-radius: 2px 2px 0 0; background: var(--amber); box-shadow: none; }
-.sp-dfilt.seg:not([data-ind]) > button[aria-pressed="true"] { background: none; box-shadow: inset 0 -2px 0 var(--amber); }
+.sp-dfilt.seg::before { top: auto; height: 2px; border-radius: 2px 2px 0 0; background: var(--acc-line, var(--amber)); box-shadow: none; }
+.sp-dfilt.seg:not([data-ind]) > button[aria-pressed="true"] { background: none; box-shadow: inset 0 -2px 0 var(--acc-line, var(--amber)); }
 .sp-dfilt button:focus-visible { outline-offset: calc(var(--focus-w) * -1); }
 .sp-dfilt::-webkit-scrollbar { display: none; }
 .sp-dfilt[hidden], .sp-dfilt button[hidden], .sp-nw-src[hidden], .sp-switch[hidden] { display: none; }
@@ -433,7 +446,7 @@ a.sp-nw-a:visited .sp-nw-t { color: var(--fg2); }
 .sp-tbl { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 13px; font-variant-numeric: tabular-nums; }
 .sp-tbl caption { caption-side: top; text-align: left; font-size: 11.5px; color: var(--muted); padding: 0 2px 6px; }
 .sp-tbl th { position: sticky; top: calc(var(--sp-hh) + 58px); z-index: 1; background: var(--page); font-size: 11.5px; font-weight: 500; color: var(--muted); text-align: right; padding: 8px 7px; border-bottom: 1px solid var(--line); white-space: nowrap; }
-.sp-tbl td { text-align: right; padding: 7px 7px; border-bottom: 1px solid rgba(255, 255, 255, .05); white-space: nowrap; color: var(--fg); }
+.sp-tbl td { text-align: right; padding: 7px 7px; border-bottom: 1px solid var(--sp-hair); white-space: nowrap; color: var(--fg); }
 .sp-tbl th:first-child, .sp-tbl td:first-child { text-align: left; padding-left: 2px; }
 .sp-tbl th:last-child, .sp-tbl td:last-child { padding-right: 2px; }
 .sp-tbl td:first-child { color: var(--fg2); }
@@ -460,7 +473,7 @@ a.sp-nw-a:visited .sp-nw-t { color: var(--fg2); }
 }
 
 /* ── snapshot fallback ───────────────── */
-.sp-offline { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 36px 20px; text-align: center; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; }
+.sp-offline { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 36px 20px; text-align: center; background: var(--card-bg, var(--panel)); border: 1px solid var(--card-bd, var(--line)); border-radius: var(--card-r, 12px); box-shadow: var(--card-sh, none); }
 .sp-off-ic { width: 44px; height: 44px; color: var(--muted); margin-bottom: 4px; }
 .sp-offline h2 { font-size: 16px; font-weight: 700; letter-spacing: -.01em; max-width: 26ch; line-height: 1.4; text-wrap: balance; }
 .sp-offline p { font-size: 13px; color: var(--muted); max-width: 40ch; }
@@ -520,14 +533,15 @@ a.sp-nw-a:visited .sp-nw-t { color: var(--fg2); }
   .sp-snap .sp-body { display: flex; }
   .sp-chartcol { display: flex; flex-direction: column; min-height: 0; }
   .sp-chartwrap { flex: 1; height: auto; max-height: none; min-height: 320px; }
-  .sp-side { display: flex; flex-direction: column; min-height: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 10px 10px 0; }
+  .sp-side { display: flex; flex-direction: column; min-height: 0; background: var(--card-bg, var(--panel)); border: 1px solid var(--card-bd, var(--line)); border-radius: var(--card-r, 12px); box-shadow: var(--card-sh, none); padding: 10px 10px 0; }
   .sp-tabwrap { position: static; padding: 0; margin: 0; background: none; }
   .sp-panel { flex: 1; min-height: 0; overflow-y: auto; padding: 10px 4px 14px; margin: 0 -4px; scrollbar-width: thin; scrollbar-color: var(--line2) transparent; }
-  .sp-tbl th { top: 0; background: var(--panel); }
+  .sp-tbl th { top: 0; background: var(--sp-solid); }
   #sp-p-ob:not([hidden]) { display: flex; flex-direction: column; }
-  .sp-ob-grid { flex: 1 1 auto; max-height: 560px; background: var(--page); grid-template-rows: repeat(10, minmax(34px, 1fr)); }
-  .sp-cum, .sp-today, .sp-m { background: var(--page); }
-  .sp-ln .pt { background: var(--panel); }
+  .sp-ob-grid { flex: 1 1 auto; max-height: 560px; background: var(--sp-nest); box-shadow: none; grid-template-rows: repeat(10, minmax(34px, 1fr)); }
+  .sp-cum, .sp-today, .sp-m { background: var(--sp-nest); box-shadow: none; }   /* wells inside the side card: no second ink rule / rim */
+  .sp-m { box-shadow: inset 0 0 0 1px var(--row-bd, transparent); }
+  .sp-ln .pt { background: var(--sp-solid); }
   .sp-foot { margin-top: 10px; }
   .sp-foot p { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 }
@@ -555,3 +569,9 @@ html[data-motion="reduced"] .sp-q .bar { transition: none; }   /* the controls r
 /* 관심 그룹 picker: the template's .wgpop (look, sizes and the phone bottom sheet come from there); only the name column needs room */
 .sp-gp .row .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
+
+/* ☆ picker (the template's .wgpop, tagged sp-gp): a popover = a sheet material on the themed pages (themes.md §6) */
+html[data-theme="paper"] .wgpop.sp-gp, html[data-theme^="glass"] .wgpop.sp-gp { background: var(--sheet-bg, rgba(32, 34, 40, .99)); border-color: var(--sheet-bd, var(--line2)); box-shadow: var(--sheet-sh, 0 18px 50px rgba(0, 0, 0, .55)); -webkit-backdrop-filter: var(--blur, none); backdrop-filter: var(--blur, none); }
+html[data-theme="paper"] .wgpop.sp-gp { border-radius: var(--tip-r, 2px); border-color: var(--rule, var(--line2)); }
+html[data-theme^="glass"] .wgpop.sp-gp { border-radius: var(--tip-r, 20px); }
+html[data-theme="paper"] .wgpop.sp-gp .row:hover, html[data-theme^="glass"] .wgpop.sp-gp .row:hover { background: color-mix(in srgb, var(--fg) 7%, transparent); }
