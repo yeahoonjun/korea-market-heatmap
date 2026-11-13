@@ -15,6 +15,9 @@ html.sp-on, html.sp-on body { overflow: hidden; }
 }
 /* the analyst / finance violet ramp is only 1.3 – 3 : 1 on a light page — light themes get a darker set (each step >= 3 : 1 on paper and light glass) */
 html[data-tone="light"] .sp { --s0: #8a74d6; --s1: #6247c4; --s2: #3e2a96; --sp-w3: color-mix(in srgb, var(--fg) 5%, transparent); --sp-w5: color-mix(in srgb, var(--fg) 8%, transparent); --sp-w6: color-mix(in srgb, var(--fg) 10%, transparent); }
+/* moving averages (not up / down data, so never red or green): gold · sky · violet · grey. Each is >= 3 : 1 on the chart ground of every theme. */
+.sp { --ma-5: #f2c14e; --ma-20: #5cc8ff; --ma-60: #b99cff; --ma-120: #aab1bd; }
+html[data-tone="light"] .sp, html[data-theme="paper"] .sp, html[data-theme="glass-light"] .sp { --ma-5: #7a5200; --ma-20: #0b6498; --ma-60: #6a3fd0; --ma-120: #586070; }
 html[data-theme="paper"] .sp { --sp-hair: var(--row-bd, rgba(46, 30, 18, .2)); }
 html[data-theme^="glass"] .sp { --sp-solid: var(--page); --sp-nest: var(--panel2, #202228); }
 .sp[hidden] { display: none; }
@@ -140,6 +143,31 @@ html[data-theme="paper"] .sp-head, html[data-theme^="glass"] .sp-head { backgrou
 .sp-period { display: none; font-size: 12.5px; color: var(--muted); white-space: nowrap; }
 .sp-period b { font-weight: 600; }
 
+/* 이동평균 row: always there (its height is reserved, the values under the crosshair change text only) */
+.sp-ma { flex: none; display: flex; align-items: center; gap: 6px; min-height: 44px; margin: -2px 0 6px; padding: 2px 0; }
+.sp-ma-t { flex: none; font-size: 12px; font-weight: 600; color: var(--muted); white-space: nowrap; margin-right: 2px; }
+.sp-mac { position: relative; flex: 1 1 0; min-width: 0; max-width: 132px; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 1px; height: 40px; padding: 0 7px; border: 0; border-radius: var(--r-chip); background: var(--chip-bg); box-shadow: var(--key-sh, inset 0 0 0 1px var(--line)); color: var(--fg2); font-size: 12px; font-weight: 600; white-space: nowrap;
+  transition: transform var(--c-fast) var(--c-out), box-shadow var(--c-fast) var(--c-out), background-color var(--c-fast) var(--c-out), color var(--c-fast) var(--c-out), filter var(--c-fast) var(--c-out), opacity var(--c-fast) var(--c-out); }
+.sp-mac:hover { background: var(--key-hover, var(--chip-bg)); }
+.sp-mac:is(:active, .is-press) { transform: translateY(1px); box-shadow: var(--key-dn, none); filter: var(--press-f); transition-duration: 0s, 0s, 0s, var(--c-base), 0s, var(--c-fast); }
+.sp-mac .n { display: inline-flex; align-items: center; gap: 5px; color: var(--mc); line-height: 1.2; }
+.sp-mac .n::before { content: ""; flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--mc); box-shadow: 0 0 0 1.5px var(--mc); transition: background-color var(--c-fast) var(--c-out); }
+.sp-mac .v { display: block; width: 100%; min-height: 1.3em; overflow: hidden; font-size: 11px; line-height: 1.3; font-weight: 500; color: var(--fg); text-align: left; }
+.sp-mac[aria-pressed="false"] { box-shadow: inset 0 0 0 1px var(--line); background: transparent; opacity: .62; }
+.sp-mac[aria-pressed="false"] .n::before { background: transparent; }
+.sp-mac[aria-pressed="false"]:hover { opacity: .85; }
+.sp-mac[aria-pressed="true"] { background: var(--chip-on); box-shadow: inset 0 0 0 1.5px var(--mc); }
+.sp-mac:focus-visible { outline-offset: calc(var(--focus-w, 3px) * -1); }
+@media (pointer: coarse) { .sp-mac::after { content: ""; position: absolute; inset: -2px -3px; } }
+@media (hover: none) { .sp-mac:hover { background: var(--chip-bg); } .sp-mac[aria-pressed="false"]:hover { background: transparent; opacity: .62; } .sp-mac[aria-pressed="true"]:hover { background: var(--chip-on); } }
+@media (min-width: 640px) {
+  .sp-ma { min-height: 38px; margin: 0 0 6px; gap: 8px; }
+  .sp-mac { flex: none; flex-direction: row; align-items: center; justify-content: flex-start; gap: 8px; height: 30px; padding: 0 11px; max-width: none; font-size: 12.5px; }
+  .sp-mac .v { width: 8ch; min-height: 0; font-size: 12px; }
+}
+.sp-chnote { position: absolute; z-index: 3; left: 50%; transform: translateX(-50%); bottom: 36px; white-space: nowrap; padding: 3px 9px; border-radius: 999px; background: var(--sp-solid); box-shadow: inset 0 0 0 1px var(--line2); color: var(--fg2); font-size: 11.5px; pointer-events: none; opacity: 0; transition: opacity var(--c-fast) var(--c-out); }
+.sp-chnote.on { opacity: 1; }
+.sp-legend .sp-lg-live { padding: 0 6px; border-radius: 999px; box-shadow: inset 0 0 0 1px var(--line2); color: var(--fg2); font-size: 10.5px; font-weight: 600; text-shadow: none; }
 .sp-chartwrap { position: relative; height: 45vh; height: 45svh; min-height: 250px; max-height: 620px; background: var(--card-bg, #191a1f); border: 1px solid var(--card-bd, var(--line)); border-radius: var(--card-r, 12px); box-shadow: var(--card-sh, none); overflow: hidden; }   /* the chart canvas is transparent: this card is its ground */
 .sp-chart { position: absolute; inset: 0; }
 .sp-legend { position: absolute; z-index: 3; left: 10px; top: 7px; right: 8px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 1px 10px; pointer-events: none; font-size: 11.5px; line-height: 1.45; color: var(--muted); text-shadow: 0 0 3px var(--sp-solid), 0 0 6px var(--sp-solid); }

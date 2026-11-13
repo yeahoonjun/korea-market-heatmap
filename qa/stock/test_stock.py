@@ -179,18 +179,18 @@ def run(b):
     pg = P.pg
     P.wait_chart()
     tfs = {}
-    for tf in ['1d', '5d', '3m', '1y', '3y', '10y']:
+    for tf in ['1m', '5m', 'day', 'week', 'month', 'year']:
         since = time.time()
         pg.click(f'.sp-tfs button[data-tf="{tf}"]')
         P.wait_chart()
         pg.wait_for_timeout(250)
         info = P.ev("() => ({ legend: document.querySelector('.sp-legend').textContent, aria: document.querySelector('.sp-chart').getAttribute('aria-label'), canvases: document.querySelectorAll('.sp-chart canvas').length, pressed: document.querySelector('.sp-tfs [aria-pressed=true]').dataset.tf })")
-        info['req'] = P.count(f'chart?tf={tf}', since)
+        info['req'] = P.count('chart?', since)
         tfs[tf] = info
         pg.screenshot(path=str(SHOTS / f'live390_tf_{tf}.png'))
     check('all_6_timeframes_render', all(v['legend'] and v['canvases'] >= 3 and v['pressed'] == k and '봉' in v['aria'] for k, v in tfs.items()), {k: v['aria'][-40:] for k, v in tfs.items()})
     # KST even though the browser is in New York: the first 1d bar is 09:00
-    pg.click('.sp-tfs button[data-tf="1d"]'); P.wait_chart()
+    pg.click('.sp-tfs button[data-tf="1m"]'); P.wait_chart()
     aria = P.ev("() => document.querySelector('.sp-chart').getAttribute('aria-label')")
     check('times_in_kst', '9:00' in aria or '09:00' in aria, aria)
     # crosshair legend follows the pointer
@@ -206,14 +206,14 @@ def run(b):
     ref = P.ev("""() => ({ period: document.querySelector('.sp-period').textContent,
         legend: document.querySelector('.sp-legend .sp-lg-r').textContent, head: document.querySelector('.sp-chg').textContent })""")
     check('prev_close_ref_is_header_base_1d', '전일 종가 188,700 대비' in ref['period'] and ref['legend'] in ref['head'] and ref['legend'] in ref['period'], ref)
-    pg.click('.sp-tfs button[data-tf="5d"]'); P.wait_chart(); pg.wait_for_timeout(200)
+    pg.click('.sp-tfs button[data-tf="5m"]'); P.wait_chart(); pg.wait_for_timeout(200)
     p5 = P.ev("() => document.querySelector('.sp-period').textContent")
     # 5일: from the close before the window (11/02) to the last bar, not from the first bar's open
     j5 = mock('/api/stock/005930/chart?tf=5d')
     want = '%.2f%%' % abs((j5['bars'][-1]['c'] / j5['prevClose'] - 1) * 100)
     check('period_base_5d_is_close_before_window', p5.startswith('5일 동안') and p5.endswith(want), {'shown': p5, 'want': want, 'prevClose': j5['prevClose']})
     P.pg.set_viewport_size({'width': 390, 'height': 844})
-    pg.click('.sp-tfs button[data-tf="1d"]'); P.wait_chart(); pg.wait_for_timeout(200)
+    pg.click('.sp-tfs button[data-tf="1m"]'); P.wait_chart(); pg.wait_for_timeout(200)
     # palette: krg (red up / green down) → global (green up / red down)
     pal0 = P.ev("() => KH.palette()")
     c0 = P.ev(PIXELS_JS, [pal0['up'], pal0['down']])
@@ -227,6 +227,49 @@ def run(b):
     P.ev("() => document.querySelector('#palseg button[data-v=\"krg\"]').dispatchEvent(new MouseEvent('click', { bubbles: true }))")
     page_console = [m for m in P.console if 'willReadFrequently' not in m]   # the pixel probe above causes these
     check('console_clean_tf_palette', not page_console, page_console)
+    P.close()
+
+    # ── 3b. moving averages (the mock answers like the Worker deployed before iv=: the page falls back to tf=, no scroll-back) ──
+    P = Page(b, 1280, BASE + '#s-005930')
+    pg = P.pg
+    P.wait_chart()
+    pg.click('.sp-tfs button[data-tf="day"]'); P.wait_chart(); pg.wait_for_timeout(300)
+    bars = mock('/api/stock/005930/chart?tf=1y')['bars']
+    cl = [x['c'] for x in bars]
+    fmt = lambda v: f'{round(v):,}'
+    ma = lambda n, i: sum(cl[i - n + 1:i + 1]) / n
+    chips = P.ev("() => [...document.querySelectorAll('.sp-mac')].map(b => ({ n: b.dataset.n, on: b.getAttribute('aria-pressed'), t: b.querySelector('.n').textContent, v: b.querySelector('.v').textContent, c: getComputedStyle(b.querySelector('.n')).color }))")
+    last = len(cl) - 1
+    want = {n: fmt(ma(int(n), last)) if last >= int(n) - 1 else '–' for n in ('5', '20', '60', '120')}
+    check('ma_chips_daily_all_on_labels_unit', [c['t'] for c in chips] == ['5일', '20일', '60일', '120일'] and all(c['on'] == 'true' for c in chips), chips)
+    check('ma_values_match_hand_calc_last_bar', all(c['v'] == want[c['n']] for c in chips), {'shown': [c['v'] for c in chips], 'want': want})
+    check('ma_colours_distinct_not_red_green', len({c['c'] for c in chips}) == 4, [c['c'] for c in chips])
+    # hover: the bar under the pointer → its date → hand-calculated MA20 / MA60
+    h0 = P.ev("() => document.querySelector('.sp-ma').getBoundingClientRect().height")
+    box = pg.query_selector('.sp-chart').bounding_box()
+    pg.mouse.move(box['x'] + box['width'] * 0.5, box['y'] + box['height'] * 0.4); pg.wait_for_timeout(300)
+    lg = P.ev("() => document.querySelector('.sp-legend .sp-lg-t').textContent")
+    d = lg.split(' ')[0].replace('.', '-')
+    idx = next((i for i, x in enumerate(bars) if x['t'] == d), None)
+    hv = P.ev("() => Object.fromEntries([...document.querySelectorAll('.sp-mac')].map(b => [b.dataset.n, b.querySelector('.v').textContent]))")
+    check('ma_hover_values_match_hand_calc', idx is not None and idx >= 59 and hv['20'] == fmt(ma(20, idx)) and hv['60'] == fmt(ma(60, idx)) and hv['5'] == fmt(ma(5, idx)), {'date': d, 'idx': idx, 'shown': hv})
+    h1 = P.ev("() => document.querySelector('.sp-ma').getBoundingClientRect().height")
+    check('ma_row_height_reserved', abs(h0 - h1) < 0.5 and h0 > 20, [h0, h1])
+    # toggle + remembered
+    pg.click('.sp-mac[data-n="5"]'); pg.wait_for_timeout(150)
+    st = P.ev("() => ({ on: document.querySelector('.sp-mac[data-n=\"5\"]').getAttribute('aria-pressed'), v: document.querySelector('.sp-mac[data-n=\"5\"] .v').textContent, ls: localStorage.getItem('khm.stock.ma'), vis: window.__x })")
+    check('ma_toggle_off_stored', st['on'] == 'false' and st['v'] == '' and '"day":[20,60,120]' in (st['ls'] or ''), st)
+    pg.reload(); pg.wait_for_selector('.sp-mac'); P.wait_chart()
+    st = P.ev("() => [...document.querySelectorAll('.sp-mac')].map(b => b.getAttribute('aria-pressed')).join()")
+    check('ma_toggle_remembered_after_reload', st == 'false,true,true,true', st)
+    # defaults per interval: 분 = 5·20·60
+    pg.click('.sp-tfs button[data-tf="1m"]'); P.wait_chart(); pg.wait_for_timeout(200)
+    st = P.ev("() => ({ t: [...document.querySelectorAll('.sp-mac .n')].map(b => b.textContent).join(), on: [...document.querySelectorAll('.sp-mac')].map(b => b.getAttribute('aria-pressed')).join() })")
+    check('ma_intraday_defaults_5_20_60', st['t'] == '5분,20분,60분,120분' and st['on'] == 'true,true,true,false', st)
+    # the old-Worker path: no iv answer → tf= form, nothing breaks
+    check('ma_falls_back_to_tf_form', P.count('chart?tf=') > 0 and not [m for m in P.console if 'willReadFrequently' not in m and 'Failed to load resource' not in m], P.console)   # (the heatmap's own 404s are in the baseline)
+    check('ma_no_overflow_1280', P.ev("() => document.documentElement.scrollWidth - innerWidth") == 0)
+    pg.screenshot(path=str(SHOTS / 'live1280_ma.png'))
     P.close()
 
     # ── 4. order-book polling (during the regular session; the clock is pinned so the run does not depend on the time of day) ──

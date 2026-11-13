@@ -16,8 +16,18 @@ const LWC_SRC = `https://cdn.jsdelivr.net/npm/lightweight-charts@${LWC_VERSION}/
 const LWC_SRI = 'sha384-KkYqTZlM13Zya6fVUF3IGCBOQ1ehFeJVVgxaVvD/0MebineF9EI8Jkd3NnWNChqN';
 const CODE_RE = /^[0-9A-Z]{6}$/;
 const HASH_RE = /^#s-([0-9A-Z]{6})$/;
-const TFS = [['1d', '1일'], ['5d', '5일'], ['3m', '3개월'], ['1y', '1년'], ['3y', '3년'], ['10y', '10년']];
+/* The chart's tabs are bar intervals (사용자 2026-11-13 22:38). `tf` below is one of these keys. */
+const TFS = [['1m', '1분'], ['5m', '5분'], ['day', '일'], ['week', '주'], ['month', '월'], ['year', '년']];
 const TF_NAME = Object.fromEntries(TFS);
+const IV_UNIT = { '1m': '분', '5m': '분', day: '일', week: '주', month: '월', year: '년' };            // what "5" means in 5-bar average
+const IV_BARS = { '1m': '1분봉', '5m': '5분봉', day: '일봉', week: '주봉', month: '월봉', year: '연봉' };
+const IV_OLD = { '1m': '1d', '5m': '5d', day: '1y', week: '3y', month: '10y', year: '10y' };           // the tf= form (a Worker without iv=)
+const IV_REQ = { '1m': ['1m', 900], '5m': ['5m', 800], day: ['day', 250], week: ['week', 260], month: ['month', 240], year: ['month', 480] };   // iv, bars asked for
+const IV_RANGE = { '1m': '오늘', '5m': '5일', day: '6개월', week: '3년', month: '10년', year: '전체 기간' };   // the default visible window
+const IV_MONTHS = { day: 6, week: 36, month: 120 };
+const MA_N = [5, 20, 60, 120];
+const MA_DEF = { '1m': [5, 20, 60], '5m': [5, 20, 60], day: [5, 20, 60, 120], week: [5, 20, 60, 120], month: [5, 20, 60, 120], year: [5, 20] };
+const WARM = 119;   // bars before the window, so the 120-bar average is complete at the first visible bar
 /* Tabs beside/under the chart. To add one (e.g. 뉴스·공시) add an entry here; nothing else has to change.
  *   key, label    id suffix (#sp-t-<key>, #sp-p-<key>) and the visible name
  *   build(panel)  once, when the page is first built                                  (optional)
@@ -142,8 +152,12 @@ function chartColors() {
   const page = tokColor('--page', '#131418'), muted = tokColor('--muted', '#8a8f99'), fg = tokColor('--fg', '#eef0f3'), fg2 = tokColor('--fg2', '#bcc0c8');
   const line = tokColor('--line', '#2b2d34'), line2 = tokColor('--line2', '#373a42');
   const tag = light ? fg2 : over(line2, over(page, [0, 0, 0, 1]));   // crosshair / 전일 종가 labels: opaque, so the label text keeps its contrast
+  // moving averages: gold · sky · violet · grey, never the up/down hues (stock.css --ma-*; the fallback is the dark-tone value, or the light one on a light tone)
+  const maD = { 5: '#f2c14e', 20: '#5cc8ff', 60: '#b99cff', 120: '#aab1bd' }, maL = { 5: '#7a5200', 20: '#0b6498', 60: '#6a3fd0', 120: '#586070' };
+  const ma = {};
+  for (const n of MA_N) ma[n] = rgbStr(tokColor(`--ma-${n}`, (light ? maL : maD)[n]), 1);
   return {
-    light, flat: rgbStr(muted, 1), text: rgbStr(muted, 1), line: rgbStr(line), sep: rgbStr(line), sepHover: rgbStr(fg, .06),
+    light, ma, flat: rgbStr(muted, 1), text: rgbStr(muted, 1), line: rgbStr(line), sep: rgbStr(line), sepHover: rgbStr(fg, .06),
     gridV: rgbStr(fg, light ? .07 : .035), gridH: rgbStr(fg, light ? .09 : .045),
     tagBg: rgbStr(tag, 1), tagFg: rgbStr(light ? page : fg, 1),
   };
@@ -200,7 +214,7 @@ function errSub(e) {
 const S = {
   open: false, code: null, opener: null, pushed: false, prevHash: '', prevTitle: '',
   gen: 0,
-  tf: TF_NAME[store.get('stockTf', '1d')] ? store.get('stockTf', '1d') : '1d',
+  tf: TF_NAME[store.get('stock.iv', 'day')] ? store.get('stock.iv', 'day') : 'day',
   tab: TAB[store.get('stockTab', TABS[0].key)] ? store.get('stockTab', TABS[0].key) : TABS[0].key,
   sum: null, sumErr: null, phase: 'unknown',
   ob: null, obErr: null, obAt: null,              // 호가 tab
@@ -291,9 +305,20 @@ function buildLive() {
   R.chart = h('div', { class: 'sp-chart', role: 'img', 'aria-label': '가격 차트' });
   R.legend = h('div', { class: 'sp-legend num', 'aria-hidden': 'true' });
   R.chartMsg = h('div', { class: 'sp-chartmsg' });
+  R.note = h('div', { class: 'sp-chnote', role: 'status', 'aria-live': 'polite' });
+  R.mac = {};
+  R.ma = h('div', { class: 'sp-ma', role: 'group', 'aria-label': '이동평균' },
+    h('span', { class: 'sp-ma-t', text: '이동평균' }),
+    ...MA_N.map(n => {
+      const v = h('span', { class: 'v num' }), nm = h('span', { class: 'n' });
+      R.mac[n] = { v, nm, btn: h('button', { type: 'button', class: 'sp-mac', 'data-n': String(n), 'aria-pressed': 'false', style: `--mc: var(--ma-${n})`, onclick: () => toggleMa(n) }, nm, v) };
+      return R.mac[n].btn;
+    }));
+  syncMaChips();
   const chartcol = h('section', { class: 'sp-chartcol', 'aria-label': '가격 차트' },
     h('div', { class: 'sp-tfbar' }, R.tfs, R.period),
-    h('div', { class: 'sp-chartwrap' }, R.chart, R.legend, R.chartMsg),
+    R.ma,
+    h('div', { class: 'sp-chartwrap' }, R.chart, R.legend, R.note, R.chartMsg),
     R.peers);
   R.tabs = h('div', { class: 'sp-seg sp-tabs seg', role: 'tablist', 'aria-label': '시세 정보' });
   R.panels = {};
@@ -709,7 +734,7 @@ function loadLWC() {
   return lwcPromise;
 }
 
-const C = { chart: null, candles: null, vol: null, prevLine: null, bars: null, index: new Map(), tf: null, ref: null, cache: new Map() };
+const C = { chart: null, candles: null, vol: null, ma: null, prevLine: null, bars: null, index: new Map(), tf: null, ref: null, cache: new Map(), ws: 0, warm: 0, canBack: false, more: true, iv: false };
 const timeKey = t => (t && typeof t === 'object' ? `${t.year}-${pad(t.month)}-${pad(t.day)}` : t);
 function timeParts(t) {
   if (typeof t === 'number') { const d = new Date(t * 1000); return { y: d.getUTCFullYear(), m: d.getUTCMonth() + 1, d: d.getUTCDate(), wd: d.getUTCDay(), hh: d.getUTCHours(), mm: d.getUTCMinutes() }; }
@@ -719,10 +744,10 @@ function timeParts(t) {
 function timeLabel(t, tf) {
   const p = timeParts(t);
   switch (tf || C.tf) {
-    case '1d': return `${p.m}월 ${p.d}일 ${pad(p.hh)}:${pad(p.mm)}`;
-    case '5d': return `${p.m}월 ${p.d}일 (${WD[p.wd]}) ${pad(p.hh)}:${pad(p.mm)}`;
-    case '3y': { const q = p.wd === 0 ? timeParts(new Date(Date.UTC(p.y, p.m - 1, p.d + 1)).toISOString().slice(0, 10)) : p; return `${q.y}.${pad(q.m)}.${pad(q.d)} 주`; }   // Naver weeks start on Sunday
-    case '10y': return `${p.y}년 ${p.m}월`;
+    case '1m': case '5m': return `${p.m}월 ${p.d}일 (${WD[p.wd]}) ${pad(p.hh)}:${pad(p.mm)}`;
+    case 'week': { const q = p.wd === 0 ? timeParts(new Date(Date.UTC(p.y, p.m - 1, p.d + 1)).toISOString().slice(0, 10)) : p; return `${q.y}.${pad(q.m)}.${pad(q.d)} 주`; }   // Naver weeks start on Sunday
+    case 'month': return `${p.y}년 ${p.m}월`;
+    case 'year': return `${p.y}년`;
     default: return `${p.y}.${pad(p.m)}.${pad(p.d)} (${WD[p.wd]})`;
   }
 }
@@ -764,6 +789,8 @@ async function ensureChart() {
       return r;
     },
   });
+  const ma = {};
+  for (const n of MA_N) ma[n] = { series: chart.addSeries(L.LineSeries, { color: K.ma[n], lineWidth: 1, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false, visible: false, title: '' }), vals: [] };
   const vol = chart.addSeries(L.HistogramSeries, { priceFormat: { type: 'custom', formatter: v => compact(v), minMove: 1 }, priceLineVisible: false, lastValueVisible: false,
     // opening and closing auctions dwarf the 1-minute bars; clip them so the rest stays readable (the legend shows the real number)
     autoscaleInfoProvider: base => { const r = base(); if (r && C.volCap) r.priceRange.maxValue = Math.min(r.priceRange.maxValue, C.volCap); return r; } }, 1);
@@ -774,9 +801,11 @@ async function ensureChart() {
   new ResizeObserver(() => { cancelAnimationFrame(C.raf); C.raf = requestAnimationFrame(fitMargins); }).observe(R.chart);
   chart.subscribeCrosshairMove(param => {
     const i = param && param.point && param.time != null ? C.index.get(timeKey(param.time)) : undefined;
-    renderLegend(i);
+    renderLegend(i); renderMa(i);
   });
-  Object.assign(C, { chart, candles, vol, L });
+  chart.timeScale().subscribeVisibleLogicalRangeChange(onRange);
+  Object.assign(C, { chart, candles, vol, ma, L });
+  applyMaVisibility();
 }
 
 function sanitize(raw, intraday) {
@@ -794,7 +823,7 @@ function sanitize(raw, intraday) {
 function candleData(bars) { const FLAT = chc().flat; return bars.map(b => b.c === b.o ? { time: b.time, open: b.o, high: b.h, low: b.l, close: b.c, color: FLAT, wickColor: FLAT } : { time: b.time, open: b.o, high: b.h, low: b.l, close: b.c }); }
 function candleSet(bars, tf) {
   const cdata = candleData(bars);
-  if (tf === '1d' && S.phase === 'open') {
+  if (tf === '1m' && S.phase === 'open') {
     // leave room for the rest of the regular session (until 15:30 KST)
     const last = bars[bars.length - 1].time, p = timeParts(last);
     const end = Date.UTC(p.y, p.m - 1, p.d, 15, 30) / 1000;
@@ -818,37 +847,65 @@ function chartState(kind, err) {
   } else if (kind === 'error') m.replaceChildren(msgBox('차트를 불러오지 못했어요.', errSub(err), retryKey('chart', chartFetch, () => loadChart())));
   else if (kind === 'lib') m.replaceChildren(msgBox('차트 도구를 불러오지 못했어요.', '네트워크 연결을 확인하고 다시 시도해 주세요.', retryKey('chart', chartFetch, () => loadChart())));
   else if (kind === 'empty') {
-    const pre = (S.tf === '1d') && S.phase === 'pre';
+    const pre = (S.tf === '1m') && S.phase === 'pre';
     m.replaceChildren(msgBox(pre ? '오늘은 아직 거래가 없어요.' : '이 기간에는 거래 기록이 없어요.', pre ? '9시에 정규장이 열리면 차트가 그려져요.' : '다른 기간을 골라 보세요.'));
   }
 }
 
-// the retry key's fetch: the chart tool and this period's bars into the cache, nothing drawn (loadChart() then draws from the cache)
+/* Bars come from `chart?iv=…&count=N&warm=119[&to=…]` (AGENTS §3). A Worker that does not know iv= (a 400, or the old tf-shaped answer)
+ * is remembered for the session and every interval then uses the old tf= form: no scroll-back, lines simply start later. */
+let IV_OK = null;   // null: not known yet
+async function fetchBars(tf, o) {
+  o = o || {};
+  const warm = o.warm != null ? o.warm : (tf === 'year' ? 0 : WARM);
+  if (IV_OK !== false) {
+    const [iv, count] = IV_REQ[tf];
+    try {
+      const j = await api(`chart?iv=${iv}&count=${o.count || count}&warm=${warm}` + (o.to ? `&to=${o.to}` : ''), 'chart');
+      if (j && Array.isArray(j.bars) && j.iv === iv) { IV_OK = true; j._iv = true; return j; }
+      IV_OK = false;   // answered in the old shape
+    } catch (e) {
+      if (aborted(e) || !(e && (e.status === 400 || e.status === 404))) throw e;
+      IV_OK = false;
+    }
+  }
+  if (o.to) return { bars: [], more: false, _iv: false };
+  const j = await api('chart?tf=' + IV_OLD[tf] + '&warm=' + warm, 'chart');
+  j._iv = false;
+  return j;
+}
+// the retry key's fetch: the chart tool and this interval's bars into the cache, nothing drawn (loadChart() then draws from the cache)
 async function chartFetch() {
   const g = S.gen, tf = S.tf, code = S.code;
   try { await ensureChart(); } catch (e) { return g === S.gen ? false : null; }
   if (g !== S.gen || tf !== S.tf) return null;
   try {
-    const j = await api('chart?tf=' + tf, 'chart');
+    const j = await fetchBars(tf);
     if (g !== S.gen || tf !== S.tf) return null;
     C.cache.set(code + '|' + tf, { at: Date.now(), j });
     failed.delete('chart');
     return true;
   } catch (e) { return aborted(e) || g !== S.gen ? null : false; }
 }
+function clearSeries() {
+  C.bars = null; C.index = new Map(); C.candles.setData([]); C.vol.setData([]);
+  for (const n of MA_N) C.ma[n].series.setData([]);
+  showNote('');
+  renderLegend(); renderMa(); renderPeriod();
+}
 async function loadChart(force) {
   const g = S.gen, tf = S.tf, code = S.code;
   const key = code + '|' + tf;
-  if (C.code !== code) C.bars = null;   // old candles stay under a dim overlay only while the same stock changes period
+  if (C.code !== code) C.bars = null;   // old candles stay under a dim overlay only while the same stock changes interval
   chartState('loading');
   try { await ensureChart(); } catch (e) { if (g === S.gen && tf === S.tf) chartState('lib'); return; }
   if (g !== S.gen || tf !== S.tf) return;
   const hit = C.cache.get(key);
-  let j = !force && hit && Date.now() - hit.at < (tf === '1d' || tf === '5d' ? 20e3 : 600e3) ? hit.j : null;
+  let j = !force && hit && Date.now() - hit.at < (tf === '1m' || tf === '5m' ? 20e3 : 600e3) ? hit.j : null;
   if (!j) {
-    try { j = await api('chart?tf=' + tf, 'chart'); } catch (e) {
+    try { j = await fetchBars(tf); } catch (e) {
       if (aborted(e) || g !== S.gen || tf !== S.tf) return;
-      C.bars = null; C.candles.setData([]); C.vol.setData([]); renderLegend(); renderPeriod();
+      clearSeries();
       chartState('error', e); return;
     }
     if (g !== S.gen || tf !== S.tf) return;
@@ -867,9 +924,15 @@ function sumRef() {
   return s && s.code === S.code && isNum(s.price) && isNum(s.change) && +s.price - +s.change > 0 ? +s.price - +s.change : null;
 }
 const dayOf = t => Math.floor(t / 86400);   // intraday times are KST-shifted seconds
+function lastDayStart(bars, days) {   // index of the first bar of the last `days` (default 1) trading days
+  let i = bars.length - 1, d = dayOf(bars[i].time), n = days || 1;
+  for (; i > 0; i--) { const e = dayOf(bars[i - 1].time); if (e !== d) { if (--n <= 0) break; d = e; } }
+  return i;
+}
 function computeRefs() {
   const bars = C.bars || [];
-  C.ref = C.intraday ? (sumRef() != null ? sumRef() : C.tf === '1d' ? C.base : null) : null;
+  const ld = C.intraday && bars.length ? lastDayStart(bars) : 0;
+  C.ref = C.intraday ? (sumRef() != null ? sumRef() : C.tf === '1m' ? (ld > 0 ? bars[ld - 1].c : C.base) : null) : null;
   // the legend's % per bar: intraday → that day's previous close (today's = 전일 종가); otherwise → the previous bar
   const refs = new Array(bars.length);
   const lastDay = C.intraday && bars.length ? dayOf(bars[bars.length - 1].time) : null;
@@ -904,36 +967,169 @@ function syncChartRef() {
   renderLegend(); renderPeriod();
 }
 
+/* ── bars → everything drawn ──
+ * C.bars holds every loaded bar: `pre` (warm-up, only so the averages are complete) + the window + whatever scroll-back added. The
+ * visible range starts at the window (C.ws), so the lines are complete from the first visible bar and the user can still drag left. */
+function toYears(bars) {   // monthly → yearly: first open, highest high, lowest low, last close, summed volume
+  const m = new Map();
+  for (const b of bars) {
+    const y = String(b.time).slice(0, 4), a = m.get(y);
+    if (!a) m.set(y, { time: y + '-01-01', o: b.o, h: b.h, l: b.l, c: b.c, v: b.v });
+    else { a.h = Math.max(a.h, b.h); a.l = Math.min(a.l, b.l); a.c = b.c; a.v += b.v; }
+  }
+  return [...m.values()];
+}
+function mergeBars(a, b) {   // by time; b wins
+  const m = new Map();
+  for (const x of a) m.set(x.time, x);
+  for (const x of b) m.set(x.time, x);
+  return [...m.values()].sort((x, y) => (x.time < y.time ? -1 : x.time > y.time ? 1 : 0));
+}
+function windowStart(bars, tf) {   // first index of the default visible window
+  if (!bars.length) return 0;
+  if (tf === '1m') return lastDayStart(bars, 1);
+  if (tf === '5m') return lastDayStart(bars, 5);
+  if (tf === 'year') return 0;
+  const last = String(bars[bars.length - 1].time).split('-').map(Number);
+  const cut = new Date(Date.UTC(last[0], last[1] - 1 - IV_MONTHS[tf], last[2])).toISOString().slice(0, 10);
+  const i = bars.findIndex(b => b.time >= cut);
+  return i < 0 ? 0 : i;
+}
+function computeMa() {
+  const bars = C.bars || [];
+  for (const n of MA_N) {
+    const vals = new Array(bars.length).fill(null), data = [];
+    let sum = 0;
+    for (let i = 0; i < bars.length; i++) {
+      sum += bars[i].c;
+      if (i >= n) sum -= bars[i - n].c;
+      if (i >= n - 1) { vals[i] = sum / n; data.push({ time: bars[i].time, value: vals[i] }); }
+    }
+    C.ma[n].vals = vals;
+    C.ma[n].series.setData(data);
+  }
+}
+// state for the QA scripts: bars loaded, first visible bar, first bar where the 120-bar average exists
+function markChart() {
+  if (!R.chart || !C.ma) return;
+  R.chart.dataset.n = String(C.bars ? C.bars.length : 0); R.chart.dataset.ws = String(C.ws);
+  R.chart.dataset.ma120 = String(C.ma[120].vals.findIndex(v => v != null)); R.chart.dataset.back = C.canBack ? '1' : '0';
+}
 function setChartData(j, code, tf, keepRange) {
-  const intraday = tf === '1d' || tf === '5d';
-  const bars = sanitize(j && j.bars, intraday);
+  const intraday = tf === '1m' || tf === '5m';
   const range = keepRange ? C.chart.timeScale().getVisibleLogicalRange() : null;
-  C.code = code; C.tf = tf; C.bars = bars; C.intraday = intraday;
-  C.base = isNum(j && j.prevClose) && +j.prevClose > 0 ? +j.prevClose : null;
+  let pre = sanitize(j && j.pre, intraday), win = sanitize(j && j.bars, intraday);
+  const same = keepRange && C.code === code && C.tf === tf && C.bars && C.bars.length;
+  const oldLen = same ? C.bars.length : 0;
+  let all = pre.concat(win);
+  if (tf === 'year') all = toYears(all);
+  if (same) all = mergeBars(C.bars, all);   // a refresh keeps what scroll-back already loaded
+  const grown = same ? all.length - oldLen : 0;
+  if (!same) { C.warm = tf === 'year' ? 0 : pre.length; C.more = j && j.more !== false; C.canBack = !!(j && j._iv && tf !== 'year' && C.more); C.iv = !!(j && j._iv); C.noteOk = C.iv && j.more === false; }
+  C.code = code; C.tf = tf; C.bars = all; C.intraday = intraday;
+  C.ws = same ? C.ws : windowStart(all, tf);
+  C.base = same ? C.base : (pre.length || tf === 'year' ? null : (isNum(j && j.prevClose) && +j.prevClose > 0 ? +j.prevClose : null));
   computeRefs();
-  C.index = new Map(bars.map((b, i) => [b.time, i]));
+  C.index = new Map(all.map((b, i) => [b.time, i]));
   C.volCap = 0;
-  if (intraday && bars.length > 40) {
-    const v = bars.map(b => b.v).sort((a, b) => a - b), cap = v[Math.floor(v.length * 0.97)] * 1.8;
+  if (intraday && all.length > 40) {
+    const v = all.map(b => b.v).sort((a, b) => a - b), cap = v[Math.floor(v.length * 0.97)] * 1.8;
     if (cap > 0 && v[v.length - 1] > cap) C.volCap = cap;
   }
   if (C.prevLine) { C.candles.removePriceLine(C.prevLine); C.prevLine = null; }
   C.candles.applyOptions({ priceLineColor: lastColor() });
   C.chart.applyOptions({ timeScale: { timeVisible: intraday, secondsVisible: false } });
-  if (!bars.length) {
-    C.candles.setData([]); C.vol.setData([]);
-    renderLegend(); renderPeriod(); chartState('empty');
+  if (!all.length) {
+    clearSeries(); chartState('empty');
     R.chart.setAttribute('aria-label', `${TF_NAME[tf]} 차트: 거래 기록이 없어요`);
     return;
   }
-  C.candles.setData(candleSet(bars, tf));
-  C.vol.setData(volData(bars));
+  const cs = candleSet(all, tf);
+  C.candles.setData(cs);
+  C.vol.setData(volData(all));
+  computeMa(); markChart();
   drawRefLine();
-  if (range) C.chart.timeScale().setVisibleLogicalRange(range); else C.chart.timeScale().fitContent();
+  if (range) C.chart.timeScale().setVisibleLogicalRange({ from: range.from, to: range.to });
+  else C.chart.timeScale().setVisibleLogicalRange({ from: C.ws - 0.5, to: cs.length - 1 + 2 });
   chartState('ok');
-  renderLegend(); renderPeriod(); fitMargins();
-  const first = bars[0], last = bars[bars.length - 1];
-  R.chart.setAttribute('aria-label', `${R.name.textContent} ${TF_NAME[tf]} 차트. ${timeLabel(first.time, tf)} ${int(first.o)}원에서 ${timeLabel(last.time, tf)} ${int(last.c)}원까지, 봉 ${bars.length}개.`);
+  renderLegend(); renderMa(); renderPeriod(); fitMargins();
+  const first = all[C.ws], last = all[all.length - 1];
+  R.chart.setAttribute('aria-label', `${R.name.textContent} ${TF_NAME[tf]}봉 차트. ${timeLabel(first.time, tf)} ${int(first.o)}원에서 ${timeLabel(last.time, tf)} ${int(last.c)}원까지, 봉 ${all.length - C.ws}개.`);
+  void grown;
+}
+
+/* scroll-back: when the left edge of the loaded bars (past the warm-up) comes near, load the bars before them and prepend */
+function showNote(t) { if (R.note && R.note.textContent !== t) { R.note.textContent = t; R.note.classList.toggle('on', !!t); } }
+function onRange(r) {
+  if (!r || !C.bars || !C.bars.length) return;
+  if (C.canBack && !C.loadingOlder && r.from < C.warm + 25) loadOlder();
+  else if (!C.canBack && C.noteOk && !C.loadingOlder) showNote(r.from < 2 ? (C.intraday ? '더 이전 분봉은 없어요' : '더 이전 기록은 없어요') : '');
+}
+function toParam(time) {   // a loaded bar's time → the `to` of the request for the bars before it
+  const p = timeParts(time);
+  return C.intraday ? `${p.y}${pad(p.m)}${pad(p.d)}${pad(p.hh)}${pad(p.mm)}` : `${p.y}${pad(p.m)}${pad(p.d)}`;
+}
+async function loadOlder() {
+  if (C.loadingOlder || !C.canBack || !C.bars || !C.bars.length || Date.now() < (C.backAt || 0)) return;
+  const g = S.gen, tf = S.tf, code = S.code;
+  C.loadingOlder = true; showNote('이전 기록 불러오는 중…');
+  try {
+    const j = await fetchBars(tf, { to: toParam(C.bars[0].time) });
+    if (g !== S.gen || tf !== S.tf || C.code !== code) return;
+    if (!j._iv) { C.canBack = false; showNote(''); return; }
+    const intraday = C.intraday, pre = sanitize(j.pre, intraday), win = sanitize(j.bars, intraday);
+    const len = C.bars.length, all = mergeBars(C.bars, pre.concat(win)), k = all.length - len;
+    C.more = j.more !== false;
+    if (!k || !C.more) { C.canBack = false; C.noteOk = true; }
+    if (!k) { showNote(intraday ? '더 이전 분봉은 없어요' : '더 이전 기록은 없어요'); return; }
+    const range = C.chart.timeScale().getVisibleLogicalRange();
+    C.warm = C.more ? pre.length : 0;
+    C.bars = all; C.ws += k;
+    computeRefs();
+    C.index = new Map(all.map((b, i) => [b.time, i]));
+    const cs = candleSet(all, tf);
+    C.candles.setData(cs); C.vol.setData(volData(all)); computeMa(); markChart(); drawRefLine();
+    if (range) C.chart.timeScale().setVisibleLogicalRange({ from: range.from + k, to: range.to + k });
+    showNote(''); renderLegend(); renderMa();
+  } catch (e) {
+    if (!aborted(e)) C.backAt = Date.now() + 5000;   // try again a little later; the picture stays as it is
+    showNote('');
+  } finally { C.loadingOlder = false; }
+}
+
+/* moving averages: which lines are on (per interval; the default is in MA_DEF), the chips, the values under the crosshair */
+function maOn(tf) { const v = store.get('stock.ma', null); const a = v && typeof v === 'object' ? v[tf] : null; return Array.isArray(a) ? a : MA_DEF[tf] || []; }
+function syncMaChips() {
+  if (!R.mac) return;
+  const on = maOn(S.tf), unit = IV_UNIT[S.tf];
+  R.ma.setAttribute('aria-label', `이동평균, ${IV_BARS[S.tf]} 기준`);
+  for (const n of MA_N) {
+    const m = R.mac[n], o = on.includes(n);
+    m.btn.setAttribute('aria-pressed', String(o));
+    m.btn.setAttribute('aria-label', `${n}${unit} 이동평균 ${o ? '끄기' : '켜기'}`);
+    m.nm.textContent = n + unit;
+  }
+}
+function applyMaVisibility() {
+  if (!C.ma) return;
+  const on = maOn(S.tf);
+  for (const n of MA_N) C.ma[n].series.applyOptions({ visible: on.includes(n) });
+}
+function toggleMa(n) {
+  const on = maOn(S.tf), next = on.includes(n) ? on.filter(x => x !== n) : on.concat(n).sort((a, b) => a - b);
+  const v = store.get('stock.ma', null);
+  store.set('stock.ma', Object.assign({}, v && typeof v === 'object' ? v : {}, { [S.tf]: next }));
+  syncMaChips(); applyMaVisibility(); renderMa();
+}
+function renderMa(i) {
+  if (!R.mac) return;
+  const bars = C.bars, on = maOn(S.tf);
+  const idx = bars && bars.length ? (i != null && bars[i] ? i : bars.length - 1) : -1;
+  for (const n of MA_N) {
+    const v = idx >= 0 && on.includes(n) && C.ma ? C.ma[n].vals[idx] : null;
+    const t = !on.includes(n) || idx < 0 ? '' : v == null ? '–' : F.int(Math.round(v));
+    if (R.mac[n].v.textContent !== t) R.mac[n].v.textContent = t;
+  }
 }
 
 function renderLegend(i) {
@@ -947,6 +1143,7 @@ function renderLegend(i) {
   const kv = (k, v, c) => h('span', { class: 'kv' }, h('em', { text: k }), h('b', { class: c || '', text: v }));
   R.legend.replaceChildren(
     h('span', { class: 'sp-lg-t', text: timeLabel(b.time) }),
+    ...(C.tf === 'year' && i === bars.length - 1 && String(b.time).slice(0, 4) === String(kst(new Date()).y) ? [h('span', { class: 'sp-lg-live', text: '진행 중' })] : []),
     r != null ? h('b', { class: 'sp-lg-r ' + cls(r), title: C.intraday ? '전일 종가 대비' : '직전 봉 종가 대비', text: pct(r) }) : null,
     h('span', { class: 'sp-lg-ohlc' }, kv('시', int(b.o)), kv('고', int(b.h)), kv('저', int(b.l)), kv('종', int(b.c), cls(b.c - (ref || b.o)))),
     kv('거래량', compact(b.v), 'vol'));
@@ -964,13 +1161,13 @@ function renderPeriod() {
   if (!R.period) return;
   if (!bars || !bars.length) { R.period.replaceChildren(); return; }
   const last = bars[bars.length - 1].c;
-  if (C.tf === '1d' && C.ref != null) {
+  if (C.tf === '1m' && C.ref != null) {
     const r = (last / C.ref - 1) * 100;
     R.period.replaceChildren(h('span', { text: `전일 종가 ${int(C.ref)} 대비 ` }), h('b', { class: cls(r), text: pct(r) }));
   } else {
-    // from the close before the first bar (falls back to the first bar's open)
-    const base = C.base != null ? C.base : bars[0].o, r = (last / base - 1) * 100;
-    R.period.replaceChildren(h('span', { text: `${TF_NAME[C.tf]} 동안 ` }), h('b', { class: cls(r), text: pct(r) }));
+    // from the close before the window's first bar (falls back to the first bar's open)
+    const base = C.ws > 0 ? bars[C.ws - 1].c : C.base != null ? C.base : bars[C.ws].o, r = (last / base - 1) * 100;
+    R.period.replaceChildren(h('span', { text: `${IV_RANGE[C.tf]} 동안 ` }), h('b', { class: cls(r), text: pct(r) }));
   }
 }
 // kh:palette (data colours) and kh:theme (everything else): hand the chart its colours again, no reload. The flat candles carry their
@@ -986,6 +1183,7 @@ function applyColors() {
     rightPriceScale: { borderColor: K.line }, timeScale: { borderColor: K.line },
   });
   C.candles.applyOptions({ upColor: P.up, downColor: P.down, wickUpColor: P.up, wickDownColor: P.down, priceLineColor: lastColor() });
+  for (const n of MA_N) C.ma[n].series.applyOptions({ color: K.ma[n] });
   if (C.bars && C.bars.length) {
     const range = C.chart.timeScale().getVisibleLogicalRange();
     C.candles.setData(candleSet(C.bars, C.tf));
@@ -996,24 +1194,23 @@ function applyColors() {
 }
 function scheduleIntraday() {
   clearTimeout(S.timers.chart);
-  if (LIVE && S.open && document.visibilityState === 'visible' && S.tf === '1d' && (S.phase === 'open' || S.phase === 'after'))
+  if (LIVE && S.open && document.visibilityState === 'visible' && S.tf === '1m' && (S.phase === 'open' || S.phase === 'after'))
     S.timers.chart = setTimeout(refreshIntraday, INTRADAY_MS);
 }
 async function refreshIntraday() {
   const g = S.gen, tf = S.tf, code = S.code;
-  if (!C.chart || tf !== '1d') return;
+  if (!C.chart || tf !== '1m') return;
   try {
-    const j = await api('chart?tf=' + tf, 'chart');
+    const j = await fetchBars(tf, { count: 400, warm: 0 });   // only the newest bars; they are merged into what is loaded
     if (g !== S.gen || tf !== S.tf) return;
-    C.cache.set(code + '|' + tf, { at: Date.now(), j });
     setChartData(j, code, tf, true);
   } catch (e) { /* keep the current picture; try again on the next tick */ }
   if (g === S.gen) scheduleIntraday();
 }
 function setTf(k) {
   if (!TF_NAME[k]) return;
-  S.tf = k; store.set('stockTf', k);
-  syncTf();
+  S.tf = k; store.set('stock.iv', k);
+  syncTf(); syncMaChips(); applyMaVisibility(); showNote('');
   loadChart();
 }
 function syncTf() { if (R.tfs) for (const b of R.tfs.children) b.setAttribute('aria-pressed', String(b.dataset.tf === S.tf)); }
@@ -2002,7 +2199,7 @@ function show(code, opener) {
   root.focus({ preventScroll: true });
   if (!LIVE) { renderOffline(); return; }
   syncTf();
-  if (C.chart && C.code !== code) { C.bars = null; C.candles.setData([]); C.vol.setData([]); renderLegend(); renderPeriod(); }
+  if (C.chart && C.code !== code) clearSeries();
   loadSummary();
   loadChart();
   setTab(S.tab);
