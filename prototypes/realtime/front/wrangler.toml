@@ -1,0 +1,10 @@
+# LOCAL ONLY. Run as the primary of a multi-Worker dev session so the request path matches production:
+#   npx wrangler dev -c front/wrangler.toml -c wrangler.toml --port 8911
+name = "panse-front-proto"
+main = "worker.js"
+compatibility_date = "2026-11-01"
+workers_dev = false
+
+[[services]]
+binding = "API"
+service = "panse-realtime-proto"
