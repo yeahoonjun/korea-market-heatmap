@@ -1234,7 +1234,7 @@ async function replayDay(env, date) {
     if (!date) throw new HttpError(404, '기록된 날이 아직 없어요');
   }
   const day = date.replace(/-/g, '');
-  if (day < oldestDay() || day > ymd(kstNow())) throw new HttpError(404, '그날 기록이 없어요');
+  if (day < oldestDay() || day > ymd(kstNow())) throw new HttpError(404, '그날 기록이 없어요 ');
   const codes = await env.REPLAY.get(`replay:${day}:codes`, 'json');
   if (!codes) throw new HttpError(404, '그날 기록이 없어요');
   return { date, day, codes };
@@ -1324,4 +1324,3 @@ async function recordFrame(event, env) {
   if (offGrid) recMem.minute = true;
   return { wrote: t };
 }
-// deploy probe 2026-11-13T15:29:35Z
