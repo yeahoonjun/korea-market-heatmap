@@ -1127,7 +1127,7 @@ function imgTheme() {
     sec: g('--sec-bg', '#000'), secFg: g('--sec-fg', '#f2f3f5'), ihd: g('--ihd-bg', '#0d0e11'), ihdFg: g('--ihd-fg', '#a6abb5'),
     rule: /^(|transparent|rgba\(0,\s*0,\s*0,\s*0\))$/.test(rule) ? '' : rule,
     acc: g('--acc', '#ffb547'), accBd: g('--acc-bd', 'rgba(255,181,71,.45)'), accSoft: g('--acc-soft', 'rgba(255,181,71,.12)'),
-    limBar: g('--lim-bar', '#fff'),
+    limBar: g('--lim-bar', '#fff'), dmFlap: g('--dm-flap', '#eef0f3'),
     ink28: light ? withAlpha(fg, .28) : 'rgba(255,255,255,.28)', ink30: light ? withAlpha(fg, .3) : 'rgba(255,255,255,.3)',
   };
 }
@@ -1192,6 +1192,15 @@ function drawMap(nodes, wt) {
     return v >= 9 && v <= 30 ? v : 0;
   };
   for (const n of tiles) { ctx.fillStyle = n.color || IMG.nodata; ctx.fillRect(n.x, n.y, n.w, n.h); }
+  // 공시 배지 (disclosure.md §3-5): the folded bottom-right corner as drawn on screen (KH.layout() tile.mark) — the cut half in the
+  // map floor, the flap half in --dm-flap; under the labels like on screen
+  for (const n of tiles) {
+    const s = n.mark && +n.mark.size;
+    if (!(s > 0)) continue;
+    const x = n.x + n.w, y = n.y + n.h;
+    ctx.fillStyle = IMG.map; ctx.beginPath(); ctx.moveTo(x - s, y); ctx.lineTo(x, y - s); ctx.lineTo(x, y); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = IMG.dmFlap; ctx.beginPath(); ctx.moveTo(x - s, y); ctx.lineTo(x, y - s); ctx.lineTo(x - s, y - s); ctx.closePath(); ctx.fill();
+  }
   const header = (g, H, size, weight, bg, fg) => {
     if (!H || !g.label) return;
     ctx.fillStyle = bg; ctx.fillRect(g.x, g.y, g.w, H);

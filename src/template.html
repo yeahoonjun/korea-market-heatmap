@@ -88,6 +88,10 @@ if(d.dataset.serif==='on'){var s=document.getElementById('kh-serif');if(s&&windo
   --chip-bg:#25272e; --chip-on:color-mix(in srgb,#ffb547 20%,#25272e); --chip-ring:rgba(255,181,71,.8);
   /* 시장 뉴스 (news.md §7 ✚): list-row hover tint · in-headline chip (A · B 안) · data chip (stock name + %) surface */
   --row-hov:rgba(255,255,255,.045); --mk-bg:rgba(255,255,255,.06); --mk-line:var(--line2); --dchip-bg:var(--key-bg);
+  /* 공시 배지 (disclosure.md §9 ✚): the folded tile corner — flap · crease · cut (= the map floor), neutral in every theme; --new-dot =
+     the small "unread" dot before a new filing's time (사용자 2026-11-14: 새 글자 대신 시간 앞 동그라미). One token per theme, ≥ 3:1 on
+     cards · tooltips · sheets; not red / green (data) and not amber (controls) — switch it here to change the dot everywhere */
+  --dm-flap:#eef0f3; --dm-crease:rgba(0,0,0,.38); --dm-cut:var(--map-bg); --new-dot:#4da3ff;
 }
 html[data-motion="reduced"]{--c-fast:0ms; --c-base:0ms; --c-switch:0ms}
 /* ───────────────── themes (docs/standards/themes.md §4): one set of role tokens per theme — colour, light, corners, material and
@@ -117,6 +121,7 @@ html[data-theme="paper"]{
   --done-bg:#f3b941; --done-fg:#211a15; --fail-bg:#fbf1e6; --fail-fg:#7a3f00; --fail-ring:#8a4b00;
   --chip-bg:#fff8ef; --chip-on:#f7d68e; --chip-ring:#211a15;
   --row-hov:rgba(46,30,18,.06); --mk-bg:rgba(46,30,18,.07); --mk-line:rgba(46,30,18,.34);
+  --dm-flap:#211a15; --dm-crease:rgba(255,248,239,.35); --new-dot:#1d5fc4;
   --trk:#ead5c0; --knob:#fffaf3; --sw-on:#211a15; --knob-sh:inset 0 0 0 1px #211a15,0 2px 0 #211a15; --knob-dn:inset 0 0 0 1px #211a15,0 1px 0 #211a15;
   --r-key:3px; --r-tray:4px; --r-in:2px; --r-chip:3px;
   --w-head:800; --w-strong:800; --track-head:-.03em;
@@ -150,6 +155,7 @@ html[data-theme="glass-dark"]{
   --knob-sh:inset 0 1px 0 #fff,0 1px 1px rgba(0,0,0,.3),0 3px 8px rgba(0,0,0,.4); --knob-dn:inset 0 1px 0 #fff,0 1px 1px rgba(0,0,0,.35),0 1px 3px rgba(0,0,0,.3);
   --r-key:999px; --r-tray:999px; --r-in:999px; --r-chip:999px;
   --w-head:650; --track-head:-.02em;
+  --new-dot:#5aaeff;
 }
 html[data-theme="glass-light"]{
   --page:#e7eaf0; --panel:rgba(255,255,255,.62); --panel2:rgba(255,255,255,.82); --line:rgba(15,17,21,.09); --line2:rgba(15,17,21,.15);
@@ -183,6 +189,7 @@ html[data-theme="glass-light"]{
   --done-bg:#ffb547; --done-fg:#1b1404; --fail-bg:rgba(255,181,71,.2); --fail-fg:#6b3b00; --fail-ring:rgba(154,86,0,.6);
   --chip-bg:var(--key-bg); --chip-on:rgba(255,181,71,.3); --chip-ring:rgba(154,86,0,.75);
   --row-hov:rgba(15,17,21,.045); --mk-bg:rgba(255,255,255,.7); --mk-line:rgba(15,17,21,.16);
+  --dm-flap:#14161b; --dm-crease:rgba(255,255,255,.35); --new-dot:#1f66d1;
   --trk:rgba(15,17,21,.12); --knob:#ffffff; --sw-on:#ffb547;
   --knob-sh:inset 0 0 0 .5px rgba(15,17,21,.06),0 1px 1px rgba(20,30,50,.2),0 3px 8px rgba(20,30,50,.22); --knob-dn:inset 0 0 0 .5px rgba(15,17,21,.08),0 1px 1px rgba(20,30,50,.25),0 1px 3px rgba(20,30,50,.18);
   --r-key:999px; --r-tray:999px; --r-in:999px; --r-chip:999px;
@@ -308,6 +315,19 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 .swbtn{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;min-height:36px;padding:5px 9px 5px 11px;border-radius:var(--r-key);background:var(--key-bg);box-shadow:var(--key-sh);font-size:13px;color:var(--fg);text-align:left;touch-action:pan-y;transition:filter var(--c-fast) var(--c-out)}
 .swbtn:hover{background:var(--key-hover)}
 .swbtn:active,.swbtn.is-press{filter:var(--press-f);transition-duration:0s}
+/* KH.addSetting({multi: true}): on / off chips (controls §5-7: fill + ring + a check that grows 0 → 14 px), at least `min` stay on */
+.kchips{display:flex;flex-wrap:wrap;gap:6px}
+.kchip{position:relative;display:inline-flex;align-items:center;height:30px;padding:0 11px;border-radius:var(--r-chip);background:var(--chip-bg);box-shadow:var(--key-sh);font-size:12.5px;font-weight:600;color:var(--key-fg);white-space:nowrap;
+  transition:background var(--c-fast) var(--c-out),box-shadow var(--c-fast) var(--c-out),transform var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out)}
+.kchip .ck{display:inline-block;width:0;height:14px;opacity:0;transform:scale(.6);background:currentColor;-webkit-mask:var(--ck-mask) center/14px no-repeat;mask:var(--ck-mask) center/14px no-repeat;
+  transition:width var(--c-fast) var(--c-out),opacity var(--c-fast) var(--c-out),transform var(--c-fast) var(--c-out),margin var(--c-fast) var(--c-out)}
+.kchip[aria-pressed="true"]{background:var(--chip-on);box-shadow:inset 0 0 0 1.5px var(--chip-ring),var(--key-sh)}
+.kchip[aria-pressed="true"] .ck{width:14px;opacity:1;transform:none;margin-right:6px}
+.kchip .n{margin-left:6px;color:var(--fg2);font-weight:500;font-variant-numeric:tabular-nums}
+.kchip .n:empty{display:none}
+.kchip:not([aria-disabled="true"]):is(:active,.is-press){transform:translateY(1px);box-shadow:var(--key-dn);filter:var(--press-f);transition-duration:0s}
+.kchip[aria-disabled="true"]{cursor:not-allowed}
+@media (pointer:coarse){ .kchip::before{content:"";position:absolute;left:50%;top:50%;width:max(100%,44px);height:44px;transform:translate(-50%,-50%)} }
 .swbtn .swt{--t:0;position:relative;flex:none;width:44px;height:26px;border-radius:13px;background:var(--trk);box-shadow:var(--tray-sh)}
 .swbtn .swt::before{content:"";position:absolute;inset:0;border-radius:inherit;background:var(--sw-on);box-shadow:inset 0 1px 2px color-mix(in srgb,var(--shc) 28%,transparent);opacity:var(--t);transition:opacity var(--c-switch) var(--c-inout)}
 .swbtn .swt::after{content:"";position:absolute;left:2px;top:2px;width:22px;height:22px;border-radius:50%;background:var(--knob);box-shadow:var(--knob-sh);transform:translateX(calc(var(--t) * 18px));transition:transform var(--c-switch) var(--c-inout),box-shadow var(--c-fast) var(--c-out)}
@@ -396,6 +416,9 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 .crumbs .stat{margin-left:auto;color:var(--muted);font-size:12.5px;white-space:nowrap}
 .crumbs .stat b{font-weight:600}
 .crumbs .hint{color:var(--faint);font-size:12.5px;margin-left:8px}
+/* a module's chips in the map-header row, before 지도 · 표 (공시 칩, disclosure.md §5-1); empty → no box, no gap */
+.stage-tools{display:flex;align-items:center;gap:8px;flex:none;min-width:0}
+.stage-tools:empty{display:none}
 /* §3-20 today's index line in the map header row: B (≥1024) a small readable chart in the row (or its own row when the row is
    short of room), A (phones, 768) a faint line + area behind the row's text — no added height */
 .stagebar{position:relative}
@@ -447,7 +470,7 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 .stagebar.ix-row > .ixl{order:9;flex:1 0 100%;height:34px}
 .stagebar.ix-bg > .ixl{position:absolute;inset:0 0 2px;z-index:0;pointer-events:none;height:auto}
 .stagebar.ix-bg > .ixl .ixv,.stagebar.ix-bg > .ixl .ixt,.stagebar.ix-bg > .ixl .ixtip,.stagebar.ix-bg > .ixl .ixx{display:none}
-.stagebar.ix-bg > .crumbs,.stagebar.ix-bg > .viewseg{position:relative;z-index:1}
+.stagebar.ix-bg > .crumbs,.stagebar.ix-bg > .viewseg,.stagebar.ix-bg > .stage-tools{position:relative;z-index:1}
 .stagebar.ix-bg .crumbs{text-shadow:0 0 3px var(--page),0 0 7px var(--page),0 0 12px var(--page)}
 .stagebar.ix-bg .ln{opacity:.42;stroke-width:1.4}
 .stagebar.ix-bg g.k2 .ln{opacity:.32}
@@ -557,6 +580,23 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 /* 뉴스 줄에 올리면 그 종목만 (KH.hover): weaker than the search / 등락 분포 highlight, which win while they are on */
 .tile.ndim{filter:saturate(.5) brightness(.6)}
 .tile.nhl{box-shadow:inset 0 0 0 2px var(--sel-1),0 0 0 1px var(--sel-2);z-index:5}
+/* KH.marks.only (공시 칩): the stocks without a mark dim like the search highlight; a news / 공시 row hovered on top lights its own tile */
+.tile.mdim{filter:saturate(.25) brightness(.38)}
+.tile.nhl.mdim{filter:none}
+/* 공시 배지 (disclosure.md §3-2, C): the folded bottom-right corner — one element, one gradient. The cut half is the map floor (it reads
+   as the 1px gap going on), the flap half the neutral --dm-flap, a 1px crease between; the label stays on top of it */
+.tile .dm{position:absolute;right:0;bottom:0;width:var(--s,8px);height:var(--s,8px);pointer-events:none;z-index:1;transform-origin:100% 100%;
+  background:linear-gradient(to top left,var(--dm-cut) 0 calc(50% - .7px),var(--dm-crease) calc(50% - .7px) calc(50% + .5px),var(--dm-flap) calc(50% + .5px))}
+.tile.has-dm .lab{position:relative;z-index:2}
+html[data-motion="fancy"] .tile .dm.pop{animation:dmIn var(--c-base) var(--c-out) both}
+@keyframes dmIn{from{transform:scale(0)}}
+/* the same corner as a swatch: legend · the map-header chip · the table's name cell */
+.dmsw{position:relative;display:inline-block;width:13px;height:13px;flex:none;border-radius:1px;background:var(--limsw);overflow:hidden;vertical-align:-2px}
+.dmsw::after{content:"";position:absolute;right:0;bottom:0;width:7px;height:7px;background:linear-gradient(to top left,var(--dm-cut) 0 calc(50% - .5px),var(--dm-flap) calc(50% + .5px))}
+.dmsw.big{width:17px;height:17px}
+.dmsw.big::after,.dmsw.new::after{width:10px;height:10px}
+.dmsw.big::after{width:11px;height:11px}
+.list .nmcell .dmsw{margin-left:1px}
 .map.anim .tile{transition:opacity .3s,background-color .6s,filter .2s}
 .tile{transition:filter .2s}
 .tile.flash-up::after,.tile.flash-dn::after{content:"";position:absolute;inset:0;pointer-events:none;animation:flash .9s ease-out}
@@ -877,6 +917,7 @@ footer .credit .dc{width:1.15em;height:1.15em;flex:none}
   .viewseg button{min-width:44px}
   .sheet .acts button,.sheet .acts a{height:44px}
   .swbtn{min-height:44px}
+  .kchip{height:36px;padding:0 13px;font-size:13px}
   .status .tshort{display:inline}
   .status.has-blab .tshort{display:none}
   .status.has-blab .badge .bl{display:none}
@@ -1212,6 +1253,7 @@ html[data-theme="paper"] .ss-list > button[aria-selected="true"]{background:var(
   <section class="stage">
     <div class="stagebar">
       <nav class="crumbs" id="crumbs" aria-label="위치"></nav>
+      <span class="stage-tools" id="stage-tools"></span>
       <div class="seg viewseg" data-key="view" role="group" aria-label="보기"><button data-v="map">지도</button><button data-v="table">표</button></div>
     </div>
     <div class="wgbar" id="wgbar" hidden><div class="wgchips" id="wgchips" role="group" aria-label="관심종목 그룹"></div></div>
@@ -1312,7 +1354,16 @@ html[data-theme="paper"] .ss-list > button[aria-selected="true"]{background:var(
                          it they use the frame's cap-weighted change per market). localStorage khm.watchTabGroup = the ★관심 tab's group.
    §3-27 시장 뉴스 (docs/standards/news.md): mount <section class="card news" id="news" hidden> = main.layout's last cell (src/news shows it);
         quick(code, opener) → the quick view a tile opens; hover(codes | null) → those tiles lit on the map (weaker than search /
-        등락 분포, classes .nhl / .ndim); footer line <p id="foot-news"> (src/news writes "시장 뉴스: … RSS (제목 · 링크만)"). */
+        등락 분포, classes .nhl / .ndim); footer line <p id="foot-news"> (src/news writes "시장 뉴스: … RSS (제목 · 링크만)").
+   §3-30 공시 배지 (docs/standards/disclosure.md §13 ②): marks.set(name, Map(code → {size 'n'|'new', label, title?, fresh?}) | null) →
+        a folded bottom-right corner on those tiles (+ label on their aria-label, a swatch in the table, layout() tile .mark {kind, size,
+        isNew}); marks.only(name | null) dims the stocks without that mark (.mdim, ANDed with search / 등락 분포; the table keeps the
+        marked rows); marks.get(name), marks.onlyName(). cardExtra.add(key, fn(st, how 'tip'|'sheet') → el | null) · remove(key) ·
+        refresh(): blocks under headBlock in the tooltip / quick view. legendItem(key, fn → el | [el] | null) · legendRefresh(): legend
+        items before 크기. addSetting({multi: true, options, default: [..], min}) → chips, value = array (stored 'a,b'); settingState(key,
+        {disabled, counts:{v: n}, hint}). mapCodes() → the current map's stock codes (tab · 종목 수; [] on world / theme overview).
+        replay() → {t, date} | null. openStock(code, {opener, tab, newsKind}) → the stock page (the quick view closes first).
+        Mount <span id="stage-tools"> in the map-header row before 지도 · 표; footer line <p id="foot-disc">. */
 
 /* ───────────────── 효과 level (AGENTS §3-5): 'reduced' | 'standard' | 'fancy', localStorage khm.motion ─────────────────
    No stored choice: the device's reduced-motion setting picks 'reduced', otherwise 'fancy' (사용자 2026-11-10 13:58: 화려하게가 기본). <html data-motion> mirrors it for CSS. */
@@ -1720,6 +1771,11 @@ if (!COLOR_METRICS[state.colorBy]) state.colorBy = 'r';
 if (!MKT_NAME[state.market]) state.market = 'Q';
 if (state.market !== 'THEME') state.theme = null;
 const isWorld = () => state.market === 'WORLD' || state.market === 'CMDTY';
+// tile marks (KH.marks, disclosure.md §13 ②): name → Map(code → {size, label, title, fresh}); MARK_ONLY = the name whose marks light the map
+const MARKS = new Map(), NO_MARKS = new Map();
+let MARK_ONLY = null;
+// the module rows under headBlock in the tooltip / quick view (KH.cardExtra) and the legend items (KH.legendItem): key → fn
+const CARD_EXTRA = new Map(), LEGEND_EXTRA = new Map();
 /* §3-20 today's index line in the map header row (state here; the drawing follows renderCrumbs) */
 const IX_NAME = { KOSPI: '코스피', KOSDAQ: '코스닥' };
 const ixKeys = () => ({ K: ['KOSPI'], Q: ['KOSDAQ'], ALL: ['KOSPI', 'KOSDAQ'] })[state.market] || [];   // a sector zoom keeps its market's index
@@ -2720,6 +2776,7 @@ function stockDesc(st) {
   const day = kind() === 'day';
   const lim = limOf(st), limTxt = lim > 0 ? ', 상한가' : lim < 0 ? ', 하한가' : '';
   return {
+    code: st.c,
     name: st.n, split: splitName, sub, sub2: isFlow() ? sub : vText(v, 2), px: st.p > 0 ? fmtInt(st.p) : '',
     // 4th line on big tiles: the market cap as drawn (cap × p_basis / p_krx, or the replay frame's)
     mc: st.cap > 0 ? fmtEok(st.cap) : '',
@@ -2782,7 +2839,9 @@ function paintTile(el, d, w, hh) {
   el.classList.toggle('nod', d.nod);
   el.classList.toggle('nonx', d.nonx);          // NXT prices drawn, this stock has none: KRX value, hatched
   el.__col = d.col; el.__name = d.name; el.__sub = d.sub; el.__px = d.px;
-  el.setAttribute('aria-label', d.aria);
+  el.__aria = d.aria;
+  el.setAttribute('aria-label', d.code ? d.aria + markAria(d.code) : d.aria);
+  if (d.code) paintMark(el, d.code, w, hh);
   el.classList.toggle('limu', d.lim > 0); el.classList.toggle('limd', d.lim < 0);
   const lab = el.firstChild, nm = lab.children[0], pc = lab.children[1], px = lab.children[2], mc = lab.children[3] || null;
   const chip = el.children[1] || null;
@@ -3231,9 +3290,12 @@ function matchQuery(st, q) {
 function applyHighlights() {
   const q = state.query.trim(), b = state.bucket, hs = state.hoverSector;
   const dimOn = !!q || b != null || !!hs;
+  const mo = MARK_ONLY ? (MARKS.get(MARK_ONLY) || NO_MARKS) : null;
   for (const el of nodes.values()) {
     if (el.classList.contains('sec')) { el.classList.toggle('hot', !!hs && el.dataset.s === hs); continue; }
     if (!el.classList.contains('tile')) continue;
+    // KH.marks.only: the stocks without that mark dim (ANDed with the highlight below — a tile must pass both to stay bright)
+    el.classList.toggle('mdim', !!mo && !!el.dataset.c && !mo.has(el.dataset.c));
     if (el.dataset.t) {
       const t = themeRow(+el.dataset.t);
       if (!t) continue;
@@ -3276,6 +3338,83 @@ function newsHover(codes) {
   if (!next && !NEWS_HL) return;
   NEWS_HL = next;
   newsHighlight();
+}
+
+/* ───────────────── tile marks (docs/standards/disclosure.md §3 · §13 ②) — KH.marks ─────────────────
+   A module hands a Map(code → {size: 'n' | 'new', label, title?, fresh?}) under a name ('disc' = 공시): every tile of a marked stock
+   gets a folded bottom-right corner (one <i class="dm">, sized from the tile's short side — 4–10 px, a new one 5–14 px; none under 8 px,
+   §3-2), its aria-label gains `label`, the table's name cell a swatch titled `title`, KH.layout() the tile's `mark`. A mark that comes
+   with fresh: true folds in once (화려하게 only). only(name) keeps just the marked stocks bright (.mdim on the rest, ANDed with the search /
+   등락 분포 highlight; the news / 공시 row hover stays on top). Tiles without a mark get nothing: no element, no listener. */
+function markOf(code) {
+  if (!MARKS.size) return null;
+  for (const m of MARKS.values()) { const x = m.get(code); if (x) return x; }
+  return null;
+}
+const markName = code => { for (const [k, m] of MARKS) if (m.has(code)) return k; return null; };
+function markAria(code) { const mk = markOf(code); return mk && mk.label ? String(mk.label) : ''; }
+// the corner's side in px for a tile w × hh (0 = too small to draw; the chip still keeps the tile lit)
+function markSize(mk, w, hh) {
+  const m = Math.min(w, hh), isNew = mk.size === 'new';
+  if (m < 8) return 0;
+  if (m < 10) return isNew ? 5 : 4;
+  return isNew ? Math.max(7, Math.min(14, Math.round(m * 0.2), Math.floor(m * 0.5))) : Math.max(5, Math.min(10, Math.round(m * 0.14)));
+}
+function paintMark(el, code, w, hh) {
+  const mk = markOf(code), s = mk ? markSize(mk, w, hh) : 0;
+  let dm = el.__dm || null;
+  if (!s) { if (dm) { dm.remove(); el.__dm = null; el.classList.remove('has-dm'); } return; }
+  // fresh (화려하게): the corner folds in once per mark object — a new corner, or a new filing on a tile that had one; redraws don't repeat it
+  const pop = mk.fresh && dm && dm.__mk !== mk && fancy() && !document.hidden;
+  if (!dm) {
+    dm = el.__dm = h('i', { class: 'dm', 'aria-hidden': 'true' });
+    if (mk.fresh && fancy() && !document.hidden) dm.classList.add('pop');
+    el.append(dm);
+    el.classList.add('has-dm');
+  } else if (pop) { dm.classList.remove('pop'); void dm.offsetWidth; dm.classList.add('pop'); }
+  dm.__mk = mk;
+  if (dm.__s !== s) { dm.style.setProperty('--s', s + 'px'); dm.__s = s; }
+  dm.classList.toggle('new', mk.size === 'new');
+  el.__dmk = markName(code);
+}
+function refreshMarks() {
+  for (const [id, el] of nodes) {
+    if (id[0] !== 'T' || id[1] !== '|' || !el.__g || !el.dataset.c) continue;
+    paintMark(el, el.dataset.c, el.__g[2], el.__g[3]);
+    if (el.__aria != null) el.setAttribute('aria-label', el.__aria + markAria(el.dataset.c));
+  }
+  applyHighlights();                                   // .mdim, and the table (its swatches · the chip's row filter)
+}
+const marksApi = {
+  set(name, map) {
+    name = String(name);
+    if (map instanceof Map && map.size) MARKS.set(name, map); else MARKS.delete(name);
+    refreshMarks();
+  },
+  get: name => MARKS.get(String(name)) || null,
+  only(name) {
+    const v = name ? String(name) : null;
+    if (v === MARK_ONLY) return;
+    MARK_ONLY = v;
+    applyHighlights();
+  },
+  onlyName: () => MARK_ONLY,
+};
+// the table's name cell: the corner as a swatch (13 × 13), titled "오늘 공시 3건"
+function markSw(code) {
+  const mk = markOf(code);
+  return mk ? h('i', { class: 'dmsw' + (mk.size === 'new' ? ' new' : ''), title: mk.title || null, 'aria-hidden': 'true' }) : null;
+}
+/* the tooltip / quick-view slot (§13 ②): KH.cardExtra.add(key, fn(st, how) → element | null) — fillTip and openSheet put what it
+   returns right under headBlock (how 'tip' | 'sheet'); refresh() redraws an open tooltip / sheet when the module's data changed */
+function cardExtras(st, how) {
+  const out = [];
+  for (const [k, fn] of CARD_EXTRA) {
+    let el = null;
+    try { el = fn(st, how); } catch (e) { setTimeout(() => { throw e; }); }
+    if (el && el.nodeType === 1) { el.classList.add('cx'); el.dataset.cx = k; out.push(el); }
+  }
+  return out;
 }
 
 /* ───────────────── tooltip & detail ───────────────── */
@@ -3392,7 +3531,7 @@ function fillTip(st) {
   const pr = peerRows(st, 10);
   const big = !tstar.hidden;
   const watched = WATCH.includes(st.c);
-  tip.replaceChildren(headBlock(st, 'tip', pr.cr), h('div', { class: 'peers' + (isFlow() ? ' amt' : '') },
+  tip.replaceChildren(headBlock(st, 'tip', pr.cr), ...cardExtras(st, 'tip'), h('div', { class: 'peers' + (isFlow() ? ' amt' : '') },
     h('div', { class: 'ttl', text: peerTitle(pr) }), pr.rows, pr.candles ? candleHint(pr.cr) : null),
     h('div', { class: 'tiphint', text: big ? (watched ? '오른쪽 위 ★를 누르면 관심종목에서 빠져요' : '오른쪽 위 ☆를 누르면 관심종목에 담겨요') : '작은 타일은 표 보기에서 ☆로 담을 수 있어요' }));
 }
@@ -3586,7 +3725,7 @@ function openSheet(st, opener) {
   const canStock = !!stockApi();
   if (!sheet.classList.contains('open')) sheetOpener = opener || (document.activeElement !== document.body ? document.activeElement : null);
   sheetCode = st.c;
-  const kids = [h('div', { class: 'grab' }), h('button', { class: 'x', 'aria-label': '닫기', onclick: () => closeSheet(), text: '×' }), headBlock(st, canStock ? 'sheet-link' : 'sheet', pr.cr)];
+  const kids = [h('div', { class: 'grab' }), h('button', { class: 'x', 'aria-label': '닫기', onclick: () => closeSheet(), text: '×' }), headBlock(st, canStock ? 'sheet-link' : 'sheet', pr.cr), ...cardExtras(st, 'sheet')];
   if (MODE === 'live' && !REPLAY) kids.push(h('div', { class: 'spark', id: 'spark' }, h('div', { class: 'note', text: '오늘 흐름 불러오는 중…' })));
   kids.push(h('div', { class: 'peers' + (isFlow() ? ' amt' : '') }, h('div', { class: 'ttl', text: peerTitle(pr) }), pr.rows, pr.candles ? candleHint(pr.cr) : null));
   const marketView = ['K', 'Q', 'ALL'].includes(state.market);
@@ -3898,7 +4037,10 @@ function ixDraw() {
   lo = mid - span / 2; hi = mid + span / 2;
   // A sits behind the row: its 09:00 → 15:30 axis ends 8 px left of the 지도/표 toggle, so the latest point and the close never hide under it
   let xR = W - padX;
-  if (bg) { const vs = document.querySelector('.stagebar > .viewseg'); if (vs && vs.offsetWidth) { const r = vs.getBoundingClientRect().left - c.getBoundingClientRect().left - 8; if (r > 60) xR = Math.min(xR, r); } }
+  if (bg) {         // …or 8 px left of a module chip in front of it (공시 칩, #stage-tools)
+    const st = document.getElementById('stage-tools'), vs = st && st.offsetWidth ? st : document.querySelector('.stagebar > .viewseg');
+    if (vs && vs.offsetWidth) { const r = vs.getBoundingClientRect().left - c.getBoundingClientRect().left - 8; if (r > 60) xR = Math.min(xR, r); }
+  }
   const X = m => padX + (Math.max(0, Math.min(END, m)) / END) * (xR - padX);
   const Y = r => padY + (hi - r) / (hi - lo) * (H - 2 * padY);
   const f1 = v => v.toFixed(1), y0 = f1(Y(0));
@@ -3959,6 +4101,7 @@ ixBgMQ.addEventListener('change', () => renderCrumbs());
   }); });
   ro.observe(document.querySelector('.stagebar') || document.body);
   const vs = document.querySelector('.stagebar > .viewseg'); if (vs) ro.observe(vs);      // its width sets where A's axis ends
+  const stl = document.getElementById('stage-tools'); if (stl) ro.observe(stl);           // and a module chip in front of it
 }
 // live: /api/market every 60 s while 코스피 · 코스닥 · 전체 is shown (edge-cached 30 s); not in a hidden tab
 async function ixFetch() {
@@ -4054,6 +4197,17 @@ function renderLegend() {
         lu ? h('i', { class: 'limsw u', 'aria-hidden': 'true' }) : null, lu ? h('span', { text: `상한가 ${lu}` }) : null,
         ld ? h('i', { class: 'limsw d', 'aria-hidden': 'true' }) : null, ld ? h('span', { text: `하한가 ${ld}` }) : null));
     }
+  }
+  // module items (KH.legendItem, e.g. 공시 26종목 · 큰 귀퉁이 = 30분 안) after the scale, before 크기 — not on the theme overview
+  if (LEGEND_EXTRA.size && !themeOv) {
+    const add = [];
+    for (const fn of LEGEND_EXTRA.values()) {
+      let x = null;
+      try { x = fn(); } catch (e) { setTimeout(() => { throw e; }); }
+      for (const y of [x].flat()) if (y && y.nodeType === 1) add.push(y);
+    }
+    const at = kids.findIndex(x => x.classList && x.classList.contains('right'));
+    kids.splice(at < 0 ? kids.length : at, 0, ...add);
   }
   el.replaceChildren(...kids);
   legendR = R;
@@ -4465,7 +4619,9 @@ function renderTable() {
   const tvv = tvLabel().slice(0, -4).trim(), venue = lab => tvv ? [h('small', { class: 'thv', text: tvv + ' ' }), lab] : lab;
   cols.push(['vol', venue('거래량')], ['tv', venue('거래대금')], ['cap', '시가총액']);
   if (!cols.some(c => c[0] === state.sort.key)) state.sort = { key: 'cap', dir: -1 };
-  let list = universe().filter(inFocus).filter(s => matchQuery(s, q) && (state.bucket == null || (!s.nonx && bucketOf(cval(s)) === state.bucket)));
+  // KH.marks.only (공시 칩): the table keeps the marked rows only (rows are not dimmed — disclosure.md §3-5)
+  const mo = MARK_ONLY ? (MARKS.get(MARK_ONLY) || NO_MARKS) : null;
+  let list = universe().filter(inFocus).filter(s => matchQuery(s, q) && (state.bucket == null || (!s.nonx && bucketOf(cval(s)) === state.bucket)) && (!mo || mo.has(s.c)));
   const { key, dir } = state.sort;
   const val = key === 'v' ? cval : key === 'a' ? amt : key === 'r' ? (s => s.r) : key === 'vol' ? (s => s.v) : key === 'g' ? gKey : (s => s[key]);
   sortRows(list, key, dir, val);
@@ -4480,7 +4636,7 @@ function renderTable() {
   const tbody = h('tbody', {}, list.map(s => {
     const v = cval(s);
     const cells = [
-      h('td', { class: 'k-n' }, h('div', { class: 'nmcell' }, starBtn(s.c, 'wbtn'), rowMark(s, v, v == null ? 'nod' : s.nonx ? 'nonx' : null), h('span', { class: 'nmt', text: s.n }), h('small', { text: s.c }), limTag(s), nxTag(s))),
+      h('td', { class: 'k-n' }, h('div', { class: 'nmcell' }, starBtn(s.c, 'wbtn'), rowMark(s, v, v == null ? 'nod' : s.nonx ? 'nonx' : null), h('span', { class: 'nmt', text: s.n }), h('small', { text: s.c }), markSw(s.c), limTag(s), nxTag(s))),
       wgCol ? h('td', { class: 'k-g', text: gOf(s.c).map(g => g.name).join(', ') }) : null,
       h('td', { class: 'k-i indc', title: `${s.s} · ${s.i}` }, h('span', { class: 'indt', text: `${s.s} · ${s.i}` })),
       h('td', { class: 'k-p', 'data-f': '', text: s.p > 0 ? fmtInt(s.p) : '—' }),
@@ -4490,7 +4646,7 @@ function renderTable() {
     if (k === 'flow') { const a = amt(s); cells.push(h('td', { class: 'k-a ' + (a == null ? 'nd' : cls(a)), text: a == null ? '데이터 없음' : fmtAmt(a) })); }
     cells.push(h('td', { class: 'k-vol', text: fmtVol(s.v) }), h('td', { class: 'k-tv', text: fmtEok(s.tv) }), h('td', { class: 'k-cap', text: fmtEok(s.cap) }));
     return h('tr', { class: (s.c === state.selected ? 'sel' : '') + (s.nonx ? ' nonx' : ''), 'data-c': s.c, tabindex: '0',
-      'aria-label': `${s.n} ${k === 'day' ? fmtPct(s.r) : metricLong() + ' ' + (v == null ? '데이터 없음' : stText(s))}${s.nonx ? ', NXT 거래 없음(KRX 값)' : ''}`,
+      'aria-label': `${s.n} ${k === 'day' ? fmtPct(s.r) : metricLong() + ' ' + (v == null ? '데이터 없음' : stText(s))}${s.nonx ? ', NXT 거래 없음(KRX 값)' : ''}${markAria(s.c)}`,
       onclick: ev => rowOpen(s, ev.currentTarget),
       onkeydown: ev => { if ((ev.key === 'Enter' || ev.key === ' ') && ev.target === ev.currentTarget) { ev.preventDefault(); rowOpen(s, ev.currentTarget); } } }, cells);
   }));
@@ -4752,6 +4908,8 @@ function creditLine() {
 }
 // the news credit line keeps its text across footer redraws (one element, re-attached each time)
 function footNewsP() { return footNewsP.el || (footNewsP.el = h('p', { id: 'foot-news', hidden: true })); }
+// the 공시 credit line, the same way (src/disclosure writes "공시: 금융감독원 DART (제목 · 링크만)", disclosure.md §2-4)
+function footDiscP() { return footDiscP.el || (footDiscP.el = h('p', { id: 'foot-disc', hidden: true })); }
 function renderFooter() {
   const asOf = DATA.asOf ? kstFmt.format(new Date(DATA.asOf)) : '';
   if (isWorld()) {
@@ -4762,6 +4920,7 @@ function renderFooter() {
   // 사용자 2026-11-13 22:06: 크기·색·분류 설명과 갱신·가격 기준 설명은 아래 출처 줄에서 뺐어요(범례·버튼이 이미 말해요).
   const parts = [h('p', {}, '데이터: 네이버 증권 (finance.naver.com). 투자 판단의 근거로 쓰지 마세요.')];   // 사용자 22:16: 출처 주소는 finance.naver.com
   parts.push(footNewsP());                       // "시장 뉴스: … RSS (제목 · 링크만)" — src/news fills it (news.md §2-5), hidden until then
+  parts.push(footDiscP());                       // "공시: 금융감독원 DART (제목 · 링크만)" — src/disclosure fills it, hidden until then
   const daily = [];
   const P = PER(), F = FLO();
   if (P && P.asOf && k === 'period') daily.push(`기간 수익률 기준 종가는 ${dayName(P.asOf)}에 만든 자료예요`);
@@ -5043,6 +5202,13 @@ function callSetting(o) {
 function settingRow(o) {
   const id = 'set-' + o.key;
   const hint = o.hint ? h('small', { class: 'hint', id: id + '-h', text: o.hint }) : null;
+  if (o.multi) {
+    // several on / off chips (공시: 지도에 표시할 종류); at least o.min stay on
+    const box = h('div', { class: 'kchips', role: 'group', 'aria-labelledby': id + '-l', 'aria-describedby': hint ? id + '-h' : null },
+      o.options.map((x, i) => h('button', { type: 'button', class: 'kchip', 'data-si': String(i), 'aria-pressed': String(o.value.includes(x.v)), onclick: ev => toggleMulti(o, x.v, ev.currentTarget) },
+        h('i', { class: 'ck', 'aria-hidden': 'true' }), h('span', { text: x.label }), h('span', { class: 'n' }))));
+    return h('div', { class: 'ctl', 'data-set': o.key }, h('span', { id: id + '-l', text: o.label }), box, hint);
+  }
   if (!o.options) {
     const sw = h('button', { type: 'button', class: 'swbtn', role: 'switch', 'aria-checked': String(o.value), 'aria-describedby': hint ? id + '-h' : null, onclick: () => changeSetting(o, !o.value) },
       h('span', { class: 'swl', text: o.label }), h('span', { class: 'swt', 'aria-hidden': 'true' }));
@@ -5055,13 +5221,20 @@ function settingRow(o) {
   return h('div', { class: 'ctl', 'data-set': o.key }, h('span', { id: id + '-l', text: o.label }), seg, hint);
 }
 function syncSettingRow(o) {
-  if (!o.options) o.el.querySelector('.swbtn').setAttribute('aria-checked', String(o.value));
+  if (o.multi) for (const b of o.el.querySelectorAll('.kchip')) b.setAttribute('aria-pressed', String(o.value.includes(o.options[+b.dataset.si].v)));
+  else if (!o.options) o.el.querySelector('.swbtn').setAttribute('aria-checked', String(o.value));
   else for (const b of o.el.querySelectorAll('.seg button')) b.setAttribute('aria-pressed', String(o.options[+b.dataset.si].v === o.value));
 }
+function toggleMulti(o, v, btn) {
+  if (btn && btn.getAttribute('aria-disabled') === 'true') return;
+  const on = o.value.includes(v);
+  if (on && o.value.length <= o.min) { uiLive(o.min > 1 ? `${o.min}개는 남겨 둬야 해요.` : '하나는 남겨 둬야 해요.'); if (btn) uiBubble(btn, '하나는 남겨 둬야 해요'); return; }
+  changeSetting(o, o.options.map(x => x.v).filter(x => x === v ? !on : o.value.includes(x)));
+}
 function changeSetting(o, v) {
-  if (v === o.value) return;
+  if (o.multi ? v.join(',') === o.value.join(',') : v === o.value) return;
   o.value = v;
-  store.set('set.' + o.key, v);
+  store.set('set.' + o.key, o.multi ? v.join(',') : v);
   syncSettingRow(o);
   callSetting(o);
   document.dispatchEvent(new CustomEvent('kh:setting', { detail: { key: o.key, value: v } }));
@@ -5071,9 +5244,19 @@ function addSetting(spec) {
   const key = String(spec.key);
   const options = Array.isArray(spec.options) ? spec.options.filter(x => x && x.v != null).map(x => ({ v: x.v, label: String(x.label != null ? x.label : x.v) })) : [];
   const o = { key, label: String(spec.label || key), hint: spec.hint ? String(spec.hint) : '', options: options.length >= 2 ? options : null, onChange: spec.onChange, el: null };
-  o.def = o.options ? (o.options.some(x => x.v === spec.default) ? spec.default : o.options[0].v) : !!spec.default;
   const saved = store.get('set.' + key, undefined);
-  o.value = o.options ? (o.options.some(x => x.v === saved) ? saved : o.def) : (typeof saved === 'boolean' ? saved : o.def);
+  if (spec.multi && o.options) {
+    // multi: the value is an array of option values (option order), kept as 'a,b' (disclosure.md §7 khm.set.discKinds = '실적,주요')
+    const pick = a => o.options.map(x => x.v).filter(v => a.some(y => String(y) === String(v)));
+    o.multi = true; o.min = Math.max(1, +spec.min || 1);
+    o.def = pick(Array.isArray(spec.default) ? spec.default : []);
+    if (o.def.length < o.min) o.def = o.options.slice(0, o.min).map(x => x.v);
+    const sv = typeof saved === 'string' ? pick(saved.split(',')) : Array.isArray(saved) ? pick(saved) : [];
+    o.value = sv.length >= o.min ? sv : o.def;
+  } else {
+    o.def = o.options ? (o.options.some(x => x.v === spec.default) ? spec.default : o.options[0].v) : !!spec.default;
+    o.value = o.options ? (o.options.some(x => x.v === saved) ? saved : o.def) : (typeof saved === 'boolean' ? saved : o.def);
+  }
   o.el = settingRow(o);
   const old = SETTINGS.get(key);
   if (old && old.el && old.el.isConnected) old.el.replaceWith(o.el); else morePanel.append(o.el);
@@ -5083,7 +5266,21 @@ function addSetting(spec) {
 }
 function getSetting(key) {
   const o = SETTINGS.get(String(key));
-  return o ? o.value : store.get('set.' + key, undefined);
+  return o ? (o.multi ? o.value.slice() : o.value) : store.get('set.' + key, undefined);
+}
+// KH.settingState(key, {disabled?, counts?:{value: n}, hint?}): a row greyed out in place (its size kept), the numbers on multi chips
+function settingState(key, st) {
+  const o = SETTINGS.get(String(key));
+  if (!o || !o.el || !st) return;
+  if ('disabled' in st) {
+    o.el.classList.toggle('off', !!st.disabled);
+    for (const b of o.el.querySelectorAll('button')) { if (st.disabled) b.setAttribute('aria-disabled', 'true'); else b.removeAttribute('aria-disabled'); }
+  }
+  if (st.counts && o.multi) for (const b of o.el.querySelectorAll('.kchip')) {
+    const n = st.counts[o.options[+b.dataset.si].v], t = n == null ? '' : String(n);
+    const el = b.querySelector('.n'); if (el.textContent !== t) el.textContent = t;
+  }
+  if ('hint' in st) { const el = o.el.querySelector('.hint'); if (el) el.textContent = st.hint || ''; }
 }
 
 const viewBtns = () => document.querySelectorAll('.viewseg button');
@@ -5667,6 +5864,13 @@ function refreshOpenViews() {
         : row && row !== ae ? null : row ? `${box} [data-c="${row.dataset.c}"]` : null;
     }
     if (head) head.replaceWith(headBlock(st, stockApi() ? 'sheet-link' : 'sheet', pr.cr));
+    // the module blocks (KH.cardExtra) under the head: drawn again unless the focus is inside one (rows never move under the reader)
+    const cxs = [...sheet.querySelectorAll(':scope > .cx')];
+    if ((cxs.length || CARD_EXTRA.size) && !(ae && cxs.some(c => c.contains(ae)))) {
+      const at = sheet.querySelector(':scope > .card-head');
+      for (const c of cxs) c.remove();
+      if (at) at.after(...cardExtras(st, 'sheet'));
+    }
     if (peers) peers.replaceChildren(h('div', { class: 'ttl', text: peerTitle(pr) }), ...pr.rows, ...(pr.candles ? [candleHint(pr.cr)] : []));   // native replaceChildren prints a null
     if (sheet.scrollTop !== top) sheet.scrollTop = top;
     if (refocus) { const el = sheet.querySelector(refocus); (el || sheet).focus({ preventScroll: true }); }
@@ -5687,7 +5891,8 @@ function khLayout() {
     if (el.classList.contains('tile')) {
       const t = { kind: 'tile', x, y, w, h: hh, color: el.__col || NODATA, label: el.__name || '', sub: el.__sub || '', ink: INK_HEX[el.style.color] || LC.tile };   // ink: the label colour as drawn (light themes: black / white by contrast)
       if (el.dataset.c) { t.code = el.dataset.c; if (el.__px) t.px = el.__px; if (el.__mc) t.mc = el.__mc; }   // px: the price as drawn (basis / replay); mc: the cap line when shown
-      if (el.classList.contains('dim')) t.dim = true;                              // dimmed by search / 등락 분포 bucket / sector hover
+      if (el.classList.contains('dim') || el.classList.contains('mdim')) t.dim = true;   // dimmed by search / 등락 분포 bucket / sector hover / KH.marks.only
+      if (el.__dm && el.__dm.__s) t.mark = { kind: el.__dmk || '', size: el.__dm.__s, isNew: el.__dm.classList.contains('new') };   // the folded corner as drawn (§13 ⑥)
       if (el.classList.contains('nonx')) t.nonx = true;                            // NXT prices drawn, no NXT trade: the KRX value (§3-8)
       out.push(t);
     } else {
@@ -5745,6 +5950,31 @@ window.KH = {
   // hover(codes | null) = light those stocks on the map (weaker than search / 등락 분포; null = back to normal)
   quick: (code, opener) => select(String(code), opener || null),
   hover: codes => newsHover(codes),
+  // 공시 배지 (docs/standards/disclosure.md §13 ②, AGENTS §3-30): tile marks, the tooltip / quick-view slot, legend items, multi-choice
+  // settings, the map's stocks, the replay frame shown, the stock page from anywhere (closes the quick view first)
+  marks: marksApi,
+  cardExtra: {
+    add(key, fn) { if (typeof fn === 'function') CARD_EXTRA.set(String(key), fn); },
+    remove(key) { CARD_EXTRA.delete(String(key)); },
+    refresh: () => refreshOpenViews(),
+  },
+  legendItem(key, fn) { if (typeof fn === 'function') LEGEND_EXTRA.set(String(key), fn); else LEGEND_EXTRA.delete(String(key)); if (!isWorld()) renderLegend(); },
+  legendRefresh: () => { if (!isWorld()) renderLegend(); },
+  settingState,
+  mapCodes: () => (!DATA || isWorld() || (state.market === 'THEME' && state.theme == null)) ? [] : universe().map(s => s.c),
+  replay: () => (REPLAY ? { t: REPLAY.t, date: REPLAY.date } : null),
+  openStock(code, opts) {
+    const k = stockApi();
+    if (!k || !CODE_RE.test(String(code))) return false;
+    const o = Object.assign({}, opts || {});
+    if (sheet.classList.contains('open')) {
+      if (!o.opener || sheet.contains(o.opener)) o.opener = sheetOpener && sheetOpener.isConnected ? sheetOpener : (nodes.get('T|' + code) || null);
+      closeSheet({ restore: false });
+    }
+    tip.classList.remove('show');
+    k.open(String(code), o);
+    return true;
+  },
 };
 
 /* phones: the basis chip's menu (a bottom sheet): KRX · NXT · 통합 with a line each; arrows / Home / End move, Enter picks, Esc closes,

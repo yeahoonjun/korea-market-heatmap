@@ -468,6 +468,9 @@ a.sp-nw-a:visited .sp-nw-t { color: var(--fg2); }
 .sp-switch[aria-checked="true"] { color: var(--fg); }
 .sp-nw-tag.k { color: var(--fg2); background: var(--panel2); border-color: transparent; }
 .sp-nw-tag.fix { color: var(--fg); border-color: var(--fg2); }
+/* 공시 배지: today's DART row the map's feed has seen — the time, and the unread dot before it while it is new (--new-dot, template) */
+.sp-nw-seen { display: inline-flex; align-items: center; font-variant-numeric: tabular-nums; }
+.sp-nw-dot { display: inline-block; width: 7px; height: 7px; margin-right: 5px; border-radius: 50%; background: var(--new-dot, #4da3ff); flex: none; }
 .sp-vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
 /* ── tables ───────────────────────── */

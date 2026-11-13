@@ -16,6 +16,26 @@ html[data-theme^="glass"]{--nw-badge-r:999px}
 .news .nw-tabs > button .nw-bad{display:inline-block;margin-left:4px;color:var(--acc);font-weight:700}
 .news .nw-tabs > button[aria-disabled="true"],.news .nw-only[aria-disabled="true"]{opacity:.45;cursor:not-allowed}
 .news .nw-tabs > button[aria-disabled="true"]:active{filter:none}
+/* feed tabs (disclosure.md §6, C안): one tab → .nw-pane is invisible to layout (the card exactly as before); several → the head holds the
+   title tabs and the time, each tab is a column of its own row (outlet tabs · chip / 공시 종류 · 지도 종목만) + list + footer */
+.news .nw-pane{display:contents}
+.news.multi .nw-pane{display:flex;flex-direction:column;flex:1 1 auto;min-height:0;min-width:0}
+.news.multi .nw-pane[hidden]{display:none}
+.news.multi .nw-hd{margin:0 0 8px}
+.news .nw-sub{display:flex;align-items:center;gap:8px 12px;min-height:30px;margin:0 0 6px;min-width:0}
+/* title tabs: words with a 2px bar under the one shown (controls §5-6 글자 탭; the bar opens with --c-base) */
+.news .nw-tt{display:flex;align-items:stretch;flex:0 1 auto;min-width:0}
+.news .nw-tt button{position:relative;height:30px;padding:0 4px;margin-right:12px;font-size:14.5px;font-weight:var(--w-head);letter-spacing:var(--track-head);color:var(--muted);font-family:var(--font-head);display:inline-flex;align-items:center;gap:6px;white-space:nowrap;min-width:0;transition:color var(--c-fast) var(--c-out)}
+.news .nw-tt button:last-child{margin-right:0}
+.news .nw-tt button::after{content:"";position:absolute;left:4px;right:4px;bottom:0;height:2px;border-radius:2px;background:var(--acc-line);transform:scaleX(0);transition:transform var(--c-base) var(--c-out)}
+.news .nw-tt button[aria-selected="true"]{color:var(--fg)}
+.news .nw-tt button[aria-selected="true"]::after{transform:none}
+.news .nw-tt button:hover{color:var(--fg)}
+.news .nw-tt .nw-tl{overflow:hidden;text-overflow:ellipsis;min-width:0}
+.news .nw-tt .nw-tn{font-size:12px;font-weight:500;color:var(--muted);font-family:var(--sans);font-variant-numeric:tabular-nums;letter-spacing:0}
+.news .nw-tt .nw-tn:empty{display:none}
+.news .nw-tt button:focus-visible{outline-offset:0;border-radius:4px}
+.news .nw-tt button:active{filter:var(--press-f);transition-duration:0s}
 .news .nw-at{margin-left:auto;display:inline-flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums;min-width:0}
 .news .nw-at > span{overflow:hidden;text-overflow:ellipsis;min-width:0}
 .news .nw-at.stale{color:var(--acc);font-weight:600}
@@ -101,6 +121,10 @@ html:not([data-motion="reduced"]) .news .nw-row.skel .nw-sk{animation:nwSk 1.4s 
   .news{--nw-rh:auto}
   .news .nw-hd{flex-wrap:wrap}
   .news .nw-hd h2{flex:1 1 auto}
+  .news.multi .nw-hd{flex-wrap:nowrap}
+  .news.multi .nw-hd .nw-at{margin-left:auto}
+  .news .nw-tt button{height:40px;font-size:15px;margin-right:10px}
+  .news .nw-sub{flex-wrap:wrap;margin-bottom:4px}
   .news .nw-tabs{order:5;width:100%}
   .news .nw-tabs > button{min-height:40px;padding:0 6px;font-size:13px}
   .news .nw-at{margin-left:0}

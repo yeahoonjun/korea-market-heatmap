@@ -1,0 +1,122 @@
+/* 공시 배지 (src/disclosure/disc.js · docs/standards/disclosure.md — C안). drafts/disclosure.html의 C 모양 그대로, 새 공시 표시만 사용자
+   2026-11-14 결정대로 "새" 글자 대신 시각 앞의 작은 점(--new-dot). 타일 귀퉁이 · 견본(.dmsw)은 템플릿에 있어요(표 보기도 써서).
+   색은 모두 역할 토큰(themes.md §4) + 템플릿의 ✚ --dm-flap · --dm-crease · --dm-cut · --new-dot. 빨강 · 초록은 등락률 숫자에만, 앰버는
+   컨트롤(켜짐 · 포커스 · 실패 표시)에만. */
+:root{--dc-badge-r:6px}
+html[data-theme="paper"]{--dc-badge-r:2px}
+html[data-theme^="glass"]{--dc-badge-r:999px}
+
+/* 새 공시: 시각 앞의 작은 점 (글자 "새" 대신, 화면 읽기는 "새 공시") */
+.dc-dot{display:inline-block;flex:none;width:7px;height:7px;border-radius:50%;background:var(--new-dot);vertical-align:1px}
+.dc-tm{display:inline-flex;align-items:center;gap:5px;white-space:nowrap;font-variant-numeric:tabular-nums}
+
+/* 공시 종류 = 글자 배지 · 중립색 (종목 페이지 .sp-nw-tag · 뉴스의 언론사 배지와 같은 재료), 꼬리표(정정 · 철회)는 점선 테 */
+.dc-kb{display:inline-block;flex:none;font-size:11px;font-weight:500;line-height:18px;padding:0 6px;border-radius:var(--dc-badge-r);color:var(--fg2);box-shadow:inset 0 0 0 1px var(--line2);white-space:nowrap;letter-spacing:-.01em}
+.dc-kb.fix{color:var(--fg2);box-shadow:none;outline:1px dashed var(--line2);outline-offset:-1px}
+
+/* ── 머리줄 공시 칩 (controls §5-7 켜고 끄기 칩: 채움 + 테 + 체크 0 → 14px) ── */
+.dc-hchip{position:relative;display:inline-flex;align-items:center;gap:0;height:28px;padding:0 11px;border-radius:var(--r-chip);background:var(--chip-bg);box-shadow:var(--key-sh);font-size:12.5px;font-weight:600;color:var(--key-fg);white-space:nowrap;flex:none;
+  transition:background var(--c-fast) var(--c-out),box-shadow var(--c-fast) var(--c-out),transform var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out)}
+.dc-hchip .ck{display:inline-block;width:0;height:14px;opacity:0;transform:scale(.6);background:currentColor;-webkit-mask:var(--ck-mask) center/14px no-repeat;mask:var(--ck-mask) center/14px no-repeat;
+  transition:width var(--c-fast) var(--c-out),opacity var(--c-fast) var(--c-out),transform var(--c-fast) var(--c-out),margin var(--c-fast) var(--c-out)}
+.dc-hchip[aria-pressed="true"]{background:var(--chip-on);box-shadow:inset 0 0 0 1.5px var(--chip-ring),var(--key-sh)}
+.dc-hchip[aria-pressed="true"] .ck{width:14px;opacity:1;transform:none;margin-right:6px}
+.dc-hchip .dmsw,.dc-hchip .kspn{margin-right:7px}
+.dc-hchip .kspn{width:13px;height:13px}
+.dc-hchip .dc-n{margin-left:6px;color:var(--fg2);font-variant-numeric:tabular-nums}
+.dc-hchip .dc-bad{margin-left:5px;color:var(--acc);font-weight:700}
+.dc-hchip:not([aria-disabled="true"]):is(:active,.is-press){transform:translateY(1px);box-shadow:var(--key-dn);filter:var(--press-f);transition-duration:0s}
+.dc-hchip[aria-disabled="true"]{opacity:.45;cursor:not-allowed}
+.dc-hchip[title][aria-disabled="true"]{cursor:help}
+@media (pointer:coarse){ .dc-hchip::before{content:"";position:absolute;left:50%;top:50%;width:max(100%,44px);height:44px;transform:translate(-50%,-50%)} }
+@media (max-width:760px){ .dc-hchip{height:32px;padding:0 10px;font-size:13px} }
+
+/* ── 범례 항목 ── */
+.legend .dc-lg b{font-variant-numeric:tabular-nums}
+.legend .dc-lg .u{color:inherit;font-weight:600}
+.legend .dc-lg2{color:var(--muted)}
+@media (max-width:760px){ .legend .dc-lg .u,.legend .dc-lg2{display:none} }
+
+/* ── 툴팁 · 빠른 보기 덩어리 (headBlock 바로 아래, 같은 업종 목록 위) ── */
+.dsc{padding:9px 13px 9px;border-bottom:1px solid var(--line);font-size:12.5px;color:var(--fg)}
+.dsc-h{display:flex;align-items:center;gap:7px;min-height:18px;margin-bottom:5px;font-size:12px;color:var(--muted)}
+.dsc-h b{color:var(--fg2);font-weight:600}
+.dsc-h .r{margin-left:auto;display:inline-flex;align-items:center;gap:5px;font-variant-numeric:tabular-nums}
+.dsc .dr{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;column-gap:7px;min-height:24px;color:var(--fg);text-decoration:none}
+.dsc .dr .dk{display:inline-flex;gap:4px}
+.dsc .dr .tt{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12.5px}
+.dsc .dr .dc-tm{font-size:12px;color:var(--muted)}
+.dsc-more{font-size:12px;color:var(--muted);margin-top:3px;line-height:18px}
+.dsc-more b{color:var(--fg2);font-weight:500}
+.dsc-hint{font-size:11.5px;color:var(--muted);margin-top:4px}
+/* 빠른 보기: 줄 = DART 링크(새 탭) — 종류 / 제목 두 줄 / 시각, 누르는 곳 44px 이상 */
+.dsc.dsc-q .dr{grid-template-columns:auto minmax(0,1fr);grid-template-areas:"k tt" ". tm";row-gap:1px;min-height:44px;padding:6px 0;align-items:start;box-shadow:inset 0 -1px 0 var(--line);border-radius:2px}
+.dsc.dsc-q .dr:last-of-type{box-shadow:none}
+.dsc.dsc-q .dr .dk{grid-area:k;margin-top:1px}
+.dsc.dsc-q .dr .tt{grid-area:tt;white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;font-size:13.5px;line-height:20px}
+.dsc.dsc-q .dr .dc-tm{grid-area:tm}
+.dsc.dsc-q a.dr:hover .tt{text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--muted)}
+.dsc.dsc-q a.dr:visited .tt{color:var(--fg2)}
+.dsc.dsc-q a.dr:focus-visible{outline-offset:-2px}
+.dsc .dall{display:flex;margin-top:8px}
+.dsc .dc-all{position:relative;flex:1;display:inline-flex;align-items:center;justify-content:center;height:36px;border-radius:var(--r-key);background:var(--key-bg);box-shadow:var(--key-sh);color:var(--key-fg);font-size:13px;font-weight:600;
+  transition:transform var(--c-fast) var(--c-out),box-shadow var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out),background-color var(--c-base) var(--c-out)}
+.dsc .dc-all:hover{background:var(--key-hover)}
+.dsc .dc-all:is(:active,.is-press){transform:translateY(1px);box-shadow:var(--key-dn);filter:var(--press-f);transition-duration:0s}
+@media (max-width:760px){
+  .dsc{padding:10px 16px 12px}
+  .dsc.dsc-q .dr{min-height:54px;padding:8px 0}
+  .dsc.dsc-q .dr .tt{font-size:14px}
+  .dsc .dc-all{height:44px}
+}
+
+/* ── 패널의 "오늘 공시" 탭 (뉴스 카드 안 — 자리 · 채우기 · 두 단 · 더보기 · 휴대폰 규칙은 뉴스와 같아요) ── */
+/* 공시 종류 = 밑줄 탭 (controls §5-6, 종목 페이지 .sp-dfilt와 같음): 고른 칸 표시를 2px 밑줄로 */
+.news .dc-ktabs{display:flex;gap:2px;flex:1 1 auto;min-width:0;overflow-x:auto;scrollbar-width:none;padding:0;border-radius:0;background:none;box-shadow:inset 0 -1px 0 var(--line)}
+.news .dc-ktabs::-webkit-scrollbar{display:none}
+.news .dc-ktabs::before{top:auto;height:2px;border-radius:2px 2px 0 0;background:var(--acc-line);box-shadow:none}
+.news .dc-ktabs:not([data-ind]) > button[aria-pressed="true"]{background:none;box-shadow:inset 0 -2px 0 var(--acc-line)}
+.news .dc-ktabs > button{flex:none;display:inline-flex;align-items:center;gap:5px;height:30px;padding:0 9px;border-radius:0;font-size:13px;font-weight:600;color:var(--muted);white-space:nowrap}
+.news .dc-ktabs > button small{font-size:11.5px;font-weight:500;color:var(--muted);font-variant-numeric:tabular-nums}
+.news .dc-ktabs > button:hover,.news .dc-ktabs > button[aria-pressed="true"]{color:var(--fg)}
+.news .dc-ktabs > button[aria-pressed="true"] small{color:var(--fg2)}
+.news .dc-ktabs > button:focus-visible{outline-offset:-3px;border-radius:4px}
+.news .dc-ktabs > button[aria-disabled="true"]{opacity:.45;cursor:not-allowed}
+.news .dc-sub .nw-only{height:26px;font-size:12px;padding:0 10px}
+/* 줄 (PC 32px): 시각 58 · 종목 칩 150 · 종류 auto · 제목 1fr */
+.news .dc-row{position:relative;display:grid;grid-template-columns:58px 150px auto minmax(0,1fr);grid-template-areas:"t c k tt";align-items:center;column-gap:10px;height:var(--nw-rh);padding:0 6px;margin:0 -6px;border-radius:6px;box-shadow:inset 0 -1px 0 var(--row-bd);min-width:0;transition:background var(--c-fast) var(--c-out)}
+.news .dc-row:hover{background:var(--row-hov)}
+.news .dc-row .dc-tm{grid-area:t;font-size:12.5px;color:var(--muted)}
+.news .dc-row .dc-cc{grid-area:c;min-width:0;display:flex}
+.news .dc-row .dc-k{grid-area:k;display:inline-flex;gap:4px;min-width:0}
+.news .dc-row .dc-tt{grid-area:tt}
+.news .dc-pane[data-k1="1"] .dc-row .dc-kb:not(.fix){display:none}
+.news .dc-x{color:var(--muted);font-size:12px;margin-left:6px;font-variant-numeric:tabular-nums}
+.news .dc-chip,.news .dc-chipx{max-width:100%;min-width:0}
+.news .dc-cn{overflow:hidden;text-overflow:ellipsis;min-width:0}
+/* 지도에 없는 종목: 테만 있는 이름 + 시장 → 종목 페이지 */
+.news .dc-chipx{position:relative;display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 9px;border-radius:var(--r-chip);background:none;box-shadow:inset 0 0 0 1px var(--line2);font-size:12.5px;font-weight:600;color:var(--fg);white-space:nowrap;
+  transition:transform var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out)}
+.news .dc-chipx small{font-weight:500;color:var(--muted);font-size:11.5px}
+.news .dc-chipx:hover{background:var(--row-hov)}
+.news .dc-chipx:is(:active,.is-press){transform:translateY(1px);filter:var(--press-f);transition-duration:0s}
+@media (pointer:coarse){ .news :is(.dc-chipx)::before{content:"";position:absolute;left:50%;top:50%;width:max(100%,44px);height:44px;transform:translate(-50%,-50%)} }
+.news .dc-row.skel .nw-sk{display:block}
+html:not([data-motion="reduced"]) .news .dc-row.skel .nw-sk{animation:nwSk 1.4s var(--c-inout) infinite alternate}
+html[data-motion="fancy"] .news .dc-row.in{animation:nwIn var(--c-base) var(--c-out) both;animation-delay:var(--d,0ms)}
+@media (hover:none){ .news .dc-row:hover{background:none} }
+/* 휴대폰 (≤760): 1줄 종목 칩 · 종류 · 시각(오른쪽) / 2줄 제목 15px 두 줄 — 5개 + 더보기 */
+@media (max-width:760px){
+  .news .dc-sub{flex-wrap:wrap}
+  .news .dc-ktabs{flex:1 1 100%;width:100%}
+  .news .dc-ktabs > button{height:40px;padding:0 9px;font-size:13.5px}
+  .news .dc-sub .nw-only{height:32px;font-size:12.5px}
+  .news .dc-row{grid-template-columns:auto auto minmax(0,1fr);grid-template-areas:"c k t" "tt tt tt";row-gap:6px;height:auto;padding:11px 0 12px;margin:0;border-radius:0}
+  .news .dc-pane[data-k1="1"] .dc-row{grid-template-columns:auto auto minmax(0,1fr)}
+  .news .dc-row .dc-tm{justify-self:end;font-size:12px}
+  .news .dc-row .dc-cc{max-width:200px}
+  .news .dc-row .dc-tt{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;font-size:15px;line-height:21px;font-weight:500;width:100%}
+  .news .dc-row .dc-tt a{display:inline}
+  .news .dc-chip,.news .dc-chipx{height:32px;padding:0 12px;font-size:13px}
+}
+html[data-motion="reduced"] .news .dc-row{animation:none!important}

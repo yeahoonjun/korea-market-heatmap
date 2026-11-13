@@ -1677,7 +1677,12 @@ function newsRow(r, kind, now) {
     if (r.filer && bareName(r.filer) !== own) meta.push(h('span', { class: 'sp-nw-press', text: String(r.filer) }));
   } else if (r.press) meta.push(h('span', { class: 'sp-nw-press', text: String(r.press) }));
   const d = parseKst(r.datetime), rd = !d && relDate(r.date, now);
+  // 공시 배지 (disclosure.md §4-3): a DART row the map's feed has seen today shows that time (and the new dot) instead of "오늘"
+  const seen = kind === 'disc' && !d && rd === '오늘' && url && window.KHDisc && typeof window.KHDisc.info === 'function'
+    ? window.KHDisc.info((/rcpNo=(\d{14})/.exec(url) || [])[1]) : null;
   if (d) meta.push(h('time', { datetime: d.toISOString(), title: fullTime(d), text: relTime(d, now) }));
+  else if (seen && seen.s && seen.date === r.date) meta.push(h('time', { class: 'sp-nw-seen', datetime: `${r.date}T${seen.s}`, title: `${fullDate(r.date)} · 판세가 ${seen.s}에 처음 봤어요` },
+    seen.isNew ? [h('i', { class: 'sp-nw-dot', 'aria-hidden': 'true' }), h('span', { class: 'sp-vh', text: '새 공시 ' })] : null, seen.s));
   else if (rd) meta.push(h('time', { datetime: r.date, title: fullDate(r.date), text: rd }));
   const kids = [h('span', { class: 'sp-nw-t', text: String(r.title) }), h('span', { class: 'sp-nw-m' }, meta)];
   return h('li', {}, url
@@ -2238,12 +2243,17 @@ function open(code, opts) {
   code = String(code || '').trim().toUpperCase();
   if (!CODE_RE.test(code)) return false;
   const opener = (opts && opts.opener) || document.activeElement;
+  // a caller may ask for a tab (공시 배지 "공시 모두 보기" → {tab: 'news', newsKind: 'disc'}, disclosure.md §4-2)
+  const wantTab = opts && TAB[opts.tab] ? opts.tab : null, wantKind = opts && NEWS_KIND[opts.newsKind] ? opts.newsKind : null;
+  if (wantKind) { newsKind = wantKind; store.set('stockNewsKind', wantKind); }
+  if (wantTab) { S.tab = wantTab; store.set('stockTab', wantTab); }
   const target = '#s-' + code;
   if (location.hash !== target) {
     if (S.open) setHash(target, true);             // switching stocks keeps one history entry: back always returns to the map
     else { S.prevHash = HASH_RE.test(location.hash) ? '' : location.hash; S.pushed = setHash(target, false); }
   }
   if (!S.open || S.code !== code) show(code, opener);
+  else if (wantTab && R.tabs) setTab(wantTab);
   return true;
 }
 

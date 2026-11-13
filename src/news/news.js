@@ -9,7 +9,11 @@
    Data (live): GET api/news (Worker, §2-2) while the card is on screen or within 400 px and the browser tab is visible: every 3 min,
    3 → 6 → 12 → 15 min after failures, at once on kh:refresh; "오래됨" 15 min after the last answer. A list that arrives while the
    pointer / focus is in the card waits until it leaves (rows never move under a finger). Tabs = the outlets that have items (Q3).
-   Snapshot (dist/): a note + LIVE_URL link, never baked articles. */
+   Snapshot (dist/): a note + LIVE_URL link, never baked articles.
+   Feed tabs (disclosure.md §6, C안): another module may add a tab to this card — KHNews.addTab({key, label, count?, pane, list, at?,
+   render(L), onShow?, onHide?}) → the card head becomes a title tablist (시장 뉴스 · 오늘 공시, ←/→, remembered in khm.feedTab), the
+   news controls move to a second row like the other tab's, and the card keeps one height: the PC fill (whole rows, min 5, two columns
+   from 1200 px) is measured on the tab shown and handed to it as L = {measure, base, two, phone}. Only the tab shown polls its data. */
 (() => {
 'use strict';
 const KH = window.KH, M = window.KHNewsMatch;
@@ -37,16 +41,107 @@ const motion = () => (typeof KH.motion === 'function' ? KH.motion() : document.d
 
 root.setAttribute('aria-labelledby', 'news-h');
 
+/* ───────── feed tabs: 시장 뉴스 (this module) + tabs other modules add (오늘 공시) ───────── */
+const FT = { list: [{ key: 'news', label: '시장 뉴스' }], cur: 'news' };
+const ftKey = (() => { try { return JSON.parse(localStorage.getItem('khm.feedTab')); } catch (e) { return null; } })();
+const curExt = () => (FT.cur === 'news' ? null : FT.list.find(t => t.key === FT.cur) || null);
+const labelOf = t => String(typeof t.label === 'function' ? t.label() : t.label);
+const h2 = h('h2', { id: 'news-h', text: '시장 뉴스' });
+const ttl = h('div', { class: 'nw-tt', role: 'tablist', id: 'news-h', 'aria-label': '지도 아래 패널' });
+const at = h('span', { class: 'nw-at' });
+const hd = h('div', { class: 'nw-hd' });
+const newsPane = h('div', { class: 'nw-pane', id: 'news-p-news' });
+const newsSub = h('div', { class: 'nw-sub' });
+function renderTT() {
+  if (FT.list.length < 2) return;
+  if (ttl.children.length !== FT.list.length || [...ttl.children].some((b, i) => b.dataset.k !== FT.list[i].key))
+    put(ttl, FT.list.map(t => h('button', { type: 'button', role: 'tab', id: 'news-t-' + t.key, 'data-k': t.key, 'aria-controls': t.key === 'news' ? newsPane.id : t.pane.id },
+      h('span', { class: 'nw-tl' }), h('span', { class: 'nw-tn' }))));
+  for (const b of ttl.children) {
+    const t = FT.list.find(x => x.key === b.dataset.k), on = t.key === FT.cur;
+    b.setAttribute('aria-selected', String(on)); b.tabIndex = on ? 0 : -1;
+    const lab = labelOf(t), n = typeof t.count === 'function' ? String(t.count() || '') : '';
+    if (b.firstChild.textContent !== lab) b.firstChild.textContent = lab;
+    if (b.lastChild.textContent !== n) b.lastChild.textContent = n;
+  }
+}
+// the card's parts in place: one tab → the news card as it always was (h2 · outlet tabs · chip · time in one row); two or more → the
+// title tablist and the time on top, each tab's own row (outlet tabs · chip / 공시 종류 · 지도 종목만) under it
+let arrangeNews = () => {};
+function arrange() {
+  const multi = FT.list.length > 1, hasNews = !!FT.list.length && FT.list[0].key === 'news';
+  root.classList.toggle('multi', multi || !hasNews);          // a lone other tab (no 시장 뉴스 on this Worker) keeps its own row too
+  root.setAttribute('aria-labelledby', 'news-h');
+  if (multi) { put(hd, ttl, at); renderTT(); }
+  else { h2.textContent = FT.list.length ? labelOf(FT.list[0]) : '시장 뉴스'; put(hd, h2, at); }
+  if (hasNews) arrangeNews(multi);
+  for (const t of FT.list) {
+    const on = t.key === FT.cur, pane = t.key === 'news' ? newsPane : t.pane;
+    pane.hidden = multi && !on;
+    if (multi) { pane.setAttribute('role', 'tabpanel'); pane.setAttribute('aria-labelledby', 'news-t-' + t.key); }
+    else { pane.removeAttribute('role'); pane.removeAttribute('aria-labelledby'); }
+  }
+  put(root, hd, FT.list.map(t => (t.key === 'news' ? newsPane : t.pane)));
+}
+let onSelect = () => {};
+function select(key, user) {
+  const t = FT.list.find(x => x.key === key);
+  if (!t || key === FT.cur) return;
+  const was = curExt();
+  FT.cur = key;
+  if (user) { try { localStorage.setItem('khm.feedTab', JSON.stringify(key)); } catch (e) { /* private mode */ } }
+  root.dataset.feed = key;
+  if (was && typeof was.onHide === 'function') was.onHide();
+  arrange();
+  onSelect(t);
+  if (t.key !== 'news' && typeof t.onShow === 'function') t.onShow();
+}
+ttl.addEventListener('click', e => { const b = e.target.closest('button[role="tab"]'); if (b) select(b.dataset.k, true); });
+ttl.addEventListener('keydown', e => {
+  const keys = { ArrowRight: 1, ArrowLeft: -1, Home: 'first', End: 'last' };
+  if (!(e.key in keys)) return;
+  e.preventDefault();
+  const i = FT.list.findIndex(t => t.key === FT.cur), d = keys[e.key];
+  const j = d === 'first' ? 0 : d === 'last' ? FT.list.length - 1 : (i + d + FT.list.length) % FT.list.length;
+  select(FT.list[j].key, true);
+  const b = ttl.querySelector(`[data-k="${FT.list[j].key}"]`); if (b) b.focus();
+});
+function addTab(spec) {
+  if (!spec || !spec.key || spec.key === 'news' || !spec.pane || FT.list.some(t => t.key === spec.key)) return false;
+  if (!spec.pane.id) spec.pane.id = 'news-p-' + spec.key;
+  spec.pane.classList.add('nw-pane');
+  FT.list.push(spec);
+  if (ftKey === spec.key) { FT.cur = spec.key; root.dataset.feed = spec.key; }
+  arrange();
+  onSelect(FT.list.find(t => t.key === FT.cur));
+  if (FT.cur === spec.key && typeof spec.onShow === 'function') spec.onShow();
+  return true;
+}
+function removeTab(key) {
+  const i = FT.list.findIndex(t => t.key === key);
+  if (i < 0 || key === 'news') return;
+  const [t] = FT.list.splice(i, 1);
+  t.pane.remove();
+  if (FT.cur === key && typeof t.onHide === 'function') t.onHide();
+  if (!FT.list.length) { root.hidden = true; return; }          // nothing left (시장 뉴스 was gone too)
+  if (FT.cur === key) { FT.cur = FT.list[0].key; root.dataset.feed = FT.cur; }
+  arrange();
+  onSelect(FT.list.find(x => x.key === FT.cur));
+}
+root.dataset.feed = 'news';
+
 /* ───────── snapshot: a note in the card's place (no articles in the build — 시점 · 저작권) ───────── */
 if (!LIVE) {
   root.classList.add('is-snap');
-  put(root, h('div', { class: 'nw-hd' }, h('h2', { id: 'news-h', text: '시장 뉴스' })),
-    h('div', { class: 'nw-list is-msg' }, h('div', { class: 'nw-msg' },
-      h('b', { text: '뉴스는 실시간 버전에서 볼 수 있어요' }),
-      h('small', { text: '언론사 RSS의 시장 뉴스 제목을 3분마다 새로 받아 와요. 이 미리보기는 네트워크가 막혀 있어요.' }),
-      h('a', { href: KH.LIVE_URL, target: '_blank', rel: 'noopener', text: '실시간 버전 열기' }))));
+  put(newsPane, h('div', { class: 'nw-list is-msg' }, h('div', { class: 'nw-msg' },
+    h('b', { text: '뉴스는 실시간 버전에서 볼 수 있어요' }),
+    h('small', { text: '언론사 RSS의 시장 뉴스 제목을 3분마다 새로 받아 와요. 이 미리보기는 네트워크가 막혀 있어요.' }),
+    h('a', { href: KH.LIVE_URL, target: '_blank', rel: 'noopener', text: '실시간 버전 열기' }))));
+  onSelect = () => { put(at); };
+  arrange();
   root.hidden = false;
-  window.KHNews = { show() { root.hidden = false; }, hide() { root.hidden = true; }, refresh: () => Promise.resolve(false) };
+  window.KHNews = { show() { root.hidden = false; }, hide() { root.hidden = true; }, refresh: () => Promise.resolve(false),
+    addTab, removeTab, select: k => select(k, false), tab: () => FT.cur, update() { renderTT(); }, relayout() {} };
   return;
 }
 
@@ -90,15 +185,20 @@ const codesOf = it => [...new Set(matchOf(it).marks.flatMap(x => x.codes))].filt
 const tabs = h('div', { class: 'movers-tabs nw-tabs', role: 'group', 'aria-label': '언론사' });
 const onlyBtn = h('button', { type: 'button', class: 'nw-only', 'aria-pressed': 'false' },
   h('i', { class: 'nw-ck', 'aria-hidden': 'true' }), '지도 종목 기사만', h('span', { class: 'nw-n' }));
-const at = h('span', { class: 'nw-at' });
-const hd = h('div', { class: 'nw-hd' }, h('h2', { id: 'news-h', text: '시장 뉴스' }), tabs, onlyBtn, at);
 const note = h('div', { class: 'nw-note', hidden: true });
 const list = h('ol', { class: 'nw-list', 'aria-labelledby': 'news-h' });
 const more = typeof UI.akey === 'function' ? UI.akey('nw-kbtn nw-more', { idle: '더보기 (30개)', less: '접기' }, 'idle')
   : h('button', { type: 'button', class: 'nw-kbtn nw-more', text: '더보기' });
 more.setAttribute('aria-expanded', 'false');
 const credit = h('small');
-put(root, hd, note, list, h('div', { class: 'nw-ft' }, more, credit));
+const newsFt = h('div', { class: 'nw-ft' }, more, credit);
+// one tab: the outlet tabs and the chip sit in the head row (as before); several: in this tab's own row under the title tabs
+arrangeNews = multi => {
+  if (multi) { put(newsSub, tabs, onlyBtn); put(newsPane, newsSub, note, list, newsFt); }
+  else { put(newsPane, note, list, newsFt); hd.insertBefore(tabs, at); hd.insertBefore(onlyBtn, at); }
+  list.setAttribute('aria-labelledby', multi ? 'news-t-news' : 'news-h');
+};
+arrange();
 root.dataset.tab = 'all';
 
 /* ───────── helpers ───────── */
@@ -120,6 +220,8 @@ const reading = () => S.ptr || root.contains(document.activeElement);
 let staleSpan = null;
 function staleText() { const m = Math.max(15, Math.round((Date.now() - S.okAt) / 60000)); return `${timeText(S.data.asOf)} 기준 · ${m}분째 못 받았어요`; }
 function renderHead() {
+  const ext = curExt();
+  if (ext) { staleSpan = null; at.classList.remove('stale'); put(at, typeof ext.at === 'function' ? ext.at(at) : null); return; }
   if (S.loading && !S.data) { at.classList.remove('stale'); staleSpan = null; put(at, icon('spin'), h('span', { text: '불러오는 중' })); return; }
   if (!S.data) { at.classList.remove('stale'); staleSpan = null; put(at, h('span', { text: '받은 목록 없음' })); return; }
   if (staleNow()) {
@@ -187,6 +289,9 @@ function msg(title, sub, retry) {
 
 /* ───────── render ───────── */
 function baseRows() { return narrowMQ.matches ? PHONE_ROWS : deskMQ.matches ? S.n : TAB_ROWS; }
+// what another tab draws with: the same rows, columns and phone / tablet rules as the news list
+const extLayout = measure => ({ measure: !!measure, base: baseRows(), two: deskMQ.matches && S.two && !measure, phone: narrowMQ.matches, rowsMax: MAX_ROWS });
+function renderExt(ext, measure) { renderTT(); renderHead(); ext.render(extLayout(measure)); }
 function render(o = {}) {
   const d = S.data, phone = narrowMQ.matches, two = deskMQ.matches && S.two && !S.measure;
   const none = !d || !d.items.length;
@@ -238,10 +343,18 @@ function render(o = {}) {
 /* ───────── PC fill: the card is stretched to the side column's end; whole rows that fit, at least 5 ───────── */
 function fit() {
   if (root.hidden) return;
-  if (!deskMQ.matches) { S.two = false; render(); return; }
+  const ext = curExt();
+  if (!deskMQ.matches) { S.two = false; if (ext) renderExt(ext); else render(); return; }
   S.two = root.clientWidth >= TWO_COL_W;
-  S.measure = true; render();
   const rh = parseFloat(getComputedStyle(root).getPropertyValue('--nw-rh')) || 32;
+  if (ext) {
+    renderExt(ext, true);
+    const r = Math.max(MIN_ROWS, Math.floor((ext.list.clientHeight + 0.5) / rh));
+    S.n = S.two ? r * 2 : r;
+    renderExt(ext);
+    return;
+  }
+  S.measure = true; render();
   const r = Math.max(MIN_ROWS, Math.floor((list.clientHeight + 0.5) / rh));
   S.measure = false; S.n = S.two ? r * 2 : r;
   render();
@@ -249,7 +362,7 @@ function fit() {
 const stage = document.querySelector('main.layout > .stage'), side = document.querySelector('main.layout > .side');
 let fitKey = '', fitRaf = 0;
 function layoutKey() {
-  return [deskMQ.matches, narrowMQ.matches, root.clientWidth, stage ? stage.offsetHeight : 0,
+  return [FT.cur, deskMQ.matches, narrowMQ.matches, root.clientWidth, stage ? stage.offsetHeight : 0,
     side ? [...side.children].map(c => c.offsetHeight).join(',') : ''].join('|');
 }
 function refit(force) {
@@ -297,7 +410,7 @@ function load(o = {}) {
     try { data = accept(await getJSON('api/news')); } catch (e) { data = null; missing = e && e.status === 404; }
     S.loading = false; S.busy = null;
     // 404 = a Worker without /api/news (the page went out first): no card at all — the layout is the one without news — until a reload
-    if (missing && !S.data) { S.gone = true; hide(); return false; }
+    if (missing && !S.data) { S.gone = true; goneNews(); return false; }
     if (data) {
       S.tries = 0; S.okAt = Date.now();
       if (o.silent) { S.data = data; S.next = null; ensureIdx(); }   // 다시 시도: its ✓ shows first, then its render() draws
@@ -312,7 +425,7 @@ function load(o = {}) {
   })();
   return S.busy;
 }
-const active = () => S.visible && S.near && !document.hidden && !root.hidden && !S.gone;
+const active = () => S.visible && S.near && !document.hidden && !root.hidden && !S.gone && FT.cur === 'news';
 function schedule() {
   clearTimeout(S.timer); S.timer = 0;
   if (!active() || S.busy) return;
@@ -380,7 +493,7 @@ document.addEventListener('kh:data', () => {
     if (v.textContent !== t) { v.textContent = t; v.className = cls(q.r); b.setAttribute('aria-label', `${q.n} ${t} · 빠른 보기`); }
   }
 });
-document.addEventListener('kh:refresh', () => { if (!S.gone && !root.hidden && root.offsetParent && !document.hidden) load(); });
+document.addEventListener('kh:refresh', () => { if (!S.gone && !root.hidden && root.offsetParent && !document.hidden && FT.cur === 'news') load(); });
 document.addEventListener('visibilitychange', () => { if (document.hidden) { clearTimeout(S.timer); S.timer = 0; } else schedule(); });
 if ('IntersectionObserver' in window) {
   new IntersectionObserver(es => { for (const e of es) S.near = e.isIntersecting; schedule(); }, { rootMargin: '400px 0px' }).observe(root);
@@ -389,16 +502,36 @@ setInterval(() => { if (S.visible && S.data && !document.hidden && staleNow()) r
 
 /* ───────── API ───────── */
 function show() {
-  if (S.gone) return;
+  if (S.gone && FT.list.length < 2) return;
   root.hidden = false; S.visible = true;
   if (typeof UI.seg === 'function') UI.seg(tabs);
-  ensureIdx(); render(); refit(true); schedule();
+  ensureIdx(); render(); renderTT(); refit(true); schedule();
 }
 function hide() {
   root.hidden = true; S.visible = false;
   clearTimeout(S.timer); S.timer = 0;
   setHover(null);
 }
-window.KHNews = { show, hide, refresh: () => load() };
+// a Worker without /api/news (404): no 시장 뉴스 — the card stays only when another tab has something to show
+function goneNews() {
+  const fn = document.getElementById('foot-news'); if (fn) fn.hidden = true;
+  if (FT.list.length < 2) { hide(); return; }
+  FT.list.shift();
+  if (FT.cur === 'news') { FT.cur = FT.list[0].key; root.dataset.feed = FT.cur; }
+  newsPane.remove();
+  arrange(); onSelect(curExt());
+}
+onSelect = t => {
+  if (!t || t.key === 'news') { render(); refit(true); schedule(); return; }
+  clearTimeout(S.timer); S.timer = 0;
+  setHover(null);
+  renderExt(t); refit(true);
+};
+window.KHNews = { show, hide, refresh: () => load(),
+  addTab, removeTab, select: k => select(k, false), tab: () => FT.cur,
+  // a tab's label / count / head line changed (no list redraw)
+  update() { renderTT(); if (curExt()) renderHead(); },
+  // the tab's content changed size or rule (a state message, the phone): fill again
+  relayout: () => refit(true) };
 show();
 })();

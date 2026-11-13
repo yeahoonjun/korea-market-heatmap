@@ -69,9 +69,12 @@ def module(folder: str, name: str) -> str:
 
 
 def stock_module() -> str:
-    """The stock page (src/stock/), the extras (src/extras/), world (src/world/) and news (src/news/) are inlined after the heatmap script."""
+    """The stock page (src/stock/), the extras (src/extras/), world (src/world/), news (src/news/) and disclosure (src/disclosure/) are
+    inlined after the heatmap script."""
     # news (docs/standards/news.md §11 ④): match.js (headline names) before news.js; the snapshot shows only a note — no articles baked in
-    return module("stock", "stock") + module("extras", "extras") + module("world", "world") + module("news", "match") + module("news", "news")
+    # 공시 배지 (docs/standards/disclosure.md §13 ⑧): after news (it adds the 오늘 공시 tab to the news card); the snapshot: a note only
+    return (module("stock", "stock") + module("extras", "extras") + module("world", "world") + module("news", "match") + module("news", "news")
+            + module("disclosure", "disc"))
 
 
 DATA_FILES = ("themes", "periods", "flows", "market")   # market: /api/market after the close (index spark for the §3-20 header line)
