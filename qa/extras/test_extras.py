@@ -21,7 +21,7 @@ HERE = pathlib.Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
 SHOTS = ROOT / 'qa/shots/extras'
 SHOTS.mkdir(parents=True, exist_ok=True)
-PORT = 8796
+PORT = int(__import__('os').environ.get('EXTRAS_QA_PORT', 8796))      # EXTRAS_QA_PORT: another worktree's mock may own 8796
 LIVE = f'http://127.0.0.1:{PORT}/'
 SNAP = (ROOT / 'dist/index.html').as_uri()
 SHIM = (HERE / 'shim.js').read_text(encoding='utf-8')

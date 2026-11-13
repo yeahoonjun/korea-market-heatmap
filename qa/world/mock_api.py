@@ -7,8 +7,9 @@ Routes: /api/world?kind=index|commodity[&with=fx,rates], /api/world/chart/<key>?
         /api/quotes, /api/market, /api/replay/dates, /api/breadth, /api/themes, /data/<name>.json, static files from web/.
 Test controls (not part of the contract):
   /__mode?world=ok|fail|empty|closed|slow|html404|drift&chart=ok|none|fail   switch failure modes
-         &macro=off|on|calc|norates   환율 · 금리 (AGENTS §3-28): off (default) = an older Worker that ignores `with`; on = the
-                                    fixtures/world_macro.json groups; calc = 달러/엔 as the Worker's computed stand-in; norates = fx only
+         &macro=off|on|eod|norates   환율 · 금리 (AGENTS §3-28): off (default) = an older Worker that ignores `with`; on = the
+                                    fixtures/world_macro.json groups (달러/엔 = the computed cross, `calc`); eod = 달러/엔 as the
+                                    Worker's fallback, the 레피니티브 daily close; norates = fx only
                                     (drift: every answer moves values a little, deterministically, to test in-place refresh)
   /__stats   request counts per route        /__reset   counts + modes back to default
   /__last?kind=index|commodity   the last /api/world answer sent
@@ -125,13 +126,11 @@ class H(SimpleHTTPRequestHandler):
             d = json.loads(json.dumps(WORLD[kind]))
             for g in json.loads(json.dumps(MACRO['groups'])):
                 if g['key'] in want and not (g['key'] == 'rates' and MODE['macro'] == 'norates'):
-                    if g['key'] == 'fx' and MODE['macro'] == 'calc':
+                    if g['key'] == 'fx' and MODE['macro'] == 'eod':
                         for it in g['items']:
-                            if it['key'] == 'USDJPY':
-                                usd = next(x for x in g['items'] if x['key'] == 'FX_USDKRW'); jpy = next(x for x in g['items'] if x['key'] == 'FX_JPYKRW')
-                                v = usd['value'] / (jpy['value'] / 100); pv = (usd['value'] - usd['change']) / ((jpy['value'] - jpy['change']) / 100)
-                                it.clear(); it.update(key='USDJPY', name='달러/엔', value=round(v, 2), change=round(v - pv, 2), ratio=round((v / pv - 1) * 100, 2),
-                                                      status='OPEN', tradedAt=usd['tradedAt'], unit='JPY', tz='Asia/Seoul', calc=True, via='하나은행 고시로 계산')
+                            if it['key'] == 'USDJPY':          # exchangeWorld/USDJPY as seen 2026-11-13 23:15 KST
+                                it.clear(); it.update(key='USDJPY', name='달러/엔', value=159.83, change=0.07, ratio=0.04, status='CLOSE',
+                                                      tradedAt='2026-11-12T00:00:00+09:00', unit='JPY', eod=True, via='레피니티브')
                     d['groups'].append(g)
             d['asOf'] = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
             if mode == 'empty':

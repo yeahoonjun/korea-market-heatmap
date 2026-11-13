@@ -173,7 +173,7 @@ function stripItem(it) {
 
 /* ── §3-22 ticker: what flows, what a tap opens, how it pauses ── */
 const TKI_KEY = 'khm.tickerItems';
-const TK_WORLD = { SPX_F: 'EScv1', NDX_F: 'NQcv1', WTI: 'CLcv1', GOLD: 'GCcv1', KOSPI: 'KOSPI', KOSDAQ: 'KOSDAQ' };   // strip key → /api/world key
+const TK_WORLD = { SPX_F: 'EScv1', NDX_F: 'NQcv1', WTI: 'CLcv1', GOLD: 'GCcv1', KOSPI: 'KOSPI', KOSDAQ: 'KOSDAQ', USDKRW: 'FX_USDKRW' };   // strip key → /api/world key
 const TK_SEARCH = { USDKRW: '원달러 환율', BTC: '비트코인 시세' };
 const tkn = id => (String(id).includes(':') ? String(id) : 'm:' + id);
 function tkiGet() {

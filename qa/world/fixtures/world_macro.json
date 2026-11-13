@@ -1,5 +1,5 @@
 {
- "asOf": "2026-11-13T14:36:11.617Z",
+ "asOf": "2026-11-13T14:44:56.227Z",
  "kind": "commodity",
  "groups": [
   {
@@ -13,7 +13,7 @@
      "change": 0.7,
      "ratio": 0.05,
      "status": "OPEN",
-     "tradedAt": "2026-11-13T23:35:43+09:00",
+     "tradedAt": "2026-11-13T23:43:04+09:00",
      "unit": "KRW",
      "tz": "Asia/Seoul",
      "via": "하나은행 고시"
@@ -21,11 +21,11 @@
     {
      "key": "FX_JPYKRW",
      "name": "원/엔(100엔)",
-     "value": 836.09,
-     "change": 0.02,
-     "ratio": 0,
+     "value": 836.25,
+     "change": 0.18,
+     "ratio": 0.02,
      "status": "OPEN",
-     "tradedAt": "2026-11-13T23:35:43+09:00",
+     "tradedAt": "2026-11-13T23:43:04+09:00",
      "unit": "KRW",
      "tz": "Asia/Seoul",
      "via": "하나은행 고시"
@@ -33,11 +33,11 @@
     {
      "key": "FX_EURKRW",
      "name": "원/유로",
-     "value": 1477.27,
-     "change": -0.16,
-     "ratio": -0.01,
+     "value": 1478.01,
+     "change": 0.58,
+     "ratio": 0.04,
      "status": "OPEN",
-     "tradedAt": "2026-11-13T23:35:43+09:00",
+     "tradedAt": "2026-11-13T23:43:04+09:00",
      "unit": "KRW",
      "tz": "Asia/Seoul",
      "via": "하나은행 고시"
@@ -45,11 +45,11 @@
     {
      "key": "FX_CNYKRW",
      "name": "원/위안",
-     "value": 200.36,
-     "change": 0.09,
-     "ratio": 0.04,
+     "value": 200.38,
+     "change": 0.11,
+     "ratio": 0.05,
      "status": "OPEN",
-     "tradedAt": "2026-11-13T23:35:43+09:00",
+     "tradedAt": "2026-11-13T23:43:04+09:00",
      "unit": "KRW",
      "tz": "Asia/Seoul",
      "via": "하나은행 고시"
@@ -58,10 +58,10 @@
      "key": "DXY",
      "name": "달러인덱스",
      "value": 103.25,
-     "change": 0.08,
+     "change": 0.07,
      "ratio": 0.07,
      "status": "OPEN",
-     "tradedAt": "2026-11-13T09:25:27-05:00",
+     "tradedAt": "2026-11-13T09:34:42-05:00",
      "delayed": 10,
      "tz": "EST5EDT",
      "via": "미국 ICE선물거래소"
@@ -69,14 +69,15 @@
     {
      "key": "USDJPY",
      "name": "달러/엔",
-     "value": 159.83,
-     "change": 0.07,
-     "ratio": 0.04,
-     "status": "CLOSE",
-     "tradedAt": "2026-11-12T00:00:00+09:00",
+     "value": 159.9,
+     "change": 0.05,
+     "ratio": 0.03,
+     "status": "OPEN",
+     "tradedAt": "2026-11-13T23:43:04+09:00",
      "unit": "JPY",
-     "eod": true,
-     "via": "레피니티브"
+     "calc": true,
+     "via": "하나은행 고시로 계산",
+     "tz": "Asia/Seoul"
     }
    ]
   },
@@ -130,7 +131,7 @@
      "change": 0.0097,
      "ratio": 0.2,
      "status": "OPEN",
-     "tradedAt": "2026-11-13T09:29:53-05:00",
+     "tradedAt": "2026-11-13T09:39:56-05:00",
      "tz": "America/New_York",
      "via": "레피니티브",
      "unit": "%",
@@ -139,28 +140,28 @@
     {
      "key": "US10YT",
      "name": "미국 국채 10년",
-     "value": 5.162,
-     "change": 0.0586,
-     "ratio": 1.15,
+     "value": 5.172,
+     "change": 0.0688,
+     "ratio": 1.35,
      "status": "OPEN",
-     "tradedAt": "2026-11-13T09:29:48-05:00",
+     "tradedAt": "2026-11-13T09:39:56-05:00",
      "tz": "America/New_York",
      "via": "레피니티브",
      "unit": "%",
-     "bp": 5.86
+     "bp": 6.88
     },
     {
      "key": "US30YT",
      "name": "미국 국채 30년",
-     "value": 5.485,
-     "change": 0.055,
-     "ratio": 1.01,
+     "value": 5.499,
+     "change": 0.069,
+     "ratio": 1.27,
      "status": "OPEN",
-     "tradedAt": "2026-11-13T09:29:54-05:00",
+     "tradedAt": "2026-11-13T09:40:00-05:00",
      "tz": "America/New_York",
      "via": "레피니티브",
      "unit": "%",
-     "bp": 5.5
+     "bp": 6.9
     },
     {
      "key": "JP10YT",

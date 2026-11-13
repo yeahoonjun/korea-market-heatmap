@@ -8,7 +8,8 @@
    the 달러/엔 cross, validation (400s), the chart route for an FX item and a bond, and that plain kind=commodity is unchanged.
 2. UI against qa/world/mock_api.py on FX_QA_PORT (8843) with /__mode?macro=on (fixtures/world_macro.json, recorded from 1.):
    tab label 지표, block captions, notes, % / bp formatting, colours, sheet + chart for an FX item and a bond, keyboard,
-   등락률순, an older Worker (macro=off), the 계산값 stand-in (macro=calc), all four themes at 390 and 1280, the snapshot page.
+   등락률순, an older Worker (macro=off), the 레피니티브-close fallback for 달러/엔 (macro=eod), all four themes at 390 and 1280,
+   the snapshot page.
    Screenshots: /tmp/fx_<theme>_<width>.png, /tmp/fx_sheet_<fx|bond>_<width>.png, /tmp/fx_pct_1280.png.
 Exit code 1 if any check fails.
 """
@@ -100,9 +101,15 @@ def worker_pass():
               '; '.join(bad) or ', '.join(f"{k} {v['value']}" for k, v in fx.items()))
         if 'USDJPY' in fx and 'FX_USDKRW' in fx and 'FX_JPYKRW' in fx:
             cross = fx['FX_USDKRW']['value'] / (fx['FX_JPYKRW']['value'] / 100)
-            off = abs(fx['USDJPY']['value'] / cross - 1)
-            src = '계산값' if fx['USDJPY'].get('calc') else ('레피니티브 종가' if fx['USDJPY'].get('eod') else '?')
-            check('worker: 달러/엔 ≈ 원/달러 ÷ (원/엔 ÷ 100) within 2%', off < 0.02, f"{fx['USDJPY']['value']} vs {cross:.2f} ({off * 100:.2f}%), source {src}")
+            u = fx['USDJPY']
+            check('worker: 달러/엔 = 원/달러 ÷ (원/엔 ÷ 100) of the same round, calc, 하나은행 고시로 계산',
+                  u.get('calc') is True and not u.get('eod') and abs(u['value'] - round(cross, 2)) < 0.006 and u.get('via') == '하나은행 고시로 계산'
+                  and u.get('unit') == 'JPY' and u['status'] == ('OPEN' if fx['FX_USDKRW']['status'] == 'OPEN' and fx['FX_JPYKRW']['status'] == 'OPEN' else 'CLOSE'),
+                  f"{u['value']} vs {cross:.4f}, {u['status']}, {u.get('via')}")
+            pu, pj = fx['FX_USDKRW']['value'] - fx['FX_USDKRW']['change'], fx['FX_JPYKRW']['value'] - fx['FX_JPYKRW']['change']
+            prev = pu / (pj / 100)
+            check('worker: 달러/엔 change = cross − the previous rates\' cross', abs(u['change'] - round(cross - prev, 2)) < 0.011 and abs(u['ratio'] - round((cross / prev - 1) * 100, 2)) < 0.011,
+                  f"{u['change']} / {u['ratio']}% vs {cross - prev:.3f} / {(cross / prev - 1) * 100:.3f}%")
         rr = {'KR': (0.5, 8), 'US': (0.5, 10), 'JP': (-1, 5)}
         bad = [f"{k} {v['value']}" for k, v in rt.items() if not rr[k[:2]][0] <= v['value'] <= rr[k[:2]][1]]
         check('worker: yields plausible (%), unit %', not bad and all(v.get('unit') == '%' for v in rt.values()) and len(rt) == 7, '; '.join(bad) or ', '.join(f"{k} {v['value']}" for k, v in rt.items()))
@@ -136,9 +143,35 @@ def worker_pass():
             check(f'worker: chart {key} {tf} — daily closes, sorted, plausible', ok, f"{s} {len(bars)} bars {bars[0] if bars else ''} … {bars[-1] if bars else ''}")
         s, b = get(WORKER + '/api/world/chart/KR3YT?tf=1d')
         check('worker: chart tf=1d still 400 for these', s == 400)
+        fallback_pass()
     finally:
         if proc:
             proc.terminate()
+
+
+FALLBACK_MJS = r'''
+const w = (await import(process.argv[1])).default;
+const real = globalThis.fetch;
+globalThis.caches = { default: { match: async () => undefined, put: async () => {} } };
+globalThis.fetch = (u, o) => /marketindex\/exchange$/.test(String(u)) ? Promise.resolve(new Response('down', { status: 503 })) : real(u, o);
+const r = await w.fetch(new Request('http://x/api/world?kind=commodity&with=fx'), {}, { waitUntil() {} });
+console.log(JSON.stringify(await r.json()));
+'''
+
+
+def fallback_pass():
+    """the cross cannot be had (the exchange list is down) → 달러/엔 = exchangeWorld/USDJPY, the 레피니티브 daily close (eod)"""
+    env = dict(os.environ, NODE_USE_ENV_PROXY='1')
+    r = subprocess.run(['node', '--input-type=module', '-e', FALLBACK_MJS, str(ROOT / 'worker/src/index.js')], env=env, capture_output=True, text=True, timeout=90)
+    try:
+        j = json.loads(r.stdout.strip().splitlines()[-1])
+        fx = next(g for g in j['groups'] if g['key'] == 'fx')['items']
+    except Exception as e:
+        check('worker fallback: exchange list down → 달러/엔 from the 레피니티브 close', False, f'{e}: {r.stdout[-200:]} {r.stderr[-200:]}')
+        return
+    u = fx[0] if len(fx) == 1 else None
+    check('worker fallback: exchange list down → only 달러/엔, the 레피니티브 close (eod, not calc)', u and u['key'] == 'USDJPY' and u.get('eod') is True
+          and not u.get('calc') and u.get('via') == '레피니티브' and 80 <= u['value'] <= 250, json.dumps(fx, ensure_ascii=False)[:240])
 
 
 # ───────── 2. UI ─────────
@@ -234,6 +267,7 @@ LAYOUT_JS = r"""
   return {
     kids, secs, fx: head('fx'), rates: head('rates'), energy: head('energy'),
     dxy: sub('DXY'), usdjpy: sub('USDJPY'), krw: sub('FX_USDKRW'),
+    usdjpySt: (L.querySelector('.kw-lr[data-k="USDJPY"] .kw-ls .st') || {}).textContent,
     title: document.querySelector('#world .kw-title').textContent, sum: document.querySelector('#world .kw-sum').textContent,
     rankSub: (document.querySelector('#world .kw-rank-sub') || {}).textContent, rankKeys: [...document.querySelectorAll('#world .kw-row')].map(b => b.dataset.k),
     tab: tabBtn.textContent, tabAria: tabBtn.getAttribute('aria-label'),
@@ -270,7 +304,8 @@ def ui_tab_pass(browser, theme, width, height):
         check(f'{tag}: no horizontal overflow', lay['over'] <= 0, f"{lay['over']}px")
         check(f'{tag}: summary + 많이 오른·내린 = 원자재 only, labelled', lay['sum'].startswith('원자재') and lay['rankSub'] == f'원자재 {N_CM}개 중'
               and lay['rankKeys'] and not any(ITEMS[k]['gkey'] in ('fx', 'rates') for k in lay['rankKeys'] if k in ITEMS), f"{lay['sum']} / {lay['rankSub']}")
-        check(f'{tag}: source names 하나은행 고시 · 레피니티브 · 달러/엔 종가', '하나은행 고시' in lay['src'] and '레피니티브' in lay['src'] and '달러/엔은 하루 한 번' in lay['src'], lay['src'][:160])
+        check(f'{tag}: source names 하나은행 고시 · 레피니티브 · 달러/엔 계산값', '하나은행 고시' in lay['src'] and '레피니티브' in lay['src'] and '달러/엔은 원/달러와 원/엔으로 계산한' in lay['src'], lay['src'][-160:])
+        check(f'{tag}: 달러/엔 state column says 계산값', lay['usdjpySt'] == '계산값', str(lay['usdjpySt']))
         if width >= 1280:
             cm = [x for x in lay['colsTop'] if x[0] == 'cm']
             mx = [x for x in lay['colsTop'] if x[0] == 'mx']
@@ -333,9 +368,10 @@ def sheet_pass(page, width):
     page.screenshot(path=f'/tmp/fx_sheet_bond_{width}.png')
     page.keyboard.press('Escape')
     s = open_sheet(page, 'USDJPY')
-    eod = ITEMS['USDJPY'].get('eod')
-    check(f'{tag}: 달러/엔 sheet — 엔 (1달러당), {"종가 date, no time" if eod else "time"}', s and s['meta'].get('단위') == '엔 (1달러당)' and '오르면 엔화 약세' in s['note']
-          and (('기준일' in s['meta'] and s['meta']['기준일'].endswith('종가') and '한국 시각' not in s['meta']) if eod else '현지 거래 시각' in s['meta']), json.dumps(s['meta'], ensure_ascii=False))
+    check(f'{tag}: 달러/엔 sheet — 계산값, 엔 (1달러당), 하나은행 고시로 계산; source line says the chart is the 레피니티브 close',
+          s and ITEMS['USDJPY'].get('calc') and s['meta'].get('단위') == '엔 (1달러당)' and '오르면 엔화 약세' in s['note'] and '계산값' in s['meta'].get('시세', '')
+          and s['meta'].get('기준') == '하나은행 고시로 계산' and '현지 거래 시각' in s['meta'] and '차트는 레피니티브 종가' in s['src'] and '레피니티브 일봉' in s['text'],
+          json.dumps({'meta': s['meta'], 'src': s['src']}, ensure_ascii=False))
     page.keyboard.press('Escape')
     s = open_sheet(page, 'DXY')
     check(f'{tag}: 달러인덱스 sheet — note "오르면 달러 강세", 10분 지연', s and '오르면 달러 강세' in s['note'] and '10분 지연' in s['meta'].get('시세', ''), json.dumps(s['meta'], ensure_ascii=False))
@@ -394,19 +430,22 @@ def old_worker_pass(browser):
         mode(macro='on')
 
 
-def calc_pass(browser):
-    mode(macro='calc')
+def eod_pass(browser):
+    """the Worker's fallback: 달러/엔 = the 레피니티브 daily close (eod)"""
+    mode(macro='eod')
     try:
         ctx, page = open_page(browser, LIVE + '#cmdty', 390, 844)
         try:
             wait_list(page, N_ALL)
             lay = page.evaluate(LAYOUT_JS)
-            check('계산값 stand-in: 달러/엔 row tagged 계산값 (a tag, never cut)', lay['usdjpy'] and lay['usdjpy']['text'] == '계산값' and lay['usdjpy']['tag'] and lay['usdjpy']['shown'], str(lay['usdjpy']))
+            check('fallback close: 달러/엔 row says 마감 + 오르면 엔화 약세, source says 하루 한 번 종가', lay['usdjpySt'] == '마감' and lay['usdjpy']['text'] == '오르면 엔화 약세'
+                  and lay['usdjpy']['shown'] and '달러/엔은 하루 한 번 바뀌는 종가' in lay['src'] and not lay['bad'], f"{lay['usdjpySt']} {lay['usdjpy']}")
             page.click('#world .kw-lr[data-k="USDJPY"]')
-            page.wait_for_selector('.kw-sheet:not([hidden])')
+            page.wait_for_selector('.kw-sheet:not([hidden]) .kw-svg', timeout=10000)
             page.wait_for_timeout(300)
             s = page.evaluate(SHEET_JS)
-            check('계산값 stand-in: sheet says 계산값', s and '계산값' in s['meta'].get('시세', '') and '계산값' in s['note'], json.dumps(s and s['meta'], ensure_ascii=False))
+            check('fallback close: sheet = 기준일 … 종가 (no time), 레피니티브, no 계산값', s and s['meta'].get('기준일', '').endswith('종가') and '한국 시각' not in s['meta']
+                  and s['meta'].get('기준') == '레피니티브' and '계산값' not in s['text'] and '하루 한 번 종가' in s['src'], json.dumps(s and s['meta'], ensure_ascii=False))
         finally:
             ctx.close()
     finally:
@@ -441,6 +480,21 @@ def other_tab_pass(browser):
         page.click('.tabs button[data-mkt="CMDTY"]')
         wait_list(page, N_ALL)
         check('tab switch 해외 → 지표 asks with=fx,rates', any('kind=commodity&with=fx,rates' in u for u in reqs), str(reqs[-2:]))
+    finally:
+        ctx.close()
+
+
+def ticker_pass(browser):
+    """extras ticker: tapping 원/달러 (strip key USDKRW) opens the FX_USDKRW sheet (TK_WORLD), not the Naver-link box"""
+    ctx, page = open_page(browser, LIVE + '#kospi', 1280, 800)
+    try:
+        page.wait_for_selector('.xs-item[data-k="USDKRW"]', timeout=15000)
+        page.wait_for_timeout(500)
+        page.evaluate("document.querySelector('.xs-item[data-k=USDKRW]').click()")   # the strip scrolls: a real click never sees it stable
+        page.wait_for_selector('.kw-sheet:not([hidden]) .kw-svg', timeout=10000)
+        page.wait_for_timeout(300)
+        r = page.evaluate("({ t: document.querySelector('#kw-dt').textContent, info: !!document.querySelector('dialog.xk-info[open]') })")
+        check('ticker: 원/달러 opens the 원/달러 sheet with its chart', r['t'] == '원/달러' and not r['info'], str(r))
     finally:
         ctx.close()
 
@@ -483,9 +537,10 @@ def main():
             ui_tab_pass(browser, 'base', 1920, 1080)
             pct_sort_pass(browser)
             old_worker_pass(browser)
-            calc_pass(browser)
+            eod_pass(browser)
             norates_pass(browser)
             other_tab_pass(browser)
+            ticker_pass(browser)
             snapshot_pass(browser)
             browser.close()
         check('console errors 0, no failed /api/world* requests', not ERR.items and not ERR.http, '; '.join((ERR.items + ERR.http)[:4]))

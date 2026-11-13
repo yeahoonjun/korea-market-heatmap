@@ -486,8 +486,9 @@ for (const kind of Object.keys(WORLD_CFG)) for (const g of WORLD_CFG[kind]) for 
 /* 지표 tab: 환율 · 금리 groups (AGENTS §3-28), added to kind=commodity by `with=fx,rates`. Probed 2026-11-13:
    - exchange list `api.stock.naver.com/marketindex/exchange` (one call): FX_USDKRW · FX_JPYKRW (100엔) · FX_EURKRW · FX_CNYKRW
      (하나은행 고시, 실시간) and .DXY (ICE, 10분 지연). The polling host has no `exchange` category (404).
-   - 달러/엔: FX_USDJPY and JPY= do not exist; `exchangeWorld/USDJPY` does (레피니티브, 하루 한 번 종가 — `eod`), read through
-     polling like the commodities. If it fails, 원/달러 ÷ (원/엔 ÷ 100) stands in, marked `calc`.
+   - 달러/엔: FX_USDJPY and JPY= do not exist. Headline = 원/달러 ÷ (원/엔 ÷ 100) of the same 하나은행 round, marked `calc`
+     (fresh; the coordinator's choice 2026-11-13). Only when that cannot be computed: `exchangeWorld/USDJPY` through polling
+     (레피니티브, 하루 한 번 종가 — `eod`). The chart route always reads exchangeWorld/USDJPY daily closes.
    - bonds `api.stock.naver.com/marketindex/bond/{code}` one call each (no list / polling route): 레피니티브, value %, change %p,
      JP10YT 2시간 지연. No exchange time zone in the answer → `tz` from the config.
    Item key = code without the leading dot and the "=RR" suffix. Charts: …/marketindex/{exchange|exchangeWorld|bond}/{code}/prices. */
@@ -531,18 +532,21 @@ async function getMacro(which) {
   const out = [];
   const jobs = [];
   if (which.includes('fx')) jobs.push((async () => {
-    const [list, wd] = await Promise.all([
-      naver('https://api.stock.naver.com/marketindex/exchange').catch(() => null),
-      naver(`${POLL}marketindex/exchangeWorld/USDJPY`).catch(() => null),
-    ]);
+    const list = await naver('https://api.stock.naver.com/marketindex/exchange').catch(() => null);
     const rows = new Map();
     for (const x of (list && [].concat(list.majorList || [], list.normalList || [])) || []) if (x && x.reutersCode && !rows.has(x.reutersCode)) rows.set(x.reutersCode, x);
-    for (const x of (wd && wd.datas) || []) if (x && x.reutersCode) rows.set(x.reutersCode, x);
     const items = [];
     for (const [code, name] of MACRO_CFG.fx.items) {
-      let it = macroItem(macroKey(code), name, rows.get(code));
-      if (it && code === 'USDJPY') { it.eod = true; it.via = '레피니티브'; }   // the polling row carries neither priceDataType nor the source
-      if (!it && code === 'USDJPY') it = crossUsdJpy(rows.get('FX_USDKRW'), rows.get('FX_JPYKRW'), name);
+      let it;
+      if (code === 'USDJPY') {
+        // the live cross of the same 하나은행 round first (coordinator 2026-11-13); the 레피니티브 daily close only when it cannot be had
+        it = crossUsdJpy(rows.get('FX_USDKRW'), rows.get('FX_JPYKRW'), name);
+        if (!it) {
+          const wd = await naver(`${POLL}marketindex/exchangeWorld/USDJPY`).catch(() => null);
+          it = macroItem('USDJPY', name, ((wd && wd.datas) || []).find(x => x && x.reutersCode === 'USDJPY'));
+          if (it) { it.eod = true; it.via = '레피니티브'; }               // the polling row carries neither priceDataType nor the source
+        }
+      } else it = macroItem(macroKey(code), name, rows.get(code));
       if (it) items.push(it);
     }
     return { g: MACRO_CFG.fx, items };

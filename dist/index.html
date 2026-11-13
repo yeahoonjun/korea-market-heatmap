@@ -9772,7 +9772,7 @@ function stripItem(it) {
 
 /* ── §3-22 ticker: what flows, what a tap opens, how it pauses ── */
 const TKI_KEY = 'khm.tickerItems';
-const TK_WORLD = { SPX_F: 'EScv1', NDX_F: 'NQcv1', WTI: 'CLcv1', GOLD: 'GCcv1', KOSPI: 'KOSPI', KOSDAQ: 'KOSDAQ' };   // strip key → /api/world key
+const TK_WORLD = { SPX_F: 'EScv1', NDX_F: 'NQcv1', WTI: 'CLcv1', GOLD: 'GCcv1', KOSPI: 'KOSPI', KOSDAQ: 'KOSDAQ', USDKRW: 'FX_USDKRW' };   // strip key → /api/world key
 const TK_SEARCH = { USDKRW: '원달러 환율', BTC: '비트코인 시세' };
 const tkn = id => (String(id).includes(':') ? String(id) : 'm:' + id);
 function tkiGet() {
@@ -13394,7 +13394,7 @@ const NAME_MIN = 118, FIXED_W = 64 + 66 + 48 + 5 * 8 + 12 + 14, MIN_COL_C = 300,
 const ROW_H = 36, ROW_HC = 52, HEAD_H = 42, SEC_PAD = 12;
 const placeOf = it => PLACE[it.key] || cityOf(it, null) || '';
 function listSub(it, flat) {
-  if (isMacro(it)) return it.calc ? '계산값' : FX_SUB[it.key] || '';   // 계산값 is a tag (never cut); the section note covers 원/○
+  if (isMacro(it)) return FX_SUB[it.key] || '';                 // the section note covers 원/○; 계산값 sits in the state column
   const u = S.kind === 'commodity' ? unitOf(it) : null;
   if (!flat && isFut(it)) return '선물';
   if (flat) return [it.group, u ? u[1] : null].filter(Boolean).join(' · ');
@@ -13551,9 +13551,10 @@ function fillRow(el, it, sub, rank, R) {
   const subText = ref ? '참고' : sub || '';
   sb.textContent = subText;
   sb.hidden = !subText;
-  sb.className = 'sub' + (ref || it.calc || (isFut(it) && !rank) ? ' tag' : '');
+  sb.className = 'sub' + (ref || (isFut(it) && !rank) ? ' tag' : '');
   ls.children[0].className = 'kw-sd ' + (open ? 'open' : 'close');
-  ls.children[1].textContent = open ? (it.delayed ? dlText(it.delayed) : '실시간') : '마감';
+  // 달러/엔 = a cross of two 하나은행 rates (§3-28): "계산값" where the others say 실시간 (the dot still says 장중 / 마감)
+  ls.children[1].textContent = it.calc ? '계산값' : open ? (it.delayed ? dlText(it.delayed) : '실시간') : '마감';
   ls.children[1].className = 'st' + (open && it.delayed ? ' dl' : '');
   ls.children[2].textContent = ref ? '' : sub || '';
   // a yield: the chip carries its change in bp, the change column stays empty (the same number twice says nothing)
@@ -14351,7 +14352,8 @@ function fillDetail(full) {
   const note = isRef(it) ? 'VIX는 S&P 500 옵션 가격으로 계산한 변동성 기대치예요. 오르면 시장 불안이 커졌다는 뜻이라 지도에서 색칠하지 않았어요.'
     : it.gkey === 'kr' ? '비교용으로 함께 보여 줘요. 종목 지도는 코스피·코스닥 탭에서 볼 수 있어요.'
     : rate ? RATE_NOTE
-    : fx ? (FX_NOTE[it.key] || KRW_NOTE) + (it.eod ? ' 레피니티브 종가라 하루에 한 번 바뀌어요.' : '') + (it.calc ? ' 원/달러를 1엔당 원화로 나눈 계산값이에요.' : '')
+    : fx ? (FX_NOTE[it.key] || KRW_NOTE) + (it.eod ? ' 레피니티브 종가라 하루에 한 번 바뀌어요.' : '')
+      + (it.calc ? ' 원/달러를 1엔당 원화로 나눈 계산값이고, 차트는 레피니티브 일봉 종가예요.' : '')
     : D.kind === 'commodity' ? '근월물 선물 가격이에요. 거래소 시각 기준으로 하루가 바뀌어요.' : null;
   const head = h('div', { class: 'kw-dh' },
     h('div', { class: 'kw-path', text: [it.group, city && city !== it.group ? city : null].filter(Boolean).join(' · ') }),
@@ -14389,7 +14391,8 @@ function fillDetail(full) {
   }
 }
 
-const srcLine = it => `출처: 네이버 증권${it.via ? ` (${it.via})` : ''} · ${delayText(it)}${it.eod ? '' : ' 시세'}`;
+// the chart of a computed 달러/엔 comes from another source than its headline value: say so
+const srcLine = it => `출처: 네이버 증권${it.via ? ` (${it.via})` : ''} · ${delayText(it)}${it.eod ? '' : ' 시세'}${it.calc ? ' · 차트는 레피니티브 종가' : ''}`;
 // 코스피 / 코스닥 opened from the ticker: today's intraday line ({pts:[[unix s, value]], base}) above the daily chart
 function todayBox(T, it) {
   if (!T || !Array.isArray(T.pts) || T.pts.length < 2) return null;
@@ -14485,7 +14488,7 @@ function drawChart() {
   // the segment moves into the new top row: a focused period button keeps the focus
   const keep = seg.contains(document.activeElement) ? document.activeElement : null;
   const put2 = (...kids) => { box.replaceChildren(...kids); if (keep && !keep.isConnected) return; if (keep && document.activeElement !== keep) keep.focus({ preventScroll: true }); };
-  const top = h('div', { class: 'kw-ctop' }, seg, h('span', { class: 'kw-cnote', text: '일봉 종가 · 마지막 점은 현재 값' }));
+  const top = h('div', { class: 'kw-ctop' }, seg, h('span', { class: 'kw-cnote', text: it && it.calc ? '레피니티브 일봉 종가 · 마지막 점은 계산값' : '일봉 종가 · 마지막 점은 현재 값' }));
   if (!C || C.loading) { put2(top, h('div', { class: 'kw-cmsg', text: '차트를 불러오는 중이에요…' })); return; }
   if (C.err) {
     put2(top, h('div', { class: 'kw-cmsg' }, C.gone ? '이 항목은 차트 자료가 없어요.' : '차트를 불러오지 못했어요. ', C.gone ? null : chartRetry(D)));
