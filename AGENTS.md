@@ -45,7 +45,7 @@ python3 tmp/shot.py /home/claude/heatmap/dist/index.html    # 1440×900 / 390×8
 - 샌드박스에서 Node가 네이버에 닿으려면 `NODE_USE_ENV_PROXY=1`이 필요해요. curl·Python은 그냥 돼요. `wrangler dev`(workerd)는 네이버에 닿지 못해요.
 - Playwright: `p.chromium.launch(executable_path='/usr/bin/google-chrome', args=['--no-sandbox'])`.
 - 로컬 서버 포트: 오케스트레이터 8788, 에이전트는 8790번부터 하나씩. 끝나면 끄기.
-- **Worker 자동 배포** (사용자 2026-11-13 23:55 "자동 배포 설정하기"): `.github/workflows/deploy-worker.yml` — `main`에 `worker/src/**`·`worker/wrangler.toml`·배포 스크립트가 바뀌어 올라오면(또는 Actions에서 수동 실행) `npm ci --prefix worker` → `node scripts/build_worker.mjs` → `node scripts/deploy_worker.mjs`. 배포 스크립트는 손으로 하던 것과 같은 PUT 한 번(`main_module: worker.js`, `wrangler.toml`의 호환 날짜·KV `REPLAY`, `keep_bindings: ['secret_text']` — `DART_KEY`는 Cloudflare에만), cron은 건드리지 않아요. 이미 같은 번들이 돌고 있으면 건너뛰고, 올린 뒤 `/api/time`이 답하지 않으면 바로 앞 버전으로 되돌리고 실패해요. 저장소 비밀값 **`CLOUDFLARE_API_TOKEN`**(Account › Workers Scripts › Edit)이 없으면 경고만 남기고 건너뛰어요. 화면(`web/`)은 지금처럼 푸시만으로 배포돼요. 토큰 값은 파일·로그에 쓰지 않아요.
+- **Worker 자동 배포** (사용자 2026-11-13 23:55 "자동 배포 설정하기"): `.github/workflows/deploy-worker.yml` — `main`에 `worker/src/**`·`worker/wrangler.toml`·배포 스크립트가 바뀌어 올라오면(또는 Actions에서 수동 실행) `npm ci --prefix worker` → `node scripts/build_worker.mjs` → `node scripts/deploy_worker.mjs`. 배포 스크립트는 손으로 하던 것과 같은 PUT 한 번(`main_module: worker.js`, `wrangler.toml`의 호환 날짜·KV `REPLAY`, `keep_bindings: ['secret_text']` — `DART_KEY`는 Cloudflare에만). cron은 업로드와 따로 있어서, 매번 `wrangler.toml`의 `crons`와 비교해 다르면 맞춰요(로그에 `cron` 줄). 이미 같은 번들이 돌고 있으면 건너뛰고, 올린 뒤 `/api/time`이 답하지 않으면 바로 앞 버전으로 되돌리고 실패해요. 저장소 비밀값 **`CLOUDFLARE_API_TOKEN`**(Account › Workers Scripts › Edit)이 없으면 경고만 남기고 건너뛰어요. 화면(`web/`)은 지금처럼 푸시만으로 배포돼요. 토큰 값은 파일·로그에 쓰지 않아요.
 
 ## 3. 데이터 계약
 
