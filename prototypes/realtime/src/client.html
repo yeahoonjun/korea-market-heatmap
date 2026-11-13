@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>판세 · 실시간 갱신 시안</title>
+<link rel="icon" href="data:,">
+<style>
+/* 시안 전용 — 판세 기본 테마 토큰 일부 (AGENTS §4): 빨강 = 상승, 초록 = 하락은 데이터에만, 강조는 앰버 */
+:root{--page:#131418;--panel:#191a1f;--line:#2b2d34;--fg:#e8e9ec;--fg2:#b9bcc4;--muted:#8b8f99;--amber:#ffb547;--up-text:#ff6b5e;--dn-text:#3fcf8e;--flat:#3a3d45}
+*{box-sizing:border-box}
+body{margin:0;background:var(--page);color:var(--fg);font:14px/1.45 "Pretendard Variable",Pretendard,system-ui,-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;font-variant-numeric:tabular-nums}
+header{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+h1{font-size:16px;margin:0;font-weight:700}
+.live{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 10px;border:1px solid var(--line);border-radius:14px;background:var(--panel);color:var(--fg2);font-size:13px;white-space:nowrap}
+.live .dot{width:8px;height:8px;border-radius:50%;background:var(--muted)}
+.live[data-s="on"] .dot{background:var(--amber);box-shadow:0 0 0 3px rgba(255,181,71,.18)}
+.live[data-s="retry"] .dot{background:transparent;border:2px solid var(--amber);animation:spin 1s linear infinite;border-right-color:transparent}
+.live[data-s="poll"] .dot{background:var(--muted)}
+@keyframes spin{to{transform:rotate(1turn)}}
+@media (prefers-reduced-motion:reduce){.live[data-s="retry"] .dot{animation:none}}
+button{height:32px;padding:0 12px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--fg);font:inherit;cursor:pointer}
+button:focus-visible{outline:3px solid var(--amber);outline-offset:2px}
+main{display:grid;grid-template-columns:1fr 300px;gap:12px;padding:12px 16px}
+@media (max-width:820px){main{grid-template-columns:1fr}}
+#grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:2px;background:#000;padding:2px;border-radius:6px}
+.tile{position:relative;min-height:58px;padding:6px 7px;color:#fff;overflow:hidden}
+.tile b{display:block;font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tile span{font-size:13px}
+.tile::after{content:"";position:absolute;inset:0;pointer-events:none;opacity:0}
+.tile.fu::after{box-shadow:inset 0 0 0 2px var(--up-text);animation:fl .7s ease-out}
+.tile.fd::after{box-shadow:inset 0 0 0 2px var(--dn-text);animation:fl .7s ease-out}
+@keyframes fl{0%{opacity:1}100%{opacity:0}}
+@media (prefers-reduced-motion:reduce){.tile.fu::after,.tile.fd::after{animation:none}}
+aside{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px}
+aside h2{font-size:13px;margin:0 0 8px;color:var(--fg2);font-weight:600}
+dl{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;margin:0;font-size:13px}
+dt{color:var(--muted)} dd{margin:0;text-align:right}
+.ix{color:var(--fg2);font-size:13px}
+.up{color:var(--up-text)} .dn{color:var(--dn-text)}
+#log{margin-top:10px;max-height:180px;overflow:auto;font-size:12px;color:var(--muted);white-space:pre-wrap}
+</style>
+</head>
+<body>
+<header>
+  <h1>판세 · 실시간 갱신 시안</h1>
+  <span class="live" id="live" data-s="off" role="status" aria-live="polite"><span class="dot"></span><span id="liveText">연결 전</span></span>
+  <span class="ix" id="ix"></span>
+  <button id="toggle" type="button">끊어 보기</button>
+</header>
+<main>
+  <div id="grid" aria-label="시가총액 상위 60종목"></div>
+  <aside>
+    <h2>연결 정보</h2>
+    <dl>
+      <dt>버전</dt><dd id="sVer">—</dd>
+      <dt>받은 메시지</dt><dd id="sMsg">0</dd>
+      <dt>받은 글자 수(압축 전)</dt><dd id="sBytes">0</dd>
+      <dt>마지막 변경</dt><dd id="sLast">—</dd>
+      <dt>서버→화면 지연</dt><dd id="sLag">—</dd>
+      <dt>시세 기준</dt><dd id="sAsOf">—</dd>
+      <dt>다시 연결</dt><dd id="sRe">0</dd>
+    </dl>
+    <div id="log"></div>
+  </aside>
+</main>
+<script>
+'use strict';
+/* the page side of realtime.md §5: snapshot + versioned deltas, resume, backoff, visibility pause, liveness */
+const $ = id => document.getElementById(id);
+const S = { ws: null, epoch: null, ver: 0, rows: new Map(), order: [], meta: null, msgs: 0, bytes: 0, re: 0, tries: 0, timer: 0, hideT: 0, lastMsg: 0, manualOff: false };
+const BACKOFF = [1000, 2000, 4000, 8000, 15000, 30000];
+const log = t => { const el = $('log'); el.textContent = `${new Date().toLocaleTimeString('ko-KR', { hour12: false })} ${t}\n` + el.textContent.slice(0, 3000); };
+function setLive(s, text) { $('live').dataset.s = s; $('liveText').textContent = text; }
+
+// identical to the hub's applyPatch (worker.js): null = key removed, nx merged key by key
+function applyPatch(row, p) {
+  for (const k in p) {
+    if (k === 'c') continue;
+    const v = p[k];
+    if (k === 'nx') { if (v === null) delete row.nx; else { const nx = row.nx || (row.nx = {}); for (const j in v) { if (v[j] === null) delete nx[j]; else nx[j] = v[j]; } } }
+    else if (v === null) delete row[k]; else row[k] = v;
+  }
+  return row;
+}
+
+function connect() {
+  clearTimeout(S.timer);
+  if (S.manualOff || document.hidden) return;
+  const q = new URLSearchParams({ ch: 'top' });
+  if (S.epoch && S.ver) { q.set('epoch', S.epoch); q.set('ver', S.ver); }     // resume: missed deltas instead of a snapshot
+  const ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/api/live?${q}`);
+  S.ws = ws;
+  setLive(S.ver ? 'retry' : 'retry', S.ver ? '다시 연결하는 중…' : '연결하는 중…');
+  S.openedAt = Date.now();
+  ws.onopen = () => { S.tries = 0; S.lastMsg = Date.now(); };
+  ws.onmessage = e => { S.lastMsg = Date.now(); S.msgs++; S.bytes += e.data.length; onMessage(JSON.parse(e.data)); };
+  ws.onclose = e => {
+    if (S.ws !== ws) return;
+    S.ws = null;
+    if (S.manualOff || document.hidden) return;
+    const wait = BACKOFF[Math.min(S.tries++, BACKOFF.length - 1)] * (0.75 + Math.random() * 0.5);   // jitter: a hub restart must not bring every page back at once
+    setLive(S.tries > 3 ? 'poll' : 'retry', S.tries > 3 ? '실시간 연결이 안 돼요 · 10초마다 갱신' : '다시 연결하는 중…');
+    log(`닫힘 ${e.code} → ${Math.round(wait / 100) / 10}초 뒤 다시`);
+    S.re++; $('sRe').textContent = S.re;
+    S.timer = setTimeout(connect, wait);
+  };
+}
+
+function onMessage(m) {
+  if (m.t === 'hello') {
+    if (S.epoch && m.epoch !== S.epoch) log('허브가 새로 시작했어요 — 스냅숏을 기다려요');
+    setLive('on', '실시간 · 연결됨');
+    return;
+  }
+  if (m.t === 'snap') {
+    S.epoch = m.epoch; S.ver = m.v; S.meta = m.body;
+    S.rows = new Map(m.body.stocks.map(r => [r.c, r])); S.order = m.body.stocks.map(r => r.c);
+    log(`스냅숏 v${m.v} · ${m.body.stocks.length}종목 · ${(JSON.stringify(m).length / 1024).toFixed(0)}KB`);
+    renderAll(); renderMeta(m.at, m.body.asOf); return;
+  }
+  if (m.t === 'd') {
+    if (m.b !== S.ver) { log(`버전 건너뜀 (${S.ver} → 기준 ${m.b}) — 스냅숏 다시`); S.ws && S.ws.send(JSON.stringify({ t: 'snap' })); return; }
+    S.ver = m.v;
+    const moved = [];
+    for (const p of m.rows) {
+      const row = S.rows.get(p.c);
+      if (!row) { S.rows.set(p.c, p); S.order.push(p.c); continue; }
+      const before = row.p;
+      applyPatch(row, p);
+      if (p.p != null && before !== row.p) moved.push([p.c, row.p > before ? 1 : -1]);
+    }
+    if (m.ix) S.meta.index = m.ix;
+    if (m.ms) S.meta.marketStatus = m.ms;
+    if (m.nxt) S.meta.nxt = m.nxt;
+    if (m.ah != null) S.meta.afterHours = m.ah;
+    S.meta.asOf = m.asOf;
+    $('sLast').textContent = `${m.rows.length}종목 · ${JSON.stringify(m).length}자`;
+    renderTiles(moved); renderMeta(m.at, m.asOf); return;
+  }
+  if (m.t === 'hb') { renderMeta(m.at, m.asOf); return; }
+  if (m.t === 'st' && !m.ok) { setLive('retry', '시세 지연 · 다시 받는 중'); log(m.msg); }
+}
+
+const color = r => {                       // −3 … +3 % → 초록 … 회색 … 빨강 (데이터 색)
+  const t = Math.max(-1, Math.min(1, r / 3)), a = Math.abs(t);
+  const [r0, g0, b0] = [58, 61, 69], [r1, g1, b1] = t >= 0 ? [214, 48, 49] : [34, 160, 92];
+  return `rgb(${Math.round(r0 + (r1 - r0) * a)},${Math.round(g0 + (g1 - g0) * a)},${Math.round(b0 + (b1 - b0) * a)})`;
+};
+let tiles = new Map();
+function renderAll() {
+  const top = [...S.rows.values()].sort((a, b) => b.cap - a.cap).slice(0, 60);
+  const g = $('grid'); g.textContent = ''; tiles = new Map();
+  for (const r of top) {
+    const el = document.createElement('div'); el.className = 'tile';
+    el.innerHTML = '<b></b><span></span>'; g.append(el); tiles.set(r.c, el); paint(el, r);
+  }
+}
+function paint(el, r) {
+  el.style.background = color(r.r);
+  el.firstChild.textContent = r.n;
+  el.lastChild.textContent = `${r.p.toLocaleString('ko-KR')} ${r.r > 0 ? '+' : ''}${r.r.toFixed(2)}%`;
+  el.title = `${r.n} ${r.p.toLocaleString('ko-KR')}원 ${r.r > 0 ? '+' : ''}${r.r.toFixed(2)}%`;
+}
+function renderTiles(moved) {
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  for (const [c, d] of moved) {
+    const el = tiles.get(c); if (!el) continue;
+    paint(el, S.rows.get(c));
+    if (reduce) continue;
+    el.classList.remove('fu', 'fd'); void el.offsetWidth; el.classList.add(d > 0 ? 'fu' : 'fd');
+  }
+}
+function renderMeta(at, asOf) {
+  $('sVer').textContent = `${S.epoch || '—'} · v${S.ver}`;
+  $('sMsg').textContent = S.msgs.toLocaleString('ko-KR');
+  $('sBytes').textContent = `${(S.bytes / 1024).toFixed(1)}KB`;
+  $('sLag').textContent = at ? `${Math.max(0, Date.now() - at)}ms` : '—';
+  $('sAsOf').textContent = asOf ? asOf.slice(11, 19) : '—';
+  const ix = S.meta && S.meta.index;
+  if (ix && ix.KOSPI) {
+    const f = (k, v) => `<span>${k} ${v.value.toFixed(2)} <span class="${v.ratio > 0 ? 'up' : v.ratio < 0 ? 'dn' : ''}">${v.ratio > 0 ? '+' : ''}${v.ratio.toFixed(2)}%</span></span>`;
+    $('ix').innerHTML = f('코스피', ix.KOSPI) + ' · ' + (ix.KOSDAQ ? f('코스닥', ix.KOSDAQ) : '');
+  }
+}
+
+// liveness: the hub speaks at least every 15 s (delta or heartbeat). 45 s of silence = a dead line → reconnect.
+// A socket still CONNECTING after 10 s (server restarting, captive network) is dropped too — it would never fire onclose by itself.
+setInterval(() => {
+  if (S.ws && S.ws.readyState === 1 && Date.now() - S.lastMsg > 45000) { log('45초 동안 소식이 없어요 — 다시 연결'); S.ws.close(4001, 'stale'); }
+  if (S.ws && S.ws.readyState === 0 && Date.now() - S.openedAt > 10000) { log('연결이 10초 넘게 열리지 않아요 — 다시 시도'); const w = S.ws; w.onclose({ code: 4003 }); w.onclose = null; try { w.close(); } catch (e) {} }
+}, 2000);
+// hidden tab: keep the line 30 s (a quick app switch must not cost a snapshot), then close; visible again → resume
+document.addEventListener('visibilitychange', () => {
+  clearTimeout(S.hideT);
+  if (document.hidden) { S.hideT = setTimeout(() => { if (S.ws) { const w = S.ws; S.ws = null; w.close(4000, 'hidden'); setLive('off', '화면이 꺼져 있어 쉬는 중'); } }, 30000); }
+  else if (!S.ws && !S.manualOff) { S.tries = 0; connect(); }
+});
+$('toggle').onclick = () => {
+  S.manualOff = !S.manualOff;
+  $('toggle').textContent = S.manualOff ? '다시 켜기' : '끊어 보기';
+  if (S.manualOff) { const w = S.ws; S.ws = null; if (w) w.close(4002, 'user'); setLive('off', '실시간 꺼짐'); }
+  else connect();
+};
+connect();
+</script>
+</body>
+</html>

@@ -1,0 +1,31 @@
+# 실시간 갱신 시안 (docs/standards/realtime.md) — LOCAL ONLY. Never deploy: `npx wrangler dev` only.
+# A different Worker name on purpose, no KV, no cron, no routes. The real Worker (worker/wrangler.toml) is untouched.
+name = "panse-realtime-proto"
+main = "src/worker.js"
+compatibility_date = "2026-11-01"
+workers_dev = false
+
+# Naver-shaped upstream. workerd in this sandbox cannot reach Naver, so upstream_mock.mjs (port 8912) answers in Naver's
+# shape — replaying real 1-minute frames, or proxying live Naver with --live (Node + NODE_USE_ENV_PROXY=1).
+[vars]
+UPSTREAM = "http://127.0.0.1:8912"
+POLL_MS = "3000"
+PIGGYBACK = "0"          # 1 = a moved row also carries its changed volume / value / cap (§8 size table)
+SLOW_EVERY = "10"        # volume / value / cap every 10th tick (≈ 30 s)
+FORCE_LIVE = "1"          # treat every hour as the regular session (the real hub uses the KST clock: 3 s / NXT 5 s / closed 60 s)
+ORIGINS = "http://127.0.0.1:8911,http://localhost:8911,https://panse.pages.dev"
+
+[[durable_objects.bindings]]
+name = "MARKET"
+class_name = "MarketHub"
+
+# Declarative `exports` (Cloudflare's recommended form for new DO classes since 2026-06): no migration tags to track,
+# so the hand-written deploy script can send the same block on every upload — realtime.md §6.
+[exports.MarketHub]
+type = "durable-object"
+storage = "sqlite"
+
+[[rules]]
+type = "Text"
+globs = ["**/*.html"]
+fallthrough = false
