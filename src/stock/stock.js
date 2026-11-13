@@ -261,8 +261,10 @@ function build() {
 }
 
 function buildLive() {
-  R.tfs = h('div', { class: 'sp-seg sp-tfs', role: 'group', 'aria-label': '차트 기간' },
+  // segments (docs/standards/controls.md §5-4): the template's deep tray (.seg) + one raised indicator that slides (KH.ui.seg)
+  R.tfs = h('div', { class: 'sp-seg sp-tfs seg', role: 'group', 'aria-label': '차트 기간' },
     TFS.map(([k, label]) => h('button', { type: 'button', 'data-tf': k, 'aria-pressed': 'false', onclick: () => setTf(k), text: label })));
+  uiSeg(R.tfs);
   R.period = h('div', { class: 'sp-period num' });
   R.chart = h('div', { class: 'sp-chart', role: 'img', 'aria-label': '가격 차트' });
   R.legend = h('div', { class: 'sp-legend num', 'aria-hidden': 'true' });
@@ -271,7 +273,7 @@ function buildLive() {
     h('div', { class: 'sp-tfbar' }, R.tfs, R.period),
     h('div', { class: 'sp-chartwrap' }, R.chart, R.legend, R.chartMsg),
     R.peers);
-  R.tabs = h('div', { class: 'sp-seg sp-tabs', role: 'tablist', 'aria-label': '시세 정보' });
+  R.tabs = h('div', { class: 'sp-seg sp-tabs seg', role: 'tablist', 'aria-label': '시세 정보' });
   R.panels = {};
   for (const { key: k, label } of TABS) {
     R.tabs.append(h('button', { type: 'button', role: 'tab', id: 'sp-t-' + k, 'aria-controls': 'sp-p-' + k, 'aria-selected': 'false', tabindex: '-1', 'data-tab': k, onclick: () => setTab(k), text: label }));
@@ -288,6 +290,7 @@ function buildLive() {
     e.preventDefault();
     setTab(keys[i], true);
   });
+  if ('ResizeObserver' in window) new ResizeObserver(() => tabInd(true)).observe(R.tabs);
   for (const t of TABS) if (t.build) t.build(R.panels[t.key]);
   R.body.append(chartcol, h('section', { class: 'sp-side', 'aria-label': TABS.map(t => t.label).join('·') }, h('div', { class: 'sp-tabwrap' }, R.tabs), ...Object.values(R.panels)));
   R.foot.append(h('p', {}, '데이터: 네이버 증권(비공식). 투자 판단의 근거로 쓰지 마세요. 차트: ',
@@ -1038,6 +1041,22 @@ function setTf(k) {
 function syncTf() { if (R.tfs) for (const b of R.tfs.children) b.setAttribute('aria-pressed', String(b.dataset.tf === S.tf)); }
 
 /* ───────────────── tabs ───────────────── */
+/* The 시세 정보 tabs are a real tablist (aria-selected), which KH.ui.seg (rows of aria-pressed buttons) does not read: the same raised
+   indicator is placed here with the template's segment CSS (.seg::before at --il/--ir/--it/--ib, data-ind; data-dir = which edge
+   leads: --c-fast, the other follows in --c-base). */
+let tabI = -1;
+function tabInd(snap) {
+  const row = R.tabs;
+  if (!row) return;
+  const bs = [...row.children], i = bs.findIndex(b => b.getAttribute('aria-selected') === 'true'), b = bs[i];
+  if (!b || !b.offsetWidth || !row.clientWidth) { delete row.dataset.ind; tabI = i; return; }
+  const v = [b.offsetLeft, row.clientWidth - b.offsetLeft - b.offsetWidth, b.offsetTop, row.clientHeight - b.offsetTop - b.offsetHeight].map(x => Math.round(x * 2) / 2 + 'px');
+  const moved = !snap && tabI >= 0 && i !== tabI && row.dataset.ind != null;
+  row.dataset.dir = moved ? (i > tabI ? 'r' : 'l') : '';
+  ['--il', '--ir', '--it', '--ib'].forEach((x, j) => row.style.setProperty(x, v[j]));
+  row.dataset.ind = '';
+  tabI = i;
+}
 function setTab(k, focus) {
   if (!TAB[k]) k = TABS[0].key;
   const from = S.tab, slide = fancy() && S.open && from !== k && R.panels[from] && !R.panels[from].hidden;
@@ -1048,6 +1067,7 @@ function setTab(k, focus) {
     b.tabIndex = on ? 0 : -1;
     if (on && focus) b.focus();
   }
+  tabInd(!S.open);
   for (const t of TABS) {
     R.panels[t.key].hidden = t.key !== k;
     if (t.key !== k && t.hide) t.hide();
@@ -1470,7 +1490,8 @@ function buildNews(panel) {
     seg: h('div', { class: 'sp-nwseg', role: 'group', 'aria-label': '뉴스·공시 고르기' },
       NEWS_KINDS.map(k => h('button', { type: 'button', 'data-kind': k.key, 'aria-pressed': 'false', onclick: () => setNewsKind(k.key) },
         h('span', { text: k.label }), h('small', { class: 'num' })))),
-    filters: h('div', { class: 'sp-dfilt', role: 'group', 'aria-label': '공시 종류', hidden: true },
+    // 공시 종류: an underline row (§5-6) — the template's segment indicator drawn as a 2px amber bar that slides
+    filters: h('div', { class: 'sp-dfilt seg', role: 'group', 'aria-label': '공시 종류', hidden: true },
       DISC_FILTERS.map(f => h('button', { type: 'button', 'data-f': f, 'aria-pressed': 'false', onclick: () => setDiscFilter(f) },
         h('span', { text: f }), h('small', { class: 'num' })))),
     src: h('div', { class: 'sp-nw-src', hidden: true }),
@@ -1482,6 +1503,7 @@ function buildNews(panel) {
     h('span', { class: 'sp-switch-t', text: '지분 공시 포함' }), h('i', { 'aria-hidden': 'true' }));
   R.nw.src.append(R.nw.srcText, R.nw.equity);
   panel.append(R.nw.seg, R.nw.filters, R.nw.src, R.nw.body, R.nw.note);
+  uiSeg(R.nw.filters);
 }
 function tag(text, cls) { return h('span', { class: 'sp-nw-tag' + (cls ? ' ' + cls : ''), text }); }
 function newsRow(r, kind, now) {
@@ -1666,8 +1688,8 @@ function buildInfo(panel) {
     const el = h('section', { class: 'sp-ci sp-ci-' + key, 'aria-labelledby': id }, h('div', { class: 'sp-ci-hd' }, h('h3', { id, text: title }), extra || null), body);
     return { el, body, sig: null };
   };
-  const periodSeg = () => h('div', { class: 'sp-mseg', role: 'group', 'aria-label': '재무 기간' },
-    [['quarter', '분기'], ['annual', '연간']].map(([k, l]) => h('button', { type: 'button', 'data-p': k, 'aria-pressed': 'false', onclick: () => setFinPeriod(k), text: l })));
+  const periodSeg = () => { const g = h('div', { class: 'sp-mseg seg', role: 'group', 'aria-label': '재무 기간' },
+    [['quarter', '분기'], ['annual', '연간']].map(([k, l]) => h('button', { type: 'button', 'data-p': k, 'aria-pressed': 'false', onclick: () => setFinPeriod(k), text: l }))); uiSeg(g); return g; };
   R.ci = {
     met: sec('met', '투자 지표'),
     fin: sec('fin', '재무', periodSeg()),
@@ -1675,8 +1697,9 @@ function buildInfo(panel) {
     div: sec('div', '배당'),
     ana: sec('ana', '애널리스트 의견'),
   };
-  R.ci.stabSeg = h('div', { class: 'sp-seg sp-stabseg', role: 'group', 'aria-label': '안정성 지표' },
+  R.ci.stabSeg = h('div', { class: 'sp-seg sp-stabseg seg', role: 'group', 'aria-label': '안정성 지표' },
     Object.keys(STAB).map(k => h('button', { type: 'button', 'data-k': k, 'aria-pressed': 'false', onclick: () => setStab(k), text: k })));
+  uiSeg(R.ci.stabSeg);
   R.ci.stabBody = h('div');
   R.ci.stab.body.append(R.ci.stabSeg, R.ci.stabBody);
   R.ci.stab.body = R.ci.stabBody;

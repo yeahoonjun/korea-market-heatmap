@@ -114,10 +114,15 @@ html.sp-on, html.sp-on body { overflow: hidden; }
 .sp-nf .sp-body, .sp-nf .sp-stats { display: none; }
 .sp-chartcol, .sp-side { min-width: 0; }
 .sp-tfbar { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
-.sp-seg { display: flex; gap: 2px; padding: 3px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; }
-.sp-seg button { flex: 1 1 0; min-height: 40px; padding: 0 4px; border-radius: 7px; font-size: 14px; font-weight: 600; color: var(--muted); white-space: nowrap; transition: background .15s, color .15s; }
+/* segments (docs/standards/controls.md §5-4): the template's .seg is the deep tray and draws the raised indicator (KH.ui.seg; the
+   tablist's own placement in stock.js). The old 1px border is padding now, so every box keeps its size. */
+.sp-seg { display: flex; gap: 2px; padding: 4px; border-radius: var(--r-tray); }
+.sp-seg button { flex: 1 1 0; min-height: 40px; padding: 0 4px; border-radius: var(--r-in); font-size: 14px; font-weight: 600; color: var(--muted); white-space: nowrap; transition: color var(--c-fast) var(--c-out), filter var(--c-fast) var(--c-out); }
 .sp-seg button:hover { color: var(--fg); }
-.sp-seg button[aria-pressed="true"], .sp-seg button[aria-selected="true"] { background: var(--panel2); color: var(--fg); box-shadow: inset 0 -2px 0 var(--amber); }
+.sp-seg button[aria-pressed="true"], .sp-seg button[aria-selected="true"] { color: var(--fg); }
+.sp-tabs:not([data-ind]) > button[aria-selected="true"] { background: var(--ind-bg); box-shadow: var(--ind-sh); }
+.sp-tabs > button:active { filter: var(--press-f); transition-duration: 0s; }
+.sp-tabs > button:focus-visible { outline-offset: -1px; }
 .sp-tfs { flex: 1; }
 .sp-period { display: none; font-size: 12.5px; color: var(--muted); white-space: nowrap; }
 .sp-period b { font-weight: 600; }
@@ -159,7 +164,7 @@ html.sp-on, html.sp-on body { overflow: hidden; }
 .sp-tabwrap { position: sticky; top: var(--sp-hh); z-index: 5; padding: 6px 0; margin-top: -6px; background: var(--page); }
 .sp-tabs button { flex: 1 1 auto; padding: 0 6px; }
 .sp-panel { container-type: inline-size; padding-top: 10px; outline: none; }
-.sp-panel:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; border-radius: 6px; }
+.sp-panel:focus-visible { border-radius: 6px; }
 .sp-panel[hidden] { display: none; }
 
 /* messages & skeletons */
@@ -259,10 +264,10 @@ html.sp-on, html.sp-on body { overflow: hidden; }
 .sp-ci[hidden] { display: none; }
 .sp-ci-hd { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 40px; margin-bottom: 8px; }
 .sp-ci-hd h3 { font-size: 16px; font-weight: 700; letter-spacing: -.01em; }
-.sp-mseg { flex: none; display: flex; gap: 2px; padding: 2px; border-radius: 9px; background: var(--panel); border: 1px solid var(--line); }
-.sp-mseg button { min-height: 40px; min-width: 52px; padding: 0 10px; border-radius: 7px; font-size: 13px; font-weight: 600; color: var(--muted); }
+.sp-mseg { flex: none; display: flex; gap: 2px; padding: 3px; border-radius: var(--r-tray); }   /* a small segment (.seg) */
+.sp-mseg button { min-height: 40px; min-width: 52px; padding: 0 10px; border-radius: var(--r-in); font-size: 13px; font-weight: 600; color: var(--muted); transition: color var(--c-fast) var(--c-out), filter var(--c-fast) var(--c-out); }
 .sp-mseg button:hover { color: var(--fg); }
-.sp-mseg button[aria-pressed="true"] { background: var(--panel2); color: var(--fg); box-shadow: inset 0 -2px 0 var(--amber); }
+.sp-mseg button[aria-pressed="true"] { color: var(--fg); }
 .sp-tag { display: inline-block; font-size: 11px; font-weight: 600; line-height: 1.5; padding: 0 6px; border-radius: 4px; border: 1px solid var(--line2); color: var(--fg2); white-space: nowrap; }
 .sp-ci .dot { display: inline-block; flex: none; width: 9px; height: 9px; border-radius: 2px; }
 .dot.s0, .sp-fin-col .b.s0 { --c: var(--s0); } .dot.s1, .sp-fin-col .b.s1 { --c: var(--s1); } .dot.s2, .sp-fin-col .b.s2 { --c: var(--s2); }
@@ -376,11 +381,13 @@ a.sp-rp:visited .sp-rp-t { color: var(--fg2); }
 
 /* ── 뉴스·공시 ───────────────────────── */
 .sp-nwseg { display: flex; flex-wrap: wrap; gap: 6px; }
-.sp-nwseg button { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 15px; border-radius: 20px; border: 1px solid var(--line); background: var(--panel); color: var(--fg2); font-size: 13.5px; font-weight: 600; }
+/* 뉴스 · 공시 = choice chips (§5-7): picked = fill + 1.5px amber ring + amber count, no check (the width never changes); 1px press */
+.sp-nwseg button { position: relative; display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 16px; border-radius: var(--r-chip); border: 0; background: var(--chip-bg); box-shadow: inset 0 0 0 1px var(--line); color: var(--fg2); font-size: 13.5px; font-weight: 600; transition: background-color var(--c-fast) var(--c-out), box-shadow var(--c-fast) var(--c-out), color var(--c-fast) var(--c-out), transform var(--c-fast) var(--c-out), filter var(--c-fast) var(--c-out); }
+.sp-nwseg button:is(:active, .is-press) { transform: translateY(1px); filter: var(--press-f); transition-duration: 0s; }
 .sp-nwseg button small { font-size: 12px; font-weight: 500; color: var(--muted); font-variant-numeric: tabular-nums; }
 .sp-nwseg button small:empty { display: none; }
-.sp-nwseg button:hover { color: var(--fg); border-color: var(--line2); }
-.sp-nwseg button[aria-pressed="true"] { color: var(--fg); border-color: rgba(255, 181, 71, .55); background: var(--amber-soft); }
+.sp-nwseg button:hover { color: var(--fg); box-shadow: inset 0 0 0 1px var(--line2); }
+.sp-nwseg button[aria-pressed="true"] { color: var(--fg); background: var(--chip-on); box-shadow: inset 0 0 0 1.5px var(--chip-ring); }
 .sp-nwseg button[aria-pressed="true"] small { color: var(--amber); }
 .sp-nw-body { margin-top: 6px; }
 .sp-nw-list { list-style: none; margin: 0; padding: 0; }
@@ -394,12 +401,17 @@ a.sp-nw-a:visited .sp-nw-t { color: var(--fg2); }
 .sp-nw-tag { font-size: 11px; line-height: 1.5; padding: 0 6px; border-radius: 4px; border: 1px solid var(--line2); color: var(--fg2); }
 /* 공시: kind filter (DART), source line + 지분 switch, tags */
 .sp-dfilt { display: flex; gap: 2px; margin-top: 8px; overflow-x: auto; scrollbar-width: none; border-bottom: 1px solid var(--line); }
+/* the underline row (§5-6): .seg's indicator becomes a 2px amber bar along the bottom; it slides like the segments */
+.sp-dfilt.seg { padding: 0; border-radius: 0; background: none; box-shadow: none; }
+.sp-dfilt.seg::before { top: auto; height: 2px; border-radius: 2px 2px 0 0; background: var(--amber); box-shadow: none; }
+.sp-dfilt.seg:not([data-ind]) > button[aria-pressed="true"] { background: none; box-shadow: inset 0 -2px 0 var(--amber); }
+.sp-dfilt button:focus-visible { outline-offset: calc(var(--focus-w) * -1); }
 .sp-dfilt::-webkit-scrollbar { display: none; }
 .sp-dfilt[hidden], .sp-dfilt button[hidden], .sp-nw-src[hidden], .sp-switch[hidden] { display: none; }
-.sp-dfilt button { flex: none; display: inline-flex; align-items: center; gap: 5px; min-height: 40px; padding: 0 10px; font-size: 13.5px; font-weight: 600; color: var(--muted); box-shadow: inset 0 -2px 0 transparent; }
+.sp-dfilt button { flex: none; display: inline-flex; align-items: center; gap: 5px; min-height: 40px; padding: 0 10px; font-size: 13.5px; font-weight: 600; color: var(--muted); }
 .sp-dfilt button small { font-size: 11.5px; font-weight: 500; color: var(--muted); font-variant-numeric: tabular-nums; }
 .sp-dfilt button:hover { color: var(--fg); }
-.sp-dfilt button[aria-pressed="true"] { color: var(--fg); box-shadow: inset 0 -2px 0 var(--amber); }
+.sp-dfilt button[aria-pressed="true"] { color: var(--fg); }
 .sp-dfilt button[aria-pressed="true"] small { color: var(--fg2); }
 .sp-nw-src { display: flex; flex-wrap: wrap; align-items: center; gap: 0 12px; margin-top: 4px; font-size: 12px; color: var(--muted); }
 .sp-nw-src > span { padding: 6px 0; }
@@ -507,12 +519,11 @@ a.sp-nw-a:visited .sp-nw-t { color: var(--fg2); }
   .sp-chartwrap { flex: 1; height: auto; max-height: none; min-height: 320px; }
   .sp-side { display: flex; flex-direction: column; min-height: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 10px 10px 0; }
   .sp-tabwrap { position: static; padding: 0; margin: 0; background: none; }
-  .sp-side .sp-seg { background: var(--page); }
   .sp-panel { flex: 1; min-height: 0; overflow-y: auto; padding: 10px 4px 14px; margin: 0 -4px; scrollbar-width: thin; scrollbar-color: var(--line2) transparent; }
   .sp-tbl th { top: 0; background: var(--panel); }
   #sp-p-ob:not([hidden]) { display: flex; flex-direction: column; }
   .sp-ob-grid { flex: 1 1 auto; max-height: 560px; background: var(--page); grid-template-rows: repeat(10, minmax(34px, 1fr)); }
-  .sp-cum, .sp-today, .sp-m, .sp-mseg { background: var(--page); }
+  .sp-cum, .sp-today, .sp-m { background: var(--page); }
   .sp-ln .pt { background: var(--panel); }
   .sp-foot { margin-top: 10px; }
   .sp-foot p { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
