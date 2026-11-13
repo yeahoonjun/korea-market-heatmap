@@ -32,6 +32,25 @@ const ICON = {
 const icon = (d, fill) => svg('svg', { viewBox: '0 0 20 20', width: '18', height: '18', 'aria-hidden': 'true', fill: fill ? 'currentColor' : 'none',
   stroke: fill ? 'none' : 'currentColor', 'stroke-width': '1.7', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, svg('path', { d }));
 
+/* ───────── themes (docs/standards/themes.md): the role tokens of <html data-theme · data-tone>, read when they are needed ───────── */
+const rootEl = document.documentElement;
+const lightTone = () => rootEl.dataset.tone === 'light';
+const tok = (name, d) => { const v = getComputedStyle(rootEl).getPropertyValue(name).trim(); return v || d; };
+const rgbParts = c => {
+  const m = /^rgba?\(([^)]+)\)/i.exec(c || ''), x = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(String(c || '').trim());
+  if (m) return m[1].split(/[\s,\/]+/).slice(0, 3).map(Number);
+  if (x) { const v = x[1].length === 3 ? x[1].replace(/./g, '$&$&') : x[1]; return [0, 2, 4].map(i => parseInt(v.slice(i, i + 2), 16)); }
+  return null;
+};
+// black or white, whichever reads better on the tile colour (the template's data-labs="auto", light themes)
+const inkOn = col => {
+  const c = rgbParts(col);
+  if (!c) return '#000';
+  const L = c.map(x => { x /= 255; return x <= .04045 ? x / 12.92 : ((x + .055) / 1.055) ** 2.4; }).reduce((s, x, i) => s + x * [.2126, .7152, .0722][i], 0);
+  return (L + .05) / .05 >= 1.05 / (L + .05) ? '#000' : '#fff';
+};
+const withAlpha = (col, a) => { const c = rgbParts(col); return c ? `rgba(${c[0]},${c[1]},${c[2]},${a})` : col; };
+
 /* ───────── living controls (docs/standards/controls.md): the template's KH.ui helpers and --c-* tokens, used when present ───────── */
 const UI = KH.ui && typeof KH.ui.state === 'function' && typeof KH.ui.bubble === 'function' ? KH.ui : null;
 const tokMs = (name, d) => (UI && typeof UI.ms === 'function' ? UI.ms(name) : d);          // '줄이기' sets --c-fast/base/switch to 0
@@ -982,8 +1001,8 @@ function readIxLine() {
   // the labels the template keeps for style B (display:none in A): value / %, per index with its name when there are two, and the time
   const rows = [];
   const multi = el.querySelectorAll('.ixv .ixr');
-  if (multi.length) multi.forEach(r => { const sp = r.querySelectorAll(':scope > span'), pc = sp[sp.length - 1]; rows.push({ name: (r.querySelector('i') || {}).textContent || '', val: (r.querySelector('b') || {}).textContent || '', pct: pc ? pc.textContent : '', color: pc ? rgbOf(pc) : '#cfd2d8' }); });
-  else { const v = el.querySelector('.ixv'); if (v) { const b = v.querySelector('b'), pc = v.querySelector('span'); rows.push({ name: '', val: b ? b.textContent : '', pct: pc ? pc.textContent : '', color: pc ? rgbOf(pc) : '#cfd2d8' }); } }
+  if (multi.length) multi.forEach(r => { const sp = r.querySelectorAll(':scope > span'), pc = sp[sp.length - 1]; rows.push({ name: (r.querySelector('i') || {}).textContent || '', val: (r.querySelector('b') || {}).textContent || '', pct: pc ? pc.textContent : '', color: pc ? rgbOf(pc) : IMG.fg }); });
+  else { const v = el.querySelector('.ixv'); if (v) { const b = v.querySelector('b'), pc = v.querySelector('span'); rows.push({ name: '', val: b ? b.textContent : '', pct: pc ? pc.textContent : '', color: pc ? rgbOf(pc) : IMG.fg }); } }
   const tt = el.querySelector('.ixt'), tb = tt && tt.querySelector('b'), ts = tt && tt.querySelector('span');
   return g.length ? { w: vb.width, h: vb.height, g, y0: bl ? +bl.getAttribute('y1') : null, rows, time: tb ? tb.textContent : '', sub: ts ? ts.textContent : '' } : null;
 }
@@ -992,7 +1011,7 @@ function ixRowHeight(ix) { return ix ? (ix.g.length > 1 ? 46 : 36) : 0; }
 function drawIxRow(ctx, ix, fam, W, y0, pad) {
   const CH = ixRowHeight(ix), small = W < 520, fs = small ? 11.5 : 12.5;
   ctx.save(); ctx.translate(0, y0);
-  ctx.fillStyle = '#0d0e11'; ctx.fillRect(0, 0, W, CH);
+  ctx.fillStyle = IMG.ihd; ctx.fillRect(0, 0, W, CH);
   ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
   const rows = ix.rows.length ? ix.rows : [];
   const rowH = CH / Math.max(1, rows.length);
@@ -1003,18 +1022,18 @@ function drawIxRow(ctx, ix, fam, W, y0, pad) {
   const px0 = pad + lw + 12, px1 = W - pad - tw - 12;
   rows.forEach((r, i) => {
     const cy = rowH * i + rowH / 2; let x = pad;
-    if (r.name) { ctx.font = `500 ${fs - 1}px ${fam}`; ctx.fillStyle = '#8a8f99'; ctx.fillText(r.name, x, cy); x += r.m.nm; }
-    ctx.font = `700 ${fs}px ${fam}`; ctx.fillStyle = '#eef0f3'; ctx.fillText(r.val, x, cy); x += r.m.v + 6;
+    if (r.name) { ctx.font = `500 ${fs - 1}px ${fam}`; ctx.fillStyle = IMG.muted; ctx.fillText(r.name, x, cy); x += r.m.nm; }
+    ctx.font = `700 ${fs}px ${fam}`; ctx.fillStyle = IMG.fg; ctx.fillText(r.val, x, cy); x += r.m.v + 6;
     ctx.font = `600 ${fs}px ${fam}`; ctx.fillStyle = r.color; ctx.fillText(r.pct, x, cy);
   });
   ctx.textAlign = 'right';
-  ctx.font = `700 ${fs}px ${fam}`; ctx.fillStyle = '#eef0f3'; ctx.fillText(ix.time, W - pad, CH / 2 - (ix.sub ? 7 : 0));
-  if (ix.sub) { ctx.font = `500 ${fs - 1}px ${fam}`; ctx.fillStyle = '#8a8f99'; ctx.fillText(ix.sub, W - pad, CH / 2 + 8); }
+  ctx.font = `700 ${fs}px ${fam}`; ctx.fillStyle = IMG.fg; ctx.fillText(ix.time, W - pad, CH / 2 - (ix.sub ? 7 : 0));
+  if (ix.sub) { ctx.font = `500 ${fs - 1}px ${fam}`; ctx.fillStyle = IMG.muted; ctx.fillText(ix.sub, W - pad, CH / 2 + 8); }
   if (px1 - px0 > 40) {
     const sx = (px1 - px0) / ix.w, sy = (CH - 8) / ix.h, m = new DOMMatrix([sx, 0, 0, sy, px0, 4]);
     const ly = ix.y0 == null ? CH / 2 : 4 + ix.y0 * sy;
     ctx.save();
-    ctx.setLineDash([3, 4]); ctx.strokeStyle = 'rgba(255,255,255,.28)'; ctx.lineWidth = 1;
+    ctx.setLineDash([3, 4]); ctx.strokeStyle = IMG.ink28; ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(px0, ly); ctx.lineTo(px1, ly); ctx.stroke(); ctx.setLineDash([]);
     ix.g.forEach(g => {
       const path = new Path2D(); path.addPath(new Path2D(g.d), m);
@@ -1046,7 +1065,8 @@ function readLegend(el) {
   };
   for (const g of el.children) {
     const atoms = []; walk(g, atoms);
-    if (atoms.length) groups.push({ atoms, right: g.classList.contains('right'), pill: g.classList.contains('lg-replay'), color: rgbOf(g) });
+    if (atoms.length) { const pill = g.classList.contains('lg-replay'), gs = pill ? getComputedStyle(g) : null;
+    groups.push({ atoms, right: g.classList.contains('right'), pill, color: rgbOf(g), pillBd: gs && gs.borderTopColor, pillBg: gs && gs.backgroundColor }); }
   }
   return groups;
 }
@@ -1070,7 +1090,7 @@ function layoutLegend(ctx, fam, groups, W, pad) {
       r.items.forEach(({ g, w }, ii) => {
         if (g.right && wide && ii === r.items.length - 1) x = Math.max(x, W - pad - w);
         let ax = x + (g.pill ? 7 : 0);
-        if (g.pill) { c.strokeStyle = 'rgba(255,181,71,.45)'; c.fillStyle = 'rgba(255,181,71,.12)'; c.lineWidth = 1; c.beginPath(); c.roundRect(x + .5, cy - 9, w - 1, 18, 5); c.fill(); c.stroke(); }
+        if (g.pill) { c.strokeStyle = g.pillBd || IMG.accBd; c.fillStyle = g.pillBg || IMG.accSoft; c.lineWidth = 1; c.beginPath(); c.roundRect(x + .5, cy - 9, w - 1, 18, 5); c.fill(); c.stroke(); }
         g.atoms.forEach((a, i) => {
           if (i) ax += GAP;
           if (a.grad) {
@@ -1080,12 +1100,12 @@ function layoutLegend(ctx, fam, groups, W, pad) {
           } else if (a.box) {
             const bw = a.lim ? 12 : 10;
             c.fillStyle = a.box; c.beginPath(); c.roundRect(ax, cy - 5, bw, 10, a.lim ? 1 : 2); c.fill();
-            if (a.hatch) { c.strokeStyle = 'rgba(255,255,255,.3)'; c.lineWidth = 1; c.strokeRect(ax + .5, cy - 4.5, bw - 1, 9); }
-            if (a.lim) { c.fillStyle = '#fff'; c.fillRect(ax, a.lim > 0 ? cy - 5 : cy + 2, bw, 3); }
+            if (a.hatch) { c.strokeStyle = IMG.ink30; c.lineWidth = 1; c.strokeRect(ax + .5, cy - 4.5, bw - 1, 9); }
+            if (a.lim) { c.fillStyle = IMG.limBar; c.fillRect(ax, a.lim > 0 ? cy - 5 : cy + 2, bw, 3); }
             ax += bw;
           } else {
             c.font = `${a.w} ${FS}px ${fam}`; c.textAlign = 'left'; c.textBaseline = 'middle';
-            c.fillStyle = g.pill ? '#ffb547' : (a.color || g.color || '#9aa0ab'); c.fillText(a.t, ax, cy + .5); ax += c.measureText(a.t).width;
+            c.fillStyle = g.pill ? (g.color || IMG.acc) : (a.color || g.color || IMG.muted); c.fillText(a.t, ax, cy + .5); ax += c.measureText(a.t).width;
           }
         });
         x += w + GX;
@@ -1095,7 +1115,24 @@ function layoutLegend(ctx, fam, groups, W, pad) {
   return { h, draw };
 }
 
+// the screen's colours at the moment of saving (docs/standards/themes.md §15-2): a light theme gives a light image
+let IMG = null;
+function imgTheme() {
+  const cs = getComputedStyle(rootEl), g = (n, d) => cs.getPropertyValue(n).trim() || d, light = lightTone();
+  const fg = g('--fg', '#eef0f3'), muted = g('--muted', '#8a8f99');
+  const rule = g('--rule', '');
+  return {
+    light, labs: light ? 'auto' : 'halo',   // light tone: black or white per tile (node.ink when the template gives it); dark: white with a shadow
+    page: g('--page', '#131418'), map: g('--map-bg', '#000'), fg, muted, nodata: g('--nodata', '#383c46'),
+    sec: g('--sec-bg', '#000'), secFg: g('--sec-fg', '#f2f3f5'), ihd: g('--ihd-bg', '#0d0e11'), ihdFg: g('--ihd-fg', '#a6abb5'),
+    rule: /^(|transparent|rgba\(0,\s*0,\s*0,\s*0\))$/.test(rule) ? '' : rule,
+    acc: g('--acc', '#ffb547'), accBd: g('--acc-bd', 'rgba(255,181,71,.45)'), accSoft: g('--acc-soft', 'rgba(255,181,71,.12)'),
+    limBar: g('--lim-bar', '#fff'),
+    ink28: light ? withAlpha(fg, .28) : 'rgba(255,255,255,.28)', ink30: light ? withAlpha(fg, .3) : 'rgba(255,255,255,.3)',
+  };
+}
 function drawMap(nodes, wt) {
+  IMG = imgTheme();
   const pal = has('palette') ? KH.palette() : {};
   const upC = pal.upText || '#ff5c66', dnC = pal.dnText || '#2fd67a';
   const fam = getComputedStyle(document.body).fontFamily || 'sans-serif';
@@ -1116,8 +1153,8 @@ function drawMap(nodes, wt) {
   while (W * H * s * s > 16e6 && s > 1) s -= 0.25;                     // stay under the canvas area limit (iOS ≈ 16.7M px)
   cnv.width = Math.round(W * s); cnv.height = Math.round(H * s);
   ctx.scale(s, s);
-  ctx.fillStyle = '#131418'; ctx.fillRect(0, 0, W, H);
-  ctx.fillStyle = '#000'; ctx.fillRect(0, HT, W, MH);
+  ctx.fillStyle = IMG.page; ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = IMG.map; ctx.fillRect(0, HT, W, MH);
   ctx.textBaseline = 'middle';
   if (chrome.ix) drawIxRow(ctx, chrome.ix, fam, W, TH, pad);
   {
@@ -1128,7 +1165,7 @@ function drawMap(nodes, wt) {
       const fs = W < 520 ? 12 : 13;
       for (const p of chrome.stat.parts.slice().reverse()) {
         ctx.font = `${p.b ? 600 : 500} ${fs}px ${fam}`;
-        ctx.fillStyle = p.c || '#8a8f99'; ctx.fillText(p.t, right, cy);
+        ctx.fillStyle = p.c || IMG.muted; ctx.fillText(p.t, right, cy);
         right -= ctx.measureText(p.t).width;
       }
       right -= 12;
@@ -1136,12 +1173,12 @@ function drawMap(nodes, wt) {
       ctx.font = `600 ${W < 520 ? 12 : 13}px ${fam}`;
       const pw = ctx.measureText(chrome.stat.pct).width;
       ctx.fillStyle = chrome.stat.color; ctx.fillText(chrome.stat.pct, right, cy);
-      ctx.fillStyle = '#8a8f99'; ctx.font = `500 ${W < 520 ? 12 : 13}px ${fam}`; ctx.fillText(chrome.stat.n + ' · ', right - pw, cy);
+      ctx.fillStyle = IMG.muted; ctx.font = `500 ${W < 520 ? 12 : 13}px ${fam}`; ctx.fillText(chrome.stat.n + ' · ', right - pw, cy);
       right -= pw + ctx.measureText(chrome.stat.n + ' · ').width + 12;
     }
     ctx.textAlign = 'left';
     ctx.font = `700 ${tSize}px ${fam}`;
-    ctx.fillStyle = '#eef0f3'; ctx.fillText(ellipsize(ctx, chrome.title, Math.max(40, right - pad)), pad, cy);
+    ctx.fillStyle = IMG.fg; ctx.fillText(ellipsize(ctx, chrome.title, Math.max(40, right - pad)), pad, cy);
   }
   ctx.translate(0, HT);
   // group headers: the header height is the gap between a group's top and its first child (d3 paddingTop), unless given
@@ -1154,7 +1191,7 @@ function drawMap(nodes, wt) {
     const v = top === Infinity ? 0 : top - g.y;
     return v >= 9 && v <= 30 ? v : 0;
   };
-  for (const n of tiles) { ctx.fillStyle = n.color || '#383c46'; ctx.fillRect(n.x, n.y, n.w, n.h); }
+  for (const n of tiles) { ctx.fillStyle = n.color || IMG.nodata; ctx.fillRect(n.x, n.y, n.w, n.h); }
   const header = (g, H, size, weight, bg, fg) => {
     if (!H || !g.label) return;
     ctx.fillStyle = bg; ctx.fillRect(g.x, g.y, g.w, H);
@@ -1173,13 +1210,13 @@ function drawMap(nodes, wt) {
     if (withSub) {
       const d = subDir(sub);
       ctx.font = `600 ${size}px ${fam}`;
-      ctx.fillStyle = d > 0 ? upC : d < 0 ? dnC : '#8a8f99';
+      ctx.fillStyle = d > 0 ? upC : d < 0 ? dnC : IMG.muted;
       ctx.fillText(sub, g.x + 5 + textW + 6, cy);
     }
     ctx.restore();
   };
-  for (const g of inds) header(g, hdOf(g, tiles), 10.5, 500, '#0d0e11', '#a6abb5');
-  for (const g of secs) header(g, hdOf(g, inds.length ? inds : tiles), 12, 700, '#000', '#f2f3f5');
+  for (const g of inds) header(g, hdOf(g, tiles), 10.5, 500, IMG.ihd, IMG.ihdFg);
+  for (const g of secs) header(g, hdOf(g, inds.length ? inds : tiles), 12, 700, IMG.sec, IMG.secFg);
   // tile labels
   ctx.textAlign = 'center';
   for (const n of tiles) {
@@ -1192,8 +1229,8 @@ function drawMap(nodes, wt) {
     const cx = n.x + n.w / 2;
     ctx.save();
     ctx.beginPath(); ctx.rect(n.x, n.y, n.w, n.h); ctx.clip();
-    ctx.shadowColor = 'rgba(0,0,0,.45)'; ctx.shadowBlur = 2 * s; ctx.shadowOffsetY = 1 * s;
-    ctx.fillStyle = '#fff';
+    if (IMG.labs !== 'auto') { ctx.shadowColor = 'rgba(0,0,0,.45)'; ctx.shadowBlur = 2 * s; ctx.shadowOffsetY = 1 * s; }   // dark themes: white type with a soft halo
+    ctx.fillStyle = IMG.labs === 'auto' ? (n.ink || inkOn(n.color)) : '#fff';
     ctx.font = `600 ${fs.toFixed(1)}px ${fam}`;
     for (const line of lines) { ctx.fillText(ell ? ellipsize(ctx, line, n.w - 6) : line, cx, y); y += lh; }
     if (showSub) {
@@ -1210,11 +1247,12 @@ function drawMap(nodes, wt) {
     }
     ctx.restore();
   }
+  if (IMG.rule) { ctx.strokeStyle = IMG.rule; ctx.lineWidth = 1; ctx.strokeRect(.5, .5, W - 1, MH - 1); }   // paper: the map's 1px ink edge
   ctx.translate(0, MH);
   lg.draw(ctx, 0);
   ctx.translate(0, lg.h);
   ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-  ctx.font = `500 10.5px ${fam}`; ctx.fillStyle = '#8a8f99';
+  ctx.font = `500 10.5px ${fam}`; ctx.fillStyle = IMG.muted;
   ctx.fillText(ellipsize(ctx, chrome.footer, W - 2 * pad), pad, FH / 2 - 1);
   return cnv;
 }
@@ -1299,7 +1337,7 @@ function initPWA() {
   if (!LIVE) return;
   headTag('link', { rel: 'manifest', href: '/manifest.webmanifest' });
   headTag('link', { rel: 'apple-touch-icon', href: '/apple-touch-icon.png' });
-  headTag('meta', { name: 'theme-color', content: '#131418' });
+  headTag('meta', { name: 'theme-color', content: tok('--page', '#131418') });
   headTag('meta', { name: 'apple-mobile-web-app-capable', content: 'yes' });
   headTag('meta', { name: 'mobile-web-app-capable', content: 'yes' });
   headTag('meta', { name: 'apple-mobile-web-app-title', content: '판세' });
@@ -1637,7 +1675,7 @@ function rpBand() {
     const st = [`transparent 0 ${pc(fine[0][0] - SESSION.s0)}`];
     fine.forEach((r, k) => {
       const a = pc(r[0] - SESSION.s0), b = pc(r[1] - SESSION.s0);
-      st.push(`#697086 ${a} ${b}`, `transparent ${b} ${k < fine.length - 1 ? pc(fine[k + 1][0] - SESSION.s0) : '100%'}`);
+      st.push(`var(--xe-fine) ${a} ${b}`, `transparent ${b} ${k < fine.length - 1 ? pc(fine[k + 1][0] - SESSION.s0) : '100%'}`);
     });
     g = `linear-gradient(90deg,${st.join(',')})`;
   }
@@ -1831,7 +1869,12 @@ const kstNow = () => {
 };
 const two = n => String(n).padStart(2, '0');
 const hm2m = t => +String(t).slice(0, 2) * 60 + +String(t).slice(2, 4);
-const PH = { pre: '#6f78e6', am: '#5cc0f2', pm: '#ffb547', auc: '#ee7a2c', nxt: '#a97bf2', night: '#4a5f9c' };
+// the clock's session arc keeps these in every theme (사용자 2026-11-13 19:45 ⑤); the session bar's hues are the theme's --sb-* tokens
+const PH_FIX = { pre: '#6f78e6', am: '#5cc0f2', pm: '#ffb547', auc: '#ee7a2c', nxt: '#a97bf2', night: '#4a5f9c' };
+const PH_TOK = { pre: '--sb-dawn', am: '--sb-am', pm: '--sb-pm', auc: '--sb-close', nxt: '--sb-after', night: '--sb-night' };
+const PH = Object.assign({}, PH_FIX);
+function phRead() { for (const k in PH_TOK) PH[k] = tok(PH_TOK[k], PH_FIX[k]); }
+phRead();
 const PHN = { pre: '장 시작 전', am: '오전장', pm: '오후장', auc: '마감 동시호가', nxt: 'NXT 애프터마켓', night: '밤·휴장' };
 const ck = { on: false, style: 'digital', cells: [], timer: 0, raf: 0, busy: false, shown: '', lastMin: -1, key: '' };
 
@@ -1964,7 +2007,7 @@ function ckArc(n, ph) {
   };
   const out = [];
   if (hol) out.push(path(start, end, '#8d929c', 0.55, 'xa-a-hol'));
-  else for (const [a, b, c] of [[start, mid, PH.am], [mid, auc, PH.pm], [auc, end, PH.auc]]) {
+  else for (const [a, b, c] of [[start, mid, PH_FIX.am], [mid, auc, PH_FIX.pm], [auc, end, PH_FIX.auc]]) {
     out.push(path(a, Math.min(b, Math.max(a, t)), c, 1, 'xa-a-past'), path(Math.max(a, Math.min(b, t)), b, c, 0.32, 'xa-a-left'));
   }
   g.replaceChildren(...out.filter(Boolean));
@@ -2081,26 +2124,26 @@ const fmtLeft = m => { m = Math.max(1, Math.ceil(m)); const hh = Math.floor(m / 
 function sbIcon(kind) {
   const S = (t, a, ...k) => svg(t, a, ...k);
   const root = S('svg', { viewBox: '0 0 20 20', width: 22, height: 22, class: 'sb-svg sb-' + kind, 'aria-hidden': 'true', focusable: 'false' });
-  const ray = (ang, r1, r2, cx, cy) => { const a = ang * Math.PI / 180; return S('line', { x1: (cx + Math.cos(a) * r1).toFixed(2), y1: (cy + Math.sin(a) * r1).toFixed(2), x2: (cx + Math.cos(a) * r2).toFixed(2), y2: (cy + Math.sin(a) * r2).toFixed(2), stroke: '#ffd479', 'stroke-width': 1.5, 'stroke-linecap': 'round' }); };
+  const ray = (ang, r1, r2, cx, cy) => { const a = ang * Math.PI / 180; return S('line', { x1: (cx + Math.cos(a) * r1).toFixed(2), y1: (cy + Math.sin(a) * r1).toFixed(2), x2: (cx + Math.cos(a) * r2).toFixed(2), y2: (cy + Math.sin(a) * r2).toFixed(2), style: 'stroke:var(--xe-ray)', 'stroke-width': 1.5, 'stroke-linecap': 'round' }); };
   if (kind === 'moon') {
-    root.append(S('path', { d: 'M12.6 2.6a7.6 7.6 0 1 0 4.8 12.9A6.3 6.3 0 0 1 12.6 2.6z', fill: '#d6dcff' }), S('circle', { cx: 15.2, cy: 4.6, r: 0.9, fill: '#d6dcff' }));
+    root.append(S('path', { d: 'M12.6 2.6a7.6 7.6 0 1 0 4.8 12.9A6.3 6.3 0 0 1 12.6 2.6z', style: 'fill:var(--xe-moon)' }), S('circle', { cx: 15.2, cy: 4.6, r: 0.9, style: 'fill:var(--xe-moon)' }));
   } else if (kind === 'rise') {
     root.append(S('g', { class: 'sb-rays' }, ...[180, 215, 250, 290, 325, 360].map(a => ray(a, 7.6, 10, 10, 14))),
-      S('path', { d: 'M3.8 14a6.2 6.2 0 0 1 12.4 0z', fill: '#ffb547' }), S('line', { x1: 1, y1: 14.6, x2: 19, y2: 14.6, stroke: '#ffd479', 'stroke-width': 1.3, 'stroke-linecap': 'round' }));
+      S('path', { d: 'M3.8 14a6.2 6.2 0 0 1 12.4 0z', style: 'fill:var(--xe-sun)' }), S('line', { x1: 1, y1: 14.6, x2: 19, y2: 14.6, style: 'stroke:var(--xe-ray)', 'stroke-width': 1.3, 'stroke-linecap': 'round' }));
   } else {
-    root.append(S('g', { class: 'sb-rays' }, ...[0, 45, 90, 135, 180, 225, 270, 315].map(a => ray(a, 6.6, 9.2, 10, 10))), S('circle', { cx: 10, cy: 10, r: 4.6, fill: '#ffb547' }));
+    root.append(S('g', { class: 'sb-rays' }, ...[0, 45, 90, 135, 180, 225, 270, 315].map(a => ray(a, 6.6, 9.2, 10, 10))), S('circle', { cx: 10, cy: 10, r: 4.6, style: 'fill:var(--xe-sun)' }));
   }
   return root;
 }
 // the phase the pill names (§3-24): label, icon, colour, and the phase's own progress (the number the tooltip uses)
 function sbPhase(n, ph) {
   const t = n.min + n.s / 60, { start, end } = ph.seg;
-  if (ph.text === '휴장') return { id: 'hol', label: '휴장', icon: 'caloff', color: '#a3a9b6' };
+  if (ph.text === '휴장') return { id: 'hol', label: '휴장', icon: 'caloff', color: lightTone() ? tok('--muted', '#535a65') : '#a3a9b6' };
   if (t < start) return { id: 'pre', label: '장 전', icon: 'glass', color: PH.pre, pct: t >= 8 * 60 ? Math.min(99, Math.floor(ph.fill * 100)) : null };
   if (t < end) return ph.key === 'auc' ? { id: 'auc', label: '마감 동시호가', icon: 'bell', color: PH.auc, pct: null }
     : { id: 'reg', label: '장 중', icon: 'candle', color: PH[ph.key], pct: ph.pct };
-  if (t < SB1) return { id: 'nxt', label: '애프터마켓', icon: 'moon', color: '#b99cf7', pct: Math.min(99, Math.floor(ph.fill * 100)) };
-  return { id: 'end', label: '장 마감', icon: 'lock', color: '#8f9fd8' };
+  if (t < SB1) return { id: 'nxt', label: '애프터마켓', icon: 'moon', color: lightTone() ? PH.nxt : '#b99cf7', pct: Math.min(99, Math.floor(ph.fill * 100)) };
+  return { id: 'end', label: '장 마감', icon: 'lock', color: lightTone() ? PH.night : '#8f9fd8' };
 }
 function sbPhaseIcon(kind) {
   const S = (t, a, ...k) => svg(t, a, ...k);
@@ -2172,9 +2215,10 @@ function sbRender(n, ph, lvl) {
   if (sig !== sb.sig) {
     sb.sig = sig;
     const parts = [[SB0, start, PH.pre, 'lo'], [start, mid, PH.am], [mid, auc, PH.pm], [auc, end, PH.auc], [end, SB1, PH.nxt, 'lo']];
-    const mk = (alpha) => parts.map(([a, b, c, lo]) => h('i', { class: lo ? 'lo' : '', style: `left:${pc(a)}%;width:${(pc(b) - pc(a)).toFixed(2)}%;background:${c}${alpha}` }));
-    sb.segs.replaceChildren(...mk('3d'));
-    sb.fillSegs = mk('');
+    const rest = Math.round((parseFloat(tok('--sb-rest', '')) || 0.24) * 100);   // the not-yet-reached part: the hue at --sb-rest
+    const mk = (alpha) => parts.map(([a, b, c, lo]) => h('i', { class: lo ? 'lo' : '', style: `left:${pc(a)}%;width:${(pc(b) - pc(a)).toFixed(2)}%;background:${alpha ? `color-mix(in srgb,${c} ${rest}%,transparent)` : c}` }));
+    sb.segs.replaceChildren(...mk(true));
+    sb.fillSegs = mk(false);
     sb.fill.replaceChildren(...sb.fillSegs);
     sb.box.dataset.title = `장 시작 전 08:00~${minLabel(start)} · 오전장 ~${minLabel(mid)} · 오후장 ~${minLabel(auc)} · 마감 동시호가 ~${minLabel(end)} · NXT ~20:00`;
   }
@@ -2510,6 +2554,14 @@ document.addEventListener('keydown', rpKeys);
 document.addEventListener('visibilitychange', () => { if (document.hidden) pause(); });
 addEventListener('resize', () => { if (replay.big && replay.big.classList.contains('on')) bigUpdate(); });
 document.addEventListener('kh:motion', () => bigUpdate());
+// a theme change (docs/standards/themes.md): the session bar's hues, the browser's top colour; everything else follows the CSS tokens
+document.addEventListener('kh:theme', () => {
+  phRead();
+  const m = document.querySelector('meta[name="theme-color"]'), c = tok('--page', '');
+  if (m && c) m.setAttribute('content', c);
+  sb.sig = ''; sb.phase = undefined;                       // the segments and the pill's --pc are drawn again with the new hues
+  if (ck.on) ckRender();
+});
 // Space on a focused button would also "click" it on keyup: swallow that when the player took the keydown
 document.addEventListener('keyup', e => { if (spaceTaken && (e.key === ' ' || e.code === 'Space')) { e.preventDefault(); spaceTaken = false; } });
 })();
