@@ -109,12 +109,46 @@ function dateCell(s) {
   const short = +y === kst(new Date()).y ? `${m}.${d}` : `${y.slice(2)}.${m}.${d}`;
   return [h('span', { class: 'l', text: `${y}.${m}.${d}` }), h('span', { class: 's', text: short })];
 }
-function hexRgba(hex, a) {
-  const m = /^#?([0-9a-f]{6})$/i.exec(String(hex).trim());
-  if (!m) return hex;
-  const n = parseInt(m[1], 16);
-  return `rgba(${n >> 16},${(n >> 8) & 255},${n & 255},${a})`;
+/* ───────────────── theme colours (docs/standards/themes.md) ─────────────────
+ * The page is coloured by CSS tokens (stock.css); the chart canvas cannot read them, so the strings it needs come from here: a probe
+ * element resolves var() / color-mix() to rgb, and applyChartTheme() hands them to lightweight-charts again on every kh:theme. */
+let probeEl = null;
+function cssColor(value) {   // any CSS colour (var() and color-mix() included) → [r, g, b, a 0..1], or null
+  try {
+    if (!probeEl) { probeEl = document.createElement('span'); probeEl.setAttribute('aria-hidden', 'true'); probeEl.style.cssText = 'position:absolute;width:0;height:0;overflow:hidden;visibility:hidden;pointer-events:none'; }
+    const host = root || document.body;
+    if (probeEl.parentNode !== host) host.append(probeEl);
+    probeEl.style.color = '';
+    probeEl.style.color = value;
+    const c = getComputedStyle(probeEl).color;
+    let m = /^rgba?\(([^)]+)\)$/.exec(c);
+    if (m) { const v = m[1].split(/[\s,\/]+/).filter(Boolean).map(x => (/%$/.test(x) ? parseFloat(x) / 100 : parseFloat(x))); return [v[0], v[1], v[2], v.length > 3 ? v[3] : 1]; }
+    m = /^color\(srgb ([^)]+)\)$/.exec(c);
+    if (m) { const v = m[1].split(/[\s\/]+/).filter(Boolean).map(x => (/%$/.test(x) ? parseFloat(x) / 100 : parseFloat(x))); return [v[0] * 255, v[1] * 255, v[2] * 255, v.length > 3 ? v[3] : 1]; }
+  } catch (e) { /* fall through */ }
+  return null;
 }
+const rgbStr = (c, a) => { const k = a == null ? c[3] : a; const r = Math.round(c[0]), g = Math.round(c[1]), b = Math.round(c[2]); return k >= 1 ? `rgb(${r},${g},${b})` : `rgba(${r},${g},${b},${+k.toFixed(3)})`; };
+// a token (or any colour) as a string the chart accepts; `dflt` is today's dark-theme value for a page that defines no token yet
+const tokColor = (name, dflt) => cssColor(`var(${name}, ${dflt})`) || cssColor(dflt) || [128, 128, 128, 1];
+const over = (c, bg) => [c[0] * c[3] + bg[0] * (1 - c[3]), c[1] * c[3] + bg[1] * (1 - c[3]), c[2] * c[3] + bg[2] * (1 - c[3]), 1];   // a translucent colour laid on an opaque one
+// the same colour at another strength — palette stops (hex) and tokens alike
+function hexRgba(color, a) { const c = cssColor(color); return c ? rgbStr(c, a) : color; }
+const themeId = () => { try { return (KH.theme && KH.theme()) || document.documentElement.dataset.theme || 'base'; } catch (e) { return 'base'; } };
+const isLight = () => { const t = document.documentElement.dataset.tone; return t ? t === 'light' : /^(paper|glass-light)$/.test(themeId()); };
+let CH = null;   // the chart's colours for the theme in use
+function chartColors() {
+  const light = isLight();
+  const page = tokColor('--page', '#131418'), muted = tokColor('--muted', '#8a8f99'), fg = tokColor('--fg', '#eef0f3'), fg2 = tokColor('--fg2', '#bcc0c8');
+  const line = tokColor('--line', '#2b2d34'), line2 = tokColor('--line2', '#373a42');
+  const tag = light ? fg2 : over(line2, over(page, [0, 0, 0, 1]));   // crosshair / 전일 종가 labels: opaque, so the label text keeps its contrast
+  return {
+    light, flat: rgbStr(muted, 1), text: rgbStr(muted, 1), line: rgbStr(line), sep: rgbStr(line), sepHover: rgbStr(fg, .06),
+    gridV: rgbStr(fg, light ? .07 : .035), gridH: rgbStr(fg, light ? .09 : .045),
+    tagBg: rgbStr(tag, 1), tagFg: rgbStr(light ? page : fg, 1),
+  };
+}
+const chc = () => CH || (CH = chartColors());
 const chevron = () => svg('svg', { viewBox: '0 0 24 24', 'aria-hidden': 'true', fill: 'none', stroke: 'currentColor', 'stroke-width': '2.2', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, svg('path', { d: 'M15 5l-7 7 7 7' }));
 function skel(w, hgt) { return h('span', { class: 'sp-skel', style: `width:${w};height:${hgt || '1em'}` }); }
 // retry: a key from retryKey() (or a plain function: a plain 다시 시도 key)
@@ -705,16 +739,17 @@ async function ensureChart() {
   const L = await loadLWC();
   if (C.chart) return;
   const font = getComputedStyle(document.body).fontFamily;
+  const K = chc();
   const chart = L.createChart(R.chart, {
     autoSize: true,
-    layout: { background: { type: L.ColorType.Solid, color: '#191a1f' }, textColor: '#8a8f99', fontSize: 11, fontFamily: font, attributionLogo: true,
-      panes: { separatorColor: '#2b2d34', separatorHoverColor: 'rgba(255,255,255,.06)', enableResize: false } },
-    grid: { vertLines: { color: 'rgba(255,255,255,.035)' }, horzLines: { color: 'rgba(255,255,255,.045)' } },
+    layout: { background: { type: L.ColorType.Solid, color: 'rgba(0,0,0,0)' }, textColor: K.text, fontSize: 11, fontFamily: font, attributionLogo: true,   // transparent: the .sp-chartwrap card is the ground
+      panes: { separatorColor: K.sep, separatorHoverColor: K.sepHover, enableResize: false } },
+    grid: { vertLines: { color: K.gridV }, horzLines: { color: K.gridH } },
     crosshair: { mode: L.CrosshairMode.Normal,
-      vertLine: { color: '#8a8f99', width: 1, style: L.LineStyle.Dashed, labelBackgroundColor: '#373a42' },
-      horzLine: { color: '#8a8f99', width: 1, style: L.LineStyle.Dashed, labelBackgroundColor: '#373a42' } },
-    rightPriceScale: { borderColor: '#2b2d34', scaleMargins: { top: 0.16, bottom: 0.06 } },
-    timeScale: { borderColor: '#2b2d34', rightOffset: 2, fixLeftEdge: true, fixRightEdge: true, lockVisibleTimeRangeOnResize: true, tickMarkFormatter: tickLabel },
+      vertLine: { color: K.text, width: 1, style: L.LineStyle.Dashed, labelBackgroundColor: K.tagBg },
+      horzLine: { color: K.text, width: 1, style: L.LineStyle.Dashed, labelBackgroundColor: K.tagBg } },
+    rightPriceScale: { borderColor: K.line, scaleMargins: { top: 0.16, bottom: 0.06 } },
+    timeScale: { borderColor: K.line, rightOffset: 2, fixLeftEdge: true, fixRightEdge: true, lockVisibleTimeRangeOnResize: true, tickMarkFormatter: tickLabel },
     localization: { locale: 'ko-KR', timeFormatter: t => timeLabel(t) },
     handleScroll: { mouseWheel: true, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: false },
     handleScale: { mouseWheel: true, pinch: true, axisPressedMouseMove: { time: true, price: false }, axisDoubleClickReset: true },
@@ -756,10 +791,19 @@ function sanitize(raw, intraday) {
   }
   return [...out.values()].sort((a, b) => (a.time < b.time ? -1 : a.time > b.time ? 1 : 0));
 }
-const FLAT = '#8a8f99';
-function candleData(bars) { return bars.map(b => b.c === b.o ? { time: b.time, open: b.o, high: b.h, low: b.l, close: b.c, color: FLAT, wickColor: FLAT } : { time: b.time, open: b.o, high: b.h, low: b.l, close: b.c }); }
+function candleData(bars) { const FLAT = chc().flat; return bars.map(b => b.c === b.o ? { time: b.time, open: b.o, high: b.h, low: b.l, close: b.c, color: FLAT, wickColor: FLAT } : { time: b.time, open: b.o, high: b.h, low: b.l, close: b.c }); }
+function candleSet(bars, tf) {
+  const cdata = candleData(bars);
+  if (tf === '1d' && S.phase === 'open') {
+    // leave room for the rest of the regular session (until 15:30 KST)
+    const last = bars[bars.length - 1].time, p = timeParts(last);
+    const end = Date.UTC(p.y, p.m - 1, p.d, 15, 30) / 1000;
+    for (let t = last + 60; t <= end; t += 60) cdata.push({ time: t });
+  }
+  return cdata;
+}
 function volData(bars) {
-  const P = KH.palette(), up = hexRgba(P.up, 0.55), dn = hexRgba(P.down, 0.55), fl = hexRgba(FLAT, 0.45);
+  const P = KH.palette(), up = hexRgba(P.up, 0.55), dn = hexRgba(P.down, 0.55), fl = hexRgba(chc().flat, 0.45);
   return bars.map(b => ({ time: b.time, value: b.v, color: b.c > b.o ? up : b.c < b.o ? dn : fl }));
 }
 
@@ -840,14 +884,14 @@ function computeRefs() {
 }
 function drawRefLine() {
   if (C.prevLine) { C.candles.removePriceLine(C.prevLine); C.prevLine = null; }
-  if (C.ref != null && C.bars && C.bars.length) C.prevLine = C.candles.createPriceLine({ price: C.ref, color: '#8a8f99', lineWidth: 1, lineStyle: C.L.LineStyle.Dashed, axisLabelVisible: true, title: '전일 종가', axisLabelColor: '#373a42', axisLabelTextColor: '#eef0f3' });
+  if (C.ref != null && C.bars && C.bars.length) C.prevLine = C.candles.createPriceLine({ price: C.ref, color: chc().flat, lineWidth: 1, lineStyle: C.L.LineStyle.Dashed, axisLabelVisible: true, title: '전일 종가', axisLabelColor: chc().tagBg, axisLabelTextColor: chc().tagFg });
 }
 // the last-price label follows the day's change (as in the header), not the last candle's own colour
 function lastColor() {
   const d = S.sum && S.sum.code === S.code && isNum(S.sum.change) ? +S.sum.change : null;
   if (d == null) return '';
   const P = KH.palette();
-  return d > 0 ? P.up : d < 0 ? P.down : FLAT;
+  return d > 0 ? P.up : d < 0 ? P.down : chc().flat;
 }
 // /summary arrived or changed after the candles: move the 전일 종가 line and the legend onto 기준가
 function syncChartRef() {
@@ -882,14 +926,7 @@ function setChartData(j, code, tf, keepRange) {
     R.chart.setAttribute('aria-label', `${TF_NAME[tf]} 차트: 거래 기록이 없어요`);
     return;
   }
-  const cdata = candleData(bars);
-  if (tf === '1d' && S.phase === 'open') {
-    // leave room for the rest of the regular session (until 15:30 KST)
-    const last = bars[bars.length - 1].time, p = timeParts(last);
-    const end = Date.UTC(p.y, p.m - 1, p.d, 15, 30) / 1000;
-    for (let t = last + 60; t <= end; t += 60) cdata.push({ time: t });
-  }
-  C.candles.setData(cdata);
+  C.candles.setData(candleSet(bars, tf));
   C.vol.setData(volData(bars));
   drawRefLine();
   if (range) C.chart.timeScale().setVisibleLogicalRange(range); else C.chart.timeScale().fitContent();
@@ -936,11 +973,26 @@ function renderPeriod() {
     R.period.replaceChildren(h('span', { text: `${TF_NAME[C.tf]} 동안 ` }), h('b', { class: cls(r), text: pct(r) }));
   }
 }
+// kh:palette (data colours) and kh:theme (everything else): hand the chart its colours again, no reload. The flat candles carry their
+// own colour per bar, so the series is set again too (same bars, the visible range kept).
 function applyColors() {
+  CH = null;
   if (!C.candles) return;
-  const P = KH.palette();
+  const K = chc(), P = KH.palette();
+  C.chart.applyOptions({
+    layout: { textColor: K.text, panes: { separatorColor: K.sep, separatorHoverColor: K.sepHover } },
+    grid: { vertLines: { color: K.gridV }, horzLines: { color: K.gridH } },
+    crosshair: { vertLine: { color: K.text, labelBackgroundColor: K.tagBg }, horzLine: { color: K.text, labelBackgroundColor: K.tagBg } },
+    rightPriceScale: { borderColor: K.line }, timeScale: { borderColor: K.line },
+  });
   C.candles.applyOptions({ upColor: P.up, downColor: P.down, wickUpColor: P.up, wickDownColor: P.down, priceLineColor: lastColor() });
-  if (C.bars && C.bars.length) C.vol.setData(volData(C.bars));
+  if (C.bars && C.bars.length) {
+    const range = C.chart.timeScale().getVisibleLogicalRange();
+    C.candles.setData(candleSet(C.bars, C.tf));
+    C.vol.setData(volData(C.bars));
+    drawRefLine();
+    if (range) C.chart.timeScale().setVisibleLogicalRange(range);
+  }
 }
 function scheduleIntraday() {
   clearTimeout(S.timers.chart);
@@ -1920,6 +1972,9 @@ function stopTimers() {
 }
 function stopAll() { stopTimers(); abortAll(); }
 
+// the phone's bottom bar hides while the page is open (themes.md §15-3): kh:stock {open}, once per open / close, not on a stock switch
+function announce(open) { try { document.dispatchEvent(new CustomEvent('kh:stock', { detail: { open } })); } catch (e) { /* a listener must not break the page */ } }
+
 function show(code, opener) {
   pickClose(false);
   build();
@@ -1938,6 +1993,7 @@ function show(code, opener) {
     root.classList.remove('sp-in');
     if (!reducedNow()) { void root.offsetWidth; root.classList.add('sp-in'); }
     S.open = true;
+    announce(true);
   }
   root.scrollTop = 0;
   root.classList.remove('sp-nf');
@@ -1963,6 +2019,7 @@ function hide() {
   document.documentElement.classList.remove('sp-on');
   setInert(false);
   if (S.prevTitle) document.title = S.prevTitle;
+  announce(false);
   const o = S.opener;
   S.opener = null;
   if (o && o.isConnected && typeof o.focus === 'function') { try { o.focus({ preventScroll: true }); } catch (e) { /* ignore */ } }
@@ -2023,7 +2080,9 @@ document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') { loadSummary(true); TAB[S.tab].show(R.panels[S.tab]); scheduleIntraday(); }
   else stopTimers();   // loads already in flight may finish; nothing new starts while hidden
 });
-document.addEventListener('kh:palette', () => { if (root) { applyColors(); if (S.open) renderPeers(); } });
+const recolour = () => { if (root) { applyColors(); if (S.open) renderPeers(); } };
+document.addEventListener('kh:palette', recolour);
+document.addEventListener('kh:theme', recolour);
 document.addEventListener('kh:data', () => { if (S.open) { renderPeers(); renderHead(); if (LIVE) renderMeta(); } });
 document.addEventListener('kh:basis', () => { if (S.open) renderHead(); });   // the headline is the row in the chosen basis   // 업종 path / provisional price arrive with the quotes
 document.addEventListener('kh:motion', () => { if (!fancy() && R.price) { settleRoll(R.price); settleRoll(R.chg); } });
