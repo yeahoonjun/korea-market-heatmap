@@ -238,8 +238,28 @@ function tkSource() {
 }
 
 // pause: only while a finger / button is down (+2 s), while a detail window is open, or by the ⏸ button (persistent)
-const tkHold = { down: false, detail: false, timer: 0, moved: false };
-function tkHoldApply() { stripEl.classList.toggle('xs-hold', tkHold.down || tkHold.detail || !!tkHold.timer); }
+const tkHold = { down: false, detail: false, timer: 0, moved: false, held: false };
+function tkHoldApply() {
+  const held = tkHold.down || tkHold.detail || !!tkHold.timer;
+  stripEl.classList.toggle('xs-hold', held);
+  if (tkHold.held && !held) tkResume();
+  tkHold.held = held;
+}
+// the loop picks its speed up again over --c-slow (ease-out) instead of jumping to it; '줄이기': at once
+let tkRampRaf = 0;
+function tkAnim() { try { return tk.track && tk.track.getAnimations ? tk.track.getAnimations()[0] || null : null; } catch (e) { return null; } }
+function tkRate(a, r) { try { if (a.updatePlaybackRate) a.updatePlaybackRate(r); else a.playbackRate = r; } catch (e) { /* keeps its speed */ } }
+function tkResume() {
+  cancelAnimationFrame(tkRampRaf);
+  const a = tkAnim();
+  if (!a) return;
+  const dur = motion() === 'reduced' ? 0 : tokMs('--c-slow', 560);
+  if (!(dur > 0) || document.hidden) { tkRate(a, 1); return; }
+  const t0 = performance.now();
+  const go = now => { const k = Math.min(1, (now - t0) / dur); tkRate(a, Math.max(0.05, 1 - Math.pow(1 - k, 3))); if (k < 1) tkRampRaf = requestAnimationFrame(go); };
+  tkRate(a, 0.05);
+  tkRampRaf = requestAnimationFrame(go);
+}
 function tkRelease() {
   if (!tkHold.down) return;
   tkHold.down = false;
@@ -248,26 +268,49 @@ function tkRelease() {
   tkHoldApply();
 }
 function tkBindPointer(vp) {
-  let x0 = 0, p0 = 0, id = null, anim = null, startX = 0;
+  let x0 = 0, id = null, anim = null, startX = 0, dx = 0, glide = 0, pts = [];
   const curX = () => { try { return new DOMMatrix(getComputedStyle(tk.track).transform).m41; } catch (e) { return 0; } };
+  // drag = scrub: the loop's time follows the finger (negative x runs forward)
+  const scrub = d => {
+    if (!anim || !tk.W) return;
+    const p = ((((-(x0 + d)) % tk.W) + tk.W) % tk.W) / tk.W;
+    try { anim.currentTime = p * tk.dur * 1000; } catch (err) { /* stays put */ }
+  };
   vp.addEventListener('pointerdown', e => {
     if (e.pointerType === 'mouse' && e.button !== 0) return;
+    cancelAnimationFrame(glide); cancelAnimationFrame(tkRampRaf);
     tkHold.down = true; tkHold.moved = false; clearTimeout(tkHold.timer); tkHold.timer = 0; tkHoldApply();
-    id = e.pointerId; startX = e.clientX; x0 = curX();
-    anim = tk.track.getAnimations ? tk.track.getAnimations()[0] : null;
+    id = e.pointerId; startX = e.clientX; x0 = curX(); dx = 0; pts = [[e.timeStamp, e.clientX]];
+    anim = tkAnim();
   });
   vp.addEventListener('pointermove', e => {
     if (!tkHold.down || e.pointerId !== id) return;
-    const dx = e.clientX - startX;
-    if (!tkHold.moved && Math.abs(dx) < 8) return;
-    tkHold.moved = true;
-    if (!anim || !tk.W) return;
-    // drag = scrub: the loop's time follows the finger (negative x runs forward)
-    const p = ((((-(x0 + dx)) % tk.W) + tk.W) % tk.W) / tk.W;
-    try { anim.currentTime = p * tk.dur * 1000; } catch (err) { /* stays put */ }
+    const d = e.clientX - startX;
+    pts.push([e.timeStamp, e.clientX]); if (pts.length > 8) pts.shift();
+    if (!tkHold.moved && Math.abs(d) < 8) return;
+    if (!tkHold.moved) { tkHold.moved = true; stripEl.classList.add('xs-drag'); }      // a drag, not a press: the item under the finger rises again
+    dx = d; scrub(dx);
   });
-  for (const ev of ['pointerup', 'pointercancel']) vp.addEventListener(ev, () => { id = null; tkRelease(); });
-  vp.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse') tkRelease(); });
+  const up = e => {
+    if (id == null || (e && e.pointerId !== id)) return;
+    id = null;
+    // a flick glides on and comes to rest over --c-slow (ease-out, a third of the release speed × the time); '줄이기' stops where it was let go
+    if (tkHold.moved && motion() !== 'reduced' && pts.length > 1) {
+      const last = pts[pts.length - 1], first = pts.find(q => last[0] - q[0] <= 100) || pts[0];
+      const v = last[0] > first[0] ? (last[1] - first[1]) / (last[0] - first[0]) : 0;          // px per ms
+      const T = tokMs('--c-slow', 560);
+      if (Math.abs(v) > 0.3 && T > 0) {
+        const base = dx, D = v * T / 3, t0 = performance.now();
+        const step = n => { const k = Math.min(1, (n - t0) / T); dx = base + D * (1 - Math.pow(1 - k, 3)); scrub(dx); if (k < 1) glide = requestAnimationFrame(step); };
+        glide = requestAnimationFrame(step);
+      }
+    }
+    setTimeout(() => stripEl.classList.remove('xs-drag'), 0);
+    tkRelease();
+  };
+  vp.addEventListener('pointerup', up);
+  vp.addEventListener('pointercancel', up);
+  vp.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse') up(e); });
 }
 
 // tap / Enter → the item's detail
@@ -334,6 +377,7 @@ function tkBindClicks() {
     if (e.key !== 'Enter' && e.key !== ' ') return;
     const it = e.target.closest && e.target.closest('.xs-item');
     if (!it || e.target !== it) return;
+    if (!e.repeat) it.classList.add('is-press');                       // the key look while the key is down (the template lifts it on keyup / blur)
     e.preventDefault(); tkOpen(it.dataset.k, it);
   });
 }
@@ -506,19 +550,21 @@ function tkSize(full) {
     tk.track.style.setProperty('--xs-dur', tk.dur.toFixed(2) + 's');
   }
 }
+// ⏸ ↔ ▶: both shapes drawn once and swapped in place (controls.md §5-9); paused = held down with the amber ring (--key-on)
 function tkButton() {
-  const btn = h('button', { type: 'button', class: 'xs-pp', 'aria-pressed': String(tkPaused) });
+  const btn = h('button', { type: 'button', class: 'xs-pp', 'aria-pressed': String(tkPaused) },
+    h('i', { class: 'xs-ppi', 'aria-hidden': 'true' }, icon(ICON.pause, true), icon(ICON.play, true)));
   const draw = () => {
     btn.setAttribute('aria-pressed', String(tkPaused));
     const l = tkPaused ? '시장 띠 다시 움직이기' : '시장 띠 멈추기';
     btn.setAttribute('aria-label', l); btn.title = l;
-    btn.replaceChildren(icon(tkPaused ? ICON.play : ICON.pause, true));
     stripEl.classList.toggle('xs-off', tkPaused);
   };
   btn.addEventListener('click', () => {
     tkPaused = !tkPaused;
     try { localStorage.setItem('khm.tickerPaused', tkPaused ? '1' : '0'); } catch (e) { /* ignore */ }
     draw();
+    if (!tkPaused && !tkHold.held) tkResume();
   });
   draw();
   return btn;

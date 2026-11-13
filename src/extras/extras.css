@@ -4,7 +4,7 @@
 #strip.xs{display:flex;align-items:center;gap:14px;min-height:34px;padding:0 18px 10px;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;white-space:nowrap;overscroll-behavior-x:contain}
 #strip.xs::-webkit-scrollbar{display:none}
 #strip.xs[hidden]{display:none}
-#strip.xs:focus-visible{outline-offset:-2px;border-radius:6px}
+#strip.xs:focus-visible{outline-offset:calc(var(--focus-w) * -1);border-radius:6px}
 #strip.xs-scroll:not(.xs-end){-webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 32px),transparent);mask-image:linear-gradient(90deg,#000 calc(100% - 32px),transparent)}
 .xs-list{display:flex;align-items:center;flex:none}
 .xs-item{display:flex;align-items:center;gap:8px;height:34px;padding:0 11px;border-left:1px solid var(--line);font-variant-numeric:tabular-nums;flex:none}
@@ -31,10 +31,16 @@
 .xs-tk .xs-item:first-child{padding-left:11px;border-left:1px solid var(--line)}
 .xs-off .xs-track,.xs-hold .xs-track,.xs-vp:has(.xs-item:focus-visible) .xs-track{animation-play-state:paused}
 @media (hover:hover){.xs-vp:hover .xs-track{animation-play-state:paused}}
-.xs-pp{flex:none;display:grid;place-items:center;width:28px;height:28px;border-radius:50%;border:1px solid var(--line);background:transparent;color:var(--muted);cursor:pointer;padding:0}
-.xs-pp svg{width:12px;height:12px}
-.xs-pp:hover{color:var(--fg);border-color:var(--line2)}
-.xs-pp:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+/* ⏸ / ▶: a raised round key; paused = held down (--key-on) with an amber icon; the two shapes swap in place (--c-base --c-inout) */
+.xs-pp{position:relative;flex:none;display:grid;place-items:center;width:28px;height:28px;border-radius:50%;border:0;background:var(--key-bg);box-shadow:var(--key-sh);color:var(--key-ic);cursor:pointer;padding:0;transition:transform var(--c-fast) var(--c-out),box-shadow var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out),background-color var(--c-base) var(--c-out),color var(--c-base) var(--c-out)}
+.xs-pp:hover{background:var(--key-hover);color:var(--fg)}
+.xs-pp[aria-pressed="true"]{box-shadow:var(--key-on);color:var(--amber)}
+.xs-pp:is(:active,.is-press){transform:translateY(1px);box-shadow:var(--key-dn);filter:var(--press-f);transition-duration:0s,0s,0s,var(--c-base),var(--c-base)}
+.xs-ppi{display:grid;place-items:center}
+.xs-ppi svg{grid-area:1/1;width:12px;height:12px;transition:transform var(--c-base) var(--c-inout),opacity var(--c-base) var(--c-inout)}
+.xs-pp[aria-pressed="true"] .xs-ppi svg:first-child,.xs-pp:not([aria-pressed="true"]) .xs-ppi svg:last-child{opacity:0;transform:rotate(90deg) scale(.6)}
+@media (pointer:coarse){.xs-pp::before{content:"";position:absolute;left:50%;top:50%;width:max(100%,44px);height:max(100%,44px);transform:translate(-50%,-50%)}}
+@media (hover:none){.xs-pp:hover{background:var(--key-bg);color:var(--key-ic)}.xs-pp[aria-pressed="true"]:hover{color:var(--amber)}}
 .xs-msg{color:var(--muted);font-size:12.5px}
 .xs-live{margin-left:auto;flex:none;color:var(--muted);font-size:12px;text-decoration:underline;text-decoration-color:var(--line2);text-underline-offset:3px}
 .xs-live:hover{color:var(--fg)}
@@ -171,7 +177,7 @@ section.rp-player[hidden]{display:none}
   .xs-item{padding:0 10px}
   .xs-tk .xs-item:first-child{padding-left:10px}
   .xs-pp{width:40px;height:40px}
-  .xs-pp svg{width:14px;height:14px}
+  .xs-pp .xs-ppi svg{width:14px;height:14px}
   #extras-tools.xt{flex:none;gap:6px}
   .xt-btn{width:40px;height:40px;padding:0}
   .xt-btn .xt-l{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
@@ -281,9 +287,14 @@ html.sb-mid .sb-tip{bottom:auto;top:calc(100% + 8px)}
 
 /* §3-22 ticker: tap opens detail, drag scrubs, picker */
 .xs-vp{touch-action:pan-y}
-.xs-item{cursor:pointer;-webkit-tap-highlight-color:transparent}
+/* items press like keys without a surface (controls.md §5-1): 1px down + darker at 0 ms, back in --c-fast; a drag lifts them again */
+.xs-item{cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out)}
+.xs-item:is(:active,.is-press){transform:translateY(1px);filter:var(--press-f);transition-duration:0s}
+#strip.xs-drag .xs-item:active{transform:none;filter:none}
+@media (hover:hover){#strip.xs-tk .xs-vp{cursor:grab}}
+#strip.xs-drag :is(.xs-vp,.xs-item){cursor:grabbing}
 .xs-item:focus{outline:none}
-.xs-item:focus-visible{outline:2px solid var(--accent,#8ab4ff);outline-offset:-2px;border-radius:8px}
+.xs-item:focus-visible{outline:var(--focus-w) solid var(--amber);outline-offset:calc(var(--focus-w) * -1);border-radius:var(--r-in)}
 .xs-item.xs-none .xs-v,.xs-item.xs-none .xs-k{color:var(--faint,#6b7079)}
 @media (hover:hover){.xs-item:hover{background:rgba(255,255,255,.04)}}
 dialog.xk-info{width:min(360px,calc(100% - 24px))}
