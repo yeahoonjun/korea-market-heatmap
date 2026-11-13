@@ -52,6 +52,7 @@ async function cfJson(path, init) {
   let j = null; try { j = await r.json(); } catch (e) { /* not JSON */ }
   if (!r.ok || !j || j.success === false) {
     const errs = j && j.errors ? j.errors.map(e => `${e.code} ${e.message}`).join('; ') : `http ${r.status}`;
+    if (j) log(`response ${r.status} cf-ray ${r.headers.get('cf-ray') || '-'}: ${JSON.stringify({ errors: j.errors, messages: j.messages })}`.slice(0, 2000));
     fail(`${init && init.method || 'GET'} ${path || '/'}: ${errs}`);
   }
   return j.result;
