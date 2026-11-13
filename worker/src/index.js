@@ -541,9 +541,9 @@ const MACRO_CFG = {
     ['FX_USDKRW', '원/달러', 'exchange'], ['.DXY', '달러인덱스', 'exchange'], ['FX_JPYKRW', '원/엔(100엔)', 'exchange'], ['FX_EURKRW', '원/유로', 'exchange'],
     ['FX_CNYKRW', '원/위안', 'exchange'], ['USDJPY', '달러/엔', 'exchangeWorld'],
   ] },
-  rates: { key: 'rates', name: '금리', items: [
-    ['KR1YT=RR', '한국 국고채 1년', 'bond', 'Asia/Seoul'], ['KR3YT=RR', '한국 국고채 3년', 'bond', 'Asia/Seoul'], ['KR10YT=RR', '한국 국고채 10년', 'bond', 'Asia/Seoul'],
+  rates: { key: 'rates', name: '금리', items: [   // 미국 국채 먼저, 국고채 그다음 — 사용자 2026-11-14 08:10
     ['US2YT=RR', '미국 국채 2년', 'bond', 'America/New_York'], ['US10YT=RR', '미국 국채 10년', 'bond', 'America/New_York'], ['US30YT=RR', '미국 국채 30년', 'bond', 'America/New_York'],
+    ['KR1YT=RR', '한국 국고채 1년', 'bond', 'Asia/Seoul'], ['KR3YT=RR', '한국 국고채 3년', 'bond', 'Asia/Seoul'], ['KR10YT=RR', '한국 국고채 10년', 'bond', 'Asia/Seoul'],
     ['JP10YT=RR', '일본 국채 10년', 'bond', 'Asia/Tokyo'],
   ] },
 };
