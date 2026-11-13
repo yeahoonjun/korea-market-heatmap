@@ -1,7 +1,6 @@
 // Dev shim for the extras module (Playwright add_init_script).
-// Adds the hooks that src/template.html will provide (AGENTS.md §3-2) until they are merged:
-//   <div id="strip"> after header.top, <div id="extras-tools"> at the end of .tools,
-//   KH.layout() built from the DOM tiles, KH.setReplay(frame|null) that recolours tiles, event kh:render.
+// The template provides the §3-2 hooks now (#strip, #extras-tools, KH.layout, KH.setReplay, kh:render); the shim keeps them and
+// only records what extras asks for (window.__shimReplay = {t, n} | null). Fallbacks for an older template stay below.
 // It hooks the moment the template assigns window.KH (end of the heatmap script, before extras.js runs).
 // window.__KH_SHIM = { noLayout, noReplay, noMounts } turns single hooks off to test feature detection.
 (() => {
@@ -25,7 +24,15 @@
     const map = () => document.getElementById('map');
     const px = v => parseFloat(v) || 0;
 
-    if (!opt().noLayout) KH.layout = () => {
+    if (opt().noLayout) delete KH.layout;
+    if (opt().noReplay) delete KH.setReplay;
+    if (opt().noMounts) for (const id of ['strip', 'extras-tools']) { const el = document.getElementById(id); if (el) el.remove(); }
+    // the template's own replay: keep it, record the frame extras sent
+    if (!opt().noReplay && typeof KH.setReplay === 'function') {
+      const real = KH.setReplay;
+      KH.setReplay = (f, o) => { window.__shimReplay = f && f.prices ? { t: f.t, n: f.prices.size } : null; return real(f, o); };
+    }
+    if (!opt().noLayout && typeof KH.layout !== 'function') KH.layout = () => {
       const m = map();
       if (!m || m.hidden) return [];
       const out = [];
@@ -52,7 +59,7 @@
       return out;
     };
 
-    if (!opt().noReplay) {
+    if (!opt().noReplay && typeof KH.setReplay !== 'function') {
       let frame = null;
       const saved = new Map();   // code -> [bg, pctText]
       const apply = () => {

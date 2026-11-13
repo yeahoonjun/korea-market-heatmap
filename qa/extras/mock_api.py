@@ -3,10 +3,10 @@
 
   python3 qa/extras/mock_api.py [port=8796]
 
-Routes: /api/quotes, /api/market, /api/replay/dates, /api/replay?date=, /api/chart/<code>,
-        static files from web/ (index.html, manifest, sw.js, icons).
+Routes: /api/quotes, /api/market, /api/replay/dates, /api/replay?date=, /api/chart/<code>, /api/time, /api/world?kind=,
+        /api/breadth, /api/themes, /data/<file> (= web/<file>), static files from web/ (index.html, manifest, sw.js, icons).
 Test controls (not part of the contract):
-  /__mode?market=ok|fail|empty&replay=ok|empty|fail|stale   switch failure modes
+  /__mode?market=ok|fail|empty&replay=ok|empty|fail|stale&world=ok|fail   switch failure modes
   /__stats                                                request counts per route
 """
 import json
@@ -14,6 +14,7 @@ import pathlib
 import subprocess
 import sys
 import threading
+import time
 import urllib.parse
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 
@@ -35,7 +36,18 @@ for m in ('K', 'Q'):
     rows += sorted((x for x in SNAP['stocks'] if x['m'] == m and x['c'].endswith('0')), key=lambda x: -x['cap'])[:300]
 QUOTES['stocks'] = rows
 
-MODE = {'market': 'ok', 'replay': 'ok'}
+MODE = {'market': 'ok', 'replay': 'ok', 'world': 'ok'}
+# /api/world?kind=index, trimmed to the world clock's representative indexes (+ two more): status as in the contract
+WORLD = {'asOf': '2026-11-09T06:22:00Z', 'kind': 'index', 'groups': [
+    {'key': 'us', 'name': '미국', 'items': [
+        {'key': 'INX', 'name': 'S&P 500', 'value': 6800.1, 'change': -12.3, 'ratio': -0.18, 'status': 'CLOSE', 'tradedAt': '2026-11-08T16:00:00-05:00'},
+        {'key': 'DJI', 'name': '다우존스', 'value': 47100.2, 'change': 50.1, 'ratio': 0.11, 'status': 'CLOSE', 'tradedAt': '2026-11-08T16:00:00-05:00'}]},
+    {'key': 'eu', 'name': '유럽', 'items': [
+        {'key': 'FTSE', 'name': '영국 FTSE 100', 'value': 9700.5, 'change': 20.0, 'ratio': 0.21, 'status': 'CLOSE', 'tradedAt': '2026-11-08T16:35:00Z'}]},
+    {'key': 'asia', 'name': '아시아·태평양', 'items': [
+        {'key': 'N225', 'name': '니케이 225', 'value': 50100.0, 'change': 300.0, 'ratio': 0.6, 'status': 'OPEN', 'tradedAt': '2026-11-09T15:20:00+09:00'},
+        {'key': 'HSI', 'name': '항셍', 'value': 26000.0, 'change': -50.0, 'ratio': -0.19, 'status': 'OPEN', 'tradedAt': '2026-11-09T14:20:00+08:00'},
+        {'key': 'SSEC', 'name': '상해종합', 'value': 4000.0, 'change': 8.0, 'ratio': 0.2, 'status': 'OPEN', 'tradedAt': '2026-11-09T14:20:00+08:00'}]}]}
 STATS = {}
 LOCK = threading.Lock()
 
@@ -79,7 +91,7 @@ class H(SimpleHTTPRequestHandler):
         if path == '/__stats':
             return self.send_json(STATS)
         if path == '/__reset':
-            STATS.clear(); MODE.update(market='ok', replay='ok')
+            STATS.clear(); MODE.update(market='ok', replay='ok', world='ok')
             return self.send_json({'ok': True})
         if path == '/api/quotes':
             return self.send_json(QUOTES)
@@ -105,6 +117,23 @@ class H(SimpleHTTPRequestHandler):
             if d not in REPLAY:
                 return self.send_json({'error': '그날 기록이 없어요'}, 404)
             return self.send_json(REPLAY[d])
+        if path == '/api/time':
+            return self.send_json({'t': int(time.time() * 1000)})
+        if path == '/api/world':
+            if MODE['world'] == 'fail':
+                return self.send_json({'error': '해외 시세를 불러오지 못했어요'}, 502)
+            if q.get('kind', 'index') != 'index':
+                return self.send_json({'asOf': WORLD['asOf'], 'kind': q.get('kind'), 'groups': []})
+            return self.send_json(WORLD)
+        if path == '/api/breadth':
+            m = q.get('m', 'K')
+            rows = [[x['c'], x['r']] for x in SNAP['stocks'] if x['m'] == m]
+            return self.send_json({'m': m, 'part': int(q.get('part', 1) or 1), 'parts': 1, 'asOf': SNAP['asOf'], 'rows': rows})
+        if path == '/api/themes':
+            return self.send_json({'asOf': SNAP['asOf'], 'themes': []})
+        if path.startswith('/data/') and (WEB / path[6:]).is_file() and '/' not in path[6:]:
+            self.path = '/' + path[6:]
+            return super().do_GET()
         if path.startswith('/api/chart/'):
             return self.send_json({'day': '20261109', 'points': []})
         if path.startswith('/api/') or path.startswith('/data/'):
