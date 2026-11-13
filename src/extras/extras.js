@@ -2048,7 +2048,8 @@ function sbBuild() {
   sb.pt = h('span', { class: 'sb-pt' });
   sb.pp = h('span', { class: 'sb-pp' });
   sb.ico = h('div', { class: 'sb-pill' }, sb.cap, sb.pi, sb.pt, sb.pp);
-  sb.tip = h('div', { class: 'sb-tip', role: 'status' });
+  // the note repeats the bar's aria-valuetext: hidden from screen readers (it changes every minute and would be read out each time)
+  sb.tip = h('div', { class: 'sb-tip', 'aria-hidden': 'true' });
   sb.box = h('div', { class: 'sb', role: 'progressbar', tabindex: 0, 'aria-valuemin': 0, 'aria-valuemax': 100 }, sb.track, sb.ico, sb.tip);
   const show = () => { sbTip(true); };
   sb.box.addEventListener('mouseenter', show);
@@ -2056,6 +2057,7 @@ function sbBuild() {
   sb.box.addEventListener('click', show);
   sb.box.addEventListener('mouseleave', () => sbTip(false));
   sb.box.addEventListener('blur', () => sbTip(false));
+  sb.box.addEventListener('keydown', e => { if (e.key === 'Escape' && sb.tip.classList.contains('on')) { e.stopPropagation(); sbTip(false); } });
   sbEl.replaceChildren(sb.box);
   sb.built = true;
   if (typeof ResizeObserver === 'function') new ResizeObserver(() => sbFit()).observe(sb.box);
