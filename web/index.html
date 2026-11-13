@@ -828,6 +828,9 @@ footer .credit .dc{width:1.15em;height:1.15em;flex:none}
   .ctls-hd .x{width:40px;height:40px}
   .scrim2.open{display:block;position:fixed;inset:0;z-index:89;background:var(--scrim)}
   .layout{padding:0 12px 12px;gap:12px}
+  /* 휴대폰: 시장 뉴스는 지도 바로 아래, 등락 분포(사이드 카드들) 위 — 사용자 2026-11-14 02:00 "모바일에서 시장 뉴스를 히트맵과 등락분포 사이에" */
+  .layout > .news{order:1}
+  .layout > .side{order:2}
   .crumbs .stat{margin-left:0;width:100%;order:9}
   .crumbs .hint{display:none}
   .map,.tablewrap{height:72svh;min-height:440px}
