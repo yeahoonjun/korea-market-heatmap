@@ -15,7 +15,21 @@ const POLL_MS = 30000, RETRY_MS = 15000, TIMEOUT_MS = 12000;
 const reduceMQ = matchMedia('(prefers-reduced-motion: reduce)');
 const narrowMQ = matchMedia('(max-width: 760px)');
 const SVGNS = 'http://www.w3.org/2000/svg';
-const NODATA = '#26282e';
+// theme colours (themes.md §15-4): read from the CSS tokens, cached until the theme or palette changes (restyle())
+let TOK = null;
+const tokVal = (cs, name, fb) => (cs.getPropertyValue(name) || '').trim() || fb;
+function tok() {
+  if (TOK) return TOK;
+  const cs = getComputedStyle(document.getElementById('world') || document.documentElement);
+  const de = document.documentElement;
+  const theme = typeof KH.theme === 'function' ? KH.theme() : de.dataset.theme;
+  TOK = {
+    nodata: tokVal(cs, '--nodata', '#26282e'), ref: tokVal(cs, '--kw-ref', '#30333b'), sec: tokVal(cs, '--sec-bg', '#000'),
+    // light themes (paper, glass light): tile and chip text is black or white, whichever reads better on the tile, with no shadow
+    light: de.dataset.tone ? de.dataset.tone === 'light' : theme === 'paper' || theme === 'glass-light',
+  };
+  return TOK;
+}
 
 const KINDS = {
   index: {
@@ -87,7 +101,7 @@ function dpOf(it) {
 const valText = it => fixed(it.value, dpOf(it));
 const chgText = it => it.change == null || !isFinite(it.change) ? '—' : sgn(it.change) + fixed(it.change, dpOf(it));
 const isRef = it => !!it.ref;
-const colorOf = it => isRef(it) ? '#30333b' : (it.ratio == null || !isFinite(it.ratio)) ? NODATA : KH.colorOf(it.ratio);
+const colorOf = it => isRef(it) ? tok().ref : (it.ratio == null || !isFinite(it.ratio)) ? tok().nodata : KH.colorOf(it.ratio);
 const weightOf = it => WEIGHT[it.key] || 1;
 const delayText = it => it.delayed > 0 ? `${it.delayed}분 지연` : '실시간';
 const WD = ['일', '월', '화', '수', '목', '금', '토'];
@@ -549,6 +563,7 @@ function placeTile(el, t) {
   el.style.left = t.x + 'px'; el.style.top = t.y + 'px'; el.style.width = t.w + 'px'; el.style.height = t.h + 'px';
   const col = colorOf(it);
   el.style.backgroundColor = col;
+  el.style.color = inkFor(col);
   el.__col = col;
   el.classList.toggle('ref', isRef(it));
   el.classList.toggle('nod', !isRef(it) && it.ratio == null);
@@ -691,7 +706,7 @@ function renderLegend(d) {
     R ? h('span', { class: 'tk', text: `+${R}%` }) : null)];
   if (d.all.some(isRef)) kids.push(h('span', { class: 'lg' }, h('i', { class: 'sw kw-refsw' }), h('span', { text: 'VIX는 참고 지표라 색칠하지 않아요' })));
   if (S.mode === 'geo') {
-    kids.push(h('span', { class: 'lg' }, h('i', { class: 'sw', style: `background:${GEO_NONE};box-shadow:inset 0 0 0 1px var(--line2)` }), h('span', { text: '지수 없는 나라' })));
+    kids.push(h('span', { class: 'lg' }, h('i', { class: 'sw kw-nonesw' }), h('span', { text: '지수 없는 나라' })));
     kids.push(h('span', { class: 'lg' }, h('i', { class: 'kw-sd open', 'aria-hidden': 'true' }), h('span', { text: '장중' }),
       h('i', { class: 'kw-sd close', 'aria-hidden': 'true' }), h('span', { text: '마감' })));
     kids.push(h('span', { class: 'lg' }, h('i', { class: 'sw kw-nightsw', 'aria-hidden': 'true' }), h('span', { text: '어두운 쪽은 지금 밤' })));
@@ -767,6 +782,15 @@ function inkOn(c) {
   if (!rgb) return '#fff';
   const y = luma(rgb);
   return 1.05 / (y + 0.05) >= (y + 0.05) / (DARK_Y + 0.05) ? '#fff' : INK_DARK;
+}
+// text on a tile / country: dark themes keep the white label with its shadow (the CSS default, '' here); light themes pick
+// black or white per colour (themes.md §8: at least 4.58:1 for every palette) and drop the shadow
+function inkFor(c) { return tok().light ? inkOn(c) : ''; }
+function labInk(el, col) {
+  if (!tok().light || !col) { el.style.color = ''; el.style.textShadow = ''; return; }
+  const k = inkOn(col);
+  el.style.color = k;
+  el.style.textShadow = k === '#fff' ? '0 0 2px rgba(0,0,0,.45)' : '0 0 2px rgba(255,255,255,.55)';
 }
 
 // columns by width: as many one-line columns as fit (≤ 3), else two two-line columns (tablets), else one column
@@ -1030,7 +1054,7 @@ const COUNTRIES = [
 // callout columns: x from a meridian at a reference latitude, chips grow away from the map ('end' = to the left)
 // (pac sits east of Japan's coast, so on narrower maps the clamped column still clears Honshu)
 const GCOLS = { atl: { lon: -22, lat: 48, align: 'end' }, eur: { lon: 32, lat: 50, align: 'start' }, pac: { lon: 153, lat: 25, align: 'start' }, kor: { lon: 121.5, lat: 45, align: 'end', fixY: 44 } };
-const GEO_NONE = '#1f2126', GCHIP_H = 21;
+const GCHIP_H = 21;
 
 // TopoJSON → GeoJSON features (Polygon / MultiPolygon, quantized delta-encoded arcs), enough for world-atlas
 function topoFeatures(topo, name) {
@@ -1285,6 +1309,7 @@ function renderGeo(d) {
     const aria = `${x.c.name} ${it.name} ${valText(it)}, ${pct(it.ratio)}, ${open ? '장중' : '마감'}${x.items.length > 1 ? `, 지수 ${x.items.length}개` : ''}`;
     const b = g.btns.get(x.c.id);
     if (b) {
+      if (b.classList.contains('in')) labInk(b, col);
       const t = b.querySelector('.t'), pp = b.querySelector('.p'), dot = b.querySelector('.kw-sd');
       if (t) t.textContent = x.c.name;
       pp.textContent = pct(it.ratio);
@@ -1553,8 +1578,11 @@ function openDetail(key, opener, peers, place, kindArg, today) {
   if (narrowMQ.matches) scrim.classList.add('open');
   sheet.scrollTop = 0;
   sheet.focus({ preventScroll: true });
+  detailEvent(true);
   loadChart();
 }
+// the bottom bar and the ticker hide / hold while a sheet is open: they can listen instead of polling KHWorld.detailOpen()
+function detailEvent(open) { document.dispatchEvent(new CustomEvent('kh:worlddetail', { detail: { open } })); }
 function markSel(key) {
   if (!els || !els.tiles) return;          // opened from the ticker before the 해외 tab was ever shown
   for (const [k, el] of els.tiles) el.classList.toggle('sel', k === key);
@@ -1573,9 +1601,17 @@ function closeDetail(restore) {
   sheet.hidden = true;
   scrim.classList.remove('open');
   if (els && els.tiles) markSel(null);
-  if (!restore || !S.shown) return;
+  detailEvent(false);
+  if (!restore) return;
   // back to the opener; if it is gone or hidden (the view changed meanwhile), to the same item in what is shown now
   const visible = el => el && el.isConnected && el.getClientRects().length > 0;
+  if (!S.shown) {
+    // opened from another tab (ticker, the bottom bar's index cell): the opener is all there is to go back to. A bar that hid
+    // itself while the sheet was open needs a frame or two to show again, so wait for it
+    const go = n => { if (visible(opener)) { try { opener.focus({ preventScroll: true }); } catch (e) { /* ignore */ } } else if (n > 0 && opener && opener.isConnected) requestAnimationFrame(() => go(n - 1)); };
+    go(4);
+    return;
+  }
   let target = visible(opener) ? opener : null;
   if (!target && opener && opener.classList.contains('kw-row')) target = els.rank.querySelector(`.kw-row[data-k="${CSS.escape(key)}"]`);
   if (!visible(target) && S.mode === 'geo' && els.g) {
@@ -1857,11 +1893,26 @@ document.addEventListener('visibilitychange', () => {
 // the clock in the header refreshes everything at once (AGENTS §3-6): fetch now, keep view, scroll and focus
 document.addEventListener('kh:refresh', () => { if (S.shown && LIVE && !document.hidden) load(S.kind); });
 document.addEventListener('kh:motion', () => { if (S.shown && els && !els.snap) syncMotion(); });
-document.addEventListener('kh:palette', () => {
-  if (!S.shown || !els || els.snap) return;
-  render();
-  if (S.detail) drawChart();
-});
+// the palette or the theme changed: re-read the colours and redraw what is on screen (the data stays; nothing is fetched)
+let restylePending = false;
+function restyle() {
+  TOK = null;
+  if (restylePending) return;
+  restylePending = true;
+  queueMicrotask(() => {
+    restylePending = false;
+    TOK = null;
+    if (S.shown && els && !els.snap) {
+      render();
+      if (els.g && S.mode === 'geo') drawNight();
+    }
+    if (S.detail && sheet) {
+      fillDetail(false);                                  // the colour chip beside the name (and the chart, when it is drawn); the rest reads CSS
+    }
+  });
+}
+document.addEventListener('kh:palette', restyle);
+document.addEventListener('kh:theme', restyle);
 addEventListener('resize', () => { if (S.shown) schedRender(); });
 if (document.fonts) {
   const refit = () => { MW.clear(); family = ''; if (S.shown) schedRender(); };
@@ -1910,7 +1961,7 @@ function layout() {
   if (S.view === 'map' && els.boxes && !els.map.hidden) {
     for (const g of els.boxes.heads) {
       const el = els.heads.get(g.g.key);
-      out.push({ kind: 'sector', x: g.x, y: g.y, w: g.w, h: g.h, color: '#000', label: g.hd ? g.g.name : '', sub: g.hd && el ? el.__sub || '' : '', hd: g.hd });
+      out.push({ kind: 'sector', x: g.x, y: g.y, w: g.w, h: g.h, color: tok().sec, label: g.hd ? g.g.name : '', sub: g.hd && el ? el.__sub || '' : '', hd: g.hd });
     }
     for (const t of els.boxes.tiles) {
       const el = els.tiles.get(t.it.key);
@@ -1921,7 +1972,7 @@ function layout() {
   const W = Math.round((els.list.clientWidth || els.map.clientWidth || root.clientWidth || 0));
   if (!W) return [];
   const Lo = computeLayout(d, W, Math.max(480, Math.min(760, Math.round(W * 0.6))));
-  for (const g of Lo.heads) out.push({ kind: 'sector', x: g.x, y: g.y, w: g.w, h: g.h, color: '#000', label: g.hd ? g.g.name : '', sub: g.hd ? headSub(g) : '', hd: g.hd });
+  for (const g of Lo.heads) out.push({ kind: 'sector', x: g.x, y: g.y, w: g.w, h: g.h, color: tok().sec, label: g.hd ? g.g.name : '', sub: g.hd ? headSub(g) : '', hd: g.hd });
   for (const t of Lo.tiles) {
     const L = fit(tileTexts(t.it, t.g), t.w, t.h);
     out.push({ kind: 'tile', x: t.x, y: t.y, w: t.w, h: t.h, color: colorOf(t.it), label: t.it.name, sub: L && L.lv >= 2 ? pct(t.it.ratio) : '', code: t.it.key });
