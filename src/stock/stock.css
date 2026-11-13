@@ -64,7 +64,7 @@ html.sp-on, html.sp-on body { overflow: hidden; }
 }
 @container spid (max-width: 104px) { .sp-mkt { display: none; } }
 @media (max-width: 430px) { .sp-nxt .t { display: none; } }
-.sp-star { flex: none; display: inline-grid; place-items: center; width: 42px; height: 44px; margin-left: 2px; border-radius: 10px; color: var(--muted); }
+.sp-star { position: relative; flex: none; display: inline-grid; place-items: center; width: 42px; height: 44px; margin-left: 2px; border-radius: 10px; color: var(--muted); }
 .sp-star[hidden], .sp-nf .sp-star { display: none; }
 .sp-star:hover { background: rgba(255, 255, 255, .06); color: var(--fg); }
 .sp-star svg { width: 23px; height: 23px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linejoin: round; transition: fill .15s, color .15s; }
@@ -82,7 +82,8 @@ html.sp-on, html.sp-on body { overflow: hidden; }
 .sp-nxt { color: var(--fg2); text-decoration: underline dotted var(--faint); text-underline-offset: 3px; cursor: help; }
 .sp-phase-note { color: var(--fg2); }
 .sp-meta-err { display: inline-flex; align-items: center; gap: 8px; color: var(--fg); }
-.sp-link { color: var(--amber); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; min-height: 32px; padding: 0 2px; }
+.sp-link { position: relative; display: inline-flex; align-items: center; justify-content: center; min-height: 32px; padding: 0 11px; border-radius: var(--r-key); background: var(--key-bg); box-shadow: var(--key-sh); color: var(--key-fg); font-size: 12px; font-weight: 600; }
+.sp-link:hover { background: var(--key-hover); }
 
 .sp-stats { display: grid; grid-template-columns: minmax(0, 1.25fr) repeat(3, minmax(0, 1fr)); gap: 1px; margin: 10px 0 0; background: var(--line); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
 .sp-stats[hidden] { display: none; }
@@ -165,11 +166,21 @@ html.sp-on, html.sp-on body { overflow: hidden; }
 .sp-msgbox { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 28px 16px; text-align: center; }
 .sp-msg-t { font-size: 14.5px; font-weight: 600; color: var(--fg); }
 .sp-msg-s { font-size: 13px; color: var(--muted); max-width: 34ch; }
-.sp-btn { display: inline-flex; align-items: center; justify-content: center; min-height: 40px; padding: 0 16px; margin-top: 6px; border-radius: 9px; border: 1px solid var(--line2); background: var(--panel2); color: var(--fg); font-size: 13.5px; font-weight: 600; text-decoration: none; }
-.sp-btn:hover { border-color: var(--muted); }
-.sp-btn.pri { background: var(--amber); border-color: var(--amber); color: #1b1404; }
-.sp-btn.pri:hover { filter: brightness(1.06); }
-.sp-btn[disabled] { opacity: .6; cursor: default; }
+/* keys (docs/standards/controls.md §5-2): raised; the one primary key per screen is the light plate */
+.sp-btn { position: relative; display: inline-flex; align-items: center; justify-content: center; min-height: 40px; padding: 0 17px; margin-top: 6px; border-radius: var(--r-key); border: 0; background: var(--key-bg); box-shadow: var(--key-sh); color: var(--key-fg); font-size: 13.5px; font-weight: 600; text-decoration: none; }
+.sp-btn:hover { background: var(--key-hover); }
+.sp-btn.pri { background: var(--pri-bg); color: var(--pri-fg); box-shadow: var(--pri-sh); }
+.sp-btn.pri:hover { background: #fff; }
+.sp-btn[disabled] { opacity: .45; box-shadow: none; cursor: default; }
+/* async keys (다시 시도 · 60일 더 보기, §5-3): ring while it works, ✓ = the amber surface, ! = the dark amber one (never red / green) */
+.sp :is(.sp-retry, .sp-more)[aria-busy="true"] { cursor: progress; }
+.sp :is(.sp-retry, .sp-more)[data-st="done"] { background: var(--done-bg); color: var(--done-fg); }
+.sp :is(.sp-retry, .sp-more)[data-st="fail"] { background: var(--fail-bg); color: var(--fail-fg); box-shadow: inset 0 0 0 1px var(--fail-ring), var(--key-sh); }
+.sp :is(.sp-retry, .sp-more)[data-st="fail"] .kwn { color: var(--amber); }
+/* 리포트 더 보기 ↔ 접기: the chevron turns (the template's chevFlip replays it on the redrawn key) */
+.sp-fold { gap: 8px; }
+.sp-fold::after { content: ""; flex: none; width: 6px; height: 6px; margin-top: -3px; border: solid var(--key-ic); border-width: 0 1.6px 1.6px 0; transform: rotate(45deg); }
+.sp-fold[aria-expanded="true"]::after { margin-top: 3px; transform: rotate(225deg); }
 .sp-inline-err { font-size: 12.5px; color: var(--fg2); padding: 6px 2px; }
 .sp-inline-err[hidden] { display: none; }
 .sp-note { font-size: 12px; color: var(--muted); line-height: 1.55; margin-top: 10px; }
@@ -298,7 +309,7 @@ html.sp-on, html.sp-on body { overflow: hidden; }
 .sp-fin-tbl { margin-top: 6px; }
 .sp-fin-tbl summary { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 2px; font-size: 13px; font-weight: 600; color: var(--fg2); cursor: pointer; list-style: none; border-radius: 6px; }
 .sp-fin-tbl summary::-webkit-details-marker { display: none; }
-.sp-fin-tbl summary::after { content: ""; width: 7px; height: 7px; margin-top: -3px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg); }
+.sp-fin-tbl summary::after { content: ""; width: 7px; height: 7px; margin-top: -3px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg); transition: transform var(--c-base) var(--c-inout), margin-top var(--c-base) var(--c-inout); }
 .sp-fin-tbl[open] summary::after { margin-top: 3px; transform: rotate(-135deg); }
 .sp-fin-tbl summary:hover { color: var(--fg); }
 .sp-fin-t { margin-top: 2px; }
@@ -507,6 +518,16 @@ a.sp-nw-a:visited .sp-nw-t { color: var(--fg2); }
   .sp-foot p { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 }
 @media (min-width: 1100px) and (max-height: 760px) { .sp-ob-grid { grid-template-rows: repeat(10, 32px); } }
+
+/* ── controls (docs/standards/controls.md §5-1 · §6): raised keys sink 1px with a shorter shadow and darken (0 ms down, --c-fast
+   up); keys without a surface (← · ☆ · 표로 보기) only sink and darken; data rows only darken; 44 px to press on touch screens ── */
+.sp :is(.sp-btn, .sp-link, .sp-peer) { transition: transform var(--c-fast) var(--c-out), box-shadow var(--c-fast) var(--c-out), filter var(--c-fast) var(--c-out), background-color var(--c-base) var(--c-out), color var(--c-base) var(--c-out); }
+.sp :is(.sp-btn, .sp-link, .sp-peer):is(:active:not(:disabled):not([aria-busy="true"]), .is-press) { transform: translateY(1px); box-shadow: var(--key-dn); filter: var(--press-f); transition-duration: 0s, 0s, 0s, var(--c-base), var(--c-base); }
+.sp :is(.sp-back, .sp-star, .sp-fin-tbl summary) { transition: transform var(--c-fast) var(--c-out), filter var(--c-fast) var(--c-out); }   /* ☆'s colour fades on the svg itself */
+.sp :is(.sp-back, .sp-star, .sp-fin-tbl summary):is(:active, .is-press) { transform: translateY(1px); filter: var(--press-f); transition-duration: 0s; }
+.sp :is(.sp-nw-a, .sp-rp, .sp-fin-col):active { filter: brightness(.85); transition: filter 0s; }
+@media (pointer: coarse) { .sp :is(.sp-btn, .sp-link, .sp-star)::before { content: ""; position: absolute; left: 50%; top: 50%; width: max(100%, 44px); height: max(100%, 44px); transform: translate(-50%, -50%); } }
+@media (hover: none) { .sp :is(.sp-btn, .sp-link):not([data-st="done"]):not([data-st="fail"]):hover { background: var(--key-bg); } .sp .sp-btn.pri:hover { background: var(--pri-bg); } .sp :is(.sp-back, .sp-star):hover { background: none; } }
 
 html[data-motion="reduced"] .sp.sp-in { animation: none; }
 html[data-motion="reduced"] .sp-chip.live i, html[data-motion="reduced"] .sp-skel, html[data-motion="reduced"] .sp-chart-skel i, html[data-motion="reduced"] .sp-fin-skel i { animation: none; }

@@ -117,11 +117,56 @@ function hexRgba(hex, a) {
 }
 const chevron = () => svg('svg', { viewBox: '0 0 24 24', 'aria-hidden': 'true', fill: 'none', stroke: 'currentColor', 'stroke-width': '2.2', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, svg('path', { d: 'M15 5l-7 7 7 7' }));
 function skel(w, hgt) { return h('span', { class: 'sp-skel', style: `width:${w};height:${hgt || '1em'}` }); }
+// retry: a key from retryKey() (or a plain function: a plain 다시 시도 key)
 function msgBox(title, sub, retry) {
   return h('div', { class: 'sp-msgbox', role: 'status' },
     h('p', { class: 'sp-msg-t', text: title }),
     sub ? h('p', { class: 'sp-msg-s', text: sub }) : null,
-    retry ? h('button', { type: 'button', class: 'sp-btn', onclick: retry, text: '다시 시도' }) : null);
+    retry ? (retry.nodeType ? retry : h('button', { type: 'button', class: 'sp-btn', onclick: retry, text: '다시 시도' })) : null);
+}
+/* ───────────────── living controls (docs/standards/controls.md): the template's KH.ui helpers and --c-* tokens, when present ───────────────── */
+const UI = KH.ui && typeof KH.ui.state === 'function' ? KH.ui : null;
+const uiIcon = n => (UI && typeof UI.icon === 'function' ? UI.icon(n) : null);
+const uiSeg = el => { if (UI && typeof UI.seg === 'function') UI.seg(el); };
+const cMs = (name, d) => (UI && typeof UI.ms === 'function' ? UI.ms(name) : d);          // '줄이기' sets --c-fast/base/switch to 0
+const say = t => { if (UI && typeof UI.live === 'function') UI.live(t); };
+const wait = ms => new Promise(r => setTimeout(r, ms));
+function setState(el, st) {
+  if (!el) return;
+  if (UI) { UI.state(el, st); return; }
+  el.dataset.st = st;
+  for (const x of el.querySelectorAll('.kl')) x.classList.toggle('on', x.matches(`[data-l~="${st}"]`));
+}
+// an async key (§5-3): one label per state stacked in one box, so the key keeps the width of its longest label; 'work' carries the
+// ring, 'done' ✓, 'fail' ! (KH.ui.state switches them)
+const KICON = { work: 'spin', done: 'check', fail: 'warn' };
+function asyncKey(cls, says, st) {
+  st = st || 'idle';
+  return h('button', { type: 'button', class: cls, 'data-st': st, 'data-busy': 'work', 'aria-label': says[st] },
+    h('span', { class: 'klb' }, Object.entries(says).map(([k, t]) => h('span', { class: 'kl' + (k === st ? ' on' : ''), 'data-l': k }, KICON[k] ? uiIcon(KICON[k]) : null, t))));
+}
+/* 다시 시도 (§5-3): the message stays while it works — ring "받는 중", then ✓ "받았어요" for --c-slow before the content comes in, or
+   ! "아직 안 돼요 · 다시" until the next press. run() → true (arrived) / false (failed) / null (no longer wanted: another stock, aborted);
+   render() draws the area once the data is in. A message drawn again after a failed retry keeps the ! (failed). */
+const RETRY_SAY = { idle: '다시 시도', work: '받는 중', done: '받았어요', fail: '아직 안 돼요 · 다시' };
+const failed = new Set();
+function retryKey(area, run, render, cls) {
+  const b = asyncKey(cls || 'sp-btn sp-retry', RETRY_SAY, failed.has(area) ? 'fail' : 'idle');
+  b.addEventListener('click', async () => {
+    if (b.dataset.st === 'work') return;
+    const g = S.gen;
+    failed.delete(area);
+    setState(b, 'work');
+    let r = null;
+    try { r = await run(); } catch (e) { r = false; }
+    if (g !== S.gen) return;
+    if (r == null) { if (b.isConnected) setState(b, 'idle'); return; }
+    if (!r) { failed.add(area); if (b.isConnected) setState(b, 'fail'); say('아직 안 돼요. 잠시 뒤 다시 눌러 주세요.'); return; }
+    if (b.isConnected && !reducedNow()) { setState(b, 'done'); await wait(cMs('--c-slow', 560)); if (g !== S.gen) return; }
+    say('불러왔어요.');
+    render();
+  });
+  return b;
 }
 function errSub(e) {
   if (e && e.status === 404) return '이 종목의 정보를 찾지 못했어요.';
@@ -500,7 +545,7 @@ function renderMeta() {
     if (!S.sum && !S.sumErr) kids.push(skel('14em', '0.9em'));
     if (S.sumErr) {
       kids.push(h('span', { class: 'sp-meta-err', role: 'status' }, S.sumErr.status === 404 ? '이 코드의 종목을 찾지 못했어요.' : '시세 요약을 불러오지 못했어요.',
-        h('button', { type: 'button', class: 'sp-link', onclick: () => { S.sumErr = null; renderMeta(); renderStats(); loadSummary(); }, text: '다시 시도' })));
+        retryKey('sum', async () => { const r = await fetchSummary(false); if (r === false) scheduleSummary(); return r; }, applySummary, 'sp-link sp-retry')));
     }
   }
   R.meta.replaceChildren(...kids);
@@ -651,18 +696,27 @@ function renderOffline() {
 }
 
 /* ───────────────── summary ───────────────── */
-async function loadSummary(quiet) {
+// → true (arrived) / false (failed) / null (another stock, aborted)
+async function fetchSummary(quiet) {
   const g = S.gen;
   clearTimeout(S.timers.sum);
   try {
     const j = await api('summary', 'sum');
-    if (g !== S.gen) return;
-    S.sum = j; S.sumErr = null;
+    if (g !== S.gen) return null;
+    S.sum = j; S.sumErr = null; failed.delete('sum');
     feedStore(j);
+    return true;
   } catch (e) {
-    if (aborted(e) || g !== S.gen) return;
+    if (aborted(e) || g !== S.gen) return null;
     if (!quiet || !S.sum) S.sumErr = e;
+    return false;
   }
+}
+async function loadSummary(quiet) {
+  if ((await fetchSummary(quiet)) === null) return;
+  applySummary();
+}
+function applySummary() {
   const before = S.phase;
   S.phase = phaseOf(S.sum);
   root.classList.toggle('sp-nf', !!(S.sumErr && S.sumErr.status === 404 && !KH.stock(S.code)));
@@ -788,14 +842,27 @@ function chartState(kind, err) {
   if (kind === 'loading') {
     if (C.bars && C.bars.length) { m.classList.add('dim'); m.replaceChildren(h('span', { class: 'sp-loading-t', role: 'status', text: '불러오는 중…' })); }
     else { m.classList.add('skel'); m.replaceChildren(h('div', { class: 'sp-chart-skel', role: 'status', 'aria-label': '차트 불러오는 중' }, Array.from({ length: 28 }, (_, i) => h('i', { style: `height:${18 + Math.round(Math.abs(Math.sin(i * 1.7)) * 46)}%` })))); }
-  } else if (kind === 'error') m.replaceChildren(msgBox('차트를 불러오지 못했어요.', errSub(err), () => loadChart(true)));
-  else if (kind === 'lib') m.replaceChildren(msgBox('차트 도구를 불러오지 못했어요.', '네트워크 연결을 확인하고 다시 시도해 주세요.', () => loadChart(true)));
+  } else if (kind === 'error') m.replaceChildren(msgBox('차트를 불러오지 못했어요.', errSub(err), retryKey('chart', chartFetch, () => loadChart())));
+  else if (kind === 'lib') m.replaceChildren(msgBox('차트 도구를 불러오지 못했어요.', '네트워크 연결을 확인하고 다시 시도해 주세요.', retryKey('chart', chartFetch, () => loadChart())));
   else if (kind === 'empty') {
     const pre = (S.tf === '1d') && S.phase === 'pre';
     m.replaceChildren(msgBox(pre ? '오늘은 아직 거래가 없어요.' : '이 기간에는 거래 기록이 없어요.', pre ? '9시에 정규장이 열리면 차트가 그려져요.' : '다른 기간을 골라 보세요.'));
   }
 }
 
+// the retry key's fetch: the chart tool and this period's bars into the cache, nothing drawn (loadChart() then draws from the cache)
+async function chartFetch() {
+  const g = S.gen, tf = S.tf, code = S.code;
+  try { await ensureChart(); } catch (e) { return g === S.gen ? false : null; }
+  if (g !== S.gen || tf !== S.tf) return null;
+  try {
+    const j = await api('chart?tf=' + tf, 'chart');
+    if (g !== S.gen || tf !== S.tf) return null;
+    C.cache.set(code + '|' + tf, { at: Date.now(), j });
+    failed.delete('chart');
+    return true;
+  } catch (e) { return aborted(e) || g !== S.gen ? null : false; }
+}
 async function loadChart(force) {
   const g = S.gen, tf = S.tf, code = S.code;
   const key = code + '|' + tf;
@@ -1006,6 +1073,22 @@ function obStart() {
   obTick(++obLoop);
 }
 function obStop() { obLoop++; clearTimeout(S.timers.ob); S.timers.ob = 0; abort('ob'); }
+// the retry key's fetch: the polling stops while the key works; a failure picks the 3-second retries up again (they draw the message)
+async function obOnce() {
+  obStop();
+  const id = obLoop;
+  try {
+    const j = await api('orderbook', 'ob');
+    if (id !== obLoop) return null;
+    S.ob = j; S.obErr = null; S.obAt = new Date(); failed.delete('ob');
+    return true;
+  } catch (e) {
+    if (aborted(e) || id !== obLoop) return null;
+    S.obErr = e;
+    if (obPolling()) S.timers.ob = setTimeout(() => obTick(id), OB_MS);
+    return false;
+  }
+}
 async function obTick(id) {
   S.timers.ob = 0;
   if (id !== obLoop || !obShouldPoll()) return;
@@ -1013,7 +1096,7 @@ async function obTick(id) {
   try {
     const j = await api('orderbook', 'ob');
     if (id !== obLoop) return;
-    S.ob = j; S.obErr = null; S.obAt = new Date();
+    S.ob = j; S.obErr = null; S.obAt = new Date(); failed.delete('ob');
   } catch (e) {
     if (aborted(e) || id !== obLoop) return;
     S.obErr = e;
@@ -1057,7 +1140,7 @@ function renderOb() {
   ob.msg.hidden = has && !S.obErr;
   if (!o) {
     ob.note.replaceChildren();
-    ob.msg.replaceChildren(S.obErr ? msgBox('호가를 불러오지 못했어요.', errSub(S.obErr) + (obPolling() ? ' 3초마다 다시 시도해요.' : ''), obStart)
+    ob.msg.replaceChildren(S.obErr ? msgBox('호가를 불러오지 못했어요.', errSub(S.obErr) + (obPolling() ? ' 3초마다 다시 시도해요.' : ''), retryKey('ob', obOnce, () => { renderOb(); if (obPolling()) { const id = obLoop; S.timers.ob = setTimeout(() => obTick(id), OB_MS); } }))
       : h('div', { class: 'sp-skel-rows', role: 'status', 'aria-label': '호가 불러오는 중' }, Array.from({ length: 10 }, () => skel('100%', '28px'))));
     return;
   }
@@ -1137,20 +1220,21 @@ function growBars(panel, tab, sel, axis) {
 
 /* ── 투자자 ── */
 function invReset() { S.inv = null; S.invErr = null; S.invLoading = false; }
-async function loadInv() {
+// quiet (the retry key): no loading picture, nothing drawn at the end → true / false / null
+async function loadInv(quiet) {
   const g = S.gen;
-  S.invLoading = true; S.invErr = null;
-  renderInv();
+  if (!quiet) { S.invLoading = true; S.invErr = null; renderInv(); }
   try {
     const j = await api('investors', 'inv');
-    if (g !== S.gen) return;
-    S.inv = Array.isArray(j.rows) ? j.rows : [];
+    if (g !== S.gen) return null;
+    S.inv = Array.isArray(j.rows) ? j.rows : []; S.invErr = null; failed.delete('inv');
   } catch (e) {
-    if (aborted(e) || g !== S.gen) return;
+    if (aborted(e) || g !== S.gen) return null;
     S.invErr = e;
   }
   S.invLoading = false;
-  renderInv();
+  if (!quiet) renderInv();
+  return !S.invErr;
 }
 const GROUPS = [['individual', '개인'], ['foreign', '외국인'], ['institution', '기관']];
 function sparkline(series, lo, hi) {
@@ -1179,7 +1263,7 @@ function todayCard(r, when) {
 function netCell(v) { return h('td', { class: 'num ' + cls(v) }, h('span', { class: 'l', text: signed(v) }), h('span', { class: 's', text: signedCompact(v) })); }
 function renderInv() {
   const P = R.panels.inv;
-  if (S.invErr) { P.replaceChildren(msgBox('투자자별 매매를 불러오지 못했어요.', errSub(S.invErr), loadInv)); return; }
+  if (S.invErr) { P.replaceChildren(msgBox('투자자별 매매를 불러오지 못했어요.', errSub(S.invErr), retryKey('inv', () => loadInv(true), renderInv))); return; }
   if (!S.inv) { P.replaceChildren(h('div', { class: 'sp-skel-rows', role: 'status', 'aria-label': '투자자 정보 불러오는 중' }, skel('100%', '96px'), Array.from({ length: 8 }, () => skel('100%', '26px')))); return; }
   const rows = S.inv;
   if (!rows.length) { P.replaceChildren(msgBox('투자자별 매매 기록이 없어요.', '새로 상장했거나 거래가 적은 종목일 수 있어요.')); return; }
@@ -1214,26 +1298,44 @@ function renderInv() {
 
 /* ── 일별 시세 ── */
 function dailyReset() { S.daily = null; R.dailyTbody = null; }
-async function loadDaily(page) {
+// quiet (the retry key, 60일 더 보기): the message / rows stay as they are while it works, nothing drawn at the end → true / false / null
+async function loadDaily(page, quiet) {
   const g = S.gen;
   if (!S.daily) S.daily = { rows: [], page: 0, hasMore: false, loading: false, err: null };
   const D = S.daily;
-  if (D.loading) return;
-  D.loading = true; D.err = null;
-  renderDaily();
+  if (D.loading) return null;
+  D.loading = true;
+  if (!quiet) { D.err = null; renderDaily(); }
   try {
     const j = await api('daily?page=' + page, 'daily');
-    if (g !== S.gen) return;
+    if (g !== S.gen) return null;
     const rows = Array.isArray(j.rows) ? j.rows : [];
     const seen = new Set(D.rows.map(r => r.date));
     D.rows.push(...rows.filter(r => r && r.date && !seen.has(r.date)));
-    D.page = page; D.hasMore = !!j.hasMore && rows.length > 0;
+    D.page = page; D.hasMore = !!j.hasMore && rows.length > 0; D.err = null; failed.delete('daily');
   } catch (e) {
-    if (aborted(e) || g !== S.gen) return;
+    if (aborted(e) || g !== S.gen) return null;
     D.err = e;
   }
   D.loading = false;
+  if (!quiet) renderDaily();
+  return !D.err;
+}
+/* 60일 더 보기 (§5-3): ring "불러오는 중" → the rows go in, ✓ "60일 더 불러왔어요" for --c-dwell; ! "못 불러왔어요 · 다시" (the reason
+   stays on the line above). The key keeps one width; on the last page it goes away. */
+const MORE_SAY = { idle: '60일 더 보기', work: '불러오는 중', done: '60일 더 불러왔어요', fail: '못 불러왔어요 · 다시' };
+async function dailyMore() {
+  const b = R.dailyMore, g = S.gen;
+  if (!b || b.dataset.st === 'work' || !S.daily) return;
+  clearTimeout(R.dailyMoreT);
+  setState(b, 'work');
+  const r = await loadDaily(S.daily.page + 1, true);
+  if (g !== S.gen) return;
+  if (r == null) { setState(b, 'idle'); return; }
+  setState(b, r ? 'done' : 'fail');
   renderDaily();
+  if (r) { say('60일 더 불러왔어요.'); R.dailyMoreT = setTimeout(() => { if (b.dataset.st === 'done') setState(b, 'idle'); }, cMs('--c-dwell', 1120) || 1120); }
+  else say('더 불러오지 못했어요.');
 }
 function dailyRow(r) {
   return h('tr', {},
@@ -1253,14 +1355,15 @@ function renderDaily() {
   const P = R.panels.daily, D = S.daily;
   if (!D) return;
   if (!D.rows.length) {
-    if (D.err) P.replaceChildren(msgBox('일별 시세를 불러오지 못했어요.', errSub(D.err), () => loadDaily(1)));
+    if (D.err) P.replaceChildren(msgBox('일별 시세를 불러오지 못했어요.', errSub(D.err), retryKey('daily', () => loadDaily(1, true), renderDaily)));
     else if (D.loading) P.replaceChildren(h('div', { class: 'sp-skel-rows', role: 'status', 'aria-label': '일별 시세 불러오는 중' }, Array.from({ length: 12 }, () => skel('100%', '26px'))));
     else P.replaceChildren(msgBox('일별 시세가 없어요.', '새로 상장한 종목이면 거래가 쌓인 뒤에 보여요.'));
     return;
   }
   if (!R.dailyTbody || !P.contains(R.dailyTbody)) {
     R.dailyTbody = h('tbody');
-    R.dailyMore = h('button', { type: 'button', class: 'sp-btn sp-more', onclick: () => loadDaily(S.daily.page + 1) });
+    R.dailyMore = asyncKey('sp-btn sp-more', MORE_SAY);
+    R.dailyMore.addEventListener('click', dailyMore);
     R.dailyErr = h('p', { class: 'sp-inline-err', role: 'status' });
     R.dailyNote = h('p', { class: 'sp-note', text: '정규장 이후에는 오늘 행에 NXT 거래가 섞여 KRX 종가(15:30)와 다를 수 있어요.' });
     const thead = h('thead', {}, h('tr', {}, [['날짜', ''], ['종가', ''], ['전일 대비', 'c-chg'], ['등락률', 'c-pct2'], ['시가', 'c-o'], ['고가', 'c-o'], ['저가', 'c-o'], ['고가·저가', 'c-hl'], ['거래량', '']]
@@ -1273,8 +1376,6 @@ function renderDaily() {
   R.dailyErr.hidden = !D.err;
   R.dailyErr.textContent = D.err ? '더 불러오지 못했어요. ' + errSub(D.err) : '';
   R.dailyMore.hidden = !D.hasMore && !D.err;
-  R.dailyMore.disabled = D.loading;
-  R.dailyMore.textContent = D.loading ? '불러오는 중…' : D.err ? '다시 시도' : '더 보기';
 }
 
 /* ── 뉴스·공시 ── */
@@ -1306,22 +1407,26 @@ function setDiscEquity(on) {
   if (!on && discFilter === '지분') { discFilter = '전체'; store.set('stockDiscFilter', '전체'); }
   renderNews();
 }
-async function loadNews(kind) {
+// quiet (the retry key): the error stays on screen while it works, nothing drawn at the end → true / false / null
+async function loadNews(kind, quiet) {
   const code = S.code, g = S.gen, key = code + '|' + kind;
   const hit = newsCache.get(key);
-  if ((hit && Date.now() - hit.at < NEWS_TTL) || (S.news[kind] && S.news[kind].loading)) return;
-  S.news[kind] = { loading: true, err: null };
+  if (hit && Date.now() - hit.at < NEWS_TTL) return true;
+  if (S.news[kind] && S.news[kind].loading) return null;
+  const prev = S.news[kind];
+  S.news[kind] = quiet && prev ? { loading: true, err: prev.err } : { loading: true, err: null };
   try {
     const j = await api(NEWS_KIND[kind].path, 'nw-' + kind);
-    if (g !== S.gen) return;
+    if (g !== S.gen) return null;
     newsCache.set(key, { at: Date.now(), rows: Array.isArray(j.rows) ? j.rows.filter(r => r && r.title) : [],
       source: j.source === 'dart' ? 'dart' : kind === 'disc' ? 'naver' : null });
-    S.news[kind] = null;
+    S.news[kind] = null; failed.delete('news:' + kind);
   } catch (e) {
-    if (aborted(e) || g !== S.gen) return;
+    if (aborted(e) || g !== S.gen) return null;
     S.news[kind] = { loading: false, err: e };
   }
-  if (S.tab === 'news') renderNews();
+  if (!quiet && S.tab === 'news') renderNews();
+  return !S.news[kind];
 }
 
 // Worker datetimes are ISO in KST; a value without a zone (Naver 공시) or Naver's YYYYMMDDHHmm is read as KST too
@@ -1436,7 +1541,7 @@ function renderNews() {
     const onlyEquity = !discEquity && discFilter === '전체' && hit.rows.every(r => r.kind === '지분');
     body = msgBox(onlyEquity ? '최근 6개월 공시가 모두 지분 공시예요.' : `최근 6개월 동안 ${discFilter} 공시가 없어요.`, onlyEquity ? "'지분 공시 포함'을 켜면 볼 수 있어요." : '다른 종류를 골라 보세요.');
   } else if (hit) body = msgBox(meta.empty, meta.emptySub);
-  else if (st && st.err) body = msgBox(`${meta.label}를 불러오지 못했어요.`, errSub(st.err), () => { loadNews(kind); renderNews(); });
+  else if (st && st.err) body = msgBox(`${meta.label}를 불러오지 못했어요.`, errSub(st.err), retryKey('news:' + kind, () => loadNews(kind, true), renderNews));
   else body = h('div', { class: 'sp-skel-rows', role: 'status', 'aria-label': `${meta.label} 불러오는 중` }, Array.from({ length: 6 }, () => skel('100%', '52px')));
   R.nw.body.replaceChildren(body);
   R.nw.note.textContent = meta.note;
@@ -1468,27 +1573,34 @@ function infoSummary() {
   if (!R.ci || S.tab !== 'info') return;
   renderMetrics(); renderDiv(); renderTargetGap();
 }
-async function loadCi(kind, force) {
+// quiet (the retry keys): the section keeps its error while it works (ciState stays 'err'), nothing drawn at the end → true / false / null
+async function loadCi(kind, force, quiet) {
   const code = S.code, g = S.gen, key = code + '|' + kind, hit = ciCache.get(key);
-  if ((!force && hit && Date.now() - hit.at < CI_TTL) || (S.ci[kind] && S.ci[kind].loading)) return;
-  S.ci[kind] = { loading: true, err: null };
+  if (!force && hit && Date.now() - hit.at < CI_TTL) return true;
+  if (S.ci[kind] && S.ci[kind].loading) return null;
+  const prev = S.ci[kind];
+  S.ci[kind] = quiet && prev ? { loading: true, err: prev.err } : { loading: true, err: null };
   try {
     const j = await api(CI_SRC[kind], 'ci-' + kind);
-    if (g !== S.gen) return;
+    if (g !== S.gen) return null;
     ciCache.set(key, { at: Date.now(), j: j && typeof j === 'object' ? j : {} });
     S.ci[kind] = null;
   } catch (e) {
-    if (aborted(e) || g !== S.gen) return;
+    if (aborted(e) || g !== S.gen) return null;
     S.ci[kind] = { loading: false, err: e };
   }
-  if (S.tab === 'info') renderInfo();
+  if (!quiet && S.tab === 'info') renderInfo();
+  return ciState(kind) === 'ok';
 }
 const ciHit = k => ciCache.get(S.code + '|' + k) || null;
 const ciData = k => { const x = ciHit(k); return x ? x.j : null; };
 // 'ok' (data, even if a refresh is under way or failed) / 'err' / 'loading'
 const ciState = k => (ciData(k) ? 'ok' : S.ci[k] && S.ci[k].err ? 'err' : 'loading');
 const ciSig = (...k) => k.map(x => { const t = ciHit(x); return x + ':' + ciState(x) + ':' + (t ? t.at : ''); }).join('|');
-function retryCi(...kinds) { for (const k of kinds) { S.ci[k] = null; loadCi(k, true); } renderInfo(); }
+// the retry keys of 재무 (both periods) and 애널리스트 의견
+function ciRetry(area, ...kinds) {
+  return retryKey(area, () => Promise.all(kinds.map(k => loadCi(k, true, true))).then(r => (r.includes(null) ? null : r.every(Boolean))), renderInfo);
+}
 
 // finance helpers: cols oldest first; values in cols order; '-' arrives as null
 const finCols = fin => (fin && Array.isArray(fin.cols) ? fin.cols.filter(c => c && c.key != null) : []);
@@ -1627,7 +1739,7 @@ function renderFin() {
   if (F0.sig === sig) return;
   F0.sig = sig;
   if (st === 'loading') { F0.body.replaceChildren(h('div', { class: 'sp-fin-skel', role: 'status', 'aria-label': '재무 정보 불러오는 중' }, Array.from({ length: 18 }, (_, i) => h('i', { style: `height:${20 + Math.round(Math.abs(Math.sin(i * 1.3)) * 60)}%` })))); return; }
-  if (st === 'err') { F0.body.replaceChildren(msgBox('재무 정보를 불러오지 못했어요.', errSub(S.ci[k].err), () => retryCi('fa', 'fq'))); return; }
+  if (st === 'err') { F0.body.replaceChildren(msgBox('재무 정보를 불러오지 못했어요.', errSub(S.ci[k].err), ciRetry('ci:fin', 'fa', 'fq'))); return; }
   const fin = ciData(k), list = finView(fin), period = finPeriod;
   if (!list.length) { F0.body.replaceChildren(msgBox('재무 정보가 없어요.', '새로 상장했거나 실적을 내지 않는 종목일 수 있어요.')); return; }
   const hasEst = list.some(x => x.c.estimate), estCols = finCols(fin).some(c => c.estimate);
@@ -1789,7 +1901,7 @@ function renderAna() {
   A.sig = sig;
   R.ci.gap = null;
   if (st === 'loading') { A.body.replaceChildren(ciSkel(4, '40px')); return; }
-  if (st === 'err') { A.body.replaceChildren(msgBox('애널리스트 의견을 불러오지 못했어요.', errSub(S.ci.res.err), () => retryCi('res'))); return; }
+  if (st === 'err') { A.body.replaceChildren(msgBox('애널리스트 의견을 불러오지 못했어요.', errSub(S.ci.res.err), ciRetry('ci:res', 'res'))); return; }
   const j = ciData('res'), rows = (Array.isArray(j.rows) ? j.rows : []).filter(r => r && r.title);
   const cons = j.consensus && typeof j.consensus === 'object' ? j.consensus : null;
   const tgt = cons && isNum(cons.targetMean) && +cons.targetMean > 0 ? +cons.targetMean : null;
@@ -1839,8 +1951,17 @@ function renderAna() {
         const kidsA = [h('span', { class: 'sp-rp-t', text: String(r.title) }), h('span', { class: 'sp-rp-m' }, meta)];
         return h('li', {}, url ? h('a', { class: 'sp-rp', href: url, target: '_blank', rel: 'noopener' }, kidsA, h('span', { class: 'sp-vh', text: ' (새 탭)' })) : h('div', { class: 'sp-rp' }, kidsA));
       })),
-      rows.length > RES_SHOW ? h('button', { type: 'button', class: 'sp-btn sp-more', 'aria-expanded': String(S.resAll),
-        onclick: () => { S.resAll = !S.resAll; renderAna(); const m = R.ci.ana.body.querySelector('.sp-more'); if (m) m.focus(); }, text: S.resAll ? '접기' : `리포트 ${rows.length - RES_SHOW}건 더 보기` }) : null,
+      // 더 보기 ↔ 접기 (§5-10): the label swaps in place and the chevron turns (the list is drawn again, so both are replayed on the new key)
+      rows.length > RES_SHOW ? h('button', { type: 'button', class: 'sp-btn sp-more sp-fold more', 'aria-expanded': String(S.resAll),
+        onclick: e => {
+          const was = e.currentTarget.textContent;
+          S.resAll = !S.resAll; renderAna();
+          const m = R.ci.ana.body.querySelector('.sp-more');
+          if (!m) return;
+          m.focus();
+          if (UI && typeof UI.swap === 'function') UI.swap(m.firstElementChild, m.textContent, was);
+          if (!reducedNow()) { m.dataset.flip = ''; m.addEventListener('animationend', function f(ev) { if (ev.animationName.startsWith('chevFlip')) { delete m.dataset.flip; m.removeEventListener('animationend', f); } }); }
+        } }, h('span', { class: 'mt', text: S.resAll ? '접기' : `리포트 ${rows.length - RES_SHOW}건 더 보기` })) : null,
       h('p', { class: 'sp-note', text: '리포트 본문은 증권사 원문에서 볼 수 있어요. 누르면 새 탭에서 열려요.' }));
   } else kids.push(h('p', { class: 'sp-ana-empty', text: '최근 리포트 목록이 없어요.' }));
   A.body.replaceChildren(...kids);
@@ -1871,6 +1992,7 @@ function show(code, opener) {
   S.gen++;
   stopAll();
   Object.assign(S, { code, sum: null, sumErr: null, phase: 'unknown' });
+  failed.clear();
   for (const t of TABS) if (t.reset) t.reset();
   if (!switching) {
     S.opener = opener && opener !== document.body ? opener : null;
