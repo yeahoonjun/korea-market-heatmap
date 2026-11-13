@@ -127,6 +127,14 @@ html[data-theme="glass-light"] #world{--nodata:#e6e9ee}
 .kw-sh .a{margin-left:auto;display:inline-flex;align-items:baseline;gap:6px;flex:none;font-variant-numeric:tabular-nums}
 .kw-sh .a small{font-size:11.5px;font-weight:400;color:var(--muted)}
 .kw-sh .a b{font-size:13px;font-weight:600}
+/* 지표 tab (§3-28): block captions 원자재 / 환율 · 금리 span the list grid; the 환율 · 금리 heads carry a reading note, not an average */
+.kw-bt{grid-column:1/-1;display:flex;align-items:center;gap:10px;margin:2px 2px -4px;font-size:13px;font-weight:var(--w-strong,700);color:var(--fg2);letter-spacing:-.01em;font-family:var(--font-head,inherit)}
+.kw-bt::after{content:"";flex:1 1 auto;height:1px;background:var(--line)}
+.kw-bt~.kw-bt{margin-top:8px}
+.kw-sec[data-g=fx] .kw-sh .t,.kw-sec[data-g=rates] .kw-sh .t{flex:none}
+.kw-sh .a.note{flex:0 1 auto;min-width:0;overflow:hidden}
+.kw-sh .a.note small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.kw-sum .kw-sumk{font-weight:600;color:var(--fg)}
 .kw-rows{display:flex;flex-direction:column}
 .kw-lr{display:grid;grid-template-columns:minmax(0,1fr) 64px var(--kw-vw,76px) var(--kw-cw,62px) 66px 48px;grid-template-areas:"n s v c p b";align-items:center;column-gap:8px;width:100%;min-height:36px;padding:0 6px;border-radius:6px;text-align:left;font-size:13.5px;line-height:1.25;color:var(--fg);box-shadow:inset 0 -1px 0 var(--row-bd,transparent)}
 .kw-lr:hover{background:var(--kw-hv)}

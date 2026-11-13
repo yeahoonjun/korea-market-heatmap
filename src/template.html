@@ -1143,7 +1143,7 @@ html[data-theme="paper"] .ss-list > button[aria-selected="true"]{background:var(
     <span class="tsep" aria-hidden="true"></span>
     <button data-mkt="THEME">테마</button>
     <button data-mkt="WORLD" aria-label="해외 지수">해외</button>
-    <button data-mkt="CMDTY">원자재</button>
+    <button data-mkt="CMDTY">지표</button>
     <button data-mkt="WATCH" aria-label="관심종목"><span class="tn"><span class="st" aria-hidden="true">★</span>관심</span><span class="tp" aria-hidden="true"></span></button>
   </div>
   <div class="idx" id="idx"></div>
@@ -1311,7 +1311,9 @@ if (typeof d3 === 'undefined' || !d3 || typeof d3.treemap !== 'function') {
 const MODE = document.documentElement.dataset.mode === 'live' ? 'live' : 'snapshot';
 const LIVE_URL = 'https://panse.pages.dev/';
 const SNAP = JSON.parse(document.getElementById('snapshot').textContent);
-const MKT_NAME = { K: '코스피', Q: '코스닥', ALL: '전체', THEME: '테마', WORLD: '해외', CMDTY: '원자재', WATCH: '관심종목' };
+const MKT_NAME = { K: '코스피', Q: '코스닥', ALL: '전체', THEME: '테마', WORLD: '해외', CMDTY: '지표', WATCH: '관심종목' };
+// 지표 = 원자재 · 환율 · 금리 (AGENTS §3-28, user 2026-11-13 23:20). MKT_NAME.CMDTY is the one place for its name: the button, src/world and extras read it
+{ const b = document.querySelector('.tabs button[data-mkt="CMDTY"]'); if (b) { b.textContent = MKT_NAME.CMDTY; b.setAttribute('aria-label', MKT_NAME.CMDTY + ': 원자재 · 환율 · 금리'); } }
 const HASH_TO = { kospi: 'K', kosdaq: 'Q', all: 'ALL', theme: 'THEME', world: 'WORLD', cmdty: 'CMDTY', watch: 'WATCH' };
 const TO_HASH = { K: 'kospi', Q: 'kosdaq', ALL: 'all', THEME: 'theme', WORLD: 'world', CMDTY: 'cmdty', WATCH: 'watch' };
 // 해외 / 원자재 tabs: src/world draws them (window.KHWorld) in <div id="world">; the map, table, side cards and stock tools step aside

@@ -17,6 +17,7 @@
 //   GET /api/themes                    → theme list with ratio / up / flat / down
 //   GET /api/market                    → market strip (indices + spark, USDKRW, US futures, WTI, gold, BTC)
 //   GET /api/world?kind=index|commodity, /api/world/chart/:key?tf=3m|1y → world indices / futures / commodities (AGENTS §3-4)
+//   GET /api/world?kind=commodity&with=fx,rates → the same + 환율 · 금리 groups (지표 tab, AGENTS §3-28); chart route covers them too
 //   GET /api/replay/dates, /api/replay?date=YYYY-MM-DD → intraday replay frames recorded in KV (env.REPLAY, one key per frame)
 //   GET /api/replay?date=…&step=1&from=HHMM&to=HHMM → 1-minute frames of that window (≤ 120, both ends included; AGENTS §3-15)
 //   GET /api/stock/:code/finance?period=annual|quarter → financial statements (cols oldest→newest)
@@ -69,7 +70,16 @@ export default {
       if (path === '/api/world') {
         const kind = url.searchParams.get('kind') || '';
         if (kind !== 'index' && kind !== 'commodity') return fail(400, 'kind는 index 또는 commodity여야 해요');
-        return await edgeCached(request, ctx, 'world-' + kind, 30, () => getWorld(kind));
+        // with=fx,rates (§3-28): extra groups after the commodities. Without it the answer is exactly as before (the ticker reads it).
+        const w = url.searchParams.get('with');
+        let extra = [];
+        if (w != null) {
+          if (kind !== 'commodity') return fail(400, 'with는 kind=commodity에만 쓸 수 있어요');
+          const want = w.split(',').map(s => s.trim()).filter(Boolean);
+          if (!want.length || !want.every(x => Object.prototype.hasOwnProperty.call(MACRO_CFG, x))) return fail(400, 'with는 fx, rates 중에서 쉼표로 골라요');
+          extra = Object.keys(MACRO_CFG).filter(k => want.includes(k));        // fixed order → one cache key per set
+        }
+        return await edgeCached(request, ctx, 'world-' + kind + extra.map(k => '+' + k).join(''), 30, () => getWorld(kind, extra));
       }
       m = path.match(/^\/api\/world\/chart\/([^/]+)$/);
       if (m) {
@@ -472,7 +482,115 @@ const WORLD_CFG = {
 };
 const WORLD_BY_KEY = new Map();
 for (const kind of Object.keys(WORLD_CFG)) for (const g of WORLD_CFG[kind]) for (const [code, name, extra] of g.items) WORLD_BY_KEY.set(code.replace(/^\./, ''), { key: code.replace(/^\./, ''), code, name, src: g.src, ref: !!(extra && extra.ref) });
-async function getWorld(kind) {
+
+/* 지표 tab: 환율 · 금리 groups (AGENTS §3-28), added to kind=commodity by `with=fx,rates`. Probed 2026-11-13:
+   - exchange list `api.stock.naver.com/marketindex/exchange` (one call): FX_USDKRW · FX_JPYKRW (100엔) · FX_EURKRW · FX_CNYKRW
+     (하나은행 고시, 실시간) and .DXY (ICE, 10분 지연). The polling host has no `exchange` category (404).
+   - 달러/엔: FX_USDJPY and JPY= do not exist; `exchangeWorld/USDJPY` does (레피니티브, 하루 한 번 종가 — `eod`), read through
+     polling like the commodities. If it fails, 원/달러 ÷ (원/엔 ÷ 100) stands in, marked `calc`.
+   - bonds `api.stock.naver.com/marketindex/bond/{code}` one call each (no list / polling route): 레피니티브, value %, change %p,
+     JP10YT 2시간 지연. No exchange time zone in the answer → `tz` from the config.
+   Item key = code without the leading dot and the "=RR" suffix. Charts: …/marketindex/{exchange|exchangeWorld|bond}/{code}/prices. */
+const MACRO_CFG = {
+  fx: { key: 'fx', name: '환율', items: [
+    ['FX_USDKRW', '원/달러', 'exchange'], ['FX_JPYKRW', '원/엔(100엔)', 'exchange'], ['FX_EURKRW', '원/유로', 'exchange'], ['FX_CNYKRW', '원/위안', 'exchange'],
+    ['.DXY', '달러인덱스', 'exchange'], ['USDJPY', '달러/엔', 'exchangeWorld'],
+  ] },
+  rates: { key: 'rates', name: '금리', items: [
+    ['KR1YT=RR', '한국 국고채 1년', 'bond', 'Asia/Seoul'], ['KR3YT=RR', '한국 국고채 3년', 'bond', 'Asia/Seoul'], ['KR10YT=RR', '한국 국고채 10년', 'bond', 'Asia/Seoul'],
+    ['US2YT=RR', '미국 국채 2년', 'bond', 'America/New_York'], ['US10YT=RR', '미국 국채 10년', 'bond', 'America/New_York'], ['US30YT=RR', '미국 국채 30년', 'bond', 'America/New_York'],
+    ['JP10YT=RR', '일본 국채 10년', 'bond', 'Asia/Tokyo'],
+  ] },
+};
+const macroKey = code => code.replace(/^\./, '').replace(/=RR$/, '');
+for (const g of Object.values(MACRO_CFG)) for (const [code, name, cat] of g.items) WORLD_BY_KEY.set(macroKey(code), { key: macroKey(code), code, name, src: 'marketindex/' + cat });
+// one Naver marketindex record (exchange list row, bond detail, polling row) → an /api/world item; null when it has no price
+function macroItem(key, name, x, tz) {
+  if (!x) return null;
+  const value = pn(x.closePriceRaw != null && x.closePriceRaw !== '' ? x.closePriceRaw : x.closePrice);
+  if (value == null) return null;
+  const dir = x.fluctuationsType || x.compareToPreviousPrice;
+  const ex = x.stockExchangeType || {};
+  const it = {
+    key, name, value,
+    change: sgn(x.fluctuations, dir) ?? 0,
+    ratio: sgn(x.fluctuationsRatio, dir) ?? 0,
+    status: x.marketStatus === 'OPEN' ? 'OPEN' : 'CLOSE',
+    tradedAt: x.localTradedAt || null,
+  };
+  const delay = ex.delayTime > 0 ? ex.delayTime : x.delayTime > 0 ? x.delayTime : 0;
+  if (delay) it.delayed = delay;
+  if (x.unit) it.unit = x.unit;
+  if (ex.zoneId || tz) it.tz = ex.zoneId || tz;
+  if (x.priceDataType === 'CLOSING_PRICE') it.eod = true;           // a daily close, not a live quote
+  const via = ex.code === 'HANA' ? '하나은행 고시' : ex.nameKor || (x.statementSource ? String(x.statementSource).replace(/\s*기준$/, '') : null);
+  if (via) it.via = via;
+  return it;
+}
+async function getMacro(which) {
+  const out = [];
+  const jobs = [];
+  if (which.includes('fx')) jobs.push((async () => {
+    const [list, wd] = await Promise.all([
+      naver('https://api.stock.naver.com/marketindex/exchange').catch(() => null),
+      naver(`${POLL}marketindex/exchangeWorld/USDJPY`).catch(() => null),
+    ]);
+    const rows = new Map();
+    for (const x of (list && [].concat(list.majorList || [], list.normalList || [])) || []) if (x && x.reutersCode && !rows.has(x.reutersCode)) rows.set(x.reutersCode, x);
+    for (const x of (wd && wd.datas) || []) if (x && x.reutersCode) rows.set(x.reutersCode, x);
+    const items = [];
+    for (const [code, name] of MACRO_CFG.fx.items) {
+      let it = macroItem(macroKey(code), name, rows.get(code));
+      if (it && code === 'USDJPY') { it.eod = true; it.via = '레피니티브'; }   // the polling row carries neither priceDataType nor the source
+      if (!it && code === 'USDJPY') it = crossUsdJpy(rows.get('FX_USDKRW'), rows.get('FX_JPYKRW'), name);
+      if (it) items.push(it);
+    }
+    return { g: MACRO_CFG.fx, items };
+  })());
+  if (which.includes('rates')) jobs.push((async () => {
+    const got = await Promise.all(MACRO_CFG.rates.items.map(([code]) => naver(`https://api.stock.naver.com/marketindex/bond/${encodeURIComponent(code)}`).catch(() => null)));
+    const items = [];
+    MACRO_CFG.rates.items.forEach(([code, name, , tz], i) => {
+      const it = macroItem(macroKey(code), name, got[i], tz);
+      if (!it) return;
+      it.unit = '%';
+      it.bp = Math.round(it.change * 10000) / 100;                    // %p → bp (0.01%p), 2 decimals
+      // Naver keeps Korean bonds "OPEN" long after the last quote (16:13 still OPEN at 23:30): a quote more than 2 hours older
+      // than its stated delay is a closed market, whatever the flag says
+      const at = Date.parse(it.tradedAt || '');
+      if (it.status === 'OPEN' && Number.isFinite(at) && Date.now() - at > ((it.delayed || 0) + 120) * 60000) it.status = 'CLOSE';
+      items.push(it);
+    });
+    return { g: MACRO_CFG.rates, items };
+  })());
+  for (const r of await Promise.all(jobs)) if (r.items.length) out.push({ key: r.g.key, name: r.g.name, items: r.items });
+  return out;
+}
+// 달러/엔 = 원/달러 ÷ (원/엔 ÷ 100), both 하나은행 고시 of the same round; the change against the same cross of the previous rates
+function crossUsdJpy(usd, jpy, name) {
+  const a = macroItem('FX_USDKRW', '', usd), b = macroItem('FX_JPYKRW', '', jpy);
+  if (!a || !b || !(a.value > 0) || !(b.value > 0)) return null;
+  const value = a.value / (b.value / 100), pa = a.value - a.change, pb = b.value - b.change;
+  const prev = pa > 0 && pb > 0 ? pa / (pb / 100) : null;
+  const r2 = x => Math.round(x * 100) / 100;
+  const it = {
+    key: 'USDJPY', name, value: r2(value),
+    change: prev ? r2(value - prev) : 0, ratio: prev ? r2((value / prev - 1) * 100) : 0,
+    status: a.status === 'OPEN' && b.status === 'OPEN' ? 'OPEN' : 'CLOSE',
+    tradedAt: (a.tradedAt || '') > (b.tradedAt || '') ? a.tradedAt : b.tradedAt || a.tradedAt,
+    unit: 'JPY', calc: true, via: '하나은행 고시로 계산',
+  };
+  if (a.tz) it.tz = a.tz;
+  return it;
+}
+async function getWorld(kind, extra) {
+  if (extra && extra.length) {
+    // commodities and 환율 · 금리 side by side: a failing side is dropped, the rest is returned
+    const [base, macro] = await Promise.all([getWorld(kind).catch(() => null), getMacro(extra).catch(() => [])]);
+    const groups = ((base && base.groups) || []).concat(macro);
+    if (!groups.length) throw new Error('world: every source failed');
+    return { asOf: new Date().toISOString(), kind, groups };
+  }
   const groups = WORLD_CFG[kind];
   const bySrc = new Map();
   for (const g of groups) { const a = bySrc.get(g.src) || bySrc.set(g.src, []).get(g.src); for (const it of g.items) if (!a.includes(it[0])) a.push(it[0]); }
@@ -522,7 +640,7 @@ async function getWorldChart(item, tf) {
   let rows;
   if (item.src.startsWith('marketindex/')) {
     const cat = item.src.split('/')[1];
-    const pages = await Promise.all(Array.from({ length: tf === '3m' ? 2 : 5 }, (_, i) => naver(`https://api.stock.naver.com/marketindex/${cat}/${item.code}/prices?page=${i + 1}&pageSize=60`).catch(e => { if (i === 0) throw e; return []; })));
+    const pages = await Promise.all(Array.from({ length: tf === '3m' ? 2 : 5 }, (_, i) => naver(`https://api.stock.naver.com/marketindex/${cat}/${encodeURIComponent(item.code)}/prices?page=${i + 1}&pageSize=60`).catch(e => { if (i === 0) throw e; return []; })));
     rows = pages.flat().map(r => ({ d: String(r.localTradedAt || '').slice(0, 10).replace(/-/g, ''), c: pn(r.closePrice) }));
   } else {
     const kindPath = item.src === 'worldstock/futures' ? 'foreign/futures' : item.src === 'domestic/index' ? 'domestic/index' : 'foreign/index';

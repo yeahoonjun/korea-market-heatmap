@@ -5,10 +5,12 @@
   qa/world/fixtures/world_commodity.json   /api/world?kind=commodity
   qa/world/fixtures/charts.json            {key: [[YYYY-MM-DD, close], …]}  /api/world/chart/{key}?tf=1y for CHART_KEYS
                                            (3m = last 3 months of it; mock_api.py synthesises the other keys)
+  qa/world/fixtures/world_macro.json       --macro: only the 환율 · 금리 groups of /api/world?kind=commodity&with=fx,rates (AGENTS §3-28)
+                                           and their MACRO_CHART_KEYS charts merged into charts.json (the other fixtures stay as they are)
 
 Run the local Worker first, then record:
   NODE_USE_ENV_PROXY=1 ASSET_BASE=http://127.0.0.1:8803/ PORT=8802 node worker/dev/serve.mjs &
-  python3 qa/world/make_fixtures.py [http://127.0.0.1:8802]
+  python3 qa/world/make_fixtures.py [http://127.0.0.1:8802] [--macro]
 """
 import concurrent.futures as cf
 import json
@@ -18,7 +20,9 @@ import urllib.request
 
 OUT = pathlib.Path(__file__).resolve().parent / 'fixtures'
 OUT.mkdir(exist_ok=True)
-BASE = (sys.argv[1] if len(sys.argv) > 1 else 'http://127.0.0.1:8802').rstrip('/')
+ARGS = [a for a in sys.argv[1:] if not a.startswith('--')]
+BASE = (ARGS[0] if ARGS else 'http://127.0.0.1:8802').rstrip('/')
+MACRO_CHART_KEYS = {'FX_USDKRW', 'DXY', 'USDJPY', 'KR3YT', 'US10YT', 'JP10YT'}
 CHART_KEYS = {'INX', 'IXIC', 'DJI', 'N225', 'HSI', 'GDAXI', 'KOSPI', 'VIX', 'EScv1', 'CLcv1', 'GCcv1', 'Ccv1'}
 NOPROXY = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 
@@ -37,7 +41,23 @@ def chart(key):
         return key, None
 
 
+def macro():
+    j = get('/api/world?kind=commodity&with=fx,rates')
+    groups = [g for g in j['groups'] if g['key'] in ('fx', 'rates')]
+    (OUT / 'world_macro.json').write_text(json.dumps({'asOf': j['asOf'], 'kind': 'commodity', 'groups': groups}, ensure_ascii=False, indent=1), encoding='utf-8')
+    path = OUT / 'charts.json'
+    ch = json.loads(path.read_text(encoding='utf-8')) if path.exists() else {}
+    keys = [it['key'] for g in groups for it in g['items'] if it['key'] in MACRO_CHART_KEYS]
+    with cf.ThreadPoolExecutor(6) as ex:
+        ch.update({k: v for k, v in ex.map(chart, keys) if v})
+    path.write_text(json.dumps(ch, ensure_ascii=False, separators=(',', ':')), encoding='utf-8')
+    print('macro groups', [(g['key'], len(g['items'])) for g in groups], 'charts', len(keys))
+
+
 if __name__ == '__main__':
+    if '--macro' in sys.argv:
+        macro()
+        sys.exit(0)
     idx, com = get('/api/world?kind=index'), get('/api/world?kind=commodity')
     (OUT / 'world_index.json').write_text(json.dumps(idx, ensure_ascii=False, indent=1), encoding='utf-8')
     (OUT / 'world_commodity.json').write_text(json.dumps(com, ensure_ascii=False, indent=1), encoding='utf-8')

@@ -1147,7 +1147,7 @@ html[data-theme="paper"] .ss-list > button[aria-selected="true"]{background:var(
     <span class="tsep" aria-hidden="true"></span>
     <button data-mkt="THEME">테마</button>
     <button data-mkt="WORLD" aria-label="해외 지수">해외</button>
-    <button data-mkt="CMDTY">원자재</button>
+    <button data-mkt="CMDTY">지표</button>
     <button data-mkt="WATCH" aria-label="관심종목"><span class="tn"><span class="st" aria-hidden="true">★</span>관심</span><span class="tp" aria-hidden="true"></span></button>
   </div>
   <div class="idx" id="idx"></div>
@@ -1315,7 +1315,9 @@ if (typeof d3 === 'undefined' || !d3 || typeof d3.treemap !== 'function') {
 const MODE = document.documentElement.dataset.mode === 'live' ? 'live' : 'snapshot';
 const LIVE_URL = 'https://panse.pages.dev/';
 const SNAP = JSON.parse(document.getElementById('snapshot').textContent);
-const MKT_NAME = { K: '코스피', Q: '코스닥', ALL: '전체', THEME: '테마', WORLD: '해외', CMDTY: '원자재', WATCH: '관심종목' };
+const MKT_NAME = { K: '코스피', Q: '코스닥', ALL: '전체', THEME: '테마', WORLD: '해외', CMDTY: '지표', WATCH: '관심종목' };
+// 지표 = 원자재 · 환율 · 금리 (AGENTS §3-28, user 2026-11-13 23:20). MKT_NAME.CMDTY is the one place for its name: the button, src/world and extras read it
+{ const b = document.querySelector('.tabs button[data-mkt="CMDTY"]'); if (b) { b.textContent = MKT_NAME.CMDTY; b.setAttribute('aria-label', MKT_NAME.CMDTY + ': 원자재 · 환율 · 금리'); } }
 const HASH_TO = { kospi: 'K', kosdaq: 'Q', all: 'ALL', theme: 'THEME', world: 'WORLD', cmdty: 'CMDTY', watch: 'WATCH' };
 const TO_HASH = { K: 'kospi', Q: 'kosdaq', ALL: 'all', THEME: 'theme', WORLD: 'world', CMDTY: 'cmdty', WATCH: 'watch' };
 // 해외 / 원자재 tabs: src/world draws them (window.KHWorld) in <div id="world">; the map, table, side cards and stock tools step aside
@@ -10478,7 +10480,7 @@ function titleParts() {
   const m = currentMarket();
   if (m === 'world' || m === 'cmdty') {
     const d = new Date();
-    return { m, title: m === 'world' ? '해외 지수' : '원자재', when: fmtHM.format(d) + ' 기준' };
+    return { m, title: m === 'world' ? '해외 지수' : (KH.MKT_NAME && KH.MKT_NAME.CMDTY) || '지표', when: fmtHM.format(d) + ' 기준' };
   }
   const name = (KH.MKT_NAME && KH.MKT_NAME[m]) || '';
   const crumbs = [...document.querySelectorAll('#crumbs .c')].map(b => b.textContent.trim()).filter(Boolean);
@@ -12294,6 +12296,14 @@ html[data-theme="glass-light"] #world{--nodata:#e6e9ee}
 .kw-sh .a{margin-left:auto;display:inline-flex;align-items:baseline;gap:6px;flex:none;font-variant-numeric:tabular-nums}
 .kw-sh .a small{font-size:11.5px;font-weight:400;color:var(--muted)}
 .kw-sh .a b{font-size:13px;font-weight:600}
+/* 지표 tab (§3-28): block captions 원자재 / 환율 · 금리 span the list grid; the 환율 · 금리 heads carry a reading note, not an average */
+.kw-bt{grid-column:1/-1;display:flex;align-items:center;gap:10px;margin:2px 2px -4px;font-size:13px;font-weight:var(--w-strong,700);color:var(--fg2);letter-spacing:-.01em;font-family:var(--font-head,inherit)}
+.kw-bt::after{content:"";flex:1 1 auto;height:1px;background:var(--line)}
+.kw-bt~.kw-bt{margin-top:8px}
+.kw-sec[data-g=fx] .kw-sh .t,.kw-sec[data-g=rates] .kw-sh .t{flex:none}
+.kw-sh .a.note{flex:0 1 auto;min-width:0;overflow:hidden}
+.kw-sh .a.note small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.kw-sum .kw-sumk{font-weight:600;color:var(--fg)}
 .kw-rows{display:flex;flex-direction:column}
 .kw-lr{display:grid;grid-template-columns:minmax(0,1fr) 64px var(--kw-vw,76px) var(--kw-cw,62px) 66px 48px;grid-template-areas:"n s v c p b";align-items:center;column-gap:8px;width:100%;min-height:36px;padding:0 6px;border-radius:6px;text-align:left;font-size:13.5px;line-height:1.25;color:var(--fg);box-shadow:inset 0 -1px 0 var(--row-bd,transparent)}
 .kw-lr:hover{background:var(--kw-hv)}
@@ -12602,7 +12612,7 @@ html[data-theme="paper"] .kw-sheet{box-shadow:inset 0 1px 0 var(--rule,#211a15),
 /* 해외 지수 · 원자재 tabs (AGENTS.md §3-4).
    window.KHWorld = { show(kind), hide(), layout(), shown() }   kind: 'index' | 'commodity'
    The template shows <div id="world"> (in place of the map + side cards) and calls show(); another tab calls hide().
-   Data (live only): GET api/world?kind=…  every 30 s while shown and the browser tab is visible;
+   Data (live only): GET api/world?kind=…  every 30 s while shown and the browser tab is visible (지표 = kind=commodity&with=fx,rates);
                      GET api/world/chart/{key}?tf=3m|1y for the detail sheet (daily closes; no intraday source exists).
    Uses window.KH (§3): MODE, LIVE_URL, colorOf, palette, fmt, h, market; listens to kh:palette. */
 (() => {
@@ -12632,6 +12642,7 @@ function tok() {
   return TOK;
 }
 
+const CM_NAME = (KH.MKT_NAME && KH.MKT_NAME.CMDTY) || '지표';
 const KINDS = {
   index: {
     title: '해외 지수', hash: 'world', noun: '지수',
@@ -12639,13 +12650,18 @@ const KINDS = {
     snapTitle: '해외 지수는 실시간 버전에서 볼 수 있어요',
     snapBody: '미국·유럽·아시아 주요 지수와 미국 지수 선물을 30초마다 새로 받아 와요. 이 미리보기는 네트워크가 막혀 있어서 시세를 받을 수 없어요.',
   },
+  // the 지표 tab: 원자재 + 환율 + 금리 (AGENTS §3-28). Its name is the template's MKT_NAME.CMDTY — one place for the tab button,
+  // this module and extras (user 2026-11-13 23:20: "지표"). Copy below avoids a particle right after the name.
   commodity: {
-    title: '원자재', hash: 'cmdty', noun: '원자재',
-    fail: '원자재 시세를 불러오지 못했어요', empty: '지금 보여 줄 원자재 시세가 없어요',
-    snapTitle: '원자재 시세는 실시간 버전에서 볼 수 있어요',
-    snapBody: '원유·천연가스·금·은·구리·곡물 같은 원자재 선물 시세를 30초마다 새로 받아 와요. 이 미리보기는 네트워크가 막혀 있어서 시세를 받을 수 없어요.',
+    title: CM_NAME, hash: 'cmdty', noun: CM_NAME,
+    fail: `${CM_NAME} 탭의 시세를 불러오지 못했어요`, empty: '지금 보여 줄 원자재·환율·금리 시세가 없어요',
+    snapTitle: `${CM_NAME} 탭은 실시간 버전에서 볼 수 있어요`,
+    snapBody: '원유·금·곡물 같은 원자재 선물과 환율·국채 금리를 30초마다 새로 받아 와요. 이 미리보기는 네트워크가 막혀 있어서 시세를 받을 수 없어요.',
   },
 };
+// what each tab asks the Worker for: the 지표 tab adds 환율 · 금리 (an older Worker ignores `with` and the groups are simply absent)
+const WORLD_Q = { index: 'kind=index', commodity: 'kind=commodity&with=fx,rates' };
+const worldUrl = kind => 'api/world?' + WORLD_Q[kind];
 
 /* tile size: headline markets bigger (size carries no data, the legend says so) */
 const WEIGHT = {
@@ -12663,14 +12679,31 @@ const SHORT = {
   N225: '니케이', TOPX: '토픽스', SSEC: '상해', SZSC: '심천', CSI300: 'CSI 300', HSCE: '홍콩H', TWII: '대만', BSESN: '인도',
   VNI: '베트남', HNXI: '하노이', AXJO: '호주', JKSE: '인니', KLSE: '말레이', BVSP: '브라질', MXX: '멕시코', VIX: 'VIX',
   LCOcv1: '브렌트', RBcv1: '가솔린', NGcv1: '천연가스',
+  FX_JPYKRW: '원/엔', KR1YT: '국고채 1년', KR3YT: '국고채 3년', KR10YT: '국고채 10년',
+  US2YT: '미 국채 2년', US10YT: '미 국채 10년', US30YT: '미 국채 30년', JP10YT: '일 국채 10년',
 };
+/* 환율 · 금리 (AGENTS §3-28): the groups the Worker adds with `with=fx,rates` */
+const MACRO_NOTE = { fx: '오르면 원화 약세', rates: '변화는 bp(0.01%p)' };              // beside the section title
+const FX_SUB = { DXY: '오르면 달러 강세', USDJPY: '오르면 엔화 약세' };                    // rows the section note does not cover
+const FX_UNIT = {
+  FX_USDKRW: '원 (1달러당)', FX_JPYKRW: '원 (100엔당)', FX_EURKRW: '원 (1유로당)', FX_CNYKRW: '원 (1위안당)',
+  DXY: '포인트 (1973년 3월 = 100)', USDJPY: '엔 (1달러당)',
+};
+const FX_NOTE = {
+  DXY: '유로·엔·파운드 등 6개 통화에 견준 달러 가치예요. 오르면 달러 강세예요.',
+  USDJPY: '1달러를 사는 데 드는 엔이에요. 오르면 엔화 약세예요.',
+};
+const KRW_NOTE = '오르면 원화 약세예요. 같은 외화를 사는 데 원화가 더 든다는 뜻이고, 빨강·초록은 숫자의 오르내림만 나타내요.';
+const RATE_NOTE = '값은 연 수익률(%)이고 변화는 bp(1bp = 0.01%p)로 보여 줘요. 빨강·초록은 금리의 오르내림이에요.';
 /* Naver unit codes → [long, short] */
 const UNITS = {
   'USD/BBL': ['달러/배럴', '$/배럴'], 'USD/MMBTU': ['달러/MMBtu', '$/MMBtu'], 'USD/U GAL': ['달러/갤런', '$/갤런'], 'USD/GAL': ['달러/갤런', '$/갤런'],
   'USD/OZS': ['달러/트로이온스', '$/온스'], 'USD/OZ': ['달러/트로이온스', '$/온스'], 'USD/LBS': ['달러/파운드', '$/파운드'],
   'USC/BSH': ['센트/부셸', '¢/부셸'], 'USC/LBS': ['센트/파운드', '¢/파운드'], 'USD/TONNE': ['달러/톤', '$/톤'], 'USD/MT': ['달러/톤', '$/톤'],
+  KRW: ['원', '원'], JPY: ['엔', '엔'],
 };
-const unitOf = it => { if (!it.unit) return null; const u = UNITS[String(it.unit).toUpperCase()]; return u || [String(it.unit), String(it.unit)]; };
+// rates carry their unit in the value ("3.756%")
+const unitOf = it => { if (!it.unit || isRate(it)) return null; const u = UNITS[String(it.unit).toUpperCase()]; return u || [String(it.unit), String(it.unit)]; };
 /* exchange time zones → a place name for "지금 열린 시장" */
 const CET = '유럽 중부';
 const TZ_CITY = {
@@ -12693,19 +12726,26 @@ const pct = v => v == null || !isFinite(v) ? '—' : (KH.fmt && KH.fmt.pct) ? KH
 const fixed = (v, dp) => Math.abs(v).toLocaleString('ko-KR', { minimumFractionDigits: dp, maximumFractionDigits: dp });
 const DP = new Map();                                    // sticky decimals per key (6.330 must not flip to 6.33)
 function dpOf(it) {
+  if (isRate(it)) return 3;                              // yields: 3.756% (Naver sends 4 decimals for some, the 4th is noise)
   const dec = v => { if (v == null || !isFinite(v)) return 0; const s = String(Math.abs(v)); const i = s.indexOf('.'); return i < 0 || s.includes('e') ? 0 : s.length - i - 1; };
   const d = Math.max(2, Math.min(4, Math.max(dec(it.value), dec(it.change))));
   const was = DP.get(it.key) || 0;
   if (d > was) DP.set(it.key, d);
   return Math.max(d, was);
 }
-const valText = it => fixed(it.value, dpOf(it));
-const chgText = it => it.change == null || !isFinite(it.change) ? '—' : sgn(it.change) + fixed(it.change, dpOf(it));
+const isFx = it => it.gkey === 'fx', isRate = it => it.gkey === 'rates', isMacro = it => isFx(it) || isRate(it);
+// bp = 0.01%p, one decimal ("+2.3bp"); a change that rounds to 0.0 has no sign
+const bpOf = it => it.bp != null && isFinite(it.bp) ? it.bp : it.change != null && isFinite(it.change) ? Math.round(it.change * 10000) / 100 : null;
+const bpText = v => { if (v == null || !isFinite(v)) return '—'; const r = Math.round(v * 10) / 10; return sgn(r) + Math.abs(r).toFixed(1) + 'bp'; };
+const valText = it => fixed(it.value, dpOf(it)) + (isRate(it) ? '%' : '');
+const chgText = it => isRate(it) ? bpText(bpOf(it)) : it.change == null || !isFinite(it.change) ? '—' : sgn(it.change) + fixed(it.change, dpOf(it));
+const chipText = it => isRate(it) ? bpText(bpOf(it)) : pct(it.ratio);   // the coloured chip: % change, or bp for a yield
 const isRef = it => !!it.ref;
 const isFut = it => it.gkey === 'usf';                 // 미국 선물: listed under 미국, never part of its average
 const colorOf = it => isRef(it) ? tok().ref : (it.ratio == null || !isFinite(it.ratio)) ? tok().nodata : KH.colorOf(it.ratio);
 const weightOf = it => WEIGHT[it.key] || 1;
-const delayText = it => it.delayed > 0 ? `${it.delayed}분 지연` : '실시간';
+const dlText = m => m >= 60 && m % 60 === 0 ? `${m / 60}시간 지연` : `${m}분 지연`;
+const delayText = it => it.eod ? '하루 한 번 종가' : it.delayed > 0 ? dlText(it.delayed) : '실시간';
 const WD = ['일', '월', '화', '수', '목', '금', '토'];
 const fmtKst = new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul', hour: '2-digit', minute: '2-digit', hour12: false });
 const fmtKstS = new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
@@ -12838,6 +12878,8 @@ function normalise(j, kind) {
         status: x.status === 'OPEN' ? 'OPEN' : 'CLOSE', tradedAt: x.tradedAt || null,
         delayed: +x.delayed > 0 ? +x.delayed : 0, unit: x.unit || null, tz: x.tz || null,
         ref: !!(x.ref || g.ref), group: String(g.name || ''), gkey: String(g.key || ''), ix: ix++,
+        // 환율 · 금리 (§3-28): bp = change in 0.01%p, eod = a daily close (달러/엔), calc = computed cross, via = who quotes it
+        bp: x.bp == null || !isFinite(+x.bp) ? null : +x.bp, eod: !!x.eod, calc: !!x.calc, via: x.via ? String(x.via) : null,
       };
       items.push(it);
     }
@@ -13020,8 +13062,11 @@ function msgBox(title, body, retry, busy) {
 
 function renderBar(d, err) {
   let up = 0, dn = 0, fl = 0, open = 0;
-  for (const it of d.all) { if (it.status === 'OPEN') open++; if (isRef(it) || it.ratio == null) continue; if (it.ratio > 0) up++; else if (it.ratio < 0) dn++; else fl++; }
+  // 지표: the counts are the commodities' (a yield or a won rate going up is not the same kind of "오른"), and say so
+  const mixed = d.all.some(isMacro);
+  for (const it of d.all) { if (isMacro(it)) continue; if (it.status === 'OPEN') open++; if (isRef(it) || it.ratio == null) continue; if (it.ratio > 0) up++; else if (it.ratio < 0) dn++; else fl++; }
   put($('.kw-sum', els.bar),
+    mixed ? h('span', { class: 'kw-sumk', text: '원자재' }) : null,
     h('span', {}, '오른 ', h('b', { class: 'up', text: String(up) })), h('span', { class: 'kw-dot', 'aria-hidden': 'true', text: '·' }),
     h('span', {}, '내린 ', h('b', { class: 'dn', text: String(dn) })),
     fl ? [h('span', { class: 'kw-dot', 'aria-hidden': 'true', text: '·' }), h('span', {}, '보합 ', h('b', { class: 'flat', text: String(fl) }))] : null,
@@ -13119,7 +13164,7 @@ function tileTexts(it, g) {
   if (sh && sh !== it.name) names.push(sh);
   const v = valText(it);
   const vals = u ? [v + ' ' + u[1], v] : [v];
-  return { names, pc: pct(it.ratio), vals };
+  return { names, pc: chipText(it), vals };
 }
 function fit(T, w, hh, capH) {
   const W = w - PADX, H = hh - 4;
@@ -13157,7 +13202,7 @@ function fit(T, w, hh, capH) {
 const CHIP_H = 15, CHIP_FS = 10.5, DOT = 13;
 function chipCands(it) {
   const open = it.status === 'OPEN';
-  const texts = !open ? ['마감'] : it.delayed ? [`장중 · ${it.delayed}분 지연`, `장중 · ${it.delayed}분`, '장중'] : ['장중'];
+  const texts = !open ? ['마감'] : it.delayed ? [`장중 · ${dlText(it.delayed)}`, `장중 · ${dlText(it.delayed).replace(' 지연', '')}`, '장중'] : ['장중'];
   return texts.map(t => ({ t, w: tw(t, 500) * CHIP_FS + 10 + (open ? 9 : 0), hgt: CHIP_H })).concat({ t: '', dot: true, w: DOT, hgt: DOT });
 }
 function placeTile(el, t) {
@@ -13203,8 +13248,9 @@ function placeTile(el, t) {
 }
 function ariaOf(it) {
   const u = unitOf(it);
-  return `${it.group ? it.group + ', ' : ''}${it.name} ${valText(it)}${u ? ' ' + u[0] : ''}, 전일 대비 ${chgText(it)} (${pct(it.ratio)}), ` +
-    `${it.status === 'OPEN' ? '장중' : '마감'}, ${delayText(it)}${isRef(it) ? ', 참고 지표라 색칠하지 않았어요' : ''}`;
+  const chg = isRate(it) ? `${chgText(it)}` : `${chgText(it)} (${pct(it.ratio)})`;
+  return `${it.group ? it.group + ', ' : ''}${it.name} ${valText(it)}${u ? ' ' + u[0] : ''}, 전일 대비 ${chg}, ` +
+    `${it.status === 'OPEN' ? '장중' : '마감'}, ${delayText(it)}${isRef(it) ? ', 참고 지표라 색칠하지 않았어요' : ''}${it.calc ? ', 계산값' : ''}`;
 }
 function renderMap(d) {
   const W = els.map.clientWidth;
@@ -13229,7 +13275,7 @@ function renderMap(d) {
     if (vOn) room -= tw(vt, 600) * 12 + 10;
     // the group's market state when every member shares it ("장중 · 15분 지연", "마감")
     const st = new Set(g.g.items.map(it => it.status)), dl = new Set(g.g.items.map(it => it.delayed));
-    const stText = st.size !== 1 ? '' : st.has('OPEN') ? (dl.size === 1 ? (g.g.items[0].delayed ? `장중 · ${g.g.items[0].delayed}분 지연` : '장중 · 실시간') : '장중') : '마감';
+    const stText = st.size !== 1 ? '' : st.has('OPEN') ? (dl.size === 1 ? (g.g.items[0].delayed ? `장중 · ${dlText(g.g.items[0].delayed)}` : '장중 · 실시간') : '장중') : '마감';
     el.children[1].textContent = stText && room >= tw(stText, 500) * 11 + 6 ? stText : '';
     el.children[2].textContent = vOn ? vt : '';
     el.children[2].className = 'v ' + (avg == null ? 'flat' : cls(avg));
@@ -13348,6 +13394,7 @@ const NAME_MIN = 118, FIXED_W = 64 + 66 + 48 + 5 * 8 + 12 + 14, MIN_COL_C = 300,
 const ROW_H = 36, ROW_HC = 52, HEAD_H = 42, SEC_PAD = 12;
 const placeOf = it => PLACE[it.key] || cityOf(it, null) || '';
 function listSub(it, flat) {
+  if (isMacro(it)) return it.calc ? '계산값' : FX_SUB[it.key] || '';   // 계산값 is a tag (never cut); the section note covers 원/○
   const u = S.kind === 'commodity' ? unitOf(it) : null;
   if (!flat && isFut(it)) return '선물';
   if (flat) return [it.group, u ? u[1] : null].filter(Boolean).join(' · ');
@@ -13363,7 +13410,7 @@ function stateOf(items) {
   if (o && c) return { open: true, text: `장중 ${o} · 마감 ${c}` };
   if (!o) return { open: false, text: '마감' };
   const dl = new Set(items.map(it => it.delayed));
-  return { open: true, text: dl.size === 1 ? (items[0].delayed ? `장중 · ${items[0].delayed}분 지연` : '장중 · 실시간') : '장중' };
+  return { open: true, text: dl.size === 1 ? (items[0].delayed ? `장중 · ${dlText(items[0].delayed)}` : '장중 · 실시간') : '장중' };
 }
 // text on a palette colour: white or black, whichever has more contrast (the worst case is 4.58:1)
 const INK_DARK = '#000';
@@ -13442,15 +13489,25 @@ function regionSections(d) {
   us.items = us.items.concat(...fold.filter(s => s.key === 'usf').map(s => s.items), ...fold.filter(s => s.key === 'ref').map(s => s.items));
   return secs.filter(s => !fold.includes(s));
 }
+/* blocks of columns. The 지표 tab with 환율 · 금리 (§3-28) has two captioned blocks — 원자재 (에너지 · 금속 · 농산물, or their
+   등락률순 ranking) and 환율 · 금리 (always by group: a yield's bp and a currency's % do not rank against a commodity's %).
+   Every other case is one block without a caption, laid out exactly as before. */
 function buildColumns(d, geo) {
   const rowH = geo.compact ? ROW_HC : ROW_H;
-  if (S.sort !== 'pct') {
-    return distribute(regionSections(d), geo.n, rowH);
-  }
-  // 등락률순: one ranked list (missing values last, ties in the Worker's order), split evenly over the columns; VIX at the end
+  const secs = regionSections(d);
+  const macro = secs.filter(s => MACRO_NOTE[s.key]);
+  if (!macro.length) return [{ key: 'all', title: null, cols: S.sort !== 'pct' ? distribute(secs, geo.n, rowH) : ranked(d.all, geo) }];
+  const base = secs.filter(s => !MACRO_NOTE[s.key]);
+  const blocks = [];
+  if (base.length) blocks.push({ key: 'cm', title: '원자재', cols: S.sort !== 'pct' ? distribute(base, geo.n, rowH) : ranked(d.all.filter(it => !isMacro(it)), geo) });
+  blocks.push({ key: 'mx', title: macro.map(s => s.name).join(' · '), cols: distribute(macro, geo.n, rowH) });
+  return blocks;
+}
+// 등락률순: one ranked list (missing values last, ties in the Worker's order), split evenly over the columns; VIX at the end
+function ranked(all, geo) {
   const rv = it => it.ratio == null ? -Infinity : it.ratio;
-  const main = d.all.filter(it => !isRef(it)).sort((a, b) => rv(b) - rv(a) || a.ix - b.ix);
-  const refs = d.all.filter(isRef);
+  const main = all.filter(it => !isRef(it)).sort((a, b) => rv(b) - rv(a) || a.ix - b.ix);
+  const refs = all.filter(isRef);
   const n = Math.max(1, Math.min(geo.n, Math.ceil(main.length / 4)));
   const per = Math.ceil(main.length / n);
   const cols = [];
@@ -13494,12 +13551,13 @@ function fillRow(el, it, sub, rank, R) {
   const subText = ref ? '참고' : sub || '';
   sb.textContent = subText;
   sb.hidden = !subText;
-  sb.className = 'sub' + (ref || (isFut(it) && !rank) ? ' tag' : '');
+  sb.className = 'sub' + (ref || it.calc || (isFut(it) && !rank) ? ' tag' : '');
   ls.children[0].className = 'kw-sd ' + (open ? 'open' : 'close');
-  ls.children[1].textContent = open ? (it.delayed ? `${it.delayed}분 지연` : '실시간') : '마감';
+  ls.children[1].textContent = open ? (it.delayed ? dlText(it.delayed) : '실시간') : '마감';
   ls.children[1].className = 'st' + (open && it.delayed ? ' dl' : '');
   ls.children[2].textContent = ref ? '' : sub || '';
-  const v = valText(it), c = chgText(it), p = pct(it.ratio);
+  // a yield: the chip carries its change in bp, the change column stays empty (the same number twice says nothing)
+  const v = valText(it), c = isRate(it) ? '' : chgText(it), p = chipText(it);
   const was = el.__vals;
   lv.textContent = v;
   lc.textContent = c;
@@ -13530,11 +13588,14 @@ function fillRow(el, it, sub, rank, R) {
 function fillHead(sec, hd) {
   const [t, s, a] = hd.children;
   t.textContent = sec.name;
+  a.classList.toggle('note', !!MACRO_NOTE[sec.key]);
   if (sec.flat && !sec.ref) { s.replaceChildren(); a.replaceChildren(); return; }
   const cash = sec.cash || sec.items;                    // 미국: only the cash indices speak for the section
   const st = stateOf(cash);
   s.replaceChildren(h('i', { class: 'kw-sd ' + (st.open ? 'open' : 'close'), 'aria-hidden': 'true' }), st.text);
   if (sec.ref) { a.replaceChildren(h('small', { text: '색칠하지 않는 지표' })); return; }
+  // 환율 · 금리: an average of unlike things says nothing — the section says how to read it instead (§3-28)
+  if (MACRO_NOTE[sec.key]) { a.replaceChildren(h('small', { class: 'kw-shn', text: MACRO_NOTE[sec.key] })); return; }
   const avg = avgOf(cash);
   put(a, avg == null ? null : h('small', { text: cash.length < sec.items.length ? '지수 평균' : '평균' }), avg == null ? null : h('b', { class: cls(avg), text: pct(avg) }));
 }
@@ -13545,17 +13606,18 @@ function renderList(d) {
   els.listW = W;
   // value / change columns: as wide as the widest text, so numbers line up across sections and columns
   let vw = 0, cw = 0;
-  for (const it of d.all) { vw = Math.max(vw, tw(valText(it), 500)); cw = Math.max(cw, tw(chgText(it), 500)); }
+  for (const it of d.all) { vw = Math.max(vw, tw(valText(it), 500)); if (!isRate(it)) cw = Math.max(cw, tw(chgText(it), 500)); }   // a yield's change column is empty
   const geo = listGeom(W, NAME_MIN + FIXED_W + Math.ceil(vw * 13.5 + 4) + Math.ceil(cw * 12.5 + 4));
-  const cols = buildColumns(d, geo);
+  const blocks = buildColumns(d, geo);
+  const cols = blocks.flatMap(b => b.cols);
   const fsV = geo.compact ? 14 : 13.5, fsC = geo.compact ? 12 : 12.5;
-  L.style.setProperty('--kw-n', String(cols.length || 1));
+  L.style.setProperty('--kw-n', String(Math.max(1, ...blocks.map(b => b.cols.length))));
   L.style.setProperty('--kw-vw', Math.ceil(vw * fsV + 4) + 'px');
   L.style.setProperty('--kw-cw', Math.ceil(cw * fsC + 4) + 'px');
   L.style.setProperty('--kw-vcw', Math.ceil(Math.max(vw * fsV, cw * fsC) + 4) + 'px');
   L.classList.toggle('compact', geo.compact);
   L.classList.toggle('flat', S.sort === 'pct');
-  const sig = [S.kind, S.sort, geo.compact, cols.map(c => c.map(s => s.key + ':' + s.items.map(it => it.key).join(',')).join(';')).join('/')].join('|');
+  const sig = [S.kind, S.sort, geo.compact, blocks.map(b => b.key + '=' + b.cols.map(c => c.map(s => s.key + ':' + s.items.map(it => it.key).join(',')).join(';')).join('/')).join('#')].join('|');
   const R = rangeNow();
   const subs = new Map();
   for (const col of cols) for (const sec of col) {
@@ -13572,14 +13634,17 @@ function renderList(d) {
     const sy = scrollY;
     const keep = new Set(d.all.map(it => it.key));
     for (const [k, el] of els.rows) if (!keep.has(k)) { el.remove(); els.rows.delete(k); }
-    L.replaceChildren(...cols.map(col => h('div', { class: 'kw-col' }, col.map(sec => {
-      const id = `kw-sh-${S.kind}-${sec.key}`;
-      const hd = h('h3', { class: 'kw-sh', id }, h('span', { class: 't' }), h('span', { class: 's' }), h('span', { class: 'a' }));
-      const el = h('section', { class: 'kw-sec' + (sec.ref ? ' ref' : ''), 'data-g': sec.key, 'aria-labelledby': id }, hd,
-        h('div', { class: 'kw-rows' }, sec.items.map(rowEl)));
-      el.__sec = sec;
-      return el;
-    }))));
+    // a captioned block (지표: 원자재 / 환율 · 금리) spans the grid row; its sections' headings sit one level below the caption
+    L.replaceChildren(...blocks.flatMap(b => [
+      b.title ? h('h3', { class: 'kw-bt', 'data-b': b.key }, b.title) : null,
+      ...b.cols.map(col => h('div', { class: 'kw-col', 'data-b': b.key }, col.map(sec => {
+        const id = `kw-sh-${S.kind}-${sec.key}`;
+        const hd = h(b.title ? 'h4' : 'h3', { class: 'kw-sh', id }, h('span', { class: 't' }), h('span', { class: 's' }), h('span', { class: 'a' }));
+        const el = h('section', { class: 'kw-sec' + (sec.ref ? ' ref' : ''), 'data-g': sec.key, 'aria-labelledby': id }, hd,
+          h('div', { class: 'kw-rows' }, sec.items.map(rowEl)));
+        el.__sec = sec;
+        return el;
+      })))]).filter(Boolean));
     els.listSig = sig;
     if (fk && els.rows.has(fk) && document.activeElement !== els.rows.get(fk)) els.rows.get(fk).focus({ preventScroll: true });
     if (scrollY !== sy) scrollTo(scrollX, sy);
@@ -13619,8 +13684,9 @@ function onListKey(e) {
   else if (e.key === 'Home') next = rows[0];
   else if (e.key === 'End') next = rows[rows.length - 1];
   else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
-    const cols = [...els.list.querySelectorAll('.kw-col')];
-    const col = cols[cols.indexOf(cur.closest('.kw-col')) + (e.key === 'ArrowRight' ? 1 : -1)];
+    const here = cur.closest('.kw-col');
+    const cols = [...els.list.querySelectorAll('.kw-col')].filter(c => c.dataset.b === here.dataset.b);   // within its block
+    const col = cols[cols.indexOf(here) + (e.key === 'ArrowRight' ? 1 : -1)];
     if (col) {
       const y = cur.getBoundingClientRect().top;
       let bd = Infinity;
@@ -14106,11 +14172,11 @@ function rowBtn(it) {
     h('span', { class: 'v ' + cls(it.ratio), text: pct(it.ratio) }));
 }
 function renderRank(d) {
-  const pool = d.all.filter(it => !isRef(it) && it.ratio != null);
+  const pool = d.all.filter(it => !isRef(it) && !isMacro(it) && it.ratio != null);   // 지표: the commodities only (§3-28)
   const ups = pool.filter(it => it.ratio > 0).sort((a, b) => b.ratio - a.ratio).slice(0, 5);
   const dns = pool.filter(it => it.ratio < 0).sort((a, b) => a.ratio - b.ratio).slice(0, 5);
   const sub = $('.kw-rank-sub', root);
-  if (sub) sub.textContent = `${pool.length}개 중`;
+  if (sub) sub.textContent = d.all.some(isMacro) ? `원자재 ${pool.length}개 중` : `${pool.length}개 중`;
   put(els.rank,
     h('div', { class: 'kw-rh', text: '많이 오른' }),
     ups.length ? ups.map(rowBtn) : h('p', { class: 'kw-none', text: '오른 곳이 없어요' }),
@@ -14142,16 +14208,22 @@ function renderOpen(d) {
     h('p', { class: 'kw-omf' }, `한국 ${kst} · `, closed ? `마감 ${closed}개는 마지막 값이에요` : '모두 장중이에요'));
 }
 function renderSource(d) {
-  const kids = [h('span', {}, '출처: 네이버 증권 · 해외 지수와 원자재는 거래소별로 최대 20분 지연될 수 있어요.')];
+  const kids = [h('span', {}, S.kind === 'commodity' && d && d.all.some(isMacro) ? '출처: 네이버 증권 · 거래소·기관마다 시세가 늦게 올 수 있어요.'
+    : '출처: 네이버 증권 · 해외 지수와 원자재는 거래소별로 최대 20분 지연될 수 있어요.')];
   if (d && d.all.length) {
     const cnt = new Map();
-    for (const it of d.all) cnt.set(it.delayed || 0, (cnt.get(it.delayed || 0) || 0) + 1);
-    const parts = [...cnt].sort((a, b) => a[0] - b[0]).map(([k, n]) => `${k ? k + '분 지연' : '실시간'} ${n}개`);
+    for (const it of d.all) { const k = it.eod ? -1 : it.delayed || 0; cnt.set(k, (cnt.get(k) || 0) + 1); }
+    const parts = [...cnt].sort((a, b) => (a[0] < 0) - (b[0] < 0) || a[0] - b[0]).map(([k, n]) => `${k < 0 ? '하루 한 번 종가' : k ? dlText(k) : '실시간'} ${n}개`);
     kids.push(h('span', {}, ` 지금 목록: ${parts.join(' · ')}.`));
     const at = d.asOf ? new Date(d.asOf) : null;
     if (at && !isNaN(at)) kids.push(h('span', {}, ` ${fmtKstS.format(at)}(한국 시각)에 받은 값이고, 30초마다 새로 받아요.`));
   }
   if (S.kind === 'commodity') kids.push(h('span', {}, ' 원자재는 근월물 선물 가격이에요.'));
+  if (S.kind === 'commodity' && d && d.all.some(isMacro)) {
+    const fxs = d.all.filter(isFx), eod = fxs.find(it => it.eod), calc = fxs.find(it => it.calc);
+    kids.push(h('span', {}, ' 원/달러·원/엔·원/유로·원/위안은 하나은행 고시 환율, 금리는 레피니티브 기준이에요.'
+      + (eod ? ' 달러/엔은 하루 한 번 바뀌는 종가예요.' : '') + (calc ? ' 달러/엔은 원/달러와 원/엔으로 계산한 값이에요.' : '')));
+  }
   els.src.replaceChildren(...kids);
 }
 
@@ -14269,24 +14341,32 @@ function fillDetail(full) {
   const g = d.groups.find(x => x.items.includes(it));
   const city = cityOf(it, g);
   const lw = L ? wall(L.date, it) : null;
-  const localTxt = L ? `${L.mo}월 ${L.d}일 (${WD[lw.wd]}) ${L.hh}:${L.mm}` : '—';
+  // a daily close (달러/엔, §3-28) has a date and no meaningful time
+  const localTxt = !L ? '—' : it.eod ? `${L.mo}월 ${L.d}일 (${WD[lw.wd]}) 종가` : `${L.mo}월 ${L.d}일 (${WD[lw.wd]}) ${L.hh}:${L.mm}`;
   const kstTxt = L ? fmtKstDay.format(L.date) : '—';
   const prev = it.change != null ? it.value - it.change : null;
+  const rate = isRate(it), fx = isFx(it);
+  const unitTxt = rate ? '연 %' : fx ? FX_UNIT[it.key] || (u ? u[0] : '—') : u ? u[0] : (it.gkey === 'kr' || D.kind === 'index' ? '포인트' : '—');
+  const chgLine = rate ? `${chgText(it)} (${it.change == null ? '—' : sgn(it.change) + fixed(it.change, 3) + '%p'})` : `${chgText(it)} (${pct(it.ratio)})`;
+  const note = isRef(it) ? 'VIX는 S&P 500 옵션 가격으로 계산한 변동성 기대치예요. 오르면 시장 불안이 커졌다는 뜻이라 지도에서 색칠하지 않았어요.'
+    : it.gkey === 'kr' ? '비교용으로 함께 보여 줘요. 종목 지도는 코스피·코스닥 탭에서 볼 수 있어요.'
+    : rate ? RATE_NOTE
+    : fx ? (FX_NOTE[it.key] || KRW_NOTE) + (it.eod ? ' 레피니티브 종가라 하루에 한 번 바뀌어요.' : '') + (it.calc ? ' 원/달러를 1엔당 원화로 나눈 계산값이에요.' : '')
+    : D.kind === 'commodity' ? '근월물 선물 가격이에요. 거래소 시각 기준으로 하루가 바뀌어요.' : null;
   const head = h('div', { class: 'kw-dh' },
     h('div', { class: 'kw-path', text: [it.group, city && city !== it.group ? city : null].filter(Boolean).join(' · ') }),
     h('div', { class: 'kw-nmrow' }, h('i', { class: 'kw-sw', style: `background:${colorOf(it)}` }), h('b', { id: 'kw-dt', text: it.name }),
       h('span', { class: 'kw-st ' + (it.status === 'OPEN' ? 'open' : 'close'), text: it.status === 'OPEN' ? '장중' : '마감' })),
     h('div', { class: 'kw-px' }, h('b', { text: valText(it) }), u ? h('small', { text: u[0] }) : null,
-      h('span', { class: cls(it.ratio), text: `${chgText(it)} (${pct(it.ratio)})` })),
+      h('span', { class: (rate ? cls(it.change) : cls(it.ratio)), text: chgLine })),
     h('dl', { class: 'kw-meta' },
-      h('dt', { text: '시세' }), h('dd', { text: `${it.status === 'OPEN' ? '장중' : '마감'} · ${delayText(it)}` }),
-      h('dt', { text: '현지 거래 시각' }), h('dd', {}, localTxt, h('small', { text: ` ${city || ''} ${offText(it)}`.trimEnd() })),
-      h('dt', { text: '한국 시각' }), h('dd', { text: kstTxt }),
-      prev != null ? [h('dt', { text: '전일 종가' }), h('dd', { text: fixed(prev, dpOf(it)) + (u ? ' ' + u[1] : '') })] : null,
-      h('dt', { text: '단위' }), h('dd', { text: u ? u[0] : (it.gkey === 'kr' || D.kind === 'index' ? '포인트' : '—') })),
-    isRef(it) ? h('p', { class: 'kw-note', text: 'VIX는 S&P 500 옵션 가격으로 계산한 변동성 기대치예요. 오르면 시장 불안이 커졌다는 뜻이라 지도에서 색칠하지 않았어요.' }) : null,
-    it.gkey === 'kr' ? h('p', { class: 'kw-note', text: '비교용으로 함께 보여 줘요. 종목 지도는 코스피·코스닥 탭에서 볼 수 있어요.' }) : null,
-    D.kind === 'commodity' ? h('p', { class: 'kw-note', text: '근월물 선물 가격이에요. 거래소 시각 기준으로 하루가 바뀌어요.' }) : null);
+      h('dt', { text: '시세' }), h('dd', { text: `${it.status === 'OPEN' ? '장중' : '마감'} · ${delayText(it)}${it.calc ? ' · 계산값' : ''}` }),
+      h('dt', { text: it.eod ? '기준일' : '현지 거래 시각' }), h('dd', {}, localTxt, it.eod ? null : h('small', { text: ` ${city || ''} ${offText(it)}`.trimEnd() })),
+      it.eod ? null : [h('dt', { text: '한국 시각' }), h('dd', { text: kstTxt })],
+      prev != null ? [h('dt', { text: '전일 종가' }), h('dd', { text: fixed(prev, dpOf(it)) + (rate ? '%' : u ? ' ' + u[1] : '') })] : null,
+      h('dt', { text: '단위' }), h('dd', { text: unitTxt }),
+      it.via ? [h('dt', { text: '기준' }), h('dd', { text: it.via })] : null),
+    note ? h('p', { class: 'kw-note', text: note }) : null);
   // a country with several indices: one button each, the shown one pressed
   const peers = D.peers ? h('div', { class: 'kw-peers', role: 'group', 'aria-label': `${D.place || ''} 지수`.trim() },
     D.place ? h('b', { class: 'kw-peers-h', text: D.place }) : null,
@@ -14298,17 +14378,18 @@ function fillDetail(full) {
       h('div', { class: 'kw-grab', 'aria-hidden': 'true' }),
       h('button', { type: 'button', class: 'kw-x', 'aria-label': '닫기', onclick: () => closeDetail(true) }, '×'),
       peers, head, todayBox(D.today, it), chartBox,
-      h('p', { class: 'kw-dsrc', text: `출처: 네이버 증권 · ${delayText(it)} 시세` }));
+      h('p', { class: 'kw-dsrc', text: srcLine(it) }));
     sheet.classList.toggle('has-peers', !!peers);
   } else {
     const old = $('.kw-peers', sheet);
     if (old && peers) { const f = old.contains(document.activeElement) ? document.activeElement.dataset.k : null; sheet.replaceChild(peers, old); if (f) { const b = peers.querySelector(`button[data-k="${CSS.escape(f)}"]`); if (b) b.focus({ preventScroll: true }); } }
     sheet.replaceChild(head, $('.kw-dh', sheet));
-    const src = $('.kw-dsrc', sheet); if (src) src.textContent = `출처: 네이버 증권 · ${delayText(it)} 시세`;
+    const src = $('.kw-dsrc', sheet); if (src) src.textContent = srcLine(it);
     if (S.detail.chart && S.detail.chart.bars) drawChart();   // its last point is the live value
   }
 }
 
+const srcLine = it => `출처: 네이버 증권${it.via ? ` (${it.via})` : ''} · ${delayText(it)}${it.eod ? '' : ' 시세'}`;
 // 코스피 / 코스닥 opened from the ticker: today's intraday line ({pts:[[unix s, value]], base}) above the daily chart
 function todayBox(T, it) {
   if (!T || !Array.isArray(T.pts) || T.pts.length < 2) return null;
@@ -14429,14 +14510,18 @@ function drawChart() {
   const chg = (last / first - 1) * 100;
   const dirc = isRef(it || {}) ? 'flat' : cls(chg);
   const dp = it ? dpOf(it) : 2;
+  // a yield (§3-28): levels in %, moves in bp — "기간 동안 +32.0bp", not a % of a %
+  const rate = !!it && isRate(it);
+  const fv = v => fixed(v, dp) + (rate ? '%' : '');
+  const mv = (a, b) => rate ? bpText((b - a) * 100) : pct((b / a - 1) * 100);
   const s = svg('svg', { class: 'kw-svg ' + dirc, viewBox: `0 0 ${W} ${H}`, width: W, height: H, role: 'img',
-    'aria-label': `${TFS.find(t => t[0] === D.tf)[1]} 차트: ${shortDate(bars[0].t)} ${fixed(first, dp)}에서 ${shortDate(bars[bars.length - 1].t)} ${fixed(last, dp)}, ${pct(chg)}. 최고 ${fixed(hi, dp)}, 최저 ${fixed(lo, dp)}` });
+    'aria-label': `${TFS.find(t => t[0] === D.tf)[1]} 차트: ${shortDate(bars[0].t)} ${fv(first)}에서 ${shortDate(bars[bars.length - 1].t)} ${fv(last)}, ${mv(first, last)}. 최고 ${fv(hi)}, 최저 ${fv(lo)}` });
   s.append(
     svg('line', { class: 'kw-base', x1: padL, x2: W - padR, y1: y(first).toFixed(1), y2: y(first).toFixed(1) }),
     svg('path', { class: 'kw-area', d: area }),
     svg('path', { class: 'kw-line', d: line }),
-    svg('text', { class: 'kw-yl', x: W - padR + 6, y: (y(hi) + 4).toFixed(1) }, document.createTextNode(fixed(hi, dp))),
-    svg('text', { class: 'kw-yl', x: W - padR + 6, y: (y(lo) + 1).toFixed(1) }, document.createTextNode(fixed(lo, dp))),
+    svg('text', { class: 'kw-yl', x: W - padR + 6, y: (y(hi) + 4).toFixed(1) }, document.createTextNode(fv(hi))),
+    svg('text', { class: 'kw-yl', x: W - padR + 6, y: (y(lo) + 1).toFixed(1) }, document.createTextNode(fv(lo))),
     svg('text', { class: 'kw-xl', x: padL, y: H - 5 }, document.createTextNode(D.tf === '1y' ? shortDateY(bars[0].t) : shortDate(bars[0].t))),
     svg('text', { class: 'kw-xl', x: W - padR, y: H - 5, 'text-anchor': 'end' }, document.createTextNode(D.tf === '1y' ? shortDateY(bars[bars.length - 1].t) : shortDate(bars[bars.length - 1].t))));
   const cross = svg('line', { class: 'kw-cross', y1: padT, y2: H - padB, x1: -10, x2: -10 });
@@ -14445,14 +14530,14 @@ function drawChart() {
   const read = h('div', { class: 'kw-read' });
   const showAt = i => {
     const b = bars[i], r = (b.c / first - 1) * 100;
-    read.replaceChildren(h('span', { text: D.tf === '1y' ? shortDateY(b.t) : shortDate(b.t) }), h('b', { text: fixed(b.c, dp) }),
-      h('span', { class: isRef(it || {}) ? 'flat' : cls(r), text: i ? `${pct(r)} (기간 시작 대비)` : '기간 시작' }));
+    read.replaceChildren(h('span', { text: D.tf === '1y' ? shortDateY(b.t) : shortDate(b.t) }), h('b', { text: fv(b.c) }),
+      h('span', { class: isRef(it || {}) ? 'flat' : cls(r), text: i ? `${mv(first, b.c)} (기간 시작 대비)` : '기간 시작' }));
     dot.setAttribute('cx', x(i)); dot.setAttribute('cy', y(b.c));
     cross.setAttribute('x1', x(i)); cross.setAttribute('x2', x(i));
   };
   const reset = () => {
-    read.replaceChildren(h('span', { text: `${TFS.find(t => t[0] === D.tf)[1]} 동안` }), h('b', { class: isRef(it || {}) ? 'flat' : cls(chg), text: pct(chg) }),
-      h('span', { class: 'kw-hl', text: `최고 ${fixed(hi, dp)} · 최저 ${fixed(lo, dp)}` }));
+    read.replaceChildren(h('span', { text: `${TFS.find(t => t[0] === D.tf)[1]} 동안` }), h('b', { class: isRef(it || {}) ? 'flat' : cls(chg), text: mv(first, last) }),
+      h('span', { class: 'kw-hl', text: `최고 ${fv(hi)} · 최저 ${fv(lo)}` }));
     dot.setAttribute('cx', x(bars.length - 1)); dot.setAttribute('cy', y(last));
     cross.setAttribute('x1', -10); cross.setAttribute('x2', -10);
   };
@@ -14485,7 +14570,7 @@ async function load(kind, quiet) {
   if (!quiet && !S.data[kind] && S.err[kind]) { S.err[kind] = null; render(); }   // the automatic retry shows "loading" again
   let ok = false;
   try {
-    const j = await getJSON('api/world?kind=' + kind, ac.signal);
+    const j = await getJSON(worldUrl(kind), ac.signal);
     if (seq !== S.seq) return null;
     S.data[kind] = normalise(j, kind);
     S.at[kind] = Date.now();
@@ -14602,7 +14687,7 @@ function layout() {
   for (const g of Lo.heads) out.push({ kind: 'sector', x: g.x, y: g.y, w: g.w, h: g.h, color: tok().sec, label: g.hd ? g.g.name : '', sub: g.hd ? headSub(g) : '', hd: g.hd });
   for (const t of Lo.tiles) {
     const L = fit(tileTexts(t.it, t.g), t.w, t.h);
-    out.push({ kind: 'tile', x: t.x, y: t.y, w: t.w, h: t.h, color: colorOf(t.it), label: t.it.name, sub: L && L.lv >= 2 ? pct(t.it.ratio) : '', code: t.it.key });
+    out.push({ kind: 'tile', x: t.x, y: t.y, w: t.w, h: t.h, color: colorOf(t.it), label: t.it.name, sub: L && L.lv >= 2 ? chipText(t.it) : '', code: t.it.key });
   }
   return out;
 }
@@ -14615,7 +14700,7 @@ async function openDetailKey(key, opts) {
   if (!kind && LIVE) {
     await Promise.all(['index', 'commodity'].map(async k => {
       if (S.data[k]) return;
-      try { S.data[k] = normalise(await getJSON('api/world?kind=' + k), k); S.at[k] = Date.now(); } catch (e) { /* the other kind may still have it */ }
+      try { S.data[k] = normalise(await getJSON(worldUrl(k)), k); S.at[k] = Date.now(); } catch (e) { /* the other kind may still have it */ }
     }));
     kind = find();
   }

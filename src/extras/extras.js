@@ -881,7 +881,7 @@ function titleParts() {
   const m = currentMarket();
   if (m === 'world' || m === 'cmdty') {
     const d = new Date();
-    return { m, title: m === 'world' ? '해외 지수' : '원자재', when: fmtHM.format(d) + ' 기준' };
+    return { m, title: m === 'world' ? '해외 지수' : (KH.MKT_NAME && KH.MKT_NAME.CMDTY) || '지표', when: fmtHM.format(d) + ' 기준' };
   }
   const name = (KH.MKT_NAME && KH.MKT_NAME[m]) || '';
   const crumbs = [...document.querySelectorAll('#crumbs .c')].map(b => b.textContent.trim()).filter(Boolean);
