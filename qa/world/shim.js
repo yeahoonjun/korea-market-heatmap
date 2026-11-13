@@ -17,7 +17,7 @@
     const tabs = document.querySelector('.tabs');
     const watchBtn = tabs.querySelector('[data-mkt="WATCH"]');
     const mk = (m, t) => { const b = document.createElement('button'); b.dataset.mkt = m; b.textContent = t; b.setAttribute('aria-pressed', 'false'); return b; };
-    const bW = mk('WORLD', '해외'), bC = mk('CMDTY', '원자재');
+    const bW = mk('WORLD', '해외'), bC = mk('CMDTY', '지표');
     tabs.insertBefore(bW, watchBtn); tabs.insertBefore(bC, watchBtn);
     const main = document.querySelector('main.layout');
     const world = document.createElement('div');

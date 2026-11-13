@@ -367,8 +367,8 @@ with sync_playwright() as p:
     if not LIVE: pg.evaluate("location.hash = 'cmdty'"); pg.wait_for_timeout(600)
     w = pg.evaluate("""() => { const t = document.querySelector('.tabs'), a = t.querySelector('[aria-pressed="true"]'), tr = t.getBoundingClientRect(), ar = a.getBoundingClientRect();
       return { msg: document.getElementById('world').innerText, active: a.dataset.mkt, inView: ar.left >= tr.left - 1 && ar.right <= tr.right + 1, scroll: t.scrollWidth > t.clientWidth, over: document.documentElement.scrollWidth - innerWidth }; }""")
-    ok('m360 #cmdty ' + ('without KHWorld: fallback message; ' if LIVE else '(hash change): ') + 'tab row scrolls with 원자재 in view; no overflow',
-       ('원자재 화면을 불러오지 못했어요' in w['msg'] if LIVE else w['msg'].strip() != '') and w['active'] == 'CMDTY' and w['inView'] and w['over'] == 0, w if not w['inView'] or w['over'] else w['msg'][:60])
+    ok('m360 #cmdty ' + ('without KHWorld: fallback message; ' if LIVE else '(hash change): ') + 'tab row scrolls with 지표 in view; no overflow',
+       ('지표 화면을 불러오지 못했어요' in w['msg'] if LIVE else w['msg'].strip() != '') and w['active'] == 'CMDTY' and w['inView'] and w['over'] == 0, w if not w['inView'] or w['over'] else w['msg'][:60])
     ok('#cmdty boot: console errors 0', not errs(log), errs(log)[:3])
     ctx.close()
 

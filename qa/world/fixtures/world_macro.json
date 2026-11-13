@@ -1,0 +1,183 @@
+{
+ "asOf": "2026-11-13T14:44:56.227Z",
+ "kind": "commodity",
+ "groups": [
+  {
+   "key": "fx",
+   "name": "환율",
+   "items": [
+    {
+     "key": "FX_USDKRW",
+     "name": "원/달러",
+     "value": 1337.2,
+     "change": 0.7,
+     "ratio": 0.05,
+     "status": "OPEN",
+     "tradedAt": "2026-11-13T23:43:04+09:00",
+     "unit": "KRW",
+     "tz": "Asia/Seoul",
+     "via": "하나은행 고시"
+    },
+    {
+     "key": "FX_JPYKRW",
+     "name": "원/엔(100엔)",
+     "value": 836.25,
+     "change": 0.18,
+     "ratio": 0.02,
+     "status": "OPEN",
+     "tradedAt": "2026-11-13T23:43:04+09:00",
+     "unit": "KRW",
+     "tz": "Asia/Seoul",
+     "via": "하나은행 고시"
+    },
+    {
+     "key": "FX_EURKRW",
+     "name": "원/유로",
+     "value": 1478.01,
+     "change": 0.58,
+     "ratio": 0.04,
+     "status": "OPEN",
+     "tradedAt": "2026-11-13T23:43:04+09:00",
+     "unit": "KRW",
+     "tz": "Asia/Seoul",
+     "via": "하나은행 고시"
+    },
+    {
+     "key": "FX_CNYKRW",
+     "name": "원/위안",
+     "value": 200.38,
+     "change": 0.11,
+     "ratio": 0.05,
+     "status": "OPEN",
+     "tradedAt": "2026-11-13T23:43:04+09:00",
+     "unit": "KRW",
+     "tz": "Asia/Seoul",
+     "via": "하나은행 고시"
+    },
+    {
+     "key": "DXY",
+     "name": "달러인덱스",
+     "value": 103.25,
+     "change": 0.07,
+     "ratio": 0.07,
+     "status": "OPEN",
+     "tradedAt": "2026-11-13T09:34:42-05:00",
+     "delayed": 10,
+     "tz": "EST5EDT",
+     "via": "미국 ICE선물거래소"
+    },
+    {
+     "key": "USDJPY",
+     "name": "달러/엔",
+     "value": 159.9,
+     "change": 0.05,
+     "ratio": 0.03,
+     "status": "OPEN",
+     "tradedAt": "2026-11-13T23:43:04+09:00",
+     "unit": "JPY",
+     "calc": true,
+     "via": "하나은행 고시로 계산",
+     "tz": "Asia/Seoul"
+    }
+   ]
+  },
+  {
+   "key": "rates",
+   "name": "금리",
+   "items": [
+    {
+     "key": "KR1YT",
+     "name": "한국 국고채 1년",
+     "value": 3.639,
+     "change": -0.006,
+     "ratio": -0.16,
+     "status": "CLOSE",
+     "tradedAt": "2026-11-13T18:36:27+09:00",
+     "tz": "Asia/Seoul",
+     "via": "레피니티브",
+     "unit": "%",
+     "bp": -0.6
+    },
+    {
+     "key": "KR3YT",
+     "name": "한국 국고채 3년",
+     "value": 3.756,
+     "change": 0.023,
+     "ratio": 0.62,
+     "status": "CLOSE",
+     "tradedAt": "2026-11-13T16:13:58+09:00",
+     "tz": "Asia/Seoul",
+     "via": "레피니티브",
+     "unit": "%",
+     "bp": 2.3
+    },
+    {
+     "key": "KR10YT",
+     "name": "한국 국고채 10년",
+     "value": 3.987,
+     "change": 0.064,
+     "ratio": 1.63,
+     "status": "CLOSE",
+     "tradedAt": "2026-11-13T16:00:37+09:00",
+     "tz": "Asia/Seoul",
+     "via": "레피니티브",
+     "unit": "%",
+     "bp": 6.4
+    },
+    {
+     "key": "US2YT",
+     "name": "미국 국채 2년",
+     "value": 4.874,
+     "change": 0.0097,
+     "ratio": 0.2,
+     "status": "OPEN",
+     "tradedAt": "2026-11-13T09:39:56-05:00",
+     "tz": "America/New_York",
+     "via": "레피니티브",
+     "unit": "%",
+     "bp": 0.97
+    },
+    {
+     "key": "US10YT",
+     "name": "미국 국채 10년",
+     "value": 5.172,
+     "change": 0.0688,
+     "ratio": 1.35,
+     "status": "OPEN",
+     "tradedAt": "2026-11-13T09:39:56-05:00",
+     "tz": "America/New_York",
+     "via": "레피니티브",
+     "unit": "%",
+     "bp": 6.88
+    },
+    {
+     "key": "US30YT",
+     "name": "미국 국채 30년",
+     "value": 5.499,
+     "change": 0.069,
+     "ratio": 1.27,
+     "status": "OPEN",
+     "tradedAt": "2026-11-13T09:40:00-05:00",
+     "tz": "America/New_York",
+     "via": "레피니티브",
+     "unit": "%",
+     "bp": 6.9
+    },
+    {
+     "key": "JP10YT",
+     "name": "일본 국채 10년",
+     "value": 2.889,
+     "change": 0.028,
+     "ratio": 0.98,
+     "status": "OPEN",
+     "tradedAt": "2026-11-13T21:26:09+09:00",
+     "delayed": 120,
+     "tz": "Asia/Tokyo",
+     "via": "레피니티브",
+     "unit": "%",
+     "bp": 2.8
+    }
+   ]
+  }
+ ]
+}

@@ -3,10 +3,13 @@
 
   python3 qa/world/mock_api.py [port=8803]
 
-Routes: /api/world?kind=index|commodity, /api/world/chart/<key>?tf=3m|1y (1d / unknown key → 400 like the Worker),
+Routes: /api/world?kind=index|commodity[&with=fx,rates], /api/world/chart/<key>?tf=3m|1y (1d / unknown key → 400 like the Worker),
         /api/quotes, /api/market, /api/replay/dates, /api/breadth, /api/themes, /data/<name>.json, static files from web/.
 Test controls (not part of the contract):
   /__mode?world=ok|fail|empty|closed|slow|html404|drift&chart=ok|none|fail   switch failure modes
+         &macro=off|on|eod|norates   환율 · 금리 (AGENTS §3-28): off (default) = an older Worker that ignores `with`; on = the
+                                    fixtures/world_macro.json groups (달러/엔 = the computed cross, `calc`); eod = 달러/엔 as the
+                                    Worker's fallback, the 레피니티브 daily close; norates = fx only
                                     (drift: every answer moves values a little, deterministically, to test in-place refresh)
   /__stats   request counts per route        /__reset   counts + modes back to default
   /__last?kind=index|commodity   the last /api/world answer sent
@@ -27,7 +30,8 @@ WEB = ROOT / 'web'
 FIX = HERE / 'fixtures'
 WORLD = {k: json.loads((FIX / f'world_{k}.json').read_text(encoding='utf-8')) for k in ('index', 'commodity')}
 CHARTS = json.loads((FIX / 'charts.json').read_text(encoding='utf-8'))
-KEYS = {it['key']: it for d in WORLD.values() for g in d['groups'] for it in g['items']}
+MACRO = json.loads((FIX / 'world_macro.json').read_text(encoding='utf-8'))
+KEYS = {it['key']: it for d in list(WORLD.values()) + [MACRO] for g in d['groups'] for it in g['items']}
 MARKET_P = ROOT / 'qa/extras/fixtures/market.json'
 MARKET = json.loads(MARKET_P.read_text(encoding='utf-8')) if MARKET_P.exists() else {'asOf': None, 'items': []}
 
@@ -39,7 +43,7 @@ for m in ('K', 'Q'):
     rows += sorted((x for x in SNAP['stocks'] if x['m'] == m and x['c'].endswith('0')), key=lambda x: -x['cap'])[:300]
 QUOTES['stocks'] = rows
 
-DEFAULT = {'world': 'ok', 'chart': 'ok'}
+DEFAULT = {'world': 'ok', 'chart': 'ok', 'macro': 'off'}
 MODE = dict(DEFAULT)
 STATS = {}
 LOCK = threading.Lock()
@@ -107,6 +111,11 @@ class H(SimpleHTTPRequestHandler):
             kind = q.get('kind')
             if kind not in WORLD:
                 return self.send_json({'error': 'kind는 index 또는 commodity여야 해요'}, 400)
+            want = [x for x in (q.get('with') or '').split(',') if x] if MODE['macro'] != 'off' and 'with' in q else []
+            if want and kind != 'commodity':
+                return self.send_json({'error': 'with는 kind=commodity에만 쓸 수 있어요'}, 400)
+            if want and not all(x in ('fx', 'rates') for x in want):
+                return self.send_json({'error': 'with는 fx, rates 중에서 쉼표로 골라요'}, 400)
             mode = MODE['world']
             if mode == 'fail':
                 return self.send_json({'error': '해외 시세를 불러오지 못했어요'}, 502)
@@ -115,6 +124,14 @@ class H(SimpleHTTPRequestHandler):
             if mode == 'slow':
                 time.sleep(2.5)
             d = json.loads(json.dumps(WORLD[kind]))
+            for g in json.loads(json.dumps(MACRO['groups'])):
+                if g['key'] in want and not (g['key'] == 'rates' and MODE['macro'] == 'norates'):
+                    if g['key'] == 'fx' and MODE['macro'] == 'eod':
+                        for it in g['items']:
+                            if it['key'] == 'USDJPY':          # exchangeWorld/USDJPY as seen 2026-11-13 23:15 KST
+                                it.clear(); it.update(key='USDJPY', name='달러/엔', value=159.83, change=0.07, ratio=0.04, status='CLOSE',
+                                                      tradedAt='2026-11-12T00:00:00+09:00', unit='JPY', eod=True, via='레피니티브')
+                    d['groups'].append(g)
             d['asOf'] = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
             if mode == 'empty':
                 d['groups'] = []
@@ -128,6 +145,8 @@ class H(SimpleHTTPRequestHandler):
                         it['value'] = round(it['value'] * (1 + 0.004 * step * n), 4)
                         it['change'] = round(it['value'] - prev, 4)
                         it['ratio'] = round((it['value'] / prev - 1) * 100, 2) if prev else it.get('ratio')
+                        if 'bp' in it:
+                            it['bp'] = round(it['change'] * 100, 2)
             if mode == 'closed':
                 for g in d['groups']:
                     for it in g['items']:
