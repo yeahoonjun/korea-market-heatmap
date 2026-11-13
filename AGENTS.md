@@ -171,7 +171,7 @@ python3 tmp/shot.py /home/claude/heatmap/dist/index.html    # 1440×900 / 390×8
 
 **리플레이 기록 (KV 무료 한도 대응)**
 - `list` 호출을 기록·조회 경로에서 쓰지 않아요. 중복 확인은 `get(fkey)`, 날짜 목록은 키 `replay:days`(최신순 날짜 배열, 40일 넘으면 잘라 냄)에 써요. 하루 프레임은 09:00~(장 마감 시각)까지 5분 단위 키를 직접 만들어 `get`해요.
-- 장 마감 시각은 시세의 `stockExchangeType.endTime`(보통 `1530`, 수능·첫 거래일 `1630`)을 따라요. cron은 `* 0-7 * * 1-5`(UTC, 매분, §3-15), 마감 시각 프레임은 지수가 CLOSE여도 기록해요.
+- 장 마감 시각은 시세의 `stockExchangeType.endTime`(보통 `1530`, 수능·첫 거래일 `1630`)을 따라요. cron은 `* 0-7 * * MON-FRI`(UTC, 매분, §3-15 — Cloudflare 요일은 1=일요일이라 숫자 `1-5`는 일~목이었어요), 마감 시각 프레임은 지수가 CLOSE여도 기록해요.
 - CORS: `access-control-allow-origin`은 `https://panse.pages.dev`로 좁혀요(같은 출처 요청에는 영향 없음, Worker v14).
 
 **등락 분포 = 전 종목** (사용자 요청 2026-11-09 23:43: "300종목만 말고 전 종목으로")
@@ -360,7 +360,7 @@ python3 tmp/shot.py /home/claude/heatmap/dist/index.html    # 1440×900 / 390×8
 풀린 것: 하루 요청 상한 없음(월 1천만 포함), 요청당 CPU 기본 30초(최대 5분), 외부·내부 호출 10,000번, KV 쓰기 월 100만, cron CPU 최대 15분, Durable Objects. 이번 차례는 **① 1분 다시 보기 ② 전 종목** 두 가지. (실시간 푸시·가격 알림·기기 간 동기화는 다음 차례.)
 
 ### ① 1분 다시 보기 (Worker + extras)
-- **cron**: `* 0-7 * * 1-5`(매분). 오케스트레이터가 배포할 때 바꿔요. 프레임 키·모양은 지금과 같음: `replay:YYYYMMDD:HHMM`, 09:00 → `endTime`(보통 15:30, 391개).
+- **cron**: `* 0-7 * * MON-FRI`(매분, 2026-11-14부터 — 그 전 `1-5`는 일~목). 오케스트레이터가 배포할 때 바꿔요. 프레임 키·모양은 지금과 같음: `replay:YYYYMMDD:HHMM`, 09:00 → `endTime`(보통 15:30, 391개).
 - **API (예전 화면 호환)**
   - `/api/replay?date=` — 지금 그대로(5분 프레임: 09:00, 09:05 …). 1분 기록이 있는 날도 5분 칸만.
   - `/api/replay?date=&step=1&from=HHMM&to=HHMM` — 그 사이 **1분 프레임**(양 끝 포함, 한 번에 최대 120개), 응답 모양은 5분 응답과 같음(+ `step:1`). 없는 분은 빠져요(잠깐 실패한 분).

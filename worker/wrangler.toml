@@ -12,4 +12,4 @@ binding = "REPLAY"
 id = "bfdaeef6e5204d0ba223a568f76d3c85"
 
 [triggers]
-crons = ["* 0-7 * * 1-5"]
+crons = ["* 0-7 * * MON-FRI"]   # Cloudflare counts weekdays 1 = Sunday … 7 = Saturday: write names, not numbers

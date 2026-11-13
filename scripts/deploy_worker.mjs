@@ -95,7 +95,10 @@ async function ensureCrons() {
   const res = await cfJson('/schedules');
   const have = ((res && res.schedules) || []).map(s => s.cron).sort();
   log(`cron    ${have.join(', ') || '(none)'}`);
-  if (JSON.stringify(have) === JSON.stringify([...crons].sort())) return;
+  // Cloudflare may hand an expression back in another spelling (MON-FRI ↔ 2-6): compare a normalised form
+  const DOW = { SUN: 1, MON: 2, TUE: 3, WED: 4, THU: 5, FRI: 6, SAT: 7 };
+  const norm = c => c.trim().toUpperCase().split(/\s+/).map((f, i) => i === 4 ? f.replace(/[A-Z]{3}/g, m => DOW[m] || m) : f).join(' ');
+  if (JSON.stringify(have.map(norm).sort()) === JSON.stringify(crons.map(norm).sort())) return;
   await cfJson('/schedules', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(crons.map(cron => ({ cron }))) });
   console.log(`::warning::cron triggers were ${have.join(', ') || 'missing'}; set to ${crons.join(', ')} from wrangler.toml`);
 }

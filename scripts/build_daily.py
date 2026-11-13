@@ -132,6 +132,12 @@ def session_end(code=REF):
 
 def check_trading_day(wait=False):
     now = dt.datetime.now(KST)
+    # GitHub sometimes starts the scheduled 16:40 / 21:30 runs hours late (00:44–05:19 KST the next day, 2026-11-10…13), and
+    # "today" then became the next date with no bar yet → "holiday" → nothing committed. A run before 08:00 KST belongs to
+    # the previous calendar day.
+    if now.hour < 8:
+        now = now - dt.timedelta(days=1)
+        log(f"started {dt.datetime.now(KST):%m-%d %H:%M} KST (late run) -> checking {now:%Y-%m-%d}")
     if now.weekday() >= 5:
         log(f"{now:%Y-%m-%d} is a weekend -> no trading")
         return 10
