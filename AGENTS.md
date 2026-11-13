@@ -458,7 +458,7 @@ python3 tmp/shot.py /home/claude/heatmap/dist/index.html    # 1440×900 / 390×8
 ## 3-26. 판세 · 테마 · 휴대폰 아래 줄 (사용자 2026-11-13 19:45~20:01)
 
 **이름과 주소**: 사이트 이름 **판세**(영문 Panse), 주소 **`https://panse.pages.dev`**(pando.pages.dev는 남이 쓰고 있어 판세로 정함).
-- 제목 `판세 · 코스피·코스닥 히트맵`, 머리글 제목·시계 aria "판세 · 지금 HH:MM · 눌러서 새로고침", 종목 페이지 제목 "… · 판세", 매니페스트 name·short_name "판세". 저장소·Worker 이름은 그대로.
+- 제목 `판세`(사용자 22:28: 설명 문구 없이), 머리글 제목·시계 aria "판세 · 지금 HH:MM · 눌러서 새로고침", 종목 페이지 제목 "… · 판세", 매니페스트 name·short_name "판세". 저장소·Worker 이름은 그대로.
 - **이사**: 옛 Pages 프로젝트 `kospimap`의 `_worker.js`는 화면 요청에 작은 다리 페이지를 줘요 — 그 브라우저의 `khm.*` localStorage를 `#khm-import=<base64 JSON>~<원래 해시>`로 실어 `panse.pages.dev`로 `location.replace`. `/api/*`·`/data/*`는 계속 Worker로 프록시(열려 있던 옛 탭용), 그 밖은 301. 해시는 서버로 가지 않아요.
 - 판세 쪽(`src/template.html` 머리의 첫 스크립트): `#khm-import=`가 오면 **첫 이사(`khm.migrated` 없음)는 옛 값으로 덮고**, 그 뒤엔 빈 키만 채운 뒤 `khm.migrated`를 적고 해시를 원래 값으로 돌려놔요. 홈 화면 앱은 새 주소에서 다시 설치해야 해요(출처가 달라요).
 

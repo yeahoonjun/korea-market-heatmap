@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>판세 · 코스피·코스닥 히트맵</title>
+<title>판세</title>
 <script>/* §3-26 kospimap → 판세 이사: 옛 주소가 #khm-import=<설정>~<원래 해시>로 넘겨준 설정·관심종목을 옮겨요. 첫 이사는 옛 값으로 덮고, 그 뒤엔 빈 키만 채워요. */
 (function(){var p='#khm-import=',h=location.hash;if(h.indexOf(p)!==0)return;var rest=h.slice(p.length),i=rest.indexOf('~'),keep=i<0?'':rest.slice(i+1);
 try{var o=JSON.parse(decodeURIComponent(escape(atob(decodeURIComponent(i<0?rest:rest.slice(0,i)))))),first=localStorage.getItem('khm.migrated')==null;
