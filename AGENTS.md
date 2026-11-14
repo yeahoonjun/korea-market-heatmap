@@ -567,6 +567,7 @@ python3 tmp/shot.py /home/claude/heatmap/dist/index.html    # 1440×900 / 390×8
 - `KH.addSetting({key, label, hint, multi:true, options:[..], default:[..], min})` → 여러 개 고르는 칩(값은 배열, 저장은 `'a,b'`, `min`개 아래로는 못 끔). `KH.settingState(key, {disabled?, counts?:{값:n}, hint?})`.
 - `KH.mapCodes()` → 지금 지도 종목 코드(탭·종목 수 반영, 해외·테마 개요는 `[]`). `KH.replay()` → `{t, date}|null`. `KH.openStock(code, {opener, tab, newsKind})` → 빠른 보기를 닫고 종목 페이지.
 - 마운트: 지도 머리줄 `지도 · 표` 앞 `<span id="stage-tools">`(비면 자리 없음, 지수 선 B는 그 앞에서 끝나요), 출처 줄 `<p id="foot-disc">`("공시: 금융감독원 DART (제목 · 링크만)").
+- 페이지 아래 출처 줄 순서(모든 탭·종목 페이지 공통): 데이터 → 시장 뉴스 → 공시 → (기준일·스냅샷 안내) → © 2026 → **"투자 판단의 근거로 쓰지 마세요."는 항상 맨 아래 한 줄** (사용자 2026-11-14 11:59 "투자 판단의 근거로 쓰지 마세요. 는 항상 맨아래에 있도록"). 템플릿 `disclaimP()`, 종목 페이지 `.sp-disclaim`. 새 출처 줄은 그 위에 넣어요.
 - **뉴스 카드 탭** (`src/news`): `KHNews.addTab({key, label: 글자|() → 글자, count?: () → 글자, pane, list, at?: el → 머리 오른쪽 내용, render(L), onShow?})` — `L` = `{measure, base, two, phone, rowsMax}`(뉴스와 같은 채우기: PC는 줄 수를 재서 옆 칸 끝까지, 1200px 이상 두 단) · `removeTab(key)` · `select(key)` · `tab()` · `update()` · `relayout()` — 탭이 둘 이상이면 카드 제목이 탭(←/→/Home/End, 고른 탭 기억 `khm.feedTab`), 하나면 지금 제목 그대로. 탭을 다 빼면 카드가 숨어요.
 - **종목 페이지** (`src/stock`): `KHStock.open(code, {opener, tab:'news', newsKind:'disc'})`, 오늘 DART 줄에 `KHDisc.info(rcpNo)`의 처음 본 시각과 새 공시 점.
 - **공시 모듈** `src/disclosure/disc.js · disc.css`(빌드: 뉴스 다음): `window.KHDisc = {refresh(), rows(code), info(rcpNo) → {s, isNew, date}}`, `KH.disclosures(code?)`.

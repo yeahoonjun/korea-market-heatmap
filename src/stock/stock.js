@@ -340,14 +340,16 @@ function buildLive() {
   uiSeg(R.tabs);
   for (const t of TABS) if (t.build) t.build(R.panels[t.key]);
   R.body.append(chartcol, h('section', { class: 'sp-side', 'aria-label': TABS.map(t => t.label).join('·') }, h('div', { class: 'sp-tabwrap' }, R.tabs), ...Object.values(R.panels)));
-  R.foot.append(h('p', {}, '데이터: 네이버 증권(비공식). 투자 판단의 근거로 쓰지 마세요. 차트: ',
-    h('a', { href: 'https://www.tradingview.com/', target: '_blank', rel: 'noopener', text: 'TradingView Lightweight Charts™' }), '.'));
+  R.foot.append(h('p', {}, '데이터: 네이버 증권(비공식). 차트: ',
+    h('a', { href: 'https://www.tradingview.com/', target: '_blank', rel: 'noopener', text: 'TradingView Lightweight Charts™' }), '.'),
+    h('p', { class: 'sp-disclaim', text: '투자 판단의 근거로 쓰지 마세요.' }));   // 사용자 2026-11-14 11:59: 항상 맨 아래 줄
 }
 
 function buildSnapshot() {
   R.offline = h('div', { class: 'sp-offline' });
   R.body.append(R.offline, R.peers);
-  R.foot.append(h('p', { text: `데이터: 네이버 증권. ${asOfLabel(KH.asOf())} 기준 스냅샷이라 시세가 바뀌지 않아요. 투자 판단의 근거로 쓰지 마세요.` }));
+  R.foot.append(h('p', { text: `데이터: 네이버 증권. ${asOfLabel(KH.asOf())} 기준 스냅샷이라 시세가 바뀌지 않아요.` }),
+    h('p', { class: 'sp-disclaim', text: '투자 판단의 근거로 쓰지 마세요.' }));   // 사용자 2026-11-14 11:59: 항상 맨 아래 줄
 }
 
 function measureHead() {
