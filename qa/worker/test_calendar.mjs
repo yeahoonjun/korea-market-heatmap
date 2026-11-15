@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
   calendarRoute, parseBok, parseKostat, etToKst, expiryEvents, datesIn, dartEvents, periodOf, groupCorp, fmtVal,
-  fscDivEvents, starKr, BOK_MEETINGS,
+  fscDivEvents, starKr, BOK_MEETINGS, corpClass,
 } from '../../worker/src/calendar.js';
 import { dgResetMemory } from '../../worker/src/datago.js';
 
@@ -37,8 +37,11 @@ const DG = {
     { basDt: '20261113', crno: '1101110000002', stckIssuCmpyNm: '가나전자', stckIssuRcdNm: '현금배당', rgtExertRcd: '01', rgtExertRcdNm: '기준일', rgtExertSttgDt: '20261130', nmlsLckSttgDt: '20261201', nmlsLckEdDt: '20261205' },
     { basDt: '20261113', crno: '1101110000009', stckIssuCmpyNm: '마바증권', stckIssuRcdNm: '유상증자', rgtExertRcd: '01', rgtExertRcdNm: '기준일', rgtExertSttgDt: '20261127', nmlsLckSttgDt: '20261128', nmlsLckEdDt: '' },
     { basDt: '20261113', crno: '', scrsIssuMnbdCd: '90001', stckIssuCmpyNm: '사아', stckIssuRcdNm: '임시총회', rgtExertRcd: '01', rgtExertRcdNm: '기준일', rgtExertSttgDt: '20261204', nmlsLckSttgDt: '' },
-    { basDt: '20261113', crno: '1101119999999', stckIssuCmpyNm: '비상장회사', stckIssuRcdNm: '정기총회', rgtExertRcdNm: '기준일', rgtExertSttgDt: '20261204' }],
-  getItemInfo_V2: [['900002', '1101110000002'], ['900007', '1101110000007'], ['900009', '1101110000009'], ['900010', '1101110000010'], ['900015', '1101110000010']]
+    { basDt: '20261113', crno: '1101119999999', stckIssuCmpyNm: '비상장회사', stckIssuRcdNm: '정기총회', rgtExertRcdNm: '기준일', rgtExertSttgDt: '20261204' },
+    { basDt: '20261113', crno: '1101110000004', stckIssuCmpyNm: '테스트증권', stckIssuRcdNm: '유상증자', rgtExertRcd: '05', rgtExertRcdNm: '주주청약일', rgtExertSttgDt: '20261126' },
+    { basDt: '20261113', crno: '1101110000011', stckIssuCmpyNm: '아자상사', stckIssuRcdNm: '임시총회', rgtExertRcd: '07', rgtExertRcdNm: '총회개최일', rgtExertSttgDt: '20261210', nmlsLckSttgDt: '20261120' },
+    { basDt: '20261113', crno: '1101110000011', stckIssuCmpyNm: '아자상사', stckIssuRcdNm: '임시총회', rgtExertRcd: '03', rgtExertRcdNm: '명세통지시한', rgtExertSttgDt: '20261124' }],
+  getItemInfo_V2: [['900002', '1101110000002'], ['900004', '1101110000004'], ['900007', '1101110000007'], ['900009', '1101110000009'], ['900010', '1101110000010'], ['900015', '1101110000010'], ['900011', '1101110000011']]
     .map(([c, crno]) => ({ basDt: '20261113', srtnCd: 'A' + c, isinCd: 'KR7' + c + '003', crno, itmsNm: 'x' + c, corpNm: 'x' + c, mrktCtg: 'KOSDAQ' })),
 };
 function dataGoKr(u) {
@@ -186,6 +189,24 @@ await t('groupCorp: >12 same-day dividends → one row', () => {
   const evs = Array.from({ length: 15 }, (_, i) => ({ id: 'x' + i, d: '2026-12-31', k: 'corp', grp: 'div-rec', c: String(900100 + i), title: '배당 기준일', src: 'fsc', star: 1 }));
   const g = groupCorp(evs.concat([{ id: 'y', d: '2026-12-30', k: 'corp', grp: 'div-rec', c: '900999', title: '배당 기준일', star: 1 }]));
   assert.equal(g.length, 2); assert.equal(g[0].n, 15); assert.equal(g[0].sub, '15개 종목'); assert.equal(g[0].codes.length, 15);
+  assert.equal(g[0].cls, 'div', 'a group row keeps its members\' class');
+});
+await t('corpClass: what the page shows by default vs 기업 세부 일정 (live titles, 2026-11-15)', () => {
+  const R = (why, rest, x = {}) => corpClass(Object.assign({ k: 'corp', src: 'fsc', api: 'getRighExerReasSche_V2', why, title: `${why} ${rest}` }, x));
+  const shown = [R('배당/분배', '기준일'), R('배당/분배', '권리락일'), R('배당/분배', '배당금지급일(1차)'), R('유상증자', '권리락일'), R('무상증자', '권리락일')];
+  assert.deepEqual(shown.map(c => c.cls + (c.minor ? '!' : '')), ['div', 'div', 'div', 'rights', 'rights']);
+  const minor = ['임시총회 명세통지시한', '임시총회 발송통지시한', '임시총회 명세접수시한', '임시총회 기준일', '임시총회 명부폐쇄기간', '매수청구 반대의사접수시한', '기타 명세통지시한',
+    '배당/분배 명세통지시한', '배당/분배 명세접수시한', '배당/분배 명부폐쇄기간', '유상증자 교부/유통일', '유상증자 상장일', '유상증자 기준일', '유상증자 납입일', '상호변경 상장일',
+    '액면병합 권리락일', '자본감소 권리락일', '액면병합 단주대금지급일(1차)'].map(t => { const [why, ...r] = t.split(' '); return [t, R(why, r.join(' '))]; });
+  for (const [t, c] of minor) assert.equal(c.minor, true, t);
+  assert.deepEqual(R('임시총회', '총회개최일'), { cls: 'agm', minor: false }, '주총 itself: the page decides (watched / map)');
+  assert.deepEqual(R('정기총회', '총회개최일'), { cls: 'agm', minor: false });
+  const L = pct => corpClass({ k: 'corp', src: 'fsc', api: 'getLockUpRetuInfo_V3', title: '보호예수 해제', pct });
+  assert.deepEqual([L(18.4), L(1), L(0.9), L(undefined)].map(c => !!c.minor), [false, false, true, false], 'lock-up: < 1 % is a detail, an unknown % stays shown');
+  assert.deepEqual(corpClass({ k: 'corp', src: 'fsc', api: 'getDiviInfo_V2', title: '배당 기준일' }), { cls: 'div' });
+  assert.equal(corpClass({ k: 'corp', grp: 'div-rec', title: '배당 기준일' }).cls, 'div');
+  const D = title => corpClass({ k: 'corp', src: 'dart', title });
+  assert.deepEqual([D('무상증자 신주배정기준일'), D('유상증자 배정기준일'), D('무상증자 신주 상장'), D('유상증자 청약')].map(c => c.cls + (c.minor ? '!' : '')), ['rights', 'rights', 'rights!', 'rights!']);
 });
 await t('2027 금통위 are tentative (press-based)', () => {
   assert.ok(BOK_MEETINGS.filter(m => m.d >= '2027').every(m => m.tentative));
@@ -219,6 +240,15 @@ await t('route: first answer builds every source (awaited) — kr · us · cb ·
   assert.ok(b.events.some(e => e.weekly), 'weekly expiries are in the answer, flagged');
   const fr = b.events.filter(e => e.src === 'dart');
   assert.deepEqual(fr.map(e => e.d + ' ' + e.title).sort(), ['2026-11-10 유상증자 배정기준일', '2026-11-26 유상증자 청약', '2026-12-01 무상증자 신주배정기준일'].sort());
+  // 미국 · 한국 (the page groups each day 미국 first): FRED and FOMC rows carry rg 'us', nothing else does
+  assert.ok(b.events.filter(e => e.k === 'us').every(e => e.rg === 'us') && fomc.rg === 'us' && ev('cb:fomcmin:2026-11-18').rg === 'us');
+  assert.ok(b.events.filter(e => e.rg).every(e => e.k === 'us' || /^cb:fomc/.test(e.id)), 'only 미국 rows are tagged');
+  // company rows: cls on all, a record date shows its 권리락 day (the trading day before), 청약 is a detail (★)
+  assert.ok(fr.every(e => e.cls === 'rights'));
+  const fric = fr.find(e => e.d === '2026-12-01'), estk = fr.find(e => e.d === '2026-11-10'), sbd = fr.find(e => /청약/.test(e.title));
+  assert.deepEqual([fric.exd, fric.sub, fric.minor], ['2026-11-30', '권리락 11/30 · 1주당 1주', undefined]);
+  assert.deepEqual([estk.exd, estk.sub], ['2026-11-09', '권리락 11/9']);
+  assert.deepEqual([sbd.minor, sbd.star, sbd.exd], [true, 1, undefined]);
   assert.equal(b.days['2026-11-19'].kind, 'special');
   assert.deepEqual(b.sources.fsc.parts, { divi: 'ok', lock: 'ok', rights: 'ok' }, 'FSC through the shared helper (no rows that day)');
   const dg = CALLS.filter(u => u.hostname === 'apis.data.go.kr');
@@ -333,6 +363,15 @@ await t('FSC through the shared helper: 배당 · 보호예수 % · 권리일정
   assert.deepEqual([ri.d, ri.title, ri.sub], ['2026-11-27', '유상증자 기준일', '명부폐쇄 11/28']);
   assert.ok(fsc.find(e => e.c === '900010' && e.title === '임시총회 기준일' && e.d === '2026-12-04'), 'no crno: issuer code + 0 when that code is listed');
   assert.ok(!fsc.some(e => /비상장/.test(e.n || '')), 'a crno without a listed code is dropped');
+  // 기업 세부 일정 (user 2026-11-15 19:23): classification on the answer — the page filters, counts stay the Worker's
+  assert.deepEqual([ri.cls, ri.minor, ri.star], ['rights', true, 1], '유상증자 기준일 → detail');
+  assert.deepEqual([lock.cls, lock.minor], ['lock', undefined], '18.4 % lock-up shown');
+  assert.ok(fsc.filter(e => e.api === 'getDiviInfo_V2').every(e => e.cls === 'div' && !e.minor));
+  const agm = fsc.find(e => e.c === '900011' && /총회개최일/.test(e.title)), agmMinor = fsc.find(e => e.c === '900011' && /명세통지시한/.test(e.title));
+  assert.deepEqual([agm.cls, agm.minor], ['agm', undefined], '주총 itself is not minor (the page shows it for watched / map stocks)');
+  assert.deepEqual([agmMinor.cls, agmMinor.minor], ['agm', true]);
+  assert.ok(!fsc.some(e => e.c === '900004'), 'a 권리일정 row next to the same DART 유상증자 (청약 11/26) is dropped');
+  assert.ok(r.body.events.filter(e => e.k === 'corp').every(e => e.cls && (!e.minor || e.star === 1)), 'every corp row has cls; a detail is always ★');
   assert.equal(r.body.sources.fsc.ok, true);
   assert.deepEqual(r.body.sources.fsc.parts, { divi: 'ok', lock: 'ok', rights: 'ok' });
   const dg = CALLS.filter(u => u.hostname === 'apis.data.go.kr');

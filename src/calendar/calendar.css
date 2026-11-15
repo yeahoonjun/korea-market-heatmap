@@ -1,31 +1,35 @@
-/* 증시 캘린더 — 일정 탭 (AGENTS §3-33, docs/standards/calendar.md §5 A안). design.md tokens only; red/green never (events are not
-   up/down numbers), amber only for the chosen day · switched-on chips · focus. Phone first; ≥ 1280 px: month grid + 7-day list. */
+/* 증시 캘린더 — 일정 탭 (AGENTS §3-33, docs/standards/calendar.md §5 A안 · §9-6). design.md tokens only; red/green never (events are not
+   up/down numbers), amber only for the chosen day · switched-on chips · focus. Phone first; ≥ 1280 px: month grid + 7-day list.
+   Motion = the --sp-* springs (design.md §6-2): opening / appearing `fade` · `lead`, closing `close`, press = 1px down at once and up over
+   --c-fast. html[data-motion="reduced"] sets every one of them to 0ms, so nothing here needs its own reduced rule. */
 #calendar{box-sizing:border-box;width:100%;min-width:0;max-width:1920px;margin:0 auto;padding:var(--space-4) var(--edge) var(--space-7)}
 #calendar *{box-sizing:border-box}
 #calendar[hidden]{display:none}
 .kc{color:var(--fg);font-size:var(--fs-md);line-height:var(--lh-row)}
 /* reset with zero specificity so every .kc-* rule below wins */
 :where(.kc,.kc-dlg) button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
-.kc :focus-visible,.kc-dlg :focus-visible{outline:none;box-shadow:0 0 0 var(--focus-off) var(--page),0 0 0 calc(var(--focus-off) + var(--focus-w)) var(--focus)}
+.kc :focus-visible,.kc-dlg :focus-visible{outline:var(--focus-w) solid var(--focus);outline-offset:var(--focus-off)}
+.kc :is(.kc-ev,.kc-dmore,.kc-mg .cell):focus-visible{outline-offset:calc(var(--focus-w) * -1)}   /* inside lists and the grid card (overflow clips) */
 .kc .num,.kc time{font-variant-numeric:tabular-nums}
 
 /* head: range + ‹ › 오늘 */
 .kc-hd{display:flex;align-items:center;gap:var(--space-3);margin:var(--space-2) 0 var(--space-4)}
 .kc-hd h2{flex:1;margin:0;font-size:var(--fs-xl);font-weight:700;white-space:nowrap;min-width:0;overflow:hidden;text-overflow:ellipsis}
 .kc-hd h2 small{font-size:var(--fs-sm);font-weight:500;color:var(--muted);margin-left:var(--space-3)}
-.kc-ik,.kc-tk{position:relative;display:inline-grid;place-items:center;height:var(--h-key);min-width:var(--h-key);border-radius:var(--r-key);background:var(--key-bg);box-shadow:var(--key-sh);color:var(--key-fg);font-size:var(--fs-md);font-weight:600;transition:filter var(--c-fast) var(--c-out)}
+.kc-ik,.kc-tk{position:relative;display:inline-grid;place-items:center;height:var(--h-key);min-width:var(--h-key);border-radius:var(--r-key);background:var(--key-bg);box-shadow:var(--key-sh);color:var(--key-fg);font-size:var(--fs-md);font-weight:600;text-decoration:none;
+  transition:transform var(--c-fast) var(--c-out),box-shadow var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out)}
 .kc-tk{padding:0 var(--space-5)}
 .kc-ik svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round}
 .kc-ik::before,.kc-tk::before,.kc-chip::before,.kc-wk button::before{content:"";position:absolute;inset:-6px}
-.kc-ik:active,.kc-tk:active{transform:translateY(1px);box-shadow:none}
+/* press (design.md §6-2): down at once, up over --c-fast — the same recipe as every raised key */
+:is(.kc-ik,.kc-tk,.kc-acts a,.kc-acts button):is(:active,.is-press){transform:translateY(1px);box-shadow:var(--key-dn);filter:var(--press-f);transition-duration:0s}
+@media (hover:hover) and (pointer:fine){ :is(.kc-ik,.kc-tk,.kc-acts a,.kc-acts button,.kc-chip):hover{filter:brightness(1.08)} }
 
 /* week strip: a segment (tray + raised marker; marker edges lead / trail, design.md §7 ①) */
 .kc-wk{position:relative;display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:var(--space-2);padding:var(--space-2);border-radius:var(--r-key);background:var(--tray-bg);box-shadow:var(--tray-sh)}
-.kc-wk .kc-ind{position:absolute;top:var(--space-2);bottom:var(--space-2);left:0;width:0;border-radius:calc(var(--r-key) - 4px);background:var(--key-bg);box-shadow:var(--key-sh),inset 0 0 0 1.5px var(--acc);pointer-events:none;
-  transition:left var(--sp-lead-dur) var(--sp-lead),width var(--sp-trail-dur) var(--sp-trail)}
-.kc-wk .kc-ind.rev{transition:left var(--sp-trail-dur) var(--sp-trail),width var(--sp-lead-dur) var(--sp-lead)}
-.kc-wk .kc-ind.now{transition:none}
-.kc-wk button{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:var(--space-1);min-height:58px;border-radius:calc(var(--r-key) - 4px)}
+.kc-wk .kc-ind{position:absolute;top:var(--space-2);bottom:var(--space-2);left:0;width:0;border-radius:calc(var(--r-key) - 4px);background:var(--key-bg);box-shadow:var(--key-sh),inset 0 0 0 1.5px var(--acc);pointer-events:none}
+.kc-wk button{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:var(--space-1);min-height:58px;border-radius:calc(var(--r-key) - 4px);transition:filter var(--c-fast) var(--c-out)}
+.kc-wk button:is(:active,.is-press){filter:var(--press-f);transition-duration:0s}
 .kc-wk .dw{font-size:var(--fs-xs);color:var(--muted);line-height:1}
 .kc-wk .dnum{font-size:var(--fs-xl);font-weight:600;line-height:1.1}
 .kc-wk .wkend .dnum{color:var(--fg2)}
@@ -36,19 +40,41 @@
 .kc-marks i.dim{background:var(--line2)}
 .kc-marks b{font-size:var(--fs-xs);font-weight:600;color:var(--muted);line-height:6px}
 
-/* filter chips (pills are for filters only, design.md §7) */
-.kc-chips{display:flex;gap:var(--space-3);overflow-x:auto;padding:var(--space-5) 2px var(--space-3);margin:0 -2px;scrollbar-width:none}
+/* filter chips (pills are for filters only, design.md §7; surface = the 켜고 끄기 칩 of controls.md §5-7: --chip-bg raised, on = --chip-on +
+   1.5px --chip-ring + a check). The check's box is always there, so a chip is as wide on as off and no neighbour moves: off, the label
+   sits centred over it (shifted half the check), on, the check fades and grows in (.6 → 1) and the label slides back. Switching on =
+   `fade` (fill · check) + `lead` (label · check position); switching off = `close` (shorter). The chip is toggled in place (calendar.js). */
+.kc-chips{display:flex;gap:var(--space-3);overflow-x:auto;padding:var(--space-5) 6px var(--space-3);margin:0 -6px;scrollbar-width:none}
 .kc-chips::-webkit-scrollbar{display:none}
-.kc-chip{position:relative;flex:none;display:inline-flex;align-items:center;gap:var(--space-2);height:var(--h-chip);padding:0 var(--space-5);border-radius:var(--r-pill);font-size:var(--fs-sm);font-weight:600;color:var(--fg2);box-shadow:inset 0 0 0 1px var(--line2);white-space:nowrap}
-.kc-chip[aria-pressed="true"]{background:var(--acc-soft);color:var(--fg);box-shadow:inset 0 0 0 1.5px var(--acc)}
-.kc-chip .kck{display:inline-block;width:0;overflow:hidden;transition:width var(--c-fast) var(--c-out)}
-.kc-chip[aria-pressed="true"] .kck{width:12px}
-.kc-chip .kck svg{width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:-1px}
+.kc-chip{--ck:14px;--ckg:var(--space-2);position:relative;flex:none;display:inline-flex;align-items:center;height:var(--h-chip);padding:0 var(--space-5);border-radius:var(--r-pill);background:var(--chip-bg);box-shadow:var(--key-sh);
+  font-size:var(--fs-sm);line-height:var(--lh-ui);font-weight:600;color:var(--key-fg);white-space:nowrap;
+  transition:background-color var(--sp-close-dur) var(--sp-close),box-shadow var(--sp-close-dur) var(--sp-close),transform var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out)}
+.kc-chip .kck{flex:none;width:var(--ck);height:var(--ck);margin-right:var(--ckg);background:currentColor;-webkit-mask:var(--ck-mask) center/var(--ck) no-repeat;mask:var(--ck-mask) center/var(--ck) no-repeat;
+  opacity:0;transform:translateX(calc(var(--ck) / -2)) scale(.6);transition:opacity var(--sp-close-dur) var(--sp-close),transform var(--sp-close-dur) var(--sp-close)}
+.kc-chip .kcl{display:inline-block;transform:translateX(calc((var(--ck) + var(--ckg)) / -2));transition:transform var(--sp-close-dur) var(--sp-close)}
+.kc-chip[aria-pressed="true"]{background:var(--chip-on);box-shadow:inset 0 0 0 1.5px var(--chip-ring),var(--key-sh);
+  transition:background-color var(--sp-fade-dur) var(--sp-fade),box-shadow var(--sp-fade-dur) var(--sp-fade),transform var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out)}
+.kc-chip[aria-pressed="true"] .kck{opacity:1;transform:none;transition:opacity var(--sp-fade-dur) var(--sp-fade),transform var(--sp-lead-dur) var(--sp-lead)}
+.kc-chip[aria-pressed="true"] .kcl{transform:none;transition:transform var(--sp-lead-dur) var(--sp-lead)}
+.kc-chip:is(:active,.is-press){transform:translateY(1px);box-shadow:var(--key-dn);filter:var(--press-f);transition-duration:0s}
+.kc-chip[aria-pressed="true"]:is(:active,.is-press){box-shadow:inset 0 0 0 1.5px var(--chip-ring),var(--key-dn)}
 .kc-chips .kc-sep{flex:none;width:1px;margin:6px var(--space-1);background:var(--line2)}
 
 /* day list */
-.kc-list{transition:opacity var(--sp-fade-dur) var(--sp-fade)}
-.kc-list.fading{opacity:0}
+.kc-list,.kc-det{transition:opacity var(--sp-fade-dur) var(--sp-fade)}
+.kc-list.kc-in,.kc-det.kc-in{opacity:0;transition:none}
+/* a day = 미국 group, then 한국 group (user 2026-11-15), each with a small label; company details close the 한국 group */
+.kc-grp + .kc-grp{margin-top:var(--space-3)}
+.kc-rg{padding:var(--space-2) 0 var(--space-2) var(--space-3);font-size:var(--fs-xs);line-height:var(--lh-ui);font-weight:600;color:var(--muted)}
+.kc-rg + .kc-ev,.kc-subh + .kc-det > .kc-ev:first-child{border-top:0}
+.kc-subh{padding:var(--space-4) 0 var(--space-2) var(--space-3);border-top:1px solid var(--line);font-size:var(--fs-xs);line-height:var(--lh-ui);font-weight:600;color:var(--muted)}
+.kc-dmore{position:relative;display:flex;align-items:center;gap:var(--space-3);width:100%;min-height:var(--h-row);padding:0 var(--space-3);border-top:1px solid var(--line);text-align:left;font-size:var(--fs-sm);font-weight:600;color:var(--fg2);transition:filter var(--c-fast) var(--c-out)}
+.kc-dmore .lab{min-width:0}
+.kc-dmore svg{flex:none;width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round}
+.kc-dmore:is(:active,.is-press){filter:var(--press-f);transition-duration:0s}
+@media (hover:hover) and (pointer:fine){.kc-dmore:hover{background:var(--fill-1)}}
+.kc-det .kc-ev{border-top:1px solid var(--line)}
+.kc-det .kc-ev .t1{font-size:var(--fs-md);font-weight:500}
 .kc-day{margin-top:var(--space-5)}
 .kc-dh{display:flex;align-items:center;gap:var(--space-4);flex-wrap:wrap;padding:var(--space-4) 0;font-size:var(--fs-lg);font-weight:700}
 .kc-dh .wd{color:var(--muted);font-weight:500}
@@ -57,7 +83,7 @@
 .kc-badge.closed{color:var(--fg);background:var(--fill-2);box-shadow:none}
 .kc-badge.tent{box-shadow:none;border:1px dashed var(--line2)}
 .kc-ev{display:grid;grid-template-columns:66px minmax(0,1fr) 16px;align-items:center;gap:var(--space-4);width:100%;min-height:52px;padding:var(--space-4) var(--space-3) var(--space-4) 0;border-top:1px solid var(--line);text-align:left}
-.kc-day .kc-ev:first-of-type{border-top:0}
+
 @media (hover:hover) and (pointer:fine){.kc-ev:hover{background:var(--fill-1)}}
 .kc-ev .tm{font-size:var(--fs-md);font-weight:600;padding-left:var(--space-3)}
 .kc-ev .tm small{display:block;font-size:var(--fs-xs);font-weight:500;color:var(--muted);margin-top:1px;white-space:nowrap}
@@ -101,7 +127,8 @@
 .kc-kv dd small{display:block;color:var(--muted);font-size:var(--fs-sm);margin-top:2px}
 .kc-why{padding:var(--space-5);border-radius:var(--r-row);background:var(--fill-1);color:var(--fg2);line-height:var(--lh-text);margin:0 0 var(--space-6)}
 .kc-acts{display:flex;gap:var(--space-4);flex-wrap:wrap}
-.kc-acts a,.kc-acts button{position:relative;display:inline-flex;align-items:center;gap:var(--space-3);min-height:44px;padding:0 var(--space-6);border-radius:var(--r-key);background:var(--key-bg);box-shadow:var(--key-sh);font-size:var(--fs-md);font-weight:600;text-decoration:none;color:var(--key-fg)}
+.kc-acts a,.kc-acts button{position:relative;display:inline-flex;align-items:center;gap:var(--space-3);min-height:44px;padding:0 var(--space-6);border-radius:var(--r-key);background:var(--key-bg);box-shadow:var(--key-sh);font-size:var(--fs-md);font-weight:600;text-decoration:none;color:var(--key-fg);
+  transition:transform var(--c-fast) var(--c-out),box-shadow var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out)}
 .kc-acts svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round}
 .kc-codes{display:flex;flex-wrap:wrap;gap:var(--space-3);margin:0 0 var(--space-6)}
 .kc-codes button{min-height:32px;padding:0 var(--space-4);border-radius:var(--r-in);box-shadow:inset 0 0 0 1px var(--line2);font-size:var(--fs-sm);color:var(--fg2)}
@@ -121,7 +148,7 @@
   .kc-desk{display:grid;grid-template-columns:minmax(0,1fr) 440px;gap:var(--space-6);align-items:start}
   .kc-bar{grid-column:1/-1;display:flex;align-items:center;gap:var(--space-4);min-width:0}
   .kc-bar h2{margin:0 var(--space-4) 0 0;font-size:var(--fs-2xl);font-weight:700;letter-spacing:-.01em;white-space:nowrap}
-  .kc-bar .kc-chips{padding:0;margin:0 0 0 var(--space-5);min-width:0}
+  .kc-bar .kc-chips{padding:6px;margin:-6px -6px -6px calc(var(--space-5) - 6px);min-width:0}   /* room for the focus ring inside the scroller */
   .kc-card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-card);overflow:hidden}
   .kc-mg{display:grid;grid-template-columns:repeat(7,minmax(0,1fr))}
   .kc-mg .h{padding:var(--space-4);font-size:var(--fs-sm);color:var(--muted);border-right:1px solid var(--line);border-bottom:1px solid var(--line);background:var(--panel2)}
@@ -130,7 +157,8 @@
   @media (hover:hover) and (pointer:fine){.kc-mg .cell:hover{background:var(--fill-1)}}
   .kc-mg .cell.out{background:var(--fill-1)}
   .kc-mg .cell.out .dnum{color:var(--faint)}
-  .kc-mg .cell[aria-pressed="true"]{box-shadow:inset 0 0 0 1.5px var(--acc)}
+  .kc-mg .cell{transition:box-shadow var(--sp-close-dur) var(--sp-close)}
+  .kc-mg .cell[aria-pressed="true"]{box-shadow:inset 0 0 0 1.5px var(--acc);transition:box-shadow var(--sp-fade-dur) var(--sp-fade)}
   .kc-mg .top1{display:flex;align-items:center;gap:var(--space-3);margin-bottom:2px;min-width:0}
   .kc-mg .dnum{flex:none;display:inline-grid;place-items:center;min-width:24px;height:24px;border-radius:12px;font-size:var(--fs-md);font-weight:600}
   .kc-mg .cell.wkend .dnum{color:var(--fg2)}

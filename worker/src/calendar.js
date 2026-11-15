@@ -211,9 +211,9 @@ function cbEvents(from, to) {
   }
   for (const f of FOMC) {
     const k = etToKst(f.d, '14:00');
-    if (k.d >= from && k.d <= to) out.push({ id: `cb:fomc:${f.d}`, d: k.d, t: k.t, k: 'cb', star: 3, src: 'manual', title: 'FOMC 금리 결정', sub: f.sep ? '경제전망(SEP) 함께' : undefined, orig: { d: f.d, t: '14:00', tz: 'America/New_York' }, tentative: f.tentative || undefined, url: 'https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm', at: k.ms, val: { fred: 'fomc' } });
+    if (k.d >= from && k.d <= to) out.push({ id: `cb:fomc:${f.d}`, d: k.d, t: k.t, k: 'cb', rg: 'us', star: 3, src: 'manual', title: 'FOMC 금리 결정', sub: f.sep ? '경제전망(SEP) 함께' : undefined, orig: { d: f.d, t: '14:00', tz: 'America/New_York' }, tentative: f.tentative || undefined, url: 'https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm', at: k.ms, val: { fred: 'fomc' } });
     const md = addDays(f.d, 21), km = etToKst(md, '14:00');       // minutes: three weeks after the decision, 2:00 p.m. ET
-    if (km.d >= from && km.d <= to) out.push({ id: `cb:fomcmin:${md}`, d: km.d, t: km.t, k: 'cb', star: 2, src: 'rule', title: 'FOMC 의사록', sub: '결정 3주 뒤', orig: { d: md, t: '14:00', tz: 'America/New_York' }, tentative: '규칙으로 계산' });
+    if (km.d >= from && km.d <= to) out.push({ id: `cb:fomcmin:${md}`, d: km.d, t: km.t, k: 'cb', rg: 'us', star: 2, src: 'rule', title: 'FOMC 의사록', sub: '결정 3주 뒤', orig: { d: md, t: '14:00', tz: 'America/New_York' }, tentative: '규칙으로 계산' });
   }
   return out;
 }
@@ -589,7 +589,7 @@ export function buildEvents(from, to, snaps, now) {
   for (const r of (fred && fred.rows) || []) {
     const rel = FRED_REL[r.rid]; if (!rel) continue;
     const k = rel.et ? etToKst(r.d, rel.et) : { d: r.d, t: null, ms: dUTC(r.d) + DAY_MS };
-    push({ id: `fred:${r.rid}:${r.d}`, d: k.d, t: k.t, k: 'us', star: rel.star, src: 'fred', rid: r.rid, title: rel.title, sub: rel.sub,
+    push({ id: `fred:${r.rid}:${r.d}`, d: k.d, t: k.t, k: 'us', rg: 'us', star: rel.star, src: 'fred', rid: r.rid, title: rel.title, sub: rel.sub,
       orig: rel.et ? { d: r.d, t: rel.et, tz: 'America/New_York' } : { d: r.d, t: null, tz: 'America/New_York' }, at: k.ms, val: { fred: r.rid, d: r.d } });
   }
   cbEvents(from, to).forEach(push);
@@ -598,14 +598,18 @@ export function buildEvents(from, to, snaps, now) {
   const seen = new Set();
   const latest = new Map();                       // an original filing and its 정정: the newest 접수번호 wins per stock · event
   for (const list of Object.values((dart && dart.evs) || {})) for (const e of list) { const k = e.c + '|' + e.title; if (!latest.has(k) || latest.get(k).r < e.r) latest.set(k, e); }
-  for (const e of latest.values()) { push(e); seen.add(`${e.c}:${e.d}:${/무상/.test(e.title) ? 'fric' : 'x'}`); }
+  for (const e of latest.values()) { push(e); seen.add(`${e.c}:${e.d}:${/무상/.test(e.title) ? 'fric' : /유상/.test(e.title) ? 'estk' : 'x'}`); }
   for (const e of (fsc && fsc.evs) || []) {
     if (e.api === 'getRighExerReasSche_V2') {
-      if (/무상/.test(e.why || '') && [-3, -2, -1, 0, 1, 2, 3].some(k => seen.has(`${e.c}:${addDays(e.d, k)}:fric`))) continue;
+      // the same capital increase from DART (record date + its computed 권리락) wins over the 권리일정 rows around it
+      const near = kind => [-3, -2, -1, 0, 1, 2, 3].some(k => seen.has(`${e.c}:${addDays(e.d, k)}:${kind}`));
+      if (/무상/.test(e.why || '') && near('fric')) continue;
+      if (/유상/.test(e.why || '') && near('estk')) continue;
       if (/배당/.test(e.why || '') && (fsc.evs || []).some(x => x.grp === 'div-rec' && x.c === e.c && Math.abs(dUTC(x.d) - dUTC(e.d)) <= 3 * DAY_MS)) continue;
     }
     push(e);
   }
+  for (const e of ev) if (e.k === 'corp') tagCorp(e);
   // values after the release (text only — the page never colours them)
   for (const e of ev) {
     const v = e.val; delete e.val;
@@ -645,6 +649,43 @@ function valuesWanted(snaps, now) {
   want.fred = [...latest.values()].sort((a, b) => b.d.localeCompare(a.d));
   return want;
 }
+// 기업 일정 분류 (user 2026-11-15 19:23 "그래 그게 맞고" — about 248 of 299 events in five weeks were 금융위 주식권리일정 deadlines
+// that buried the rest). Every corp event gets `cls` and, when it is a detail the page hides by default, `minor: true`:
+//   div     배당 기준일 · 배당락(권리락일) · 배당금 지급일                      — shown
+//   rights  유 · 무상증자 권리락일 · DART 신주배정기준일 (+ its 권리락 date in sub) — shown
+//   lock    보호예수 해제 ≥ 1 % of listed shares (or the % unknown)            — shown; < 1 % → minor
+//   agm     주주총회 개최일                                                   — the page shows it only for watched / map stocks
+//   etc     anything else
+// minor: the 주식권리일정 명세 통지 · 접수 시한, 발송 통지, 명부폐쇄기간, 매수청구, 교부 · 유통 · 상장 · 납입 · 청약일, 상호변경 ·
+// 액면병합 · 자본감소 rows, DART 신주 상장 · 유상증자 청약. A minor row is always ★ (the page's ★★ 이상만 never shows one).
+// Older pages ignore both fields and show everything as before.
+export function corpClass(e) {
+  if (e.grp) return { cls: /div/.test(e.grp) ? 'div' : 'etc' };
+  if (e.api === 'getDiviInfo_V2') return { cls: 'div' };
+  if (e.api === 'getLockUpRetuInfo_V3') return { cls: 'lock', minor: e.pct != null && e.pct < 1 };
+  if (e.api === 'getRighExerReasSche_V2') {
+    const kind = e.why || '', what = kind && String(e.title).startsWith(kind + ' ') ? String(e.title).slice(kind.length + 1) : String(e.title);
+    if (/총회/.test(kind) || /총회/.test(what)) return { cls: 'agm', minor: !/개최/.test(what) };
+    if (/배당|분배/.test(kind)) return { cls: 'div', minor: !/^기준일$|권리락|지급/.test(what) };
+    if (/증자/.test(kind)) return { cls: 'rights', minor: !/권리락/.test(what) };
+    return { cls: 'etc', minor: true };
+  }
+  if (e.src === 'dart' && /증자/.test(e.title)) return { cls: 'rights', minor: !/배정기준일/.test(e.title) };
+  return { cls: 'etc' };
+}
+const prevTrading = d => { let x = addDays(d, -1); for (let i = 0; i < 10 && !isTradingDay(x); i++) x = addDays(x, -1); return x; };
+function tagCorp(e) {
+  const { cls, minor } = corpClass(e);
+  e.cls = cls;
+  if (minor) { e.minor = true; e.star = 1; } else delete e.minor;
+  // a DART 신주배정기준일: the ex-rights day is the trading day before it (T+2 settlement) — the page shows it with the date
+  if (cls === 'rights' && !minor && e.src === 'dart' && !/권리락/.test(e.sub || '')) {
+    const x = prevTrading(e.d);
+    e.exd = x;
+    e.sub = [`권리락 ${md(x)}`, e.sub].filter(Boolean).join(' · ');
+  }
+  return e;
+}
 // many company rows of one kind on one day (결산 배당 기준일) → one group row; the page lists the codes when opened
 export function groupCorp(events, max = 12) {
   const by = new Map();
@@ -655,7 +696,7 @@ export function groupCorp(events, max = 12) {
   for (const e of events) {
     const k = e.grp ? e.d + '|' + e.grp : null;
     if (k && big.has(k)) {
-      if (!gl.has(k)) { const g = { id: `grp:${e.grp}:${e.d}`, d: e.d, t: null, k: 'corp', src: e.src, star: 2, title: e.title, grp: e.grp, n: 0, codes: [] }; gl.set(k, g); groups.push(g); out.push(g); }
+      if (!gl.has(k)) { const g = { id: `grp:${e.grp}:${e.d}`, d: e.d, t: null, k: 'corp', src: e.src, star: 2, title: e.title, grp: e.grp, cls: e.cls || corpClass(e).cls, n: 0, codes: [] }; gl.set(k, g); groups.push(g); out.push(g); }
       const g = gl.get(k); g.n++; g.codes.push(e.c);
     } else out.push(e);
   }

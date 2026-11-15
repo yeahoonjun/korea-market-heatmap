@@ -1,16 +1,22 @@
-/* 증시 캘린더 — the 일정 tab (AGENTS §3-33, docs/standards/calendar.md §5 A안).
+/* 증시 캘린더 — the 일정 tab (AGENTS §3-33, docs/standards/calendar.md §5 A안 · §9-6).
    window.KHCal = { show(kind), hide(), isOn() }. The template calls show('calendar') when the 일정 tab (state.market 'CAL', #cal) opens and
    hands over <div id="calendar">; hide() when another tab opens. Data: GET /api/calendar?from&to (Worker calendar.js), fetched in
    14-day blocks (cached in memory, re-read every 30 min while shown). Phone: week strip + day list; ≥ 1280 px: month grid + 7-day list.
    Stars and badges are neutral (never the up/down colours); amber only for the chosen day, switched-on chips and focus.
-   Saved: localStorage khm.cal = {kinds:[…], hi:bool, weekly:bool} (weekly option expiries hidden by default, user 2026-11-15). */
+   Each day lists 미국 first, then 한국 (user 2026-11-15 19:2x "미국 일정 한국일정 따로 분리하고 미국일정을 먼저"). Company details the
+   Worker tags `minor` (금융위 주식권리일정 시한 …) — and 주총 of stocks neither watched nor on the map — stay behind the chip
+   "기업 세부 일정" or a day's own "기업 세부 일정 N개 더 보기" (user 19:23 "그래 그게 맞고").
+   Chips toggle in place (design.md §6 · §7: fill `fade` in / `close` out, the check fades in and the label slides over the box it
+   always reserves, so a chip never changes width and its neighbours never move; press 1px). html[data-motion=reduced] → instant.
+   Saved: localStorage khm.cal = {kinds:[…], hi:bool, weekly:bool, detail:bool} (weekly option expiries and company details hidden by default). */
 (() => {
   'use strict';
   const KH = window.KH;
   if (!KH || window.KHCal) return;
   const h = KH.h;
   const KST = 9 * 3600e3, DAY = 86400e3;
-  const KINDS = { kr: '한국 지표', us: '미국 지표', cb: '금리', mkt: '시장', corp: '기업' };
+  const KINDS = { us: '미국 지표', kr: '한국 지표', cb: '금리', mkt: '시장', corp: '기업' };   // 미국 first (user 2026-11-15)
+  const RG = [['us', '미국'], ['kr', '한국']];
   const SRC = { bok: '한국은행 통계공표일정', kostat: '국가데이터처 보도계획', fred: 'FRED 발표 일정', manual: '직접 입력 (공지 확인)', rule: '규칙으로 계산', dart: '금융감독원 DART', fsc: '금융위원회 · 한국예탁결제원' };
   const WD = ['일', '월', '화', '수', '목', '금', '토'];
   const BLOCK = 14, EPOCH = Date.UTC(2024, 0, 1);         // a Monday: 14-day blocks line up with weeks
@@ -24,19 +30,22 @@
   const label = s => `${+s.slice(5, 7)}월 ${+s.slice(8, 10)}일`;
   const reduced = () => document.documentElement.dataset.motion === 'reduced';
   const wide = () => matchMedia('(min-width: 1280px)').matches;
+  const cssMs = n => parseFloat(getComputedStyle(document.documentElement).getPropertyValue(n)) || 0;
   const svg = d => { const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); s.setAttribute('viewBox', '0 0 24 24'); s.setAttribute('aria-hidden', 'true'); s.innerHTML = d; return s; };
-  const IC = { l: '<path d="M15 6l-6 6 6 6"/>', r: '<path d="M9 6l6 6-6 6"/>', chev: '<path d="M9 6l6 6-6 6"/>', x: '<path d="M6 6l12 12M18 6L6 18"/>', ck: '<path d="M5 12.5l4.2 4L19 7"/>', ext: '<path d="M14 4h6v6M20 4l-9 9M18 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4"/>' };
+  const IC = { l: '<path d="M15 6l-6 6 6 6"/>', r: '<path d="M9 6l6 6-6 6"/>', chev: '<path d="M9 6l6 6-6 6"/>', down: '<path d="M6 9l6 6 6-6"/>', up: '<path d="M6 15l6-6 6 6"/>', x: '<path d="M6 6l12 12M18 6L6 18"/>', ext: '<path d="M14 4h6v6M20 4l-9 9M18 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4"/>' };
 
   // ── state
   const saved = (() => { try { return JSON.parse(localStorage.getItem('khm.cal') || '{}') || {}; } catch (e) { return {}; } })();
   const st = {
     on: false, day: null,
     kinds: new Set(Array.isArray(saved.kinds) && saved.kinds.length ? saved.kinds.filter(k => KINDS[k]) : Object.keys(KINDS)),
-    hi: !!saved.hi, weekly: !!saved.weekly,
+    hi: !!saved.hi, weekly: !!saved.weekly, detail: !!saved.detail,
+    open: new Set(),         // days whose company details are opened in the list (this visit only)
     blocks: new Map(),       // blockStart → {at, body} | {at, err}
-    pending: new Map(), timer: null, lastIdx: -1, error: null,
+    pending: new Map(), timer: null, error: null, map: new Set(),
   };
-  const save = () => { try { localStorage.setItem('khm.cal', JSON.stringify({ kinds: [...st.kinds], hi: st.hi, weekly: st.weekly })); } catch (e) { /* private mode */ } };
+  if (!st.kinds.size) Object.keys(KINDS).forEach(k => st.kinds.add(k));
+  const save = () => { try { localStorage.setItem('khm.cal', JSON.stringify({ kinds: [...st.kinds], hi: st.hi, weekly: st.weekly, detail: st.detail })); } catch (e) { /* private mode */ } };
   const root = () => document.getElementById('calendar');
 
   // ── data: 14-day blocks
@@ -69,7 +78,7 @@
     const need = bs.filter(b => force || !st.blocks.has(b) || !st.blocks.get(b).body || nowMs() - st.blocks.get(b).at >= REFRESH_MS);
     if (!need.length) return;
     await Promise.all(need.map(b => loadBlock(b, force)));
-    if (st.on) draw(false);
+    if (st.on) refresh();
   }
   const rangeNow = () => wide() ? (() => { const g = gridStart(); return [g, addD(g, 41 + 7)]; })() : [monday(st.day), addD(st.day, 6)];
   function bodiesIn(from, to) { return blocksFor(from, to).map(b => st.blocks.get(b)).filter(Boolean); }
@@ -79,12 +88,21 @@
     return out;
   }
   function dayInfo(d) { for (const v of bodiesIn(d, d)) if (v.body && v.body.days && v.body.days[d]) return v.body.days[d]; return null; }
+
+  // ── what a row is: region (미국 · 한국), importance, filters
+  const regionOf = e => (e.rg ? e.rg === 'us' : e.k === 'us' || /^cb:fomc/.test(e.id || '')) ? 'us' : 'kr';
   const watched = c => !!(c && KH.watch && typeof KH.watch.has === 'function' && KH.watch.has(c));
-  const starOf = e => Math.min(3, (e.star || 1) + (e.k === 'corp' && watched(e.c) ? 1 : 0));
-  const visible = e => st.kinds.has(e.k) && (!e.weekly || st.weekly) && (!st.hi || starOf(e) >= 2);
-  const sortEv = (a, b) => (a.t || '00:00').localeCompare(b.t || '00:00') || starOf(b) - starOf(a);
-  const shown = d => eventsOn(d).filter(visible).sort(sortEv);
-  const hiddenCount = d => eventsOn(d).filter(e => !e.weekly || st.weekly).length - shown(d).length;
+  const onMap = c => !!c && (st.map.has(c) || !!(typeof KH.stock === 'function' && KH.stock(c)));
+  // a company detail: the Worker's `minor` (or an old answer's nothing), and 주총 of a stock that is neither watched nor on the map
+  const isMinor = e => e.k === 'corp' && (e.minor === true || (e.cls === 'agm' && !watched(e.c) && !onMap(e.c)));
+  const starOf = e => isMinor(e) ? 1 : Math.min(3, (e.star || 1) + (e.k === 'corp' && watched(e.c) ? 1 : 0));
+  const passBase = e => st.kinds.has(e.k) && (!e.weekly || st.weekly);
+  const passHi = e => !st.hi || starOf(e) >= 2;
+  const inFilter = e => passBase(e) && passHi(e) && (!isMinor(e) || st.detail);     // the strip's marks · the grid · counts
+  const sortEv = (a, b) => (a.t || '00:00').localeCompare(b.t || '00:00') || starOf(b) - starOf(a);   // all-day first, as before
+  const mainOn = d => eventsOn(d).filter(e => inFilter(e) && !isMinor(e)).sort(sortEv);
+  const detailOn = d => eventsOn(d).filter(e => isMinor(e) && passBase(e) && passHi(e)).sort(sortEv);
+  const hiddenCount = d => eventsOn(d).filter(e => (!e.weekly || st.weekly) && !isMinor(e)).length - mainOn(d).length;
   const loaded = (from, to) => bodiesIn(from, to).some(v => v.body);
   const failed = (from, to) => bodiesIn(from, to).find(v => v.err);
 
@@ -115,36 +133,83 @@
       d === today() ? h('span', { class: 'tdy', text: '오늘' }) : null,
       info ? h('span', { class: 'kc-badge' + (info.kind === 'closed' ? ' closed' : '') + (info.tentative ? ' tent' : ''), text: info.note + (info.tentative ? ' · 예정' : '') }) : null);
   }
+  // a day's company details: always the end of its 한국 group — a heading when the chip shows them all, else a toggle for this day
+  const detId = d => 'kc-det-' + d;
+  function detBox(d, list) { return h('div', { class: 'kc-det', id: detId(d), role: 'group', 'aria-label': `${label(d)} 기업 세부 일정` }, list.map(evRow)); }
+  function detToggle(d, n, open) {
+    return h('button', { type: 'button', class: 'kc-dmore', 'data-more': d, 'aria-expanded': open ? 'true' : 'false', 'aria-controls': detId(d), onclick: ev => toggleDay(d, ev.currentTarget) },
+      h('span', { class: 'lab' }, h('span', { class: 'sw-n', text: open ? '기업 세부 일정 접기' : `기업 세부 일정 ${n}개 더 보기` })), svg(open ? IC.up : IC.down));
+  }
   function dayBlock(d) {
-    const list = shown(d), info = dayInfo(d);
-    const sec = h('section', { class: 'kc-day', 'aria-label': `${label(d)} ${WD[wday(d)]}요일` }, dayHead(d));
-    if (list.length) list.forEach(e => sec.append(evRow(e)));
-    else {
+    const main = mainOn(d), det = detailOn(d), info = dayInfo(d);
+    const sec = h('section', { class: 'kc-day', 'data-day': d, 'aria-label': `${label(d)} ${WD[wday(d)]}요일` }, dayHead(d));
+    for (const [rg, name] of RG) {
+      const rows = main.filter(e => regionOf(e) === rg), extra = rg === 'kr' && det.length;
+      if (!rows.length && !extra) continue;
+      const grp = h('div', { class: 'kc-grp', 'data-rg': rg, role: 'group', 'aria-label': `${name} 일정` }, h('div', { class: 'kc-rg', 'aria-hidden': 'true', text: name }), rows.map(evRow));
+      if (extra) {
+        if (st.detail) grp.append(h('div', { class: 'kc-subh', text: `기업 세부 일정 ${det.length}개` }), detBox(d, det));
+        else { grp.append(detToggle(d, det.length, st.open.has(d))); if (st.open.has(d)) grp.append(detBox(d, det)); }
+      }
+      sec.append(grp);
+    }
+    if (!main.length && !det.length) {
       const hid = hiddenCount(d);
       sec.append(h('p', { class: 'kc-empty', text: info && info.kind === 'closed' ? '장이 쉬어요.' : hid ? `고른 조건에 맞는 일정이 없어요 · 숨긴 일정 ${hid}개` : '일정이 없어요.' }));
     }
     return sec;
   }
+  function toggleDay(d, btn) {
+    const open = !st.open.has(d);
+    if (open) st.open.add(d); else st.open.delete(d);
+    const grp = btn.parentNode, old = grp && grp.querySelector('.kc-det');
+    if (old) old.remove();                                      // closing: the rows leave at once, together
+    const det = detailOn(d);
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    const lab = btn.querySelector('.lab'), text = open ? '기업 세부 일정 접기' : `기업 세부 일정 ${det.length}개 더 보기`;
+    if (KH.ui && typeof KH.ui.swap === 'function') KH.ui.swap(lab, text); else lab.textContent = text;
+    btn.querySelector('svg').replaceWith(svg(open ? IC.up : IC.down));
+    if (open && det.length) { const box = detBox(d, det); btn.after(box); fadeIn(box); }
+  }
+  function fadeIn(el) {                                         // design.md §6-2 fade: no delay before it starts, no stagger
+    if (reduced() || !el) return;
+    el.classList.add('kc-in'); void el.offsetWidth; el.classList.remove('kc-in');
+  }
+
+  // ── filter chips: toggled in place, so they can move (a rebuilt chip has no "before" to transition from)
+  const CHIP_ON = { hi: () => st.hi, weekly: () => st.weekly, detail: () => st.detail };
+  const chipOn = key => (KINDS[key] ? st.kinds.has(key) : CHIP_ON[key] ? CHIP_ON[key]() : false);
+  function chipToggle(key) {
+    if (KINDS[key]) { if (st.kinds.has(key)) { if (st.kinds.size > 1) st.kinds.delete(key); } else st.kinds.add(key); }
+    else if (key === 'hi') st.hi = !st.hi;
+    else if (key === 'weekly') st.weekly = !st.weekly;
+    else if (key === 'detail') st.detail = !st.detail;
+    save();
+    const box = root();
+    if (box) box.querySelectorAll('.kc-chip').forEach(b => b.setAttribute('aria-pressed', chipOn(b.dataset.chip) ? 'true' : 'false'));
+    refresh();
+  }
   function chips() {
-    const mk = (text, on, fn, title) => h('button', { type: 'button', class: 'kc-chip', 'aria-pressed': on ? 'true' : 'false', title, onclick: () => { fn(); save(); draw(false); } },
-      h('span', { class: 'kck' }, svg(IC.ck)), text);
+    const mk = (key, text, title) => h('button', { type: 'button', class: 'kc-chip', 'data-chip': key, 'aria-pressed': chipOn(key) ? 'true' : 'false', title, onclick: () => chipToggle(key) },
+      h('span', { class: 'kck', 'aria-hidden': 'true' }), h('span', { class: 'kcl', text }));
     return h('div', { class: 'kc-chips', role: 'group', 'aria-label': '보일 일정' },
-      ...Object.entries(KINDS).map(([k, l]) => mk(l, st.kinds.has(k), () => { if (st.kinds.has(k)) { if (st.kinds.size > 1) st.kinds.delete(k); } else st.kinds.add(k); })),
+      Object.entries(KINDS).map(([k, l]) => mk(k, l)),
       h('span', { class: 'kc-sep', 'aria-hidden': 'true' }),
-      mk('★★ 이상만', st.hi, () => { st.hi = !st.hi; }),
-      mk('위클리 만기', st.weekly, () => { st.weekly = !st.weekly; }, '코스피200 위클리 옵션 만기(매주 월 · 목) — 기본은 숨겨요'));
+      mk('hi', '★★ 이상만'),
+      mk('weekly', '위클리 만기', '코스피200 위클리 옵션 만기(매주 월 · 목) — 기본은 숨겨요'),
+      mk('detail', '기업 세부 일정', '주식권리일정의 통지 · 접수 시한, 명부폐쇄, 교부 · 상장일, 1% 미만 보호예수, 관심 · 지도 밖 종목의 주총 — 기본은 숨겨요'));
   }
   function marks(d) {
-    const all = eventsOn(d).filter(e => !e.weekly || st.weekly), info = dayInfo(d);
+    const all = eventsOn(d).filter(inFilter), info = dayInfo(d);
     if (info && info.kind === 'closed') return h('span', { class: 'kc-marks', 'aria-hidden': 'true' }, h('b', { text: '휴' }));
     const hi = all.filter(e => starOf(e) >= 2).length, lo = all.length - hi;
     return h('span', { class: 'kc-marks', 'aria-hidden': 'true' }, [...Array(Math.min(3, hi))].map(() => h('i')), hi < 3 && lo ? h('i', { class: 'dim' }) : null);
   }
   function weekStrip() {
     const m = monday(st.day), t = today();
-    const wk = h('div', { class: 'kc-wk', role: 'group', 'aria-label': `${label(m)}부터 한 주` }, h('span', { class: 'kc-ind', 'aria-hidden': 'true' }));
+    const wk = h('div', { class: 'kc-wk', 'data-part': 'wk', role: 'group', 'aria-label': `${label(m)}부터 한 주` }, h('span', { class: 'kc-ind', 'aria-hidden': 'true' }));
     for (let i = 0; i < 7; i++) {
-      const d = addD(m, i), info = dayInfo(d), n = eventsOn(d).filter(visible).length;
+      const d = addD(m, i), info = dayInfo(d), n = eventsOn(d).filter(inFilter).length;
       wk.append(h('button', { type: 'button', class: [d === t ? 'today' : '', i >= 5 ? 'wkend' : '', info && info.kind === 'closed' ? 'closed' : ''].join(' ').trim() || null,
         'aria-pressed': d === st.day ? 'true' : 'false', 'data-d': d,
         'aria-label': `${label(d)} ${WD[wday(d)]}요일${d === t ? ', 오늘' : ''}${info ? ', ' + info.note : ''}, 일정 ${n}개`, onclick: () => pick(d) },
@@ -152,21 +217,24 @@
     }
     wk.addEventListener('keydown', ev => {
       if (ev.key !== 'ArrowLeft' && ev.key !== 'ArrowRight') return;
-      ev.preventDefault(); pick(addD(st.day, ev.key === 'ArrowLeft' ? -1 : 1), true);
+      ev.preventDefault(); pick(addD(st.day, ev.key === 'ArrowLeft' ? -1 : 1), ev.repeat ? 'repeat' : 'key');
     });
     return wk;
   }
+  // the raised marker under the chosen day: leading edge `lead`, trailing `trail` (KH.spring.edges, design.md §6-3 · §7 ①);
+  // the first place, a resize and held arrow keys (design.md §8) set it at once
   function placeInd(animate) {
     const wk = root() && root().querySelector('.kc-wk'); if (!wk) return;
     const ind = wk.querySelector('.kc-ind'), cur = wk.querySelector('button[aria-pressed="true"]');
     if (!ind || !cur) return;
-    const btns = [...wk.querySelectorAll('button')], idx = btns.indexOf(cur);
-    ind.classList.toggle('now', !animate || reduced());
-    ind.classList.toggle('rev', idx < st.lastIdx);
-    ind.style.left = cur.offsetLeft + 'px'; ind.style.width = cur.offsetWidth + 'px';
-    st.lastIdx = idx;
+    const box = { left: cur.offsetLeft, width: cur.offsetWidth };
+    if (KH.spring && typeof KH.spring.edges === 'function') {
+      const ctl = KH.spring.edges(ind);
+      if (animate && ctl.value() && !reduced()) ctl.to(box); else ctl.set(box);
+    } else { ind.style.transform = `translateX(${box.left}px)`; ind.style.width = box.width + 'px'; }
   }
-  const key = (cls, aria, ic, fn) => h('button', { type: 'button', class: cls, 'aria-label': aria, onclick: fn }, svg(ic));
+  const key = (cls, aria, ic, fn) => h('button', { type: 'button', class: cls, 'data-key': aria, 'aria-label': aria, onclick: fn }, svg(ic));
+  const todayKey = () => h('button', { type: 'button', class: 'kc-tk', 'data-key': '오늘', onclick: () => pick(today()), text: '오늘' });
   function note(from, to) {
     const f = failed(from, to);
     const srcs = bodiesIn(from, to).map(v => v.body && v.body.sources).filter(Boolean)[0];
@@ -191,40 +259,43 @@
     const wrap = h('div', { class: 'kc-phone' },
       h('div', { class: 'kc-hd' },
         h('h2', {}, `${label(m)} – ${sameMonth ? +e.slice(8) + '일' : label(e)}`, h('small', { text: '한국 시간' })),
-        key('kc-ik', '지난주', IC.l, () => pick(addD(st.day, -7))), key('kc-ik', '다음 주', IC.r, () => pick(addD(st.day, 7))),
-        h('button', { type: 'button', class: 'kc-tk', onclick: () => pick(today()), text: '오늘' })),
+        key('kc-ik', '지난주', IC.l, () => pick(addD(st.day, -7))), key('kc-ik', '다음 주', IC.r, () => pick(addD(st.day, 7))), todayKey()),
       weekStrip(), chips());
     wrap.append(listFor(st.day, addD(st.day, 6), true));       // the chosen day and the six after it (a weekend still sees the week ahead)
     return wrap;
   }
   function listFor(from, to, withMore) {
-    const list = h('div', { class: 'kc-list', 'aria-live': 'polite' });
+    const list = h('div', { class: 'kc-list', 'data-part': 'list', 'aria-live': 'polite' });
     if (!loaded(from, to)) { list.append(message(from, to)); return list; }
     for (let d = from; d <= to; d = addD(d, 1)) list.append(dayBlock(d));
-    if (withMore) list.append(h('div', { class: 'kc-more' }, h('button', { type: 'button', class: 'kc-tk', onclick: () => pick(addD(st.day, 7)), text: '다음 7일 보기' })));
+    if (withMore) list.append(h('div', { class: 'kc-more' }, h('button', { type: 'button', class: 'kc-tk', 'data-next': '1', onclick: () => pick(addD(st.day, 7), 'next'), text: '다음 7일 보기' })));
     list.append(note(from, to));
     return list;
   }
   // ── ≥ 1280: month grid + 7 days from the chosen one
   function gridStart() { const first = st.day.slice(0, 8) + '01'; return monday(first); }
+  function gridLines(d) {            // the cell's three lines: the three most important, then 미국 first and in time order (§9-6)
+    const top = eventsOn(d).filter(inFilter).sort((a, b) => starOf(b) - starOf(a) || sortEv(a, b));
+    const three = top.slice(0, 3).sort((a, b) => (regionOf(a) === regionOf(b) ? 0 : regionOf(a) === 'us' ? -1 : 1) || sortEv(a, b));
+    return { three, n: top.length };
+  }
   function desk() {
     const [y, mo] = st.day.split('-').map(Number), g = gridStart();
     const step = n => { const o = new Date(Date.UTC(y, mo - 1 + n, 1)); pick(o.toISOString().slice(0, 10)); };
     const wrap = h('div', { class: 'kc-desk' },
       h('div', { class: 'kc-bar' }, h('h2', { text: `${y}년 ${mo}월` }),
-        key('kc-ik', '지난달', IC.l, () => step(-1)), key('kc-ik', '다음 달', IC.r, () => step(1)),
-        h('button', { type: 'button', class: 'kc-tk', onclick: () => pick(today()), text: '오늘' }), chips()));
+        key('kc-ik', '지난달', IC.l, () => step(-1)), key('kc-ik', '다음 달', IC.r, () => step(1)), todayKey(), chips()));
     const grid = h('div', { class: 'kc-mg', role: 'grid', 'aria-label': `${y}년 ${mo}월` }, ['월', '화', '수', '목', '금', '토', '일'].map(x => h('div', { class: 'h', role: 'columnheader', text: x })));
     const t = today();
     let d = g;
     for (let w = 0; w < 6; w++) {
       for (let i = 0; i < 7; i++, d = addD(d, 1)) {
-        const day = d, list = shown(d).sort((a, b) => starOf(b) - starOf(a)), info = dayInfo(d), out = +d.slice(5, 7) !== mo;
+        const day = d, { three, n } = gridLines(d), info = dayInfo(d), out = +d.slice(5, 7) !== mo;
         const c = h('button', { type: 'button', role: 'gridcell', class: ['cell', out ? 'out' : '', d === t ? 'today' : '', d < t ? 'past' : '', i >= 5 ? 'wkend' : ''].join(' '),
-          'aria-pressed': d === st.day ? 'true' : 'false', 'data-d': d, 'aria-label': `${label(d)} ${WD[wday(d)]}요일${info ? ', ' + info.note : ''}, 일정 ${list.length}개`, onclick: () => pick(day) },
-          h('span', { class: 'top1' }, h('span', { class: 'dnum num', text: String(+d.slice(8)) }), info ? h('span', { class: 'cl', text: info.note }) : null));
-        list.slice(0, 3).forEach(e => c.append(h('span', { class: 'line s' + starOf(e) }, stars(starOf(e)), h('span', { class: 'ttl', text: (e.n && !e.grp ? e.n + ' ' : '') + e.title }))));
-        if (list.length > 3) c.append(h('span', { class: 'plus', text: `+${list.length - 3}개` }));
+          'aria-pressed': d === st.day ? 'true' : 'false', 'data-d': d, 'aria-label': `${label(d)} ${WD[wday(d)]}요일${info ? ', ' + info.note : ''}, 일정 ${n}개`, onclick: () => pick(day) },
+          h('span', { class: 'top1' }, h('span', { class: 'dnum num', text: String(+d.slice(8)) }), info ? h('span', { class: 'cl', text: info.note }) : null),
+          three.map(e => h('span', { class: 'line s' + starOf(e), 'data-rg': regionOf(e) }, stars(starOf(e)), h('span', { class: 'ttl', text: (e.n && !e.grp ? e.n + ' ' : '') + e.title }))),
+          n > 3 ? h('span', { class: 'plus', text: `+${n - 3}개` }) : null);
         grid.append(c);
       }
       if (+d.slice(5, 7) !== mo && d > g) break;
@@ -232,68 +303,97 @@
     grid.addEventListener('keydown', ev => {
       const map = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7 };
       if (!(ev.key in map)) return;
-      ev.preventDefault(); pick(addD(st.day, map[ev.key]), true);
+      ev.preventDefault(); pick(addD(st.day, map[ev.key]), 'key');
     });
-    wrap.append(h('div', { class: 'kc-card' }, loaded(g, addD(g, 41)) ? grid : message(g, addD(g, 41))));
-    const side = h('aside', { class: 'kc-card kc-side', 'aria-label': '고른 날부터 7일' },
-      h('div', { class: 'kc-sideh' }, h('h3', { text: '고른 날부터 7일' }), h('span', { class: 'kc-badge', text: '한국 시간' })),
-      listFor(st.day, addD(st.day, 6), false));
-    wrap.append(side);
+    wrap.append(h('div', { class: 'kc-card', 'data-part': 'grid' }, loaded(g, addD(g, 41)) ? grid : message(g, addD(g, 41))));
+    wrap.append(sideFor());
     return wrap;
   }
+  const sideFor = () => h('aside', { class: 'kc-card kc-side', 'data-part': 'side', 'aria-label': '고른 날부터 7일' },
+    h('div', { class: 'kc-sideh' }, h('h3', { text: '고른 날부터 7일' }), h('span', { class: 'kc-badge', text: '한국 시간' })),
+    listFor(st.day, addD(st.day, 6), false));
 
-  // ── draw · pick
+  // ── draw (everything) · refresh (only the parts that show data — the chips stay, so they animate and keep focus) · pick
   function snapshotNote() {
     return h('div', { class: 'kc-msg', role: 'status' }, h('b', { text: '증시 일정은 실시간 버전에서 볼 수 있어요' }),
       h('a', { class: 'kc-tk', href: (KH.LIVE_URL || 'https://panse.pages.dev/') + '#cal', target: '_blank', rel: 'noopener', text: '실시간 버전 열기' }));
   }
-  function draw(animate) {
+  const readMap = () => { try { st.map = new Set(typeof KH.mapCodes === 'function' ? KH.mapCodes() : []); } catch (e) { st.map = new Set(); } };
+  function draw() {
     const box = root(); if (!box || !st.on) return;
-    const y = scrollY, focusD = document.activeElement && document.activeElement.dataset ? document.activeElement.dataset.d : null;
-    const focusEv = document.activeElement && document.activeElement.dataset ? document.activeElement.dataset.id : null;
+    readMap();
+    const y = scrollY, a = document.activeElement, ds = a && box.contains(a) && a.dataset ? a.dataset : {};
     box.replaceChildren(h('div', { class: 'kc' }, KH.MODE === 'snapshot' ? snapshotNote() : wide() ? desk() : phone()));
     footLine();
     if (KH.MODE === 'snapshot') return;
-    requestAnimationFrame(() => placeInd(animate));
-    if (focusD) { const b = box.querySelector(`[data-d="${focusD}"][aria-pressed="true"]`) || box.querySelector(`[data-d="${focusD}"]`); if (b) b.focus({ preventScroll: true }); }
-    else if (focusEv) { const b = box.querySelector(`[data-id="${CSS.escape(focusEv)}"]`); if (b) b.focus({ preventScroll: true }); }
+    placeInd(false);
+    requestAnimationFrame(() => placeInd(false));             // once more after the tab has laid out (the box may have just unhidden)
+    refocus(box, ds);
     if (Math.abs(scrollY - y) > 1) scrollTo(scrollX, y);
   }
-  function pick(d, kb) {
+  function refocus(box, ds) {
+    let b = null;
+    if (ds.d) b = box.querySelector(`[data-d="${ds.d}"][aria-pressed="true"]`) || box.querySelector(`[data-d="${ds.d}"]`);
+    else if (ds.id) b = box.querySelector(`[data-id="${CSS.escape(ds.id)}"]`);
+    else if (ds.more) b = box.querySelector(`[data-more="${ds.more}"]`);
+    else if (ds.chip) b = box.querySelector(`[data-chip="${ds.chip}"]`);
+    else if (ds.next) b = box.querySelector('[data-next]');
+    else if (ds.key) b = box.querySelector(`[data-key="${CSS.escape(ds.key)}"]`);
+    if (b) b.focus({ preventScroll: true });
+  }
+  function refresh() {
+    const box = root(); if (!box || !st.on) return;
+    if (KH.MODE === 'snapshot' || !box.querySelector(wide() ? '.kc-desk' : '.kc-phone')) return draw();
+    readMap();
+    const y = scrollY, a = document.activeElement, ds = a && a.dataset ? a.dataset : {};
+    const inPart = a && box.contains(a) && a.closest('[data-part]');
+    const fresh = wide() ? desk() : phone();
+    const parts = [...fresh.querySelectorAll('[data-part]')].filter(p => !p.parentElement.closest('[data-part]'));   // outermost only (the side holds a list)
+    for (const part of parts) { const old = box.querySelector(`[data-part="${part.dataset.part}"]`); if (old) old.replaceWith(part); }
+    placeInd(false);
+    if (inPart) refocus(box, ds);
+    if (Math.abs(scrollY - y) > 1) scrollTo(scrollX, y);
+  }
+  // how: 'key' (an arrow key) · 'repeat' (held) · 'next' (다음 7일 보기) · undefined (a tap or click)
+  function pick(d, how) {
     if (!d) return;
-    const sameWeek = monday(d) === monday(st.day) && !wide();
-    st.day = d;
-    const [f, t] = rangeNow();
+    const kb = how === 'key' || how === 'repeat';
+    const box = root();
+    const [f, t] = (() => { const keep = st.day; st.day = d; const r = rangeNow(); st.day = keep; return r; })();
     const ready = loaded(f, t);
-    if (sameWeek && ready) {
-      const box = root(), list = box && box.querySelector('.kc-phone .kc-list');
-      box.querySelectorAll('.kc-wk button').forEach(b => b.setAttribute('aria-pressed', b.dataset.d === d ? 'true' : 'false'));
-      placeInd(true);
-      if (kb) { const b = box.querySelector(`.kc-wk button[data-d="${d}"]`); if (b) b.focus(); }
-      if (list && !reduced()) { list.classList.add('fading'); setTimeout(() => { swapList(); }, 120); }
-      else swapList();
+    const samePlace = box && ready && (wide() ? gridStart() === monday(d.slice(0, 8) + '01') && box.querySelector('.kc-mg') : monday(d) === monday(st.day) && box.querySelector('.kc-phone .kc-wk'));
+    st.day = d;
+    if (samePlace) {                         // same week strip / same month grid: move the marker, swap the list in place
+      box.querySelectorAll(wide() ? '.kc-mg .cell' : '.kc-wk button').forEach(b => b.setAttribute('aria-pressed', b.dataset.d === d ? 'true' : 'false'));
+      if (!wide()) placeInd(how !== 'repeat');
+      if (kb) { const b = box.querySelector(`[data-d="${d}"]`); if (b) b.focus(); }
+      const old = box.querySelector(wide() ? '.kc-side' : '.kc-phone .kc-list');
+      if (old) { const fresh = wide() ? sideFor() : listFor(st.day, addD(st.day, 6), true); old.replaceWith(fresh); fadeIn(wide() ? fresh.querySelector('.kc-list') : fresh); }
+      ensure(f, t);                          // a later day's seven can reach into the next 14-day block
       return;
     }
-    draw(false);
+    draw();
+    if (how === 'next') {                    // the list starts again from its top: bring the week back into view, keep the key focused
+      const hd = box && box.querySelector('.kc-hd'), pad = parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop) || 0;
+      if (hd && hd.getBoundingClientRect().top < pad) hd.scrollIntoView({ block: 'start' });   // html scroll-padding keeps it under the stuck header
+      fadeIn(box && box.querySelector('.kc-phone .kc-list'));
+      const nx = box && box.querySelector('[data-next]'); if (nx) nx.focus({ preventScroll: true });
+    }
     ensure(f, t);
-  }
-  function swapList() {
-    const box = root(), old = box && box.querySelector('.kc-phone .kc-list'); if (!old) return draw(false);
-    const fresh = listFor(st.day, addD(st.day, 6), true);
-    if (!reduced()) fresh.classList.add('fading');
-    old.replaceWith(fresh);
-    requestAnimationFrame(() => fresh.classList.remove('fading'));
   }
 
   // ── detail (a <dialog>: phone = bottom sheet, wider = floating panel)
-  let dlg = null, opener = null;
+  let dlg = null, opener = null, closeT = 0;
   const fmtPeriod = p => !p ? '' : /^\d{4}-\d{2}-\d{2}$/.test(p) ? (p.endsWith('-01') ? `${p.slice(0, 4)}년 ${+p.slice(5, 7)}월` : `${p.slice(0, 4)}년 ${+p.slice(5, 7)}월 ${+p.slice(8)}일`)
     : /^\d{6}$/.test(p) ? `${p.slice(0, 4)}년 ${+p.slice(4)}월` : /^\d{4}Q\d$/.test(p) ? `${p.slice(0, 4)}년 ${p.slice(5)}분기` : /^\d{8}$/.test(p) ? `${+p.slice(4, 6)}월 ${+p.slice(6)}일 기준` : p;
   function why(e, s) {
     if (e.k === 'cb') return '기준금리를 정하거나 그 논의를 공개하는 날이라 금리 · 환율 · 주가가 함께 움직일 수 있어요.';
     if (e.k === 'mkt' && e.star === 3) return '선물과 옵션 만기가 겹치는 날이에요(3 · 6 · 9 · 12월 둘째 목요일). 장 마감 무렵 거래가 몰릴 수 있어요.';
     if (e.weekly) return '코스피200 위클리 옵션의 마지막 거래일이에요. 매주 월 · 목이라 기본으로는 숨겨요.';
-    if (e.k === 'corp' && e.pct != null) return `풀리는 주식이 상장주식의 ${e.pct}%예요. 별 기준: 10% 이상 ★★★ · 3% 이상 ★★ · 그 밖 ★.${watched(e.c) ? ' 관심종목이라 하나 더했어요.' : ''}`;
+    if (e.k === 'corp' && isMinor(e)) return e.cls === 'agm' ? '주주총회예요. 관심종목과 지도에 있는 종목의 주총만 기본으로 보여 주고, 나머지는 "기업 세부 일정"에 있어요.'
+      : '권리 행사 절차의 세부 일정이에요(통지 · 접수 시한, 명부폐쇄, 교부 · 상장일 같은 것). 기본으로는 숨기고 "기업 세부 일정"을 켜면 보여요.';
+    if (e.k === 'corp' && e.pct != null) return `풀리는 주식이 상장주식의 ${e.pct}%예요. 별 기준: 10% 이상 ★★★ · 3% 이상 ★★ · 그 밖 ★, 1% 미만은 세부 일정으로 숨겨요.${watched(e.c) ? ' 관심종목이라 하나 더했어요.' : ''}`;
+    if (e.k === 'corp' && e.exd) return `권리락은 기준일 전 영업일(${label(e.exd)})이에요. 그날부터 산 주식에는 새 주식이 배정되지 않아요.${watched(e.c) ? ' 관심종목이라 별을 하나 더했어요.' : ''}`;
     if (e.k === 'corp') return `회사 일정이에요.${watched(e.c) ? ' 관심종목이라 별을 하나 더했어요.' : ''}`;
     return ['', '참고용 발표로 분류했어요(자체 기준).', '자주 보는 발표로 분류했어요(자체 기준).', '시장 전체에 영향이 큰 발표로 분류했어요(자체 기준).'][s];
   }
@@ -316,6 +416,7 @@
   }
   function openDetail(e, from) {
     opener = from || document.activeElement;
+    clearTimeout(closeT);
     if (!dlg) {
       dlg = h('dialog', { class: 'kc-dlg', 'aria-labelledby': 'kc-dt' });
       dlg.addEventListener('cancel', ev => { ev.preventDefault(); closeDetail(); });
@@ -325,14 +426,15 @@
     const s = starOf(e), past = isPast(e);
     const when = e.t ? `${label(e.d)} (${WD[wday(e.d)]}) ${e.t}` : `${label(e.d)} (${WD[wday(e.d)]}) · 종일`;
     const names = e.grp && e.codes ? e.codes.map(c => { const r = KH.stock(c); return { c, n: (r && r.n) || c }; }) : null;
-    dlg.replaceChildren(...[       // native replaceChildren prints null as "null" — keep only real nodes
+    // every piece goes through h() (which drops null) — native replaceChildren / append print null as the text "null"
+    dlg.replaceChildren(h('div', { class: 'kc-dbody' },
       h('span', { class: 'kc-grab', 'aria-hidden': 'true' }),
-      h('div', { class: 'kc-sh' }, h('h3', { id: 'kc-dt' }, e.n && !e.grp ? h('span', { class: 'co', text: `${e.n} · ${e.c}` }) : null, e.title), h('button', { type: 'button', class: 'kc-x', 'aria-label': '닫기', onclick: closeDetail }, svg(IC.x))),
+      h('div', { class: 'kc-sh' }, h('h3', { id: 'kc-dt' }, e.n && !e.grp ? h('span', { class: 'co', text: `${e.n} · ${e.c}` }) : null, e.title), h('button', { type: 'button', class: 'kc-x', 'aria-label': '닫기', onclick: () => closeDetail() }, svg(IC.x))),
       h('dl', { class: 'kc-kv' },
         h('dt', { text: '언제' }), h('dd', { class: 'num' }, when, origLong(e) ? h('small', { text: origLong(e) }) : null),
         e.value ? [h('dt', { text: '발표값' }), h('dd', {}, e.value.text, e.value.p ? h('small', { text: `${fmtPeriod(e.value.p)} · ${e.value.src === 'ecos' ? '한국은행 ECOS' : 'FRED'}` }) : null)] : null,
         h('dt', { text: '중요도' }), h('dd', {}, stars(s), ' ', ['', '참고', '중요', '매우 중요'][s]),
-        h('dt', { text: '분류' }), h('dd', {}, KINDS[e.k], e.sub ? h('small', { text: e.sub }) : null),
+        h('dt', { text: '분류' }), h('dd', {}, `${regionOf(e) === 'us' ? '미국' : '한국'} · ${KINDS[e.k] || ''}${isMinor(e) ? ' · 세부 일정' : ''}`, e.sub ? h('small', { text: e.sub }) : null),
         h('dt', { text: '출처' }), h('dd', {}, SRC[e.src] || e.src, h('small', { text: srcNote(e) })),
         h('dt', { text: '상태' }), h('dd', { text: e.tentative ? `예정 — ${e.tentative}` : past ? '지났어요' : '예정' })),
       names ? h('div', { class: 'kc-codes', role: 'list', 'aria-label': '종목' }, names.map(x => h('button', { type: 'button', role: 'listitem', onclick: () => { closeDetail(true); if (KH.openStock) KH.openStock(x.c, {}); }, text: x.n }))) : null,
@@ -340,17 +442,19 @@
       h('div', { class: 'kc-acts' },
         e.url ? h('a', { href: e.url, target: '_blank', rel: 'noopener' }, svg(IC.ext), e.src === 'dart' ? 'DART 원문' : '원천 보기') : null,
         e.c && !e.grp && typeof KH.openStock === 'function' ? h('button', { type: 'button', onclick: () => { closeDetail(true); KH.openStock(e.c, {}); }, text: '종목 페이지' }) : null),
-      h('p', { class: 'foot', text: '시각은 한국 시간이에요. 원천이 일정을 바꾸면 다음 갱신 때 바뀌어요.' })].filter(Boolean));
+      h('p', { class: 'foot', text: '시각은 한국 시간이에요. 원천이 일정을 바꾸면 다음 갱신 때 바뀌어요.' })));
     if (!dlg.open) dlg.showModal();
     document.dispatchEvent(new CustomEvent('kh:worlddetail'));      // the phone dock hides while a sheet is open (template openWins)
-    requestAnimationFrame(() => requestAnimationFrame(() => dlg.classList.add('on')));
+    if (reduced()) dlg.classList.add('on');
+    else requestAnimationFrame(() => requestAnimationFrame(() => dlg.classList.add('on')));   // open spring from the closed pose
     dlg.querySelector('.kc-x').focus();
   }
   function closeDetail(noFocus) {
     if (!dlg || !dlg.open) return;
-    dlg.classList.remove('on');
+    dlg.classList.remove('on');                                   // close spring (shorter than open, design.md §6-2)
     const done = () => { if (!dlg.classList.contains('on') && dlg.open) dlg.close(); document.dispatchEvent(new CustomEvent('kh:worlddetail')); };
-    if (reduced()) done(); else setTimeout(done, 260);
+    clearTimeout(closeT);
+    if (reduced()) done(); else closeT = setTimeout(done, cssMs('--sp-close-dur') + 30);
     if (!noFocus && opener && opener.isConnected) opener.focus({ preventScroll: true });
   }
 
@@ -359,11 +463,11 @@
   function footLine() { const p = document.getElementById('foot-cal'); if (p && st.on) p.textContent = FOOT; }
 
   // ── lifecycle
-  function onResize() { if (!st.on) return; const w = wide(); if (w !== st.wasWide) { st.wasWide = w; draw(false); const [f, t] = rangeNow(); ensure(f, t); } else placeInd(false); }
+  function onResize() { if (!st.on) return; const w = wide(); if (w !== st.wasWide) { st.wasWide = w; draw(); const [f, t] = rangeNow(); ensure(f, t); } else placeInd(false); }
   function show() {
     st.on = true; st.wasWide = wide();
     if (!st.day) st.day = today();
-    draw(false);
+    draw();
     if (KH.MODE === 'snapshot') return;
     const [f, t] = rangeNow();
     ensure(f, t);
@@ -373,10 +477,11 @@
   function hide() {
     st.on = false;
     clearInterval(st.timer); st.timer = null;
+    clearTimeout(closeT);
     if (dlg && dlg.open) { dlg.classList.remove('on'); dlg.close(); }
   }
   addEventListener('resize', onResize);
-  document.addEventListener('kh:watch', () => { if (st.on) draw(false); });
+  document.addEventListener('kh:watch', () => { if (st.on) refresh(); });
   document.addEventListener('visibilitychange', () => { if (!document.hidden && st.on) { const [a, b] = rangeNow(); ensure(a, b); } });
   window.KHCal = { show, hide, isOn: () => st.on, detailOpen: () => !!(dlg && dlg.open), footText: () => FOOT };
 })();

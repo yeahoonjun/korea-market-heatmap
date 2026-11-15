@@ -6,7 +6,9 @@
 /api/calendar answers the Worker's shape (worker/src/calendar.js) for any from..to (≤ 42 days), built around KST today so the page
 always has a week to draw: 한국 지표 (with a released value on a past day), 미국 지표 (22:30 KST / 08:30 ET), 금리 (★3), 시장
 (2nd-Thursday expiry + weekly expiries flagged weekly), 기업 (DART 무상증자 · a lock-up with %, 005930 for the 관심 badge, a group
-row of 15 dividend record dates), one closed day and one special day.
+row of 15 dividend record dates), one closed day and one special day. Corp rows carry the Worker's `cls` / `minor` (§9-6): today has
+three 주식권리일정 details (minor), a 주총 of a stock on the map (000660, shown) and one off the map (900222, a detail); the day after
+tomorrow has details only. 미국 rows carry rg:'us' (FRED · FOMC).
 Test controls: /__mode?cal=ok|fail|none|empty|slow|stale   fail: 502 {error}; none: 404 (an older Worker); empty: no events;
 slow: 2.5 s; stale: sources.fred ok:false + stale:true.   /__stats · /__reset as in mock_api.py.
 """
@@ -54,7 +56,7 @@ def events_for(frm, to, mode):
             if off < 0 and wd == 1:
                 ev['value'] = {'text': '소비자심리지수 105.4', 'src': 'ecos', 'p': d.strftime('%Y%m')}
             out.append(ev)
-            out.append({'id': f'fred:10:{s}', 'd': s, 't': '22:30', 'k': 'us', 'star': 3 if wd == 3 else 1, 'src': 'fred', 'rid': 10,
+            out.append({'id': f'fred:10:{s}', 'd': s, 't': '22:30', 'k': 'us', 'rg': 'us', 'star': 3 if wd == 3 else 1, 'src': 'fred', 'rid': 10,
                         'title': '미국 소비자물가(CPI)' if wd == 3 else '미국 주간 신규 실업수당 청구', 'orig': {'d': s, 't': '08:30', 'tz': 'America/New_York'}})
         if wd == 0 or (wd == 3 and d != second_thu(d.year, d.month)):
             out.append({'id': f'rule:wk:{s}', 'd': s, 't': None, 'k': 'mkt', 'star': 1, 'src': 'rule', 'weekly': True,
@@ -66,16 +68,29 @@ def events_for(frm, to, mode):
             out.append({'id': f'cb:bok:{s}', 'd': s, 't': None, 'k': 'cb', 'star': 3, 'src': 'manual', 'title': '금통위 통화정책방향 결정', 'sub': '기준금리 결정',
                         'url': 'https://www.bok.or.kr/portal/singl/crncyPolicyDrcMtg/listYear.do?mtgSe=A&menuNo=200755&pYear=2026'})
         if off == 0:
-            out.append({'id': f'dart:R1:asstd:{s}', 'd': s, 't': None, 'k': 'corp', 'star': 2, 'src': 'dart', 'api': 'fricDecsn', 'c': '005930', 'n': '삼성전자',
-                        'title': '무상증자 신주배정기준일', 'sub': '1주당 1주', 'r': '20261113000111', 'url': 'https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261113000111'})
+            out.append({'id': f'dart:R1:asstd:{s}', 'd': s, 't': None, 'k': 'corp', 'star': 2, 'src': 'dart', 'api': 'fricDecsn', 'c': '005930', 'n': '삼성전자', 'cls': 'rights',
+                        'exd': d2s(d - timedelta(days=1)), 'title': '무상증자 신주배정기준일', 'sub': '권리락 전날 · 1주당 1주', 'r': '20261113000111', 'url': 'https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20261113000111'})
+            for i, (c, n, t, w, cl) in enumerate((('900111', '가나상사', '임시총회 명세통지시한', '임시총회', 'agm'), ('900112', '다라리츠', '배당/분배 명세접수시한', '배당/분배', 'div'),
+                                                  ('900113', '마바산업', '매수청구 반대의사접수시한', '매수청구', 'etc'))):
+                out.append({'id': f'fsc:rights:{c}:{s}:{i}', 'd': s, 't': None, 'k': 'corp', 'star': 1, 'src': 'fsc', 'api': 'getRighExerReasSche_V2', 'c': c, 'n': n,
+                            'title': t, 'why': w, 'cls': cl, 'minor': True})
+            out.append({'id': f'fsc:rights:000660:{s}:agm', 'd': s, 't': None, 'k': 'corp', 'star': 1, 'src': 'fsc', 'api': 'getRighExerReasSche_V2', 'c': '000660', 'n': 'SK하이닉스',
+                        'title': '임시총회 총회개최일', 'sub': '명부폐쇄 11/2', 'why': '임시총회', 'cls': 'agm'})
+            out.append({'id': f'fsc:rights:900222:{s}:agm', 'd': s, 't': None, 'k': 'corp', 'star': 1, 'src': 'fsc', 'api': 'getRighExerReasSche_V2', 'c': '900222', 'n': '사아테크',
+                        'title': '임시총회 총회개최일', 'why': '임시총회', 'cls': 'agm'})
         if off == 1:
-            out.append({'id': f'fsc:lock:000660:{s}', 'd': s, 't': None, 'k': 'corp', 'star': 3, 'src': 'fsc', 'api': 'getLockUpRetuInfo_V3', 'c': '000660', 'n': 'SK하이닉스',
+            out.append({'id': f'fsc:lock:000660:{s}', 'd': s, 't': None, 'k': 'corp', 'star': 3, 'src': 'fsc', 'api': 'getLockUpRetuInfo_V3', 'c': '000660', 'n': 'SK하이닉스', 'cls': 'lock',
                         'title': '보호예수 해제 2,150만 주', 'sub': '상장주식의 18.4% · 최대주주', 'pct': 18.4})
-            out.append({'id': f'grp:div-rec:{s}', 'd': s, 't': None, 'k': 'corp', 'src': 'fsc', 'star': 2, 'title': '배당 기준일', 'grp': 'div-rec', 'n': 15,
+            out.append({'id': f'fsc:lock:900333:{s}', 'd': s, 't': None, 'k': 'corp', 'star': 1, 'src': 'fsc', 'api': 'getLockUpRetuInfo_V3', 'c': '900333', 'n': '차카바이오', 'cls': 'lock', 'minor': True,
+                        'title': '보호예수 해제 3,000주', 'sub': '상장주식의 0.2% · 주식매수선택권', 'pct': 0.2})
+            out.append({'id': f'grp:div-rec:{s}', 'd': s, 't': None, 'k': 'corp', 'src': 'fsc', 'star': 2, 'title': '배당 기준일', 'grp': 'div-rec', 'cls': 'div', 'n': 15,
                         'codes': ['005930', '000660', '035420', '005380', '051910', '006400', '035720', '000270', '068270', '105560', '055550', '012330', '028260', '066570', '003550'], 'sub': '15개 종목'})
         if off == 2:
-            out.append({'id': f'cb:fomc:{s}', 'd': s, 't': '04:00', 'k': 'cb', 'star': 3, 'src': 'manual', 'title': 'FOMC 금리 결정', 'sub': '경제전망(SEP) 함께',
+            out.append({'id': f'cb:fomc:{s}', 'd': s, 't': '04:00', 'k': 'cb', 'rg': 'us', 'star': 3, 'src': 'manual', 'title': 'FOMC 금리 결정', 'sub': '경제전망(SEP) 함께',
                         'orig': {'d': d2s(d - timedelta(days=1)), 't': '14:00', 'tz': 'America/New_York'}, 'tentative': None})
+        if off == 6:
+            out.append({'id': f'fsc:rights:900444:{s}:x', 'd': s, 't': None, 'k': 'corp', 'star': 1, 'src': 'fsc', 'api': 'getRighExerReasSche_V2', 'c': '900444', 'n': '자차홀딩스',
+                        'title': '기타 명세접수시한', 'why': '기타', 'cls': 'etc', 'minor': True})
         if off == 5 and wd < 5:
             days[s] = {'kind': 'closed', 'note': '휴장 · 테스트 휴일'}
         if off == 4 and wd < 5:

@@ -95,6 +95,65 @@ AUDIT_JS = r"""(phone) => {
 }"""
 
 
+# each day: a 미국 group, then a 한국 group (user 2026-11-15), labels, and time order inside a group (all-day first)
+GROUPS_JS = r"""(sel) => [...document.querySelectorAll(sel + ' .kc-day')].map(sec => ({
+  d: sec.dataset.day,
+  groups: [...sec.querySelectorAll(':scope > .kc-grp')].map(g => ({ rg: g.dataset.rg, label: (g.querySelector(':scope > .kc-rg') || {}).textContent || '',
+    times: [...g.querySelectorAll(':scope > .kc-ev .tm')].map(t => t.classList.contains('all') ? '00:00' : t.childNodes[0].textContent.trim()) })) }))"""
+
+
+def check_groups(tag, days):
+    order_ok = all([g['rg'] for g in d['groups']] in (['us', 'kr'], ['us'], ['kr'], []) for d in days)
+    label_ok = all(g['label'] == {'us': '미국', 'kr': '한국'}[g['rg']] for d in days for g in d['groups'])
+    time_ok = all(g['times'] == sorted(g['times']) for d in days for g in d['groups'])
+    both = [d for d in days if [g['rg'] for g in d['groups']] == ['us', 'kr']]
+    later_first = any(d['groups'][0]['times'] and d['groups'][1]['times'] and max(d['groups'][0]['times']) > min(d['groups'][1]['times']) for d in both)
+    check(f'{tag}: each day 미국 group first, then 한국 (labels · time order inside)', order_ok and label_ok and time_ok and both, (order_ok, label_ok, time_ok, len(both)))
+    check(f'{tag}: a 22:30 미국 row still comes before an earlier 한국 row', later_first)
+
+
+NULL_JS = "() => { const t = (document.querySelector('dialog.kc-dlg') || {}).textContent || ''; return /\\bnull\\b|undefined|NaN/.test(t) ? t.slice(0, 160) : '' }"
+
+
+def details(pg):
+    """390: company details hidden by default + the two ways in (a day's own toggle · the 기업 세부 일정 chip)."""
+    td = pg.evaluate("() => document.querySelector('.kc-phone .kc-day').dataset.day")
+    chips = pg.evaluate("() => [...document.querySelectorAll('.kc-chip')].map(b => b.dataset.chip)")
+    check('390: chips 미국 지표 → 한국 지표 → 금리 → 시장 → 기업 | ★★ · 위클리 · 기업 세부 일정', chips == ['us', 'kr', 'cb', 'mkt', 'corp', 'hi', 'weekly', 'detail'], chips)
+    day_rows = lambda d: pg.evaluate("(d) => [...document.querySelectorAll(`.kc-day[data-day='${d}'] .kc-ev`)].map(r => r.textContent)", d)
+    rows = day_rows(td)
+    hidden = not any(x in r for r in rows for x in ('가나상사', '다라리츠', '마바산업', '사아테크'))
+    check('390: 주식권리일정 details and a 주총 off the map are hidden by default', hidden and rows, rows[:6])
+    check('390: 주총 of a stock on the map is shown', any('SK하이닉스' in r and '총회개최일' in r for r in rows))
+    tg = pg.locator(f'.kc-dmore[data-more="{td}"]')
+    t0 = tg.text_content() if tg.count() else ''
+    check('390: the day offers "기업 세부 일정 4개 더 보기" (collapsed, in the 한국 group)', tg.count() == 1 and '4개' in t0 and tg.get_attribute('aria-expanded') == 'false'
+          and pg.evaluate(f"() => document.querySelector('.kc-dmore[data-more=\"{td}\"]').closest('.kc-grp').dataset.rg") == 'kr', t0)
+    tg.focus(); pg.keyboard.press('Enter'); pg.wait_for_timeout(350)
+    st = pg.evaluate(f"""() => {{ const b = document.querySelector('.kc-dmore[data-more="{td}"]'), det = document.getElementById('kc-det-{td}');
+      return {{ exp: b.getAttribute('aria-expanded'), n: det ? det.querySelectorAll('.kc-ev').length : 0, focus: document.activeElement === b, text: b.textContent }} }}""")
+    check('390: Enter on the toggle opens that day\'s 4 details, focus stays', st['exp'] == 'true' and st['n'] == 4 and st['focus'] and '접기' in st['text'], st)
+    pg.locator(f'#kc-det-{td} .kc-ev:has-text("가나상사")').click(); pg.wait_for_timeout(450)
+    w = pg.evaluate("() => document.querySelector('dialog.kc-dlg').textContent")
+    check('390: a detail row opens with "세부 일정" + why', '세부 일정' in w and '기업 세부 일정' in w and not pg.evaluate(NULL_JS), w[:80])
+    pg.keyboard.press('Escape'); pg.wait_for_timeout(400)
+    tg.click(); pg.wait_for_timeout(250)
+    check('390: the toggle closes them again', pg.locator(f'#kc-det-{td}').count() == 0 and tg.get_attribute('aria-expanded') == 'false')
+    # the chip: every day at once, saved
+    pg.evaluate("() => { window.__chip = document.querySelector('.kc-chip[data-chip=\"detail\"]') }")
+    pg.get_by_role('button', name='기업 세부 일정', exact=True).click(); pg.wait_for_timeout(300)
+    st = pg.evaluate(f"""() => ({{ same: document.querySelector('.kc-chip[data-chip="detail"]') === window.__chip, toggles: document.querySelectorAll('.kc-dmore').length,
+      sub: (document.querySelector('.kc-day[data-day="{td}"] .kc-subh') || {{}}).textContent || '', saved: JSON.parse(localStorage.getItem('khm.cal') || '{{}}').detail }})""")
+    rows = day_rows(td)
+    check('390: 기업 세부 일정 chip shows all details (heading, no toggles), saved, chip kept in place', st['same'] and st['toggles'] == 0 and '4개' in st['sub'] and st['saved'] is True
+          and any('가나상사' in r for r in rows), st)
+    pg.get_by_role('button', name='★★ 이상만').click(); pg.wait_for_timeout(250)
+    check('390: ★★ 이상만 still hides details (they are ★)', not any('가나상사' in r for r in day_rows(td)))
+    pg.get_by_role('button', name='★★ 이상만').click(); pg.wait_for_timeout(200)
+    pg.get_by_role('button', name='기업 세부 일정', exact=True).click(); pg.wait_for_timeout(250)
+    check('390: chip off → hidden again', not any('가나상사' in r for r in day_rows(td)) and pg.locator('.kc-dmore').count() >= 1)
+
+
 def phone(br, w, h):
     E = []
     ctx, pg = open_page(br, LIVE + '#cal', w, h, E, watch=['005930'])
@@ -117,6 +176,8 @@ def phone(br, w, h):
         check(f'{w}: console errors 0', not E, E[:3])
         ctx.close()
         return
+    check_groups('390', pg.evaluate(GROUPS_JS, '.kc-phone'))
+    details(pg)
     rows = pg.evaluate(ROWS_JS)
     check('390: weekly expiries hidden by default', not any('위클리' in r for r in rows))
     check('390: 관심 badge on the watched stock', pg.locator('.kc-ev:has-text("삼성전자") .kc-watch').count() == 1)
@@ -134,7 +195,7 @@ def phone(br, w, h):
     check('390: ★★ 이상만 hides ★ rows', n > 0 and s1 == 0, f'{n} rows, {s1} ★')
     pg.get_by_role('button', name='★★ 이상만').click(); pg.wait_for_timeout(250)
     # detail sheet
-    row = pg.locator('.kc-ev:has-text("SK하이닉스")').first
+    row = pg.locator('.kc-ev:has-text("보호예수 해제 2,150만")').first
     rid = row.get_attribute('data-id')
     row.click(); pg.wait_for_timeout(450)
     d = pg.evaluate("() => { const g = document.querySelector('dialog.kc-dlg'); return g && { open: g.open, t: g.textContent, focus: document.activeElement.className } }")
@@ -145,6 +206,12 @@ def phone(br, w, h):
     pg.locator('.kc-ev:has-text("배당 기준일")').first.click(); pg.wait_for_timeout(450)
     codes = pg.locator('dialog.kc-dlg .kc-codes button').count()
     check('390: group row lists its 15 stocks', codes == 15, codes)
+    bad = [pg.evaluate(NULL_JS)]
+    for sel in ('.kc-ev:has-text("FOMC")', '.kc-ev:has-text("삼성전자")', '.kc-ev:has-text("보호예수")'):
+        pg.keyboard.press('Escape'); pg.wait_for_timeout(350)
+        if pg.locator(sel).count():
+            pg.locator(sel).first.click(); pg.wait_for_timeout(400); bad.append(pg.evaluate(NULL_JS))
+    check('390: no "null" / "undefined" text in the detail dialog (group · FOMC · DART · 보호예수)', not any(bad), [b for b in bad if b][:2])
     if SHOTS:
         SHOT_DIR.mkdir(parents=True, exist_ok=True)
         pg.screenshot(path=str(SHOT_DIR / '390_sheet.png'))
@@ -156,6 +223,11 @@ def phone(br, w, h):
     h1 = head()
     pg.get_by_role('button', name='오늘', exact=True).click(); pg.wait_for_timeout(300)
     check('390: next week / 오늘', h1 != h0 and head() == h0, f'{h0} → {h1}')
+    nx = pg.locator('[data-next]')
+    nx.scroll_into_view_if_needed(); nx.click(); pg.wait_for_timeout(400)
+    st = pg.evaluate("() => ({ focus: !!document.activeElement.dataset.next, top: document.querySelector('.kc-hd').getBoundingClientRect().top, head: document.querySelector('.kc-hd h2').textContent })")
+    check('390: 다음 7일 보기 → next week, the week back in view, focus kept on the key', st['focus'] and st['top'] >= 0 and st['head'] != h0, st)
+    pg.get_by_role('button', name='오늘', exact=True).click(); pg.wait_for_timeout(300)
     pg.locator('.kc-wk button[aria-pressed="true"]').focus()
     before = pg.locator('.kc-wk button[aria-pressed="true"]').get_attribute('data-d')
     pg.keyboard.press('ArrowLeft'); pg.wait_for_timeout(300)
@@ -185,6 +257,9 @@ def desktop(br):
     if SHOTS:
         SHOT_DIR.mkdir(parents=True, exist_ok=True)
         pg.screenshot(path=str(SHOT_DIR / '1440.png'))
+    check_groups('1440 side', pg.evaluate(GROUPS_JS, '.kc-side'))
+    lines = pg.evaluate("() => [...document.querySelectorAll('.kc-mg .cell')].map(c => [...c.querySelectorAll('.line')].map(l => l.dataset.rg))")
+    check('1440: month cells list 미국 lines first', all(x == sorted(x, key=lambda r: r != 'us') for x in lines) and any('us' in x and 'kr' in x for x in lines), [x for x in lines if x][:4])
     cell = pg.locator('.kc-mg .cell:not(.out)').nth(20)
     d = cell.get_attribute('data-d')
     cell.click(); pg.wait_for_timeout(300)
@@ -200,6 +275,79 @@ def desktop(br):
     check('1440: detail opens as a floating panel', r['open'] and r['w'] < 700 and r['bottom'] > 40, r)
     pg.keyboard.press('Escape'); pg.wait_for_timeout(400)
     check('1440: console errors 0', not E, E[:3])
+    ctx.close()
+
+
+CHIP_JS = r"""async () => {
+  const chip = document.querySelector('.kc-chip[data-chip="weekly"]'), nb = document.querySelector('.kc-chip[data-chip="detail"]'), ck = chip.querySelector('.kck');
+  const w0 = chip.getBoundingClientRect().width, x0 = nb.getBoundingClientRect().left;
+  chip.click();
+  const same = document.querySelector('.kc-chip[data-chip="weekly"]') === chip;
+  const anims = chip.getAnimations({ subtree: true }).map(a => a.transitionProperty || a.animationName);
+  const op = +getComputedStyle(ck).opacity;
+  await new Promise(r => setTimeout(r, 800));
+  const out = { same, anims, op, op1: +getComputedStyle(ck).opacity, dw: Math.abs(chip.getBoundingClientRect().width - w0), dx: Math.abs(nb.getBoundingClientRect().left - x0), on: chip.getAttribute('aria-pressed') };
+  chip.click(); await new Promise(r => setTimeout(r, 500));
+  return out;
+}"""
+IND_JS = r"""async () => {
+  const wk = document.querySelector('.kc-wk'), ind = wk.querySelector('.kc-ind');
+  const to = [...wk.querySelectorAll('button')].find(b => b.getAttribute('aria-pressed') !== 'true');
+  to.click();
+  const want = `translateX(${to.offsetLeft}px)`, now = ind.style.transform;
+  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+  const mid = ind.style.transform;
+  await new Promise(r => setTimeout(r, 900));
+  return { want, now, mid, end: ind.style.transform, w: Math.abs(parseFloat(ind.style.width) - to.offsetWidth) };
+}"""
+DLG_JS = r"""async () => {
+  document.querySelector('#calendar .kc-ev').click();
+  await new Promise(r => setTimeout(r, 60));
+  const g = document.querySelector('dialog.kc-dlg'), opening = g.getAnimations().length;
+  await new Promise(r => setTimeout(r, 600));
+  g.querySelector('.kc-x').click();
+  await new Promise(r => setTimeout(r, 40));
+  const closing = g.getAnimations().length, stillOpen = g.open;
+  await new Promise(r => setTimeout(r, 500));
+  return { opening, closing, stillOpen, closed: !g.open };
+}"""
+
+
+def motion(br):
+    """design.md §6 · §7 chips, the week strip marker, the detail sheet: moving in 화려하게 (default), instant in 줄이기."""
+    for mo in ('fancy', 'reduced'):
+        E = []
+        ctx, pg = open_page(br, LIVE + '#cal', 390, 844, E, motion=mo)
+        ready(pg)
+        c = pg.evaluate(CHIP_JS)
+        if mo == 'fancy':
+            check('fancy: chip toggles in place and animates (check · label · fill transitions)', c['same'] and c['on'] == 'true' and len(c['anims']) >= 2 and c['op'] < 0.5 and c['op1'] == 1, c)
+        else:
+            check('reduced: chip toggles at once (no transition)', c['same'] and c['on'] == 'true' and not c['anims'] and c['op'] == 1, c)
+        check(f'{mo}: a chip keeps its width and its neighbours stay put', c['dw'] < 0.6 and c['dx'] < 0.6, (c['dw'], c['dx']))
+        i = pg.evaluate(IND_JS)
+        if mo == 'fancy':
+            check('fancy: week marker rides the springs to the new day', i['mid'] != i['want'] and i['end'] == i['want'] and i['w'] < 1, i)
+        else:
+            check('reduced: week marker jumps to the new day', i['now'] == i['want'] and i['end'] == i['want'], i)
+        d = pg.evaluate(DLG_JS)
+        if mo == 'fancy':
+            check('fancy: detail sheet opens and closes with a transition', d['opening'] > 0 and d['closing'] > 0 and d['stillOpen'] and d['closed'], d)
+        else:
+            check('reduced: detail sheet opens and closes at once', d['opening'] == 0 and not d['stillOpen'] and d['closed'], d)
+        check(f'{mo}: console errors 0', not E, E[:3])
+        ctx.close()
+    # press: 1px down at once (desktop mouse)
+    E = []
+    ctx, pg = open_page(br, LIVE + '#cal', 1440, 900, E, motion='fancy')
+    ready(pg)
+    b = pg.locator('.kc-chip[data-chip="hi"]').bounding_box()
+    pg.mouse.move(b['x'] + b['width'] / 2, b['y'] + b['height'] / 2); pg.mouse.down()
+    t = pg.evaluate("() => getComputedStyle(document.querySelector('.kc-chip[data-chip=\"hi\"]')).transform")
+    pg.mouse.up(); pg.wait_for_timeout(400)
+    check('1440 fancy: a chip sinks 1px while pressed', t.replace(' ', '') == 'matrix(1,0,0,1,0,1)', t)
+    pg.locator('.kc-chip[data-chip="hi"]').click(); pg.wait_for_timeout(300)
+    check('1440 fancy: console errors 0', not E, E[:3])
     ctx.close()
 
 
@@ -269,6 +417,7 @@ def main():
             phone(br, 360, 740)
             phone(br, 768, 1024)
             desktop(br)
+            motion(br)
             states(br)
             snapshot(br)
             br.close()
