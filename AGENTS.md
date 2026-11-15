@@ -159,7 +159,7 @@ python3 tmp/shot.py /home/claude/heatmap/dist/index.html    # 1440×900 / 390×8
 | 파일 | 모양 | 용도 |
 |---|---|---|
 | `web/names.json` | `{asOf, n:{코드:[종목명, 'K'\|'Q']}}` 우선주 포함 전 종목 | 실시간 검색이 스트림 밖 종목(우선주 등)도 찾게. `KH.loadData('names')` |
-| `web/close.json` | `{date:'YYYY-MM-DD', asOf, c:{코드:[종가, 전일대비, 등락률]}}` KRX 15:30 종가(스냅샷이 고정한 값), 전 종목 | 장 마감 뒤 실시간 지도를 "정규장 종가"로 볼 수 있게. 스냅샷이 15:30 고정이 아니면 만들지 않아요. `KH.loadData('close')` |
+| `web/close.json` | `{date:'YYYY-MM-DD', asOf, lim:true, c:{코드:[종가, 전일대비, 등락률, lim?]}}` KRX 15:30 종가(스냅샷이 고정한 값), 전 종목. 네 번째 `lim`은 상한가 1 · 하한가 −1일 때만(스냅샷의 `lim` 그대로, §3-34 ⑤) — `lim:true`가 "행이 표시를 싣는다"는 뜻이라 없는 행은 0, 키가 없는 옛 파일만 ±29.5% 어림 | 장 마감 뒤 실시간 지도를 "정규장 종가"로 볼 수 있게. 스냅샷이 15:30 고정이 아니면 만들지 않아요. `KH.loadData('close')` |
 - 스냅샷(`dist/`)은 d3를 HTML 안에 넣어요(네트워크 없이 열려도 지도가 그려져야 해요). 실시간 버전은 cdnjs 그대로.
 - Worker는 `/data/names.json`, `/data/close.json`도 `web/`에서 그대로 내줘요(10분 캐시, 없으면 404).
 
@@ -575,6 +575,9 @@ python3 tmp/shot.py /home/claude/heatmap/dist/index.html    # 1440×900 / 390×8
 
 ## 3-34. 오늘의 시장 요약 카드 결정 (시안 `docs/standards/market-summary.md`, 사용자 2026-11-15 18:00 "1. b자리에 원래 a모양이었다가 상세 누르면 b모양 자세히 나오게 2~5. 추천대로")
 - ① **자리는 B**(휴대폰: 지도 바로 아래 · 뉴스 카드 앞, PC: 옆 칸 맨 위) — 지도는 움직이지 않아요. **접힌 모양은 A의 짧은 띠**(한 줄 요약 + 오른/내린 막대·수 + 강한/약한 업종), **"자세히"를 누르면 B의 표 + 펼친 내용**이 그 자리에서 자라요(design.md §7 · `open`/`close` 스프링, 글자 바꿈 §6-4). ② "글로 복사"(카톡 등에 붙여 넣는 글)를 펼친 끝에도 ③ 외국인 · 기관 수급 줄은 장중에도 전 거래일 값 + 날짜 ④ 20일 평균이 쌓일 때까지 "거래 급증" 대신 "거래대금 상위" ⑤ 상 · 하한가 수는 어림(±29.5%) 대신 실제 표시로 — 빌드가 `web/close.json` 행에 `lim`을 넣어요(§3-3 계약 갱신).
+- **구현 (`feat/market-summary`, 규칙 문서 `docs/standards/market-summary.md` — 결정 · 구현)**: 모듈 `src/summary/summary.js · summary.css`(빌드: `live` 다음, 맨 끝), 모두에게 켜짐(스위치 없음). 자리는 JS가 넣어요 — 휴대폰 `main.layout`의 `#news` 앞, 태블릿 `.side` 첫 칸(`grid-column: 1 / -1`), PC `.side` 첫 칸. **늘 접힘으로 시작**(기억하지 않아요 — 펼치면 휴대폰 약 1,400px라 다음에 열 때 뉴스 · 등락 분포가 멀리 밀려 있지 않게). **움직임은 design-references-full §7**(오케스트레이터 2026-11-15): P8 ⓐ 카드 바탕 판(`.sm-skin`)만 `open` · `close` 스프링으로 자라고 줄며(길이는 크기 차이에 비례해 0.75~1.35배), 아래 내용은 **한 번에** 새 자리로 — 펼칠 땐 누르는 순간, 접을 땐 판이 다 줄어든 뒤(높이를 프레임마다 바꾸면 news.js `refit`이 프레임마다 뉴스를 다시 그려 PC 프레임이 0.4~2초였어요), 표 글자는 판 25% 뒤 · P3 순차는 세션 첫 펼침만(≤ 300ms, 40 → 30 → 20ms), 접을 땐 다 함께 · P9 띠 숫자는 오르면 아래에서 · 내리면 위에서 · P10 자리별 굴림 없음 · P11 글로 복사는 크기 그대로 아이콘 교차(복사 → ✓, `fade`) + 글자 바꿈, `isTrusted`만. 끝 줄 `[글로 복사] [접기]`. 데이터는 이미 있는 것만(`KH.index · stocks · quote · loadData('close' · 'names' · 'flows' · 'themes') · disclosures`, `/api/breadth · themes · market · world · news`), 카드가 화면 근처에 오면 받아요 — **`/api/news`만은 ⌄ 키에 손이 갈 때(올림 · 포커스 · 누름)부터**(뉴스 카드와 겹친 요청 0), 처음 누를 때 아직 오는 중이면 꺾쇠만 먼저 돌고 판은 최대 450ms 기다렸다 한 번에 자라요. `window.KHSummary = {phase, model, plain, isOpen, moving, open, close, refresh}`, 점검용 주소 `?summary_phase=pre|open|after|closed`(글자만).
+  - 템플릿 두 군데: `norm()` 행에 **`limf`**(원천 상 · 하한가 표시만 — `lim`엔 ±29.5% 어림이 섞여 있어요), close.json 읽기에 `CLOSE.lim`(등락 분포 카드도 네 번째 칸을 써요). 빌드: `web/close.json` 행 네 번째 `lim`(§3-3). 점검 `qa/summary/test_summary.py`(포트 8981 · 8982, 지도 상자 = `main` 빌드 비교 포함).
+  - 요청: 템플릿 `--live`를 앰버 밖 색으로(design.md §2 — 장중 점이 아직 앰버) · 요약이 따로 받는 `/api/breadth` · `/api/news` · `/api/market`을 나눠 쓸 연결점(`KH.breadth()` · `KHNews.items()` · `KH.marketItems()`).
 
 ## 3-32. 공공데이터포털 API (사용자 2026-11-15 17:16 신청 목록 15개 → 17:21 "추천대로하고 추가적으로 7번만 다음에 고려해보자")
 - 키: 공공데이터포털 키 하나로 승인된 API를 모두 써요 — **Worker 비밀값 `DATA_GO_KR_KEY`**(§3-27 끝). 금융위원회 API는 **실시간이 아니고 하루 한 번**, 대부분 **다음 영업일 13시 이후**(금요일 자료는 월요일), 기업재무 · 기업기본 · 금투협 통계는 당일 13시 이후 — 하루 한 번 받아 KV에 두고 써요.

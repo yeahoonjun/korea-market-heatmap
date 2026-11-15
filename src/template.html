@@ -2146,7 +2146,7 @@ const INDUSTRY = new Map(SNAP.stocks.map(s => [s.c, [s.s || '기타', s.i || '�
 let DATA = null;
 const EXTRA = new Map();     // live: rows from /api/quotes?codes= for theme members / watched codes outside the main stream
 let REPLAY = null;           // {t, date, prices: Map(code → {p, r})}
-let CLOSE = null;            // live: close.json {date, asOf, c:{code:[p, d, r]}, hm:'1530'} — KRX regular-session closes
+let CLOSE = null;            // live: close.json {date, asOf, c:{code:[p, d, r, lim?]}, hm:'1530', lim} — KRX regular-session closes (lim: rows carry 상·하한가)
 let VER = 0;                 // bumps whenever quotes, replay, the price basis or daily data change
 const OV = new Map();
 function bump() { VER++; OV.clear(); }
@@ -2335,6 +2335,8 @@ function norm(x, asMs = NaN) {
     cap: +x.cap || 0, p: +x.p || 0, d: +x.d || 0, r: +x.r || 0, tv: +x.tv || 0, v: +x.v || 0,
     // 상/하한가: the row's flag, or |r| ≥ 29.5 when the row has none (the limit is ±30 % rounded to the tick)
     lim: x.lim === 1 || x.lim === -1 ? x.lim : Math.abs(+x.r || 0) >= 29.5 ? Math.sign(+x.r) : 0,
+    // limf: the source's own flag only (no guess) — 시장 요약 카드가 상 · 하한가 수를 셀 때 (AGENTS §3-34 ⑤)
+    limf: x.lim === 1 || x.lim === -1 ? x.lim : 0,
     // KRX trade time of the row (ms) when the Worker sends one (t), for 통합; ts: freshness in the quote store (t, else the answer's asOf)
     tm: x.t ? Date.parse(x.t) : NaN, ts: rowTs(x, asMs),
     // §3-13 today's KRX open / high / low (none before the first trade)
@@ -4451,7 +4453,8 @@ function distPool() {
       if (!nm || (state.market !== 'ALL' && nm[1] !== state.market)) continue;
       const x = CLOSE.c[c], p = +x[0], r = +x[2] || 0;
       if (!(p > 0)) continue;
-      list.push({ c, n: nm[0], m: nm[1], p, d: +x[1] || 0, r, cap: 0, tv: 0, lim: Math.abs(r) >= 29.5 ? Math.sign(r) : 0 });
+      // lim: close.json rows carry it since §3-34 ⑤ ("lim": true — [p, d, r, 1|−1]); an older file: the ±29.5 % guess
+      list.push({ c, n: nm[0], m: nm[1], p, d: +x[1] || 0, r, cap: 0, tv: 0, lim: CLOSE.lim ? (x[3] === 1 || x[3] === -1 ? x[3] : 0) : Math.abs(r) >= 29.5 ? Math.sign(r) : 0 });
     }
     return { list, scope: k === 'day' ? 'all' : 'data', label };
   }
@@ -5722,7 +5725,7 @@ async function loadClose(fresh) {
   closeLoad.busy = false;
   if (j && j.c && typeof j.c === 'object' && /^\d{4}-\d\d-\d\d$/.test(j.date || '')) {
     const k = kst(j.asOf);
-    CLOSE = { date: j.date, asOf: j.asOf || `${j.date}T15:30:00+09:00`, c: j.c, hm: k && k.date === j.date ? k.hm : '1530' };
+    CLOSE = { date: j.date, asOf: j.asOf || `${j.date}T15:30:00+09:00`, c: j.c, hm: k && k.date === j.date ? k.hm : '1530', lim: j.lim === true };
   }
   if (syncBasis()) { snapShown(); renderAll(); refreshOpenViews(); }
   emitBasis();
