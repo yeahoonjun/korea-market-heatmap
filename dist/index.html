@@ -667,17 +667,26 @@ html[data-motion="fancy"] .tile .dm.pop{animation:dmIn var(--c-base) var(--c-out
 .map.anim .tile{transition:opacity .3s,background-color .6s,filter .2s}
 .tile{transition:filter .2s}
 .tile.flash-up::after,.tile.flash-dn::after{content:"";position:absolute;inset:0;pointer-events:none;animation:flash .9s ease-out}
-/* the tick flash (design.md §10-3, ux/std-template): a flat ring in the tick's colour — no wash, no inner glow — in every theme and
-   effect level; 기본 fades it out once (.9 s), 화려하게 rises and fades (below, JS-driven). Short side < 24px → 1px */
-.tile.flash-up::after{box-shadow:inset 0 0 0 2px var(--up-text)}
-.tile.flash-dn::after{box-shadow:inset 0 0 0 2px var(--dn-text)}
+/* the tick flash (design.md §10-3, 2+4 — 사용자 2026-11-16 01:43 "2+4로 진행"): ② a faint brightness pulse of the whole tile on ::after
+   (dark tone: up = a light wash, down = a dark wash; light tone: a faint dark wash both ways — a light wash vanishes on pale tiles),
+   under the label (.lab z 1), so small tiles without a number still show "moved"; ④ the direction lives on the number: the % (.pc; not the price — one pill, not two) gets
+   a pill of the page colour with the number in --up-text / --dn-text for --m-flash, then fade back. 기본 fades the wash once (.9 s),
+   화려하게 rises and fades (JS-driven, below). Opacity on ::after only; the pill is one small paint per moved tile (≤ 60 at once). */
+:root{--fl-wu:rgba(255,255,255,.16);--fl-wd:rgba(0,0,0,.2);--fl-chip:color-mix(in srgb,var(--page) 84%,transparent)}
+html[data-tone="light"]{--fl-wu:color-mix(in srgb,var(--shc) 9%,transparent);--fl-wd:color-mix(in srgb,var(--shc) 9%,transparent)}
+.tile .lab{position:relative;z-index:1}
+.tile:is(.flash-up,.fl-u)::after{background:var(--fl-wu)}
+.tile:is(.flash-dn,.fl-d)::after{background:var(--fl-wd)}
 @keyframes flash{from{opacity:1}to{opacity:0}}
-/* 화려하게 (motion-brief a): the same tick-direction ring on ::after, only its opacity animates (JS drives it) */
-.tile.fl-u::after,.tile.fl-d::after{content:"";position:absolute;inset:0;pointer-events:none;opacity:0;z-index:2}
-.tile.fl-u::after{box-shadow:inset 0 0 0 2px var(--up-text)}
-.tile.fl-d::after{box-shadow:inset 0 0 0 2px var(--dn-text)}
-.tile.fl-sm:is(.fl-u,.flash-up)::after{box-shadow:inset 0 0 0 1px var(--up-text)}
-.tile.fl-sm:is(.fl-d,.flash-dn)::after{box-shadow:inset 0 0 0 1px var(--dn-text)}
+/* 화려하게 (motion-brief a): the same wash on ::after, only its opacity animates (JS drives it) */
+.tile.fl-u::after,.tile.fl-d::after{content:"";position:absolute;inset:0;pointer-events:none;opacity:0}
+.tile .pc{padding:0 3px;margin-inline:-3px;border-radius:var(--r-mark)}
+.tile.flash-up .pc{animation:fl-nu var(--m-flash) var(--m-out)}
+.tile.flash-dn .pc{animation:fl-nd var(--m-flash) var(--m-out)}
+.tile.fl-u .pc{animation:fl-nu var(--m-flash) var(--m-out) var(--dl,0ms)}
+.tile.fl-d .pc{animation:fl-nd var(--m-flash) var(--m-out) var(--dl,0ms)}
+@keyframes fl-nu{0%,18%{background-color:var(--fl-chip);color:var(--up-text);opacity:1}100%{background-color:transparent}}
+@keyframes fl-nd{0%,18%{background-color:var(--fl-chip);color:var(--dn-text);opacity:1}100%{background-color:transparent}}
 .tile.fl-css::after{animation:fx-flash var(--m-flash) var(--m-out) var(--dl,0ms)}
 @keyframes fx-flash{0%{opacity:0}12%{opacity:1}100%{opacity:0}}
 /* 화려하게 (motion-brief c): first entry, once per session — tiles open sector by sector (--dl per node), ≤ 700 ms in all */
@@ -1073,7 +1082,8 @@ html[data-motion="fancy"] .status.live .dot.beat{animation:pulse 1.2s var(--m-ou
 /* 효과 '줄이기' (KH.motion() 'reduced': the device's reduced-motion setting, or the user's pick) turns transitions and flashes off */
 html[data-motion="reduced"] .map.anim .node,html[data-motion="reduced"] .map.anim .tile{transition:none}
 html[data-motion="reduced"] .status.live .dot{animation:none}
-html[data-motion="reduced"] .tile.flash-up::after,html[data-motion="reduced"] .tile.flash-dn::after{animation:none}
+html[data-motion="reduced"] .tile.flash-up::after,html[data-motion="reduced"] .tile.flash-dn::after{animation:none;opacity:0}
+html[data-motion="reduced"] .tile .pc{animation:none}
 /* ───────────────── living controls (docs/standards/controls.md, V1 입체): shared parts ─────────────────
    KH.ui.seg moves one raised indicator per segment / tab row (leading edge --sp-lead, trailing --sp-trail); press = 1px down, shorter
    shadow, darker (0 ms down, --c-fast up); labels swap in place; 44 px hit areas on touch screens. Other modules may reuse these. */
@@ -3403,7 +3413,7 @@ function finishIntro() {
 }
 // (the header indices' count-up on the first entry went with design.md §6-2 P4 — data does not move on the first paint, ux/std-template)
 
-/* tick flashes: a ring in the tick's direction (vs the previous quote, not the day's sign) on ::after, opacity only, ≤ 60 at once
+/* tick flashes (2+4): a faint wash + the number's pill in the tick's direction (vs the previous quote, not the day's sign) on ::after, opacity only, ≤ 60 at once
    (biggest |Δp/p| × area first), each delayed 0–200 ms by a hash of the code so a poll does not blink all at once */
 const FLASH_MAX = 60;
 const PSEUDO_ANIM = typeof KeyframeEffect !== 'undefined' && 'pseudoElement' in KeyframeEffect.prototype;
@@ -3413,11 +3423,12 @@ const codeDelay = c => { let x = 0; for (let i = 0; i < c.length; i++) x = (x * 
 const FLASH_KF = [{ opacity: 0, offset: 0, easing: FLIP_EASE }, { opacity: 1, offset: 0.12, easing: FLIP_EASE }, { opacity: 0, offset: 1 }];
 // all class writes first, then the animations (an ::after animation reads style: interleaving would recalc once per tile)
 function flashTiles(list) {
-  for (const [el, dir] of list) {
+  for (const [el, dir, delay] of list) {
     if (el.__fl) { const o = el.__fl; el.__fl = null; o.cancel(); }
     el.classList.remove('fl-u', 'fl-d', 'fl-css');
     el.classList.add(dir > 0 ? 'fl-u' : 'fl-d');
     el.classList.toggle('fl-sm', Math.min(el.__g[2], el.__g[3]) < 24);
+    el.style.setProperty('--dl', delay + 'ms');   // the number pill (CSS) waits as long as the wash (WAAPI)
     flashing.add(el);
   }
   if (!PSEUDO_ANIM) {

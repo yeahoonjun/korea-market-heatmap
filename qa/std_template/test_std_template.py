@@ -10,7 +10,7 @@ audit  static, src/template.html's <style>: no radial gradient; a linear gradien
 page   the live build (web/) behind qa/float/mock_float.py on STD_QA_PORT (default 9020; 9020–9029 only): four themes × 390 · 768 · 1280 ·
        1440 — map top (390 247 · 768 250 · 1280+ 207), no element wider than the screen, console errors 0; --live / --fail-dot computed
        per theme (≥ 30° of hue from the amber and the new-filing blue, ≥ 3:1 on the page); the live dot and the 실시간 badge in --live;
-       the error "!" in --fail-dot; a tick flash is a flat ring (no blur).
+       the error "!" in --fail-dot; a tick flash is a flat wash + the number's pill (no ring, no blur).
 cap    시총순 지도 (AGENTS §3-36): the 묶음 option only on 코스피 · 코스닥 · 전체 (표시 설정 sheet < 1280, 화면 popover ≥ 1280), saved as
        khm.groupBy; in 시총순 no sector / industry node (DOM and KH.layout()), the first tiles in reading order have the biggest caps
        (and keep the cap order when 크기 = 거래대금), labels inside their tiles, search highlight · tooltip · quick view work, no
@@ -229,9 +229,13 @@ def page(br):
                   s.classList.remove('err'); return { live, err }; }""")
                 check(f'page [{theme}]: live dot and 실시간 badge in --live (no glow ring), error dot = "!" in --fail-dot',
                       st['live']['dot'] == t['live'] and st['live']['badge'] == t['live'] and st['live']['sh'] in ('none', '') and st['err']['mark'] == '"!"' and st['err']['col'] == t['fail'], st)
-                fl = pg.evaluate("""() => { const el = document.querySelector('#map .tile'); el.classList.add('flash-up'); const a = getComputedStyle(el, '::after').boxShadow; el.classList.remove('flash-up');
-                  el.classList.add('fl-d'); const b = getComputedStyle(el, '::after').boxShadow; el.classList.remove('fl-d'); return [a, b]; }""")
-                check(f'page [{theme}]: tick flash = a flat 2px ring (기본 · 화려하게), no blur', all(re.fullmatch(r'rgb\([^)]*\) 0px 0px 0px 2px inset', x) for x in fl), fl)
+                fl = pg.evaluate("""() => { const el = document.querySelector('#map .tile'), out = [];
+                  for (const k of ['flash-up', 'fl-d']) { el.classList.add(k); const a = getComputedStyle(el, '::after'), n = el.querySelector('.pc');
+                    out.push({ sh: a.boxShadow, bg: a.backgroundColor, num: n ? getComputedStyle(n).animationName : '' }); el.classList.remove(k); }
+                  return out; }""")
+                check(f'page [{theme}]: tick flash = 2+4 — a flat wash on ::after (no ring, no blur) + the number pill (기본 · 화려하게)',
+                      all(x['sh'] in ('none', '') and x['bg'] not in ('rgba(0, 0, 0, 0)', 'transparent') for x in fl)
+                      and [x['num'] for x in fl] == ['fl-nu', 'fl-nd'], fl)
             ctx.close()
     motion(br)
 
