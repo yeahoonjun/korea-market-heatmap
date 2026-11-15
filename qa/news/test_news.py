@@ -302,7 +302,7 @@ def run(br):
     mode('slow')
     ctx, pg = open_page(br, LIVE, 1280, 800)
     pg.wait_for_timeout(200)
-    l = pg.evaluate("() => ({ sk: document.querySelectorAll('#news .nw-row.skel').length, at: document.querySelector('#news .nw-at').textContent, dis: [...document.querySelectorAll('#news .nw-tabs button, #news .nw-only:not(.dc-only)')].every(b => b.getAttribute('aria-disabled') === 'true'), h: document.getElementById('news').offsetHeight })")
+    l = pg.evaluate("() => ({ sk: document.querySelectorAll('#news .nw-row.skel').length, at: document.querySelector('#news .nw-at').textContent, dis: [...document.querySelectorAll('#news .nw-tabs button, #news .nw-only:not(.dc-only):not(.dc-lit)')].every(b => b.getAttribute('aria-disabled') === 'true'), h: document.getElementById('news').offsetHeight })")
     pg.wait_for_selector('#news .nw-row:not(.skel)', timeout=8000); pg.wait_for_timeout(200)
     h2 = pg.evaluate("document.getElementById('news').offsetHeight")
     check('loading: skeleton rows, "불러오는 중", tabs + chip off, same card height after', l['sk'] >= 5 and l['at'] == '불러오는 중' and l['dis'] and l['h'] == h2, f'{l} → {h2}')

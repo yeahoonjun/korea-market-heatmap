@@ -29,12 +29,15 @@
 //                                        never throws — each outcome goes to console + KV replay:status (cron weekdays must be MON-FRI: 1 = Sunday on Cloudflare)
 //   GET /api/health                    → {ok:true}
 //   GET /api/time                      → {t: server ms} (no-store; the page clock's offset, §3-17)
+//   GET /api/policy                    → 정책 자료: KDI 경제정책자료 RSS + 행정안전부 관보 목록 (policy.js; key = secret DATA_GO_KR_KEY)
 //   GET /api/live (WebSocket), /api/live/state → 실시간 갱신 hub (Durable Object MarketHub, live.js; docs/standards/realtime.md):
 //                                        top 300 × 2 every LIVE_POLL_MS in the regular session, budget-guarded to stay inside the $5 plan
 // Contract: AGENTS.md §3, sources and pitfalls: data/ENDPOINTS_DETAIL.md.
 // The Worker has no build-generated modules: page and stock universe come from ASSET_BASE.
 
 import { MarketHub, liveRoute, configureLive, configureRelay, relayNews } from './live.js';
+import { policyRoute } from './policy.js';   // 정책 자료: KDI RSS + 관보 API (docs/standards/policy-feeds.md)
+import { datagoRoute } from './datago_routes.js';   // 공공데이터포털: /api/funds*, /api/datago/status (AGENTS §3-32, docs/standards/datago.md)
 import { calendarRoute } from './calendar.js';   // 증시 캘린더 /api/calendar (AGENTS §3-33, docs/standards/calendar.md)
 export { MarketHub };                // the Durable Object class (wrangler.toml [exports.MarketHub]) must be exported by the main module
 // the hub polls the same rows as /api/quotes (quotesCore is a hoisted function declaration below)
@@ -60,6 +63,7 @@ export default {
       if (path === '/api/health') return json({ ok: true });
       if (path === '/api/live' || path === '/api/live/state') return await liveRoute(request, env, ctx, url);   // 실시간 갱신 (live.js)
       if (path === '/api/time') return json({ t: Date.now() });   // §3-17: server clock (ms) for the page clock's offset — never cached
+      if (path === '/api/funds' || path.startsWith('/api/funds/') || path === '/api/datago/status') return await datagoRoute(request, env, ctx, url);   // 증시 자금 · 상태
       if (path === '/api/quotes') {
         const raw = url.searchParams.get('codes'), scope = url.searchParams.get('scope');
         if (scope != null && scope !== 'all') return fail(400, 'scope는 all만 쓸 수 있어요');
@@ -120,6 +124,7 @@ export default {
         return await edgeCached(request, ctx, `replay1-${d || 'latest'}-${from}-${to}`, past ? 3600 : 60, () => getReplayMinutes(env, d, from, to));
       }
       if (path === '/api/news') return await getNewsRoute(request, env, ctx);   // 시장 뉴스 RSS (docs/standards/news.md §2-2)
+      if (path === '/api/policy') return await policyRoute(request, env, ctx);   // 정책 자료 (policy.js, AGENTS §3-2)
       if (path === '/api/calendar') return await calendarRoute(request, env, ctx, url);   // 증시 캘린더 (calendar.js)
       if (ASSETS[path]) return await getAsset(request, env, ctx, path);
       m = path.match(/^\/api\/chart\/([^/]+)$/);

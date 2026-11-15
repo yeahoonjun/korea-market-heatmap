@@ -134,6 +134,11 @@ html[data-theme="glass-light"] #world{--nodata:#e6e9ee}
 .kw-sec[data-g=fx] .kw-sh .t,.kw-sec[data-g=rates] .kw-sh .t{flex:none}
 .kw-sh .a.note{flex:0 1 auto;min-width:0;overflow:hidden}
 .kw-sh .a.note small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* 증시 자금 (AGENTS §3-32, docs/standards/datago.md §6): a day-old statistic — the state column is its business day (no 장중 / 마감
+   dot), the head says which day, and a source line closes the section. Tokens only (design.md §3–4). */
+.kw-sd[hidden]{display:none}
+.kw-sec[data-g=funds] .kw-sh .t{flex:none}
+.kw-fsrc{margin:0;padding:var(--space-3) var(--space-3) var(--space-1);font-size:var(--fs-xs);line-height:var(--lh-ui,1.25);color:var(--faint)}
 .kw-sum .kw-sumk{font-weight:600;color:var(--fg)}
 .kw-rows{display:flex;flex-direction:column}
 .kw-lr{display:grid;grid-template-columns:minmax(0,1fr) 64px var(--kw-vw,76px) var(--kw-cw,62px) 66px 48px;grid-template-areas:"n s v c p b";align-items:center;column-gap:8px;width:100%;min-height:36px;padding:0 6px;border-radius:6px;text-align:left;font-size:13.5px;line-height:1.25;color:var(--fg);box-shadow:inset 0 -1px 0 var(--row-bd,transparent)}
