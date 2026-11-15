@@ -2,12 +2,12 @@
    자리: PC · 태블릿은 옆 칸 맨 앞(태블릿은 한 줄 전체), 휴대폰은 지도 바로 다음 · 뉴스 카드 앞 — 지도는 움직이지 않아요.
    접힘(처음, 기억하지 않아요): 짧은 띠 — 장 단계 + 한 문장 / 오른 · 내린 막대 · 수 · 상한가 / 오른 업종 · 내린 업종.
    자세히: 그 자리에서 자라 표(지수 · 오른/내린 · 상/하한가 · 업종 · 외국인/기관 · 원/달러 · 미국) + 오늘 흐름 · 업종 · 테마 · 눈에 띄는 종목 ·
-   수급 · 환율 · 금리 · 해외 · 공시 · 뉴스 + 글로 복사. 모양은 KH.spring 'open' / 'close'(design.md §7) — 자리는 끝에 한 번만 바꿔요(아래 run),
-   글자는 §6-4(나감 100ms → 60ms 뒤 들어옴).
+   수급 · 환율 · 금리 · 해외 · 공시 · 뉴스 + 글로 복사. 모양은 카드 바탕 판만 KH.spring 'open' / 'close'로 자라고 줄어요(design.md §7,
+   design-references-full §7 P8 ⓐ) — 아래 내용은 한 번에 새 자리로(펼칠 땐 처음, 접을 땐 끝), 글자는 §6-4(나감 100ms → 60ms 뒤 들어옴).
    문장은 모두 규칙 템플릿(해요체)이에요 — LLM 호출 없음, 새 원천 없음, 조언 없음. 숫자는 지도 · 카드와 같은 저장소와 같은 파일을 써요.
    데이터: KH.index() · KH.stocks()/KH.quote() · 전 종목 등락(장 밖 close.json[lim 포함] + names.json, 장중 /api/breadth?m=K|Q) ·
    KH.loadData('flows' · 'themes' · 'names' · 'close') · /api/themes · /api/market · /api/world(index, commodity&with=fx,rates) ·
-   KH.disclosures() · /api/news — 카드가 화면 근처(300px)에 오면 받아요. 스냅샷(dist/)은 내장 데이터로, 해외 · 금리 · 공시 · 뉴스는 안내.
+   KH.disclosures() · /api/news — 카드가 화면 근처(300px)에 오면 받아요. /api/news만은 ⌄ 키에 손이 갈 때부터(뉴스 카드와 겹치지 않게). 스냅샷(dist/)은 내장 데이터로, 해외 · 금리 · 공시 · 뉴스는 안내.
    점검용: 주소 ?summary_phase=pre|open|after|closed 는 장 단계 글자만 바꿔요(데이터는 그대로, qa/summary). */
 (() => {
 'use strict';
@@ -82,14 +82,19 @@ async function getJSON(url, wait = 9000) {
   finally { clearTimeout(t); }
 }
 const fast = () => ['open', 'pre'].includes(phase());
-async function pull(slot, url, ttlFast, ttlSlow, force) {
-  if (!LIVE) return;
+// slot.p = 받는 중인 약속(처음 펼칠 때 잠깐 기다리려고) · 처음 온 값은 곧바로 그려요(장중 15초 간격을 기다리지 않게)
+function pull(slot, url, ttlFast, ttlSlow, force) {
+  if (!LIVE) return null;
   const ttl = fast() ? ttlFast : ttlSlow;
-  if (slot.busy || (!force && slot.at && Date.now() - slot.at < (slot.fail ? 60e3 : ttl))) return;
+  if (slot.busy || (!force && slot.at && Date.now() - slot.at < (slot.fail ? 60e3 : ttl))) return slot.p || null;
   slot.busy = true;
-  try { slot.j = await getJSON(url); slot.fail = false; } catch (e) { slot.fail = true; }
-  slot.busy = false; slot.at = Date.now();
-  schedule();
+  const had = !!slot.j;
+  slot.p = (async () => {
+    try { slot.j = await getJSON(url); slot.fail = false; } catch (e) { slot.fail = true; }
+    slot.busy = false; slot.at = Date.now(); slot.p = null;
+    schedule(!had);
+  })();
+  return slot.p;
 }
 async function names() {
   if (D.names) return D.names;
@@ -113,6 +118,7 @@ const flagOf = s => (s && (s.limf === 1 || s.limf === -1) ? s.limf : s && s.limf
 async function pullBreadth(force) {
   const b = D.brd;
   if (b.busy) return;
+  const had = !!b.src;
   const own = () => { const K = [], Q = []; for (const s of KH.stocks()) (s.m === 'Q' ? Q : K).push({ c: s.c, r: +s.r || 0, lim: flagOf(s) }); return { K, Q }; };
   if (!LIVE) { if (!b.src) Object.assign(b, own(), { src: 'snapshot', date: dataDay() }); return; }
   const ph = phase(), useClose = ph !== 'open' && !DEV_PHASE;
@@ -142,22 +148,26 @@ async function pullBreadth(force) {
     if (!b.src) Object.assign(b, own(), { src: 'stream', exact: true, date: dataDay() });   // the streamed 600 at least (labelled so)
   }
   b.busy = false; b.at = Date.now();
-  schedule();
+  schedule(!had);
 }
-// 카드가 화면 근처에 오면 전부 받아 둬요 — 펼칠 때 표가 한 번에 다 차게(받는 중 줄이 자라며 카드가 다시 늘어나지 않게). 엣지 캐시가 대부분 받아요
+// 카드가 화면 근처에 오면 받아 둬요 — 펼칠 때 표가 한 번에 다 차게("받는 중" 줄이 나중에 자라며 아래 내용이 또 밀리지 않게, P8 ⓐ).
+// /api/news만은 "자세히"에 손이 갈 때(올림 · 포커스 · 누름)부터 — 뉴스 카드도 같은 주소를 받아서, 펼치지 않는 사람에겐 겹친 요청 0
+let newsOn = false;
+const TABLE = ['themes', 'market', 'wIdx', 'wMac', 'news'];
 function refreshAll(force) {
   pullBreadth(force);
-  if (LIVE && phase() !== 'open' && !D.close) closeFile().then(() => schedule());
-  if (!D.flows) KH.loadData('flows').then(j => { if (j && j.f) { D.flows = j; schedule(); } });
-  if (!D.themesFile) KH.loadData('themes').then(j => { if (j && j.themes) { D.themesFile = j; schedule(); } });
-  if (LIVE) names().then(() => schedule());
-  if (!LIVE) { if (!D.market.j) KH.loadData('market').then(j => { if (j && j.items) { D.market.j = j; schedule(); } }); return; }
+  if (LIVE && phase() !== 'open' && !D.close) closeFile().then(() => schedule(true));
+  if (!D.flows) KH.loadData('flows').then(j => { if (j && j.f) { D.flows = j; schedule(true); } });
+  if (!D.themesFile) KH.loadData('themes').then(j => { if (j && j.themes) { D.themesFile = j; schedule(true); } });
+  if (LIVE) names().then(() => schedule(true));
+  if (!LIVE) { if (!D.market.j) KH.loadData('market').then(j => { if (j && j.items) { D.market.j = j; schedule(true); } }); return; }
   pull(D.themes, 'api/themes', 60e3, 300e3, force);
   pull(D.market, 'api/market', 60e3, 300e3, force);
   pull(D.wIdx, 'api/world?kind=index', 120e3, 600e3, force);
   pull(D.wMac, 'api/world?kind=commodity&with=fx,rates', 120e3, 600e3, force);
-  pull(D.news, 'api/news', 180e3, 180e3, force);
+  if (newsOn) pull(D.news, 'api/news', 180e3, 180e3, force);
 }
+function warm() { if (!newsOn && LIVE) { newsOn = true; pull(D.news, 'api/news', 180e3, 180e3, false); } }
 
 /* ───────── 계산 (DOM 없이) ───────── */
 // 장중: 지도와 같은 값(KH.quote — 고른 가격 기준). 장 밖: KRX 정규장 종가(close.json) — 지도가 NXT · 통합이어도 요약은 머리의 "… 종가 기준"과
@@ -344,18 +354,51 @@ const kk = t => h('span', { class: 'sm-k', text: t });
 const svgOf = (d, size) => { const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); for (const [k, v] of Object.entries({ viewBox: '0 0 24 24', width: size, height: size, fill: 'none', stroke: 'currentColor', 'stroke-width': '1.75', 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'aria-hidden': 'true' })) s.setAttribute(k, v); s.innerHTML = d; return s; };
 const chev = () => { const s = svgOf('<path d="m7 10 5 5 5-5"/>', 16); s.classList.add('sm-chev'); return s; };
 
-/* 접힌 띠: 오른 · 내린 막대 + 수 + 상한가 / 업종 오른 · 내린 (휴대폰 · PC 같은 두 줄, 넘치면 이름만 줄여요) */
+/* 접힌 띠: 오른 · 내린 막대 + 수 + 상한가 / 업종 오른 · 내린 (휴대폰 · PC 같은 두 줄, 넘치면 이름만 줄여요).
+   바뀐 칸만 바꾸게 칸마다 열쇠(data-k) — 숫자(data-num)는 방향 있게(커지면 아래에서 · 작아지면 위에서, P9), 이름은 위로 */
+const kn = (k, v, text) => h('span', { 'data-k': k, 'data-v': String(v), 'data-num': '', text });
 function band(M) {
   const B = M.br, phone = phoneMQ.matches;
-  const lim = B && (B.lu || B.ld) ? `상한가 ${B.lu}` + (B.ld && !phone ? ` · 하한가 ${B.ld}` : '') : '';
   const l1 = h('div', { class: 'sm-b1', title: B ? `코스피 · 코스닥 ${scopeText(B)}` : null },
     B ? bar(B) : null,
-    B ? h('b', { class: 'sm-n up', text: `상승 ${NF0.format(B.up)}` }) : later(LIVE ? '전 종목 등락을 받는 중…' : '—'),
-    B ? sep() : null, B ? h('b', { class: 'sm-n dn', text: `하락 ${NF0.format(B.dn)}` }) : null,
-    B && lim ? sep() : null, B && lim ? kk(lim) : null);
-  const ind = [M.indUp[0], M.indDn[0]].filter(Boolean);
-  const l2 = h('div', { class: 'sm-b2' }, ind.length ? kk('업종') : null, ...join(ind.map(x => nv(x.name, x.r))));
+    B ? h('b', { class: 'sm-n up' }, '상승 ', kn('up', B.up, NF0.format(B.up))) : later(LIVE ? '전 종목 등락을 받는 중…' : '—'),
+    B ? sep() : null, B ? h('b', { class: 'sm-n dn' }, '하락 ', kn('dn', B.dn, NF0.format(B.dn))) : null,
+    B && (B.lu || B.ld) ? sep() : null,
+    B && (B.lu || B.ld) ? h('span', { class: 'sm-k' }, '상한가 ', kn('lu', B.lu, String(B.lu)), B.ld && !phone ? ' · 하한가 ' : null, B.ld && !phone ? kn('ld', B.ld, String(B.ld)) : null) : null);
+  const ind = [['iu', M.indUp[0]], ['id', M.indDn[0]]].filter(x => x[1]);
+  const l2 = h('div', { class: 'sm-b2' }, ind.length ? kk('업종') : null, ...join(ind.map(([k, x]) => h('span', { class: 'sm-nv', title: x.name },
+    h('span', { class: 'sm-nm', 'data-k': k + 'n', text: x.name }), h('b', { class: 'sm-n ' + cls(x.r), 'data-k': k + 'v', 'data-v': String(x.r), 'data-num': '', text: pct(x.r) })))));
   return [l1, l2];
+}
+const bandShape = el => [...el.querySelectorAll('[data-k]')].map(x => x.dataset.k).join(',') + '|' + el.querySelectorAll('.sm-bar').length;
+function swapNum(el, text, dir) {
+  const cur = el.dataset.t != null ? el.dataset.t : el.textContent;
+  if (cur === text) return;
+  el.dataset.t = text;
+  clearTimeout(el._sw);
+  if (reduced() || document.hidden || !cur || !el.isConnected || el.closest('[hidden]')) { el.classList.remove('sm-sw', 'sm-swd'); el.textContent = text; return; }
+  el.classList.add('sm-sw'); el.classList.toggle('sm-swd', dir < 0);
+  el.replaceChildren(h('span', { class: 'o', 'aria-hidden': 'true', text: cur }), h('span', { class: 'n', text }));
+  el._sw = setTimeout(() => { if (el.dataset.t === text) { el.classList.remove('sm-sw', 'sm-swd'); el.textContent = text; } }, 400);
+}
+function drawBand(M) {
+  const fresh = band(M), cur = P.band, tmp = h('div', null, fresh);
+  if (!cur.firstChild || bandShape(cur) !== bandShape(tmp)) { put(cur, fresh); return; }
+  const ob = cur.querySelector('.sm-bar'), nb = tmp.querySelector('.sm-bar');
+  if (ob && nb) ob.replaceWith(nb);
+  const b1 = cur.querySelector('.sm-b1'), t1 = tmp.querySelector('.sm-b1');
+  if (b1 && t1) b1.title = t1.title;
+  for (const n of tmp.querySelectorAll('[data-k]')) {
+    const o = cur.querySelector(`[data-k="${n.dataset.k}"]`);
+    if (!o) continue;
+    const text = n.textContent;
+    if (n.dataset.num != null) {
+      const dir = Math.sign((+n.dataset.v || 0) - (+o.dataset.v || 0));
+      for (const c of ['up', 'dn', 'flat']) o.classList.toggle(c, n.classList.contains(c));
+      o.dataset.v = n.dataset.v;
+      swapNum(o, text, dir);
+    } else if (o.textContent !== text) { swapText(o, text); if (o.parentElement) o.parentElement.title = text; }
+  }
 }
 
 /* 펼친 표 — 한 줄에 사실 하나(라벨 | 값) */
@@ -369,8 +412,11 @@ function facts(M) {
   if (M.indUp[0]) f('indUp', '많이 오른 업종', null, nv(M.indUp[0].name, M.indUp[0].r));
   if (M.indDn[0]) f('indDn', '많이 내린 업종', null, nv(M.indDn[0].name, M.indDn[0].r));
   if (M.flows) f('flows', '외국인 · 기관', M.flows.today ? null : dayShort(M.flows.date), h('b', { class: 'sm-n ' + cls(M.flows.all[0], 0), text: amt(M.flows.all[0]) }), sep(), h('b', { class: 'sm-n ' + cls(M.flows.all[1], 0), text: amt(M.flows.all[1]) }));
+  const wait = LIVE && !M.macroFail ? later('받는 중…') : null;
   if (M.fx) f('fx', '원/달러', null, h('span', { class: 'sm-v', text: NF1.format(+M.fx.value) }), h('b', { class: 'sm-n ' + cls(+M.fx.change, 1), text: fxChg(M.fx) }));
+  else if (wait) f('fx', '원/달러', null, wait);
   if (M.us) f('us', M.us.label, null, ...join(M.us.items.slice(0, 2).map(x => nv(shortUS(x.name), x.r))));
+  else if (wait) f('us', '미국', null, later('받는 중…'));
   // 장 전에는 간밤 해외 · 환율이 먼저
   if (M.ph === 'pre') F.sort((a, b) => (['us', 'fx'].includes(b.key) ? 1 : 0) - (['us', 'fx'].includes(a.key) ? 1 : 0));
   return h('dl', { class: 'sm-facts' }, F.map(x => h('div', { class: 'sm-f sm-f-' + x.key },
@@ -463,9 +509,9 @@ async function copyText(text) {
 
 /* ───────── 카드 ───────── */
 let host = null, P = null, open = false;
-let mv = null, tOut = 0, tIn = 0, pending = false;
+let mv = null, tOut = 0, tIn = 0, hold = 0, pending = false;
 const reduced = () => motion() === 'reduced';
-const moving = () => !!mv || !!tOut;
+const moving = () => !!mv || !!tOut || !!hold;
 function place() {
   const side = document.querySelector('main.layout > .side'), lay = document.querySelector('main.layout'), news = document.getElementById('news');
   if (!side || !lay) return;
@@ -476,72 +522,94 @@ function aria() {
   const say = open ? '오늘 시장 요약 접기' : '오늘 시장 요약 자세히';
   P.tog.setAttribute('aria-expanded', String(open)); P.tog.setAttribute('aria-label', say); P.tog.title = open ? '접기' : '자세히';
 }
-// 글자 (§6-4): out = 100ms 나감(흐림 2px · 위로 4px), in = 지정한 때부터 --c-fast 들어옴(아래에서 4px)
+// 글자 (§6-4): out = 100ms 나감(위로 4px; 짧은 띠는 흐림 2px도), in = 'sm-go'를 붙이는 때부터 --c-fast 들어옴(아래에서 4px)
 const textOut = el => { el.classList.remove('sm-in', 'sm-go'); el.classList.add('sm-out'); };
 const textIn = (el, delay) => { el.classList.remove('sm-out', 'sm-go'); el.classList.add('sm-in'); clearTimeout(tIn); tIn = setTimeout(() => el.classList.add('sm-go'), delay); };
-const textClear = (...els) => els.forEach(el => el.classList.remove('sm-in', 'sm-go', 'sm-out', 'sm-abs'));
+const textClear = (...els) => els.forEach(el => { el.classList.remove('sm-in', 'sm-go', 'sm-out', 'sm-abs', 'sm-stag'); for (const c of el.querySelectorAll('[style*="--d"]')) c.style.removeProperty('--d'); });
+// 자리가 바뀌는 순간(펼칠 땐 처음, 접을 땐 끝) 스크롤 고정(앵커)이 화면을 밀지 않게
+function noAnchor(fn) { document.documentElement.classList.add('sm-noanchor'); fn(); requestAnimationFrame(() => document.documentElement.classList.remove('sm-noanchor')); }
 
-/* 자라기 · 줄기 (design.md §7): 자리(레이아웃)는 끝에서 한 번만 바꿔요. 움직이는 동안은 카드 바탕(.sm-skin) 높이 · 표의 clip ·
-   아래 칸들의 transform만 바꿔요 — 옆 칸 높이가 프레임마다 바뀌면 뉴스 카드가 프레임마다 다시 채워져서(news.js refit) PC가 끊겨요(실측 0.4~2초 프레임).
-   아래 칸 = 카드 · 조상의 뒤 형제 중 실제로 움직일 것(끝 높이를 한 번 넣어 재 보고 되돌려요 — 같은 작업 안이라 화면 · ResizeObserver는 몰라요). */
-function followers() {
-  const out = [];
-  for (let el = host; el && el !== document.body; el = el.parentElement)
-    for (let s = el.nextElementSibling; s; s = s.nextElementSibling) {
-      if (s.offsetParent === null || s.tagName === 'SCRIPT') continue;
-      const pos = getComputedStyle(s).position;
-      if (pos === 'fixed' || pos === 'absolute') continue;
-      out.push(s);
-    }
-  return out;
+/* 펼침 · 접힘 (design-references-full §7 P8 ⓐ · design.md §7): 카드 바탕 판(.sm-skin)만 스프링으로 자라고 줄어요. 아래 내용(뉴스 카드 ·
+   옆 카드 · 출처 줄)은 **한 번에** 새 자리로 — 펼칠 땐 처음에, 접을 땐 판이 다 줄어든 뒤에 — 그래서 판이 아래 내용과 겹치지 않고, 레이아웃은
+   한 번만 바뀌어요(news.js refit도 한 번). 안 글자는 판이 25% 넘게 자라고 띠 글자가 나간 뒤(160ms) 들어와요. 길이는 크기 차이에 비례해
+   자른 스프링: 600px를 1로 0.75~1.35배(강성 ÷ 배², 감쇠 ÷ 배 — 감쇠비 · 넘침은 그대로). */
+function springFor(name, D) {
+  const pr = KH.spring && typeof KH.spring.params === 'function' ? KH.spring.params(name) : null;
+  if (!pr || !(pr.k > 0)) return { name };
+  const f = Math.min(1.35, Math.max(0.75, Math.abs(D) / 600));
+  return { k: pr.k / (f * f), c: pr.c / f };
 }
-function probe(growTo) {
-  const els = followers(), g = P.grow, was = g.style.height;
-  const before = els.map(e => e.getBoundingClientRect().top);
-  g.style.height = growTo + 'px';
-  const after = els.map(e => e.getBoundingClientRect().top);
-  g.style.height = was;
-  return els.map((e, i) => [e, after[i] - before[i]]).filter(x => Math.abs(x[1]) > 0.5);
-}
-// p: 0 → 1 (open · close 스프링). frame(p)가 그리고, commit()이 자리를 바꿔요(끝 · 중간에 다시 누름 · 숨은 탭 · 줄이기면 바로)
-function run(name, frame, commit) {
+function run(sp, frame, commit) {
   let done = false;
   const me = {};
   const finish = () => {
     if (done) return; done = true;
     if (me.h) me.h.stop();
     if (mv === me) mv = null;
-    document.documentElement.classList.add('sm-noanchor');           // 자리를 바꾸는 순간 스크롤 고정(앵커)이 화면을 밀지 않게
     commit();
-    requestAnimationFrame(() => document.documentElement.classList.remove('sm-noanchor'));
     if (pending) { pending = false; render(true); }
   };
   me.finish = finish; mv = me;
-  frame(0);                                                            // 첫 그림부터 판 높이 · clip · 아래 칸 자리가 맞게(한 프레임도 빈 카드가 보이지 않게)
+  frame(0);                                                            // 첫 그림부터 판 높이 · clip이 맞게(한 프레임도 빈 카드가 보이지 않게)
   if (!KH.spring || reduced()) { frame(1); finish(); return; }
-  me.h = KH.spring.animate({ from: 0, to: 1, name, onUpdate: v => { if (!done) frame(v); }, onRest: finish });
+  me.h = KH.spring.animate(Object.assign({ from: 0, to: 1, onUpdate: v => { if (!done) frame(v); }, onRest: finish }, sp));
 }
-function moveAll(movers, p) { for (const [el, d] of movers) el.style.transform = `translateY(${(p * d).toFixed(2)}px)`; }
-function clearMove(movers) { for (const [el] of movers) el.style.transform = ''; }
-function setOpen(want, focusTop) {
-  if (want === open) return;
+// P3: 순차 등장은 이 세션에서 처음 펼칠 때 한 번만(화려하게), 앞이 길고 뒤로 갈수록 짧게 40 → 30 → 20ms, 전체 300ms 안. 다시 펼치면 함께.
+function stagger(full) {
+  let first = false;
+  try { first = motion() === 'fancy' && !sessionStorage.getItem('khm.sm.stag'); if (first) sessionStorage.setItem('khm.sm.stag', '1'); } catch (e) { first = false; }
+  if (!first) return;
+  const kids = [...P.fbody.children, P.foot], gaps = [40, 30];
+  let d = 0;
+  kids.forEach((el, i) => { if (i) d = Math.min(300, d + (gaps[i - 1] || 20)); el.style.setProperty('--d', d + 'ms'); });
+  full.classList.add('sm-stag');
+}
+function setOpen(want, focusTop, waited) {
+  if (hold || want === open) return;
+  // 처음 펼칠 때 표 원천이 아직 오는 중이면 꺾쇠만 먼저 돌리고 잠깐(≤ 450ms) 기다려요 — 받는 중 줄로 펼쳤다가 값이 와서 또 자라면
+  // 아래 내용이 두 번 밀리니까(P8 ⓐ "한 번에"). 넘으면 그대로 펼쳐요
+  if (want && LIVE && !waited) {
+    warm();
+    const wait = TABLE.map(k => D[k].p).filter(Boolean);
+    if (wait.length) {
+      P.tog.setAttribute('aria-expanded', 'true');
+      let gone = false;
+      const go = () => { if (gone) return; gone = true; clearTimeout(hold); hold = 0; put(P.fbody, fullBody(lastM = model())); lastDraw = Date.now(); setOpen(true, focusTop, true); };
+      hold = setTimeout(go, 450);
+      Promise.all(wait).then(go);
+      return;
+    }
+  }
   if (mv) mv.finish();                                                 // 움직이던 것은 끝 상태로
-  if (tOut) { clearTimeout(tOut); tOut = 0; textClear(P.full); }       // 접힐 때 글자만 나가던 중이면 펼친 그대로
+  if (tOut) { clearTimeout(tOut); tOut = 0; textClear(P.full); P.grow.style.height = ''; }   // 접힐 때 글자만 나가던 중이면 펼친 그대로
   open = want; aria();
   const { grow, band: bd, full, fbody, skin } = P;
   clearTimeout(tIn);
   if (open) {
-    refreshAll(false);
-    if (!fbody.firstChild || Date.now() - lastDraw > 15000) put(fbody, fullBody(lastM = model()));   // 보통은 render가 미리 그려 둔 표 그대로(누르는 순간 할 일을 줄여요)
-    if (reduced()) { bd.hidden = true; full.hidden = false; textClear(bd, full); return; }
+    if (!fbody.firstChild || Date.now() - lastDraw > 15000) put(fbody, fullBody(lastM = model()));   // 보통은 render가 미리 그려 둔 표 그대로
+    if (reduced()) { noAnchor(() => { bd.hidden = true; full.hidden = false; textClear(bd, full); }); return; }
     const H0 = host.offsetHeight;
-    full.hidden = false; full.classList.add('sm-abs');                  // 표는 흐름 밖에서 재고 · 띠는 그 자리에서 나가요
-    const fullH = full.offsetHeight, bandH = bd.offsetHeight, D = fullH - bandH;
-    const movers = probe(fullH);
-    textOut(bd); textIn(full, TXT_OUT + TXT_GAP);                       // 표 글자는 모양이 25% 넘게 자란 뒤
+    let H1 = H0;
+    noAnchor(() => {                                                   // 아래 내용은 여기서 한 번에 새 자리로
+      bd.classList.add('sm-abs'); textOut(bd);                         // 띠는 흐름에서 빠져 그 자리에서 나가고
+      full.hidden = false; full.classList.add('sm-in'); stagger(full);
+      H1 = host.offsetHeight;
+    });
+    const D = H1 - H0, t0 = performance.now();
+    let lastP = 0, shown = false;
+    const showIn = () => { if (!shown) { shown = true; full.classList.add('sm-go'); } };
+    tIn = setTimeout(() => { if (lastP >= 0.25) showIn(); }, TXT_OUT + TXT_GAP);
     host.classList.add('sm-anim');
-    run('open', p => { skin.style.height = (H0 + p * D) + 'px'; full.style.clipPath = `inset(0 0 ${Math.max(0, (1 - p) * D).toFixed(2)}px 0)`; moveAll(movers, p); },
-      () => { clearMove(movers); host.classList.remove('sm-anim'); skin.style.height = ''; full.style.clipPath = ''; bd.hidden = true; textClear(bd, full); });
+    run(springFor('open', D), p => {
+      lastP = p;
+      skin.style.height = (H0 + p * D) + 'px';
+      full.style.clipPath = `inset(0 0 ${Math.max(0, (1 - p) * D).toFixed(2)}px 0)`;
+      if (p >= 0.25 && performance.now() - t0 >= TXT_OUT + TXT_GAP) showIn();
+    }, () => {
+      showIn();
+      host.classList.remove('sm-anim'); skin.style.height = ''; full.style.clipPath = ''; bd.hidden = true;
+      setTimeout(() => { if (open && !mv) textClear(bd, full); }, 400);   // 순차 등장이 다 들어온 뒤에 표시를 걷어요
+    });
     return;
   }
   const after = () => {
@@ -549,46 +617,74 @@ function setOpen(want, focusTop) {
     const r = host.getBoundingClientRect();
     if (focusTop && r.top < 0) host.scrollIntoView({ block: 'start', behavior: reduced() ? 'auto' : 'smooth' });
   };
-  put(bd, band(lastM || model()));
-  if (reduced()) { full.hidden = true; bd.hidden = false; textClear(bd, full); after(); return; }
+  drawBand(lastM || model());
+  if (reduced()) { noAnchor(() => { full.hidden = true; bd.hidden = false; textClear(bd, full); }); after(); return; }
   if (focusTop) P.tog.focus({ preventScroll: true });
-  textOut(full);                                                       // 닫힐 땐 글자가 먼저 나가고(100ms)
+  textClear(full); full.classList.remove('sm-stag');
+  grow.style.height = grow.getBoundingClientRect().height + 'px';      // 자리는 그대로 두고
+  textOut(full);                                                       // 닫힐 땐 안 글자가 다 함께 먼저 나가요(P3 ③)
   tOut = setTimeout(() => {
     tOut = 0;
     const H1 = host.offsetHeight, fullH = full.offsetHeight;
     bd.hidden = false; bd.classList.add('sm-abs');
-    const bandH = bd.offsetHeight, D = fullH - bandH;
-    const movers = probe(bandH);
-    grow.style.height = fullH + 'px'; full.classList.add('sm-abs');     // 자리는 그대로 두고 모양만 줄여요
+    const D = fullH - bd.offsetHeight;
     full.style.visibility = 'hidden';                                  // 글자는 이미 나갔어요 — 큰 면을 프레임마다 다시 그리지 않게
     textIn(bd, TXT_GAP);
     host.classList.add('sm-anim');
-    run('close', p => { skin.style.height = (H1 - p * D) + 'px'; moveAll(movers, p); },
-      () => { clearMove(movers); host.classList.remove('sm-anim'); skin.style.height = ''; grow.style.height = ''; full.style.visibility = ''; full.hidden = true; textClear(bd, full); after(); });
+    run(springFor('close', D), p => { skin.style.height = (H1 - p * D) + 'px'; }, () => {
+      noAnchor(() => {                                                 // 판이 다 줄어든 뒤 아래 내용이 한 번에 올라와요
+        host.classList.remove('sm-anim'); skin.style.height = ''; grow.style.height = ''; full.style.visibility = ''; full.hidden = true; textClear(bd, full);
+      });
+      after();
+    });
   }, TXT_OUT);
 }
+
+/* 글로 복사 (P11): 키 크기는 그대로(글자 상자 = 가장 긴 글자), 아이콘이 복사 → 체크로 교차(살짝 돌며 .5 → 1, `fade`) + 글자 바꿈(§6-4),
+   --c-dwell 뒤 처음으로. 클립보드는 사람이 누른 것(isTrusted)만. 완료 = 앰버 ✓ · 글자(design.md §2), 실패 = ! + 글자 */
+const ICON = {
+  copy: '<rect x="9" y="9" width="11" height="11" rx="2.5"/><path d="M15 9V6.5A2.5 2.5 0 0 0 12.5 4h-6A2.5 2.5 0 0 0 4 6.5v6A2.5 2.5 0 0 0 6.5 15H9"/>',
+  done: '<path d="m5 12.5 4.5 4.5L19 7.5"/>',
+  fail: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5v5.5M12 16.4v.1"/>',
+};
+function copyKey() {
+  const icons = Object.entries(ICON).map(([k, d]) => { const s = svgOf(d, 16); s.classList.add('sm-i', 'sm-i-' + k); return s; });
+  const says = { idle: '글로 복사', done: '복사했어요', fail: '복사 못 했어요' };
+  const labels = Object.entries(says).map(([k, t]) => h('span', { class: 'sm-kl' + (k === 'idle' ? ' on' : ''), 'data-l': k, 'aria-hidden': k === 'idle' ? null : 'true', text: t }));
+  const b = h('button', { type: 'button', class: 'sm-copy', 'data-st': 'idle', 'aria-label': says.idle }, h('span', { class: 'sm-ci', 'aria-hidden': 'true' }, icons), h('span', { class: 'sm-kls' }, labels));
+  let back = 0;
+  const set = st => {
+    b.dataset.st = st; b.setAttribute('aria-label', says[st]);
+    for (const l of labels) { const on = l.dataset.l === st; l.classList.toggle('out', !on && l.classList.contains('on')); l.classList.toggle('on', on); l.toggleAttribute('aria-hidden', !on); }
+  };
+  b.addEventListener('click', async e => {
+    if (!e.isTrusted) return;                                          // 보여 주기 · 스크립트 클릭은 클립보드를 건드리지 않아요
+    const ok = await copyText(plain(model()));
+    set(ok ? 'done' : 'fail');
+    if (typeof UI.live === 'function') UI.live(ok ? '요약을 글로 복사했어요.' : '복사하지 못했어요.');
+    clearTimeout(back);
+    back = setTimeout(() => b.isConnected && set('idle'), (typeof UI.ms === 'function' && UI.ms('--c-dwell')) || 1120);
+  });
+  return b;
+}
+
 function mount() {
   host = h('section', { class: 'card msum', id: 'summary', 'aria-labelledby': 'sm-h' });
   const pill = h('span', { class: 'sm-pill' });
   const hl = h('p', { class: 'sm-hl' });
   const tog = h('button', { type: 'button', class: 'sm-tog', 'aria-controls': 'sm-more' }, chev());
   tog.addEventListener('click', () => setOpen(!open));
+  for (const ev of ['pointerenter', 'pointerdown', 'focus']) tog.addEventListener(ev, warm, { passive: true });   // 손이 가면 뉴스를 미리
   const bd = h('div', { class: 'sm-band' });
   const fbody = h('div', { class: 'sm-fbody' });
-  const copy = typeof UI.akey === 'function' ? UI.akey('sm-copy', { idle: '글로 복사', done: '복사했어요', fail: '복사 못 했어요' }, 'idle') : h('button', { type: 'button', class: 'sm-copy', text: '글로 복사' });
-  copy.addEventListener('click', async () => {
-    const ok = await copyText(plain(model()));
-    if (typeof UI.state === 'function') { UI.state(copy, ok ? 'done' : 'fail'); setTimeout(() => copy.isConnected && UI.state(copy, 'idle'), 1800); }
-    if (typeof UI.live === 'function') UI.live(ok ? '요약을 글로 복사했어요.' : '복사하지 못했어요.');
-  });
   const fold = h('button', { type: 'button', class: 'sm-fold', 'aria-controls': 'sm-more' }, h('span', { text: '접기' }), chev());
   fold.addEventListener('click', () => setOpen(false, true));
-  const foot = h('div', { class: 'sm-df' }, copy, h('span', { class: 'sm-sub', text: '카톡 등에 붙여 넣을 수 있는 글이에요' }), fold);
+  const foot = h('div', { class: 'sm-df' }, copyKey(), h('span', { class: 'sm-sub', text: '카톡 등에 붙여 넣을 수 있는 글이에요' }), fold);
   const full = h('div', { class: 'sm-full', id: 'sm-more', hidden: true }, fbody, foot);
   const grow = h('div', { class: 'sm-grow' }, bd, full);
   const skin = h('div', { class: 'sm-skin', 'aria-hidden': 'true' });
   put(host, skin, h('h2', { class: 'sr', id: 'sm-h', text: '오늘 시장 요약' }), h('div', { class: 'sm-hd' }, pill, hl, tog), grow);
-  P = { pill, hl, tog, band: bd, full, fbody, grow, skin, regions: [fbody] };
+  P = { pill, hl, tog, band: bd, full, fbody, foot, grow, skin, regions: [fbody] };
   aria();
   place();
   phoneMQ.addEventListener('change', () => { place(); render(true); });
@@ -612,13 +708,16 @@ function render(now) {
   P.pill.title = M.when;
   swapText(P.hl, M.headline || '오늘 시장');
   // 둘 다 그려 둬요 — 숨은 쪽(display:none)은 레이아웃 비용이 없고, 펼치거나 접는 순간 바로 쓸 수 있어요
-  put(P.band, band(M));
+  drawBand(M);
   put(P.fbody, fullBody(M));
 }
 // 장중에는 kh:data마다 숫자가 바뀌지만, 문장 · 순위는 15초에 한 번만 다시 써요(글자가 계속 흔들리지 않게)
-function schedule() {
-  if (timer) return;
-  const gap = phase() === 'open' ? 15000 : 1500, wait = Math.max(120, gap - (Date.now() - lastDraw));
+// soon = 어느 원천이 처음 왔을 때(받는 중 → 값): 바로 그려요
+let timerAt = 0;
+function schedule(soon) {
+  const gap = soon ? 0 : phase() === 'open' ? 15000 : 1500, wait = Math.max(120, gap - (Date.now() - lastDraw));
+  if (timer) { if (Date.now() + wait >= timerAt) return; clearTimeout(timer); }
+  timerAt = Date.now() + wait;
   timer = setTimeout(() => { timer = 0; if (!document.hidden) render(false); }, wait);
 }
 
