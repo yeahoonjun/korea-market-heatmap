@@ -5,7 +5,7 @@
  },
  "heatmap_market_kosdaq_before": {
   "ok": true,
-  "detail": "코스닥"
+  "detail": "코스닥+0.45%"
  },
  "open_sets_hash_and_shows": {
   "ok": true,
@@ -15,7 +15,7 @@
    "vis": true,
    "hl": 3,
    "inert": true,
-   "title": "삼성전자 187,000 −0.90% · 한국 증시 히트맵"
+   "title": "삼성전자 187,000 −0.90% · 판세"
   }
  },
  "esc_closes_restores_hash_focus": {
@@ -24,14 +24,14 @@
    "hash": "#kosdaq",
    "open": false,
    "vis": false,
-   "focus": "정보기술129+1.73%",
+   "focus": "정보기술136+1.59%",
    "inert": false,
-   "title": "한국 증시 히트맵"
+   "title": "판세"
   }
  },
  "heatmap_market_kept_after_close": {
   "ok": true,
-  "detail": "코스닥"
+  "detail": "코스닥+0.45%"
  },
  "browser_back_closes_focus_returns": {
   "ok": true,
@@ -83,31 +83,34 @@
   "detail": {
    "open": false,
    "hash": "",
-   "url": "http://127.0.0.1:8792/"
+   "url": "http://127.0.0.1:8962/"
   }
  },
  "console_clean_hashload": {
   "ok": true,
   "detail": []
  },
- "all_6_timeframes_render": {
+ "all_9_intervals_render": {
   "ok": true,
   "detail": {
-   "1d": ",200원에서 11월 9일 17:22 187,000원까지, 봉 481개.",
-   "5d": "원에서 11월 9일 (월) 17:20 186,900원까지, 봉 609개.",
-   "3m": "500원에서 2026.11.09 (월) 186,900원까지, 봉 63개.",
-   "1y": "00원에서 2026.11.09 (월) 186,900원까지, 봉 243개.",
-   "3y": ",300원에서 2026.11.09 주 185,100원까지, 봉 157개.",
-   "10y": " 34,800원에서 2026년 11월 186,700원까지, 봉 120개."
+   "1m": "원에서 11월 9일 (월) 17:22 187,000원까지, 봉 481개.",
+   "5m": "원에서 11월 9일 (월) 17:20 186,900원까지, 봉 609개.",
+   "10m": "원에서 11월 9일 (월) 17:20 186,900원까지, 봉 178개.",
+   "30m": "원에서 11월 9일 (월) 17:00 186,900원까지, 봉 105개.",
+   "60m": "0원에서 11월 9일 (월) 17:00 186,900원까지, 봉 58개.",
+   "day": "00원에서 2026.11.09 (월) 186,900원까지, 봉 123개.",
+   "week": ",300원에서 2026.11.09 주 185,100원까지, 봉 157개.",
+   "month": " 34,800원에서 2026년 11월 186,700원까지, 봉 120개.",
+   "year": "2016년 34,800원에서 2026년 186,700원까지, 봉 11개."
   }
  },
  "times_in_kst": {
   "ok": true,
-  "detail": "삼성전자 1일 차트. 11월 9일 09:00 187,200원에서 11월 9일 17:22 187,000원까지, 봉 481개."
+  "detail": "삼성전자 1분봉 차트. 11월 9일 (월) 09:00 187,200원에서 11월 9일 (월) 17:22 187,000원까지, 봉 481개."
  },
  "crosshair_legend_updates": {
   "ok": true,
-  "detail": "11월 9일 11:55+2.97%시194,400고194,500저194,100종194,300거래량1.2만"
+  "detail": "11월 9일 (월) 11:55+2.97%시194,400고194,500저194,100종194,300거래량1.2"
  },
  "prev_close_ref_is_header_base_1d": {
   "ok": true,
@@ -129,18 +132,1029 @@
   "ok": true,
   "detail": {
    "before_up_dn": [
-    1538,
-    2547
+    858,
+    1743
    ],
    "after_old_up_dn_new_up_dn": [
-    4,
+    27,
     0,
-    1538,
-    2548
+    843,
+    1756
    ]
   }
  },
  "console_clean_tf_palette": {
+  "ok": true,
+  "detail": []
+ },
+ "ma_chips_daily_all_on_labels_unit": {
+  "ok": true,
+  "detail": [
+   {
+    "n": "5",
+    "on": "true",
+    "t": "5일",
+    "v": "205,080",
+    "c": "rgb(255, 128, 196)"
+   },
+   {
+    "n": "20",
+    "on": "true",
+    "t": "20일",
+    "v": "218,345",
+    "c": "rgb(92, 200, 255)"
+   },
+   {
+    "n": "60",
+    "on": "true",
+    "t": "60일",
+    "v": "248,573",
+    "c": "rgb(185, 156, 255)"
+   },
+   {
+    "n": "120",
+    "on": "true",
+    "t": "120일",
+    "v": "270,249",
+    "c": "rgb(196, 200, 206)"
+   }
+  ]
+ },
+ "ma_values_match_hand_calc_last_bar": {
+  "ok": true,
+  "detail": {
+   "shown": [
+    "205,080",
+    "218,345",
+    "248,573",
+    "270,249"
+   ],
+   "want": {
+    "5": "205,080",
+    "20": "218,345",
+    "60": "248,573",
+    "120": "270,249"
+   }
+  }
+ },
+ "ma_colours_distinct_not_red_green": {
+  "ok": true,
+  "detail": [
+   "rgb(255, 128, 196)",
+   "rgb(92, 200, 255)",
+   "rgb(185, 156, 255)",
+   "rgb(196, 200, 206)"
+  ]
+ },
+ "ma_hover_values_match_hand_calc": {
+  "ok": true,
+  "detail": {
+   "date": "2026-08-13",
+   "idx": 185,
+   "shown": {
+    "5": "244,800",
+    "20": "243,500",
+    "60": "290,517",
+    "120": "250,918"
+   }
+  }
+ },
+ "ma_row_height_reserved": {
+  "ok": true,
+  "detail": [
+   32,
+   32
+  ]
+ },
+ "ma_toggle_off_stored": {
+  "ok": true,
+  "detail": {
+   "on": "false",
+   "v": "205,080",
+   "ls": "{\"day\":[20,60,120]}",
+   "vis": null
+  }
+ },
+ "ma_toggle_remembered_after_reload": {
+  "ok": true,
+  "detail": "false,true,true,true"
+ },
+ "ma_intraday_defaults_5_20_60": {
+  "ok": true,
+  "detail": {
+   "t": "5분,20분,60분,120분",
+   "on": "true,true,true,false"
+  }
+ },
+ "ma_falls_back_to_tf_form": {
+  "ok": true,
+  "detail": []
+ },
+ "ma_no_overflow_1280": {
+  "ok": true,
+  "detail": null
+ },
+ "iv_tabs_are_min_day_week_month_year": {
+  "ok": true,
+  "detail": [
+   [
+    "min",
+    "분"
+   ],
+   [
+    "day",
+    "일"
+   ],
+   [
+    "week",
+    "주"
+   ],
+   [
+    "month",
+    "월"
+   ],
+   [
+    "year",
+    "년"
+   ]
+  ]
+ },
+ "iv_segment_indicator_lead_trail_edges": {
+  "ok": true,
+  "detail": {
+   "r": "right 0.342s linear(0 0%, 0.017 2.3%, 0.077 5.2%, 0.214 9.6%, 0.536 18.8%, 0.691 24.1%, 0.808 29.3%, 0.898 35%, 0.96 41.2%, 1 49.3%, 1.014 61.5%, 1 100%), left 0.632s linear(0 0%, 0.019 2.4%, 0.085 5.4%, 0.233 10%, 0.533 18.6%, 0.685 23.9%, 0.799 29.1%, 0.884 34.5%, 0.95 41.1%, 0.991 49.5%, 1.008 62.3%, 1 100%), top 0.342s linear(0 0%, 0.017 2.3%, 0.077 5.2%, 0.214 9.6%, 0.536 18.8%, 0.691 24.1%, 0.808 29.3%, 0.898 35%, 0.96 41.2%, 1 49.3%, 1.014 61.5%, 1 100%), bottom 0.342s linear(0 0%, 0.017 2.3%, 0.077 5.2%, 0.214 9.6%, 0.536 18.8%, 0.691 24.1%, 0.808 29.3%, 0.898 35%, 0.96 41.2%, 1 49.3%, 1.014 61.5%, 1 100%)",
+   "l": "left 0.342s linear(0 0%, 0.017 2.3%, 0.077 5.2%, 0.214 9.6%, 0.536 18.8%, 0.691 24.1%, 0.808 29.3%, 0.898 35%, 0.96 41.2%, 1 49.3%, 1.014 61.5%, 1 100%), right 0.632s linear(0 0%, 0.019 2.4%, 0.085 5.4%, 0.233 10%, 0.533 18.6%, 0.685 23.9%, 0.799 29.1%, 0.884 34.5%, 0.95 41.1%, 0.991 49.5%, 1.008 62.3%, 1 100%), top 0.342s linear(0 0%, 0.017 2.3%, 0.077 5.2%, 0.214 9.6%, 0.536 18.8%, 0.691 24.1%, 0.808 29.3%, 0.898 35%, 0.96 41.2%, 1 49.3%, 1.014 61.5%, 1 100%), bottom 0.342s linear(0 0%, 0.017 2.3%, 0.077 5.2%, 0.214 9.6%, 0.536 18.8%, 0.691 24.1%, 0.808 29.3%, 0.898 35%, 0.96 41.2%, 1 49.3%, 1.014 61.5%, 1 100%)",
+   "h": 40,
+   "caret": true
+  }
+ },
+ "iv_min_tab_is_menu_button": {
+  "ok": true,
+  "detail": {
+   "label": "분",
+   "aria": "분봉, 간격 고르기",
+   "pressed": "false",
+   "expanded": "false",
+   "open": false,
+   "hidden": true,
+   "st": "",
+   "focus": "sp sp-in",
+   "checked": [],
+   "roles": "menu,menuitemradio,menuitemradio,menuitemradio,menuitemradio,menuitemradio",
+   "stockOpen": true,
+   "hl": false,
+   "hlY": null,
+   "focusY": null
+  }
+ },
+ "iv_picker_grows_from_tab_open_spring": {
+  "ok": true,
+  "detail": {
+   "n": 3,
+   "easings": [
+    "linear(",
+    "linear(",
+    "linear("
+   ],
+   "durs": [
+    454,
+    405,
+    180
+   ],
+   "delays": [
+    0,
+    0,
+    50
+   ],
+   "props": [
+    "borderRadius+height+left+top+width",
+    "opacity",
+    "filter+opacity+transform"
+   ],
+   "start": {
+    "offset": null,
+    "easing": "linear",
+    "composite": "auto",
+    "height": "40px",
+    "left": "4px",
+    "top": "4px",
+    "borderRadius": "8px",
+    "width": "70px",
+    "computedOffset": 0
+   },
+   "w": 70,
+   "pe": "none"
+  }
+ },
+ "iv_picker_click_opens_focus_item": {
+  "ok": true,
+  "detail": {
+   "label": "분",
+   "aria": "분봉, 간격 고르기",
+   "pressed": "false",
+   "expanded": "true",
+   "open": true,
+   "hidden": false,
+   "st": "open",
+   "focus": "5m",
+   "checked": [],
+   "roles": "menu,menuitemradio,menuitemradio,menuitemradio,menuitemradio,menuitemradio",
+   "stockOpen": true,
+   "hl": false,
+   "hlY": null,
+   "focusY": 48
+  }
+ },
+ "iv_picker_fits_390_anchored_not_clipped": {
+  "ok": true,
+  "detail": {
+   "left": 16,
+   "right": 144,
+   "top": 345.234375,
+   "below": 6,
+   "alignedLeft": true,
+   "vw": 390,
+   "vh": 844,
+   "bottom": 573.234375,
+   "hit": true,
+   "minH": 44,
+   "clipped": false,
+   "n": 5
+  }
+ },
+ "iv_picker_taps_ge_40": {
+  "ok": true,
+  "detail": []
+ },
+ "iv_picker_esc_closes_returns_focus": {
+  "ok": true,
+  "detail": {
+   "at_once": {
+    "label": "분",
+    "aria": "분봉, 간격 고르기",
+    "pressed": "false",
+    "expanded": "false",
+    "open": false,
+    "hidden": false,
+    "st": "closing",
+    "focus": "min",
+    "checked": [],
+    "roles": "menu,menuitemradio,menuitemradio,menuitemradio,menuitemradio,menuitemradio",
+    "stockOpen": true,
+    "hl": false,
+    "hlY": null,
+    "focusY": null
+   },
+   "closing": {
+    "st": "closing",
+    "inert": true,
+    "an": 3
+   },
+   "after": {
+    "label": "분",
+    "aria": "분봉, 간격 고르기",
+    "pressed": "false",
+    "expanded": "false",
+    "open": false,
+    "hidden": true,
+    "st": "",
+    "focus": "min",
+    "checked": [],
+    "roles": "menu,menuitemradio,menuitemradio,menuitemradio,menuitemradio,menuitemradio",
+    "stockOpen": true,
+    "hl": false,
+    "hlY": null,
+    "focusY": null
+   }
+  }
+ },
+ "iv_picker_outside_tap_closes": {
+  "ok": true,
+  "detail": [
+   {
+    "label": "분",
+    "aria": "분봉, 간격 고르기",
+    "pressed": "false",
+    "expanded": "false",
+    "open": false,
+    "hidden": true,
+    "st": "",
+    "focus": "min",
+    "checked": [],
+    "roles": "menu,menuitemradio,menuitemradio,menuitemradio,menuitemradio,menuitemradio",
+    "stockOpen": true,
+    "hl": false,
+    "hlY": "48",
+    "focusY": null
+   },
+   {
+    "label": "분",
+    "aria": "분봉, 간격 고르기",
+    "pressed": "false",
+    "expanded": "false",
+    "open": false,
+    "hidden": true,
+    "st": "",
+    "focus": "sp-name",
+    "checked": [],
+    "roles": "menu,menuitemradio,menuitemradio,menuitemradio,menuitemradio,menuitemradio",
+    "stockOpen": true,
+    "hl": false,
+    "hlY": "48",
+    "focusY": null
+   }
+  ]
+ },
+ "iv_picker_tab_toggles": {
+  "ok": true,
+  "detail": null
+ },
+ "iv_picker_arrow_keys_and_tab": {
+  "ok": true,
+  "detail": {
+   "seq": [
+    "5m",
+    "10m",
+    "60m",
+    "1m",
+    "60m"
+   ],
+   "after_tab": {
+    "label": "분",
+    "aria": "분봉, 간격 고르기",
+    "pressed": "false",
+    "expanded": "false",
+    "open": false,
+    "hidden": false,
+    "st": "closing",
+    "focus": "min",
+    "checked": [],
+    "roles": "menu,menuitemradio,menuitemradio,menuitemradio,menuitemradio,menuitemradio",
+    "stockOpen": true,
+    "hl": true,
+    "hlY": "180",
+    "focusY": null
+   }
+  }
+ },
+ "iv_picker_highlight_plate_hl_spring": {
+  "ok": true,
+  "detail": {
+   "plate": [
+    true,
+    true,
+    true,
+    true,
+    true
+   ],
+   "transition": "transform 0.342s linear(0 0%, 0.017 2.3%, 0.077 5.2%, 0.214 9.6%, 0.536 18.8%, 0.691 24.1%, 0.808 29.3%, 0.898 35%, 0.96"
+  }
+ },
+ "iv_picker_enter_picks_closes_focus_back": {
+  "ok": true,
+  "detail": {
+   "label": "30분",
+   "aria": "30분봉, 간격 고르기",
+   "pressed": "true",
+   "expanded": "false",
+   "open": false,
+   "hidden": true,
+   "st": "",
+   "focus": "min",
+   "checked": [
+    "30m"
+   ],
+   "roles": "menu,menuitemradio,menuitemradio,menuitemradio,menuitemradio,menuitemradio",
+   "stockOpen": true,
+   "hl": false,
+   "hlY": "136",
+   "focusY": null
+  }
+ },
+ "iv_tab_label_swaps_in_place": {
+  "ok": true,
+  "detail": {
+   "go": true,
+   "was": "분",
+   "text": "30분",
+   "before": "\"분\"",
+   "an": [
+    "spTxOut",
+    "spTxIn"
+   ]
+  }
+ },
+ "iv_picker_space_opens_on_checked": {
+  "ok": true,
+  "detail": {
+   "label": "30분",
+   "aria": "30분봉, 간격 고르기",
+   "pressed": "true",
+   "expanded": "true",
+   "open": true,
+   "hidden": false,
+   "st": "open",
+   "focus": "30m",
+   "checked": [
+    "30m"
+   ],
+   "roles": "menu,menuitemradio,menuitemradio,menuitemradio,menuitemradio,menuitemradio",
+   "stockOpen": true,
+   "hl": true,
+   "hlY": "136",
+   "focusY": 136
+  }
+ },
+ "iv_each_minute_interval_loads": {
+  "ok": true,
+  "detail": {
+   "1m": {
+    "n": 481,
+    "api": 481,
+    "last": true,
+    "iv": true,
+    "req": 1
+   },
+   "5m": {
+    "n": 737,
+    "api": 737,
+    "last": true,
+    "iv": true,
+    "req": 1
+   },
+   "10m": {
+    "n": 373,
+    "api": 373,
+    "last": true,
+    "iv": true,
+    "req": 1
+   },
+   "30m": {
+    "n": 127,
+    "api": 127,
+    "last": true,
+    "iv": true,
+    "req": 0
+   },
+   "60m": {
+    "n": 70,
+    "api": 70,
+    "last": true,
+    "iv": true,
+    "req": 1
+   }
+  }
+ },
+ "iv_minute_tab_label_follows": {
+  "ok": true,
+  "detail": {
+   "1m": "1분",
+   "5m": "5분",
+   "10m": "10분",
+   "30m": "30분",
+   "60m": "60분"
+  }
+ },
+ "iv_minute_bar_times_sane": {
+  "ok": true,
+  "detail": {
+   "1m": {
+    "grid": true,
+    "steps": true,
+    "session": true,
+    "ohlc": true
+   },
+   "5m": {
+    "grid": true,
+    "steps": true,
+    "session": true,
+    "ohlc": true
+   },
+   "10m": {
+    "grid": true,
+    "steps": true,
+    "session": true,
+    "ohlc": true
+   },
+   "30m": {
+    "grid": true,
+    "steps": true,
+    "session": true,
+    "ohlc": true
+   },
+   "60m": {
+    "grid": true,
+    "steps": true,
+    "session": true,
+    "ohlc": true
+   }
+  }
+ },
+ "iv_minute_ma_units": {
+  "ok": true,
+  "detail": {
+   "1m": "5분,20분,60분,120분",
+   "5m": "5분,20분,60분,120분",
+   "10m": "5분,20분,60분,120분",
+   "30m": "5분,20분,60분,120분",
+   "60m": "5분,20분,60분,120분"
+  }
+ },
+ "iv_30m_ma_values_hand_calc": {
+  "ok": true,
+  "detail": {
+   "shown": [
+    [
+     "5",
+     "true",
+     "5분",
+     "187,340",
+     "5분 이동평균 선"
+    ],
+    [
+     "20",
+     "true",
+     "20분",
+     "191,283",
+     "20분 이동평균 선"
+    ],
+    [
+     "60",
+     "true",
+     "60분",
+     "195,017",
+     "60분 이동평균 선"
+    ],
+    [
+     "120",
+     "false",
+     "120분",
+     "208,025",
+     "120분 이동평균 선"
+    ]
+   ],
+   "want": [
+    "187,340",
+    "191,283",
+    "195,017",
+    "208,025"
+   ]
+  }
+ },
+ "ma_legend_390_one_line_no_clip": {
+  "ok": true,
+  "detail": {
+   "lines": 1,
+   "stack": false,
+   "clipped": 0,
+   "left": 10,
+   "right": 375.859375,
+   "vw": 390,
+   "chipH": 32,
+   "hitH": 44,
+   "h": 44,
+   "fs": "11px"
+  }
+ },
+ "ma_legend_on_off_look": {
+  "ok": true,
+  "detail": {
+   "sw": [
+    "rgb(255, 128, 196)",
+    "rgb(92, 200, 255)",
+    "rgba(185, 156, 255, 0.992)",
+    "rgba(0, 0, 0, 0)"
+   ],
+   "text": [
+    [
+     "rgb(238, 240, 243)",
+     "rgb(238, 240, 243)"
+    ],
+    [
+     "rgb(238, 240, 243)",
+     "rgb(238, 240, 243)"
+    ],
+    [
+     "rgb(238, 240, 243)",
+     "rgb(238, 240, 243)"
+    ],
+    [
+     "rgb(138, 143, 153)",
+     "rgb(138, 143, 153)"
+    ]
+   ],
+   "op": [
+    1,
+    1,
+    1,
+    1
+   ],
+   "bg": [
+    "rgba(0, 0, 0, 0)",
+    "rgba(0, 0, 0, 0)",
+    "rgba(0, 0, 0, 0)",
+    "rgba(0, 0, 0, 0)"
+   ],
+   "swT": "background-color 0.405s linear(0 0%, 0.019 2.5%, 0.084 5.7%, 0.239 10.9%, 0.51 19.5%, 0.662 25.4%, 0.781 31.5%, 0.871 38.2%, 0.936 46%, 0.978 56.2%, 0.999 72.8%, 1 100%)",
+   "fg": "rgb(238, 240, 243)",
+   "muted": "rgb(138, 143, 153)"
+  }
+ },
+ "ma_toggle_hides_line_and_marks_off": {
+  "ok": true,
+  "detail": {
+   "px": [
+    262,
+    0
+   ],
+   "chip": [
+    "60",
+    "false",
+    "60분",
+    "195,017",
+    "60분 이동평균 선"
+   ],
+   "text": [
+    "rgb(138, 143, 153)",
+    "rgb(138, 143, 153)"
+   ]
+  }
+ },
+ "ma_toggle_moves_nothing": {
+  "ok": true,
+  "detail": [
+   [
+    10,
+    95,
+    187,
+    279
+   ],
+   [
+    10,
+    95,
+    187,
+    279
+   ]
+  ]
+ },
+ "iv_choice_persists_after_reload": {
+  "ok": true,
+  "detail": [
+   {
+    "label": "30분",
+    "aria": "30분봉, 간격 고르기",
+    "pressed": "true",
+    "expanded": "false",
+    "open": false,
+    "hidden": true,
+    "st": "",
+    "focus": "sp sp-in",
+    "checked": [
+     "30m"
+    ],
+    "roles": "menu,menuitemradio,menuitemradio,menuitemradio,menuitemradio,menuitemradio",
+    "stockOpen": true,
+    "hl": false,
+    "hlY": null,
+    "focusY": null
+   },
+   [
+    "\"30m\"",
+    "{\"30m\":[5,20]}"
+   ]
+  ]
+ },
+ "ma_toggle_persists_per_interval": {
+  "ok": true,
+  "detail": [
+   [
+    [
+     "5",
+     "true",
+     "5분",
+     "187,340",
+     "5분 이동평균 선"
+    ],
+    [
+     "20",
+     "true",
+     "20분",
+     "191,283",
+     "20분 이동평균 선"
+    ],
+    [
+     "60",
+     "false",
+     "60분",
+     "195,017",
+     "60분 이동평균 선"
+    ],
+    [
+     "120",
+     "false",
+     "120분",
+     "208,025",
+     "120분 이동평균 선"
+    ]
+   ],
+   "{\"30m\":[5,20]}"
+  ]
+ },
+ "iv_old_stored_5m_still_valid": {
+  "ok": true,
+  "detail": {
+   "label": "5분",
+   "aria": "5분봉, 간격 고르기",
+   "pressed": "true",
+   "expanded": "false",
+   "open": false,
+   "hidden": true,
+   "st": "",
+   "focus": "sp sp-in",
+   "checked": [
+    "5m"
+   ],
+   "roles": "menu,menuitemradio,menuitemradio,menuitemradio,menuitemradio,menuitemradio",
+   "stockOpen": true,
+   "hl": false,
+   "hlY": null,
+   "focusY": null
+  }
+ },
+ "iv_ma_no_overflow_390": {
+  "ok": true,
+  "detail": {
+   "doc": 0,
+   "root": 0,
+   "els": [],
+   "n": 0
+  }
+ },
+ "iv_ma_console_clean_390": {
+  "ok": true,
+  "detail": [
+   "warning: Canvas2D: Multiple readback operations using getImageData are faster with the willReadFrequently attribute set to true. See: https://html.spec.whatwg.org/multipage/canvas.html#concept-canvas-will-read-frequently",
+   "warning: Canvas2D: Multiple readback operations using getImageData are faster with the willReadFrequently attribute set to true. See: https://html.spec.whatwg.org/multipage/canvas.html#concept-canvas-will-read-frequently",
+   "warning: Canvas2D: Multiple readback operations using getImageData are faster with the willReadFrequently attribute set to true. See: https://html.spec.whatwg.org/multipage/canvas.html#concept-canvas-will-read-frequently",
+   "warning: Canvas2D: Multiple readback operations using getImageData are faster with the willReadFrequently attribute set to true. See: https://html.spec.whatwg.org/multipage/canvas.html#concept-canvas-will-read-frequently",
+   "warning: Canvas2D: Multiple readback operations using getImageData are faster with the willReadFrequently attribute set to true. See: https://html.spec.whatwg.org/multipage/canvas.html#concept-canvas-will-read-frequently",
+   "warning: Canvas2D: Multiple readback operations using getImageData are faster with the willReadFrequently attribute set to true. See: https://html.spec.whatwg.org/multipage/canvas.html#concept-canvas-will-read-frequently",
+   "warning: Canvas2D: Multiple readback operations using getImageData are faster with the willReadFrequently attribute set to true. See: https://html.spec.whatwg.org/multipage/canvas.html#concept-canvas-will-read-frequently",
+   "warning: Canvas2D: Multiple readback operations using getImageData are faster with the willReadFrequently attribute set to true. See: https://html.spec.whatwg.org/multipage/canvas.html#concept-canvas-will-read-frequently",
+   "warning: Canvas2D: Multiple readback operations using getImageData are faster with the willReadFrequently attribute set to true. See: https://html.spec.whatwg.org/multipage/canvas.html#concept-canvas-will-read-frequently",
+   "warning: Canvas2D: Multiple readback operations using getImageData are faster with the willReadFrequently attribute set to true. See: https://html.spec.whatwg.org/multipage/canvas.html#concept-canvas-will-read-frequently",
+   "warning: Canvas2D: Multiple readback operations using getImageData are faster with the willReadFrequently attribute set to true. See: https://html.spec.whatwg.org/multipage/canvas.html#concept-canvas-will-read-frequently"
+  ]
+ },
+ "iv_picker_reduced_motion_no_motion": {
+  "ok": true,
+  "detail": [
+   {
+    "st": "open",
+    "an": 0,
+    "pe": ""
+   },
+   {
+    "hidden": true,
+    "go": false,
+    "label": "10분"
+   }
+  ]
+ },
+ "iv_reduced_console_clean": {
+  "ok": true,
+  "detail": []
+ },
+ "iv_ma_360_fit": {
+  "ok": true,
+  "detail": {
+   "row": {
+    "lines": 1,
+    "stack": true,
+    "clipped": 0,
+    "right": 227.703125,
+    "vw": 360,
+    "chipH": 32,
+    "hitH": 44
+   },
+   "fit": {
+    "left": 16,
+    "right": 144,
+    "top": 366.03125,
+    "below": 6,
+    "alignedLeft": true,
+    "vw": 360,
+    "vh": 740,
+    "bottom": 594.03125,
+    "hit": true,
+    "minH": 44,
+    "clipped": false,
+    "n": 5
+   },
+   "o": {
+    "doc": 0,
+    "root": 0,
+    "els": [],
+    "n": 0
+   }
+  }
+ },
+ "iv_ma_console_clean_360": {
+  "ok": true,
+  "detail": []
+ },
+ "ma_legend_1440_slim_with_title": {
+  "ok": true,
+  "detail": {
+   "h": 32,
+   "lines": 1,
+   "stack": false,
+   "right": 512.046875,
+   "left": 73.484375,
+   "vw": 1440,
+   "clipped": 0,
+   "chipH": 28,
+   "hitH": 28,
+   "chips": [
+    [
+     "5",
+     "true",
+     "5일",
+     "205,080",
+     "5일 이동평균 선"
+    ],
+    [
+     "20",
+     "true",
+     "20일",
+     "218,345",
+     "20일 이동평균 선"
+    ],
+    [
+     "60",
+     "true",
+     "60일",
+     "248,573",
+     "60일 이동평균 선"
+    ],
+    [
+     "120",
+     "true",
+     "120일",
+     "270,249",
+     "120일 이동평균 선"
+    ]
+   ],
+   "sw": [
+    "rgb(255, 128, 196)",
+    "rgb(92, 200, 255)",
+    "rgb(185, 156, 255)",
+    "rgb(196, 200, 206)"
+   ],
+   "ring": [
+    "rgb(255, 128, 196) 0px 0px 0px 1.5px inset",
+    "rgb(92, 200, 255) 0px 0px 0px 1.5px inset",
+    "rgb(185, 156, 255) 0px 0px 0px 1.5px inset",
+    "rgb(196, 200, 206) 0px 0px 0px 1.5px inset"
+   ],
+   "text": [
+    [
+     "rgb(238, 240, 243)",
+     "rgb(238, 240, 243)"
+    ],
+    [
+     "rgb(238, 240, 243)",
+     "rgb(238, 240, 243)"
+    ],
+    [
+     "rgb(238, 240, 243)",
+     "rgb(238, 240, 243)"
+    ],
+    [
+     "rgb(238, 240, 243)",
+     "rgb(238, 240, 243)"
+    ]
+   ],
+   "op": [
+    1,
+    1,
+    1,
+    1
+   ],
+   "bg": [
+    "rgba(0, 0, 0, 0)",
+    "rgba(0, 0, 0, 0)",
+    "rgba(0, 0, 0, 0)",
+    "rgba(0, 0, 0, 0)"
+   ],
+   "swT": "background-color 0.405s linear(0 0%, 0.019 2.5%, 0.084 5.7%, 0.239 10.9%, 0.51 19.5%, 0.662 25.4%, 0.781 31.5%, 0.871 38.2%, 0.936 46%, 0.978 56.2%, 0.999 72.8%, 1 100%)",
+   "fs": "12px",
+   "fg": "#eef0f3",
+   "muted": "#8a8f99",
+   "title": "block"
+  }
+ },
+ "iv_picker_1440_anchored": {
+  "ok": true,
+  "detail": [
+   {
+    "left": 28,
+    "right": 156,
+    "top": 222.140625,
+    "below": 6,
+    "alignedLeft": true,
+    "vw": 1440,
+    "vh": 900,
+    "bottom": 410.140625,
+    "hit": true,
+    "minH": 36,
+    "clipped": false,
+    "n": 5
+   },
+   32
+  ]
+ },
+ "iv_picker_1440_hover_plate": {
+  "ok": true,
+  "detail": {
+   "label": "분",
+   "aria": "분봉, 간격 고르기",
+   "pressed": "false",
+   "expanded": "true",
+   "open": true,
+   "hidden": false,
+   "st": "open",
+   "focus": "30m",
+   "checked": [],
+   "roles": "menu,menuitemradio,menuitemradio,menuitemradio,menuitemradio,menuitemradio",
+   "stockOpen": true,
+   "hl": true,
+   "hlY": "112",
+   "focusY": 112
+  }
+ },
+ "iv_60m_desktop_period": {
+  "ok": true,
+  "detail": "5일 동안 −18.74%"
+ },
+ "iv_console_clean_1440": {
+  "ok": true,
+  "detail": []
+ },
+ "oldworker_30m_grouped_on_page": {
+  "ok": true,
+  "detail": {
+   "page": {
+    "n": 127,
+    "back": "0",
+    "aria": "삼성전자 30분봉 차트. 11월 3일 (화) 09:00 220,500원에서 11월 9일 (월) 17:00 186,900원까지, 봉 105개."
+   },
+   "api": 127,
+   "chips": [
+    [
+     "5",
+     "true",
+     "5분",
+     "187,340",
+     "5분 이동평균 선"
+    ],
+    [
+     "20",
+     "true",
+     "20분",
+     "191,283",
+     "20분 이동평균 선"
+    ]
+   ]
+  }
+ },
+ "oldworker_30m_only_the_400_probe": {
+  "ok": true,
+  "detail": [
+   "error: Failed to load resource: the server responded with a status of 400 (Bad Request)"
+  ]
+ },
+ "oldworker_tf_form_groups_minutes": {
+  "ok": true,
+  "detail": {
+   "10m": [
+    308,
+    "0",
+    "10분"
+   ],
+   "30m": [
+    105,
+    "0",
+    "30분"
+   ],
+   "60m": [
+    58,
+    "0",
+    "60분"
+   ]
+  }
+ },
+ "oldworker_tf_console_clean": {
   "ok": true,
   "detail": []
  },
@@ -223,8 +1237,8 @@
  "error_states_with_retry": {
   "ok": true,
   "detail": {
-   "meta": "시세 요약을 불러오지 못했어요.다시 시도",
-   "chart": "차트를 불러오지 못했어요.서버가 응답하지 않아요 (502). 잠시 뒤 다시 시도해 주세요.다시 시도",
+   "meta": "시세 요약을 불러오지 못했어요.다시 시도받는 중받았어요아직 안 돼요 · 다시",
+   "chart": "차트를 불러오지 못했어요.서버가 응답하지 않아요 (502). 잠시 뒤 다시 시도해 주세요.다시 시도받는 중받았어요아직 안 돼요 · 다시",
    "ob": "호가를 불러오지 못했어요.서버가 응답하지 않아요 (502). 잠시 뒤 다",
    "retry": 2
   }
@@ -237,7 +1251,7 @@
   "ok": true,
   "detail": {
    "nf": true,
-   "meta": "이 코드의 종목을 찾지 못했어요.다시 시도"
+   "meta": "이 코드의 종목을 찾지 못했어요.다시 시도받는 중받았어요아직 안 돼요 · 다시"
   }
  },
  "empty_states": {
@@ -257,7 +1271,7 @@
   "ok": true,
   "detail": {
    "open": [
-    "장 중",
+    "실시간",
     3,
     false
    ],
@@ -299,9 +1313,9 @@
   "detail": {
    "open": true,
    "name": "삼성전자",
-   "price": "189,900",
-   "href": "https://kospimap.pages.dev/#s-005930",
-   "live": "https://kospimap.pages.dev/",
+   "price": "206,000",
+   "href": "https://panse.pages.dev/#s-005930",
+   "live": "https://panse.pages.dev/",
    "text": "차트·호가·투자자 정보는 실시간 버전에서 볼 수 있어요",
    "chart": false,
    "api": [],
@@ -338,9 +1352,9 @@
   "detail": {
    "open": true,
    "name": "삼성전자",
-   "price": "189,900",
-   "href": "https://kospimap.pages.dev/#s-005930",
-   "live": "https://kospimap.pages.dev/",
+   "price": "206,000",
+   "href": "https://panse.pages.dev/#s-005930",
+   "live": "https://panse.pages.dev/",
    "text": "차트·호가·투자자 정보는 실시간 버전에서 볼 수 있어요",
    "chart": false,
    "api": [],
@@ -538,7 +1552,7 @@
  "news_error_retry": {
   "ok": true,
   "detail": {
-   "err": "뉴스를 불러오지 못했어요.서버가 응답하지 않아요 (502). 잠시 뒤 다시 시도해 주세요.다시 시도",
+   "err": "뉴스를 불러오지 못했어요.서버가 응답하지 않아요 (502). 잠시 뒤 다시 시도해 주세요.다시 시도받는 중받았어요아직 안 돼요 · 다시",
    "disc_rows_meanwhile": 20
   }
  },
@@ -729,7 +1743,7 @@
     "pressed": "true",
     "has": true,
     "color": "rgb(255, 181, 71)",
-    "fill": "rgb(255, 181, 71)"
+    "fill": "rgba(255, 181, 71, 0.996)"
    },
    "external_toggle": "false",
    "keyboard": [
@@ -774,17 +1788,19 @@
    []
   ]
  },
- "snapshot_limit_900300": {
+ "snapshot_limit_up": {
   "ok": true,
   "detail": [
+   "002990",
    "상한가|sp-lim up|rgb(255, 92, 102)",
    [],
    []
   ]
  },
- "snapshot_limit_179530": {
+ "snapshot_limit_down": {
   "ok": true,
   "detail": [
+   "004545",
    "하한가|sp-lim dn|rgb(47, 214, 122)",
    [],
    []
@@ -1200,17 +2216,17 @@
     [
      "개인",
      "+858,557주",
-     "left:50%;width:50%;"
+     "left:50%;width:50%;transform-origin:leftcenter;"
     ],
     [
      "외국인",
      "−655,978주",
-     "right:50%;width:38.2%;"
+     "right:50%;width:38.2%;transform-origin:rightcenter;"
     ],
     [
      "기관",
      "−242,926주",
-     "right:50%;width:14.1%;"
+     "right:50%;width:14.1%;transform-origin:rightcenter;"
     ]
    ]
   }
@@ -1224,17 +2240,17 @@
     [
      "개인",
      "+858,557주",
-     "left:50%;width:50%;"
+     "left:50%;width:50%;transform-origin:leftcenter;"
     ],
     [
      "외국인",
      "−655,978주",
-     "right:50%;width:38.2%;"
+     "right:50%;width:38.2%;transform-origin:rightcenter;"
     ],
     [
      "기관",
      "−242,926주",
-     "right:50%;width:14.1%;"
+     "right:50%;width:14.1%;transform-origin:rightcenter;"
     ]
    ]
   }
@@ -1428,7 +2444,7 @@
  "info_keyboard_reach_and_esc": {
   "ok": true,
   "detail": [
-   "sp-panel|solid",
+   "sp-panel|none",
    "quarter|solid",
    "annual|solid",
    "202606|solid",
@@ -1452,7 +2468,7 @@
  },
  "snapshot_mentions_info": {
   "ok": true,
-  "detail": "차트·호가·투자자 정보는 실시간 버전에서 볼 수 있어요이 화면은 11월 9일 (월) 15:30 기준 스냅샷이라 새 시세를 받아 오지 않아요. 종목 정보(재무·애널리스트 의견), 일별 시세, 뉴스·공시도 실시간 버전에"
+  "detail": "차트·호가·투자자 정보는 실시간 버전에서 볼 수 있어요이 화면은 11월 13일 (금) 15:30 기준 스냅샷이라 새 시세를 받아 오지 않아요. 종목 정보(재무·애널리스트 의견), 일별 시세, 뉴스·공시도 실시간 버전"
  },
  "motion_standard_no_roll": {
   "ok": true,
@@ -1653,11 +2669,31 @@
  "nxt_line_texts_and_hidden_without_nxt": {
   "ok": true,
   "detail": {
-   "pre": "NXT 프리마켓 200,200 +6.09% · 08:12",
-   "after": "NXT 애프터마켓 200,200 +6.09% · 08:12",
-   "preclosed": "NXT 프리마켓 마감 200,200 +6.09% · 08:12",
-   "afterclosed": "NXT 애프터 종가 200,200 +6.09% · 08:12",
-   "none": "  "
+   "pre": [
+    "NXT 200,200 +6.09% · 08:12",
+    "NXT(넥스트레이드) 프리마켓 · 마감 · 08:12",
+    false
+   ],
+   "after": [
+    "NXT 200,200 +6.09% · 08:12",
+    "NXT(넥스트레이드) 애프터마켓 · 마감 · 08:12",
+    false
+   ],
+   "preclosed": [
+    "NXT 200,200 +6.09% · 08:12",
+    "NXT(넥스트레이드) 프리마켓 · 마감 · 08:12",
+    false
+   ],
+   "afterclosed": [
+    "NXT 200,200 +6.09% · 08:12",
+    "NXT(넥스트레이드) 애프터마켓 · 마감 · 08:12",
+    false
+   ],
+   "none": [
+    "  ",
+    "",
+    true
+   ]
   }
  },
  "nxt_up_colour_from_palette": {
@@ -1669,7 +2705,7 @@
  },
  "nxt_line_refreshes_with_summary": {
   "ok": true,
-  "detail": "NXT 프리마켓 183,039 −3.00% · 08:12"
+  "detail": "NXT 183,039 −3.00% · 08:12"
  },
  "nxt_roll_fancy_only": {
   "ok": true,

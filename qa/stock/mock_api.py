@@ -19,6 +19,13 @@ Control (test helpers, not part of the contract)
   /__config?delay=800&fail=chart,orderbook&status=OPEN&asof=2026-11-09T10:30:00%2B09:00&dsrc=naver
                                  fail also takes finance:annual / finance:quarter (one period only)
                                  &nosum=1 → summary without the §3-3 fields (an older Worker)
+                                 &noiv=1 → chart ignores iv= and answers the tf= shape (a Worker from before iv=)
+                                 &oldiv=1 → iv=10m|30m|60m answer 400 (a Worker from before 10분 · 30분 · 60분)
+Chart: ?iv=1m|5m|10m|30m|60m|day|week|month[&to=][&count=][&warm=] like the Worker (AGENTS.md §3): 10m · 30m · 60m are the 5-minute
+bars grouped by group_bars, a port of the Worker's groupBars (worker/src/index.js). The tf= form is unchanged.
+Quiet stubs for the heatmap's own routes so a page load is console-clean: /api/news, /api/disclosures/today (an empty day), /api/time,
+/api/breadth (from data/snapshot.json), /api/world, /api/live (qa/live/ws_mock.py: {t:'off', reason:'closed'}), /data/*.json from web/
+(except close.json: 404, as before).
 """
 import datetime as dt, html, json, pathlib, random, re, sys, threading, time
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
@@ -26,6 +33,8 @@ from urllib.parse import urlparse, parse_qs
 
 HERE = pathlib.Path(__file__).resolve().parent
 ROOT = HERE.parent.parent
+sys.path.insert(0, str(ROOT / 'qa/live'))
+from ws_mock import answer_live   # noqa: E402  GET /api/live: {t:'off', reason:'closed'} like the real Worker outside the session
 RAW = HERE / 'fixtures' / 'raw'
 WEB = ROOT / 'web'
 PORT = int(sys.argv[sys.argv.index('--port') + 1]) if '--port' in sys.argv else 8792
@@ -212,6 +221,79 @@ def chart(code, tf):
     return {'tf': tf, 'interval': interval, 'prevClose': num(rows[0]['closePrice']), 'bars': period_bars(rows[1:])}
 
 
+# ── iv= (AGENTS.md §3): the Worker's getChartIv over the fixtures ──
+IVS = ('1m', '5m', '10m', '30m', '60m', 'day', 'week', 'month')
+GROUP = {'10m': 10, '30m': 30, '60m': 60}
+
+
+def group_bars(bars, n):
+    """Port of the Worker's groupBars: 5-minute bars (stamped with their first minute) → n-minute bars on the clock grid from 09:00 KST,
+    the closing print (15:30, or 16:30 on a day with trades at 15:20–15:29) closes the last regular bucket, after-hours buckets start there."""
+    bars = sorted((b for b in bars if b and b.get('c') is not None), key=lambda b: b['t'])
+    late = {(b['t'] + 32400) // 86400 for b in bars if ((b['t'] + 32400) % 86400) // 60 in (920, 925)}
+    out = []
+    for b in bars:
+        k = b['t'] + 32400
+        day, m = k // 86400, (k % 86400) // 60
+        end = 990 if day in late else 930
+        s = m - m % n if m < end else (end - 1) - (end - 1) % n if m == end else max(end, m - m % n)
+        t = day * 86400 + s * 60 - 32400
+        o = b['o'] if b.get('o') is not None else b['c']
+        hi, lo = max(b['h'] if b.get('h') is not None else b['c'], o, b['c']), min(b['l'] if b.get('l') is not None else b['c'], o, b['c'])
+        if out and out[-1]['t'] == t:
+            cur = out[-1]; cur['h'] = max(cur['h'], hi); cur['l'] = min(cur['l'], lo); cur['c'] = b['c']; cur['v'] += b.get('v') or 0
+        else:
+            out.append({'t': t, 'o': o, 'h': hi, 'l': lo, 'c': b['c'], 'v': b.get('v') or 0})
+    return out
+
+
+def kst_sec(s):
+    s = s + '0' * (14 - len(s))
+    return int(dt.datetime(int(s[0:4]), int(s[4:6]), int(s[6:8]), int(s[8:10]), int(s[10:12]), tzinfo=KST).timestamp())
+
+
+def chart_iv(code, iv, to, count, warm):
+    minute = iv in ('1m', '5m') or iv in GROUP
+    if minute:
+        lst = minute_bars(raw(code, 'minute' if iv == '1m' else 'minute5'))
+        if iv in GROUP:
+            lst = group_bars(lst, GROUP[iv])
+        if to:
+            lim = kst_sec(to)
+            lst = [b for b in lst if b['t'] < lim]
+    else:
+        lst = period_bars(raw(code, {'day': 'day_1y', 'week': 'week_3y', 'month': 'month_10y'}[iv]))
+        if to:
+            lst = [b for b in lst if b['t'] < ymd(to[:8])]
+    need = count + warm
+    more = len(lst) > need or (not minute and len(lst) == need)
+    k = max(0, len(lst) - count)
+    out = {'iv': iv, 'interval': {'day': '1d', 'week': '1w', 'month': '1mo'}.get(iv, iv), 'prevClose': lst[k - 1]['c'] if k else None, 'bars': lst[k:], 'more': more}
+    if warm:
+        out['pre'] = lst[max(0, k - warm):k]
+    return out
+
+
+def chart_q(code, q):
+    """chart?iv=… (unless the config plays an older Worker) or chart?tf=… → (status, body)"""
+    iv = q.get('iv')
+    warm = min(120, int(q.get('warm') or 0))
+    if iv is not None and not CONFIG.get('noiv'):
+        if iv not in IVS or (CONFIG.get('oldiv') and iv in GROUP):
+            return 400, {'error': 'iv는 ' + ', '.join(x for x in IVS if not (CONFIG.get('oldiv') and x in GROUP)) + ' 중 하나여야 해요'}
+        to = q.get('to')
+        if to is not None and not re.fullmatch(r'\d{8}|\d{12}', to):
+            return 400, {'error': 'to는 YYYYMMDD 또는 YYYYMMDDHHMM이어야 해요'}
+        count = min(1500, max(1, int(q.get('count') or 250)))
+        if code == '999980':
+            return 200, {'iv': iv, 'interval': iv, 'prevClose': None, 'bars': [], 'more': False}
+        return 200, chart_iv(code, iv, to, count, warm)
+    tf = q.get('tf', '1d')
+    if tf not in ('1d', '5d', '3m', '1y', '3y', '10y'):
+        return 400, {'error': 'bad tf'}
+    return 200, (EMPTY['chart'](tf) if code == '999980' else chart(code, tf))
+
+
 def orderbook(code):
     j = raw(code, 'askingPrice')
     jit = lambda q: max(1, int(q * random.uniform(0.85, 1.15)))   # make each poll visibly different
@@ -284,6 +366,15 @@ def quotes():
         rows = sorted((x for x in snap['stocks'] if x.get('m') == m and x['c'].endswith('0')), key=lambda x: -x.get('cap', 0))[:300]
         out += rows
     out = [dict(r, lim=1 if r.get('r', 0) >= 29.5 else -1) if abs(r.get('r', 0)) >= 29.5 else r for r in out]   # Worker: lim only when at the limit
+    # the stocks with fixtures quote what their summary says (the same price · change · ratio, bump included): data/snapshot.json is
+    # rebuilt every day, the fixtures are not, and the page's head takes whichever of the two is newer — they must agree
+    for i, r in enumerate(out):
+        if (RAW / r['c']).exists():
+            try:
+                sm = summary(r['c'])
+                out[i] = dict(r, p=sm['price'], d=sm['change'], r=sm['ratio'])
+            except Exception:
+                pass
     return {'asOf': dt.datetime.now(KST).replace(microsecond=0).isoformat(), 'source': '네이버 증권 (mock)',
             'marketStatus': snap['marketStatus'], 'afterHours': True, 'index': snap['index'], 'stocks': out}
 
@@ -352,6 +443,8 @@ class Handler(SimpleHTTPRequestHandler):
         u = urlparse(self.path)
         q = {k: v[0] for k, v in parse_qs(u.query, keep_blank_values=True).items()}
         path = u.path
+        if path == '/api/live':
+            return answer_live(self)
         if path == '/__stats':
             with LOCK:
                 return self.send_json(dict(STATS))
@@ -367,7 +460,11 @@ class Handler(SimpleHTTPRequestHandler):
                     else:
                         CONFIG[k] = v
             return self.send_json(dict(CONFIG))
-        if re.match(r'^/data/(themes|periods|flows)\.json$', path):   # Worker serves web/*.json here
+        if re.match(r'^/data/[a-z_]+\.json$', path):   # Worker serves web/*.json here
+            # close.json stays 404: with it the heatmap shows the KRX close after 15:30 instead of the live (mock) quotes the tests
+            # move (test_stock.py Page ignores that 404 and /api/breadth's)
+            if path == '/data/close.json' or not (WEB / path[len('/data/'):]).exists():
+                return self.send_json({'error': 'not built'}, 404)
             self.path = path[len('/data'):]
             return super().do_GET()
         if path.startswith('/api/'):
@@ -391,6 +488,24 @@ class Handler(SimpleHTTPRequestHandler):
             return self.send_json({'asOf': dt.datetime.now(KST).replace(microsecond=0).isoformat(), 'themes': []})
         if path == '/api/replay/dates':
             return self.send_json({'dates': []})
+        if path == '/api/time':
+            return self.send_json({'t': int(time.time() * 1000)})
+        if path == '/api/news':   # 시장 뉴스 (AGENTS.md §3-2): two quiet items
+            now = dt.datetime.now(KST).replace(microsecond=0)
+            items = [{'src': 'mk', 'title': '코스피, 외국인 매수에 상승 출발', 'url': 'https://www.mk.co.kr/', 't': (now - dt.timedelta(minutes=12)).isoformat()},
+                     {'src': 'hankyung', 'title': '반도체주 강세 이어져', 'url': 'https://www.hankyung.com/', 't': (now - dt.timedelta(minutes=40)).isoformat()}]
+            return self.send_json({'asOf': now.isoformat(), 'items': items, 'sources': {s: {'ok': True, 'n': 1, 'at': now.isoformat()} for s in ('mk', 'hankyung')}})
+        if path == '/api/disclosures/today':   # 공시 배지 (§3-29): a day without filings
+            now = dt.datetime.now(KST).replace(microsecond=0)
+            kinds = {k: 0 for k in ('실적', '주요', '지분', '정기', '기타')}
+            return self.send_json({'date': now.strftime('%Y-%m-%d'), 'asOf': now.isoformat(), 'rows': [],
+                                   'counts': {'K': 0, 'Q': 0, 'total': 0, 'byKind': dict(kinds), 'byKindMarket': {'K': dict(kinds), 'Q': dict(kinds)}}, 'since': '07:00'})
+        if path == '/api/breadth':   # 등락 분포 (§3-3): the snapshot's rows of that market, one part
+            mk = q.get('m', 'K')
+            rows = [[c, r['r']] + ([r['lim']] if r.get('lim') else []) for c, r in SNAP_ROWS.items() if r.get('m') == mk and r.get('r') is not None]
+            return self.send_json({'m': mk, 'part': 1, 'parts': 1, 'asOf': dt.datetime.now(KST).replace(microsecond=0).isoformat(), 'rows': rows})
+        if path == '/api/world':
+            return self.send_json({'asOf': None, 'kind': q.get('kind'), 'groups': []})
         m = ROUTE.match(path)
         if not m:
             return self.send_json({'error': 'not found'}, 404)
@@ -409,8 +524,9 @@ class Handler(SimpleHTTPRequestHandler):
             return self.send_json({'error': 'naver 500 (mock)'}, 502)
         tf = q.get('tf', '1d')
         page = int(q.get('page', '1') or 1)
-        if kind == 'chart' and tf not in ('1d', '5d', '3m', '1y', '3y', '10y'):
-            return self.send_json({'error': 'bad tf'}, 400)
+        if kind == 'chart' and (code == '999980' or (RAW / code).exists()):
+            st, body = chart_q(code, q)
+            return self.send_json(body, st)
         if code == '999980':
             f = EMPTY[kind]
             return self.send_json(f(tf) if kind == 'chart' else f(page) if kind == 'daily' else f(period) if kind == 'finance' else f())
@@ -419,13 +535,16 @@ class Handler(SimpleHTTPRequestHandler):
                 return self.send_json({'error': f'unknown code {code}'}, 404)
             base = summary('005930')['price'] or 1
             f = (SNAP_ROWS[code]['p'] or base) / base
-            fn = {'summary': lambda: alias_summary(code), 'chart': lambda: scaled(chart('005930', tf), f), 'orderbook': lambda: scaled(orderbook('005930'), f),
+            if kind == 'chart':
+                st, body = chart_q('005930', q)
+                return self.send_json(scaled(body, f) if st == 200 else body, st)
+            fn = {'summary': lambda: alias_summary(code), 'orderbook': lambda: scaled(orderbook('005930'), f),
                   'investors': lambda: scaled(investors('005930'), f), 'daily': lambda: scaled(daily('005930', page), f),
                   'news': lambda: {'rows': []}, 'disclosures': lambda: {'source': 'naver', 'rows': []},
                   'finance': lambda: EMPTY['finance'](period), 'research': lambda: EMPTY['research']()}[kind]
             return self.send_json(fn())
         try:
-            body = {'summary': lambda: summary(code), 'chart': lambda: chart(code, tf), 'orderbook': lambda: orderbook(code),
+            body = {'summary': lambda: summary(code), 'orderbook': lambda: orderbook(code),
                     'investors': lambda: investors(code), 'daily': lambda: daily(code, page),
                     'news': lambda: news(code), 'disclosures': lambda: disclosures(code),
                     'finance': lambda: finance(code, period), 'research': lambda: research(code)}[kind]()

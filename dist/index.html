@@ -7101,9 +7101,11 @@ html.sp-on, html.sp-on body { overflow: hidden; }
 }
 /* the analyst / finance violet ramp is only 1.3 – 3 : 1 on a light page — light themes get a darker set (each step >= 3 : 1 on paper and light glass) */
 html[data-tone="light"] .sp { --s0: #8a74d6; --s1: #6247c4; --s2: #3e2a96; --sp-w3: color-mix(in srgb, var(--fg) 5%, transparent); --sp-w5: color-mix(in srgb, var(--fg) 8%, transparent); --sp-w6: color-mix(in srgb, var(--fg) 10%, transparent); }
-/* moving averages (not up / down data, so never red or green): gold · sky · violet · grey. Each is >= 3 : 1 on the chart ground of every theme. */
-.sp { --ma-5: #f2c14e; --ma-20: #5cc8ff; --ma-60: #b99cff; --ma-120: #aab1bd; }
-html[data-tone="light"] .sp, html[data-theme="paper"] .sp, html[data-theme="glass-light"] .sp { --ma-5: #7a5200; --ma-20: #0b6498; --ma-60: #6a3fd0; --ma-120: #586070; }
+/* moving averages (not up / down data, so never red or green): pink · sky · violet · grey. Each is >= 3 : 1 on the chart ground of every
+   theme. 5 was gold (#f2c14e / #7a5200), too close to the interface amber (design.md §2): pink is ≥ 60° of hue away from every theme's
+   amber; 120 is a more neutral grey so it stays apart from sky and violet. qa/stock/test_ma_colors.py checks contrast · hue · ΔE00. */
+.sp { --ma-5: #ff80c4; --ma-20: #5cc8ff; --ma-60: #b99cff; --ma-120: #c4c8ce; }
+html[data-tone="light"] .sp, html[data-theme="paper"] .sp, html[data-theme="glass-light"] .sp { --ma-5: #b01f78; --ma-20: #0b6498; --ma-60: #6a3fd0; --ma-120: #474b52; }
 html[data-theme="paper"] .sp { --sp-hair: var(--row-bd, rgba(46, 30, 18, .2)); }
 html[data-theme^="glass"] .sp { --sp-solid: var(--page); --sp-nest: var(--panel2, #202228); }
 .sp[hidden] { display: none; }
@@ -7229,28 +7231,74 @@ html[data-theme="paper"] .sp-head, html[data-theme^="glass"] .sp-head { backgrou
 .sp-period { display: none; font-size: 12.5px; color: var(--muted); white-space: nowrap; }
 .sp-period b { font-weight: 600; }
 
-/* 이동평균 row: always there (its height is reserved, the values under the crosshair change text only) */
-.sp-ma { flex: none; display: flex; align-items: center; gap: 6px; min-height: 44px; margin: -2px 0 6px; padding: 2px 0; }
-.sp-ma-t { flex: none; font-size: 12px; font-weight: 600; color: var(--muted); white-space: nowrap; margin-right: 2px; }
-.sp-mac { position: relative; flex: 1 1 0; min-width: 0; max-width: 132px; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 1px; height: 40px; padding: 0 7px; border: 0; border-radius: var(--r-chip); background: var(--chip-bg); box-shadow: var(--key-sh, inset 0 0 0 1px var(--line)); color: var(--fg2); font-size: 12px; font-weight: 600; white-space: nowrap;
-  transition: transform var(--c-fast) var(--c-out), box-shadow var(--c-fast) var(--c-out), background-color var(--c-fast) var(--c-out), color var(--c-fast) var(--c-out), filter var(--c-fast) var(--c-out), opacity var(--c-fast) var(--c-out); }
-.sp-mac:hover { background: var(--key-hover, var(--chip-bg)); }
-.sp-mac:is(:active, .is-press) { transform: translateY(1px); box-shadow: var(--key-dn, none); filter: var(--press-f); transition-duration: 0s, 0s, 0s, var(--c-base), 0s, var(--c-fast); }
-.sp-mac .n { display: inline-flex; align-items: center; gap: 5px; color: var(--mc); line-height: 1.2; }
-.sp-mac .n::before { content: ""; flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--mc); box-shadow: 0 0 0 1.5px var(--mc); transition: background-color var(--c-fast) var(--c-out); }
-.sp-mac .v { display: block; width: 100%; min-height: 1.3em; overflow: hidden; font-size: 11px; line-height: 1.3; font-weight: 500; color: var(--fg); text-align: left; }
-.sp-mac[aria-pressed="false"] { box-shadow: inset 0 0 0 1px var(--line); background: transparent; opacity: .62; }
-.sp-mac[aria-pressed="false"] .n::before { background: transparent; }
-.sp-mac[aria-pressed="false"]:hover { opacity: .85; }
-.sp-mac[aria-pressed="true"] { background: var(--chip-on); box-shadow: inset 0 0 0 1.5px var(--mc); }
-.sp-mac:focus-visible { outline-offset: calc(var(--focus-w, 3px) * -1); }
-@media (pointer: coarse) { .sp-mac::after { content: ""; position: absolute; inset: -2px -3px; } }
-@media (hover: none) { .sp-mac:hover { background: var(--chip-bg); } .sp-mac[aria-pressed="false"]:hover { background: transparent; opacity: .62; } .sp-mac[aria-pressed="true"]:hover { background: var(--chip-on); } }
-@media (min-width: 640px) {
-  .sp-ma { min-height: 38px; margin: 0 0 6px; gap: 8px; }
-  .sp-mac { flex: none; flex-direction: row; align-items: center; justify-content: flex-start; gap: 8px; height: 30px; padding: 0 11px; max-width: none; font-size: 12.5px; }
-  .sp-mac .v { width: 8ch; min-height: 0; font-size: 12px; }
+/* 간격 (design.md §7 segment): 분 · 일 · 주 · 월 · 년 in the template's tray; the raised indicator's leading edge runs on `lead`, the
+   trailing one on `trail` (it stretches a little on the way and settles, §6-2). Heights §4: 32 desktop, 40 phone. */
+.sp .sp-tfs > button { min-height: var(--h-key); font-size: var(--fs-lg); }
+.sp .sp-tfs[data-dir="r"]::before { transition: right var(--sp-lead-dur) var(--sp-lead), left var(--sp-trail-dur) var(--sp-trail), top var(--sp-lead-dur) var(--sp-lead), bottom var(--sp-lead-dur) var(--sp-lead); }
+.sp .sp-tfs[data-dir="l"]::before { transition: left var(--sp-lead-dur) var(--sp-lead), right var(--sp-trail-dur) var(--sp-trail), top var(--sp-lead-dur) var(--sp-lead), bottom var(--sp-lead-dur) var(--sp-lead); }
+
+/* 분 (사용자 2026-11-14 08:10 "분봉으로 통합하고 누르면 1분봉 5분봉 10분봉 30분봉 60분봉 선택 가능하게"): the tab reads the minute interval
+   that is on ("5분") or "분", + a small caret; open = the caret turns and goes amber (§2: amber = open). The label changes in place
+   (§6-4, stock.js swapText): the old text is the ::before and leaves upward with a 2 px blur, the new one comes in from 4 px below. */
+.sp { --tx-out: 100ms; --tx-gap: 60ms; --tx-in: 180ms; }
+html[data-motion="reduced"] .sp { --tx-out: 0ms; --tx-gap: 0ms; --tx-in: 0ms; }
+.sp-tfbar { position: relative; }
+.sp-tfmin { display: inline-flex; align-items: center; justify-content: center; gap: var(--space-1); }
+.sp-tfmin .t { display: inline-grid; }
+.sp-tfmin .t > .tn, .sp-tfmin .t::before { grid-area: 1 / 1; }
+.sp-tfmin .t.go::before { content: attr(data-was); animation: spTxOut var(--tx-out) var(--sp-close) forwards; }
+.sp-tfmin .t.go > .tn { animation: spTxIn var(--tx-in) var(--sp-fade) calc(var(--tx-out) + var(--tx-gap)) both; }
+@keyframes spTxOut { to { opacity: 0; filter: blur(2px); transform: translateY(-4px); } }
+@keyframes spTxIn { from { opacity: 0; filter: blur(2px); transform: translateY(4px); } }
+.sp-tfmin .cr { flex: none; width: 10px; height: 10px; margin-right: calc(var(--space-1) * -1); color: var(--muted); transition: transform var(--sp-close-dur) var(--sp-close), color var(--sp-close-dur) var(--sp-close); }
+.sp-tfmin[aria-expanded="true"] .cr { transform: rotate(180deg); color: var(--acc); transition-duration: var(--sp-open-dur); transition-timing-function: var(--sp-open); }
+
+/* the picker (design.md §5 · §7 popover): the dropdown material of the theme (--pop-bg, the tip rim, --pop-sh, glass blur). stock.js sizes
+   the box (left · top · width · height · corner) and grows it out of the tab; the items sit in a fixed-width layer, so nothing reflows. */
+.sp-ivm { position: absolute; z-index: 5; left: 0; top: 0; overflow: hidden; border-radius: var(--r-float); background: var(--pop-solid, var(--sp-solid)); box-shadow: inset 0 0 0 1px var(--tip-bd, var(--line2)), var(--pop-sh, 0 14px 40px rgba(0, 0, 0, .5)); -webkit-backdrop-filter: var(--blur, none); backdrop-filter: var(--blur, none); }
+.sp-ivm[hidden] { display: none; }
+html[data-theme^="glass"] .sp-ivm { background: var(--pop-bg); }   /* glass: the translucent sheet + blur (opaque when blur is off) */
+html[data-theme="paper"] .sp-ivm { border-radius: var(--tip-r, var(--r-mark)); background: var(--sheet-bg, var(--pop-solid)); box-shadow: inset 0 0 0 1px var(--rule, var(--tip-bd)), var(--pop-sh); }
+.sp-ivm-in { position: relative; isolation: isolate; display: flex; flex-direction: column; padding: var(--space-2); }
+/* the highlight plate (§7 `hl`): under the hovered (fine pointer) or keyboard-focused item; inner corner = outer − padding (§4) */
+.sp-ivm-hl { position: absolute; z-index: -1; left: var(--space-2); right: var(--space-2); top: 0; height: var(--h-row); border-radius: calc(var(--r-float) - var(--space-2)); background: var(--fill-2); opacity: 0; pointer-events: none;
+  transition: transform var(--sp-hl-dur) var(--sp-hl), opacity var(--sp-fade-dur) var(--sp-fade); }
+html[data-theme="paper"] .sp-ivm-hl { border-radius: 0; }
+.sp-ivm-in[data-hl] > .sp-ivm-hl { opacity: 1; }
+.sp-ivm-in > button { display: flex; align-items: center; justify-content: space-between; gap: var(--space-6); min-height: var(--h-row); padding: 0 var(--space-4) 0 var(--space-5); border-radius: calc(var(--r-float) - var(--space-2)); color: var(--fg); font-size: var(--fs-lg); font-weight: 600; line-height: var(--lh-row); text-align: left; white-space: nowrap; font-variant-numeric: tabular-nums; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+html[data-theme="paper"] .sp-ivm-in > button { border-radius: 0; }
+.sp-ivm-in > button:active { filter: var(--press-f); }
+.sp-ivm-in > button:focus-visible { outline-offset: calc(var(--focus-w) * -1); }
+.sp-ivm .ck { flex: none; width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; visibility: hidden; }
+.sp-ivm-in > button[aria-checked="true"] { color: var(--acc); }   /* §2: amber = the selected one */
+.sp-ivm-in > button[aria-checked="true"] .ck { visibility: visible; }
+
+/* 이동평균 (사용자 2026-11-14 "이동평균선 5일 20일 60일 120일 저 버튼들 레이아웃과 디자인 개선이 필요해보여") — design.md §7 legend toggle:
+   a short line swatch in the MA colour + the period + the value under the crosshair (tabular, one reserved width — the widest price of
+   the loaded bars — so nothing moves while the pointer does or when one is toggled). No fill. On = filled swatch + --fg; off = hollow
+   swatch + --muted, no opacity dimming. Height 28 desktop / 32 phone (the press area 44 on phones); only the swatch changes, with `fade`. */
+.sp-ma { flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--space-1); min-height: var(--h-key); margin: calc(var(--space-2) * -1) 0 var(--space-1) calc(var(--space-2) * -1); }
+.sp-ma-t { display: none; flex: none; margin: 0 var(--space-3) 0 var(--space-2); font-size: var(--fs-sm); font-weight: 600; color: var(--muted); white-space: nowrap; }
+.sp-mac { position: relative; flex: none; display: inline-flex; align-items: center; gap: var(--space-2); height: calc(var(--h-chip) + var(--space-2)); padding: 0 var(--space-3); border: 0; border-radius: var(--r-row); background: none; color: var(--fg); font-size: var(--fs-sm); font-weight: 600; line-height: var(--lh-ui); white-space: nowrap; font-variant-numeric: tabular-nums; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+.sp-mac .sw { flex: none; width: 14px; height: 4px; border-radius: var(--r-mark); background: var(--mc); box-shadow: inset 0 0 0 1.5px var(--mc); transition: background-color var(--sp-fade-dur) var(--sp-fade); }
+.sp-mac .n, .sp-mac .v { color: var(--fg); }
+.sp-mac .v { display: inline-block; min-width: var(--ma-vw, 6ch); font-weight: 500; text-align: left; }
+.sp-mac[aria-pressed="false"] .sw { background-color: transparent; }
+.sp-mac[aria-pressed="false"] :is(.n, .v) { color: var(--muted); }
+.sp-mac:active { filter: var(--press-f); }
+@media (hover: hover) and (pointer: fine) { .sp-mac:hover { background: var(--fill-1); } }
+/* phones: 32 high, the press area 44 (the row is one line at 390 px even for "120일 199,981"), 11 px type */
+@media (max-width: 760px) {
+  .sp-ma { min-height: 44px; gap: 0 var(--space-1); margin-left: calc(var(--space-1) * -1); margin-right: calc(var(--space-1) * -1); }
+  .sp-mac { height: var(--h-chip); gap: var(--space-2); padding: 0 var(--space-1); font-size: var(--fs-xs); }
+  .sp-mac::after { content: ""; position: absolute; left: 0; right: 0; top: calc((44px - var(--h-chip)) / -2); bottom: calc((44px - var(--h-chip)) / -2); }
+  .sp-mac .sw { width: 10px; }
 }
+/* when the four do not fit one line (a narrow phone, 7-digit prices — stock.js fitMa), each item puts its value under its name */
+.sp-ma.stack .sp-mac { display: inline-grid; grid-template-columns: auto auto; align-content: center; column-gap: var(--space-2); row-gap: 0; }
+.sp-ma.stack .sp-mac .v { grid-column: 1 / -1; min-width: 0; }
+.sp-ma.stack { gap: 0 var(--space-4); }
+@media (min-width: 640px) { .sp-ma-t { display: block; } }
 .sp-chnote { position: absolute; z-index: 3; left: 50%; transform: translateX(-50%); bottom: 36px; white-space: nowrap; padding: 3px 9px; border-radius: 999px; background: var(--sp-solid); box-shadow: inset 0 0 0 1px var(--line2); color: var(--fg2); font-size: 11.5px; pointer-events: none; opacity: 0; transition: opacity var(--c-fast) var(--c-out); }
 .sp-chnote.on { opacity: 1; }
 .sp-legend .sp-lg-live { padding: 0 6px; border-radius: 999px; box-shadow: inset 0 0 0 1px var(--line2); color: var(--fg2); font-size: 10.5px; font-weight: 600; text-shadow: none; }
@@ -7713,17 +7761,28 @@ const LWC_SRC = `https://cdn.jsdelivr.net/npm/lightweight-charts@${LWC_VERSION}/
 const LWC_SRI = 'sha384-KkYqTZlM13Zya6fVUF3IGCBOQ1ehFeJVVgxaVvD/0MebineF9EI8Jkd3NnWNChqN';
 const CODE_RE = /^[0-9A-Z]{6}$/;
 const HASH_RE = /^#s-([0-9A-Z]{6})$/;
-/* The chart's tabs are bar intervals (사용자 2026-11-13 22:38). `tf` below is one of these keys. */
-const TFS = [['1m', '1분'], ['5m', '5분'], ['day', '일'], ['week', '주'], ['month', '월'], ['year', '년']];
+/* The chart's tabs are bar intervals (사용자 2026-11-13 22:38). 분 is one tab with a picker of minute intervals (사용자 2026-11-14 08:10
+ * "1분봉 5분봉 있는게 아니라 분봉으로 통합하고 누르면 1분봉 5분봉 10분봉 30분봉 60분봉 선택 가능하게"): tabs 분 · 일 · 주 · 월 · 년.
+ * `tf` below is one interval key (1m … 60m, day, week, month, year); the choice is remembered in khm.stock.iv (old '1m' / '5m' stay valid). */
+const MINS = [['1m', '1분'], ['5m', '5분'], ['10m', '10분'], ['30m', '30분'], ['60m', '60분']];
+const TFS = [...MINS, ['day', '일'], ['week', '주'], ['month', '월'], ['year', '년']];
+const TF_TABS = [['min', '분'], ['day', '일'], ['week', '주'], ['month', '월'], ['year', '년']];
 const TF_NAME = Object.fromEntries(TFS);
-const IV_UNIT = { '1m': '분', '5m': '분', day: '일', week: '주', month: '월', year: '년' };            // what "5" means in 5-bar average
-const IV_BARS = { '1m': '1분봉', '5m': '5분봉', day: '일봉', week: '주봉', month: '월봉', year: '연봉' };
-const IV_OLD = { '1m': '1d', '5m': '5d', day: '1y', week: '3y', month: '10y', year: '10y' };           // the tf= form (a Worker without iv=)
-const IV_REQ = { '1m': ['1m', 900], '5m': ['5m', 800], day: ['day', 250], week: ['week', 260], month: ['month', 240], year: ['month', 480] };   // iv, bars asked for
-const IV_RANGE = { '1m': '오늘', '5m': '5일', day: '6개월', week: '3년', month: '10년', year: '전체 기간' };   // the default visible window
+const MIN_TF = new Set(MINS.map(x => x[0]));
+const isMin = tf => MIN_TF.has(tf);
+const IV_UNIT = { '1m': '분', '5m': '분', '10m': '분', '30m': '분', '60m': '분', day: '일', week: '주', month: '월', year: '년' };   // what "5" means in 5-bar average
+const IV_BARS = { '1m': '1분봉', '5m': '5분봉', '10m': '10분봉', '30m': '30분봉', '60m': '60분봉', day: '일봉', week: '주봉', month: '월봉', year: '연봉' };
+// the tf= form (a Worker without iv=); 10분 · 30분 · 60분 group its 5-minute bars here
+const IV_OLD = { '1m': '1d', '5m': '5d', '10m': '5d', '30m': '5d', '60m': '5d', day: '1y', week: '3y', month: '10y', year: '10y' };
+const IV_REQ = { '1m': ['1m', 900], '5m': ['5m', 800], '10m': ['10m', 400], '30m': ['30m', 140], '60m': ['60m', 70],
+  day: ['day', 250], week: ['week', 260], month: ['month', 240], year: ['month', 480] };   // iv, bars asked for
+const IV_GROUP = { '10m': 10, '30m': 30, '60m': 60 };   // minutes per bar the Worker groups from 5-minute bars (groupBars)
+const IV_RANGE = { '1m': '오늘', '5m': '5일', '10m': '3일', '30m': '5일', '60m': '5일', day: '6개월', week: '3년', month: '10년', year: '전체 기간' };   // the default visible window
+const IV_DAYS = { '1m': 1, '5m': 5, '10m': 3, '30m': 5, '60m': 5 };   // trading days in that window (minute intervals)
 const IV_MONTHS = { day: 6, week: 36, month: 120 };
 const MA_N = [5, 20, 60, 120];
-const MA_DEF = { '1m': [5, 20, 60], '5m': [5, 20, 60], day: [5, 20, 60, 120], week: [5, 20, 60, 120], month: [5, 20, 60, 120], year: [5, 20] };
+const MA_DEF = { '1m': [5, 20, 60], '5m': [5, 20, 60], '10m': [5, 20, 60], '30m': [5, 20, 60], '60m': [5, 20],
+  day: [5, 20, 60, 120], week: [5, 20, 60, 120], month: [5, 20, 60, 120], year: [5, 20] };
 const WARM = 119;   // bars before the window, so the 120-bar average is complete at the first visible bar
 /* Tabs beside/under the chart. To add one (e.g. 뉴스·공시) add an entry here; nothing else has to change.
  *   key, label    id suffix (#sp-t-<key>, #sp-p-<key>) and the visible name
@@ -7849,8 +7908,8 @@ function chartColors() {
   const page = tokColor('--page', '#131418'), muted = tokColor('--muted', '#8a8f99'), fg = tokColor('--fg', '#eef0f3'), fg2 = tokColor('--fg2', '#bcc0c8');
   const line = tokColor('--line', '#2b2d34'), line2 = tokColor('--line2', '#373a42');
   const tag = light ? fg2 : over(line2, over(page, [0, 0, 0, 1]));   // crosshair / 전일 종가 labels: opaque, so the label text keeps its contrast
-  // moving averages: gold · sky · violet · grey, never the up/down hues (stock.css --ma-*; the fallback is the dark-tone value, or the light one on a light tone)
-  const maD = { 5: '#f2c14e', 20: '#5cc8ff', 60: '#b99cff', 120: '#aab1bd' }, maL = { 5: '#7a5200', 20: '#0b6498', 60: '#6a3fd0', 120: '#586070' };
+  // moving averages: pink · sky · violet · grey, never the up/down hues nor the interface amber (stock.css --ma-*; the fallback is the dark-tone value, or the light one on a light tone)
+  const maD = { 5: '#ff80c4', 20: '#5cc8ff', 60: '#b99cff', 120: '#c4c8ce' }, maL = { 5: '#b01f78', 20: '#0b6498', 60: '#6a3fd0', 120: '#474b52' };
   const ma = {};
   for (const n of MA_N) ma[n] = rgbStr(tokColor(`--ma-${n}`, (light ? maL : maD)[n]), 1);
   return {
@@ -7861,6 +7920,7 @@ function chartColors() {
 }
 const chc = () => CH || (CH = chartColors());
 const chevron = () => svg('svg', { viewBox: '0 0 24 24', 'aria-hidden': 'true', fill: 'none', stroke: 'currentColor', 'stroke-width': '2.2', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, svg('path', { d: 'M15 5l-7 7 7 7' }));
+const caret = () => svg('svg', { class: 'cr', viewBox: '0 0 10 10', 'aria-hidden': 'true', fill: 'none', stroke: 'currentColor', 'stroke-width': '1.5', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, svg('path', { d: 'M2.5 4l2.5 2.5L7.5 4' }));
 function skel(w, hgt) { return h('span', { class: 'sp-skel', style: `width:${w};height:${hgt || '1em'}` }); }
 // retry: a key from retryKey() (or a plain function: a plain 다시 시도 key)
 function msgBox(title, sub, retry) {
@@ -7912,6 +7972,7 @@ const S = {
   open: false, code: null, opener: null, pushed: false, prevHash: '', prevTitle: '',
   gen: 0,
   tf: TF_NAME[store.get('stock.iv', 'day')] ? store.get('stock.iv', 'day') : 'day',
+  ivMin: isMin(store.get('stock.ivMin', '')) ? store.get('stock.ivMin', '') : null,   // the last minute interval picked (the picker's focus when 분 is not on)
   tab: TAB[store.get('stockTab', TABS[0].key)] ? store.get('stockTab', TABS[0].key) : TABS[0].key,
   sum: null, sumErr: null, phase: 'unknown',
   ob: null, obErr: null, obAt: null,              // 호가 tab
@@ -7995,25 +8056,43 @@ function build() {
 
 function buildLive() {
   // segments (docs/standards/controls.md §5-4): the template's deep tray (.seg) + one raised indicator that slides (KH.ui.seg)
-  R.tfs = h('div', { class: 'sp-seg sp-tfs seg', role: 'group', 'aria-label': '차트 기간' },
-    TFS.map(([k, label]) => h('button', { type: 'button', 'data-tf': k, 'aria-pressed': 'false', onclick: () => setTf(k), text: label })));
+  // design.md §7 segment: 분 · 일 · 주 · 월 · 년; the indicator's two edges run on `lead` / `trail` (stock.css)
+  R.tfs = h('div', { class: 'sp-seg sp-tfs seg', role: 'group', 'aria-label': '차트 간격' },
+    TF_TABS.map(([k, label]) => k === 'min'
+      ? (R.minBtn = h('button', { type: 'button', class: 'sp-tfmin', 'data-tf': k, 'aria-pressed': 'false', 'aria-haspopup': 'menu', 'aria-expanded': 'false', 'aria-controls': 'sp-ivm',
+          onclick: () => ivMenu(IVM.st !== 'open'), onkeydown: ivBtnKey }, h('span', { class: 't' }, h('span', { class: 'tn', text: label })), caret()))
+      : h('button', { type: 'button', 'data-tf': k, 'aria-pressed': 'false', onclick: () => setTf(k), text: label })));
   uiSeg(R.tfs);
+  // 분's picker (design.md §7 팝오버): a menu of radio items that grows out of the tab. It lives in .sp-tfbar, outside the segment's tray,
+  // so nothing clips it: the box (.sp-ivm) changes size, the items sit in a fixed-width layer (.sp-ivm-in) with the highlight plate
+  R.ivmHl = h('i', { class: 'sp-ivm-hl', 'aria-hidden': 'true' });
+  R.ivmIn = h('div', { class: 'sp-ivm-in', role: 'none' }, R.ivmHl,
+    ...MINS.map(([k, label]) => h('button', { type: 'button', role: 'menuitemradio', 'data-iv': k, 'aria-checked': 'false', tabindex: '-1', onclick: () => pickMin(k) },
+      h('span', { class: 't', text: label }), svg('svg', { class: 'ck', viewBox: '0 0 16 16', 'aria-hidden': 'true' }, svg('path', { d: 'M3.5 8.5l3 3 6-6.5' })))));
+  R.ivm = h('div', { class: 'sp-ivm', id: 'sp-ivm', role: 'menu', 'aria-label': '분봉 간격', hidden: true, onkeydown: ivMenuKey }, R.ivmIn);
+  ivWire();
   R.period = h('div', { class: 'sp-period num' });
   R.chart = h('div', { class: 'sp-chart', role: 'img', 'aria-label': '가격 차트' });
   R.legend = h('div', { class: 'sp-legend num', 'aria-hidden': 'true' });
   R.chartMsg = h('div', { class: 'sp-chartmsg' });
   R.note = h('div', { class: 'sp-chnote', role: 'status', 'aria-live': 'polite' });
   R.mac = {};
+  // 이동평균 (사용자 2026-11-14 "이동평균선 5일 20일 60일 120일 저 버튼들 레이아웃과 디자인 개선이 필요해보여"): design.md §7 legend toggle —
+  // a short line in the MA colour, the period, the value under the crosshair (tabular, one reserved width). On = filled line + --fg,
+  // off = hollow line + --muted (no opacity dimming); the value stays in its place either way, so nothing moves when one is toggled.
   R.ma = h('div', { class: 'sp-ma', role: 'group', 'aria-label': '이동평균' },
-    h('span', { class: 'sp-ma-t', text: '이동평균' }),
+    h('span', { class: 'sp-ma-t', 'aria-hidden': 'true', text: '이동평균' }),
     ...MA_N.map(n => {
       const v = h('span', { class: 'v num' }), nm = h('span', { class: 'n' });
-      R.mac[n] = { v, nm, btn: h('button', { type: 'button', class: 'sp-mac', 'data-n': String(n), 'aria-pressed': 'false', style: `--mc: var(--ma-${n})`, onclick: () => toggleMa(n) }, nm, v) };
+      R.mac[n] = { v, nm, btn: h('button', { type: 'button', class: 'sp-mac', 'data-n': String(n), 'aria-pressed': 'false', style: `--mc: var(--ma-${n})`, onclick: () => toggleMa(n) },
+        h('i', { class: 'sw', 'aria-hidden': 'true' }), nm, v) };
       return R.mac[n].btn;
     }));
   syncMaChips();
+  addEventListener('resize', fitMa);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitMa, () => {});
   const chartcol = h('section', { class: 'sp-chartcol', 'aria-label': '가격 차트' },
-    h('div', { class: 'sp-tfbar' }, R.tfs, R.period),
+    h('div', { class: 'sp-tfbar' }, R.tfs, R.ivm, R.period),
     R.ma,
     h('div', { class: 'sp-chartwrap' }, R.chart, R.legend, R.note, R.chartMsg),
     R.peers);
@@ -8443,7 +8522,7 @@ function timeParts(t) {
 function timeLabel(t, tf) {
   const p = timeParts(t);
   switch (tf || C.tf) {
-    case '1m': case '5m': return `${p.m}월 ${p.d}일 (${WD[p.wd]}) ${pad(p.hh)}:${pad(p.mm)}`;
+    case '1m': case '5m': case '10m': case '30m': case '60m': return `${p.m}월 ${p.d}일 (${WD[p.wd]}) ${pad(p.hh)}:${pad(p.mm)}`;
     case 'week': { const q = p.wd === 0 ? timeParts(new Date(Date.UTC(p.y, p.m - 1, p.d + 1)).toISOString().slice(0, 10)) : p; return `${q.y}.${pad(q.m)}.${pad(q.d)} 주`; }   // Naver weeks start on Sunday
     case 'month': return `${p.y}년 ${p.m}월`;
     case 'year': return `${p.y}년`;
@@ -8552,26 +8631,72 @@ function chartState(kind, err) {
 }
 
 /* Bars come from `chart?iv=…&count=N&warm=119[&to=…]` (AGENTS §3). A Worker that does not know iv= (a 400, or the old tf-shaped answer)
- * is remembered for the session and every interval then uses the old tf= form: no scroll-back, lines simply start later. */
-let IV_OK = null;   // null: not known yet
+ * is remembered for the session and every interval then uses the old tf= form: no scroll-back, lines simply start later.
+ * 10분 · 30분 · 60분 (the Worker groups 5-minute bars): a Worker from before them answers 400 to iv=10m — the page and the Worker deploy
+ * minutes apart — so that is remembered too and those intervals take its 5-minute bars (iv=5m, or tf=5d) and group them here, with the
+ * same groupBars as the Worker. Scroll-back still works then (to= on the 5-minute bars). */
+let IV_OK = null, IV_GROUPED = null;   // null: not known yet
+async function fetchIv(iv, count, warm, to) {   // → the answer (marked _iv), or null when this Worker does not know `iv`
+  try {
+    const j = await api(`chart?iv=${iv}&count=${count}&warm=${warm}` + (to ? `&to=${to}` : ''), 'chart');
+    if (j && Array.isArray(j.bars) && j.iv === iv) { j._iv = true; return j; }
+    return null;   // answered in the old shape
+  } catch (e) {
+    if (aborted(e) || !(e && (e.status === 400 || e.status === 404))) throw e;
+    return null;
+  }
+}
 async function fetchBars(tf, o) {
   o = o || {};
   const warm = o.warm != null ? o.warm : (tf === 'year' ? 0 : WARM);
+  const [iv, count] = IV_REQ[tf], n = IV_GROUP[iv], want = o.count || count;
   if (IV_OK !== false) {
-    const [iv, count] = IV_REQ[tf];
-    try {
-      const j = await api(`chart?iv=${iv}&count=${o.count || count}&warm=${warm}` + (o.to ? `&to=${o.to}` : ''), 'chart');
-      if (j && Array.isArray(j.bars) && j.iv === iv) { IV_OK = true; j._iv = true; return j; }
-      IV_OK = false;   // answered in the old shape
-    } catch (e) {
-      if (aborted(e) || !(e && (e.status === 400 || e.status === 404))) throw e;
+    if (!n || IV_GROUPED !== false) {
+      const j = await fetchIv(iv, want, warm, o.to);
+      if (j) { IV_OK = true; if (n) IV_GROUPED = true; return j; }
+      if (n) IV_GROUPED = false; else IV_OK = false;
+    }
+    if (n && IV_OK !== false) {
+      const j5 = await fetchIv('5m', Math.min(1500, (want + warm + 1) * n / 5), 0, o.to);
+      if (j5) { IV_OK = true; return regroup(j5, iv, n, want, warm); }
       IV_OK = false;
     }
   }
   if (o.to) return { bars: [], more: false, _iv: false };
   const j = await api('chart?tf=' + IV_OLD[tf] + '&warm=' + warm, 'chart');
   j._iv = false;
-  return j;
+  return n ? regroup(j, iv, n, want, warm) : j;
+}
+/* 5-minute bars → n-minute bars: the same rules as the Worker's groupBars (worker/src/index.js) — Naver stamps a bar with its first minute;
+ * buckets on the clock grid from 09:00 KST; the closing print (15:30, 16:30 on a late day) closes the last regular bucket; after-hours
+ * buckets start at the session end. `bars`: {t: unix s, o, h, l, c, v}. */
+function groupBars(bars, n) {
+  const late = new Set(), out = [];
+  bars = bars.filter(b => b && isNum(b.c) && isNum(b.t)).sort((a, b) => a.t - b.t);
+  for (const b of bars) { const k = b.t + KST, m = Math.floor((k % 86400) / 60); if (m === 920 || m === 925) late.add(Math.floor(k / 86400)); }
+  let cur = null;
+  for (const b of bars) {
+    const k = b.t + KST, day = Math.floor(k / 86400), m = Math.floor((k % 86400) / 60), end = late.has(day) ? 990 : 930;
+    const s = m < end ? m - (m % n) : m === end ? (end - 1) - ((end - 1) % n) : Math.max(end, m - (m % n));
+    const t = day * 86400 + s * 60 - KST;
+    const c = +b.c, o = isNum(b.o) ? +b.o : c, hi = Math.max(isNum(b.h) ? +b.h : c, o, c), lo = Math.min(isNum(b.l) ? +b.l : c, o, c);
+    if (cur && cur.t === t) { cur.h = Math.max(cur.h, hi); cur.l = Math.min(cur.l, lo); cur.c = c; cur.v += isNum(b.v) ? +b.v : 0; }
+    else { cur = { t, o, h: hi, l: lo, c, v: isNum(b.v) ? +b.v : 0 }; out.push(cur); }
+  }
+  return out;
+}
+// an answer of 5-minute bars → the shape the Worker gives for `iv` (count bars, up to `warm` of pre, prevClose, more)
+function regroup(j, iv, n, count, warm) {
+  const src = (j.pre || []).concat(j.bars || []);
+  const g = groupBars(src, n);
+  const first = src.filter(b => b && isNum(b.c) && isNum(b.t)).reduce((a, b) => Math.min(a, b.t), Infinity);
+  // the first bucket may have lost its start to the window edge: drop it unless nothing older exists
+  const cut = g.length > 1 && first !== g[0].t && (j.more !== false || !j._iv) ? g.shift() : null;
+  const bars = g.slice(Math.max(0, g.length - count)), rest = g.slice(0, Math.max(0, g.length - count));
+  const out = { iv, interval: iv, bars, more: !!j._iv && (j.more !== false || rest.length > warm), _iv: !!j._iv, _grouped: true,
+    prevClose: rest.length ? rest[rest.length - 1].c : cut ? cut.c : isNum(j.prevClose) ? +j.prevClose : null };
+  if (warm) out.pre = rest.slice(-warm);
+  return out;
 }
 // the retry key's fetch: the chart tool and this interval's bars into the cache, nothing drawn (loadChart() then draws from the cache)
 async function chartFetch() {
@@ -8600,7 +8725,7 @@ async function loadChart(force) {
   try { await ensureChart(); } catch (e) { if (g === S.gen && tf === S.tf) chartState('lib'); return; }
   if (g !== S.gen || tf !== S.tf) return;
   const hit = C.cache.get(key);
-  let j = !force && hit && Date.now() - hit.at < (tf === '1m' || tf === '5m' ? 20e3 : 600e3) ? hit.j : null;
+  let j = !force && hit && Date.now() - hit.at < (isMin(tf) ? 20e3 : 600e3) ? hit.j : null;
   if (!j) {
     try { j = await fetchBars(tf); } catch (e) {
       if (aborted(e) || g !== S.gen || tf !== S.tf) return;
@@ -8686,8 +8811,7 @@ function mergeBars(a, b) {   // by time; b wins
 }
 function windowStart(bars, tf) {   // first index of the default visible window
   if (!bars.length) return 0;
-  if (tf === '1m') return lastDayStart(bars, 1);
-  if (tf === '5m') return lastDayStart(bars, 5);
+  if (isMin(tf)) return lastDayStart(bars, IV_DAYS[tf]);
   if (tf === 'year') return 0;
   const last = String(bars[bars.length - 1].time).split('-').map(Number);
   const cut = new Date(Date.UTC(last[0], last[1] - 1 - IV_MONTHS[tf], last[2])).toISOString().slice(0, 10);
@@ -8715,7 +8839,7 @@ function markChart() {
   R.chart.dataset.ma120 = String(C.ma[120].vals.findIndex(v => v != null)); R.chart.dataset.back = C.canBack ? '1' : '0';
 }
 function setChartData(j, code, tf, keepRange) {
-  const intraday = tf === '1m' || tf === '5m';
+  const intraday = isMin(tf);
   const range = keepRange ? C.chart.timeScale().getVisibleLogicalRange() : null;
   let pre = sanitize(j && j.pre, intraday), win = sanitize(j && j.bars, intraday);
   const same = keepRange && C.code === code && C.tf === tf && C.bars && C.bars.length;
@@ -8746,7 +8870,7 @@ function setChartData(j, code, tf, keepRange) {
   const cs = candleSet(all, tf);
   C.candles.setData(cs);
   C.vol.setData(volData(all));
-  computeMa(); markChart();
+  computeMa(); markChart(); syncMaChips();
   drawRefLine();
   if (range) C.chart.timeScale().setVisibleLogicalRange({ from: range.from, to: range.to });
   else C.chart.timeScale().setVisibleLogicalRange({ from: C.ws - 0.5, to: cs.length - 1 + 2 });
@@ -8787,7 +8911,7 @@ async function loadOlder() {
     computeRefs();
     C.index = new Map(all.map((b, i) => [b.time, i]));
     const cs = candleSet(all, tf);
-    C.candles.setData(cs); C.vol.setData(volData(all)); computeMa(); markChart(); drawRefLine();
+    C.candles.setData(cs); C.vol.setData(volData(all)); computeMa(); markChart(); syncMaChips(); drawRefLine();
     if (range) C.chart.timeScale().setVisibleLogicalRange({ from: range.from + k, to: range.to + k });
     showNote(''); renderLegend(); renderMa();
   } catch (e) {
@@ -8802,12 +8926,26 @@ function syncMaChips() {
   if (!R.mac) return;
   const on = maOn(S.tf), unit = IV_UNIT[S.tf];
   R.ma.setAttribute('aria-label', `이동평균, ${IV_BARS[S.tf]} 기준`);
+  // the values keep one width while the crosshair moves (the widest price of the loaded bars, tabular digits)
+  const top = C.bars && C.bars.length && C.code === S.code ? C.bars.reduce((a, b) => Math.max(a, b.h), 0) : 0;
+  const w = top ? F.int(Math.round(top)) : '00,000', dg = w.replace(/\D/g, '').length;
+  R.ma.style.setProperty('--ma-vw', `calc(${dg}ch + ${w.length - dg} * .3em)`);
   for (const n of MA_N) {
     const m = R.mac[n], o = on.includes(n);
     m.btn.setAttribute('aria-pressed', String(o));
-    m.btn.setAttribute('aria-label', `${n}${unit} 이동평균 ${o ? '끄기' : '켜기'}`);
-    m.nm.textContent = n + unit;
+    m.btn.setAttribute('aria-label', `${n}${unit} 이동평균 선`);   // the state is aria-pressed (켜짐 / 꺼짐), the value is read from the text
+    m.btn.title = `${n}${unit} 이동평균 선 ${o ? '끄기' : '켜기'}`;
+    if (m.nm.textContent !== n + unit) m.nm.textContent = n + unit;
   }
+  fitMa();
+}
+// the four items stay on one line; where they cannot (a narrow phone, 7-digit prices) each puts its value under its name (.stack).
+// The widths only change with the reserved value width, the labels and the screen, so this runs on those, not on every crosshair move.
+function fitMa() {
+  if (!R.ma || !R.ma.isConnected) return;
+  const cs = MA_N.map(n => R.mac[n].btn);
+  R.ma.classList.remove('stack');
+  if (cs[cs.length - 1].offsetTop > cs[0].offsetTop + 2) R.ma.classList.add('stack');
 }
 function applyMaVisibility() {
   if (!C.ma) return;
@@ -8822,11 +8960,11 @@ function toggleMa(n) {
 }
 function renderMa(i) {
   if (!R.mac) return;
-  const bars = C.bars, on = maOn(S.tf);
-  const idx = bars && bars.length ? (i != null && bars[i] ? i : bars.length - 1) : -1;
-  for (const n of MA_N) {
-    const v = idx >= 0 && on.includes(n) && C.ma ? C.ma[n].vals[idx] : null;
-    const t = !on.includes(n) || idx < 0 ? '' : v == null ? '–' : F.int(Math.round(v));
+  const bars = C.bars;
+  const idx = bars && bars.length && C.code === S.code ? (i != null && bars[i] ? i : bars.length - 1) : -1;
+  for (const n of MA_N) {   // a line that is off keeps its value (muted): the row never changes width when one is toggled
+    const v = idx >= 0 && C.ma ? C.ma[n].vals[idx] : null;
+    const t = idx < 0 ? '' : v == null ? '–' : F.int(Math.round(v));
     if (R.mac[n].v.textContent !== t) R.mac[n].v.textContent = t;
   }
 }
@@ -8893,14 +9031,14 @@ function applyColors() {
 }
 function scheduleIntraday() {
   clearTimeout(S.timers.chart);
-  if (LIVE && S.open && document.visibilityState === 'visible' && S.tf === '1m' && (S.phase === 'open' || S.phase === 'after'))
+  if (LIVE && S.open && document.visibilityState === 'visible' && isMin(S.tf) && (S.phase === 'open' || S.phase === 'after'))   // every minute interval follows the session
     S.timers.chart = setTimeout(refreshIntraday, INTRADAY_MS);
 }
 async function refreshIntraday() {
   const g = S.gen, tf = S.tf, code = S.code;
-  if (!C.chart || tf !== '1m') return;
+  if (!C.chart || !isMin(tf)) return;
   try {
-    const j = await fetchBars(tf, { count: 400, warm: 0 });   // only the newest bars; they are merged into what is loaded
+    const j = await fetchBars(tf, { count: Math.min(400, IV_REQ[tf][1]), warm: 0 });   // only the newest bars; they are merged into what is loaded
     if (g !== S.gen || tf !== S.tf) return;
     setChartData(j, code, tf, true);
   } catch (e) { /* keep the current picture; try again on the next tick */ }
@@ -8908,11 +9046,219 @@ async function refreshIntraday() {
 }
 function setTf(k) {
   if (!TF_NAME[k]) return;
+  ivMenu(false);
   S.tf = k; store.set('stock.iv', k);
+  if (isMin(k)) { S.ivMin = k; store.set('stock.ivMin', k); }
   syncTf(); syncMaChips(); applyMaVisibility(); showNote('');
   loadChart();
 }
-function syncTf() { if (R.tfs) for (const b of R.tfs.children) b.setAttribute('aria-pressed', String(b.dataset.tf === S.tf)); }
+function syncTf() {
+  if (!R.tfs) return;
+  const min = isMin(S.tf);
+  for (const b of R.tfs.children) b.setAttribute('aria-pressed', String(b.dataset.tf === (min ? 'min' : S.tf)));
+  // 분 reads the minute interval that is on ("5분") + a small caret, else "분" + caret; the label changes in place (design.md §6-4)
+  swapText(R.minBtn.firstChild, min ? TF_NAME[S.tf] : '분');
+  R.minBtn.setAttribute('aria-label', `${min ? IV_BARS[S.tf] : '분봉'}, 간격 고르기`);
+  for (const b of ivItems()) b.setAttribute('aria-checked', String(b.dataset.iv === S.tf));
+}
+
+/* motion (design.md §6): the spring tokens of the template's :root (--sp-<name> = a linear() curve, --sp-<name>-dur); '줄이기' sets every
+ * length to 0 and a hidden tab draws the end state, so both get dur 0 here = no animation at all. */
+const motionOk = () => !document.hidden && (typeof KH.motion === 'function' ? KH.motion() !== 'reduced' : document.documentElement.dataset.motion !== 'reduced');
+const rootVar = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+function spring(name, fbMs) {
+  const e = rootVar(`--sp-${name}`), d = parseFloat(rootVar(`--sp-${name}-dur`));
+  const easing = e && window.CSS && CSS.supports('transition-timing-function', e) ? e : 'cubic-bezier(.22,1,.36,1)';
+  return { easing, dur: motionOk() ? (Number.isFinite(d) ? d : fbMs) : 0 };
+}
+const TX = { out: 100, gap: 60, in: 180 };   // design.md §6-4: text out 100 ms → 60 ms → in 180 ms (opacity, 2 px blur, 4 px)
+/* a label that changes inside its shape (§6-4): the old text (a ::before, so textContent is the new label at every moment) leaves upward
+ * with a 2 px blur, the new one comes in from 4 px below 60 ms later — stock.css .sp-tfmin .t.go. 줄이기 / hidden tab: at once. */
+function swapText(box, text) {
+  const tn = box && box.firstChild;
+  if (!tn) return;
+  const old = tn.textContent;
+  if (old === text) return;
+  tn.textContent = text;
+  box.classList.remove('go');
+  if (!old || !motionOk() || !box.isConnected) { delete box.dataset.was; return; }
+  box.dataset.was = old; void box.offsetWidth; box.classList.add('go');
+}
+
+/* 분's picker (design.md §7 팝오버 · 고르기): the box grows out of the 분 tab with `open` — from the tab's rect and corner to its own (left ·
+ * top · width · height · radius), fading in with `fade`; the items come in once it has grown 25 % (§6-4 in: 180 ms); a highlight plate
+ * glides to the hovered (fine pointer) or keyboard-focused item with `hl`. Closing: the items leave first (§6-4 out: 100 ms), then the
+ * box shrinks back into the tab with `close`. Menu button + menuitemradio: click / Enter / Space / ↓ opens on the checked item (or the
+ * last minute pick), ↑ on the last; ↑ ↓ ← → Home End move, Enter / Space pick; Esc, Tab and a tap outside close, and focus goes back to
+ * 분. Below the tab, inside the bar (a 360 px phone never clips it), above it when the screen has no room below. */
+const IVM = { st: 'closed', anims: [] };   // st: closed | open | closing
+const ivItems = () => (R.ivmIn ? [...R.ivmIn.querySelectorAll('[role="menuitemradio"]')] : []);
+function ivWire() {
+  const fine = matchMedia('(hover: hover) and (pointer: fine)');
+  for (const it of ivItems()) {
+    // a real move of a mouse (not the box growing under a pointer that rests on 분): the plate follows, the keys go on from there
+    it.addEventListener('pointermove', e => {
+      if (e.pointerType !== 'mouse' || !fine.matches || IVM.st !== 'open' || R.ivmIn.dataset.hl != null && document.activeElement === it) return;
+      ivHl(it, true);
+      if (document.activeElement !== it) it.focus({ preventScroll: true });
+    });
+    it.addEventListener('focus', () => { if (IVM.st === 'open' && it.matches(':focus-visible')) ivHl(it, true); });
+  }
+  R.ivmIn.addEventListener('pointerleave', e => {
+    if (e.pointerType !== 'mouse' || IVM.st !== 'open') return;
+    const a = document.activeElement;
+    ivHl(a && R.ivmIn.contains(a) && a.matches(':focus-visible') ? a : null, true);
+  });
+  // will-change only while the plate moves (§6-5: a box with no text)
+  const pl = R.ivmHl, off = e => { if (e.propertyName === 'transform') pl.style.willChange = ''; };
+  pl.addEventListener('transitionrun', e => { if (e.propertyName === 'transform') pl.style.willChange = 'transform'; });
+  pl.addEventListener('transitionend', off); pl.addEventListener('transitioncancel', off);
+  const t = R.minBtn.firstChild;
+  t.addEventListener('animationend', e => { if (e.target === t.firstChild) { t.classList.remove('go'); delete t.dataset.was; } });
+}
+function ivHl(it, glide) {
+  const pl = R.ivmHl;
+  if (!it) { delete R.ivmIn.dataset.hl; return; }
+  const snap = !glide || R.ivmIn.dataset.hl == null;   // appearing: in place (fading in), not from where it was last
+  if (snap) pl.style.transition = 'opacity var(--sp-fade-dur) var(--sp-fade)';
+  pl.style.height = it.offsetHeight + 'px';
+  pl.style.transform = `translateY(${it.offsetTop}px)`;
+  R.ivmIn.dataset.hl = '';
+  if (snap) { void pl.offsetWidth; pl.style.transition = ''; }
+}
+function ivMenu(open, focusBtn, at) { if (open) ivOpen(at); else ivClose(focusBtn); }
+function ivFocus(at) {
+  const items = ivItems();
+  if (!items.length) return;
+  const i = at === 'last' ? items.length - 1 : Math.max(0, items.findIndex(b => b.dataset.iv === (isMin(S.tf) ? S.tf : S.ivMin || '5m')));
+  items[i].focus({ preventScroll: true });
+  if (items[i].matches(':focus-visible')) ivHl(items[i], false);
+}
+// geometry in the bar's box (.sp-tfbar is the menu's containing block): the tab, the open menu, the box as it is drawn right now
+const px = v => parseFloat(v) || 0;
+function ivTab() {
+  const bar = R.ivm.parentNode.getBoundingClientRect(), b = R.minBtn.getBoundingClientRect();
+  return { l: b.left - bar.left, t: b.top - bar.top, w: b.width, h: b.height, r: Math.min(px(getComputedStyle(R.minBtn).borderTopLeftRadius), b.height / 2), o: 0 };
+}
+function ivGeom() {
+  const m = R.ivm, inn = R.ivmIn, bar = m.parentNode.getBoundingClientRect(), b = R.minBtn.getBoundingClientRect();
+  for (const k of ['left', 'top', 'width', 'height', 'borderRadius']) m.style[k] = '';
+  inn.style.width = 'max-content';
+  const w = Math.min(bar.width, Math.max(Math.ceil(inn.offsetWidth), Math.ceil(b.width), px(rootVar('--space-8')) * 4)), hgt = Math.ceil(inn.offsetHeight);
+  const gap = px(rootVar('--space-3')) || 6, below = innerHeight - b.bottom - gap, above = b.top - gap;
+  const up = hgt > below && above > below;   // no room under the tab (a short screen, the bar near the bottom): open upward
+  return { l: Math.round(Math.max(0, Math.min(b.left - bar.left, bar.width - w))), t: Math.round(up ? b.top - bar.top - gap - hgt : b.bottom - bar.top + gap),
+    w, h: hgt, r: px(getComputedStyle(m).borderTopLeftRadius), o: 1, up };
+}
+function ivNow() {
+  const m = R.ivm, bar = m.parentNode.getBoundingClientRect(), r = m.getBoundingClientRect(), cs = getComputedStyle(m);
+  return { l: r.left - bar.left, t: r.top - bar.top, w: r.width, h: r.height, r: px(cs.borderTopLeftRadius), o: +cs.opacity };
+}
+const ivK = g => ({ left: g.l + 'px', top: g.t + 'px', width: g.w + 'px', height: g.h + 'px', borderRadius: g.r + 'px' });
+function ivSet(g) {
+  const m = R.ivm;
+  m.style.left = g.l + 'px'; m.style.top = g.t + 'px'; m.style.width = g.w + 'px'; m.style.height = g.h + 'px';
+  R.ivmIn.style.width = g.w + 'px';   // the items keep their final layout while the box grows around them (nothing reflows)
+  m.classList.toggle('up', !!g.up);
+}
+function ivStop() { for (const a of IVM.anims) { try { a.cancel(); } catch (e) { /* gone */ } } IVM.anims = []; clearTimeout(IVM.pe); if (R.ivm) R.ivm.style.pointerEvents = ''; }
+function ivOpen(at) {
+  if (!R.ivm) return;
+  if (IVM.st === 'open') { ivFocus(at); return; }
+  const m = R.ivm, from = IVM.st === 'closing' ? ivNow() : null;
+  ivStop();
+  m.hidden = false; m.inert = false; IVM.st = 'open'; m.dataset.st = 'open';
+  R.minBtn.setAttribute('aria-expanded', 'true');
+  document.addEventListener('pointerdown', ivOutside, true);
+  addEventListener('resize', ivOnResize);
+  const g = ivGeom();
+  ivSet(g);
+  delete R.ivmIn.dataset.hl;
+  ivFocus(at);
+  const sp = spring('open', 454), fd = spring('fade', 405);
+  m.style.pointerEvents = '';
+  if (!sp.dur) return;
+  const a = from || ivTab();
+  // while the box still lies over 분 it lets presses through, so a quick second press on the tab closes it instead of picking an item
+  m.style.pointerEvents = 'none';
+  clearTimeout(IVM.pe); IVM.pe = setTimeout(() => { if (IVM.st === 'open') m.style.pointerEvents = ''; }, Math.round(sp.dur * 0.35));
+  IVM.anims = [
+    m.animate([ivK(a), ivK(g)], { duration: sp.dur, easing: sp.easing }),
+    m.animate([{ opacity: a.o }, { opacity: 1 }], { duration: fd.dur, easing: fd.easing }),
+    // the items wait until the box has grown 25 % (the `open` curve passes .25 at ~11 % of its length)
+    R.ivmIn.animate([{ opacity: 0, filter: 'blur(2px)', transform: 'translateY(4px)' }, { opacity: 1, filter: 'blur(0px)', transform: 'translateY(0px)' }],
+      { duration: TX.in, delay: Math.round(sp.dur * 0.11), easing: fd.easing, fill: 'backwards' }),
+  ];
+}
+function ivClose(focusBack, instant) {
+  if (!R.ivm) return;
+  if (IVM.st !== 'open') {
+    if (IVM.st === 'closing' && instant) ivEnd();
+    if (focusBack && IVM.st !== 'open' && R.minBtn.isConnected) R.minBtn.focus({ preventScroll: true });
+    return;
+  }
+  const m = R.ivm, cur = ivNow(), co = +getComputedStyle(R.ivmIn).opacity;
+  ivStop();
+  IVM.st = 'closing'; m.dataset.st = 'closing';
+  R.minBtn.setAttribute('aria-expanded', 'false');
+  document.removeEventListener('pointerdown', ivOutside, true);
+  removeEventListener('resize', ivOnResize);
+  if (focusBack || m.contains(document.activeElement)) R.minBtn.focus({ preventScroll: true });
+  m.inert = true;   // nothing in it can be pressed or focused while it shrinks away
+  const sp = spring('close', 254);
+  if (instant || !sp.dur) { ivEnd(); return; }
+  const to = ivTab();
+  IVM.anims = [
+    R.ivmIn.animate([{ opacity: co, filter: 'blur(0px)', transform: 'translateY(0px)' }, { opacity: 0, filter: 'blur(2px)', transform: 'translateY(-4px)' }],
+      { duration: TX.out, easing: sp.easing, fill: 'forwards' }),
+    m.animate([ivK(cur), ivK(to)], { duration: sp.dur, delay: TX.out, easing: sp.easing, fill: 'forwards' }),
+    m.animate([{ opacity: cur.o }, { opacity: 0 }], { duration: Math.round(sp.dur * 0.6), delay: TX.out + Math.round(sp.dur * 0.4), easing: sp.easing, fill: 'forwards' }),
+  ];
+  IVM.anims[1].finished.then(() => { if (IVM.st === 'closing') ivEnd(); }, () => { /* cancelled: reopened */ });
+}
+function ivEnd() {
+  ivStop();
+  const m = R.ivm;
+  m.hidden = true; m.inert = false; IVM.st = 'closed'; delete m.dataset.st;
+  delete R.ivmIn.dataset.hl;
+}
+function ivOnResize() { if (IVM.st !== 'open') return; ivStop(); ivSet(ivGeom()); const a = document.activeElement; if (R.ivmIn.dataset.hl != null && R.ivmIn.contains(a)) ivHl(a, false); }
+// a press outside closes it; focus goes back to 분 unless the press lands on something that takes focus itself (the page's own box,
+// which takes it on a press anywhere, does not count)
+function ivOutside(e) {
+  if (R.ivm.contains(e.target) || R.minBtn.contains(e.target)) return;
+  const back = R.ivm.contains(document.activeElement);
+  ivClose(false);
+  if (!back) return;
+  document.addEventListener('click', ivRefocus, true);
+  clearTimeout(IVM.rf); IVM.rf = setTimeout(() => document.removeEventListener('click', ivRefocus, true), 1500);
+}
+function ivRefocus() {
+  document.removeEventListener('click', ivRefocus, true);
+  const a = document.activeElement;
+  if (S.open && (!a || a === document.body || a === root)) R.minBtn.focus({ preventScroll: true });
+}
+function ivBtnKey(e) {
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); ivOpen(e.key === 'ArrowUp' ? 'last' : null); }
+}
+function ivMenuKey(e) {
+  if (IVM.st !== 'open') return;
+  const items = ivItems(), i = items.indexOf(document.activeElement);
+  let j = null;
+  if (e.key === 'ArrowDown' || e.key === 'ArrowRight') j = (i + 1) % items.length;
+  else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') j = (i - 1 + items.length) % items.length;
+  else if (e.key === 'Home') j = 0;
+  else if (e.key === 'End') j = items.length - 1;
+  else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); ivClose(true); return; }
+  else if (e.key === 'Tab') { e.preventDefault(); ivClose(true); return; }
+  else return;
+  e.preventDefault();
+  items[j].focus({ preventScroll: true });   // (its focus handler moves the plate)
+}
+function pickMin(k) {
+  ivClose(true);
+  setTf(k);
+}
 
 /* ───────────────── tabs ───────────────── */
 /* The 시세 정보 tabs are a real tablist (aria-selected); KH.ui.seg reads aria-selected too and moves the raised indicator (build()). */
@@ -9877,7 +10223,7 @@ function stopAll() { stopTimers(); abortAll(); }
 function announce(open) { try { document.dispatchEvent(new CustomEvent('kh:stock', { detail: { open } })); } catch (e) { /* a listener must not break the page */ } }
 
 function show(code, opener) {
-  pickClose(false);
+  pickClose(false); ivClose(false, true);
   build();
   const switching = S.open;
   S.gen++;
@@ -9887,6 +10233,7 @@ function show(code, opener) {
   for (const t of TABS) if (t.reset) t.reset();
   if (!switching) {
     S.opener = opener && opener !== document.body ? opener : null;
+    S.openerAt = S.opener ? openerAt(S.opener) : null;
     S.prevTitle = document.title;
     root.hidden = false;
     document.documentElement.classList.add('sp-on');
@@ -9911,7 +10258,7 @@ function show(code, opener) {
 
 function hide() {
   if (!S.open) return;
-  pickClose(false);
+  pickClose(false); ivClose(false, true);
   S.open = false;
   S.gen++;
   stopAll();
@@ -9921,9 +10268,25 @@ function hide() {
   setInert(false);
   if (S.prevTitle) document.title = S.prevTitle;
   announce(false);
-  const o = S.opener;
-  S.opener = null;
+  let o = S.opener;
+  if (o && !o.isConnected) o = openerAgain(S.openerAt);   // the heatmap drew its list again while the page was open
+  S.opener = null; S.openerAt = null;
   if (o && o.isConnected && typeof o.focus === 'function') { try { o.focus({ preventScroll: true }); } catch (e) { /* ignore */ } }
+}
+/* where the opener was (a path of child positions from the nearest id) and what it said (letters only: the numbers in a sector row change
+ * with every quote), so focus can go back to the same row when the heatmap has replaced its elements meanwhile (AGENTS §5) */
+const openerWords = el => (el.getAttribute('aria-label') || el.textContent || '').replace(/[\d\s.,%+\-−▲▼]/g, '').slice(0, 40);
+function openerAt(el) {
+  const path = [];
+  let e = el;
+  for (; e && e.parentElement && e !== document.body && !e.id; e = e.parentElement) path.unshift([...e.parentElement.children].indexOf(e) + 1);
+  return e && (e.id || e === document.body) ? { root: e.id || null, path, tag: el.tagName, words: openerWords(el) } : null;
+}
+function openerAgain(at) {
+  if (!at) return null;
+  let e = at.root ? document.getElementById(at.root) : document.body;
+  for (const i of at.path) e = e && e.children[i - 1];
+  return e && e.tagName === at.tag && openerWords(e) === at.words && e.offsetParent !== null ? e : null;
 }
 
 function setHash(hash, replace) {
@@ -9978,7 +10341,7 @@ addEventListener('popstate', onHash);
 // capture phase: the page owns Esc and '/' while it is open (the heatmap would otherwise zoom out / focus its search)
 addEventListener('keydown', e => {
   if (!S.open) return;
-  if (e.key === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); if (pickOpen()) pickClose(true); else close(); }
+  if (e.key === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); if (IVM.st === 'open') ivClose(true); else if (pickOpen()) pickClose(true); else close(); }
   else if (e.key === '/') e.stopImmediatePropagation();
 }, true);
 document.addEventListener('visibilitychange', () => {

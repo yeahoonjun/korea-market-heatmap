@@ -6,18 +6,23 @@
     PORT=8811 NODE_USE_ENV_PROXY=1 ASSET_BASE=http://127.0.0.1:8810/ node worker/dev/serve.mjs &
     python3 qa/stock/test_ma.py [BASE]      # default http://127.0.0.1:8811/
 
-Needs network (Naver through the Worker). Covers: 005930 and a KOSDAQ stock, 6 intervals, 390 + 1280, lines complete at the first visible
-bar, hand-calculated values, toggles remembered, hover values, four themes + contrast (>= 3:1), scroll-back, the old-Worker fallback
-(iv= answered with 400), overflow 0, console errors 0. Screenshots → qa/shots/ma/.
+Needs network (Naver through the Worker). Covers: 005930 and a KOSDAQ stock, 9 intervals (분 = 1 · 5 · 10 · 30 · 60 from the 분 picker,
+사용자 2026-11-14 08:10), 390 + 1280, lines complete at the first visible bar, hand-calculated values (일 and 30분 = Naver 5-minute bars
+grouped by the Worker), toggles remembered, hover values, four themes + contrast (>= 3:1), scroll-back (일 · 1분 · 30분 to the end of what
+Naver keeps), the old-Worker fallback (iv= answered with 400: 10 · 30 · 60분 grouped on the page), overflow 0, console errors 0.
+Screenshots → qa/shots/ma/.
 """
-import json, pathlib, sys
+import json, math, pathlib, sys
 from playwright.sync_api import sync_playwright
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
 SHOTS = ROOT / 'qa/shots/ma'; SHOTS.mkdir(parents=True, exist_ok=True)
 BASE = sys.argv[1] if len(sys.argv) > 1 else 'http://127.0.0.1:8811/'
 CODES = ['005930', '196170']   # 삼성전자 (KOSPI), 알테오젠 (KOSDAQ)
-TFS = ['1m', '5m', 'day', 'week', 'month', 'year']
+TFS = ['1m', '5m', '10m', '30m', '60m', 'day', 'week', 'month', 'year']
+MIN = {'1m': '1분', '5m': '5분', '10m': '10분', '30m': '30분', '60m': '60분'}
+NAME = dict(MIN, day='일', week='주', month='월', year='년')
+jsround = lambda v: int(math.floor(v + 0.5))   # Math.round
 THEMES = [('base', 'dark'), ('paper', 'light'), ('glass-dark', 'dark'), ('glass-light', 'light')]
 FAILS, N = [], 0
 
@@ -43,7 +48,9 @@ def ratio(a, b):
 def open_page(b, w, code, route400=False):
     vp = dict(viewport={'width': w, 'height': 844 if w < 500 else 800}, is_mobile=w < 500, has_touch=w < 500, device_scale_factor=2)
     ctx = b.new_context(**vp); pg = ctx.new_page(); logs = []
-    pg.on('console', lambda m: logs.append(m.type + ': ' + m.text) if m.type in ('error', 'warning') and 'Failed to load resource' not in m.text else None)
+    # (worker/dev/serve.mjs has no Durable Object, so its /api/live answers 503 — the heatmap then polls, as it does in production when
+    # the hub is off; those handshake errors are the dev server's, not the page's)
+    pg.on('console', lambda m: logs.append(m.type + ': ' + m.text) if m.type in ('error', 'warning') and 'Failed to load resource' not in m.text and '/api/live' not in m.text else None)
     pg.on('pageerror', lambda e: logs.append('pageerror ' + str(e)))
     reqs = []
     pg.on('request', lambda r: reqs.append(r.url) if '/chart?' in r.url else None)
@@ -55,8 +62,15 @@ def open_page(b, w, code, route400=False):
 
 
 def pick(pg, tf):
-    pg.click(f'.sp-tfs button[data-tf="{tf}"]')
-    pg.wait_for_function("() => { const m = document.querySelector('.sp-chartmsg'); return m && !m.classList.contains('on') && document.querySelector('.sp-chart').dataset.n }", timeout=20000)
+    if tf in MIN:   # tabs 분 · 일 · 주 · 월 · 년; a minute interval comes from 분's picker
+        pg.wait_for_function("() => document.querySelector('.sp-ivm').dataset.st !== 'closing'", timeout=5000)
+        if pg.get_attribute('.sp-tfs [data-tf="min"]', 'aria-expanded') != 'true':
+            pg.click('.sp-tfs [data-tf="min"]')
+        pg.wait_for_function("() => { const m = document.querySelector('.sp-ivm'); return m.dataset.st === 'open' && !m.style.pointerEvents; }", timeout=5000)
+        pg.click(f'.sp-ivm [data-iv="{tf}"]')
+    else:
+        pg.click(f'.sp-tfs button[data-tf="{tf}"]')
+    pg.wait_for_function("(n) => { const m = document.querySelector('.sp-chartmsg'), c = document.querySelector('.sp-chart'); return m && !m.classList.contains('on') && c.dataset.n && (c.getAttribute('aria-label') || '').includes(n + '봉 차트') }", arg=NAME[tf], timeout=20000)
     pg.wait_for_timeout(500)
 
 
@@ -78,7 +92,9 @@ with sync_playwright() as p:
                 tag = f'{code}_{w}_{tf}'
                 check(f'{tag}_lines_complete_at_first_visible_bar', s['ma120'] <= s['ws'] or tf == 'year' or s['back'] == '0', s)   # a young stock (알테오젠 monthly) runs out of history before 120 bars
                 check(f'{tag}_overflow_0', s['ovf'] == 0, s['ovf'])
-                units = {'1m': '분', '5m': '분', 'day': '일', 'week': '주', 'month': '월', 'year': '년'}[tf]
+                units = '분' if tf in MIN else {'day': '일', 'week': '주', 'month': '월', 'year': '년'}[tf]
+                if tf in MIN:
+                    check(f'{tag}_tab_label', pg.evaluate("() => document.querySelector('.sp-tfs [data-tf=\"min\"]').textContent.trim()") == MIN[tf])
                 check(f'{tag}_labels_unit', [c[2] for c in s['chips']] == [f'{n}{units}' for n in (5, 20, 60, 120)], [c[2] for c in s['chips']])
             check(f'{code}_{w}_console_clean', not logs, logs)
             check(f'{code}_{w}_iv_form_used', any('iv=' in u for u in reqs) and not any('tf=' in u for u in reqs), reqs[:3])
@@ -90,7 +106,7 @@ with sync_playwright() as p:
     j = json.loads(pg.evaluate("async () => JSON.stringify(await (await fetch('api/stock/005930/chart?iv=day&count=250&warm=119')).json())"))
     allb = j['pre'] + j['bars']; cl = [x['c'] for x in allb]
     check('api_pre_shape', len(j['pre']) == 119 and len(j['bars']) == 250 and j['pre'][-1]['t'] < j['bars'][0]['t'], {'pre': len(j['pre']), 'bars': len(j['bars'])})
-    fmt = lambda v: f'{round(v):,}'
+    fmt = lambda v: f'{jsround(v):,}'
     ma = lambda n, i: sum(cl[i - n + 1:i + 1]) / n
     s = state(pg)
     last = len(cl) - 1
@@ -121,6 +137,21 @@ with sync_playwright() as p:
     note = pg.evaluate("() => document.querySelector('.sp-chnote').textContent")
     check('scrollback_1m_ends_with_note', note == '더 이전 분봉은 없어요' and state(pg)['back'] == '0', {'note': note, 'state': state(pg)['n']})
     pg.screenshot(path=str(SHOTS / 'scrollback_1m_end.png'))
+    # 30분 (the Worker groups Naver's 5-minute bars): the last bar's moving averages by hand, then scroll back to the end with to=
+    pick(pg, '30m')
+    j30 = json.loads(pg.evaluate("async () => JSON.stringify(await (await fetch('api/stock/005930/chart?iv=30m&count=140&warm=119')).json())"))
+    a30 = j30.get('pre', []) + j30['bars']; c30 = [x['c'] for x in a30]
+    pg.mouse.move(2, 2); pg.wait_for_timeout(300)
+    s30 = state(pg)
+    w30 = [fmt(sum(c30[-n:]) / n) if len(c30) >= n else '–' for n in (5, 20, 60, 120)]
+    mins = [((x['t'] + 32400) % 86400) // 60 for x in a30]
+    check('30m_bars_on_grid_and_ma_hand_calc', s30['n'] == len(a30) and all(m % 30 == 0 for m in mins) and [c[3] for c in s30['chips']] == w30, {'n': [s30['n'], len(a30)], 'shown': [c[3] for c in s30['chips']], 'want': w30})
+    n0 = s30['n']
+    for _ in range(10):
+        pg.mouse.move(box['x'] + 60, box['y'] + 200); pg.mouse.down(); pg.mouse.move(box['x'] + box['width'] - 30, box['y'] + 200, steps=6); pg.mouse.up(); pg.wait_for_timeout(700)
+    note = pg.evaluate("() => document.querySelector('.sp-chnote').textContent")
+    s31 = state(pg)
+    check('scrollback_30m_to_the_end', s31['back'] == '0' and s31['n'] >= n0 and note in ('더 이전 분봉은 없어요', ''), {'n': [n0, s31['n']], 'note': note})
     check('scrollback_console_clean', not logs, logs)
     ctx.close()
 
