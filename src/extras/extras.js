@@ -640,6 +640,9 @@ function tkCopy() {
   c.removeAttribute('role'); c.removeAttribute('aria-label');
   c.setAttribute('aria-hidden', 'true');
   for (const it of c.children) { it.removeAttribute('tabindex'); it.removeAttribute('role'); }      // taps work on the copies, the keyboard only meets the originals
+  // a copy made while a number rolls or swaps gets the plain value (a cloned drum would stand still mid-turn)
+  for (const x of c.querySelectorAll('.xr')) x.replaceWith(x.textContent);
+  for (const x of c.querySelectorAll('.xsw')) { x.classList.remove('xsw'); delete x.dataset.was; x.textContent = x.textContent; }
   return c;
 }
 // measure one loop period W; full=true (build / resize) also sets copies and duration, otherwise only --xs-shift

@@ -52,7 +52,7 @@ def start():
     raise SystemExit('mock did not start')
 
 
-def page_at(b, when, w=1440, theme='base', motion='fancy', bump=None, paused=True):
+def page_at(b, when, w=1440, theme='base', motion='fancy', bump=None, paused=True, open_=True):
     """the page at a faked KST time (page.clock, /api/time answers the same); bump: on every /api/market call after the first,
     add this to KOSPI's value and ratio (a real change for the strip)"""
     t0 = datetime.datetime.fromisoformat(when + '+09:00').timestamp() * 1000
@@ -72,7 +72,9 @@ def page_at(b, when, w=1440, theme='base', motion='fancy', bump=None, paused=Tru
 
     def quotes(r):
         try:
-            res = r.fetch(); j = res.json(); j['marketStatus'] = {'KOSPI': 'OPEN', 'KOSDAQ': 'OPEN'}
+            res = r.fetch(); j = res.json()
+            if open_:
+                j['marketStatus'] = {'KOSPI': 'OPEN', 'KOSDAQ': 'OPEN'}
             j.pop('index', None)                       # the strip's 코스피 then comes from /api/market only (bump drives it)
             r.fulfill(response=res, body=json.dumps(j, ensure_ascii=False))
         except Exception:
@@ -250,7 +252,7 @@ def run(b):
                 g = pg.evaluate("[...document.querySelectorAll('.sb-pill svg line, .sb-pill .sb-pi *')].filter(e => getComputedStyle(e).stroke !== 'none').map(e => [getComputedStyle(e).strokeWidth, getComputedStyle(e).vectorEffect])")
                 check('session glyphs: strokes 1.5px on screen', g and all(x[0] == '1.5px' and x[1] == 'non-scaling-stroke' for x in g), g[:4])
             done(ctx, pg)
-    ctx, pg, adv = page_at(b, '2026-11-13T21:30:05', 768, motion='standard')
+    ctx, pg, adv = page_at(b, '2026-11-13T23:30:05', 768, motion='standard', open_=False)
     m = pg.evaluate("Math.round(document.getElementById('map').getBoundingClientRect().top)")
     check('map top [base 768, after hours] = 250', m == 250, m)
     done(ctx, pg)

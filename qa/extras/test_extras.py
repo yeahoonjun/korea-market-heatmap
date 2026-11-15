@@ -573,7 +573,8 @@ def run_clock(b):
     # no animation; design.md §10 ③); 줄이기: outline only, the countdown still ticks as plain text
     ctx, pg, _, adv = open_clock(b, '2026-11-13T15:19:45', 1280, ms='OPEN', motion='standard')
     st0 = pg.evaluate(CLOCK_JS)
-    adv(15000); pg.wait_for_timeout(700)
+    # land just past 15:20:00 (the page's own corrected clock, KH.now): the plate stays one dwell (1120ms) from there
+    adv(max(0, int(pg.evaluate("Date.UTC(2026, 10, 13, 6, 20, 0, 250) - KH.now()")))); pg.wait_for_timeout(450)
     st1 = pg.evaluate(CLOCK_JS)
     sp = lambda sh: [float(x) for x in re.findall(r'(-?[\d.]+)px', sh or '')]
     v1 = sp(st1['gloSh'])
