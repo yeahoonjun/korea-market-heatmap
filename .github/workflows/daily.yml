@@ -4,6 +4,7 @@ on:
   schedule:
     - cron: "40 7 * * 1-5"   # 16:40 KST, Mon-Fri: everything (after the 16:30 end on 수능 day / first trading day; the check step also waits for the real endTime)
     - cron: "30 12 * * 1-5"  # 21:30 KST: investor flows again (Naver publishes the day's row in the evening)
+    - cron: "50 22 * * 0-4"  # 07:50 KST Mon-Fri (= 22:50 UTC Sun-Thu): market alerts only (투자주의 · 경고 · 위험 · 관리 · 거래정지, AGENTS §3-37 ⓐ)
   workflow_dispatch:
 
 permissions:
@@ -24,8 +25,19 @@ jobs:
           python-version: "3.12"
       - run: pip install requests   # build_snapshot.py needs it; build_daily.py is stdlib only
 
+      # 07:50 KST: designations made after yesterday's close apply from today's open. Not a trading-day check (the day's bar
+      # does not exist yet); a holiday morning just re-reads the same flags. Validated alone, committed with the step below.
+      - name: Market alerts only (morning run)
+        id: morning
+        if: github.event.schedule == '50 22 * * 0-4'
+        run: |
+          python3 scripts/build_daily.py --only alerts
+          python3 scripts/validate_daily.py --only alerts
+          echo "commit=true" >> "$GITHUB_OUTPUT"
+
       - name: KRX trading day?
         id: day
+        if: github.event.schedule != '50 22 * * 0-4'
         run: |
           if python3 scripts/build_daily.py --check-trading-day --wait-session-end; then
             echo "trading=true" >> "$GITHUB_OUTPUT"
@@ -39,7 +51,8 @@ jobs:
         if: steps.day.outputs.trading == 'true' && github.event.schedule != '30 12 * * 1-5'
         run: python3 scripts/build_snapshot.py --close auto --delay 0.1
 
-      - name: Themes, periods, flows
+      # themes (+ web/theme_why/) · periods · flows (+ streaks) · alerts (an alerts failure only warns; the rest is still committed)
+      - name: Themes, periods, flows, alerts
         if: steps.day.outputs.trading == 'true' && github.event.schedule != '30 12 * * 1-5'
         run: python3 scripts/build_daily.py
 
@@ -67,7 +80,7 @@ jobs:
         run: python3 scripts/build_page.py
 
       - name: Commit and push
-        if: steps.day.outputs.trading == 'true'
+        if: steps.day.outputs.trading == 'true' || steps.morning.outputs.commit == 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -76,7 +89,11 @@ jobs:
             echo "Nothing changed."
             exit 0
           fi
-          git commit -m "data: daily refresh $(TZ=Asia/Seoul date +%F)"
+          if [ "${{ steps.morning.outputs.commit }}" = "true" ]; then
+            git commit -m "data: market alerts $(TZ=Asia/Seoul date '+%F %H:%M')"
+          else
+            git commit -m "data: daily refresh $(TZ=Asia/Seoul date +%F)"
+          fi
           # All of data/ web/ dist/ is this job's own output, so on a rebase conflict our (job) side wins.
           # During `git rebase` "theirs" is the commit being replayed = our regenerated files.
           for attempt in 1 2 3; do
