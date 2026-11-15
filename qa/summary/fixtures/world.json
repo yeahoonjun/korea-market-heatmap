@@ -1,0 +1,33 @@
+{
+  "_note": "오늘의 시장 요약 시안용 예시 값 — 실측이 아니에요. 모양은 AGENTS §3-4 · §3-28 /api/world 그대로(필요한 항목만).",
+  "index": {
+    "asOf": "2026-11-15T03:10:00Z", "kind": "index",
+    "groups": [
+      {"key": "us", "name": "미국", "items": [
+        {"key": "INX", "name": "S&P 500", "value": 7480.12, "change": -82.33, "ratio": -1.09, "status": "CLOSE", "tradedAt": "2026-11-14T16:00:00-05:00"},
+        {"key": "IXIC", "name": "나스닥 종합", "value": 25210.4, "change": -412.6, "ratio": -1.61, "status": "CLOSE", "tradedAt": "2026-11-14T16:00:00-05:00"},
+        {"key": "DJI", "name": "다우산업", "value": 51230.5, "change": -350.2, "ratio": -0.68, "status": "CLOSE", "tradedAt": "2026-11-14T16:00:00-05:00"},
+        {"key": "SOX", "name": "필라델피아 반도체", "value": 7012.3, "change": -209.4, "ratio": -2.9, "status": "CLOSE", "tradedAt": "2026-11-14T16:00:00-05:00"}
+      ]},
+      {"key": "asia", "name": "아시아", "items": [
+        {"key": "N225", "name": "니케이 225", "value": 50120.0, "change": -230.5, "ratio": -0.46, "status": "CLOSE", "tradedAt": "2026-11-14T15:30:00+09:00"}
+      ]}
+    ]
+  },
+  "commodity": {
+    "asOf": "2026-11-15T03:10:00Z", "kind": "commodity",
+    "groups": [
+      {"key": "energy", "name": "에너지", "items": [
+        {"key": "CLcv1", "name": "WTI", "value": 88.68, "change": -0.06, "ratio": -0.07, "status": "CLOSE", "delayed": 10}
+      ]},
+      {"key": "fx", "name": "환율", "items": [
+        {"key": "FX_USDKRW", "name": "원/달러", "value": 1338.2, "change": 1.7, "ratio": 0.13, "status": "CLOSE", "via": "하나은행 고시"},
+        {"key": "DXY", "name": "달러인덱스", "value": 99.82, "change": 0.21, "ratio": 0.21, "status": "CLOSE"}
+      ]},
+      {"key": "rates", "name": "금리", "items": [
+        {"key": "US10YT", "name": "미 국채 10년", "value": 4.121, "change": 0.023, "ratio": 0.56, "bp": 2.3, "unit": "%", "status": "CLOSE"},
+        {"key": "KR3YT", "name": "국고채 3년", "value": 2.712, "change": -0.012, "ratio": -0.44, "bp": -1.2, "unit": "%", "status": "CLOSE"}
+      ]}
+    ]
+  }
+}
