@@ -228,7 +228,7 @@ def run(b):
     dlg = pg.query_selector('dialog.xp[open]')
     check('pwa iOS Safari: steps dialog', dlg is not None and '공유' in dlg.inner_text())
     pg.screenshot(path=str(SHOTS / 'live_390_ios_hint.png'))
-    pg.keyboard.press('Escape'); pg.wait_for_timeout(150)
+    pg.keyboard.press('Escape'); pg.wait_for_timeout(500)          # the dialog stays drawn through its `close` exit, then goes (§3-35)
     check('pwa iOS Safari: Esc closes, focus returns', not pg.query_selector('dialog.xp') and pg.evaluate('() => document.activeElement.classList.contains("xt-install")'))
     ctx.close()
     ctx, pg, _ = open_page(b, LIVE, 390, 844, mobile=True, ua=IPHONE_UA, init="Object.defineProperty(navigator, 'standalone', {get: () => true});")
@@ -271,7 +271,7 @@ def run(b):
     pg.screenshot(path=str(SHOTS / 'snap_390_image_dialog.png'))
     ov = pg.evaluate(OVERFLOW_JS)
     check('image snapshot 390: no overflow with dialog', ov['sw'] <= ov['cw'], str(ov))
-    pg.keyboard.press('Escape'); pg.wait_for_timeout(150)
+    pg.keyboard.press('Escape'); pg.wait_for_timeout(500)
     check('image snapshot: Esc closes, focus returns', not pg.query_selector('dialog.xi') and pg.evaluate('() => document.activeElement.dataset.x') == 'image')
     ctx.close()
     ctx, pg, _ = open_page(b, SNAP)
@@ -439,13 +439,14 @@ def run(b):
 
 
 # ───────── clock (§3-6, §3-17 + the five improvements of 2026-11-13 20:19) ─────────
-MAP_TOP = {360: 240, 390: 240, 768: 250, 1280: 207, 1920: 207}
+MAP_TOP = {360: 247, 390: 247, 768: 250, 1280: 207, 1920: 207}   # §3-35: phones' header +7 (2026-11-15)
 CLOCK_JS = '''() => { const q = s => document.querySelector(s), r = el => { if (!el) return null; const b = el.getBoundingClientRect(); return [Math.round(b.left), Math.round(b.top), Math.round(b.width), Math.round(b.height)]; };
   const sec = q('.xc-sec'), btn = q('.xc-btn'), pop = q('#xwc');
   return {map: Math.round(q('#map').getBoundingClientRect().top), hdr: Math.round(q('header.top').getBoundingClientRect().height), tabs: r(q('.tabs')),
     sec: sec ? sec.textContent : null, secShown: !!sec && getComputedStyle(sec).display !== 'none', cd: !!sec && sec.classList.contains('xc-cd'),
     live: !!(sec && sec.closest('[aria-live]')), aria: btn.getAttribute('aria-label'), title: btn.title, desc: (q('#ck-desc') || {}).textContent || '',
     auc: btn.classList.contains('xc-auc'), glow: q('.xc-glo').classList.contains('run'), glowAnim: getComputedStyle(q('.xc-glo')).animationName,
+    gloSh: getComputedStyle(q('.xc-glo')).boxShadow, gloBg: getComputedStyle(q('.xc-glo')).backgroundColor,
     exp: btn.hasAttribute('data-world') ? 'true' : 'false', ks: btn.getAttribute('aria-keyshortcuts'),
     pop: !!pop && !pop.hidden, popBox: pop && !pop.hidden ? r(pop) : null,
     rows: pop ? [...pop.querySelectorAll('.xwc-r')].map(e => [e.dataset.k, e.querySelector('.xwc-t').textContent, e.querySelector('.xwc-st').textContent]) : [],
@@ -550,7 +551,7 @@ def run_clock(b):
         st = pg.evaluate(CLOCK_JS)
         check(f'clock ③ {w} 15:22: countdown to the close, aria "장 마감까지 8분"',
               st['cd'] and st['secShown'] and re.fullmatch(CD + r'07:[34]\d', st['sec'] or '') and '장 마감까지 8분' in st['aria'], f"{st['sec']} | {st['aria']}")
-        check(f'clock ⑤ {w} 15:22: steady amber outline during 마감 동시호가', st['auc'], str(st['auc']))
+        check(f'clock ⑤ {w} 15:22: steady --live outline during 마감 동시호가', st['auc'], str(st['auc']))
         past = {a[1] for a in st['arc'] if a[0] == 'xa-a-past'}
         check(f'clock ② {w} 15:22: sky + amber + deep orange past, the last minutes faint',
               past == {'#5cc0f2', '#ffb547', '#ee7a2c'} and st['arc'][-1][0] == 'xa-a-left', json.dumps(st['arc'])[:200])
@@ -568,13 +569,22 @@ def run_clock(b):
         zoom_face(pg, str(SHOTS / f'clock_face_{w}.png'))
         ctx.close()
 
-    # ⑤ the glow as 마감 동시호가 starts (기본); 줄이기: outline only, the countdown still ticks as plain text
+    # ⑤ the cue as 마감 동시호가 starts (기본): the outline is 2px over a plate for one dwell, then the steady 1.5px — no glow (no blur,
+    # no animation; design.md §10 ③); 줄이기: outline only, the countdown still ticks as plain text
     ctx, pg, _, adv = open_clock(b, '2026-11-13T15:19:45', 1280, ms='OPEN', motion='standard')
     st0 = pg.evaluate(CLOCK_JS)
-    adv(15000); pg.wait_for_timeout(150)
+    adv(15000); pg.wait_for_timeout(700)
     st1 = pg.evaluate(CLOCK_JS)
-    check('clock ⑤ 15:20 (기본): one amber glow as the auction starts, then the steady outline',
-          not st0['auc'] and st1['auc'] and st1['glow'] and st1['glowAnim'] == 'xcGlow', f"{st0['auc']} → {st1['auc']} {st1['glowAnim']}")
+    sp = lambda sh: [float(x) for x in re.findall(r'(-?[\d.]+)px', sh or '')]
+    v1 = sp(st1['gloSh'])
+    check('clock ⑤ 15:20 (기본): the outline steps to 2px over a plate as the auction starts — no blur, no glow animation',
+          not st0['auc'] and st1['auc'] and st1['glow'] and st1['glowAnim'] == 'none' and len(v1) >= 4 and v1[2] == 0 and abs(v1[3] - 2) < .15 and st1['gloBg'] not in ('rgba(0, 0, 0, 0)', 'transparent'),
+          f"{st0['auc']} → {st1['auc']} {st1['glowAnim']} {st1['gloSh']} {st1['gloBg']}")
+    pg.wait_for_timeout(1500)
+    st2 = pg.evaluate(CLOCK_JS)
+    v2 = sp(st2['gloSh'])
+    check('clock ⑤ 15:20 (기본): after the dwell the steady 1.5px outline, no plate',
+          st2['auc'] and not st2['glow'] and len(v2) >= 4 and v2[2] == 0 and abs(v2[3] - 1.5) < .15 and st2['gloBg'] in ('rgba(0, 0, 0, 0)', 'transparent'), f"{st2['gloSh']} {st2['gloBg']}")
     ctx.close()
     ctx, pg, _, adv = open_clock(b, '2026-11-13T15:19:45', 1280, ms='OPEN', reduced=True)
     adv(15000); pg.wait_for_timeout(150)
@@ -582,7 +592,7 @@ def run_clock(b):
     t1 = st1['sec']
     adv(2000); pg.wait_for_timeout(150)
     t2 = pg.evaluate(CLOCK_JS)['sec']
-    check('clock ⑤ 15:20 (줄이기): outline only, no glow animation', st1['auc'] and st1['glowAnim'] == 'none', st1['glowAnim'])
+    check('clock ⑤ 15:20 (줄이기): outline only, no plate, no animation', st1['auc'] and st1['glowAnim'] == 'none' and not st1['glow'], (st1['glowAnim'], st1['glow']))
     check('clock ③ 줄이기: the countdown is plain text, still every second', st1['cd'] and t1 != t2 and re.fullmatch(CD + r'0\d:\d\d', t2 or ''), f'{t1} → {t2}')
     ctx.close()
 

@@ -28,9 +28,15 @@ const ICON = {
   close: 'M5 5l10 10M15 5 5 15',
   up: 'M10 15.5v-11M5.5 9 10 4.5 14.5 9',
   down: 'M10 4.5v11M5.5 11l4.5 4.5 4.5-4.5',
+  warn: 'M10 3.2a6.8 6.8 0 1 1 0 13.6 6.8 6.8 0 0 1 0-13.6zM10 6.5v4.3M10 13.5v.01',
+  more: 'M4.6 8.4a1.6 1.6 0 1 1 0 3.2 1.6 1.6 0 0 1 0-3.2zM10 8.4a1.6 1.6 0 1 1 0 3.2 1.6 1.6 0 0 1 0-3.2zM15.4 8.4a1.6 1.6 0 1 1 0 3.2 1.6 1.6 0 0 1 0-3.2z',
 };
-const icon = (d, fill) => svg('svg', { viewBox: '0 0 20 20', width: '18', height: '18', 'aria-hidden': 'true', fill: fill ? 'currentColor' : 'none',
-  stroke: fill ? 'none' : 'currentColor', 'stroke-width': '1.7', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, svg('path', { d }));
+/* one hand-drawn set (design.md §4): drawn strokes are 1.75px on screen whatever the icon's box (vector-effect), round caps and joins,
+   currentColor; filled shapes (▶ ⏸ ⋯) carry no stroke */
+const STROKE = '1.75';
+const icon = (d, fill, w) => svg('svg', { viewBox: '0 0 20 20', width: '18', height: '18', 'aria-hidden': 'true', fill: fill ? 'currentColor' : 'none',
+  stroke: fill ? 'none' : 'currentColor', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' },
+  svg('path', fill ? { d } : { d, 'stroke-width': w || STROKE, 'vector-effect': 'non-scaling-stroke' }));
 
 /* ───────── themes (docs/standards/themes.md): the role tokens of <html data-theme · data-tone>, read when they are needed ───────── */
 const rootEl = document.documentElement;
@@ -266,14 +272,23 @@ function tkHoldApply() {
   if (tkHold.held && !held) tkResume();
   tkHold.held = held;
 }
-// the loop picks its speed up again over --c-slow (ease-out) instead of jumping to it; '줄이기': at once
-let tkRampRaf = 0;
+// the loop picks its speed up again on the shared spring engine (KH.spring `value`: no overshoot) instead of jumping to it; '줄이기' and
+// a hidden tab: at once (the engine does that itself)
+const SPR = () => (KH.spring && typeof KH.spring.animate === 'function' ? KH.spring : null);
+let tkRampRaf = 0, tkRamp = null, tkGlide = null;
 function tkAnim() { try { return tk.track && tk.track.getAnimations ? tk.track.getAnimations()[0] || null : null; } catch (e) { return null; } }
 function tkRate(a, r) { try { if (a.updatePlaybackRate) a.updatePlaybackRate(r); else a.playbackRate = r; } catch (e) { /* keeps its speed */ } }
 function tkResume() {
   cancelAnimationFrame(tkRampRaf);
+  if (tkRamp) { tkRamp.stop(); tkRamp = null; }
   const a = tkAnim();
   if (!a) return;
+  const S = SPR();
+  if (S && motion() !== 'reduced' && !document.hidden) {
+    tkRate(a, 0.05);
+    tkRamp = S.animate({ from: 0.05, to: 1, name: 'value', onUpdate: v => tkRate(a, Math.max(0.05, v)), onRest: () => { tkRamp = null; } });
+    return;
+  }
   const dur = motion() === 'reduced' ? 0 : tokMs('--c-slow', 560);
   if (!(dur > 0) || document.hidden) { tkRate(a, 1); return; }
   const t0 = performance.now();
@@ -300,6 +315,8 @@ function tkBindPointer(vp) {
   vp.addEventListener('pointerdown', e => {
     if (e.pointerType === 'mouse' && e.button !== 0) return;
     cancelAnimationFrame(glide); cancelAnimationFrame(tkRampRaf);
+    if (tkGlide) { tkGlide.stop(); tkGlide = null; }
+    if (tkRamp) { tkRamp.stop(); tkRamp = null; }
     tkHold.down = true; tkHold.moved = false; clearTimeout(tkHold.timer); tkHold.timer = 0; tkHoldApply();
     id = e.pointerId; startX = e.clientX; x0 = curX(); dx = 0; pts = [[e.timeStamp, e.clientX]];
     anim = tkAnim();
@@ -308,22 +325,27 @@ function tkBindPointer(vp) {
     if (!tkHold.down || e.pointerId !== id) return;
     const d = e.clientX - startX;
     pts.push([e.timeStamp, e.clientX]); if (pts.length > 8) pts.shift();
-    if (!tkHold.moved && Math.abs(d) < 8) return;
+    if (!tkHold.moved && Math.abs(d) < 6) return;                        // a drag starts at 6px (design.md §8)
     if (!tkHold.moved) { tkHold.moved = true; stripEl.classList.add('xs-drag'); }      // a drag, not a press: the item under the finger rises again
     dx = d; scrub(dx);
   });
   const up = e => {
     if (id == null || (e && e.pointerId !== id)) return;
     id = null;
-    // a flick glides on and comes to rest over --c-slow (ease-out, a third of the release speed × the time); '줄이기' stops where it was let go
+    // a flick (faster than KH.spring.THROW, 0.11 px/ms over the last 100ms — design.md §8) glides on: the shared `settle` spring takes the
+    // release speed and comes to rest about 190ms of that speed further on; '줄이기' stops where it was let go
     if (tkHold.moved && motion() !== 'reduced' && pts.length > 1) {
       const last = pts[pts.length - 1], first = pts.find(q => last[0] - q[0] <= 100) || pts[0];
       const v = last[0] > first[0] ? (last[1] - first[1]) / (last[0] - first[0]) : 0;          // px per ms
-      const T = tokMs('--c-slow', 560);
-      if (Math.abs(v) > 0.3 && T > 0) {
-        const base = dx, D = v * T / 3, t0 = performance.now();
-        const step = n => { const k = Math.min(1, (n - t0) / T); dx = base + D * (1 - Math.pow(1 - k, 3)); scrub(dx); if (k < 1) glide = requestAnimationFrame(step); };
-        glide = requestAnimationFrame(step);
+      const S = SPR(), throwV = S && S.THROW ? S.THROW : 0.11;
+      if (Math.abs(v) > throwV) {
+        const base = dx, D = v * 187;
+        if (S) tkGlide = S.animate({ from: base, to: base + D, velocity: v * 1000, name: 'settle', onUpdate: x => { dx = x; scrub(dx); }, onRest: () => { tkGlide = null; } });
+        else {
+          const T = tokMs('--c-slow', 560), t0 = performance.now();
+          const step = n => { const k = Math.min(1, (n - t0) / T); dx = base + D * (1 - Math.pow(1 - k, 3)); scrub(dx); if (k < 1) glide = requestAnimationFrame(step); };
+          if (T > 0) glide = requestAnimationFrame(step);
+        }
       }
     }
     setTimeout(() => stripEl.classList.remove('xs-drag'), 0);
@@ -588,8 +610,11 @@ function stripTail() {
     const lag = at ? nowMs() - at.getTime() : 0;
     if (!strip.failed && !(lag > 120000)) return null;
     const t = at ? fmtHM.format(at) : '';
+    // a failed refresh says so with ! + words (design.md §2 --fail-dot), never with a colour alone
+    const warn = strip.failed ? icon(ICON.warn) : null;
+    if (warn) warn.setAttribute('class', 'xs-warn');
     return h('span', { class: 'xs-t' + (strip.failed ? ' xs-stale' : ''), title: strip.failed ? '최근 갱신에 실패해서 마지막으로 받은 값이에요' : '시세 기준 시각이 지금보다 늦어요(장 마감 뒤·휴장 포함)' },
-      h('span', { text: strip.failed ? '갱신 실패' : '네이버 증권' }), h('span', { text: t ? `${t} 기준` : '' }));
+      h('span', {}, warn, strip.failed ? '갱신 실패' : '네이버 증권'), h('span', { text: t ? `${t} 기준` : '' }));
   }
   if (KH.LIVE_URL) return h('a', { class: 'xs-live', href: KH.LIVE_URL, target: '_blank', rel: 'noopener', text: '환율·미국 선물은 실시간 버전에서 볼 수 있어요' });
   return null;
@@ -682,56 +707,90 @@ function updateTicker(kids) {
 }
 
 
-/* ── odometer: when a strip value changes and effects are 'fancy', the changed digits roll like a counter ── */
+/* ── value changes (design.md §6-2 number drum, §6-4 text swap). Data moves only when a value really changed (never on the first paint
+   or an identical refresh): 화려하게 = the changed digits roll, 기본 = the text swaps in place (rising values come from below, falling
+   ones from above, labels always go up), 줄이기 = written at once. The text is the value at every moment. ── */
 const motion = () => { try { if (has('motion')) { const m = KH.motion(); if (m === 'reduced' || m === 'standard' || m === 'fancy') return m; } } catch (e) { /* default below */ } return reduceMQ.matches ? 'reduced' : 'standard'; };
-const stripPrev = new Map();                                   // key → { v, r, vt, rt } from the previous render
-function rollText(el, oldT, newT, up) {
-  // The text is always written first, so the final state never depends on an animation: each changed digit gets an
-  // aria-hidden "old digit" overlay that slides out while the real new digit slides in; everything is removed again on a timer.
-  el.textContent = newT; el._want = newT;
-  if (!oldT || oldT === newT) return;
-  const a = [...oldT], b = [...newT];
-  const kids = [], movers = [];
-  b.forEach((ch, i) => {
-    const o = a[a.length - (b.length - i)];
-    if (o === undefined || o === ch || !/[0-9]/.test(ch) || !/[0-9]/.test(o)) { kids.push(document.createTextNode(ch)); return; }
-    const nw = h('span', { class: 'od-n', text: ch }), ol = h('span', { class: 'od-o', 'aria-hidden': 'true', text: o });
-    kids.push(h('span', { class: 'od' }, nw, ol));
-    movers.push([nw, ol]);
-  });
-  if (!movers.length) return;
-  el.replaceChildren(...kids);
-  const dist = up ? 1 : -1;
-  let k = movers.length;
-  for (const [nw, ol] of movers) {
-    const delay = --k * 45, o = { duration: 480, delay, easing: 'cubic-bezier(.2,.7,.2,1)', fill: 'backwards' };
-    try {
-      nw.animate([{ transform: `translateY(${dist * 100}%)`, opacity: 0 }, { transform: 'translateY(0)', opacity: 1 }], o);
-      ol.animate([{ transform: 'translateY(0)', opacity: 1 }, { transform: `translateY(${-dist * 100}%)`, opacity: 0 }], Object.assign({}, o, { fill: 'both' }));
-    } catch (e) { /* static digits are fine */ }
-  }
-  el._want = newT;
-  const settle = () => { if (el._want === newT) el.textContent = newT; };
-  setTimeout(settle, 480 + movers.length * 45 + 80);
+// the springs as CSS linear() curves + their lengths, from the template's :root (scripts/design_tokens.mjs); 줄이기 sets every length to 0
+const spMs = name => { const v = parseFloat(tok(`--sp-${name}-dur`, '')); return isFinite(v) ? v : 0; };
+const EASE_OK = new Map();
+function spEase(name) {
+  const e = tok(`--sp-${name}`, '');
+  if (!EASE_OK.has(e)) { let ok = false; try { ok = !!e && !!new KeyframeEffect(null, null, { easing: e }); } catch (x) { ok = false; } EASE_OK.set(e, ok); }
+  return EASE_OK.get(e) ? e : 'cubic-bezier(.22,1,.36,1)';
 }
+const ROLL_GAP = 40;                                         // ms between two digits, the rightmost first (§6-2)
+const SWAP = { out: 100, gap: 60, in: 180 };                   // ms, the text swap of §6-4 (fixed lengths in the standard, not springs)
+function xRoll(el, from, to, dir) {
+  to = String(to); from = from == null ? '' : String(from);
+  if (el._xr) { for (const a of el._xr) { try { a.cancel(); } catch (e) { /* gone */ } } el._xr = null; }
+  el.textContent = to;
+  if (!from || from === to || from.length !== to.length || motion() !== 'fancy' || document.hidden || !el.isConnected) return;
+  const dur = spMs('roll');
+  if (!(dur > 0)) return;
+  const H = parseFloat(getComputedStyle(el).lineHeight) || el.getBoundingClientRect().height || 16, ease = spEase('roll');
+  const kids = [], cols = [];
+  for (let i = 0; i < to.length; i++) {
+    const a = from[i], c = to[i];
+    if (a === c || !/\d/.test(a) || !/\d/.test(c)) { kids.push(c); continue; }
+    // the short way round (9 → 0 is one step forward); a tie goes the way the value went
+    const fwd = (+c - +a + 10) % 10, up = fwd < 10 - fwd || (fwd === 5 && dir >= 0), steps = up ? fwd : 10 - fwd;
+    const seq = [];
+    for (let k = 0; k <= steps; k++) seq.push(String((+a + (up ? k : -k) + 10) % 10));
+    // up: the drum reads a … c top to bottom and ends at the bottom (new digits come from below); down: c … a, ends at the top
+    const col = h('span', { class: 'xr-c' }, c);
+    if (up) col.dataset.b = seq.slice(0, -1).join('\n'); else col.dataset.a = seq.slice(0, -1).reverse().join('\n');
+    kids.push(h('span', { class: 'xr', style: `--xr-h:${H}px` }, col));
+    cols.push([col, steps, up]);
+  }
+  if (!cols.length) return;
+  el.replaceChildren(...kids);
+  const anims = [];
+  cols.forEach(([col, steps, up], k) => {
+    const far = `translateY(${-steps * H}px)`, delay = (cols.length - 1 - k) * ROLL_GAP;
+    try { anims.push(col.animate(up ? [{ transform: 'none' }, { transform: far }] : [{ transform: far }, { transform: 'none' }], { duration: dur, delay, easing: ease, fill: 'both' })); } catch (e) { /* static digits are fine */ }
+  });
+  el._xr = anims;
+  Promise.all(anims.map(a => a.finished)).then(() => { if (el._xr === anims) { el._xr = null; el.textContent = to; } }, () => {});
+}
+function xSwap(el, from, to, dir) {
+  to = String(to); from = from == null ? '' : String(from);
+  if (el._xs) { for (const a of el._xs) { try { a.cancel(); } catch (e) { /* gone */ } } el._xs = null; }
+  const done = () => { el.classList.remove('xsw'); delete el.dataset.was; el.textContent = to; };
+  done();
+  if (!from || from === to || motion() === 'reduced' || document.hidden || !el.isConnected) return;
+  // out 100ms (fades, blur ≤ font-size / 6, 4px), in 60ms later over 180ms (§6-4); the old text is the box's ::before, so the text is `to`
+  const fs = parseFloat(getComputedStyle(el).fontSize) || 13, blur = `blur(${Math.min(2, fs / 6).toFixed(2)}px)`, s = dir < 0 ? -1 : 1;
+  const n = h('span', { class: 'xsw-n', text: to });
+  el.dataset.was = from; el.classList.add('xsw'); el.replaceChildren(n);
+  const anims = [];
+  try {
+    anims.push(el.animate([{ opacity: 1, transform: 'none', filter: 'blur(0px)' }, { opacity: 0, transform: `translateY(${-4 * s}px)`, filter: blur }], { duration: SWAP.out, easing: spEase('close'), fill: 'forwards', pseudoElement: '::before' }));
+    anims.push(n.animate([{ opacity: 0, transform: `translateY(${4 * s}px)`, filter: blur }, { opacity: 1, transform: 'none', filter: 'blur(0px)' }], { duration: SWAP.in, delay: SWAP.gap, easing: spEase('fade'), fill: 'backwards' }));
+  } catch (e) { done(); return; }
+  el._xs = anims;
+  Promise.all(anims.map(a => a.finished)).then(() => { if (el._xs === anims) { el._xs = null; done(); } }, () => {});
+}
+// 화려하게 rolls, 기본 swaps, 줄이기 writes
+const xChange = (el, from, to, dir) => (motion() === 'fancy' ? xRoll(el, from, to, dir) : xSwap(el, from, to, dir));
+const stripPrev = new Map();                                   // key → { v, r } from the previous render
 function rollChanged(items) {
-  const lvl = motion();
   const seen = new Set();
   for (const it of items || []) {
     const v = +it.value, r = +it.ratio, key = it.key;
     seen.add(key);
     if (String(key).includes(':')) continue;
     const prev = stripPrev.get(key);
-    const cur = { v, r };
-    stripPrev.set(key, cur);
-    if (!prev || lvl !== 'fancy' || document.hidden || !stripEl) continue;
+    stripPrev.set(key, { v, r });
+    if (!prev || motion() === 'reduced' || document.hidden || !stripEl) continue;
+    const k = CSS.escape(key);
     if (isFinite(v) && isFinite(prev.v) && v !== prev.v) {
       const def = STRIP[key] || { dp: 2 };
       const oldT = key === 'BTC' && prev.v >= 1e8 ? krwShort(prev.v) : fixed(prev.v, def.dp);
-      for (const el of stripEl.querySelectorAll(`.xs-item[data-k="${key}"] .xs-v`)) rollText(el, oldT, el.textContent, v > prev.v);
+      for (const el of stripEl.querySelectorAll(`.xs-item[data-k="${k}"] .xs-v`)) xChange(el, oldT, el.textContent, v > prev.v ? 1 : -1);
     }
     if (isFinite(r) && isFinite(prev.r) && r !== prev.r) {
-      for (const el of stripEl.querySelectorAll(`.xs-item[data-k="${key}"] .xs-r`)) rollText(el, pct(prev.r), el.textContent, r > prev.r);
+      for (const el of stripEl.querySelectorAll(`.xs-item[data-k="${k}"] .xs-r`)) xChange(el, pct(prev.r), el.textContent, r > prev.r ? 1 : -1);
     }
   }
 }
@@ -1009,7 +1068,8 @@ function readIxLine() {
 // style B, the PC way, in a row of its own under the header: value · % on the left, the line (dashed 전일 종가, a tick at the latest point) in the middle, time / 15:30 or 종가 on the right
 function ixRowHeight(ix) { return ix ? (ix.g.length > 1 ? 46 : 36) : 0; }
 function drawIxRow(ctx, ix, fam, W, y0, pad) {
-  const CH = ixRowHeight(ix), small = W < 520, fs = small ? 11.5 : 12.5;
+  // the type scale (design.md §3): value · % at 12 / 13, names and the time's note one step smaller (never under 11)
+  const CH = ixRowHeight(ix), small = W < 520, fs = small ? 12 : 13;
   ctx.save(); ctx.translate(0, y0);
   ctx.fillStyle = IMG.ihd; ctx.fillRect(0, 0, W, CH);
   ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
@@ -1090,7 +1150,7 @@ function layoutLegend(ctx, fam, groups, W, pad) {
       r.items.forEach(({ g, w }, ii) => {
         if (g.right && wide && ii === r.items.length - 1) x = Math.max(x, W - pad - w);
         let ax = x + (g.pill ? 7 : 0);
-        if (g.pill) { c.strokeStyle = g.pillBd || IMG.accBd; c.fillStyle = g.pillBg || IMG.accSoft; c.lineWidth = 1; c.beginPath(); c.roundRect(x + .5, cy - 9, w - 1, 18, 5); c.fill(); c.stroke(); }
+        if (g.pill) { c.strokeStyle = g.pillBd || IMG.accBd; c.fillStyle = g.pillBg || IMG.accSoft; c.lineWidth = 1; c.beginPath(); c.roundRect(x + .5, cy - 9, w - 1, 18, 4); c.fill(); c.stroke(); }
         g.atoms.forEach((a, i) => {
           if (i) ax += GAP;
           if (a.grad) {
@@ -1224,7 +1284,9 @@ function drawMap(nodes, wt) {
     }
     ctx.restore();
   };
-  for (const g of inds) header(g, hdOf(g, tiles), 10.5, 500, IMG.ihd, IMG.ihdFg);
+  // the industry band's type follows the screen's (.ind .hd, the template's), never under the 11px floor
+  const indFs = Math.max(11, parseFloat((document.querySelector('#map .ind .hd') && getComputedStyle(document.querySelector('#map .ind .hd')).fontSize) || '') || 11);
+  for (const g of inds) header(g, hdOf(g, tiles), indFs, 500, IMG.ihd, IMG.ihdFg);
   for (const g of secs) header(g, hdOf(g, inds.length ? inds : tiles), 12, 700, IMG.sec, IMG.secFg);
   // tile labels
   ctx.textAlign = 'center';
@@ -1261,7 +1323,7 @@ function drawMap(nodes, wt) {
   lg.draw(ctx, 0);
   ctx.translate(0, lg.h);
   ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-  ctx.font = `500 10.5px ${fam}`; ctx.fillStyle = IMG.muted;
+  ctx.font = `500 11px ${fam}`; ctx.fillStyle = IMG.muted;
   ctx.fillText(ellipsize(ctx, chrome.footer, W - 2 * pad), pad, FH / 2 - 1);
   return cnv;
 }
@@ -1386,8 +1448,8 @@ function showInstall(label, onClick) {
 }
 function hideInstall() { if (installBtn) { installBtn.remove(); installBtn = null; } }
 function iosHint(ev) {
-  const share = svg('svg', { viewBox: '0 0 20 20', width: '16', height: '16', 'aria-hidden': 'true', fill: 'none', stroke: 'currentColor', 'stroke-width': '1.7', 'stroke-linecap': 'round', 'stroke-linejoin': 'round', class: 'xp-share' },
-    svg('path', { d: 'M10 2.8v9.4M6.6 6.1 10 2.8l3.4 3.3M6.5 9H5.2A1.2 1.2 0 0 0 4 10.2v5.6A1.2 1.2 0 0 0 5.2 17h9.6a1.2 1.2 0 0 0 1.2-1.2v-5.6A1.2 1.2 0 0 0 14.8 9h-1.3' }));
+  const share = svg('svg', { viewBox: '0 0 20 20', width: '16', height: '16', 'aria-hidden': 'true', fill: 'none', stroke: 'currentColor', 'stroke-linecap': 'round', 'stroke-linejoin': 'round', class: 'xp-share' },
+    svg('path', { d: 'M10 2.8v9.4M6.6 6.1 10 2.8l3.4 3.3M6.5 9H5.2A1.2 1.2 0 0 0 4 10.2v5.6A1.2 1.2 0 0 0 5.2 17h9.6a1.2 1.2 0 0 0 1.2-1.2v-5.6A1.2 1.2 0 0 0 14.8 9h-1.3', 'stroke-width': STROKE, 'vector-effect': 'non-scaling-stroke' }));
   makeDialog('xp', '홈 화면에 추가', ev && ev.currentTarget, [
     h('h2', { class: 'xd-h', text: '홈 화면에 추가' }),
     h('ol', { class: 'xp-steps' },
@@ -1453,11 +1515,14 @@ function rpBuild() {
   ui.date = h('select', { class: 'rp-date', 'aria-label': '날짜', onchange: e => loadDay(e.target.value, false) });
   ui.speed = h('div', { class: 'rp-speed seg', role: 'group', 'aria-label': '재생 속도' });     // a segment: one raised indicator (KH.ui.seg)
   ui.slider = h('input', { type: 'range', class: 'rp-slider', min: 0, max: SESSION.slots, step: 1, value: 0, 'aria-label': '시각' });
+  // the slider's rail: flat boxes under the transparent track (recorded day · 1-minute runs · played part), no gradient paint
+  ui.fine = h('span', { class: 'rp-fines' });
+  ui.rail = h('div', { class: 'rp-rail', 'aria-hidden': 'true' }, h('i', { class: 'rp-rec' }), ui.fine, h('i', { class: 'rp-pos' }));
   ui.slider.addEventListener('input', () => { pause(); seekSlot(+ui.slider.value); });
   ui.ticks = h('div', { class: 'rp-ticks', 'aria-hidden': 'true' });
   ui.more = h('button', { type: 'button', class: 'rp-more', 'aria-label': '날짜·속도 설정', 'aria-expanded': 'false', 'aria-controls': 'rp-set', title: '날짜·속도 설정',
     onclick: () => { const on = !R.el.classList.contains('rp-more-on'); R.el.classList.toggle('rp-more-on', on); ui.more.setAttribute('aria-expanded', String(on)); } },
-    h('span', { 'aria-hidden': 'true', text: '⋯' }));
+    icon(ICON.more, true));
   ui.msg = h('div', { class: 'rp-msg', role: 'status' });
   ui.note = h('div', { class: 'rp-note' });
   ui.close = h('button', { type: 'button', class: 'rp-x', 'aria-label': '리플레이 닫기', onclick: () => closeReplay() }, icon(ICON.close));
@@ -1467,7 +1532,7 @@ function rpBuild() {
   ui.body = h('div', { class: 'rp-main' },
     ui.play,
     h('div', { class: 'rp-when' }, label(), ui.time),
-    h('div', { class: 'rp-track' }, ui.slider, ui.ticks),
+    h('div', { class: 'rp-track' }, ui.rail, ui.slider, ui.ticks),
     ui.more, ui.idx, ui.set);
   R.el = h('section', { class: 'rp-player', id: 'replay-player', role: 'region', 'aria-label': '장중 리플레이', hidden: true }, ui.close, ui.msg, ui.body, ui.note);
   document.body.append(R.el);
@@ -1612,13 +1677,15 @@ function showFrame(i, how) {
   const tw = R.playing && motion() === 'fancy' ? Math.round(R.delay * 0.92) : 0;
   R.raf = requestAnimationFrame(() => { try { KH.setReplay({ t: String(f.t), date: day.date, prices, index: ixr, ixs }, tw ? { tween: tw } : undefined); } catch (e) { /* map keeps its last frame */ } });
   const ui = R.ui, sl = slotOfT(f.t);
-  // a scene shorter than the roll (fast playback) is written at once: digits that never settle say nothing
-  const roll = UI && typeof UI.roll === 'function' && (how === 'step' || (how === 'play' && R.delay >= 400)) && isFinite(prevMin) && prevMin !== R.curMin;
-  if (roll) UI.roll(ui.time, R.frameT, R.curMin > prevMin ? 1 : -1); else ui.time.textContent = R.frameT;
+  // ←/→ and a playing scene of ≥ 0.4 s roll (화려하게) or swap (기본) the time's changed digits; a scene shorter than that, a drag or a new
+  // day writes it at once (digits that never settle say nothing)
+  const was = ui.time.textContent;
+  if ((how === 'step' || (how === 'play' && R.delay >= 400)) && isFinite(prevMin) && prevMin !== R.curMin) xChange(ui.time, was, R.frameT, R.curMin > prevMin ? 1 : -1);
+  else xRoll(ui.time, '', R.frameT, 0);
   bigUpdate();
   ui.slider.value = sl;
   ui.slider.setAttribute('aria-valuetext', `${dayLabel(day.date)} ${R.frameT}`);
-  ui.slider.style.setProperty('--pos', (sl / SESSION.slots * 100) + '%');
+  ui.rail.style.setProperty('--pos', (sl / SESSION.slots * 100) + '%');
   ui.idx.replaceChildren(...['KOSPI', 'KOSDAQ'].map(k => {
     const e = f.ix && f.ix[k];
     const v = e == null ? NaN : +(Array.isArray(e) ? e[0] : typeof e === 'object' ? e.value : e);
@@ -1668,13 +1735,13 @@ function ingest(day, codes, frames, index) {
   day.frames = [...day.byT.entries()].sort((a, b) => a[0] - b[0]).map(e => e[1]);
   return added;
 }
-// grey band under the slider = 5-minute coverage; the lighter band on top = ranges that have 1-minute frames
+// grey band under the slider = 5-minute coverage; the lighter boxes on top = ranges that have 1-minute frames (flat boxes, §2)
 function rpBand() {
   const R = replay, day = R.day, ui = R.ui;
   if (!day || !day.frames.length) return;
   const S = SESSION.slots, pc = v => (v / S * 100).toFixed(2) + '%';
-  ui.slider.style.setProperty('--rec0', pc(slotOfT(day.frames[0].t)));
-  ui.slider.style.setProperty('--rec1', pc(slotOfT(day.frames[day.frames.length - 1].t)));
+  ui.rail.style.setProperty('--rec0', pc(slotOfT(day.frames[0].t)));
+  ui.rail.style.setProperty('--rec1', pc(slotOfT(day.frames[day.frames.length - 1].t)));
   const mins = [...day.byT.keys()].sort((a, b) => a - b);
   const runs = [];
   for (const m of mins) {
@@ -1682,16 +1749,7 @@ function rpBand() {
     if (last && m - last[1] <= 1) last[1] = m; else runs.push([m, m]);
   }
   const fine = runs.filter(r => r[1] - r[0] >= 2);                   // 5-minute frames alone never make a run
-  let g = 'linear-gradient(transparent,transparent)';
-  if (fine.length) {
-    const st = [`transparent 0 ${pc(fine[0][0] - SESSION.s0)}`];
-    fine.forEach((r, k) => {
-      const a = pc(r[0] - SESSION.s0), b = pc(r[1] - SESSION.s0);
-      st.push(`var(--xe-fine) ${a} ${b}`, `transparent ${b} ${k < fine.length - 1 ? pc(fine[k + 1][0] - SESSION.s0) : '100%'}`);
-    });
-    g = `linear-gradient(90deg,${st.join(',')})`;
-  }
-  ui.slider.style.setProperty('--m1', g);
+  ui.fine.replaceChildren(...fine.map(r => h('i', { class: 'rp-fine', style: `left:${pc(r[0] - SESSION.s0)};width:${pc(r[1] - r[0])}` })));
 }
 function rpCount() {
   const R = replay, day = R.day;
@@ -1925,40 +1983,51 @@ function ckPhase(n) {
   return { key: 'night', text: '장 마감', fill: 0, mode: 'solid', seg };
 }
 
-/* clean digital digit: a plain tabular numeral; 'fancy' slides the old one up and out and the new one in (<= 220 ms) */
+/* clean digital digit: a plain tabular numeral; 화려하게 turns its drum one step forward when it changes (the clock only counts up — the
+   number drum of design.md §6-2: `roll`, no overshoot, a 14% mask while it moves, no fade, the rightmost digit first 40ms apart) */
 function flapCell(ch) {
   const el = h('span', { class: 'xdg' }, h('i', { text: ch }));
   el.cur = ch; el.want = ch; el.busy = false;
   return el;
 }
-async function slideOnce(cell, to) {
+async function slideOnce(cell, to, delay) {
   const old = cell.firstChild;
   const nw = h('i', { class: 'xdg-n', text: to });
   cell.append(nw);
-  const dur = 220, ease = 'cubic-bezier(.2,.7,.2,1)';
+  cell.classList.add('xdg-go');
+  const o = { duration: spMs('roll'), delay: delay || 0, easing: spEase('roll'), fill: 'both' };
   try {
     old.style.position = 'absolute'; old.style.left = '0'; old.style.right = '0';
-    old.animate([{ transform: 'translateY(0)', opacity: 1 }, { transform: 'translateY(-45%)', opacity: 0 }], { duration: dur, easing: ease, fill: 'forwards' });
-    await nw.animate([{ transform: 'translateY(45%)', opacity: 0 }, { transform: 'translateY(0)', opacity: 1 }], { duration: dur, easing: ease, fill: 'both' }).finished;
+    old.animate([{ transform: 'translateY(0)' }, { transform: 'translateY(-100%)' }], o);
+    await nw.animate([{ transform: 'translateY(100%)' }, { transform: 'translateY(0)' }], o).finished;
   } catch (e) { /* cancelled: settle below */ }
   old.remove();
   nw.className = ''; nw.getAnimations().forEach(x => x.cancel());
+  cell.classList.remove('xdg-go');
   cell.cur = to;
 }
-async function cellSet(cell, ch, force) {
+async function cellSet(cell, ch, force, delay) {
   cell.want = ch;
   if (cell.busy) return;
   cell.busy = true;
   try {
     while (cell.cur !== cell.want || force) {
       const lvl = motion(), to = cell.want;
-      if (lvl !== 'fancy' || document.hidden) {
+      if (lvl !== 'fancy' || document.hidden || !(spMs('roll') > 0)) {
         cell.firstChild.textContent = to; cell.cur = to;
         if (force && lvl === 'standard') { cell.classList.remove('xdg-blink'); void cell.offsetWidth; cell.classList.add('xdg-blink'); }
-      } else await slideOnce(cell, to);
-      force = false;
+      } else await slideOnce(cell, to, delay);
+      force = false; delay = 0;
     }
   } finally { cell.busy = false; }
+}
+// the cells whose digit changes now, the rightmost first: each one's delay (§6-2)
+function cellsTo(t) {
+  let k = 0;
+  for (let i = ck.cells.length - 1; i >= 0; i--) {
+    const c = ck.cells[i];
+    if (c.want !== t[i]) { cellSet(c, t[i], false, c.busy ? 0 : k * ROLL_GAP); k++; }
+  }
 }
 
 const XA_ARC_R = 48.25, XA_ARC_W = 3.5;     // the rim band between the face (r 46.5) and the dial's edge (r 50)
@@ -1994,10 +2063,11 @@ function ckAnalogSet(n, sweep) {
   const tr = (el, ang, t) => { el.style.transition = t || 'none'; el.style.transform = `rotate(${ang}deg)`; };
   const first = ck.mAng == null;
   const minuteMoved = ck.mAng !== mAng;
-  const mt = lvl === 'reduced' || first ? 'none' : 'transform .38s cubic-bezier(.3,1.7,.5,1)';
+  // the station clock's minute "tick": `lead` (a tiny overshoot at most, design.md §6-1 — no bouncy curve); 기본's second hand: `follow`
+  const mt = lvl === 'reduced' || first ? 'none' : 'transform var(--sp-lead-dur) var(--sp-lead)';
   if (minuteMoved) { tr(a._m, mAng, mt); tr(a._h, hAng, mt); ck.mAng = mAng; }
   a._s.style.display = lvl === 'reduced' ? 'none' : '';
-  if (lvl === 'standard') tr(a._s, n.s * 6, n.s === 0 || first ? 'none' : 'transform .14s cubic-bezier(.4,2.2,.5,1)');
+  if (lvl === 'standard') tr(a._s, n.s * 6, n.s === 0 || first ? 'none' : 'transform var(--sp-follow-dur) var(--sp-follow)');
   else if (lvl === 'fancy' && !sweep) { const f = Math.min(1, (n.s + n.ms / 1000) / 58.5); tr(a._s, f * 360, 'none'); }
 }
 /* §3-6 + 사용자 2026-11-13 20:19: the KRX regular session as an arc on the dial's rim — 09:00 (the 9 o'clock spot) → the close
@@ -2090,7 +2160,7 @@ function ckRender(instant) {
   const t = two(n.h) + two(n.m);
   const ph = ckPhase(n), cd = ckCountdown(n, ph);
   ck.cdNow = cd;
-  if (ck.cells.length) ck.cells.forEach((c, i) => cellSet(c, t[i]));
+  if (ck.cells.length) cellsTo(t);
   // the seconds slot: the seconds (none under 줄이기, which ticks once a minute), or the countdown — plain text at every effect
   // level, like the seconds it replaces (a roll every second would be motion that never stops beside the map); never announced:
   // the label below says it once a minute
@@ -2115,16 +2185,21 @@ function ckRender(instant) {
   }
   if (wc.open) wcRender();
   sbRender(n, ph, lvl);
+  if (ck.aucJust) { ck.aucJust = false; if (lvl === 'fancy') sbNudge('.sb-bell', 'rotate(14deg)'); }       // the bell rings once
 }
-/* 마감 동시호가 (end − 10 → end): a steady thin amber outline the whole time; as it starts (seen within its first minute) one amber
-   glow of 1.2 s — 기본 · 화려하게 only, 줄이기 = the outline alone. Fixed colours: the clock looks the same in every theme. */
+/* 마감 동시호가 (end − 10 → end): a steady 1.5px --live outline the whole time; as it starts (seen within its first minute) the outline
+   is 2px over a --fill-2 plate for one dwell (--c-dwell) and settles back with `close` — 기본 · 화려하게 only, 줄이기 = the outline
+   alone. No glow (design.md §10 ③). The clock looks the same in every theme. */
 function ckAuction(n, ph, lvl) {
   const on = ph.key === 'auc';
   ck.btn.classList.toggle('xc-auc', on);
   if (on && ck.wasAuc === false && lvl !== 'reduced' && !document.hidden && n.min * 60 + n.s - ph.seg.auc * 60 < 60) {
-    ck.glo.classList.remove('run'); void ck.glo.offsetWidth; ck.glo.classList.add('run');
+    ck.glo.classList.add('run');
+    ck.aucJust = true;
+    clearTimeout(ck.gloT);
+    ck.gloT = setTimeout(() => ck.glo.classList.remove('run'), tokMs('--c-dwell', 1120) || 1120);
   }
-  if (!on) ck.glo.classList.remove('run');
+  if (!on) { clearTimeout(ck.gloT); ck.glo.classList.remove('run'); }
   ck.wasAuc = on;
 }
 
@@ -2136,12 +2211,12 @@ const fmtLeft = m => { m = Math.max(1, Math.ceil(m)); const hh = Math.floor(m / 
 function sbIcon(kind) {
   const S = (t, a, ...k) => svg(t, a, ...k);
   const root = S('svg', { viewBox: '0 0 20 20', width: 22, height: 22, class: 'sb-svg sb-' + kind, 'aria-hidden': 'true', focusable: 'false' });
-  const ray = (ang, r1, r2, cx, cy) => { const a = ang * Math.PI / 180; return S('line', { x1: (cx + Math.cos(a) * r1).toFixed(2), y1: (cy + Math.sin(a) * r1).toFixed(2), x2: (cx + Math.cos(a) * r2).toFixed(2), y2: (cy + Math.sin(a) * r2).toFixed(2), style: 'stroke:var(--xe-ray)', 'stroke-width': 1.5, 'stroke-linecap': 'round' }); };
+  const ray = (ang, r1, r2, cx, cy) => { const a = ang * Math.PI / 180; return S('line', { x1: (cx + Math.cos(a) * r1).toFixed(2), y1: (cy + Math.sin(a) * r1).toFixed(2), x2: (cx + Math.cos(a) * r2).toFixed(2), y2: (cy + Math.sin(a) * r2).toFixed(2), style: 'stroke:var(--xe-ray)', 'stroke-width': 1.5, 'vector-effect': 'non-scaling-stroke', 'stroke-linecap': 'round' }); };
   if (kind === 'moon') {
     root.append(S('path', { d: 'M12.6 2.6a7.6 7.6 0 1 0 4.8 12.9A6.3 6.3 0 0 1 12.6 2.6z', style: 'fill:var(--xe-moon)' }), S('circle', { cx: 15.2, cy: 4.6, r: 0.9, style: 'fill:var(--xe-moon)' }));
   } else if (kind === 'rise') {
     root.append(S('g', { class: 'sb-rays' }, ...[180, 215, 250, 290, 325, 360].map(a => ray(a, 7.6, 10, 10, 14))),
-      S('path', { d: 'M3.8 14a6.2 6.2 0 0 1 12.4 0z', style: 'fill:var(--xe-sun)' }), S('line', { x1: 1, y1: 14.6, x2: 19, y2: 14.6, style: 'stroke:var(--xe-ray)', 'stroke-width': 1.3, 'stroke-linecap': 'round' }));
+      S('path', { d: 'M3.8 14a6.2 6.2 0 0 1 12.4 0z', style: 'fill:var(--xe-sun)' }), S('line', { x1: 1, y1: 14.6, x2: 19, y2: 14.6, style: 'stroke:var(--xe-ray)', 'stroke-width': 1.5, 'vector-effect': 'non-scaling-stroke', 'stroke-linecap': 'round' }));
   } else {
     root.append(S('g', { class: 'sb-rays' }, ...[0, 45, 90, 135, 180, 225, 270, 315].map(a => ray(a, 6.6, 9.2, 10, 10))), S('circle', { cx: 10, cy: 10, r: 4.6, style: 'fill:var(--xe-sun)' }));
   }
@@ -2159,7 +2234,8 @@ function sbPhase(n, ph) {
 }
 function sbPhaseIcon(kind) {
   const S = (t, a, ...k) => svg(t, a, ...k);
-  const root = S('svg', { viewBox: '0 0 12 12', class: 'sb-pi sb-pi-' + kind, 'aria-hidden': 'true', focusable: 'false', fill: 'none', stroke: 'currentColor', 'stroke-width': '1.2', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' });
+  // the phase glyphs are 12px: their strokes are drawn 1.5px on screen (design.md §4's smallest step; CSS .sb-pi * vector-effect)
+  const root = S('svg', { viewBox: '0 0 12 12', class: 'sb-pi sb-pi-' + kind, 'aria-hidden': 'true', focusable: 'false', fill: 'none', stroke: 'currentColor', 'stroke-width': '1.5', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' });
   if (kind === 'glass') root.append(S('path', { d: 'M3 1.4h6M3 10.6h6M3.7 1.4c0 2.3 1.3 2.9 2.3 4.6-1 1.7-2.3 2.3-2.3 4.6M8.3 1.4c0 2.3-1.3 2.9-2.3 4.6 1 1.7 2.3 2.3 2.3 4.6' }));
   else if (kind === 'candle') root.append(S('path', { d: 'M3.4 1.2v9.6M8.6 2.2v8.2' }), S('rect', { x: 2.2, y: 3.2, width: 2.4, height: 4.4, rx: .4, fill: 'currentColor' }), S('rect', { x: 7.4, y: 4.2, width: 2.4, height: 3.4, rx: .4 }));
   else if (kind === 'bell') root.append(S('g', { class: 'sb-bell' }, S('path', { d: 'M6 1.5c-1.9 0-3 1.4-3 3.2v1.9L1.9 8.4h8.2L9 6.6V4.7C9 2.9 7.9 1.5 6 1.5z', fill: 'currentColor', 'fill-opacity': '.25' }), S('path', { d: 'M4.9 9.8a1.2 1.2 0 0 0 2.2 0' })));
@@ -2168,6 +2244,14 @@ function sbPhaseIcon(kind) {
   else root.append(S('rect', { x: 1.7, y: 2.4, width: 8.6, height: 7.8, rx: 1.3 }), S('path', { d: 'M1.7 4.9h8.6M4 1.3v2M8 1.3v2M1.2 11l9.6-9.6' }));
   return root;
 }
+/* 화려하게: the pill's glyph answers real events once — the candle beats once per quotes update during the session (kh:data), the bell
+   swings once as 마감 동시호가 starts — one `settle` nudge each, never a loop (motion-brief §3: no endless decoration) */
+function sbNudge(sel, from, op) {
+  const el = sb.ico && sb.ico.querySelector(sel);
+  if (!el || document.hidden || !(spMs('settle') > 0)) return;
+  try { el.animate([{ transform: from, opacity: op == null ? 1 : op }, { transform: 'none', opacity: 1 }], { duration: spMs('settle'), easing: spEase('settle') }); } catch (e) { /* static is fine */ }
+}
+document.addEventListener('kh:data', () => { if (sb.built && motion() === 'fancy' && sb.ico.dataset.ph === 'reg') sbNudge('.sb-pi', 'scale(1.18)', 0.7); });
 function sbBuild() {
   sb.segs = h('div', { class: 'sb-segs' });
   sb.fill = h('div', { class: 'sb-fill' });
@@ -2186,14 +2270,16 @@ function sbBuild() {
   sb.box.addEventListener('click', show);
   sb.box.addEventListener('mouseleave', () => sbTip(false));
   sb.box.addEventListener('blur', () => sbTip(false));
-  sb.box.addEventListener('keydown', e => { if (e.key === 'Escape' && sb.tip.classList.contains('on')) { e.stopPropagation(); sbTip(false); } });
+  sb.box.addEventListener('keydown', e => { if (e.key === 'Escape' && sb.tip.classList.contains('on')) { e.stopPropagation(); sbTip(false, true); } });
   sbEl.replaceChildren(sb.box);
   sb.built = true;
   if (typeof ResizeObserver === 'function') new ResizeObserver(() => sbFit(true)).observe(sb.box);
 }
-function sbTip(on) {
+// a tooltip (design.md §7): it appears where it is (no travel), fades with `fade`, and goes 130ms after the pointer / focus left (at once
+// for Esc); a tap shows it for 4 s
+function sbTip(on, now) {
   clearTimeout(sb.tipT);
-  if (!on) { sb.tip.classList.remove('on'); return; }
+  if (!on) { if (now) sb.tip.classList.remove('on'); else sb.tipT = setTimeout(() => sb.tip.classList.remove('on'), 130); return; }
   sb.tip.classList.add('on');
   const bw = sb.box.clientWidth, cx = isFinite(sb.cx) ? sb.cx : parseFloat(sb.ico.style.left) || 0, tw = sb.tip.offsetWidth;
   sb.tip.style.left = Math.max(4, Math.min(bw - tw - 4, cx - tw / 2)) + 'px';
@@ -2246,19 +2332,22 @@ function sbRender(n, ph, lvl) {
   if (sb.kind !== kind) { sb.kind = kind; sb.cap.replaceChildren(sbIcon(kind)); }
   const dup = pp.icon === 'moon' && kind === 'moon', sigP = pp.id + (dup ? '+' : '');
   const textP = pp.label, pctP = pp.pct != null ? pp.pct + '%' : '';
+  // a new phase: its glyph comes in with `fade`, the label swaps upward and the % from below as it grows (design.md §6-4) — 기본 · 화려하게
+  const first = sb.phase === undefined;
   if (sb.phase !== sigP) {
-    const first = sb.phase === undefined;
     sb.phase = sigP;
     if (dup) sb.pi.replaceChildren(); else sb.pi.replaceChildren(sbPhaseIcon(pp.icon));
     sb.ico.style.setProperty('--pc', pp.color);
     sb.ico.dataset.ph = pp.id;
-    if (!first && lvl === 'fancy') { try { sb.ico.animate([{ opacity: 0.2 }, { opacity: 1 }], { duration: 360, easing: 'ease-out' }); } catch (e) { /* static is fine */ } }
+    const g = sb.pi.firstChild;
+    if (!first && g && lvl !== 'reduced' && !document.hidden) { try { g.animate([{ opacity: 0, transform: 'scale(.6)' }, { opacity: 1, transform: 'none' }], { duration: spMs('fade'), easing: spEase('fade') }); } catch (e) { /* static is fine */ } }
   }
-  if (sb.pt.textContent !== textP) sb.pt.textContent = textP;
-  if (sb.pp.textContent !== pctP) sb.pp.textContent = pctP;
+  if (sb.pt.textContent !== textP) { if (first) sb.pt.textContent = textP; else xSwap(sb.pt, sb.pt.textContent, textP, 0); }
+  if (sb.pp.textContent !== pctP) {
+    const a = parseFloat(sb.pp.textContent), b = parseFloat(pctP);
+    if (first || !sb.pp.textContent || !pctP) sb.pp.textContent = pctP; else xSwap(sb.pp, sb.pp.textContent, pctP, b < a ? -1 : 1);
+  }
   sb.ico.classList.toggle('sb-fancy', lvl === 'fancy');
-  sb.ico.classList.toggle('sb-live', lvl === 'fancy' && pp.id === 'reg');
-  sb.ico.classList.toggle('sb-ring', lvl === 'fancy' && pp.id === 'auc');
   sbFit();
   sb.box.classList.toggle('sb-hol', hol);
   // tooltip text: the phase and what is left of it
@@ -2307,7 +2396,7 @@ async function ckClick() {
   ck.btn.setAttribute('aria-busy', 'true'); ck.btn.classList.add('xc-busy');
   const lvl = motion();
   if (lvl !== 'reduced') {
-    ck.cells.forEach((c, i) => setTimeout(() => cellSet(c, c.cur, true), i * 60));
+    ck.cells.forEach((c, i) => cellSet(c, c.cur, true, (ck.cells.length - 1 - i) * ROLL_GAP));      // the rightmost first (§6-2)
     if (ck.analog) { ck.analog._w.classList.remove('xa-do'); void ck.analog._w.getBoundingClientRect(); ck.analog._w.classList.add('xa-do'); }
   }
   const t0 = Date.now();

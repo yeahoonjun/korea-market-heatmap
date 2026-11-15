@@ -57,10 +57,25 @@ def page_at(b, when, w, theme, motion='standard', paused=True):
     pg.clock.install(time=t0 / 1000)
     pg.route('**/api/time', lambda r: r.fulfill(status=200, content_type='application/json', headers={'cache-control': 'no-store'},
                                                  body=json.dumps({'t': t0 + (time.time() - real0) * 1000})))
+    def quotes(r):                                   # a session day: the quotes say OPEN (else 10:30 reads as a holiday)
+        try:
+            res = r.fetch(); j = res.json(); j['marketStatus'] = {'KOSPI': 'OPEN', 'KOSDAQ': 'OPEN'}
+            r.fulfill(response=res, body=json.dumps(j, ensure_ascii=False))
+        except Exception:
+            pass                                     # the page went away mid-request
+    pg.route('**/api/quotes*', quotes)
     pg.goto(URL)
     pg.wait_for_function('() => document.querySelectorAll("#map .tile").length > 50 && document.querySelector(".xc-btn") && document.querySelector("#strip .xs-item")', timeout=20000)
     pg.wait_for_timeout(1200)
     return ctx, pg, errs
+
+
+def done(ctx, pg):
+    try:
+        pg.unroute_all(behavior='ignoreErrors')
+    except Exception:
+        pass
+    ctx.close()
 
 
 def shot(pg, name, clip=None, full_top=None):
@@ -111,7 +126,7 @@ def run(b):
                     pg.click('.rp-more'); pg.wait_for_timeout(500)
                     pg.screenshot(path=str(OUT / f'{TAG}_{tag}_replay_more.png'), clip={'x': 0, 'y': vh - 300, 'width': vw, 'height': 300})
             errs_all += [f'{tag}: {e}' for e in errs]
-            ctx.close()
+            done(ctx, pg)
             # ⑤ 마감 동시호가: 15:19:59.6 → the cue starts; one shot 300 ms in (the old glow's peak), one at rest
             ctx, pg, errs = page_at(b, '2026-11-13T15:19:58.9', w, theme)
             pg.wait_for_function("() => document.querySelector('.xc-btn').classList.contains('xc-auc')", timeout=8000)
@@ -122,7 +137,7 @@ def run(b):
             pg.wait_for_timeout(1800)
             shot(pg, f'{tag}_auc_rest', clip=clip)
             errs_all += [f'{tag} auc: {e}' for e in errs]
-            ctx.close()
+            done(ctx, pg)
     print('page errors:', errs_all or 0)
 
 
