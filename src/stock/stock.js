@@ -1360,7 +1360,8 @@ function syncTf() {
 
 /* motion (design.md §6): the spring tokens of the template's :root (--sp-<name> = a linear() curve, --sp-<name>-dur); '줄이기' sets every
  * length to 0 and a hidden tab draws the end state, so both get dur 0 here = no animation at all. */
-const motionOk = () => !document.hidden && (typeof KH.motion === 'function' ? KH.motion() !== 'reduced' : document.documentElement.dataset.motion !== 'reduced');
+// one reduce switch (design.md §6-3): html[data-motion] — the template sets it from KH.motion(); either saying 'reduced' is enough
+const motionOk = () => !document.hidden && document.documentElement.dataset.motion !== 'reduced' && (typeof KH.motion !== 'function' || KH.motion() !== 'reduced');
 const rootVar = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 function spring(name, fbMs) {
   const e = rootVar(`--sp-${name}`), d = parseFloat(rootVar(`--sp-${name}-dur`));
