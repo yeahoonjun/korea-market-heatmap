@@ -1,0 +1,890 @@
+{
+ "generated": "scripts/springs.mjs",
+ "rule": {
+  "limitPct": 2,
+  "altZeta": 0.8,
+  "linearTolPct": 0.5,
+  "durEps": 0.001,
+  "mass": 1
+ },
+ "current": {
+  "--c-out": {
+   "bezier": [
+    0.22,
+    1,
+    0.36,
+    1
+   ],
+   "overshootPct": 0
+  },
+  "--c-in": {
+   "bezier": [
+    0.4,
+    0,
+    1,
+    1
+   ],
+   "overshootPct": 0
+  },
+  "--c-inout": {
+   "bezier": [
+    0.65,
+    0,
+    0.35,
+    1
+   ],
+   "overshootPct": 0
+  },
+  "--c-pop": {
+   "bezier": [
+    0.34,
+    1.3,
+    0.64,
+    1
+   ],
+   "overshootPct": 2.992
+  }
+ },
+ "springs": [
+  {
+   "name": "follow",
+   "group": "기본",
+   "use": "포인터를 따라가는 것 · 끌기를 놓은 뒤 · 스위치 손잡이 앞 가장자리",
+   "ref": {
+    "k": 900,
+    "c": 50,
+    "m": 1,
+    "zeta": 0.8333,
+    "w0": 30,
+    "regime": "under",
+    "overshootPct": 0.877,
+    "overshootFormulaPct": 0.877,
+    "peakMs": 189.4,
+    "settle01Ms": 289.9,
+    "settle05Ms": 234.5,
+    "durMs": 290,
+    "linear": "linear(0, .019 2.4%, .085 5.4%, .229 9.9%, .529 18.5%, .682 23.8%, .797 29%, .884 34.5%, .95 41.1%, .991 49.4%, 1.008 62.1%, 1)",
+    "points": 12,
+    "mode": "adaptive",
+    "maxErrPct": 0.45,
+    "chars": 127,
+    "critical": {
+     "c": 60,
+     "settle01Ms": 307.8,
+     "settle05Ms": 247.7
+    }
+   },
+   "flagged": false
+  },
+  {
+   "name": "settle",
+   "group": "기본",
+   "use": "자리에 내려앉는 것 · 스위치 손잡이 뒤 가장자리",
+   "ref": {
+    "k": 280,
+    "c": 22,
+    "m": 1,
+    "zeta": 0.6574,
+    "w0": 16.733,
+    "regime": "under",
+    "overshootPct": 6.453,
+    "overshootFormulaPct": 6.453,
+    "peakMs": 249.1,
+    "settle01Ms": 619.6,
+    "settle05Ms": 404.6,
+    "durMs": 620,
+    "linear": "linear(0, .018 1.9%, .075 4.1%, .184 6.9%, .621 16.1%, .779 20.1%, .897 24%, .981 28%, 1.036 32.5%, 1.062 37.7%, 1.057 45.6%, 1.005 65.3%, .996 86.7%, 1)",
+    "points": 14,
+    "mode": "adaptive",
+    "maxErrPct": 0.445,
+    "chars": 153,
+    "critical": {
+     "c": 33.47,
+     "settle01Ms": 551.8,
+     "settle05Ms": 444
+    }
+   },
+   "flagged": true,
+   "alt": {
+    "k": 280,
+    "c": 27,
+    "m": 1,
+    "zeta": 0.8068,
+    "w0": 16.733,
+    "regime": "under",
+    "overshootPct": 1.371,
+    "overshootFormulaPct": 1.371,
+    "peakMs": 317.8,
+    "settle01Ms": 509.6,
+    "settle05Ms": 430.3,
+    "durMs": 510,
+    "linear": "linear(0, .017 2.3%, .08 5.3%, .218 9.7%, .536 18.8%, .693 24.2%, .811 29.5%, .898 35.1%, .961 41.5%, 1 49.8%, 1.014 62.9%, 1)",
+    "points": 12,
+    "mode": "adaptive",
+    "maxErrPct": 0.447,
+    "chars": 126,
+    "critical": {
+     "c": 33.47,
+     "settle01Ms": 551.8,
+     "settle05Ms": 444
+    }
+   }
+  },
+  {
+   "name": "soft",
+   "group": "기본",
+   "use": "부드러운 크기 변화 · 칩 체크 폭",
+   "ref": {
+    "k": 260,
+    "c": 24,
+    "m": 1,
+    "zeta": 0.7442,
+    "w0": 16.125,
+    "regime": "under",
+    "overshootPct": 3.019,
+    "overshootFormulaPct": 3.019,
+    "peakMs": 291.7,
+    "settle01Ms": 492.4,
+    "settle05Ms": 444.5,
+    "durMs": 493,
+    "linear": "linear(0, .019 2.6%, .084 5.8%, .217 10.2%, .572 20.6%, .727 26.1%, .846 31.6%, .934 37.5%, .992 44%, 1.024 52.2%, 1.028 65.1%, 1)",
+    "points": 12,
+    "mode": "adaptive",
+    "maxErrPct": 0.447,
+    "chars": 130,
+    "critical": {
+     "c": 32.25,
+     "settle01Ms": 572.6,
+     "settle05Ms": 460.8
+    }
+   },
+   "flagged": true,
+   "alt": {
+    "k": 260,
+    "c": 26,
+    "m": 1,
+    "zeta": 0.8062,
+    "w0": 16.125,
+    "regime": "under",
+    "overshootPct": 1.383,
+    "overshootFormulaPct": 1.383,
+    "peakMs": 329.3,
+    "settle01Ms": 528.6,
+    "settle05Ms": 446.7,
+    "durMs": 529,
+    "linear": "linear(0, .017 2.3%, .08 5.3%, .211 9.5%, .536 18.8%, .693 24.2%, .811 29.5%, .901 35.3%, .964 41.9%, 1.002 50.4%, 1.014 64.5%, 1)",
+    "points": 12,
+    "mode": "adaptive",
+    "maxErrPct": 0.447,
+    "chars": 130,
+    "critical": {
+     "c": 32.25,
+     "settle01Ms": 572.6,
+     "settle05Ms": 460.8
+    }
+   }
+  },
+  {
+   "name": "lead",
+   "group": "기본",
+   "use": "세그먼트 · 탭 표시의 가는 쪽 가장자리",
+   "ref": {
+    "k": 620,
+    "c": 36,
+    "m": 1,
+    "zeta": 0.7229,
+    "w0": 24.9,
+    "regime": "under",
+    "overshootPct": 3.737,
+    "overshootFormulaPct": 3.737,
+    "peakMs": 182.6,
+    "settle01Ms": 403.7,
+    "settle05Ms": 284.8,
+    "durMs": 404,
+    "linear": "linear(0, .018 2%, .082 4.5%, .212 7.9%, .581 16.3%, .741 20.7%, .857 24.9%, .941 29.2%, 1.001 34.3%, 1.032 40.5%, 1.034 50.3%, 1.002 75.4%, 1)",
+    "points": 13,
+    "mode": "adaptive",
+    "maxErrPct": 0.447,
+    "chars": 143,
+    "critical": {
+     "c": 49.8,
+     "settle01Ms": 370.8,
+     "settle05Ms": 298.4
+    }
+   },
+   "flagged": true,
+   "alt": {
+    "k": 620,
+    "c": 40,
+    "m": 1,
+    "zeta": 0.8032,
+    "w0": 24.9,
+    "regime": "under",
+    "overshootPct": 1.446,
+    "overshootFormulaPct": 1.446,
+    "peakMs": 211.8,
+    "settle01Ms": 341.4,
+    "settle05Ms": 289.6,
+    "durMs": 342,
+    "linear": "linear(0, .017 2.3%, .077 5.2%, .214 9.6%, .536 18.8%, .691 24.1%, .808 29.3%, .898 35%, .96 41.2%, 1 49.3%, 1.014 61.5%, 1)",
+    "points": 12,
+    "mode": "adaptive",
+    "maxErrPct": 0.448,
+    "chars": 124,
+    "critical": {
+     "c": 49.8,
+     "settle01Ms": 370.8,
+     "settle05Ms": 298.4
+    }
+   }
+  },
+  {
+   "name": "trail",
+   "group": "기본",
+   "use": "세그먼트 · 탭 표시의 뒤 가장자리",
+   "ref": {
+    "k": 190,
+    "c": 19,
+    "m": 1,
+    "zeta": 0.6892,
+    "w0": 13.784,
+    "regime": "under",
+    "overshootPct": 5.038,
+    "overshootFormulaPct": 5.038,
+    "peakMs": 314.6,
+    "settle01Ms": 750.1,
+    "settle05Ms": 503.3,
+    "durMs": 751,
+    "linear": "linear(0, .019 2%, .08 4.3%, .203 7.4%, .597 15.9%, .759 20.1%, .874 24%, .959 28.1%, 1.016 32.7%, 1.046 38.2%, 1.046 46.6%, 1.003 68.9%, 1)",
+    "points": 13,
+    "mode": "adaptive",
+    "maxErrPct": 0.446,
+    "chars": 140,
+    "critical": {
+     "c": 27.57,
+     "settle01Ms": 669.9,
+     "settle05Ms": 539
+    }
+   },
+   "flagged": true,
+   "alt": {
+    "k": 190,
+    "c": 23,
+    "m": 1,
+    "zeta": 0.8343,
+    "w0": 13.784,
+    "regime": "under",
+    "overshootPct": 0.862,
+    "overshootFormulaPct": 0.862,
+    "peakMs": 413.4,
+    "settle01Ms": 631.3,
+    "settle05Ms": 509.6,
+    "durMs": 632,
+    "linear": "linear(0, .019 2.4%, .085 5.4%, .233 10%, .533 18.6%, .685 23.9%, .799 29.1%, .884 34.5%, .95 41.1%, .991 49.5%, 1.008 62.3%, 1)",
+    "points": 12,
+    "mode": "adaptive",
+    "maxErrPct": 0.449,
+    "chars": 128,
+    "critical": {
+     "c": 27.57,
+     "settle01Ms": 669.9,
+     "settle05Ms": 539
+    }
+   }
+  },
+  {
+   "name": "pop",
+   "group": "기본",
+   "use": "튀어나오는 것 · 체크 크기",
+   "ref": {
+    "k": 520,
+    "c": 16,
+    "m": 1,
+    "zeta": 0.3508,
+    "w0": 22.804,
+    "regime": "under",
+    "overshootPct": 30.822,
+    "overshootFormulaPct": 30.822,
+    "peakMs": 147.1,
+    "settle01Ms": 798.3,
+    "settle05Ms": 637.7,
+    "durMs": 799,
+    "linear": "linear(0, .016 1%, .066 2.1%, .162 3.4%, .317 5%, .834 9.6%, 1.017 11.5%, 1.146 13.2%, 1.233 14.8%, 1.286 16.4%, 1.308 18.1%, 1.295 20.1%, 1.239 22.5%, 1.006 29.5%, .939 32.5%, .908 35.4%, .911 38.9%, 1.015 50.2%, 1.029 55.6%, .991 72.4%, 1.002 98.3%, 1)",
+    "points": 22,
+    "mode": "adaptive",
+    "maxErrPct": 0.45,
+    "chars": 254,
+    "critical": {
+     "c": 45.61,
+     "settle01Ms": 404.9,
+     "settle05Ms": 325.8
+    }
+   },
+   "flagged": true,
+   "alt": {
+    "k": 520,
+    "c": 37,
+    "m": 1,
+    "zeta": 0.8113,
+    "w0": 22.804,
+    "regime": "under",
+    "overshootPct": 1.279,
+    "overshootFormulaPct": 1.279,
+    "peakMs": 235.6,
+    "settle01Ms": 375.5,
+    "settle05Ms": 315.1,
+    "durMs": 376,
+    "linear": "linear(0, .019 2.4%, .083 5.4%, .226 9.9%, .534 18.7%, .686 23.9%, .805 29.2%, .894 34.8%, .957 41.1%, .997 49.2%, 1.013 61.7%, 1)",
+    "points": 12,
+    "mode": "adaptive",
+    "maxErrPct": 0.45,
+    "chars": 130,
+    "critical": {
+     "c": 45.61,
+     "settle01Ms": 404.9,
+     "settle05Ms": 325.8
+    }
+   }
+  },
+  {
+   "name": "fade",
+   "group": "기본",
+   "use": "나타남 · opacity + blur",
+   "ref": {
+    "k": 420,
+    "c": 32,
+    "m": 1,
+    "zeta": 0.7807,
+    "w0": 20.494,
+    "regime": "under",
+    "overshootPct": 1.974,
+    "overshootFormulaPct": 1.974,
+    "peakMs": 245.3,
+    "settle01Ms": 405.1,
+    "settle05Ms": 353,
+    "durMs": 406,
+    "linear": "linear(0, .019 2.5%, .085 5.6%, .219 9.9%, .549 19.4%, .705 24.8%, .82 30%, .906 35.4%, .969 41.7%, 1.007 49.6%, 1.02 61.8%, 1)",
+    "points": 12,
+    "mode": "adaptive",
+    "maxErrPct": 0.447,
+    "chars": 127,
+    "critical": {
+     "c": 40.99,
+     "settle01Ms": 450.5,
+     "settle05Ms": 362.6
+    }
+   },
+   "flagged": false
+  },
+  {
+   "name": "morph-open",
+   "group": "모핑 셀렉트",
+   "use": "셀렉트 · 팝오버가 키에서 열림(모서리)",
+   "ref": {
+    "k": 360,
+    "c": 24,
+    "m": 1,
+    "zeta": 0.6325,
+    "w0": 18.974,
+    "regime": "under",
+    "overshootPct": 7.691,
+    "overshootFormulaPct": 7.691,
+    "peakMs": 213.8,
+    "settle01Ms": 543.3,
+    "settle05Ms": 461.3,
+    "durMs": 544,
+    "linear": "linear(0, .019 2%, .081 4.3%, .202 7.3%, .633 16.2%, .794 20.2%, .914 24.1%, .996 28%, 1.049 32.1%, 1.075 37.3%, 1.069 44.3%, 1.007 63.3%, .994 80%, 1)",
+    "points": 14,
+    "mode": "adaptive",
+    "maxErrPct": 0.448,
+    "chars": 151,
+    "critical": {
+     "c": 37.95,
+     "settle01Ms": 486.6,
+     "settle05Ms": 391.6
+    }
+   },
+   "flagged": true,
+   "alt": {
+    "k": 360,
+    "c": 31,
+    "m": 1,
+    "zeta": 0.8169,
+    "w0": 18.974,
+    "regime": "under",
+    "overshootPct": 1.168,
+    "overshootFormulaPct": 1.168,
+    "peakMs": 287.1,
+    "settle01Ms": 453.4,
+    "settle05Ms": 377.3,
+    "durMs": 454,
+    "linear": "linear(0, .019 2.4%, .081 5.3%, .217 9.6%, .535 18.7%, .689 24%, .806 29.3%, .89 34.6%, .954 40.9%, .995 49%, 1.011 61.1%, 1)",
+    "points": 12,
+    "mode": "adaptive",
+    "maxErrPct": 0.45,
+    "chars": 125,
+    "critical": {
+     "c": 37.95,
+     "settle01Ms": 486.6,
+     "settle05Ms": 391.6
+    }
+   }
+  },
+  {
+   "name": "morph-hl",
+   "group": "모핑 셀렉트",
+   "use": "열린 목록 안 하이라이트 이동",
+   "ref": {
+    "k": 620,
+    "c": 34,
+    "m": 1,
+    "zeta": 0.6827,
+    "w0": 24.9,
+    "regime": "under",
+    "overshootPct": 5.31,
+    "overshootFormulaPct": 5.31,
+    "peakMs": 172.7,
+    "settle01Ms": 416,
+    "settle05Ms": 277.3,
+    "durMs": 416,
+    "linear": "linear(0, .018 1.9%, .077 4.2%, .199 7.3%, .6 15.9%, .756 19.9%, .871 23.7%, .959 27.8%, 1.019 32.5%, 1.049 38%, 1.049 45.9%, 1.003 68.3%, .999 99.9%, 1)",
+    "points": 14,
+    "mode": "adaptive",
+    "maxErrPct": 0.444,
+    "chars": 153,
+    "critical": {
+     "c": 49.8,
+     "settle01Ms": 370.8,
+     "settle05Ms": 298.4
+    }
+   },
+   "flagged": true,
+   "alt": {
+    "k": 620,
+    "c": 40,
+    "m": 1,
+    "zeta": 0.8032,
+    "w0": 24.9,
+    "regime": "under",
+    "overshootPct": 1.446,
+    "overshootFormulaPct": 1.446,
+    "peakMs": 211.8,
+    "settle01Ms": 341.4,
+    "settle05Ms": 289.6,
+    "durMs": 342,
+    "linear": "linear(0, .017 2.3%, .077 5.2%, .214 9.6%, .536 18.8%, .691 24.1%, .808 29.3%, .898 35%, .96 41.2%, 1 49.3%, 1.014 61.5%, 1)",
+    "points": 12,
+    "mode": "adaptive",
+    "maxErrPct": 0.448,
+    "chars": 124,
+    "critical": {
+     "c": 49.8,
+     "settle01Ms": 370.8,
+     "settle05Ms": 298.4
+    }
+   }
+  },
+  {
+   "name": "island-w",
+   "group": "모핑 아일랜드",
+   "use": "모핑 상자 폭",
+   "ref": {
+    "k": 380,
+    "c": 24,
+    "m": 1,
+    "zeta": 0.6156,
+    "w0": 19.494,
+    "regime": "under",
+    "overshootPct": 8.595,
+    "overshootFormulaPct": 8.595,
+    "peakMs": 204.5,
+    "settle01Ms": 525.4,
+    "settle05Ms": 460.7,
+    "durMs": 526,
+    "linear": "linear(0, .019 2%, .08 4.3%, .206 7.4%, .645 16.4%, .807 20.4%, .924 24.2%, 1.004 27.9%, 1.058 32%, 1.084 36.9%, 1.078 43.6%, 1.008 62.5%, .993 76.9%, 1)",
+    "points": 14,
+    "mode": "adaptive",
+    "maxErrPct": 0.45,
+    "chars": 153,
+    "critical": {
+     "c": 38.99,
+     "settle01Ms": 473.7,
+     "settle05Ms": 381.2
+    }
+   },
+   "flagged": true,
+   "alt": {
+    "k": 380,
+    "c": 32,
+    "m": 1,
+    "zeta": 0.8208,
+    "w0": 19.494,
+    "regime": "under",
+    "overshootPct": 1.095,
+    "overshootFormulaPct": 1.095,
+    "peakMs": 282.1,
+    "settle01Ms": 442.6,
+    "settle05Ms": 366.1,
+    "durMs": 443,
+    "linear": "linear(0, .019 2.4%, .084 5.4%, .221 9.7%, .532 18.6%, .686 23.9%, .808 29.4%, .897 35.2%, .96 41.9%, .998 50.5%, 1.011 64.6%, 1)",
+    "points": 12,
+    "mode": "adaptive",
+    "maxErrPct": 0.448,
+    "chars": 129,
+    "critical": {
+     "c": 38.99,
+     "settle01Ms": 473.7,
+     "settle05Ms": 381.2
+    }
+   }
+  },
+  {
+   "name": "island-h",
+   "group": "모핑 아일랜드",
+   "use": "모핑 상자 높이",
+   "ref": {
+    "k": 300,
+    "c": 22,
+    "m": 1,
+    "zeta": 0.6351,
+    "w0": 17.321,
+    "regime": "under",
+    "overshootPct": 7.555,
+    "overshootFormulaPct": 7.555,
+    "peakMs": 234.8,
+    "settle01Ms": 595.7,
+    "settle05Ms": 502.2,
+    "durMs": 596,
+    "linear": "linear(0, .019 2%, .084 4.4%, .216 7.6%, .632 16.2%, .796 20.3%, .912 24.1%, .995 28%, 1.049 32.3%, 1.074 37.6%, 1.066 45%, 1.006 63.8%, .994 81.5%, 1)",
+    "points": 14,
+    "mode": "adaptive",
+    "maxErrPct": 0.446,
+    "chars": 151,
+    "critical": {
+     "c": 34.64,
+     "settle01Ms": 533.1,
+     "settle05Ms": 429
+    }
+   },
+   "flagged": true,
+   "alt": {
+    "k": 300,
+    "c": 28,
+    "m": 1,
+    "zeta": 0.8083,
+    "w0": 17.321,
+    "regime": "under",
+    "overshootPct": 1.34,
+    "overshootFormulaPct": 1.34,
+    "peakMs": 308.1,
+    "settle01Ms": 493,
+    "settle05Ms": 415.4,
+    "durMs": 494,
+    "linear": "linear(0, .017 2.3%, .08 5.3%, .219 9.7%, .537 18.8%, .694 24.2%, .811 29.5%, .899 35.1%, .963 41.8%, 1.001 50.2%, 1.013 63.4%, 1)",
+    "points": 12,
+    "mode": "adaptive",
+    "maxErrPct": 0.448,
+    "chars": 130,
+    "critical": {
+     "c": 34.64,
+     "settle01Ms": 533.1,
+     "settle05Ms": 429
+    }
+   }
+  },
+  {
+   "name": "nav-lead",
+   "group": "사이드 내비",
+   "use": "세로 목록 표시 앞 가장자리",
+   "ref": {
+    "k": 560,
+    "c": 34,
+    "m": 1,
+    "zeta": 0.7184,
+    "w0": 23.664,
+    "regime": "under",
+    "overshootPct": 3.9,
+    "overshootFormulaPct": 3.9,
+    "peakMs": 190.8,
+    "settle01Ms": 427.6,
+    "settle05Ms": 298.9,
+    "durMs": 428,
+    "linear": "linear(0, .017 1.9%, .073 4.2%, .198 7.5%, .583 16.2%, .738 20.4%, .852 24.4%, .941 28.8%, 1 33.7%, 1.032 39.4%, 1.037 48.4%, 1.002 74.4%, 1)",
+    "points": 13,
+    "mode": "adaptive",
+    "maxErrPct": 0.448,
+    "chars": 141,
+    "critical": {
+     "c": 47.33,
+     "settle01Ms": 390.2,
+     "settle05Ms": 314
+    }
+   },
+   "flagged": true,
+   "alt": {
+    "k": 560,
+    "c": 38,
+    "m": 1,
+    "zeta": 0.8029,
+    "w0": 23.664,
+    "regime": "under",
+    "overshootPct": 1.453,
+    "overshootFormulaPct": 1.453,
+    "peakMs": 222.7,
+    "settle01Ms": 359.1,
+    "settle05Ms": 304.7,
+    "durMs": 360,
+    "linear": "linear(0, .017 2.3%, .08 5.3%, .211 9.5%, .543 19%, .699 24.4%, .816 29.7%, .902 35.3%, .964 41.7%, 1.002 50%, 1.015 62.6%, 1)",
+    "points": 12,
+    "mode": "adaptive",
+    "maxErrPct": 0.449,
+    "chars": 126,
+    "critical": {
+     "c": 47.33,
+     "settle01Ms": 390.2,
+     "settle05Ms": 314
+    }
+   }
+  },
+  {
+   "name": "nav-trail",
+   "group": "사이드 내비",
+   "use": "세로 목록 표시 뒤 가장자리",
+   "ref": {
+    "k": 220,
+    "c": 21,
+    "m": 1,
+    "zeta": 0.7079,
+    "w0": 14.832,
+    "regime": "under",
+    "overshootPct": 4.291,
+    "overshootFormulaPct": 4.291,
+    "peakMs": 299.9,
+    "settle01Ms": 689.8,
+    "settle05Ms": 473.7,
+    "durMs": 690,
+    "linear": "linear(0, .017 1.9%, .078 4.3%, .206 7.6%, .586 16%, .744 20.2%, .86 24.2%, .946 28.4%, 1.005 33.1%, 1.037 38.9%, 1.04 47.7%, 1.002 72.3%, 1)",
+    "points": 13,
+    "mode": "adaptive",
+    "maxErrPct": 0.448,
+    "chars": 141,
+    "critical": {
+     "c": 29.66,
+     "settle01Ms": 622.5,
+     "settle05Ms": 500.9
+    }
+   },
+   "flagged": true,
+   "alt": {
+    "k": 220,
+    "c": 24,
+    "m": 1,
+    "zeta": 0.809,
+    "w0": 14.832,
+    "regime": "under",
+    "overshootPct": 1.324,
+    "overshootFormulaPct": 1.324,
+    "peakMs": 360.4,
+    "settle01Ms": 576.1,
+    "settle05Ms": 485,
+    "durMs": 577,
+    "linear": "linear(0, .017 2.3%, .08 5.3%, .219 9.7%, .537 18.8%, .691 24.1%, .809 29.4%, .897 35%, .96 41.4%, .999 49.6%, 1.013 62.2%, 1)",
+    "points": 12,
+    "mode": "adaptive",
+    "maxErrPct": 0.447,
+    "chars": 126,
+    "critical": {
+     "c": 29.66,
+     "settle01Ms": 622.5,
+     "settle05Ms": 500.9
+    }
+   }
+  },
+  {
+   "name": "roll",
+   "group": "굴러가는 숫자",
+   "use": "숫자 자리 굴림",
+   "ref": {
+    "k": 320,
+    "c": 24,
+    "m": 1,
+    "zeta": 0.6708,
+    "w0": 17.889,
+    "regime": "under",
+    "overshootPct": 5.833,
+    "overshootFormulaPct": 5.833,
+    "peakMs": 236.8,
+    "settle01Ms": 579.9,
+    "settle05Ms": 382.5,
+    "durMs": 580,
+    "linear": "linear(0, .018 1.9%, .074 4.1%, .196 7.2%, .611 16%, .771 20.1%, .885 23.9%, .968 27.8%, 1.024 32.2%, 1.054 37.4%, 1.054 45.1%, 1.004 66.8%, .998 92.1%, 1)",
+    "points": 14,
+    "mode": "adaptive",
+    "maxErrPct": 0.449,
+    "chars": 155,
+    "critical": {
+     "c": 35.78,
+     "settle01Ms": 516.2,
+     "settle05Ms": 415.4
+    }
+   },
+   "flagged": true,
+   "alt": {
+    "k": 320,
+    "c": 29,
+    "m": 1,
+    "zeta": 0.8106,
+    "w0": 17.889,
+    "regime": "under",
+    "overshootPct": 1.293,
+    "overshootFormulaPct": 1.293,
+    "peakMs": 299.9,
+    "settle01Ms": 478.3,
+    "settle05Ms": 401.8,
+    "durMs": 479,
+    "linear": "linear(0, .017 2.3%, .078 5.2%, .212 9.5%, .534 18.7%, .691 24.1%, .811 29.5%, .899 35.2%, .961 41.6%, 1 50.1%, 1.013 63.7%, 1)",
+    "points": 12,
+    "mode": "adaptive",
+    "maxErrPct": 0.449,
+    "chars": 127,
+    "critical": {
+     "c": 35.78,
+     "settle01Ms": 516.2,
+     "settle05Ms": 415.4
+    }
+   }
+  },
+  {
+   "name": "roll-w",
+   "group": "굴러가는 숫자",
+   "use": "자리 수가 바뀔 때 폭",
+   "ref": {
+    "k": 380,
+    "c": 22,
+    "m": 1,
+    "zeta": 0.5643,
+    "w0": 19.494,
+    "regime": "under",
+    "overshootPct": 11.68,
+    "overshootFormulaPct": 11.68,
+    "peakMs": 195.2,
+    "settle01Ms": 641.3,
+    "settle05Ms": 472.7,
+    "durMs": 642,
+    "linear": "linear(0, .016 1.5%, .076 3.4%, .19 5.7%, .47 10.2%, .707 14.1%, .858 17.1%, .973 20.1%, 1.053 23.2%, 1.099 26.4%, 1.117 30.2%, 1.098 35.6%, 1.011 48.6%, .988 57.6%, 1.001 99.2%, 1)",
+    "points": 16,
+    "mode": "adaptive",
+    "maxErrPct": 0.448,
+    "chars": 181,
+    "critical": {
+     "c": 38.99,
+     "settle01Ms": 473.7,
+     "settle05Ms": 381.2
+    }
+   },
+   "flagged": true,
+   "alt": {
+    "k": 380,
+    "c": 32,
+    "m": 1,
+    "zeta": 0.8208,
+    "w0": 19.494,
+    "regime": "under",
+    "overshootPct": 1.095,
+    "overshootFormulaPct": 1.095,
+    "peakMs": 282.1,
+    "settle01Ms": 442.6,
+    "settle05Ms": 366.1,
+    "durMs": 443,
+    "linear": "linear(0, .019 2.4%, .084 5.4%, .221 9.7%, .532 18.6%, .686 23.9%, .808 29.4%, .897 35.2%, .96 41.9%, .998 50.5%, 1.011 64.6%, 1)",
+    "points": 12,
+    "mode": "adaptive",
+    "maxErrPct": 0.448,
+    "chars": 129,
+    "critical": {
+     "c": 38.99,
+     "settle01Ms": 473.7,
+     "settle05Ms": 381.2
+    }
+   }
+  },
+  {
+   "name": "roll-press",
+   "group": "굴러가는 숫자",
+   "use": "누름에서 올라옴",
+   "ref": {
+    "k": 600,
+    "c": 18,
+    "m": 1,
+    "zeta": 0.3674,
+    "w0": 24.495,
+    "regime": "under",
+    "overshootPct": 28.906,
+    "overshootFormulaPct": 28.906,
+    "peakMs": 137.9,
+    "settle01Ms": 739.5,
+    "settle05Ms": 586.6,
+    "durMs": 740,
+    "linear": "linear(0, .016 1%, .065 2.1%, .159 3.4%, .322 5.1%, .817 9.6%, .996 11.5%, 1.123 13.2%, 1.209 14.8%, 1.266 16.5%, 1.289 18.3%, 1.277 20.3%, 1.223 22.8%, 1.012 29.7%, .947 32.9%, .918 36.1%, .925 40%, 1.011 50.6%, 1.024 56.7%, .993 73.7%, 1)",
+    "points": 21,
+    "mode": "adaptive",
+    "maxErrPct": 0.45,
+    "chars": 240,
+    "critical": {
+     "c": 48.99,
+     "settle01Ms": 377,
+     "settle05Ms": 303.3
+    }
+   },
+   "flagged": true,
+   "alt": {
+    "k": 600,
+    "c": 40,
+    "m": 1,
+    "zeta": 0.8165,
+    "w0": 24.495,
+    "regime": "under",
+    "overshootPct": 1.176,
+    "overshootFormulaPct": 1.176,
+    "peakMs": 222.1,
+    "settle01Ms": 351.1,
+    "settle05Ms": 292.3,
+    "durMs": 352,
+    "linear": "linear(0, .019 2.4%, .084 5.4%, .224 9.8%, .536 18.7%, .692 24.1%, .809 29.4%, .896 35%, .959 41.5%, .998 50%, 1.012 63.5%, 1)",
+    "points": 12,
+    "mode": "adaptive",
+    "maxErrPct": 0.448,
+    "chars": 126,
+    "critical": {
+     "c": 48.99,
+     "settle01Ms": 377,
+     "settle05Ms": 303.3
+    }
+   }
+  }
+ ],
+ "popCheck": {
+  "k": 520,
+  "c": 34,
+  "m": 1,
+  "zeta": 0.7455,
+  "w0": 22.804,
+  "regime": "under",
+  "overshootPct": 2.978,
+  "overshootFormulaPct": 2.978,
+  "peakMs": 206.7,
+  "settle01Ms": 348.8,
+  "settle05Ms": 314.5,
+  "durMs": 349,
+  "linear": "linear(0, .019 2.6%, .084 5.8%, .224 10.4%, .569 20.5%, .727 26.1%, .846 31.6%, .932 37.4%, .989 43.6%, 1.022 51.5%, 1.028 63.4%, 1)",
+  "points": 12,
+  "mode": "adaptive",
+  "maxErrPct": 0.45,
+  "chars": 132,
+  "critical": {
+   "c": 45.61,
+   "settle01Ms": 404.9,
+   "settle05Ms": 325.8
+  }
+ }
+}
