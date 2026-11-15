@@ -25,6 +25,12 @@ async function one(env, api, date, secrets) {
     const out = { http: r.status, ms: Date.now() - t0, bytes: text.length };
     let rows;
     try { rows = JSON.parse(text); } catch (e) { return { ok: false, ...out, error: 'JSON 아님', head: scrub(text.slice(0, 160), secrets) }; }
+    if (rows && !Array.isArray(rows) && typeof rows === 'object') {   // 국제금리: {result, sofr_list:[…], estr_list:[…], euribor_list, tona_list, tibor_list, swapRfr_list, …}
+      const lists = {};
+      for (const [k, v] of Object.entries(rows)) if (/_list$/.test(k) && Array.isArray(v)) lists[k] = { n: v.length, rows: v.slice(0, 12) };
+      const n = Object.values(lists).reduce((a, x) => a + x.n, 0);
+      return { ok: r.ok && rows.result === 1 && n > 0, ...out, n, result: [`${rows.result} ${RESULT[rows.result] || ''}`.trim()], lists };
+    }
     if (!Array.isArray(rows)) return { ok: false, ...out, error: '배열 아님', head: scrub(JSON.stringify(rows).slice(0, 160), secrets) };
     const codes = [...new Set(rows.map(x => x && x.result))];
     return {
