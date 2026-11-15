@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """The template on the design standard (roadmap 6, step template — ux/std-template; design.md §2 · §3 · §4 · §6, AGENTS §3-31 · §3-36).
 
-  python3 qa/std_template/test_std_template.py [audit] [page] [cap]       (no argument = all three)
+  python3 qa/std_template/test_std_template.py [audit] [page] [cap] [limits]       (no argument = all four)
 
 audit  static, src/template.html's <style>: no radial gradient; a linear gradient only where it draws data or a shape (the legend scale,
        no-data / no-NXT hatches, the folded 공시 corner, the tab row's overflow mask); no glow (no zero-offset blurred box-shadow, no
@@ -15,6 +15,11 @@ cap    시총순 지도 (AGENTS §3-36): the 묶음 option only on 코스피 · 
        khm.groupBy; in 시총순 no sector / industry node (DOM and KH.layout()), the first tiles in reading order have the biggest caps
        (and keep the cap order when 크기 = 거래대금), labels inside their tiles, search highlight · tooltip · quick view work, no
        overflow, the image save draws (extras), back to 섹터별; console errors 0.
+limits 상한가 · 하한가 in the phone dock's 등락 분포 cell (사용자 2026-11-16 00:54): close.json served with known flags (and /api/breadth
+       with the same rows) → the dock, the 등락 분포 card and the 시장 요약 카드 (KHSummary.model().br — K · Q · both for the tab) show the
+       same counts = the flags; the aria-label carries them; the top line fits (no overlap, the name whole) at 360 · 390 with two-digit
+       counts; the cell (44) · dock (56) · bottom gap (8) · top line (14) are the same as without counts; an older close.json (no flags)
+       and a replay hide the counts in the dock and the card (no 0).
 Exit 1 on a fail. Ports are stopped with fuser -k.
 """
 import colorsys
@@ -130,9 +135,13 @@ def start_mock():
     raise SystemExit('mock did not start')
 
 
-def open_page(br, w, h, theme='base', motion='standard', market='K', extra=None, wait=2200):
+def open_page(br, w, h, theme='base', motion='standard', market='K', extra=None, wait=2200, routes=None):
     mobile = w <= 760
     ctx = br.new_context(viewport={'width': w, 'height': h}, is_mobile=mobile, has_touch=mobile, device_scale_factor=2 if mobile else 1)
+    def answer(body):          # a one-argument handler (Playwright hands a two-argument one the request too)
+        return lambda r: r.fulfill(status=200, content_type='application/json', body=body(r.request.url) if callable(body) else body)
+    for pat, body in (routes or {}).items():
+        ctx.route(pat, answer(body))
     st = {'theme': theme, 'motion': motion, 'tickerPaused': True, 'market': market}
     st.update(extra or {})
     ctx.add_init_script('try{' + ''.join(f"localStorage.setItem('khm.{k}', {json.dumps(json.dumps(v))});" for k, v in st.items()) + '}catch(e){}')
@@ -276,7 +285,7 @@ def motion(br):
 def run(parts):
     if 'audit' in parts:
         audit()
-    if parts & {'page', 'cap'}:
+    if parts & {'page', 'cap', 'limits'}:
         from playwright.sync_api import sync_playwright
         start_mock()
         try:
@@ -286,6 +295,8 @@ def run(parts):
                     page(br)
                 if 'cap' in parts:
                     cap(br)
+                if 'limits' in parts:
+                    limits(br)
                 br.close()
         finally:
             subprocess.run(['fuser', '-k', f'{PORT}/tcp'], capture_output=True)
@@ -429,8 +440,110 @@ def cap(br):
     ctx.close()
 
 
+# ───────────────────────── limits: 상한가 · 하한가 in the dock (사용자 2026-11-16 00:54) ─────────────────────────
+LIMSTATE = r"""() => {
+  const c = document.querySelector('.dk-c[data-k="brd"]'); if (!c) return null;
+  const n = e => +String(e.textContent).replace(/[^0-9]/g, '');
+  const lim = c.querySelector('.lim'), l1 = c.querySelector('.dk-l1'), nm = c.querySelector('.nm');
+  const dock = lim.hidden ? null : { lu: n(lim.querySelector('.lu')), ld: n(lim.querySelector('.ld')), words: [...lim.querySelectorAll('.lk')].map(e => e.textContent),
+    luCls: lim.querySelector('.lu').className, ldCls: lim.querySelector('.ld').className };
+  const dl = document.getElementById('distLim');
+  const card = !dl || dl.hidden ? null : (() => { const s = dl.querySelectorAll('span'); return { lu: n(s[0]), ld: n(s[1]) }; })();
+  const M = window.KHSummary ? KHSummary.model() : null, br = M && M.br, mk = KH.market();
+  const sum = br ? (mk === 'K' ? br.K : mk === 'Q' ? br.Q : br) : null;
+  const rg = document.createRange(); rg.selectNodeContents(nm);
+  const parts = [...l1.children].filter(e => !e.hidden && getComputedStyle(e).display !== 'none'), rs = parts.map(e => e.getBoundingClientRect()), lr = l1.getBoundingClientRect();
+  let overlap = false; for (let i = 1; i < rs.length; i++) if (rs[i].left < rs[i - 1].right - .25) overlap = true;
+  const d = document.querySelector('.dock').getBoundingClientRect(), cb = c.getBoundingClientRect();
+  return { dock, card, sum: sum ? { lu: sum.lu, ld: sum.ld } : null, src: br ? br.src : null, aria: c.getAttribute('aria-label') || '',
+    nmWhole: rg.getBoundingClientRect().width <= nm.getBoundingClientRect().width + .5, overlap, inside: rs.every(r => r.left >= lr.left - .5 && r.right <= lr.right + .5),
+    cnt: !c.querySelector('.cnt').hidden, cellH: Math.round(cb.height), dockH: Math.round(d.height), dockB: Math.round(innerHeight - d.bottom), l1H: Math.round(lr.height),
+    shown: getComputedStyle(document.querySelector('.dock')).visibility };
+}"""
+
+
+def lim_files(flags=True):
+    """close.json with known flags: K 12 상한 · 3 하한, Q 11 상한 · 10 하한 (every other flag cleared); flags=False = an older file (no
+    "lim" key, no 4th field). The matching /api/breadth rows (summary reads them in market hours)."""
+    cj = json.loads((ROOT / 'web/close.json').read_text())
+    names = json.loads((ROOT / 'web/names.json').read_text())['n']
+    want = {'K': [1] * 12 + [-1] * 3, 'Q': [1] * 11 + [-1] * 10}
+    used = {'K': 0, 'Q': 0}
+    rows = {'K': [], 'Q': []}
+    for c in sorted(cj['c']):
+        x = cj['c'][c][:3]
+        m = (names.get(c) or [None, None])[1]
+        f = 0
+        if m in want and +x[0] > 0 and used[m] < len(want[m]):
+            f = want[m][used[m]]; used[m] += 1
+        cj['c'][c] = x + [f] if flags and f else x
+        if m in rows:
+            rows[m].append([c, x[2], f if flags else 0])
+    if not flags:
+        cj.pop('lim', None)
+    else:
+        cj['lim'] = True
+    def breadth(url):
+        m = re.search(r'[?&]m=([KQ])', url)
+        r = rows[m.group(1)] if m else []
+        return json.dumps({'m': m and m.group(1), 'part': 1, 'parts': 1, 'asOf': None, 'rows': r})
+    return {'**/data/close.json': json.dumps(cj), '**/api/breadth*': breadth}
+
+
+def limits(br):
+    exp = {'K': (12, 3), 'Q': (11, 10), 'ALL': (23, 13)}
+
+    def state(pg, tries=40):
+        for _ in range(tries):
+            s = pg.evaluate(LIMSTATE)
+            if s and s['shown'] == 'visible' and s['dock'] is not None and s['card'] is not None and s['sum'] is not None:
+                return s
+            pg.wait_for_timeout(150)
+        return pg.evaluate(LIMSTATE)
+
+    def reveal(pg):
+        pg.evaluate("scrollTo(0, document.getElementById('map').getBoundingClientRect().bottom + scrollY + 40)")
+        pg.wait_for_timeout(1000)
+
+    base = None
+    for w, mk in ((390, 'K'), (390, 'Q'), (390, 'ALL'), (360, 'K'), (360, 'ALL')):
+        ctx, pg = open_page(br, w, 844, market=mk, routes=lim_files(True))
+        reveal(pg)
+        s = state(pg)
+        e = exp[mk]
+        tag = f'limits [{w} {mk}]'
+        check(f'{tag}: dock = 등락 분포 card = 시장 요약 카드 = the flags {e}', s and s['dock'] and s['card'] and s['sum'] and
+              (s['dock']['lu'], s['dock']['ld']) == (s['card']['lu'], s['card']['ld']) == (s['sum']['lu'], s['sum']['ld']) == e, s)
+        check(f'{tag}: aria-label ends with 상한가 · 하한가', s and f'상한가 {e[0]}종목, 하한가 {e[1]}종목 — ' in s['aria'], s and s['aria'])
+        check(f'{tag}: numbers in the data colours, words neutral', s and s['dock'] and 'up' in s['dock']['luCls'] and 'dn' in s['dock']['ldCls'], s and s['dock'])
+        check(f'{tag}: the top line fits (no overlap, inside, the name whole)', s and s['dock'] and not s['overlap'] and s['inside'] and s['nmWhole'], s)
+        check(f'{tag}: cell 44 · dock 56 · bottom 8 · top line 14', s and (s['cellH'], s['dockH'], s['dockB'], s['l1H']) == (44, 56, 8, 14), s)
+        if w == 390 and mk == 'K':
+            base = s
+        ctx.close()
+    # an older close.json (no flags): nothing to count → the dock and the card say nothing (not 0); same heights
+    ctx, pg = open_page(br, 390, 844, market='K', routes=lim_files(False))
+    reveal(pg)
+    s = state(pg, tries=12)
+    check('limits [older close.json]: dock and card hide the counts (no 0), the aria-label has none', s and s['dock'] is None and s['card'] is None and '상한가' not in s['aria'], s)
+    check('limits [older close.json]: same cell · dock · bottom · line heights as with counts', s and base and
+          (s['cellH'], s['dockH'], s['dockB'], s['l1H']) == (base['cellH'], base['dockH'], base['dockB'], base['l1H']), (s, base))
+    ctx.close()
+    # a replay frame carries no flags → hidden, back with the live data
+    ctx, pg = open_page(br, 390, 844, market='K', routes=lim_files(True))
+    reveal(pg)
+    state(pg)
+    pg.evaluate("KH.setReplay({t: '1000', date: '2026-11-13', prices: new Map()})"); pg.wait_for_timeout(500)
+    s = pg.evaluate(LIMSTATE)
+    check('limits [replay]: dock and card hide the counts', s and s['dock'] is None and s['card'] is None and '상한가' not in s['aria'], s)
+    pg.evaluate("KH.setReplay(null)"); pg.wait_for_timeout(500)
+    s = state(pg, tries=12)
+    check('limits [replay off]: the counts come back', s and s['dock'] and (s['dock']['lu'], s['dock']['ld']) == exp['K'], s)
+    ctx.close()
+
+
 if __name__ == '__main__':
-    parts = set(sys.argv[1:]) or {'audit', 'page', 'cap'}
+    parts = set(sys.argv[1:]) or {'audit', 'page', 'cap', 'limits'}
     run(parts)
     print(f'\n{len(PASSES)} passed, {len(FAILS)} failed')
     for f in FAILS:

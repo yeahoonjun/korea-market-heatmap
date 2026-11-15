@@ -779,6 +779,12 @@ table.list{width:100%;border-collapse:collapse;font-size:var(--fs-md)}
 .wavg{display:flex;align-items:baseline;gap:var(--space-4);margin-bottom:var(--space-4)}
 .wavg b{font-size:var(--fs-num);font-weight:700;font-family:var(--font-head);letter-spacing:-.02em;font-variant-numeric:tabular-nums;white-space:nowrap}
 .wavg span{font-size:var(--fs-sm);color:var(--muted)}
+/* 상한가 3 · 하한가 0 (real flags only, the same count as the dock and the 시장 요약 카드): neutral words, the numbers in the up / down colours */
+.wavg{flex-wrap:wrap;row-gap:var(--space-1)}
+.wavg .dlim{margin-left:auto;white-space:nowrap;font-variant-numeric:tabular-nums}
+.wavg .dlim[hidden]{display:none}
+.wavg .dlim span{font-weight:700}
+.wavg .dlim .up{color:var(--up-text)} .wavg .dlim .dn{color:var(--dn-text)} .wavg .dlim .flat{color:var(--muted)}
 .breadth{display:flex;height:8px;border-radius:var(--r-badge);overflow:hidden;gap:var(--space-1);background:transparent}
 .breadth i{display:block;height:100%}
 .breadth-lab{display:flex;justify-content:space-between;font-size:var(--fs-sm);margin-top:var(--space-3);font-variant-numeric:tabular-nums;gap:var(--space-3)}
@@ -1230,6 +1236,13 @@ html[data-motion="reduced"] .dock{transition:none}
 .dk-l1 b{font-weight:700;color:var(--fg2)}
 .dk-l1 .st{color:var(--acc)}
 .dk-l1 .p{font-weight:700;font-variant-numeric:tabular-nums;flex:none}
+/* 상한 9 · 하한 0 (등락 분포 cell): neutral words, the numbers in the up / down colours (0 stays neutral); flex:none — the name gives way */
+.dk-l1 .lim,.dk-l1 .cnt{flex:none;font-variant-numeric:tabular-nums}
+.dk-l1 .lim{margin-left:auto}
+.dk-l1 .lim[hidden],.dk-l1 .cnt[hidden]{display:none}
+.dk-l1 .lim .lu,.dk-l1 .lim .ld{margin-left:var(--space-1);font-weight:700}
+.dk-l1 .lim .lsep{margin:0 var(--space-1)}
+.dk-l1 .lim:not([hidden]) + .cnt{margin-left:var(--space-1)}
 .dk-v{display:flex;align-items:center;justify-content:space-between;gap:var(--space-3);height:20px;font:700 var(--fs-xl)/20px var(--font-head);letter-spacing:-.01em;font-variant-numeric:tabular-nums;color:var(--fg);white-space:nowrap}
 .dk-v > span:first-child{overflow:hidden;text-overflow:ellipsis;min-width:0}
 .dk-v svg{width:44px;height:18px;flex:none;overflow:visible}
@@ -1454,7 +1467,7 @@ html[data-theme="glass-light"]{--sheet-skirt:#f3f5f8}
   <aside class="side">
     <section class="card">
       <h2><span id="distTitle">등락 분포</span> <small id="breadthScope"></small></h2>
-      <div class="wavg"><b id="wavg">—</b><span id="wavgLab">시가총액 가중</span></div>
+      <div class="wavg"><b id="wavg">—</b><span id="wavgLab">시가총액 가중</span><span class="dlim" id="distLim" hidden></span></div>
       <div class="breadth" id="breadth"></div>
       <div class="breadth-lab" id="breadthLab"></div>
       <div class="hist" id="hist"></div>
@@ -2759,7 +2772,10 @@ function krxRow(st, closes) {
   const c = closes && CLOSE ? CLOSE.c[st.c] : null;
   if (!c || !(+c[0] > 0)) return st;
   const p = +c[0];
-  return Object.assign({}, st, { p, d: +c[1] || 0, r: +c[2] || 0, cap: st.p > 0 ? st.cap * p / st.p : st.cap, krx: true, live: st });
+  // limf follows the close drawn (close.json's own flag when the file carries flags — §3-34 ⑤), so the 등락 분포 card · the dock · the
+  // 시장 요약 카드 count 상한가 · 하한가 from one source; an older file keeps the quote's flag
+  const limf = CLOSE.lim ? (c[3] === 1 || c[3] === -1 ? c[3] : 0) : st.limf;
+  return Object.assign({}, st, { p, d: +c[1] || 0, r: +c[2] || 0, cap: st.p > 0 ? st.cap * p / st.p : st.cap, limf, krx: true, live: st });
 }
 // NXT: its price and change; volume / value NXT's own (the quote's while the Worker sends none)
 function nxRow(st) {
@@ -4666,16 +4682,19 @@ let DIST = null;
 function distCount(vals) { let up = 0, dn = 0, fl = 0, nd = 0; for (const v of vals) v == null ? nd++ : v > 0 ? up++ : v < 0 ? dn++ : fl++; return { up, dn, fl, nd }; }
 const distTitle = k => k === 'day' ? '등락 분포' : k === 'period' ? `${COLOR_METRICS[state.colorBy].label} 수익률 분포` : '순매수 분포';
 const distWords = k => k === 'flow' ? ['순매수', '중립', '순매도'] : ['상승', '보합', '하락'];
-function renderDist(vals, { scope, big, bigCls, bigLab, unit, note = '', mapVals = null }) {
+function renderDist(vals, { scope, big, bigCls, bigLab, unit, note = '', mapVals = null, lim = null }) {
   const k = kind();
   const { up, dn, fl, nd } = distCount(vals);
   const n = (up + dn + fl) || 1;
-  DIST = { up, dn, fl, nd, n: up + dn + fl, title: distTitle(k), words: distWords(k), scope, unit };
+  DIST = { up, dn, fl, nd, n: up + dn + fl, title: distTitle(k), words: distWords(k), scope, unit, lim };
   $('#distTitle').textContent = distTitle(k);
   $('#breadthScope').textContent = scope;
   $('#breadthScope').title = scope;
   const wv = $('#wavg'); wv.textContent = big; wv.className = bigCls;
   $('#wavgLab').textContent = bigLab;
+  const dl = $('#distLim');
+  dl.hidden = !lim;
+  if (lim) dl.replaceChildren('상한가 ', h('span', { class: lim.lu ? 'up' : 'flat', text: fmtInt(lim.lu) }), ' · 하한가 ', h('span', { class: lim.ld ? 'dn' : 'flat', text: fmtInt(lim.ld) }));
   const P = PAL().stops;
   $('#breadth').replaceChildren(
     h('i', { style: `width:${up / n * 100}%;background:${P[6]}` }),
@@ -4823,7 +4842,8 @@ function distPool() {
       const x = CLOSE.c[c], p = +x[0], r = +x[2] || 0;
       if (!(p > 0)) continue;
       // lim: close.json rows carry it since §3-34 ⑤ ("lim": true — [p, d, r, 1|−1]); an older file: the ±29.5 % guess
-      list.push({ c, n: nm[0], m: nm[1], p, d: +x[1] || 0, r, cap: 0, tv: 0, lim: CLOSE.lim ? (x[3] === 1 || x[3] === -1 ? x[3] : 0) : Math.abs(r) >= 29.5 ? Math.sign(r) : 0 });
+      const lf = CLOSE.lim ? (x[3] === 1 || x[3] === -1 ? x[3] : 0) : undefined;     // limr: the real flag (undefined = an older file without flags)
+      list.push({ c, n: nm[0], m: nm[1], p, d: +x[1] || 0, r, cap: 0, tv: 0, lim: lf !== undefined ? lf : Math.abs(r) >= 29.5 ? Math.sign(r) : 0, limr: lf });
     }
     return { list, scope: k === 'day' ? 'all' : 'data', label };
   }
@@ -4846,7 +4866,7 @@ function distPool() {
       for (const [c, x] of b.rows) {
         if (x[2] == null) continue;
         const s = byCode.get(c);
-        list.push(s && s.nxOn ? s : { c, m, r: x[2], d: 0, p: 0, cap: 0, tv: 0, lim: Math.abs(x[2]) >= 29.5 ? Math.sign(x[2]) : 0 });
+        list.push(s && s.nxOn ? s : { c, m, r: x[2], d: 0, p: 0, cap: 0, tv: 0, lim: Math.abs(x[2]) >= 29.5 ? Math.sign(x[2]) : 0, limr: undefined });
       }
     } else {
       const nxFirst = intDrawn() && DATA.k && DATA.k.hm < '0900';
@@ -4854,7 +4874,7 @@ function distPool() {
         const s = byCode.get(c);
         if (s) { list.push(s); continue; }
         const r = nxFirst && x[2] != null ? x[2] : x[0];
-        list.push({ c, m, r, d: 0, p: 0, cap: 0, tv: 0, lim: r === x[0] ? x[1] : Math.abs(r) >= 29.5 ? Math.sign(r) : 0 });
+        list.push({ c, m, r, d: 0, p: 0, cap: 0, tv: 0, lim: r === x[0] ? x[1] : Math.abs(r) >= 29.5 ? Math.sign(r) : 0, limr: r === x[0] ? x[1] : undefined });
       }
     }
   }
@@ -4886,6 +4906,20 @@ function renderSide() {
   syncBreadth();
   dkRefresh();
 }
+/* 상한가 · 하한가 of the card's pool (사용자 2026-11-16 00:54 "아래 막대에 상승 하락만 있는게 아니라 상한가 하한가도 있으면 좋겠어"):
+   the real flags only — a streamed row's limf, a breadth row's lim, close.json's 4th field (AGENTS §3-34 ⑤) — never the ±29.5 % guess,
+   the same rule as the 시장 요약 카드. null (= say nothing, not 0) when any row's flag is unknown (an older close.json), for NXT prices
+   (no limit flags), during a replay (frames carry no flags) and for period / net-buying colours (today's limits only). */
+function limCount(pool) {
+  if (REPLAY || kind() !== 'day' || distNxt() || pool.scope === 'nxt') return null;
+  let lu = 0, ld = 0;
+  for (const s of pool.list) {
+    const f = 'limr' in s ? s.limr : s.limf;
+    if (f !== 0 && f !== 1 && f !== -1) return null;
+    if (f > 0) lu++; else if (f < 0) ld++;
+  }
+  return { lu, ld };
+}
 // the 등락 분포 card of a stock view: its values and wording (renderSide; the dock under 해외 / 원자재)
 function distSummary() {
   const themeMode = state.market === 'THEME', k = kind();
@@ -4909,7 +4943,7 @@ function distSummary() {
     if (pool.partial) note = '일부 묶음을 받지 못해 받은 종목만 셌어요.';
     const F = isFlow() ? FLO() : null;
     if (F && F.stale) { let st = 0; for (const x of list) if (F.stale[x.c] && amt(x) != null) st++; if (st) note = (note + ` ${fmtInt(st)}종목은 전일 기준이에요.`).trim(); }
-    return { vals, opts: { scope, big: grpText(list, 2), bigCls: grpCls(list), note, mapVals: pool.scope !== 'map' ? universe().filter(inFocus).filter(s => !s.nonx).map(cval) : null,
+    return { vals, opts: { scope, big: grpText(list, 2), bigCls: grpCls(list), note, lim: limCount(pool), mapVals: pool.scope !== 'map' ? universe().filter(inFocus).filter(s => !s.nonx).map(cval) : null,
       bigLab: (k === 'flow' ? `${flowShort()} 순매수 합계` : k === 'day' ? '시가총액 가중' :   /* 사용자 2026-11-13 23:50: "시가총액 가중이라고만" */ `시가총액 가중 ${COLOR_METRICS[state.colorBy].long}`) + capNote, unit: '종목' } };
   }
 }
@@ -6791,7 +6825,9 @@ function dkCell(kind) {
     c.append(h('span', { class: 'dk-l1' }, h('span', {}, h('span', { class: 'st', 'aria-hidden': 'true', text: '★' }), ' ', h('span', { class: 'nm' })), h('span', { class: 'cnt' })),
       h('span', { class: 'dk-v' }, h('span', { class: 'val' }), h('small', {}, h('span', { class: 'mvn' }), ' ', h('span', { class: 'mvp' }))));
   } else {
-    c.append(h('span', { class: 'dk-l1' }, h('b', { class: 'nm' }), h('span', { class: 'cnt' })),
+    c.append(h('span', { class: 'dk-l1' }, h('b', { class: 'nm' }),
+        h('span', { class: 'lim', hidden: true, 'aria-hidden': 'true' }, h('span', { class: 'lk' }), h('span', { class: 'lu' }), h('span', { class: 'lsep', text: '·' }), h('span', { class: 'lk' }), h('span', { class: 'ld' })),
+        h('span', { class: 'cnt' })),
       h('span', { class: 'dk-bar', 'aria-hidden': 'true' }, h('i'), h('i'), h('i')),
       h('span', { class: 'dk-n', 'aria-hidden': 'true' }, h('span', { class: 'up' }), h('span', { class: 'flat' }), h('span', { class: 'dn' })));
   }
@@ -6852,7 +6888,7 @@ function dkDist() {
   state.market = dkDom(); state.focus = null; state.theme = null;
   try {
     const d = distSummary(), c = distCount(d.vals), k = kind();
-    return Object.assign(c, { n: c.up + c.dn + c.fl, title: distTitle(k), words: distWords(k), scope: d.opts.scope, unit: '종목' });
+    return Object.assign(c, { n: c.up + c.dn + c.fl, title: distTitle(k), words: distWords(k), scope: d.opts.scope, unit: '종목', lim: d.opts.lim || null });
   } catch (e) { return null; } finally { state.market = was.m; state.focus = was.f; state.theme = was.t; }
 }
 function dkFill() {
@@ -6895,13 +6931,28 @@ function dkFill() {
     } else {
       const D = dkDist();
       c.querySelector('.nm').textContent = D ? D.title : '등락 분포';
-      c.querySelector('.cnt').textContent = D ? fmtInt(D.n) : '';
+      const cnt = c.querySelector('.cnt'), L = D && D.lim, lim = c.querySelector('.lim');
+      cnt.textContent = D ? fmtInt(D.n) : '';
+      // 상한 9 · 하한 0 on the top line (the cell keeps its height and lines): beside the count while all fits, else in its place
+      // (most phones), else 상 9 · 하 0 (360 px with two-digit counts). Fit = the name's own text width + gaps (≥ 8 px) + the parts,
+      // measured in fractions — scrollWidth rounds and missed a 1.6 px cut at 360. The dock is laid out (only hidden) whenever this runs
+      lim.hidden = !L; cnt.hidden = false;
+      if (L) {
+        const [k1, lu, , k2, ld] = lim.children, l1 = c.querySelector('.dk-l1'), nm = c.querySelector('.nm');
+        k1.textContent = '상한'; k2.textContent = '하한';
+        lu.textContent = fmtInt(L.lu); lu.className = 'lu ' + (L.lu ? 'up' : 'flat');
+        ld.textContent = fmtInt(L.ld); ld.className = 'ld ' + (L.ld ? 'dn' : 'flat');
+        const W = l1.getBoundingClientRect().width, g = Math.max(8, parseFloat(getComputedStyle(l1).columnGap) || 0);
+        const rg = document.createRange(); rg.selectNodeContents(nm);
+        const fits = () => rg.getBoundingClientRect().width + g + lim.getBoundingClientRect().width + (cnt.hidden ? 0 : g + cnt.getBoundingClientRect().width) <= W;
+        if (W > 0 && !fits()) { cnt.hidden = true; if (!fits()) { k1.textContent = '상'; k2.textContent = '하'; } }
+      }
       const [iu, ifl, idn] = c.querySelector('.dk-bar').children;
       const tot = D && D.n ? D.n : 1;
       iu.style.cssText = `flex:${D ? D.up / tot : 0};background:${P[6]}`; ifl.style.cssText = `flex:${D ? D.fl / tot : 1};background:${P[3]}`; idn.style.cssText = `flex:${D ? D.dn / tot : 0};background:${P[0]}`;
       const [nu, nf, nd] = c.querySelector('.dk-n').children;
       nu.textContent = D ? '▲' + fmtInt(D.up) : ''; nf.textContent = D ? fmtInt(D.fl) : ''; nd.textContent = D ? '▼' + fmtInt(D.dn) : '';
-      c.setAttribute('aria-label', D ? `${D.scope} ${D.title}: ${D.words[0]} ${fmtInt(D.up)}, ${D.words[1]} ${fmtInt(D.fl)}, ${D.words[2]} ${fmtInt(D.dn)} — 누르면 등락 분포 카드로` : '등락 분포 — 누르면 등락 분포 카드로');
+      c.setAttribute('aria-label', D ? `${D.scope} ${D.title}: ${D.words[0]} ${fmtInt(D.up)}, ${D.words[1]} ${fmtInt(D.fl)}, ${D.words[2]} ${fmtInt(D.dn)}${L ? `, 상한가 ${fmtInt(L.lu)}종목, 하한가 ${fmtInt(L.ld)}종목` : ''} — 누르면 등락 분포 카드로` : '등락 분포 — 누르면 등락 분포 카드로');
     }
   }
 }
