@@ -1008,7 +1008,7 @@ def palette_pass(browser):
     ctx, page = open_page(browser, LIVE + '#world', 1440, 900, view='map')
     try:
         wait_world(page, GEO_SEL)
-        fill = "getComputedStyle(document.querySelector('#world .kw-cp.has[data-c=\"US\"]')).fill"
+        fill = "getComputedStyle(document.querySelector('#world .kw-cp.has[data-c=\"840\"]')).fill"
         before = page.evaluate(fill)
         page.click('.seg[data-key="palette"] button[data-v="global"]')
         page.wait_for_timeout(700)                       # country fills ease on --sp-value

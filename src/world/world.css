@@ -237,7 +237,7 @@ html[data-theme="glass-light"] #world{--nodata:#e6e9ee}
 .kw-gl{position:absolute;pointer-events:auto;white-space:nowrap;font-variant-numeric:tabular-nums}
 .kw-gl.in{transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:0;padding:var(--space-1) var(--space-2);border-radius:var(--r-badge);color:var(--kw-tile-fg);line-height:1.15;text-shadow:var(--lab-sh)}
 .kw-gl.in .n{display:inline-flex;align-items:center;gap:var(--space-2);font-size:calc(var(--fs-sm) * var(--gs,1));font-weight:600}
-.kw-gl.in .p{font-size:calc(var(--fs-md) * var(--gs,1));font-weight:700}
+.kw-gl.in .p{font-size:calc(var(--fs-sm) * var(--gs,1));font-weight:700}   /* 12.5 → 12, not 13: a crowded map keeps its label boxes (중국 sits between 이탈리아's chip and the 동아시아 chips at 768) */
 .kw-gl.in .kw-sd.close{box-shadow:inset 0 0 0 1.5px var(--kw-in-ring)}
 .kw-gl.in.sm{pointer-events:none;padding:0;flex-direction:row;gap:var(--space-1)}
 .kw-gl.in.sm .kw-sd{width:5px;height:5px}
