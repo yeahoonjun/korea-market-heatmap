@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 """QA for the 시장 뉴스 panel (src/news, docs/standards/news.md §12) on the built pages.
 
-  python3 scripts/build_page.py && python3 qa/news/test_news.py [--shots]
+  python3 scripts/build_page.py && python3 qa/news/test_news.py [--shots] [--only=design]
 
-Starts qa/news/mock_api.py on NEWS_QA_PORT (default 8851; serves web/ + /api/news from the sanitized fixtures) and stops it at the end.
+Starts qa/news/mock_api.py on NEWS_QA_PORT (default 9050 — the ux/std-news range 9050–9059; serves web/ + /api/news from the sanitized
+fixtures) and stops it at the end (fuser -k). Section 13 checks the design standard in the browser (design.md, ux/std-news): sizes from the
+tokens, the title underline on KH.ui.seg, the 더보기 fold (the list box grows, what is below moves once), a chip's % swapping in place,
+! = --fail-dot, and the glass card material kept.
 --shots also writes /tmp/news_*.png (1280 · 1920 base + glass, 390 card + expanded). Exit 1 if any check fails.
 """
 import json
@@ -19,13 +22,14 @@ from playwright.sync_api import sync_playwright
 
 HERE = pathlib.Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
-PORT = int(os.environ.get('NEWS_QA_PORT', 8851))
+PORT = int(os.environ.get('NEWS_QA_PORT', 9050))
 LIVE = f'http://127.0.0.1:{PORT}/'
 SNAP = (ROOT / 'dist/index.html').as_uri()
 SIZES = [(360, 740), (390, 844), (768, 1024), (1280, 800), (1920, 1080)]
 THEMES = ['base', 'paper', 'glass-dark', 'glass-light']
 NOPROXY = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 SHOTS = '--shots' in sys.argv
+ONLY = next((a.split('=', 1)[1] for a in sys.argv if a.startswith('--only=')), '')   # --only=design: section 13 alone
 results = []
 
 
@@ -386,13 +390,9 @@ def run(br):
     pg.wait_for_selector('#news .nw-row:not(.skel)', timeout=8000)
     pg.click('#news .nw-more'); pg.wait_for_timeout(50)
     rm = pg.evaluate("() => ({ anim: [...document.querySelectorAll('#news .nw-row')].filter(r => getComputedStyle(r).animationName !== 'none').length, kl: getComputedStyle(document.querySelector('#news .nw-more .kl')).transitionDuration, ind: getComputedStyle(document.querySelector('#news .nw-tabs'), '::before').transitionDuration })")
-    check('reduced motion: no row animation, label swap 0s, indicator 0s', rm['anim'] == 0 and set(rm['kl'].replace(' ', '').split(',')) <= {'0s'} and set(rm['ind'].replace(' ', '').split(',')) <= {'0s'}, rm)
-    ctx.close()
-    ctx, pg = open_page(br, LIVE, 1280, 800, motion='fancy')
-    pg.wait_for_selector('#news .nw-row:not(.skel)', timeout=8000)
-    pg.click('#news .nw-more'); pg.wait_for_timeout(30)
-    fa = pg.evaluate("() => [...document.querySelectorAll('#news .nw-row.in')].length")
-    check('화려하게: the rows 더보기 reveals come in (.in)', fa > 0, fa)
+    fr = pg.evaluate("() => { const l = document.querySelector('#news .nw-list'); return { clip: l.style.clipPath, cls: l.className, rows: document.querySelectorAll('#news .nw-row').length, x: getComputedStyle(document.querySelector('#news .nw-row.nw-x')).opacity }; }")
+    check('reduced motion: no row animation, label swap 0s, indicator 0s; 더보기 at once (no clip, the new rows shown)', rm['anim'] == 0 and set(rm['kl'].replace(' ', '').split(',')) <= {'0s'} and set(rm['ind'].replace(' ', '').split(',')) <= {'0s'}
+          and not fr['clip'] and 'nw-fold' not in fr['cls'] and fr['rows'] == 30 and fr['x'] == '1', f'{rm} {fr}')
     ctx.close()
 
     # ── 10 · phone card: 5 rows + 더보기, 2-line titles, 44 px hit areas, 접기 back to the card head ──
@@ -404,8 +404,8 @@ def run(br):
       return { rows: rows.length, clamp: cs.webkitLineClamp, fs: cs.fontSize, lh: cs.lineHeight, chipH: chip.getBoundingClientRect().height, chipHit: getComputedStyle(chip, '::before').height,
         tabH: tab.getBoundingClientRect().height, moreH: n.querySelector('.nw-more').getBoundingClientRect().height, last: n === document.querySelector('main.layout').lastElementChild,
         underMap: n.getBoundingClientRect().top >= document.getElementById('legend').getBoundingClientRect().bottom - 1 && n.getBoundingClientRect().bottom <= document.querySelector('.side').getBoundingClientRect().top + 1 }; }""")
-    check('phone: 5 rows, title 15/21 px two lines, chip 32 (hit 44), tabs 40, 더보기 42, card right under the map, above the side cards', ph['rows'] == 5 and ph['clamp'] == '2' and ph['fs'] == '15px' and ph['lh'] == '21px'
-          and round(ph['chipH']) == 32 and ph['chipHit'] == '44px' and ph['tabH'] >= 40 and ph['moreH'] >= 42 and ph['last'] and ph['underMap'], ph)
+    check('phone: 5 rows, title 14 px (--fs-lg) · line height 1.45 two lines, chip 32 (hit 44), tabs 40, 더보기 44, card right under the map, above the side cards', ph['rows'] == 5 and ph['clamp'] == '2' and ph['fs'] == '14px' and abs(float(ph['lh'][:-2]) - 20.3) < 0.1
+          and round(ph['chipH']) == 32 and ph['chipHit'] == '44px' and ph['tabH'] >= 40 and ph['moreH'] >= 44 and ph['last'] and ph['underMap'], ph)
     if SHOTS:
         pg.evaluate("document.getElementById('news').scrollIntoView({block: 'start'}); scrollBy(0, -70)"); pg.wait_for_timeout(400)
         pg.screenshot(path='/tmp/news_390_card.png')
@@ -462,6 +462,92 @@ def run(br):
     ctx.close()
 
 
+def design(br):
+    # ── 13 · design standard (design.md, ux/std-news): token sizes, ! colours, the title underline, the 더보기 fold, a chip's % swap, glass ──
+    E = Errors()
+    mode('stale')
+    ctx, pg = open_page(br, LIVE, 1440, 900, errors=E)
+    pg.wait_for_selector('#news .nw-row:not(.skel)', timeout=8000); pg.wait_for_timeout(500)
+    d = pg.evaluate(DESIGN_JS)
+    check('design: list row = --h-row (36), outlet badge = the recipe (18 · 4px · 11px/600), 지도 종목 기사만 24 (--h-chip), 더보기 32 (--h-key), title tabs 14px × 32, headline 13px, time 12px',
+          d['row'] == d['hRow'] == 36 and d['badge'] == [18, '4px', '11px', '600'] and d['only'] == 24 and d['more'] == 32 and d['tab'] == ['14px', 32] and d['tt'] == '13px' and d['time'] == '12px', d)
+    check('design: every font size in the card is one of the seven steps (≥ 11px)', set(d['sizes']) <= {11, 12, 13, 14, 16, 20, 26}, d['sizes'])
+    check('design: ! of the stale outlet (tab) and the note line = --fail-dot, not amber', d['bad'] == d['failDot'] and d['noteIc'] == d['failDot'] and d['bad'] != d['amber'], d)
+    check('design: title tabs = one 2px --acc-line underline under the picked tab (KH.ui.seg indicator)', d['ind'] and d['ul'] == ['2px', d['accLine']] and abs(d['ulX'] - d['tabX']) <= 1 and abs(d['ulW'] - d['tabW']) <= 1, d)
+    pg.click('#news-t-disc'); pg.wait_for_timeout(30)
+    mv = pg.evaluate("""() => { const t = document.querySelector('#news .nw-ftabs'), cs = getComputedStyle(t, '::before');
+      return { dir: t.dataset.dir, prop: cs.transitionProperty, fn: cs.transitionTimingFunction.split('linear(').length - 1, dur: cs.transitionDuration }; }""")
+    check('design: picking 오늘 공시 moves the underline right — leading edge lead, trailing trail (two linear() spring curves)', mv['dir'] == 'r' and 'left' in mv['prop'] and 'right' in mv['prop'] and mv['fn'] >= 2, mv)
+    pg.wait_for_timeout(700)
+    pg.click('#news-t-news'); pg.wait_for_selector('#news .nw-row:not(.skel)'); pg.wait_for_timeout(700)
+    # the fold: frames sampled from the press to the end (open, then close)
+    SAMPLE = """() => { window.__f = []; const t0 = performance.now(); const l = document.querySelector('#news .nw-list');
+      const step = () => { const x = l.querySelector('.nw-x'); window.__f.push({ t: performance.now() - t0, clip: l.style.clipPath, cls: l.className.replace('nw-list', '').trim(),
+        foot: Math.round(document.getElementById('foot').getBoundingClientRect().top + scrollY), rows: l.children.length, xo: x ? +getComputedStyle(x).opacity : -1, h: Math.round(l.getBoundingClientRect().height) });
+        if (performance.now() - t0 < 1100) requestAnimationFrame(step); };
+      requestAnimationFrame(step); }"""
+    f0 = pg.evaluate("() => ({ foot: Math.round(document.getElementById('foot').getBoundingClientRect().top + scrollY), rows: document.querySelectorAll('#news .nw-row').length })")
+    pg.evaluate(SAMPLE); pg.click('#news .nw-more'); pg.wait_for_timeout(1300)
+    fo = pg.evaluate("window.__f")
+    op = [f for f in fo if f['rows'] == 30]
+    fend = op[-1]['foot'] if op else 0
+    clips = [float(re.findall(r'(-?[\d.]+)px', f['clip'])[2]) for f in op if len(re.findall(r'(-?[\d.]+)px', f['clip'] or '')) >= 3]   # inset(top sides bottom …)
+    check('fold open: what is below (the page footer) moves once, at the press; the list box opens from its old height (clip, `open`)',
+          op and all(f['foot'] == fend for f in op) and fend > f0['foot'] + 300 and clips and clips[0] > 300 and clips[-1] < 30 and not op[-1]['clip'],
+          f"foot {f0['foot']}→{[f['foot'] for f in op][:3]}… end {fend}, clips {clips[:2]}…{clips[-2:]}")
+    early = [f for f in op if 'nw-fold-anim' in f['cls'] and 'nw-fold-in' not in f['cls']]
+    check('fold open: the new rows wait hidden, then come in together once the box is a quarter open; nothing left over at the end',
+          early and all(f['xo'] == 0 for f in early) and any('nw-fold-in' in f['cls'] for f in op) and op[-1]['xo'] == 1 and op[-1]['cls'] == '', [(round(f['t']), f['cls'], f['xo']) for f in op[:4]])
+    pg.evaluate(SAMPLE); pg.click('#news .nw-more'); pg.wait_for_timeout(1300)
+    fc = pg.evaluate("window.__f")
+    held = [f for f in fc if f['rows'] == 30]
+    after = [f for f in fc if f['rows'] != 30]
+    check('fold close: the new rows leave first (together), the box closes on `close` while the page stays, then the page comes up once',
+          held and all(f['foot'] == fend for f in held) and any('nw-fold-out' in f['cls'] and f['xo'] == 0 for f in held) and any(f['clip'] for f in held)
+          and after and after[-1]['rows'] == f0['rows'] and all(f['foot'] == f0['foot'] for f in after), f"held {len(held)} after {len(after)} foot {[f['foot'] for f in fc][:2]}…{fc[-1]['foot']} rows {fc[-1]['rows']}")
+    check('design 1440: no console errors', not E.items, E.items[:3]); E.items = []
+    ctx.close()
+    # a chip's % on a new quote: KH.ui.swap the way it went (the old text leaves, the new one comes in), then the plain value
+    mode('drift')
+    ctx, pg = open_page(br, LIVE, 1280, 800)
+    pg.wait_for_selector('#news .nw-chip[data-c] b', timeout=8000); pg.wait_for_timeout(300)
+    sw = pg.evaluate("""() => { const b = document.querySelector('#news .nw-chip[data-c] b'), real = b.textContent; b.textContent = '+99.99%';
+      document.dispatchEvent(new CustomEvent('kh:data', { detail: { changed: [] } }));
+      return { real, text: b.textContent, go: b.classList.contains('sw-go'), was: b.dataset.was || '' }; }""")
+    pg.wait_for_timeout(600)
+    sw2 = pg.evaluate("() => { const b = document.querySelector('#news .nw-chip[data-c] b'); return { text: b.textContent, go: b.classList.contains('sw-go'), was: b.dataset.was || '' }; }")
+    check("chip %: a new quote swaps in place (KH.ui.swap — the old value leaves), then reads the map's value", sw['go'] and sw['was'] == '+99.99%' and sw['text'] == sw['real'] and not sw2['go'] and sw2['text'] == sw['real'], f'{sw} {sw2}')
+    ctx.close()
+    # glass: the card keeps the theme's material (translucent plate, the 1px edge reflection) — the module paints none of its own
+    mode('ok')
+    for th in ('glass-dark', 'glass-light'):
+        ctx, pg = open_page(br, LIVE, 1440, 900, th)
+        pg.wait_for_selector('#news .nw-row:not(.skel)', timeout=8000)
+        gl = pg.evaluate(r"""() => { const n = document.getElementById('news'), cs = getComputedStyle(n), m = cs.backgroundColor.match(/rgba?\(([^)]+)\)/);
+          const a = m ? (m[1].split(/[ ,\/]+/).filter(Boolean)[3] || '1') : '1';
+          return { alpha: +a, edge: /inset/.test(cs.boxShadow) && /rgba\(255, 255, 255/.test(cs.boxShadow), r: cs.borderTopLeftRadius }; }""")
+        check(f'glass {th}: the news card keeps its material — translucent plate, 1px edge reflection, 22px corner (template .card)', gl['alpha'] < 1 and gl['edge'] and gl['r'] == '22px', gl)
+        ctx.close()
+
+
+DESIGN_JS = r"""() => {
+  const n = document.getElementById('news'), R = e => e.getBoundingClientRect(), cs = (e, p) => getComputedStyle(e, p || null);
+  const probe = document.createElement('i'); document.body.append(probe);
+  const col = v => { probe.style.color = ''; probe.style.color = `var(${v})`; return getComputedStyle(probe).color; };
+  const row = n.querySelector('.nw-row:not(.skel)'), b = n.querySelector('.nw-row .nw-src'), tab = n.querySelector('.nw-ftabs > button[aria-selected="true"]'), t = n.querySelector('.nw-ftabs');
+  const sizes = new Set(); for (const e of n.querySelectorAll('*')) if (e.offsetWidth && [...e.childNodes].some(c => c.nodeType === 3 && c.textContent.trim())) sizes.add(Math.round(parseFloat(cs(e).fontSize) * 10) / 10);
+  const res = { row: Math.round(R(row).height), hRow: parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--h-row')),
+    badge: [Math.round(R(b).height), cs(b).borderTopLeftRadius, cs(b).fontSize, cs(b).fontWeight], only: Math.round(R(n.querySelector('.nw-only')).height),
+    more: Math.round(R(n.querySelector('.nw-more')).height), tab: [cs(tab).fontSize, Math.round(R(tab).height)], tt: cs(n.querySelector('.nw-row .nw-tt')).fontSize,
+    time: cs(n.querySelector('.nw-row time')).fontSize, sizes: [...sizes].sort((x, y) => x - y),
+    bad: cs(n.querySelector('.nw-tabs .nw-bad')).color, noteIc: cs(n.querySelector('.nw-note > svg')).color, failDot: col('--fail-dot'), amber: col('--acc'),
+    ind: t.dataset.ind != null, ul: [cs(t, '::before').height, cs(t, '::before').backgroundColor], accLine: col('--acc-line'),
+    ulX: R(t).left + parseFloat(cs(t, '::before').left), ulW: parseFloat(cs(t, '::before').width), tabX: R(tab).left, tabW: R(tab).width };
+  probe.remove();
+  return res;
+}"""
+
+
 def shots(br):
     mode('ok')
     for w, h, th in [(1280, 800, 'base'), (1280, 800, 'glass-dark'), (1920, 1080, 'base'), (1920, 1080, 'glass-light')]:
@@ -487,7 +573,9 @@ def main():
                 time.sleep(0.1)
         with sync_playwright() as p:
             br = p.chromium.launch(executable_path='/usr/bin/google-chrome', args=['--no-sandbox'])
-            run(br)
+            if ONLY != 'design':
+                run(br)
+            design(br)
             if SHOTS:
                 shots(br)
             br.close()

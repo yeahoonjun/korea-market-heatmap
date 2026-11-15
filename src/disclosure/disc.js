@@ -656,7 +656,7 @@ document.addEventListener('kh:data', () => {
     const q = quoteOf(b.dataset.c), v = b.querySelector('b');
     if (!q || !v) continue;
     const t = pct(q.r);
-    if (v.textContent !== t) { swapNum(v, t); v.className = cls(q.r); b.setAttribute('aria-label', `${q.n} ${t} · 빠른 보기`); }   // a new quote: §6-4 the way it went
+    if (v.textContent !== t) { swapNum(v, t); v.classList.remove('up', 'dn', 'flat'); v.classList.add(cls(q.r)); b.setAttribute('aria-label', `${q.n} ${t} · 빠른 보기`); }   // a new quote: §6-4 the way it went
   }
 });
 document.addEventListener('kh:refresh', () => { if (polling()) load(); });
