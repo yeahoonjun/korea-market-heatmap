@@ -62,6 +62,11 @@ def shoot(b, theme, w):
     pg.click('.sp-tfs [data-tf="min"]'); pg.wait_for_timeout(700)
     pg.screenshot(path=name('ivm'))
     pg.keyboard.press('Escape'); pg.wait_for_timeout(400)
+    # the ☆ group picker (the template's popover, KH.watch.pick) — needs a second group
+    pg.evaluate("() => { try { if (KH.watch.groups().length < 2) KH.watch.createGroup('반도체'); } catch (e) {} }")
+    pg.click('.sp-star'); pg.wait_for_timeout(700)
+    pg.screenshot(path=name('star'))
+    pg.keyboard.press('Escape'); pg.wait_for_timeout(400)
     for tab, sel in (('ob', '.sp-q span:not(:empty)'), ('info', '#sp-p-info .sp-fin-col .b'), ('inv', '#sp-p-inv .sp-today'), ('news', '#sp-p-news .sp-nw-list, #sp-p-news .sp-msgbox')):
         pg.click(f'#sp-t-{tab}')
         pg.wait_for_selector(sel, timeout=8000)
