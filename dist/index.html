@@ -18607,34 +18607,38 @@ sync();
 
 </script>
 <style>
-/* 증시 캘린더 — 일정 탭 (AGENTS §3-33, docs/standards/calendar.md §5 A안). design.md tokens only; red/green never (events are not
-   up/down numbers), amber only for the chosen day · switched-on chips · focus. Phone first; ≥ 1280 px: month grid + 7-day list. */
+/* 증시 캘린더 — 일정 탭 (AGENTS §3-33, docs/standards/calendar.md §5 A안 · §9-6). design.md tokens only; red/green never (events are not
+   up/down numbers), amber only for the chosen day · switched-on chips · focus. Phone first; ≥ 1280 px: month grid + 7-day list.
+   Motion = the --sp-* springs (design.md §6-2): opening / appearing `fade` · `lead`, closing `close`, press = 1px down at once and up over
+   --c-fast. html[data-motion="reduced"] sets every one of them to 0ms, so nothing here needs its own reduced rule. */
 #calendar{box-sizing:border-box;width:100%;min-width:0;max-width:1920px;margin:0 auto;padding:var(--space-4) var(--edge) var(--space-7)}
 #calendar *{box-sizing:border-box}
 #calendar[hidden]{display:none}
 .kc{color:var(--fg);font-size:var(--fs-md);line-height:var(--lh-row)}
 /* reset with zero specificity so every .kc-* rule below wins */
 :where(.kc,.kc-dlg) button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
-.kc :focus-visible,.kc-dlg :focus-visible{outline:none;box-shadow:0 0 0 var(--focus-off) var(--page),0 0 0 calc(var(--focus-off) + var(--focus-w)) var(--focus)}
+.kc :focus-visible,.kc-dlg :focus-visible{outline:var(--focus-w) solid var(--focus);outline-offset:var(--focus-off)}
+.kc :is(.kc-ev,.kc-dmore,.kc-mg .cell):focus-visible{outline-offset:calc(var(--focus-w) * -1)}   /* inside lists and the grid card (overflow clips) */
 .kc .num,.kc time{font-variant-numeric:tabular-nums}
 
 /* head: range + ‹ › 오늘 */
 .kc-hd{display:flex;align-items:center;gap:var(--space-3);margin:var(--space-2) 0 var(--space-4)}
 .kc-hd h2{flex:1;margin:0;font-size:var(--fs-xl);font-weight:700;white-space:nowrap;min-width:0;overflow:hidden;text-overflow:ellipsis}
 .kc-hd h2 small{font-size:var(--fs-sm);font-weight:500;color:var(--muted);margin-left:var(--space-3)}
-.kc-ik,.kc-tk{position:relative;display:inline-grid;place-items:center;height:var(--h-key);min-width:var(--h-key);border-radius:var(--r-key);background:var(--key-bg);box-shadow:var(--key-sh);color:var(--key-fg);font-size:var(--fs-md);font-weight:600;transition:filter var(--c-fast) var(--c-out)}
+.kc-ik,.kc-tk{position:relative;display:inline-grid;place-items:center;height:var(--h-key);min-width:var(--h-key);border-radius:var(--r-key);background:var(--key-bg);box-shadow:var(--key-sh);color:var(--key-fg);font-size:var(--fs-md);font-weight:600;text-decoration:none;
+  transition:transform var(--c-fast) var(--c-out),box-shadow var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out)}
 .kc-tk{padding:0 var(--space-5)}
 .kc-ik svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round}
 .kc-ik::before,.kc-tk::before,.kc-chip::before,.kc-wk button::before{content:"";position:absolute;inset:-6px}
-.kc-ik:active,.kc-tk:active{transform:translateY(1px);box-shadow:none}
+/* press (design.md §6-2): down at once, up over --c-fast — the same recipe as every raised key */
+:is(.kc-ik,.kc-tk,.kc-acts a,.kc-acts button):is(:active,.is-press){transform:translateY(1px);box-shadow:var(--key-dn);filter:var(--press-f);transition-duration:0s}
+@media (hover:hover) and (pointer:fine){ :is(.kc-ik,.kc-tk,.kc-acts a,.kc-acts button,.kc-chip):hover{filter:brightness(1.08)} }
 
 /* week strip: a segment (tray + raised marker; marker edges lead / trail, design.md §7 ①) */
 .kc-wk{position:relative;display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:var(--space-2);padding:var(--space-2);border-radius:var(--r-key);background:var(--tray-bg);box-shadow:var(--tray-sh)}
-.kc-wk .kc-ind{position:absolute;top:var(--space-2);bottom:var(--space-2);left:0;width:0;border-radius:calc(var(--r-key) - 4px);background:var(--key-bg);box-shadow:var(--key-sh),inset 0 0 0 1.5px var(--acc);pointer-events:none;
-  transition:left var(--sp-lead-dur) var(--sp-lead),width var(--sp-trail-dur) var(--sp-trail)}
-.kc-wk .kc-ind.rev{transition:left var(--sp-trail-dur) var(--sp-trail),width var(--sp-lead-dur) var(--sp-lead)}
-.kc-wk .kc-ind.now{transition:none}
-.kc-wk button{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:var(--space-1);min-height:58px;border-radius:calc(var(--r-key) - 4px)}
+.kc-wk .kc-ind{position:absolute;top:var(--space-2);bottom:var(--space-2);left:0;width:0;border-radius:calc(var(--r-key) - 4px);background:var(--key-bg);box-shadow:var(--key-sh),inset 0 0 0 1.5px var(--acc);pointer-events:none}
+.kc-wk button{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:var(--space-1);min-height:58px;border-radius:calc(var(--r-key) - 4px);transition:filter var(--c-fast) var(--c-out)}
+.kc-wk button:is(:active,.is-press){filter:var(--press-f);transition-duration:0s}
 .kc-wk .dw{font-size:var(--fs-xs);color:var(--muted);line-height:1}
 .kc-wk .dnum{font-size:var(--fs-xl);font-weight:600;line-height:1.1}
 .kc-wk .wkend .dnum{color:var(--fg2)}
@@ -18645,19 +18649,41 @@ sync();
 .kc-marks i.dim{background:var(--line2)}
 .kc-marks b{font-size:var(--fs-xs);font-weight:600;color:var(--muted);line-height:6px}
 
-/* filter chips (pills are for filters only, design.md §7) */
-.kc-chips{display:flex;gap:var(--space-3);overflow-x:auto;padding:var(--space-5) 2px var(--space-3);margin:0 -2px;scrollbar-width:none}
+/* filter chips (pills are for filters only, design.md §7; surface = the 켜고 끄기 칩 of controls.md §5-7: --chip-bg raised, on = --chip-on +
+   1.5px --chip-ring + a check). The check's box is always there, so a chip is as wide on as off and no neighbour moves: off, the label
+   sits centred over it (shifted half the check), on, the check fades and grows in (.6 → 1) and the label slides back. Switching on =
+   `fade` (fill · check) + `lead` (label · check position); switching off = `close` (shorter). The chip is toggled in place (calendar.js). */
+.kc-chips{display:flex;gap:var(--space-3);overflow-x:auto;padding:var(--space-5) 6px var(--space-3);margin:0 -6px;scrollbar-width:none}
 .kc-chips::-webkit-scrollbar{display:none}
-.kc-chip{position:relative;flex:none;display:inline-flex;align-items:center;gap:var(--space-2);height:var(--h-chip);padding:0 var(--space-5);border-radius:var(--r-pill);font-size:var(--fs-sm);font-weight:600;color:var(--fg2);box-shadow:inset 0 0 0 1px var(--line2);white-space:nowrap}
-.kc-chip[aria-pressed="true"]{background:var(--acc-soft);color:var(--fg);box-shadow:inset 0 0 0 1.5px var(--acc)}
-.kc-chip .kck{display:inline-block;width:0;overflow:hidden;transition:width var(--c-fast) var(--c-out)}
-.kc-chip[aria-pressed="true"] .kck{width:12px}
-.kc-chip .kck svg{width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:-1px}
+.kc-chip{--ck:14px;--ckg:var(--space-2);position:relative;flex:none;display:inline-flex;align-items:center;height:var(--h-chip);padding:0 var(--space-5);border-radius:var(--r-pill);background:var(--chip-bg);box-shadow:var(--key-sh);
+  font-size:var(--fs-sm);line-height:var(--lh-ui);font-weight:600;color:var(--key-fg);white-space:nowrap;
+  transition:background-color var(--sp-close-dur) var(--sp-close),box-shadow var(--sp-close-dur) var(--sp-close),transform var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out)}
+.kc-chip .kck{flex:none;width:var(--ck);height:var(--ck);margin-right:var(--ckg);background:currentColor;-webkit-mask:var(--ck-mask) center/var(--ck) no-repeat;mask:var(--ck-mask) center/var(--ck) no-repeat;
+  opacity:0;transform:translateX(calc(var(--ck) / -2)) scale(.6);transition:opacity var(--sp-close-dur) var(--sp-close),transform var(--sp-close-dur) var(--sp-close)}
+.kc-chip .kcl{display:inline-block;transform:translateX(calc((var(--ck) + var(--ckg)) / -2));transition:transform var(--sp-close-dur) var(--sp-close)}
+.kc-chip[aria-pressed="true"]{background:var(--chip-on);box-shadow:inset 0 0 0 1.5px var(--chip-ring),var(--key-sh);
+  transition:background-color var(--sp-fade-dur) var(--sp-fade),box-shadow var(--sp-fade-dur) var(--sp-fade),transform var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out)}
+.kc-chip[aria-pressed="true"] .kck{opacity:1;transform:none;transition:opacity var(--sp-fade-dur) var(--sp-fade),transform var(--sp-lead-dur) var(--sp-lead)}
+.kc-chip[aria-pressed="true"] .kcl{transform:none;transition:transform var(--sp-lead-dur) var(--sp-lead)}
+.kc-chip:is(:active,.is-press){transform:translateY(1px);box-shadow:var(--key-dn);filter:var(--press-f);transition-duration:0s}
+.kc-chip[aria-pressed="true"]:is(:active,.is-press){box-shadow:inset 0 0 0 1.5px var(--chip-ring),var(--key-dn)}
 .kc-chips .kc-sep{flex:none;width:1px;margin:6px var(--space-1);background:var(--line2)}
 
 /* day list */
-.kc-list{transition:opacity var(--sp-fade-dur) var(--sp-fade)}
-.kc-list.fading{opacity:0}
+.kc-list,.kc-det{transition:opacity var(--sp-fade-dur) var(--sp-fade)}
+.kc-list.kc-in,.kc-det.kc-in{opacity:0;transition:none}
+/* a day = 미국 group, then 한국 group (user 2026-11-15), each with a small label; company details close the 한국 group */
+.kc-grp + .kc-grp{margin-top:var(--space-3)}
+.kc-rg{padding:var(--space-2) 0 var(--space-2) var(--space-3);font-size:var(--fs-xs);line-height:var(--lh-ui);font-weight:600;color:var(--muted)}
+.kc-rg + .kc-ev,.kc-subh + .kc-det > .kc-ev:first-child{border-top:0}
+.kc-subh{padding:var(--space-4) 0 var(--space-2) var(--space-3);border-top:1px solid var(--line);font-size:var(--fs-xs);line-height:var(--lh-ui);font-weight:600;color:var(--muted)}
+.kc-dmore{position:relative;display:flex;align-items:center;gap:var(--space-3);width:100%;min-height:var(--h-row);padding:0 var(--space-3);border-top:1px solid var(--line);text-align:left;font-size:var(--fs-sm);font-weight:600;color:var(--fg2);transition:filter var(--c-fast) var(--c-out)}
+.kc-dmore .lab{min-width:0}
+.kc-dmore svg{flex:none;width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round}
+.kc-dmore:is(:active,.is-press){filter:var(--press-f);transition-duration:0s}
+@media (hover:hover) and (pointer:fine){.kc-dmore:hover{background:var(--fill-1)}}
+.kc-det .kc-ev{border-top:1px solid var(--line)}
+.kc-det .kc-ev .t1{font-size:var(--fs-md);font-weight:500}
 .kc-day{margin-top:var(--space-5)}
 .kc-dh{display:flex;align-items:center;gap:var(--space-4);flex-wrap:wrap;padding:var(--space-4) 0;font-size:var(--fs-lg);font-weight:700}
 .kc-dh .wd{color:var(--muted);font-weight:500}
@@ -18666,7 +18692,7 @@ sync();
 .kc-badge.closed{color:var(--fg);background:var(--fill-2);box-shadow:none}
 .kc-badge.tent{box-shadow:none;border:1px dashed var(--line2)}
 .kc-ev{display:grid;grid-template-columns:66px minmax(0,1fr) 16px;align-items:center;gap:var(--space-4);width:100%;min-height:52px;padding:var(--space-4) var(--space-3) var(--space-4) 0;border-top:1px solid var(--line);text-align:left}
-.kc-day .kc-ev:first-of-type{border-top:0}
+
 @media (hover:hover) and (pointer:fine){.kc-ev:hover{background:var(--fill-1)}}
 .kc-ev .tm{font-size:var(--fs-md);font-weight:600;padding-left:var(--space-3)}
 .kc-ev .tm small{display:block;font-size:var(--fs-xs);font-weight:500;color:var(--muted);margin-top:1px;white-space:nowrap}
@@ -18686,20 +18712,30 @@ sync();
 .kc-stars.s3 i.on{color:var(--fg)}
 .kc-watch{flex:none;display:inline-flex;align-items:center;height:18px;padding:0 var(--space-3);border-radius:var(--r-badge);font-size:var(--fs-xs);font-weight:600;color:var(--fg2);box-shadow:inset 0 0 0 1px var(--line2)}
 .kc-empty{margin:0;padding:var(--space-5) 0 var(--space-4) var(--space-3);color:var(--muted);border-top:1px solid var(--line)}
+.kc-empty + .kc-hid{border-top:0;padding-top:0}
+.kc-hid + .kc-dmore{border-top:0}
 .kc-more{display:flex;justify-content:center;margin-top:var(--space-5)}
 .kc-msg{display:flex;flex-direction:column;align-items:flex-start;gap:var(--space-4);padding:var(--space-7) var(--space-3);color:var(--fg2)}
 .kc-msg b{color:var(--fg);font-size:var(--fs-xl)}
 .kc-note{display:flex;align-items:center;gap:var(--space-3);margin:var(--space-6) 0 0;color:var(--muted);font-size:var(--fs-xs);line-height:var(--lh-text)}
 .kc-note .bang{display:inline-grid;place-items:center;width:16px;height:16px;border-radius:50%;box-shadow:inset 0 0 0 1.5px var(--fg2);color:var(--fg2);font-weight:700;font-size:var(--fs-xs);flex:none}
 
-/* detail sheet: phone = from below (open spring), wider = a floating panel */
+/* detail sheet: phone = from below, wider = a floating panel (design.md §5 · §7). Opens with `open`, closes with `close` (shorter); the
+   exit is real — after close() the box and its backdrop stay in the top layer until the transition ends (display · overlay
+   allow-discrete), the page is usable meanwhile (pointer-events none on the leaving box). .drag = the finger (or the settle spring
+   after it) owns the transform. 줄이기: every --sp-*-dur is 0. */
 .kc-dlg{position:fixed;inset:auto 0 0 0;margin:0;width:100%;max-width:none;max-height:86vh;overflow:auto;overscroll-behavior:contain;padding:0 var(--edge) calc(var(--space-7) + env(safe-area-inset-bottom));border:0;border-top:1px solid var(--sheet-bd);border-radius:var(--sheet-r) var(--sheet-r) 0 0;background:var(--sheet-bg);color:var(--fg);box-shadow:var(--sheet-sh);
-  transform:translateY(104%);transition:transform var(--sp-close-dur) var(--sp-close)}
-.kc-dlg[open].on{transform:none;transition:transform var(--sp-open-dur) var(--sp-open)}
-.kc-dlg::backdrop{background:rgba(0,0,0,.5);opacity:0;transition:opacity var(--sp-close-dur) var(--sp-close)}
-.kc-dlg.on::backdrop{opacity:1;transition:opacity var(--sp-fade-dur) var(--sp-fade)}
-.kc-dlg .kc-grab{display:block;width:36px;height:4px;border-radius:2px;background:var(--line2);margin:var(--space-4) auto var(--space-2)}
-.kc-sh{display:flex;align-items:flex-start;gap:var(--space-4);padding:var(--space-4) 0 var(--space-5)}
+  transform:translateY(104%);
+  transition:transform var(--sp-close-dur) var(--sp-close),display var(--sp-close-dur) allow-discrete,overlay var(--sp-close-dur) allow-discrete}
+.kc-dlg:not([open]){pointer-events:none}
+.kc-dlg[open].on{transform:none;transition:transform var(--sp-open-dur) var(--sp-open),display var(--sp-open-dur) allow-discrete,overlay var(--sp-open-dur) allow-discrete}
+.kc-dlg.drag,.kc-dlg[open].on.drag{transition:none}
+.kc-dlg::backdrop{background:rgba(0,0,0,.5);opacity:0;transition:opacity var(--sp-close-dur) var(--sp-close),display var(--sp-close-dur) allow-discrete,overlay var(--sp-close-dur) allow-discrete}
+.kc-dlg[open].on::backdrop{opacity:1;transition:opacity var(--sp-fade-dur) var(--sp-fade),display var(--sp-fade-dur) allow-discrete,overlay var(--sp-fade-dur) allow-discrete}
+.kc-dlg .kc-grab{position:relative;display:block;height:var(--space-6);margin:0 calc(-1 * var(--edge));touch-action:none;cursor:grab}
+.kc-dlg .kc-grab::before{content:"";position:absolute;left:50%;top:var(--space-4);width:36px;height:4px;margin-left:-18px;border-radius:2px;background:var(--line2)}
+.kc-sh{display:flex;align-items:flex-start;gap:var(--space-4);padding:var(--space-2) 0 var(--space-5)}
+@media (max-width:760px){ .kc-dlg .kc-sh{touch-action:none} }   /* the grip and the title row drag the sheet down; the rest scrolls */
 .kc-sh h3{flex:1;margin:0;font-size:var(--fs-2xl);line-height:var(--lh-num);font-weight:700;letter-spacing:-.01em;word-break:keep-all}
 .kc-sh h3 .co{display:block;font-size:var(--fs-md);font-weight:600;color:var(--fg2);margin-bottom:var(--space-2);letter-spacing:0}
 .kc-x{position:relative;flex:none;display:grid;place-items:center;width:44px;height:44px;margin:-6px -10px 0 0;border-radius:var(--r-key);color:var(--muted)}
@@ -18710,15 +18746,16 @@ sync();
 .kc-kv dd small{display:block;color:var(--muted);font-size:var(--fs-sm);margin-top:2px}
 .kc-why{padding:var(--space-5);border-radius:var(--r-row);background:var(--fill-1);color:var(--fg2);line-height:var(--lh-text);margin:0 0 var(--space-6)}
 .kc-acts{display:flex;gap:var(--space-4);flex-wrap:wrap}
-.kc-acts a,.kc-acts button{position:relative;display:inline-flex;align-items:center;gap:var(--space-3);min-height:44px;padding:0 var(--space-6);border-radius:var(--r-key);background:var(--key-bg);box-shadow:var(--key-sh);font-size:var(--fs-md);font-weight:600;text-decoration:none;color:var(--key-fg)}
+.kc-acts a,.kc-acts button{position:relative;display:inline-flex;align-items:center;gap:var(--space-3);min-height:44px;padding:0 var(--space-6);border-radius:var(--r-key);background:var(--key-bg);box-shadow:var(--key-sh);font-size:var(--fs-md);font-weight:600;text-decoration:none;color:var(--key-fg);
+  transition:transform var(--c-fast) var(--c-out),box-shadow var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out)}
 .kc-acts svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round}
 .kc-codes{display:flex;flex-wrap:wrap;gap:var(--space-3);margin:0 0 var(--space-6)}
 .kc-codes button{min-height:32px;padding:0 var(--space-4);border-radius:var(--r-in);box-shadow:inset 0 0 0 1px var(--line2);font-size:var(--fs-sm);color:var(--fg2)}
 .kc-dlg .foot{margin:var(--space-6) 0 0;font-size:var(--fs-xs);color:var(--muted);line-height:var(--lh-text)}
 @media (min-width:761px){
   .kc-dlg{inset:50% auto auto 50%;width:460px;max-height:80vh;border:1px solid var(--sheet-bd);border-radius:var(--r-float);padding:0 var(--space-6) var(--space-6);opacity:0;
-    transform:translate(-50%,-48%);transition:transform var(--sp-close-dur) var(--sp-close),opacity var(--sp-close-dur) var(--sp-close)}
-  .kc-dlg[open].on{transform:translate(-50%,-50%);opacity:1;transition:transform var(--sp-open-dur) var(--sp-open),opacity var(--sp-fade-dur) var(--sp-fade)}
+    transform:translate(-50%,-48%);transition:transform var(--sp-close-dur) var(--sp-close),opacity var(--sp-close-dur) var(--sp-close),display var(--sp-close-dur) allow-discrete,overlay var(--sp-close-dur) allow-discrete}
+  .kc-dlg[open].on{transform:translate(-50%,-50%);opacity:1;transition:transform var(--sp-open-dur) var(--sp-open),opacity var(--sp-fade-dur) var(--sp-fade),display var(--sp-open-dur) allow-discrete,overlay var(--sp-open-dur) allow-discrete}
   .kc-dlg .kc-grab{display:none}
   .kc-sh{padding-top:var(--space-6)}
 }
@@ -18730,7 +18767,7 @@ sync();
   .kc-desk{display:grid;grid-template-columns:minmax(0,1fr) 440px;gap:var(--space-6);align-items:start}
   .kc-bar{grid-column:1/-1;display:flex;align-items:center;gap:var(--space-4);min-width:0}
   .kc-bar h2{margin:0 var(--space-4) 0 0;font-size:var(--fs-2xl);font-weight:700;letter-spacing:-.01em;white-space:nowrap}
-  .kc-bar .kc-chips{padding:0;margin:0 0 0 var(--space-5);min-width:0}
+  .kc-bar .kc-chips{padding:6px;margin:-6px -6px -6px calc(var(--space-5) - 6px);min-width:0}   /* room for the focus ring inside the scroller */
   .kc-card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-card);overflow:hidden}
   .kc-mg{display:grid;grid-template-columns:repeat(7,minmax(0,1fr))}
   .kc-mg .h{padding:var(--space-4);font-size:var(--fs-sm);color:var(--muted);border-right:1px solid var(--line);border-bottom:1px solid var(--line);background:var(--panel2)}
@@ -18739,7 +18776,8 @@ sync();
   @media (hover:hover) and (pointer:fine){.kc-mg .cell:hover{background:var(--fill-1)}}
   .kc-mg .cell.out{background:var(--fill-1)}
   .kc-mg .cell.out .dnum{color:var(--faint)}
-  .kc-mg .cell[aria-pressed="true"]{box-shadow:inset 0 0 0 1.5px var(--acc)}
+  .kc-mg .cell{transition:box-shadow var(--sp-close-dur) var(--sp-close)}
+  .kc-mg .cell[aria-pressed="true"]{box-shadow:inset 0 0 0 1.5px var(--acc);transition:box-shadow var(--sp-fade-dur) var(--sp-fade)}
   .kc-mg .top1{display:flex;align-items:center;gap:var(--space-3);margin-bottom:2px;min-width:0}
   .kc-mg .dnum{flex:none;display:inline-grid;place-items:center;min-width:24px;height:24px;border-radius:12px;font-size:var(--fs-md);font-weight:600}
   .kc-mg .cell.wkend .dnum{color:var(--fg2)}
@@ -18760,19 +18798,25 @@ sync();
 
 </style>
 <script>
-/* 증시 캘린더 — the 일정 tab (AGENTS §3-33, docs/standards/calendar.md §5 A안).
+/* 증시 캘린더 — the 일정 tab (AGENTS §3-33, docs/standards/calendar.md §5 A안 · §9-6).
    window.KHCal = { show(kind), hide(), isOn() }. The template calls show('calendar') when the 일정 tab (state.market 'CAL', #cal) opens and
    hands over <div id="calendar">; hide() when another tab opens. Data: GET /api/calendar?from&to (Worker calendar.js), fetched in
    14-day blocks (cached in memory, re-read every 30 min while shown). Phone: week strip + day list; ≥ 1280 px: month grid + 7-day list.
    Stars and badges are neutral (never the up/down colours); amber only for the chosen day, switched-on chips and focus.
-   Saved: localStorage khm.cal = {kinds:[…], hi:bool, weekly:bool} (weekly option expiries hidden by default, user 2026-11-15). */
+   Each day lists 미국 first, then 한국 (user 2026-11-15 19:2x "미국 일정 한국일정 따로 분리하고 미국일정을 먼저"). Company details the
+   Worker tags `minor` (금융위 주식권리일정 시한 …) — and 주총 of stocks neither watched nor on the map — stay behind the chip
+   "기업 세부 일정" or a day's own "기업 세부 일정 N개 더 보기" (user 19:23 "그래 그게 맞고").
+   Chips toggle in place (design.md §6 · §7: fill `fade` in / `close` out, the check fades in and the label slides over the box it
+   always reserves, so a chip never changes width and its neighbours never move; press 1px). html[data-motion=reduced] → instant.
+   Saved: localStorage khm.cal = {kinds:[…], hi:bool, weekly:bool, detail:bool} (weekly option expiries and company details hidden by default). */
 (() => {
   'use strict';
   const KH = window.KH;
   if (!KH || window.KHCal) return;
   const h = KH.h;
   const KST = 9 * 3600e3, DAY = 86400e3;
-  const KINDS = { kr: '한국 지표', us: '미국 지표', cb: '금리', mkt: '시장', corp: '기업' };
+  const KINDS = { us: '미국 지표', kr: '한국 지표', cb: '금리', mkt: '시장', corp: '기업' };   // 미국 first (user 2026-11-15)
+  const RG = [['us', '미국'], ['kr', '한국']];
   const SRC = { bok: '한국은행 통계공표일정', kostat: '국가데이터처 보도계획', fred: 'FRED 발표 일정', manual: '직접 입력 (공지 확인)', rule: '규칙으로 계산', dart: '금융감독원 DART', fsc: '금융위원회 · 한국예탁결제원' };
   const WD = ['일', '월', '화', '수', '목', '금', '토'];
   const BLOCK = 14, EPOCH = Date.UTC(2024, 0, 1);         // a Monday: 14-day blocks line up with weeks
@@ -18786,19 +18830,23 @@ sync();
   const label = s => `${+s.slice(5, 7)}월 ${+s.slice(8, 10)}일`;
   const reduced = () => document.documentElement.dataset.motion === 'reduced';
   const wide = () => matchMedia('(min-width: 1280px)').matches;
+  const cssMs = n => parseFloat(getComputedStyle(document.documentElement).getPropertyValue(n)) || 0;
   const svg = d => { const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); s.setAttribute('viewBox', '0 0 24 24'); s.setAttribute('aria-hidden', 'true'); s.innerHTML = d; return s; };
-  const IC = { l: '<path d="M15 6l-6 6 6 6"/>', r: '<path d="M9 6l6 6-6 6"/>', chev: '<path d="M9 6l6 6-6 6"/>', x: '<path d="M6 6l12 12M18 6L6 18"/>', ck: '<path d="M5 12.5l4.2 4L19 7"/>', ext: '<path d="M14 4h6v6M20 4l-9 9M18 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4"/>' };
+  const IC = { l: '<path d="M15 6l-6 6 6 6"/>', r: '<path d="M9 6l6 6-6 6"/>', chev: '<path d="M9 6l6 6-6 6"/>', down: '<path d="M6 9l6 6 6-6"/>', up: '<path d="M6 15l6-6 6 6"/>', x: '<path d="M6 6l12 12M18 6L6 18"/>', ext: '<path d="M14 4h6v6M20 4l-9 9M18 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4"/>' };
 
   // ── state
   const saved = (() => { try { return JSON.parse(localStorage.getItem('khm.cal') || '{}') || {}; } catch (e) { return {}; } })();
   const st = {
     on: false, day: null,
     kinds: new Set(Array.isArray(saved.kinds) && saved.kinds.length ? saved.kinds.filter(k => KINDS[k]) : Object.keys(KINDS)),
-    hi: !!saved.hi, weekly: !!saved.weekly,
+    hi: !!saved.hi, weekly: !!saved.weekly, detail: !!saved.detail,
+    open: new Set(),         // days whose company details are opened in the list (this visit only)
+    all: new Set(),          // days whose hidden rows were asked for from the empty-day line (this visit only)
     blocks: new Map(),       // blockStart → {at, body} | {at, err}
-    pending: new Map(), timer: null, lastIdx: -1, error: null,
+    pending: new Map(), timer: null, error: null, map: new Set(),
   };
-  const save = () => { try { localStorage.setItem('khm.cal', JSON.stringify({ kinds: [...st.kinds], hi: st.hi, weekly: st.weekly })); } catch (e) { /* private mode */ } };
+  if (!st.kinds.size) Object.keys(KINDS).forEach(k => st.kinds.add(k));
+  const save = () => { try { localStorage.setItem('khm.cal', JSON.stringify({ kinds: [...st.kinds], hi: st.hi, weekly: st.weekly, detail: st.detail })); } catch (e) { /* private mode */ } };
   const root = () => document.getElementById('calendar');
 
   // ── data: 14-day blocks
@@ -18831,7 +18879,7 @@ sync();
     const need = bs.filter(b => force || !st.blocks.has(b) || !st.blocks.get(b).body || nowMs() - st.blocks.get(b).at >= REFRESH_MS);
     if (!need.length) return;
     await Promise.all(need.map(b => loadBlock(b, force)));
-    if (st.on) draw(false);
+    if (st.on) refresh();
   }
   const rangeNow = () => wide() ? (() => { const g = gridStart(); return [g, addD(g, 41 + 7)]; })() : [monday(st.day), addD(st.day, 6)];
   function bodiesIn(from, to) { return blocksFor(from, to).map(b => st.blocks.get(b)).filter(Boolean); }
@@ -18841,12 +18889,32 @@ sync();
     return out;
   }
   function dayInfo(d) { for (const v of bodiesIn(d, d)) if (v.body && v.body.days && v.body.days[d]) return v.body.days[d]; return null; }
+
+  // ── what a row is: region (미국 · 한국), importance, filters
+  const regionOf = e => (e.rg ? e.rg === 'us' : e.k === 'us' || /^cb:fomc/.test(e.id || '')) ? 'us' : 'kr';
   const watched = c => !!(c && KH.watch && typeof KH.watch.has === 'function' && KH.watch.has(c));
-  const starOf = e => Math.min(3, (e.star || 1) + (e.k === 'corp' && watched(e.c) ? 1 : 0));
-  const visible = e => st.kinds.has(e.k) && (!e.weekly || st.weekly) && (!st.hi || starOf(e) >= 2);
-  const sortEv = (a, b) => (a.t || '00:00').localeCompare(b.t || '00:00') || starOf(b) - starOf(a);
-  const shown = d => eventsOn(d).filter(visible).sort(sortEv);
-  const hiddenCount = d => eventsOn(d).filter(e => !e.weekly || st.weekly).length - shown(d).length;
+  const onMap = c => !!c && (st.map.has(c) || !!(typeof KH.stock === 'function' && KH.stock(c)));
+  // a company detail: the Worker's `minor` (or an old answer's nothing), and 주총 of a stock that is neither watched nor on the map
+  const isMinor = e => e.k === 'corp' && (e.minor === true || (e.cls === 'agm' && !watched(e.c) && !onMap(e.c)));
+  const starOf = e => isMinor(e) ? 1 : Math.min(3, (e.star || 1) + (e.k === 'corp' && watched(e.c) ? 1 : 0));
+  const passBase = e => st.kinds.has(e.k) && (!e.weekly || st.weekly);
+  const passHi = e => !st.hi || starOf(e) >= 2;
+  const inFilter = e => passBase(e) && passHi(e) && (!isMinor(e) || st.detail);     // the strip's marks · the grid · counts
+  const sortEv = (a, b) => (a.t || '00:00').localeCompare(b.t || '00:00') || starOf(b) - starOf(a);   // all-day first, as before
+  const mainOn = d => eventsOn(d).filter(e => inFilter(e) && !isMinor(e)).sort(sortEv);
+  const detailOn = d => eventsOn(d).filter(e => isMinor(e) && passBase(e) && passHi(e)).sort(sortEv);
+  // why a row is hidden — the chip that hides it, in the chip row's order (the empty-day line names them, user 2026-11-15 19:51)
+  function whyHidden(list) {
+    const why = new Set();
+    for (const e of list) {
+      if (!st.kinds.has(e.k)) why.add('k:' + e.k);
+      if (e.weekly && !st.weekly) why.add('weekly');
+      if (st.hi && starOf(e) < 2) why.add('hi');
+      if (isMinor(e) && !st.detail) why.add('detail');
+    }
+    return [...Object.keys(KINDS).filter(k => why.has('k:' + k)).map(k => `${KINDS[k]} 꺼짐`),
+      why.has('hi') ? '★★ 이상만' : null, why.has('weekly') ? '위클리 만기' : null, why.has('detail') ? '기업 세부 일정' : null].filter(Boolean);
+  }
   const loaded = (from, to) => bodiesIn(from, to).some(v => v.body);
   const failed = (from, to) => bodiesIn(from, to).find(v => v.err);
 
@@ -18877,36 +18945,100 @@ sync();
       d === today() ? h('span', { class: 'tdy', text: '오늘' }) : null,
       info ? h('span', { class: 'kc-badge' + (info.kind === 'closed' ? ' closed' : '') + (info.tentative ? ' tent' : ''), text: info.note + (info.tentative ? ' · 예정' : '') }) : null);
   }
+  // a day's company details: always the end of its 한국 group — a heading when the chip shows them all, else a toggle for this day
+  const detId = d => 'kc-det-' + d;
+  function detBox(d, list) { return h('div', { class: 'kc-det', id: detId(d), role: 'group', 'aria-label': `${label(d)} 기업 세부 일정` }, list.map(evRow)); }
+  function detToggle(d, n, open) {
+    return h('button', { type: 'button', class: 'kc-dmore', 'data-more': d, 'aria-expanded': open ? 'true' : 'false', 'aria-controls': detId(d), onclick: ev => toggleDay(d, ev.currentTarget) },
+      h('span', { class: 'lab' }, h('span', { class: 'sw-n', text: open ? '기업 세부 일정 접기' : `기업 세부 일정 ${n}개 더 보기` })), svg(open ? IC.up : IC.down));
+  }
+  // a day: 미국 group → 한국 group (details at its end). st.all: a day whose hidden rows were asked for ("이 날 숨긴 일정 보기") shows
+  // everything, whatever the chips say, until "이 날 다시 숨기기" (this visit only)
   function dayBlock(d) {
-    const list = shown(d), info = dayInfo(d);
-    const sec = h('section', { class: 'kc-day', 'aria-label': `${label(d)} ${WD[wday(d)]}요일` }, dayHead(d));
-    if (list.length) list.forEach(e => sec.append(evRow(e)));
-    else {
-      const hid = hiddenCount(d);
-      sec.append(h('p', { class: 'kc-empty', text: info && info.kind === 'closed' ? '장이 쉬어요.' : hid ? `고른 조건에 맞는 일정이 없어요 · 숨긴 일정 ${hid}개` : '일정이 없어요.' }));
+    const all = st.all.has(d), evs = eventsOn(d), info = dayInfo(d);
+    const main = all ? evs.filter(e => !isMinor(e)).sort(sortEv) : mainOn(d), det = all ? evs.filter(isMinor).sort(sortEv) : detailOn(d);
+    const sec = h('section', { class: 'kc-day', 'data-day': d, 'aria-label': `${label(d)} ${WD[wday(d)]}요일` }, dayHead(d));
+    const showDet = det.length > 0 && (all || st.detail || main.length > 0);   // a day with nothing important: the line below offers it all
+    for (const [rg, name] of RG) {
+      const rows = main.filter(e => regionOf(e) === rg), extra = rg === 'kr' && showDet;
+      if (!rows.length && !extra) continue;
+      const grp = h('div', { class: 'kc-grp', 'data-rg': rg, role: 'group', 'aria-label': `${name} 일정` }, h('div', { class: 'kc-rg', 'aria-hidden': 'true', text: name }), rows.map(evRow));
+      if (extra) {
+        if (st.detail || all) grp.append(h('div', { class: 'kc-subh', text: `기업 세부 일정 ${det.length}개` }), detBox(d, det));
+        else { grp.append(detToggle(d, det.length, st.open.has(d))); if (st.open.has(d)) grp.append(detBox(d, det)); }
+      }
+      sec.append(grp);
+    }
+    if (all && evs.length) sec.append(revealKey(d, evs.length, true));
+    else if (!main.length && !showDet) {
+      // nothing to show: say how many are hidden and by which chips, and offer them for this day (the chips stay as they are)
+      const why = whyHidden(evs), closed = info && info.kind === 'closed';
+      if (closed || !evs.length) sec.append(h('p', { class: 'kc-empty', text: closed ? '장이 쉬어요.' : '일정이 없어요.' }));
+      if (evs.length) sec.append(h('p', { class: 'kc-empty kc-hid', text: `숨긴 일정 ${evs.length}개${why.length ? ` (${why.join(' · ')})` : ''}` }), revealKey(d, evs.length, false));
     }
     return sec;
   }
+  function revealKey(d, n, open) {
+    return h('button', { type: 'button', class: 'kc-dmore', 'data-reveal': d, 'aria-expanded': open ? 'true' : 'false', 'aria-label': `${label(d)} ${open ? '숨긴 일정 다시 숨기기' : `숨긴 일정 ${n}개 보기`}`,
+      onclick: () => revealDay(d) }, h('span', { class: 'lab', text: open ? '이 날 다시 숨기기' : '이 날 숨긴 일정 보기' }), svg(open ? IC.up : IC.down));
+  }
+  function revealDay(d) {
+    if (st.all.has(d)) st.all.delete(d); else st.all.add(d);
+    const box = root(); if (!box) return;
+    for (const old of box.querySelectorAll(`.kc-day[data-day="${d}"]`)) { const fresh = dayBlock(d); old.replaceWith(fresh); fadeIn(fresh); }
+    const b = box.querySelector(`[data-reveal="${d}"]`); if (b) b.focus({ preventScroll: true });
+  }
+  function toggleDay(d, btn) {
+    const open = !st.open.has(d);
+    if (open) st.open.add(d); else st.open.delete(d);
+    const grp = btn.parentNode, old = grp && grp.querySelector('.kc-det');
+    if (old) old.remove();                                      // closing: the rows leave at once, together
+    const det = detailOn(d);
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    const lab = btn.querySelector('.lab'), text = open ? '기업 세부 일정 접기' : `기업 세부 일정 ${det.length}개 더 보기`;
+    if (KH.ui && typeof KH.ui.swap === 'function') KH.ui.swap(lab, text); else lab.textContent = text;
+    btn.querySelector('svg').replaceWith(svg(open ? IC.up : IC.down));
+    if (open && det.length) { const box = detBox(d, det); btn.after(box); fadeIn(box); }
+  }
+  function fadeIn(el) {                                         // design.md §6-2 fade: no delay before it starts, no stagger
+    if (reduced() || !el) return;
+    el.classList.add('kc-in'); void el.offsetWidth; el.classList.remove('kc-in');
+  }
+
+  // ── filter chips: toggled in place, so they can move (a rebuilt chip has no "before" to transition from)
+  const CHIP_ON = { hi: () => st.hi, weekly: () => st.weekly, detail: () => st.detail };
+  const chipOn = key => (KINDS[key] ? st.kinds.has(key) : CHIP_ON[key] ? CHIP_ON[key]() : false);
+  function chipToggle(key) {
+    if (KINDS[key]) { if (st.kinds.has(key)) { if (st.kinds.size > 1) st.kinds.delete(key); } else st.kinds.add(key); }
+    else if (key === 'hi') st.hi = !st.hi;
+    else if (key === 'weekly') st.weekly = !st.weekly;
+    else if (key === 'detail') st.detail = !st.detail;
+    save();
+    const box = root();
+    if (box) box.querySelectorAll('.kc-chip').forEach(b => b.setAttribute('aria-pressed', chipOn(b.dataset.chip) ? 'true' : 'false'));
+    refresh();
+  }
   function chips() {
-    const mk = (text, on, fn, title) => h('button', { type: 'button', class: 'kc-chip', 'aria-pressed': on ? 'true' : 'false', title, onclick: () => { fn(); save(); draw(false); } },
-      h('span', { class: 'kck' }, svg(IC.ck)), text);
+    const mk = (key, text, title) => h('button', { type: 'button', class: 'kc-chip', 'data-chip': key, 'aria-pressed': chipOn(key) ? 'true' : 'false', title, onclick: () => chipToggle(key) },
+      h('span', { class: 'kck', 'aria-hidden': 'true' }), h('span', { class: 'kcl', text }));
     return h('div', { class: 'kc-chips', role: 'group', 'aria-label': '보일 일정' },
-      ...Object.entries(KINDS).map(([k, l]) => mk(l, st.kinds.has(k), () => { if (st.kinds.has(k)) { if (st.kinds.size > 1) st.kinds.delete(k); } else st.kinds.add(k); })),
+      Object.entries(KINDS).map(([k, l]) => mk(k, l)),
       h('span', { class: 'kc-sep', 'aria-hidden': 'true' }),
-      mk('★★ 이상만', st.hi, () => { st.hi = !st.hi; }),
-      mk('위클리 만기', st.weekly, () => { st.weekly = !st.weekly; }, '코스피200 위클리 옵션 만기(매주 월 · 목) — 기본은 숨겨요'));
+      mk('hi', '★★ 이상만'),
+      mk('weekly', '위클리 만기', '코스피200 위클리 옵션 만기(매주 월 · 목) — 기본은 숨겨요'),
+      mk('detail', '기업 세부 일정', '주식권리일정의 통지 · 접수 시한, 명부폐쇄, 교부 · 상장일, 1% 미만 보호예수, 관심 · 지도 밖 종목의 주총 — 기본은 숨겨요'));
   }
   function marks(d) {
-    const all = eventsOn(d).filter(e => !e.weekly || st.weekly), info = dayInfo(d);
+    const all = eventsOn(d).filter(inFilter), info = dayInfo(d);
     if (info && info.kind === 'closed') return h('span', { class: 'kc-marks', 'aria-hidden': 'true' }, h('b', { text: '휴' }));
     const hi = all.filter(e => starOf(e) >= 2).length, lo = all.length - hi;
     return h('span', { class: 'kc-marks', 'aria-hidden': 'true' }, [...Array(Math.min(3, hi))].map(() => h('i')), hi < 3 && lo ? h('i', { class: 'dim' }) : null);
   }
   function weekStrip() {
     const m = monday(st.day), t = today();
-    const wk = h('div', { class: 'kc-wk', role: 'group', 'aria-label': `${label(m)}부터 한 주` }, h('span', { class: 'kc-ind', 'aria-hidden': 'true' }));
+    const wk = h('div', { class: 'kc-wk', 'data-part': 'wk', role: 'group', 'aria-label': `${label(m)}부터 한 주` }, h('span', { class: 'kc-ind', 'aria-hidden': 'true' }));
     for (let i = 0; i < 7; i++) {
-      const d = addD(m, i), info = dayInfo(d), n = eventsOn(d).filter(visible).length;
+      const d = addD(m, i), info = dayInfo(d), n = eventsOn(d).filter(inFilter).length;
       wk.append(h('button', { type: 'button', class: [d === t ? 'today' : '', i >= 5 ? 'wkend' : '', info && info.kind === 'closed' ? 'closed' : ''].join(' ').trim() || null,
         'aria-pressed': d === st.day ? 'true' : 'false', 'data-d': d,
         'aria-label': `${label(d)} ${WD[wday(d)]}요일${d === t ? ', 오늘' : ''}${info ? ', ' + info.note : ''}, 일정 ${n}개`, onclick: () => pick(d) },
@@ -18914,21 +19046,24 @@ sync();
     }
     wk.addEventListener('keydown', ev => {
       if (ev.key !== 'ArrowLeft' && ev.key !== 'ArrowRight') return;
-      ev.preventDefault(); pick(addD(st.day, ev.key === 'ArrowLeft' ? -1 : 1), true);
+      ev.preventDefault(); pick(addD(st.day, ev.key === 'ArrowLeft' ? -1 : 1), ev.repeat ? 'repeat' : 'key');
     });
     return wk;
   }
+  // the raised marker under the chosen day: leading edge `lead`, trailing `trail` (KH.spring.edges, design.md §6-3 · §7 ①);
+  // the first place, a resize and held arrow keys (design.md §8) set it at once
   function placeInd(animate) {
     const wk = root() && root().querySelector('.kc-wk'); if (!wk) return;
     const ind = wk.querySelector('.kc-ind'), cur = wk.querySelector('button[aria-pressed="true"]');
     if (!ind || !cur) return;
-    const btns = [...wk.querySelectorAll('button')], idx = btns.indexOf(cur);
-    ind.classList.toggle('now', !animate || reduced());
-    ind.classList.toggle('rev', idx < st.lastIdx);
-    ind.style.left = cur.offsetLeft + 'px'; ind.style.width = cur.offsetWidth + 'px';
-    st.lastIdx = idx;
+    const box = { left: cur.offsetLeft, width: cur.offsetWidth };
+    if (KH.spring && typeof KH.spring.edges === 'function') {
+      const ctl = KH.spring.edges(ind);
+      if (animate && ctl.value() && !reduced()) ctl.to(box); else ctl.set(box);
+    } else { ind.style.transform = `translateX(${box.left}px)`; ind.style.width = box.width + 'px'; }
   }
-  const key = (cls, aria, ic, fn) => h('button', { type: 'button', class: cls, 'aria-label': aria, onclick: fn }, svg(ic));
+  const key = (cls, aria, ic, fn) => h('button', { type: 'button', class: cls, 'data-key': aria, 'aria-label': aria, onclick: fn }, svg(ic));
+  const todayKey = () => h('button', { type: 'button', class: 'kc-tk', 'data-key': '오늘', onclick: () => pick(today()), text: '오늘' });
   function note(from, to) {
     const f = failed(from, to);
     const srcs = bodiesIn(from, to).map(v => v.body && v.body.sources).filter(Boolean)[0];
@@ -18953,40 +19088,43 @@ sync();
     const wrap = h('div', { class: 'kc-phone' },
       h('div', { class: 'kc-hd' },
         h('h2', {}, `${label(m)} – ${sameMonth ? +e.slice(8) + '일' : label(e)}`, h('small', { text: '한국 시간' })),
-        key('kc-ik', '지난주', IC.l, () => pick(addD(st.day, -7))), key('kc-ik', '다음 주', IC.r, () => pick(addD(st.day, 7))),
-        h('button', { type: 'button', class: 'kc-tk', onclick: () => pick(today()), text: '오늘' })),
+        key('kc-ik', '지난주', IC.l, () => pick(addD(st.day, -7))), key('kc-ik', '다음 주', IC.r, () => pick(addD(st.day, 7))), todayKey()),
       weekStrip(), chips());
     wrap.append(listFor(st.day, addD(st.day, 6), true));       // the chosen day and the six after it (a weekend still sees the week ahead)
     return wrap;
   }
   function listFor(from, to, withMore) {
-    const list = h('div', { class: 'kc-list', 'aria-live': 'polite' });
+    const list = h('div', { class: 'kc-list', 'data-part': 'list', 'aria-live': 'polite' });
     if (!loaded(from, to)) { list.append(message(from, to)); return list; }
     for (let d = from; d <= to; d = addD(d, 1)) list.append(dayBlock(d));
-    if (withMore) list.append(h('div', { class: 'kc-more' }, h('button', { type: 'button', class: 'kc-tk', onclick: () => pick(addD(st.day, 7)), text: '다음 7일 보기' })));
+    if (withMore) list.append(h('div', { class: 'kc-more' }, h('button', { type: 'button', class: 'kc-tk', 'data-next': '1', onclick: () => pick(addD(st.day, 7), 'next'), text: '다음 7일 보기' })));
     list.append(note(from, to));
     return list;
   }
   // ── ≥ 1280: month grid + 7 days from the chosen one
   function gridStart() { const first = st.day.slice(0, 8) + '01'; return monday(first); }
+  function gridLines(d) {            // the cell's three lines: the three most important, then 미국 first and in time order (§9-6)
+    const top = eventsOn(d).filter(inFilter).sort((a, b) => starOf(b) - starOf(a) || sortEv(a, b));
+    const three = top.slice(0, 3).sort((a, b) => (regionOf(a) === regionOf(b) ? 0 : regionOf(a) === 'us' ? -1 : 1) || sortEv(a, b));
+    return { three, n: top.length };
+  }
   function desk() {
     const [y, mo] = st.day.split('-').map(Number), g = gridStart();
     const step = n => { const o = new Date(Date.UTC(y, mo - 1 + n, 1)); pick(o.toISOString().slice(0, 10)); };
     const wrap = h('div', { class: 'kc-desk' },
       h('div', { class: 'kc-bar' }, h('h2', { text: `${y}년 ${mo}월` }),
-        key('kc-ik', '지난달', IC.l, () => step(-1)), key('kc-ik', '다음 달', IC.r, () => step(1)),
-        h('button', { type: 'button', class: 'kc-tk', onclick: () => pick(today()), text: '오늘' }), chips()));
+        key('kc-ik', '지난달', IC.l, () => step(-1)), key('kc-ik', '다음 달', IC.r, () => step(1)), todayKey(), chips()));
     const grid = h('div', { class: 'kc-mg', role: 'grid', 'aria-label': `${y}년 ${mo}월` }, ['월', '화', '수', '목', '금', '토', '일'].map(x => h('div', { class: 'h', role: 'columnheader', text: x })));
     const t = today();
     let d = g;
     for (let w = 0; w < 6; w++) {
       for (let i = 0; i < 7; i++, d = addD(d, 1)) {
-        const day = d, list = shown(d).sort((a, b) => starOf(b) - starOf(a)), info = dayInfo(d), out = +d.slice(5, 7) !== mo;
+        const day = d, { three, n } = gridLines(d), info = dayInfo(d), out = +d.slice(5, 7) !== mo;
         const c = h('button', { type: 'button', role: 'gridcell', class: ['cell', out ? 'out' : '', d === t ? 'today' : '', d < t ? 'past' : '', i >= 5 ? 'wkend' : ''].join(' '),
-          'aria-pressed': d === st.day ? 'true' : 'false', 'data-d': d, 'aria-label': `${label(d)} ${WD[wday(d)]}요일${info ? ', ' + info.note : ''}, 일정 ${list.length}개`, onclick: () => pick(day) },
-          h('span', { class: 'top1' }, h('span', { class: 'dnum num', text: String(+d.slice(8)) }), info ? h('span', { class: 'cl', text: info.note }) : null));
-        list.slice(0, 3).forEach(e => c.append(h('span', { class: 'line s' + starOf(e) }, stars(starOf(e)), h('span', { class: 'ttl', text: (e.n && !e.grp ? e.n + ' ' : '') + e.title }))));
-        if (list.length > 3) c.append(h('span', { class: 'plus', text: `+${list.length - 3}개` }));
+          'aria-pressed': d === st.day ? 'true' : 'false', 'data-d': d, 'aria-label': `${label(d)} ${WD[wday(d)]}요일${info ? ', ' + info.note : ''}, 일정 ${n}개`, onclick: () => pick(day) },
+          h('span', { class: 'top1' }, h('span', { class: 'dnum num', text: String(+d.slice(8)) }), info ? h('span', { class: 'cl', text: info.note }) : null),
+          three.map(e => h('span', { class: 'line s' + starOf(e), 'data-rg': regionOf(e) }, stars(starOf(e)), h('span', { class: 'ttl', text: (e.n && !e.grp ? e.n + ' ' : '') + e.title }))),
+          n > 3 ? h('span', { class: 'plus', text: `+${n - 3}개` }) : null);
         grid.append(c);
       }
       if (+d.slice(5, 7) !== mo && d > g) break;
@@ -18994,68 +19132,105 @@ sync();
     grid.addEventListener('keydown', ev => {
       const map = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7 };
       if (!(ev.key in map)) return;
-      ev.preventDefault(); pick(addD(st.day, map[ev.key]), true);
+      ev.preventDefault(); pick(addD(st.day, map[ev.key]), 'key');
     });
-    wrap.append(h('div', { class: 'kc-card' }, loaded(g, addD(g, 41)) ? grid : message(g, addD(g, 41))));
-    const side = h('aside', { class: 'kc-card kc-side', 'aria-label': '고른 날부터 7일' },
-      h('div', { class: 'kc-sideh' }, h('h3', { text: '고른 날부터 7일' }), h('span', { class: 'kc-badge', text: '한국 시간' })),
-      listFor(st.day, addD(st.day, 6), false));
-    wrap.append(side);
+    wrap.append(h('div', { class: 'kc-card', 'data-part': 'grid' }, loaded(g, addD(g, 41)) ? grid : message(g, addD(g, 41))));
+    wrap.append(sideFor());
     return wrap;
   }
+  const sideFor = () => h('aside', { class: 'kc-card kc-side', 'data-part': 'side', 'aria-label': '고른 날부터 7일' },
+    h('div', { class: 'kc-sideh' }, h('h3', { text: '고른 날부터 7일' }), h('span', { class: 'kc-badge', text: '한국 시간' })),
+    listFor(st.day, addD(st.day, 6), false));
 
-  // ── draw · pick
+  // ── draw (everything) · refresh (only the parts that show data — the chips stay, so they animate and keep focus) · pick
   function snapshotNote() {
     return h('div', { class: 'kc-msg', role: 'status' }, h('b', { text: '증시 일정은 실시간 버전에서 볼 수 있어요' }),
       h('a', { class: 'kc-tk', href: (KH.LIVE_URL || 'https://panse.pages.dev/') + '#cal', target: '_blank', rel: 'noopener', text: '실시간 버전 열기' }));
   }
-  function draw(animate) {
+  const readMap = () => { try { st.map = new Set(typeof KH.mapCodes === 'function' ? KH.mapCodes() : []); } catch (e) { st.map = new Set(); } };
+  function draw() {
     const box = root(); if (!box || !st.on) return;
-    const y = scrollY, focusD = document.activeElement && document.activeElement.dataset ? document.activeElement.dataset.d : null;
-    const focusEv = document.activeElement && document.activeElement.dataset ? document.activeElement.dataset.id : null;
+    readMap();
+    const y = scrollY, a = document.activeElement, ds = a && box.contains(a) && a.dataset ? a.dataset : {};
     box.replaceChildren(h('div', { class: 'kc' }, KH.MODE === 'snapshot' ? snapshotNote() : wide() ? desk() : phone()));
     footLine();
     if (KH.MODE === 'snapshot') return;
-    requestAnimationFrame(() => placeInd(animate));
-    if (focusD) { const b = box.querySelector(`[data-d="${focusD}"][aria-pressed="true"]`) || box.querySelector(`[data-d="${focusD}"]`); if (b) b.focus({ preventScroll: true }); }
-    else if (focusEv) { const b = box.querySelector(`[data-id="${CSS.escape(focusEv)}"]`); if (b) b.focus({ preventScroll: true }); }
+    placeInd(false);
+    requestAnimationFrame(() => placeInd(false));             // once more after the tab has laid out (the box may have just unhidden)
+    refocus(box, ds);
     if (Math.abs(scrollY - y) > 1) scrollTo(scrollX, y);
   }
-  function pick(d, kb) {
+  function refocus(box, ds) {
+    let b = null;
+    if (ds.d) b = box.querySelector(`[data-d="${ds.d}"][aria-pressed="true"]`) || box.querySelector(`[data-d="${ds.d}"]`);
+    else if (ds.id) b = box.querySelector(`[data-id="${CSS.escape(ds.id)}"]`);
+    else if (ds.more) b = box.querySelector(`[data-more="${ds.more}"]`);
+    else if (ds.reveal) b = box.querySelector(`[data-reveal="${ds.reveal}"]`);
+    else if (ds.chip) b = box.querySelector(`[data-chip="${ds.chip}"]`);
+    else if (ds.next) b = box.querySelector('[data-next]');
+    else if (ds.key) b = box.querySelector(`[data-key="${CSS.escape(ds.key)}"]`);
+    if (b) b.focus({ preventScroll: true });
+  }
+  function refresh() {
+    const box = root(); if (!box || !st.on) return;
+    if (KH.MODE === 'snapshot' || !box.querySelector(wide() ? '.kc-desk' : '.kc-phone')) return draw();
+    readMap();
+    const y = scrollY, a = document.activeElement, ds = a && a.dataset ? a.dataset : {};
+    const inPart = a && box.contains(a) && a.closest('[data-part]');
+    const fresh = wide() ? desk() : phone();
+    const parts = [...fresh.querySelectorAll('[data-part]')].filter(p => !p.parentElement.closest('[data-part]'));   // outermost only (the side holds a list)
+    for (const part of parts) { const old = box.querySelector(`[data-part="${part.dataset.part}"]`); if (old) old.replaceWith(part); }
+    placeInd(false);
+    if (inPart) refocus(box, ds);
+    if (Math.abs(scrollY - y) > 1) scrollTo(scrollX, y);
+  }
+  // how: 'key' (an arrow key) · 'repeat' (held) · 'next' (다음 7일 보기) · undefined (a tap or click)
+  function pick(d, how) {
     if (!d) return;
-    const sameWeek = monday(d) === monday(st.day) && !wide();
-    st.day = d;
-    const [f, t] = rangeNow();
+    const kb = how === 'key' || how === 'repeat';
+    const box = root();
+    const [f, t] = (() => { const keep = st.day; st.day = d; const r = rangeNow(); st.day = keep; return r; })();
     const ready = loaded(f, t);
-    if (sameWeek && ready) {
-      const box = root(), list = box && box.querySelector('.kc-phone .kc-list');
-      box.querySelectorAll('.kc-wk button').forEach(b => b.setAttribute('aria-pressed', b.dataset.d === d ? 'true' : 'false'));
-      placeInd(true);
-      if (kb) { const b = box.querySelector(`.kc-wk button[data-d="${d}"]`); if (b) b.focus(); }
-      if (list && !reduced()) { list.classList.add('fading'); setTimeout(() => { swapList(); }, 120); }
-      else swapList();
+    const samePlace = box && ready && (wide() ? gridStart() === monday(d.slice(0, 8) + '01') && box.querySelector('.kc-mg') : monday(d) === monday(st.day) && box.querySelector('.kc-phone .kc-wk'));
+    st.day = d;
+    if (samePlace) {                         // same week strip / same month grid: move the marker, swap the list in place
+      box.querySelectorAll(wide() ? '.kc-mg .cell' : '.kc-wk button').forEach(b => b.setAttribute('aria-pressed', b.dataset.d === d ? 'true' : 'false'));
+      if (!wide()) placeInd(how !== 'repeat');
+      if (kb) { const b = box.querySelector(`[data-d="${d}"]`); if (b) b.focus(); }
+      const old = box.querySelector(wide() ? '.kc-side' : '.kc-phone .kc-list');
+      if (old) { const fresh = wide() ? sideFor() : listFor(st.day, addD(st.day, 6), true); old.replaceWith(fresh); fadeIn(wide() ? fresh.querySelector('.kc-list') : fresh); }
+      ensure(f, t);                          // a later day's seven can reach into the next 14-day block
       return;
     }
-    draw(false);
+    draw();
+    if (how === 'next') {                    // the list starts again from its top: bring the week back into view, keep the key focused
+      const hd = box && box.querySelector('.kc-hd'), pad = parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop) || 0;
+      if (hd && hd.getBoundingClientRect().top < pad) hd.scrollIntoView({ block: 'start' });   // html scroll-padding keeps it under the stuck header
+      fadeIn(box && box.querySelector('.kc-phone .kc-list'));
+      const nx = box && box.querySelector('[data-next]'); if (nx) nx.focus({ preventScroll: true });
+    }
     ensure(f, t);
   }
-  function swapList() {
-    const box = root(), old = box && box.querySelector('.kc-phone .kc-list'); if (!old) return draw(false);
-    const fresh = listFor(st.day, addD(st.day, 6), true);
-    if (!reduced()) fresh.classList.add('fading');
-    old.replaceWith(fresh);
-    requestAnimationFrame(() => fresh.classList.remove('fading'));
-  }
 
-  // ── detail (a <dialog>: phone = bottom sheet, wider = floating panel)
-  let dlg = null, opener = null;
+  // ── detail (a <dialog>: phone = bottom sheet, wider = floating panel) — design.md §5 · §7 시트 · §8, user 2026-11-15 19:49 (떠 있는 창에
+  // 움직임이 없다): opens with `open` from its closed pose, closes with `close` — a real exit: close() runs at once (the page is usable again,
+  // focus goes back to the row) while CSS keeps the sheet and its backdrop in the top layer until the exit ends (transition-behavior:
+  // allow-discrete on display · overlay); opening again mid-exit turns it around from where it is. Phone: drag the grip or the title
+  // down to dismiss (6px to start, axis lock 6px, release speed from the last 100ms, past 35% of its height or a throw > 0.11px/ms,
+  // rubber band .55 upward; the hand-off rides `settle` with the finger's speed — KH.spring). 줄이기: every length is 0.
+  let dlg = null, opener = null, openerId = null, closeT = 0, leaving = false, drag = null, dragH = null;
+  const DISCRETE = !!(window.CSS && CSS.supports && CSS.supports('transition-behavior', 'allow-discrete'));
+  const sheetMode = () => !matchMedia('(min-width: 761px)').matches;
   const fmtPeriod = p => !p ? '' : /^\d{4}-\d{2}-\d{2}$/.test(p) ? (p.endsWith('-01') ? `${p.slice(0, 4)}년 ${+p.slice(5, 7)}월` : `${p.slice(0, 4)}년 ${+p.slice(5, 7)}월 ${+p.slice(8)}일`)
     : /^\d{6}$/.test(p) ? `${p.slice(0, 4)}년 ${+p.slice(4)}월` : /^\d{4}Q\d$/.test(p) ? `${p.slice(0, 4)}년 ${p.slice(5)}분기` : /^\d{8}$/.test(p) ? `${+p.slice(4, 6)}월 ${+p.slice(6)}일 기준` : p;
   function why(e, s) {
     if (e.k === 'cb') return '기준금리를 정하거나 그 논의를 공개하는 날이라 금리 · 환율 · 주가가 함께 움직일 수 있어요.';
     if (e.k === 'mkt' && e.star === 3) return '선물과 옵션 만기가 겹치는 날이에요(3 · 6 · 9 · 12월 둘째 목요일). 장 마감 무렵 거래가 몰릴 수 있어요.';
     if (e.weekly) return '코스피200 위클리 옵션의 마지막 거래일이에요. 매주 월 · 목이라 기본으로는 숨겨요.';
-    if (e.k === 'corp' && e.pct != null) return `풀리는 주식이 상장주식의 ${e.pct}%예요. 별 기준: 10% 이상 ★★★ · 3% 이상 ★★ · 그 밖 ★.${watched(e.c) ? ' 관심종목이라 하나 더했어요.' : ''}`;
+    if (e.k === 'corp' && isMinor(e)) return e.cls === 'agm' ? '주주총회예요. 관심종목과 지도에 있는 종목의 주총만 기본으로 보여 주고, 나머지는 "기업 세부 일정"에 있어요.'
+      : '권리 행사 절차의 세부 일정이에요(통지 · 접수 시한, 명부폐쇄, 교부 · 상장일 같은 것). 기본으로는 숨기고 "기업 세부 일정"을 켜면 보여요.';
+    if (e.k === 'corp' && e.pct != null) return `풀리는 주식이 상장주식의 ${e.pct}%예요. 별 기준: 10% 이상 ★★★ · 3% 이상 ★★ · 그 밖 ★, 1% 미만은 세부 일정으로 숨겨요.${watched(e.c) ? ' 관심종목이라 하나 더했어요.' : ''}`;
+    if (e.k === 'corp' && e.exd) return `권리락은 기준일 전 영업일(${label(e.exd)})이에요. 그날부터 산 주식에는 새 주식이 배정되지 않아요.${watched(e.c) ? ' 관심종목이라 별을 하나 더했어요.' : ''}`;
     if (e.k === 'corp') return `회사 일정이에요.${watched(e.c) ? ' 관심종목이라 별을 하나 더했어요.' : ''}`;
     return ['', '참고용 발표로 분류했어요(자체 기준).', '자주 보는 발표로 분류했어요(자체 기준).', '시장 전체에 영향이 큰 발표로 분류했어요(자체 기준).'][s];
   }
@@ -19076,25 +19251,79 @@ sync();
     const [hh, mm] = e.orig.t.split(':').map(Number);
     return `미국 동부 ${m}월 ${d}일 ${hh >= 12 ? '오후' : '오전'} ${((hh + 11) % 12) + 1}:${String(mm).padStart(2, '0')} 발표 → 한국 시간으로 바꿨어요`;
   }
+  function makeDialog() {
+    dlg = h('dialog', { class: 'kc-dlg', 'aria-labelledby': 'kc-dt' });
+    dlg.addEventListener('cancel', ev => { ev.preventDefault(); closeDetail(); });
+    dlg.addEventListener('click', ev => {             // the backdrop (a click on the dialog box itself but outside its rectangle)
+      if (ev.target !== dlg || drag) return;
+      const r = dlg.getBoundingClientRect();
+      if (ev.clientX < r.left || ev.clientX > r.right || ev.clientY < r.top || ev.clientY > r.bottom) closeDetail();
+    });
+    dlg.addEventListener('transitionend', ev => { if (ev.target === dlg && ev.propertyName === 'transform' && !dlg.open) leaving = false; });
+    // drag to dismiss (phone sheet only; the grip and the title row — touch-action:none there, the rest scrolls)
+    dlg.addEventListener('pointerdown', ev => {
+      if (!dlg.open || !dlg.classList.contains('on') || !sheetMode() || ev.button > 0) return;
+      const zone = ev.target.closest('.kc-grab, .kc-sh'); if (!zone) return;
+      if (dragH) { dragH.stop(); dragH = null; }
+      drag = { id: ev.pointerId, zone, x0: ev.clientX, y0: ev.clientY, on: false, y: 0, h: dlg.offsetHeight, s: [] };
+    });
+    dlg.addEventListener('pointermove', ev => {
+      const g = drag; if (!g || ev.pointerId !== g.id) return;
+      const dx = ev.clientX - g.x0, dy = ev.clientY - g.y0;
+      if (!g.on) {
+        if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return;
+        if (Math.abs(dx) > Math.abs(dy)) { drag = null; return; }          // sideways: not a dismiss
+        g.on = true; dlg.classList.add('drag');
+        try { g.zone.setPointerCapture(ev.pointerId); } catch (e) { /* the pointer is gone */ }
+      }
+      g.y = dy >= 0 ? dy : dy * 0.55;                                       // upward past the open pose: rubber band
+      dlg.style.transform = `translateY(${g.y}px)`;
+      g.s.push({ t: ev.timeStamp, y: g.y });
+      while (g.s.length > 2 && ev.timeStamp - g.s[0].t > 100) g.s.shift();
+    });
+    const end = ev => {
+      const g = drag; if (!g || ev.pointerId !== g.id) return;
+      drag = null;
+      if (!g.on) return;
+      const win = g.s.filter(x => ev.timeStamp - x.t <= 100), a = win[0], b = win[win.length - 1];          // the last 100ms only:
+      const v = win.length > 1 && b.t > a.t ? (b.y - a.y) / (b.t - a.t) : 0;                               // a finger that stopped → 0 (px/ms)
+      const go = ev.type !== 'pointercancel' && (g.y > 0.35 * g.h || v > ((KH.spring && KH.spring.THROW) || 0.11));
+      settleSheet(g.y, go ? g.h + 24 : 0, v, go);                          // (the lift is captured by the grip row: no button under it fires)
+    };
+    dlg.addEventListener('pointerup', end);
+    dlg.addEventListener('pointercancel', end);
+    document.body.append(dlg);
+  }
+  // after a drag: back to the open pose, or away (then closed) — `settle` with the finger's speed
+  function settleSheet(from, to, vPxMs, away) {
+    if (away) dlg.classList.remove('on');                                   // the backdrop fades with `close` meanwhile
+    const done = () => {
+      dragH = null;
+      if (away) { closeDetail(false, true); dlg.style.transform = ''; dlg.classList.remove('drag'); }
+      else { dlg.style.transform = ''; dlg.classList.remove('drag'); }
+    };
+    if (!KH.spring || typeof KH.spring.animate !== 'function' || reduced()) { dlg.style.transform = `translateY(${to}px)`; done(); return; }
+    dragH = KH.spring.animate({ from, to, name: 'settle', velocity: vPxMs * 1000, onUpdate: y => { dlg.style.transform = `translateY(${y}px)`; }, onRest: done });
+  }
   function openDetail(e, from) {
     opener = from || document.activeElement;
-    if (!dlg) {
-      dlg = h('dialog', { class: 'kc-dlg', 'aria-labelledby': 'kc-dt' });
-      dlg.addEventListener('cancel', ev => { ev.preventDefault(); closeDetail(); });
-      dlg.addEventListener('click', ev => { if (ev.target === dlg) closeDetail(); });
-      document.body.append(dlg);
-    }
+    openerId = opener && opener.dataset ? opener.dataset.id || null : null;
+    clearTimeout(closeT);
+    if (!dlg) makeDialog();
+    if (dragH) { dragH.stop(); dragH = null; }
+    drag = null; dlg.classList.remove('drag'); dlg.style.transform = '';
     const s = starOf(e), past = isPast(e);
     const when = e.t ? `${label(e.d)} (${WD[wday(e.d)]}) ${e.t}` : `${label(e.d)} (${WD[wday(e.d)]}) · 종일`;
     const names = e.grp && e.codes ? e.codes.map(c => { const r = KH.stock(c); return { c, n: (r && r.n) || c }; }) : null;
-    dlg.replaceChildren(...[       // native replaceChildren prints null as "null" — keep only real nodes
+    // every piece goes through h() (which drops null) — native replaceChildren / append print null as the text "null"
+    dlg.replaceChildren(h('div', { class: 'kc-dbody' },
       h('span', { class: 'kc-grab', 'aria-hidden': 'true' }),
-      h('div', { class: 'kc-sh' }, h('h3', { id: 'kc-dt' }, e.n && !e.grp ? h('span', { class: 'co', text: `${e.n} · ${e.c}` }) : null, e.title), h('button', { type: 'button', class: 'kc-x', 'aria-label': '닫기', onclick: closeDetail }, svg(IC.x))),
+      h('div', { class: 'kc-sh' }, h('h3', { id: 'kc-dt' }, e.n && !e.grp ? h('span', { class: 'co', text: `${e.n} · ${e.c}` }) : null, e.title), h('button', { type: 'button', class: 'kc-x', 'aria-label': '닫기', onclick: () => closeDetail() }, svg(IC.x))),
       h('dl', { class: 'kc-kv' },
         h('dt', { text: '언제' }), h('dd', { class: 'num' }, when, origLong(e) ? h('small', { text: origLong(e) }) : null),
         e.value ? [h('dt', { text: '발표값' }), h('dd', {}, e.value.text, e.value.p ? h('small', { text: `${fmtPeriod(e.value.p)} · ${e.value.src === 'ecos' ? '한국은행 ECOS' : 'FRED'}` }) : null)] : null,
         h('dt', { text: '중요도' }), h('dd', {}, stars(s), ' ', ['', '참고', '중요', '매우 중요'][s]),
-        h('dt', { text: '분류' }), h('dd', {}, KINDS[e.k], e.sub ? h('small', { text: e.sub }) : null),
+        h('dt', { text: '분류' }), h('dd', {}, `${e.k === 'us' || e.k === 'kr' ? '' : regionOf(e) === 'us' ? '미국 · ' : '한국 · '}${KINDS[e.k] || ''}${isMinor(e) ? ' · 세부 일정' : ''}`, e.sub ? h('small', { text: e.sub }) : null),
         h('dt', { text: '출처' }), h('dd', {}, SRC[e.src] || e.src, h('small', { text: srcNote(e) })),
         h('dt', { text: '상태' }), h('dd', { text: e.tentative ? `예정 — ${e.tentative}` : past ? '지났어요' : '예정' })),
       names ? h('div', { class: 'kc-codes', role: 'list', 'aria-label': '종목' }, names.map(x => h('button', { type: 'button', role: 'listitem', onclick: () => { closeDetail(true); if (KH.openStock) KH.openStock(x.c, {}); }, text: x.n }))) : null,
@@ -19102,18 +19331,36 @@ sync();
       h('div', { class: 'kc-acts' },
         e.url ? h('a', { href: e.url, target: '_blank', rel: 'noopener' }, svg(IC.ext), e.src === 'dart' ? 'DART 원문' : '원천 보기') : null,
         e.c && !e.grp && typeof KH.openStock === 'function' ? h('button', { type: 'button', onclick: () => { closeDetail(true); KH.openStock(e.c, {}); }, text: '종목 페이지' }) : null),
-      h('p', { class: 'foot', text: '시각은 한국 시간이에요. 원천이 일정을 바꾸면 다음 갱신 때 바뀌어요.' })].filter(Boolean));
+      h('p', { class: 'foot', text: '시각은 한국 시간이에요. 원천이 일정을 바꾸면 다음 갱신 때 바뀌어요.' })));
+    const midExit = leaving && !dlg.open;                          // still on screen, on its way out: turn it around from where it is
     if (!dlg.open) dlg.showModal();
+    leaving = false;
     document.dispatchEvent(new CustomEvent('kh:worlddetail'));      // the phone dock hides while a sheet is open (template openWins)
-    requestAnimationFrame(() => requestAnimationFrame(() => dlg.classList.add('on')));
+    if (reduced() || midExit || dlg.classList.contains('on')) dlg.classList.add('on');
+    else requestAnimationFrame(() => requestAnimationFrame(() => { if (dlg.open) dlg.classList.add('on'); }));   // open spring from the closed pose
     dlg.querySelector('.kc-x').focus();
   }
-  function closeDetail(noFocus) {
+  function closeDetail(noFocus, dragged) {
     if (!dlg || !dlg.open) return;
-    dlg.classList.remove('on');
-    const done = () => { if (!dlg.classList.contains('on') && dlg.open) dlg.close(); document.dispatchEvent(new CustomEvent('kh:worlddetail')); };
-    if (reduced()) done(); else setTimeout(done, 260);
-    if (!noFocus && opener && opener.isConnected) opener.focus({ preventScroll: true });
+    if (dragH && !dragged) { dragH.stop(); dragH = null; }
+    drag = null;
+    if (!dragged) { dlg.classList.remove('drag'); dlg.style.transform = ''; }
+    dlg.classList.remove('on');                                   // close spring (shorter than open, design.md §6-2)
+    clearTimeout(closeT);
+    const shut = () => {
+      if (dlg.classList.contains('on') || !dlg.open) return;
+      dlg.close();
+      document.dispatchEvent(new CustomEvent('kh:worlddetail'));
+      if (!noFocus) {                                             // back to the row that opened it (found again if the list was redrawn)
+        const el = opener && opener.isConnected ? opener : openerId && root() ? root().querySelector(`[data-id="${CSS.escape(openerId)}"]`) : null;
+        if (el) el.focus({ preventScroll: true });
+      }
+    };
+    if (DISCRETE || reduced() || dragged) {                        // CSS keeps it drawn through the exit; the page is usable at once
+      leaving = !reduced() && !dragged;
+      if (leaving) closeT = setTimeout(() => { leaving = false; }, cssMs('--sp-close-dur') + 60);
+      shut();
+    } else closeT = setTimeout(shut, cssMs('--sp-close-dur') + 30);   // older engines: stay modal until the exit ends
   }
 
   // ── footer line (above the disclaimer, §3-30): the template's renderFooter() puts <p id="foot-cal"> with footText() on the 일정 tab
@@ -19121,11 +19368,11 @@ sync();
   function footLine() { const p = document.getElementById('foot-cal'); if (p && st.on) p.textContent = FOOT; }
 
   // ── lifecycle
-  function onResize() { if (!st.on) return; const w = wide(); if (w !== st.wasWide) { st.wasWide = w; draw(false); const [f, t] = rangeNow(); ensure(f, t); } else placeInd(false); }
+  function onResize() { if (!st.on) return; const w = wide(); if (w !== st.wasWide) { st.wasWide = w; draw(); const [f, t] = rangeNow(); ensure(f, t); } else placeInd(false); }
   function show() {
     st.on = true; st.wasWide = wide();
     if (!st.day) st.day = today();
-    draw(false);
+    draw();
     if (KH.MODE === 'snapshot') return;
     const [f, t] = rangeNow();
     ensure(f, t);
@@ -19135,10 +19382,11 @@ sync();
   function hide() {
     st.on = false;
     clearInterval(st.timer); st.timer = null;
+    clearTimeout(closeT);
     if (dlg && dlg.open) { dlg.classList.remove('on'); dlg.close(); }
   }
   addEventListener('resize', onResize);
-  document.addEventListener('kh:watch', () => { if (st.on) draw(false); });
+  document.addEventListener('kh:watch', () => { if (st.on) refresh(); });
   document.addEventListener('visibilitychange', () => { if (!document.hidden && st.on) { const [a, b] = rangeNow(); ensure(a, b); } });
   window.KHCal = { show, hide, isOn: () => st.on, detailOpen: () => !!(dlg && dlg.open), footText: () => FOOT };
 })();
