@@ -618,6 +618,7 @@ python3 tmp/shot.py /home/claude/heatmap/dist/index.html    # 1440×900 / 390×8
 - **규칙 문서 `docs/standards/design.md`(승인)** — `controls.md` · `themes.md` · `dock.md` · `docs/motion-brief.md`보다 위. 근거 `docs/research/design-references.md` · `docs/research/ui-audit.md`, 움직임 시안 `drafts/springs.html`(claude.ai 아티팩트로도 올림).
 - 토큰(`src/template.html :root`): 글자 `--fs-xs…num` · 행간 `--lh-*` · 간격 `--space-1…8` · 모서리 `--r-mark/badge/row/card/float`(+ 기존 `--r-key/in/pill`) · 높이 `--h-chip/key/row`(760px 아래 휴대폰 값) · 채움 `--fill-1…3` · 상태 `--live` · `--fail-dot`(지금은 앰버 — 모듈을 옮길 때 바꿔요) · 스프링 `--sp-<이름>`(`linear()`) · `--sp-<이름>-dur` · `--sp-<이름>-kc`(`"k c"`, JS 엔진용). 스프링 표는 `scripts/design_tokens.mjs` 한 곳 — 바꾸면 `node scripts/design_tokens.mjs`로 다시 만들고 `--check`로 확인.
 - 적용 순서(design.md §11): 기반 → 새로 만드는 것(공시 토글 · 분봉 고르기 · 이동평균 범례 토글 · 시장 요약 카드 · 증시 캘린더 · KDI · 관보) → 기존 화면(템플릿 → extras → 종목 페이지 → 해외 · 지표 → 뉴스 · 공시 · 아래 막대).
+- **extras 옮김** (`ux/std-extras`, 2026-11-15 — 자세한 건 design.md §11 진행): 토큰 · 빛과 그라데이션 없음(15:20은 `--live` 테두리 + `--fill-2` 판 한 번) · 상태색 `--live`/`--fail-dot` · §6 숫자 드럼(화려하게)과 글자 바꿈(기본) · `KH.spring` 티커 튕김 · 아이콘 1.75px. 클래스 `.xr`/`.xr-c`(드럼) · `.xsw`(글자 바꿈) · `.rp-rail`(리플레이 레일 상자). 점검 `python3 qa/extras/audit_css.py` · `python3 qa/extras/test_std.py`(포트 `EXTRAS_STD_PORT` 9016), 전후 스크린샷 `qa/extras/shots_std.py`.
 
 ## 3-30. 공시 배지 — 화면 (§3-23b ①, 사용자 2026-11-14 01:44~01:46 "C안으로 할게" · "나머지는 추천대로")
 

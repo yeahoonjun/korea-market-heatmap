@@ -460,7 +460,7 @@ def shapes(br):
     if pg.evaluate("!!document.querySelector('#clock button')"):
         pg.evaluate("document.querySelector('#clock button').dispatchEvent(new MouseEvent('contextmenu', {bubbles: true, cancelable: true, clientX: 60, clientY: 30}))")
         pg.wait_for_timeout(900)
-        shape_check(pg, '세계 시각 [glass-dark 1440]', '#xwc', exp=24)   # extras' glass panels (dialogs · 리플레이 · 세계 시각) are 24px
+        shape_check(pg, '세계 시각 [glass-dark 1440]', '#xwc')   # the popover token since extras moved to design.md (was its own 24px)
     ctx.close()
     groups = {'v': 1, 'groups': [{'id': 'g1', 'name': '기본', 'codes': ['005930', '000660']}, {'id': 'g2', 'name': '반도체', 'codes': ['000660']}], 'active': 'g2'}
     ctx, pg = open_page(br, 1440, 900, market='WATCH', theme='glass-dark', extra={'watchGroups': groups})

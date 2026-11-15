@@ -690,13 +690,17 @@ function buildTicker(kids) {
   if (tk.ro) tk.ro.disconnect();
   if (typeof ResizeObserver === 'function') { tk.ro = new ResizeObserver(() => tkSize(false)); tk.ro.observe(tk.list); }   // fonts / in-place value changes
 }
-// 30 s refresh: touch only the nodes, never the track's animation
+// 30 s refresh: touch only the nodes, never the track's animation — and only the nodes whose content changed, so a number that is
+// still rolling (§6-2) or swapping (§6-4) is not cut short by the next quotes update with the same values
 function updateTicker(kids) {
   const fresh = new Map(kids.map(k => [k.dataset.k, k]));
   for (const list of tk.track.children) {
     for (const node of list.children) {
       const f = fresh.get(node.dataset.k);
       if (!f) continue;
+      const sig = f.className + '\u0001' + f.title + '\u0001' + f.innerHTML;
+      if (node._xsig === sig) continue;
+      node._xsig = sig;
       node.className = f.className;
       node.title = f.title; node.setAttribute('aria-label', f.getAttribute('aria-label'));
       node.replaceChildren(...[...f.childNodes].map(c => c.cloneNode(true)));

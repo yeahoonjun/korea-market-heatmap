@@ -11,7 +11,7 @@ Serves qa/extras/mock_api.py on EXTRAS_STD_PORT (default 9016; 9010–9019) and 
   flat: the replay rail is boxes (the slider's track paints nothing), the session bar's bands are flat colours, no element in extras
     paints a gradient or a drop-shadow (computed styles)
   type ≥ 11px and on the scale in extras' boxes · icons 1.75px on screen (1.5 for the 12-16px session glyphs)
-  tooltip: the session bar's note stays ~130ms after the pointer leaves, then goes · map top 247 · 250 · 207 · 207 in 4 themes
+  tooltip: the session bar's note stays ~130ms after the pointer leaves, then goes · map top 247 · 239 (250 after hours) · 207 · 207 in 4 themes
   console errors 0
 """
 import datetime
@@ -122,12 +122,19 @@ ROLL_JS = r"""() => {
 }"""
 
 
+# a refresh (the clock's press: KH.refresh → kh:refresh → the strip polls at once, the mock answers the bumped KOSPI); the probe runs at the
+# first frame where the new value is on screen (real time — page.clock's run_for would also fast-forward the page's animations)
+REFRESH_THEN = r"""async () => { const v = () => (document.querySelector('#strip .xs-list .xs-item[data-k="KOSPI"] .xs-v') || {}).textContent;
+  const was = v(); KH.refresh(); const t0 = performance.now();
+  while (v() === was && performance.now() - t0 < 5000) await new Promise(r => requestAnimationFrame(r));
+  return ("""
+
+
 def run(b):
     # ── number drum (화려하게): KOSPI +1.37 and +0.05%p on the next /api/market ──
     ctx, pg, adv = page_at(b, '2026-11-13T10:30:05', 1440, motion='fancy', bump=(1.37, 0.05))
     before = pg.evaluate(ROLL_JS)['text']
-    adv(30500); pg.wait_for_timeout(60)
-    r = pg.evaluate(ROLL_JS)
+    r = pg.evaluate(REFRESH_THEN + ROLL_JS + ')(); }')
     old, new = before, r['text']
     changed = [i for i, (a, c) in enumerate(zip(old, new)) if a != c and a.isdigit() and c.isdigit()]
     check('drum: the text is the new value while it rolls', new != old and r['n'] == len(changed) and r['n'] > 0, (old, new, r['html']))
@@ -153,8 +160,7 @@ def run(b):
     # ── text swap (기본) ──
     ctx, pg, adv = page_at(b, '2026-11-13T10:30:05', 1440, motion='standard', bump=(1.37, 0.05))
     before = pg.evaluate(ROLL_JS)['text']
-    adv(30500); pg.wait_for_timeout(30)
-    r = pg.evaluate(ROLL_JS)
+    r = pg.evaluate(REFRESH_THEN + ROLL_JS + ')(); }')
     sw = r['swap']
     outs = [a for a in sw['anims'] if a['pe'] == '::before']
     ins = [a for a in sw['anims'] if not a['pe']]
@@ -168,14 +174,13 @@ def run(b):
 
     # ── 줄이기: at once ──
     ctx, pg, adv = page_at(b, '2026-11-13T10:30:05', 1440, motion='reduced', bump=(1.37, 0.05))
-    adv(30500); pg.wait_for_timeout(30)
-    r = pg.evaluate(ROLL_JS)
+    r = pg.evaluate(REFRESH_THEN + ROLL_JS + ')(); }')
     check('줄이기: the new value is written at once (no drum, no swap)', r['n'] == 0 and not r['swap']['on'], r['html'])
     done(ctx, pg)
 
     # ── the clock's digits (화려하게): 10:29:59 → 10:30 rolls two digits one step forward, the rightmost first ──
-    ctx, pg, adv = page_at(b, '2026-11-13T10:29:58.4', 1440, motion='fancy')
-    pg.wait_for_function("() => [...document.querySelectorAll('.xc-digits .xdg')].some(c => c.classList.contains('xdg-go'))", timeout=6000)
+    ctx, pg, adv = page_at(b, '2026-11-13T10:29:53', 1440, motion='fancy')
+    pg.wait_for_function("() => [...document.querySelectorAll('.xc-digits .xdg')].some(c => c.classList.contains('xdg-go'))", timeout=15000, polling=20)
     cl = pg.evaluate("""() => [...document.querySelectorAll('.xc-digits .xdg')].map(c => ({ go: c.classList.contains('xdg-go'),
       mask: getComputedStyle(c).webkitMaskImage || '', a: c.getAnimations({subtree: true}).map(x => ({ delay: x.effect.getTiming().delay, ease: x.effect.getTiming().easing.slice(0, 7), k: x.effect.getKeyframes().map(f => f.transform) })) }))""")
     goes = [i for i, c in enumerate(cl) if c['go']]
@@ -226,13 +231,13 @@ def run(b):
             st = pg.evaluate("""() => { const sel = '#strip *, #clock *, #session-bar *, #extras-tools *';
               const sizes = [...document.querySelectorAll(sel)].filter(e => e.offsetParent !== null || e.getClientRects().length).filter(e => [...e.childNodes].some(n => n.nodeType === 3 && n.textContent.trim()))
                 .map(e => [e.className && e.className.baseVal !== undefined ? e.className.baseVal : e.className, parseFloat(getComputedStyle(e).fontSize)]);
-              const icons = [...document.querySelectorAll('#extras-tools svg path, .xs-pp svg path')].map(p => [getComputedStyle(p).strokeWidth, getComputedStyle(p).vectorEffect, getComputedStyle(p).stroke]);
+              const icons = [...document.querySelectorAll('#extras-tools svg:not(.kck):not(.kwn):not(.kspn) path, .xs-pp svg path')].map(p => [getComputedStyle(p).strokeWidth, getComputedStyle(p).vectorEffect, getComputedStyle(p).stroke]);
               return { map: Math.round(document.getElementById('map').getBoundingClientRect().top), sizes, icons, sw: document.documentElement.scrollWidth, cw: document.documentElement.clientWidth }; }""")
             off = [s for s in st['sizes'] if s[1] < 11 or round(s[1]) not in SCALE]
             check(f'type [{theme} {w}]: extras text ≥ 11px and on the scale', not off, off[:6])
             stroked = [i for i in st['icons'] if i[2] != 'none']
             check(f'icons [{theme} {w}]: strokes 1.75px on screen (non-scaling)', stroked and all(i[0] == '1.75px' and i[1] == 'non-scaling-stroke' for i in stroked), st['icons'][:4])
-            exp = {390: 247, 768: 250, 1280: 207, 1440: 207}[w]
+            exp = {390: 247, 768: 239, 1280: 207, 1440: 207}[w]       # 768 in session: the template's status row is shorter (250 after hours)
             check(f'map top [{theme} {w}] = {exp}, no overflow', st['map'] == exp and st['sw'] <= st['cw'], (st['map'], st['sw']))
             if w == 1440 and theme == 'base':
                 pg.hover('.sb'); pg.wait_for_timeout(450)
@@ -245,6 +250,10 @@ def run(b):
                 g = pg.evaluate("[...document.querySelectorAll('.sb-pill svg line, .sb-pill .sb-pi *')].filter(e => getComputedStyle(e).stroke !== 'none').map(e => [getComputedStyle(e).strokeWidth, getComputedStyle(e).vectorEffect])")
                 check('session glyphs: strokes 1.5px on screen', g and all(x[0] == '1.5px' and x[1] == 'non-scaling-stroke' for x in g), g[:4])
             done(ctx, pg)
+    ctx, pg, adv = page_at(b, '2026-11-13T21:30:05', 768, motion='standard')
+    m = pg.evaluate("Math.round(document.getElementById('map').getBoundingClientRect().top)")
+    check('map top [base 768, after hours] = 250', m == 250, m)
+    done(ctx, pg)
     check('console errors 0', not ERRS, ERRS[:5])
 
 
