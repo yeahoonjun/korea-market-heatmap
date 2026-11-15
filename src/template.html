@@ -45,7 +45,6 @@ if(d.dataset.serif==='on'){var s=document.getElementById('kh-serif');if(s&&windo
   --lab-sh:0 0 1px rgba(0,0,0,.6),0 0 3px rgba(0,0,0,.42),0 1px 2px rgba(0,0,0,.5);
   --lab-sh-sm:0 0 1px rgba(0,0,0,.95),0 0 2px rgba(0,0,0,.85),0 0 3px rgba(0,0,0,.7),0 1px 4px rgba(0,0,0,.5);
   --hatch:rgba(255,255,255,.055); --hatch2:rgba(255,255,255,.12); --nonx-a:rgba(0,0,0,.55); --nonx-b:rgba(0,0,0,.3); --nonx-c:rgba(0,0,0,.25);
-  --flash-up:rgba(255,255,255,.38); --flash-dn:rgba(0,0,0,.45);
   --badge-bg:rgba(0,0,0,.62); --badge-fg:#fff; --badge-ring:rgba(255,255,255,.45); --lim-bar:#fff; --lim-bar-sh:rgba(0,0,0,.35); --limsw:#5a5e69;
   --ix-base:#626672; --ix-now:#4a4d56; --spark-fill:.2;
   /* session bar (§4-4; drawn by src/extras): the hours' hues, the not-yet-reached tint, the track */
@@ -80,7 +79,7 @@ if(d.dataset.serif==='on'){var s=document.getElementById('kh-serif');if(s&&windo
   --key-on:inset 0 1px 3px rgba(0,0,0,.6),inset 0 0 0 1px rgba(255,181,71,.5),0 0 0 rgba(0,0,0,0);
   --pri-bg:#eef0f3; --pri-fg:#131418; --pri-sh:inset 0 1px 0 rgba(255,255,255,.7),0 1px 2px rgba(0,0,0,.55),0 4px 10px rgba(0,0,0,.3);
   --press-f:brightness(.86);
-  --done-bg:var(--acc-fill); --done-fg:#1b1404; --fail-bg:#2d2519; --fail-fg:#ffd8a1; --fail-ring:rgba(255,181,71,.6);
+  --done-bg:var(--acc-fill); --done-fg:#1b1404; --fail-bg:#2a2c33; --fail-fg:var(--fg); --fail-ring:rgba(238,240,243,.5);
   --r-key:12px; --r-pill:999px; --r-tray:12px; --r-in:8px; --r-chip:999px;
   --trk:#0f1014; --knob:#f3f4f7; --sw-on:var(--acc-fill);
   --knob-sh:0 1px 1px rgba(0,0,0,.3),0 3px 6px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.85);
@@ -105,7 +104,10 @@ if(d.dataset.serif==='on'){var s=document.getElementById('kh-serif');if(s&&windo
   --h-chip:24px; --h-key:32px; --h-row:36px;
   /* surfaces §2: fill alphas on dark themes; status colours start as today's values and move off amber when each module migrates */
   --fill-1:rgba(255,255,255,.05); --fill-2:rgba(255,255,255,.09); --fill-3:rgba(255,255,255,.14);
-  --live:var(--acc); --fail-dot:var(--acc);
+  /* status (design.md §2 ⑦, ux/std-template): --live = 장중 · 실시간 연결 — violet, ≥ 30° of hue from the amber, every palette's up /
+     down (red · green · blue · orange) and --new-dot's blue, ≥ 3:1 on the page; --fail-dot = the 실패 mark (an "!" + words): the
+     theme's own ink, no hue at all — the shape and the words say it. One value per theme (paper · glass below) */
+  --live:#b08cff; --fail-dot:var(--fg);
   /* ── design.md §6-2 springs (scripts/design_tokens.mjs — generated, do not edit by hand) ── */
   /* lead 620/40 · ζ 0.80 · 넘침 1.45% · 0.5% 290ms — 세그먼트·탭·밑줄 표시의 가는 쪽 가장자리 */
   --sp-lead:linear(0, .017 2.3%, .077 5.2%, .214 9.6%, .536 18.8%, .691 24.1%, .808 29.3%, .898 35%, .96 41.2%, 1 49.3%, 1.014 61.5%, 1); --sp-lead-dur:342ms; --sp-lead-kc:"620 40";
@@ -151,7 +153,7 @@ html[data-theme="paper"]{
   --tile-fg:#000; --tile-hov:#211a15; --sel-1:#211a15; --sel-2:#fbf1e6; --tile-ring-in:rgba(251,241,230,.9);
   --lab-sh:none; --lab-sh-sm:none;
   --hatch:rgba(33,26,21,.07); --hatch2:rgba(33,26,21,.16); --nonx-a:rgba(251,241,230,.62); --nonx-b:rgba(251,241,230,.36); --nonx-c:rgba(251,241,230,.2);
-  --flash-up:transparent; --flash-dn:transparent; --limsw:#9b8b7d; --ix-base:#8f8072; --ix-now:#b9ab9c; --spark-fill:.12;
+  --limsw:#9b8b7d; --ix-base:#8f8072; --ix-now:#b9ab9c; --spark-fill:.12;
   --sb-dawn:#6b5ca6; --sb-am:#4b88b6; --sb-pm:#c98a1c; --sb-close:#c05a1c; --sb-after:#7c4f9f; --sb-night:#2c3a63; --sb-rest:.22; --sb-track:rgba(33,26,21,.13);
   --card-bg:transparent; --card-bd:transparent; --card-r:0px; --card-sh:inset 0 2px 0 #211a15; --row-bd:rgba(46,30,18,.2); --th-bg:#eddac7;
   --tip-bg:#fbf1e6; --tip-bd:#211a15; --tip-sh:4px 4px 0 rgba(33,26,21,.88); --tip-r:2px;
@@ -164,7 +166,7 @@ html[data-theme="paper"]{
   --key-bg:#fff8ef; --key-hover:#fffcf8; --key-fg:#211a15; --key-ic:#3b3029;
   --key-sh:inset 0 0 0 1px #211a15,0 2px 0 #211a15; --key-dn:inset 0 0 0 1px #211a15,0 1px 0 #211a15; --key-on:inset 0 0 0 1px #211a15,inset 0 -3px 0 #f3b941,0 0 0 #211a15;
   --pri-bg:#211a15; --pri-fg:#fbf1e6; --pri-sh:0 2px 0 #6e5a49; --press-f:brightness(.95);
-  --done-bg:#f3b941; --done-fg:#211a15; --fail-bg:#fbf1e6; --fail-fg:#7a3f00; --fail-ring:#8a4b00;
+  --done-bg:#f3b941; --done-fg:#211a15; --fail-bg:#fbf1e6; --fail-fg:#211a15; --fail-ring:#211a15; --live:#6b3fc0;
   --chip-bg:#fff8ef; --chip-on:#f7d68e; --chip-ring:#211a15;
   --row-hov:rgba(46,30,18,.06); --mk-bg:rgba(46,30,18,.07); --mk-line:rgba(46,30,18,.34);
   --dm-flap:#211a15; --dm-crease:rgba(255,248,239,.35); --new-dot:#1d5fc4;
@@ -176,28 +178,28 @@ html[data-theme="glass-dark"]{
   --page:#0b0c10; --panel:rgba(255,255,255,.045); --panel2:rgba(255,255,255,.08); --line:rgba(255,255,255,.09); --line2:rgba(255,255,255,.16);
   --fg:#f5f6f8; --fg2:#c9cdd4; --muted:#9ea3ad; --faint:#8b909a;
   --nodata:#24262c; --r-map:16px; --th-bg:#16181d;
-  --card-bg:linear-gradient(180deg,rgba(255,255,255,.075),rgba(255,255,255,.02) 46%),rgba(22,24,30,.72); --card-bd:transparent; --card-r:22px;
+  --card-bg:rgba(27,29,35,.74); --card-bd:transparent; --card-r:22px;
   --card-sh:inset 0 1px 0 rgba(255,255,255,.16),inset 0 0 0 .5px rgba(255,255,255,.1),inset 0 -1px 0 rgba(0,0,0,.25),0 10px 30px rgba(0,0,0,.35);
-  --tip-bg:linear-gradient(180deg,rgba(255,255,255,.09),rgba(255,255,255,0) 30%),rgba(20,22,28,.84); --tip-bd:transparent; --tip-r:20px;
+  --tip-bg:rgba(23,25,31,.86); --tip-bd:transparent; --tip-r:20px;
   --tip-sh:inset 0 1px 0 rgba(255,255,255,.24),inset 0 0 0 .5px rgba(255,255,255,.12),0 18px 50px rgba(0,0,0,.5);
   --sheet-bg:var(--tip-bg); --sheet-bd:transparent; --sheet-r:28px; --sheet-fl-sh:var(--tip-sh); --sheet-sh:inset 0 1px 0 rgba(255,255,255,.24),inset 0 0 0 .5px rgba(255,255,255,.12),0 -14px 40px rgba(0,0,0,.45);
   --pop-bg:var(--tip-bg); --pop-solid:#1b1d23; --pop-sh:var(--tip-sh);
   --scrim:rgba(0,0,0,.22); --blur:blur(24px) saturate(1.4); --blur-bar:blur(20px) saturate(1.6);
-  --bar-bg:linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,0) 60%),rgba(16,18,24,.62);
+  --bar-bg:rgba(20,22,28,.64);
   --bar-sh:inset 0 1px 0 rgba(255,255,255,.16),inset 0 0 0 .5px rgba(255,255,255,.1),0 10px 24px rgba(0,0,0,.3);
-  --dock-bg:linear-gradient(180deg,rgba(255,255,255,.09),rgba(255,255,255,0) 40%),#15171d; --dock-sh:inset 0 1px 0 rgba(255,255,255,.22),inset 0 0 0 .5px rgba(255,255,255,.14),0 12px 32px rgba(0,0,0,.5); --dock-r:28px; --dock-div:rgba(255,255,255,.12);
+  --dock-bg:#181a20; --dock-sh:inset 0 1px 0 rgba(255,255,255,.22),inset 0 0 0 .5px rgba(255,255,255,.14),0 12px 32px rgba(0,0,0,.5); --dock-r:28px; --dock-div:rgba(255,255,255,.12);
   --tray-bg:rgba(0,0,0,.34); --tray-sh:inset 0 1px 2px rgba(0,0,0,.5),inset 0 0 0 .5px rgba(255,255,255,.1);
-  --ind-bg:linear-gradient(180deg,rgba(255,255,255,.24),rgba(255,255,255,.08));
+  --ind-bg:rgba(255,255,255,.16);
   --ind-sh:inset 0 1px 0 rgba(255,255,255,.38),inset 0 -1px 0 rgba(0,0,0,.2),inset 0 0 0 .5px rgba(255,255,255,.2),0 1px 2px rgba(0,0,0,.35),0 4px 10px rgba(0,0,0,.25);
-  --key-bg:linear-gradient(180deg,rgba(255,255,255,.17),rgba(255,255,255,.04) 62%),rgba(255,255,255,.035); --key-hover:linear-gradient(180deg,rgba(255,255,255,.22),rgba(255,255,255,.06) 62%),rgba(255,255,255,.05);
+  --key-bg:rgba(255,255,255,.11); --key-hover:rgba(255,255,255,.15);
   --key-sh:inset 0 1px 0 rgba(255,255,255,.32),inset 0 -1px 0 rgba(0,0,0,.25),inset 0 0 0 .5px rgba(255,255,255,.16),0 1px 2px rgba(0,0,0,.4),0 4px 10px rgba(0,0,0,.25);
   --key-dn:inset 0 1px 0 rgba(255,255,255,.2),inset 0 -1px 0 rgba(0,0,0,.2),inset 0 0 0 .5px rgba(255,255,255,.14),0 1px 1px rgba(0,0,0,.35),0 0 0 rgba(0,0,0,0);
-  --key-on:inset 0 0 0 1px rgba(255,181,71,.62),inset 0 1px 3px rgba(0,0,0,.4),inset 0 0 12px rgba(255,181,71,.16),0 0 0 rgba(0,0,0,0),0 0 0 rgba(0,0,0,0);
-  --pri-bg:linear-gradient(180deg,#ffffff,#e6e9ee); --pri-fg:#101216; --pri-sh:inset 0 1px 0 #fff,inset 0 -1px 0 rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.4),0 4px 10px rgba(0,0,0,.3);
-  --press-f:brightness(1.2) saturate(1.1); --done-bg:rgba(255,181,71,.94); --fail-bg:rgba(255,181,71,.13);
+  --key-on:inset 0 0 0 1px rgba(255,181,71,.62),inset 0 1px 3px rgba(0,0,0,.4),inset 0 0 0 0 transparent,0 0 0 rgba(0,0,0,0),0 0 0 rgba(0,0,0,0);
+  --pri-bg:#f2f4f7; --pri-fg:#101216; --pri-sh:inset 0 1px 0 #fff,inset 0 -1px 0 rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.4),0 4px 10px rgba(0,0,0,.3);
+  --press-f:brightness(1.2) saturate(1.1); --done-bg:rgba(255,181,71,.94); --fail-bg:rgba(255,255,255,.1); --fail-ring:rgba(245,246,248,.45); --live:#b48fff;
   --chip-bg:var(--key-bg); --chip-on:rgba(255,181,71,.2);
-  --dchip-bg:linear-gradient(180deg,rgba(255,255,255,.10),rgba(255,255,255,.02) 62%),rgba(0,0,0,.25);   /* the raised key is too light under red / green % */
-  --trk:rgba(0,0,0,.36); --knob:linear-gradient(180deg,#ffffff,#e5e8ed);
+  --dchip-bg:rgba(9,10,13,.32);   /* the raised key is too light under red / green % */
+  --trk:rgba(0,0,0,.36); --knob:#f2f4f7;
   --knob-sh:inset 0 1px 0 #fff,0 1px 1px rgba(0,0,0,.3),0 3px 8px rgba(0,0,0,.4); --knob-dn:inset 0 1px 0 #fff,0 1px 1px rgba(0,0,0,.35),0 1px 3px rgba(0,0,0,.3);
   --r-key:999px; --r-tray:999px; --r-in:999px; --r-chip:999px;
   --w-head:650; --track-head:-.02em;
@@ -212,27 +214,27 @@ html[data-theme="glass-light"]{
   --tile-fg:#000; --tile-hov:#0f1115; --sel-1:#0f1115; --sel-2:#fff; --tile-ring-in:rgba(255,255,255,.85);
   --lab-sh:none; --lab-sh-sm:none;
   --hatch:rgba(15,17,21,.06); --hatch2:rgba(15,17,21,.14); --nonx-a:rgba(255,255,255,.62); --nonx-b:rgba(255,255,255,.36); --nonx-c:rgba(255,255,255,.2);
-  --flash-up:transparent; --flash-dn:transparent; --limsw:#8a919b; --ix-base:#8a919b; --ix-now:#b4bac3; --spark-fill:.12;
+  --limsw:#8a919b; --ix-base:#8a919b; --ix-now:#b4bac3; --spark-fill:.12;
   --sb-rest:.24; --sb-track:rgba(15,17,21,.12);
-  --card-bg:linear-gradient(180deg,rgba(255,255,255,.82),rgba(255,255,255,.56)); --card-bd:transparent; --card-r:22px; --th-bg:#f3f5f8;
+  --card-bg:rgba(255,255,255,.69); --card-bd:transparent; --card-r:22px; --th-bg:#f3f5f8;
   --card-sh:inset 0 1px 0 #fff,inset 0 0 0 .5px rgba(255,255,255,.9),0 1px 2px rgba(20,30,50,.06),0 10px 30px rgba(20,30,50,.1);
-  --tip-bg:linear-gradient(180deg,rgba(255,255,255,.5),rgba(255,255,255,0) 30%),rgba(248,249,251,.86); --tip-bd:transparent; --tip-r:20px;
+  --tip-bg:rgba(250,251,252,.88); --tip-bd:transparent; --tip-r:20px;
   --tip-sh:inset 0 1px 0 #fff,inset 0 0 0 .5px rgba(255,255,255,.8),0 18px 50px rgba(20,30,50,.24);
   --sheet-bg:var(--tip-bg); --sheet-bd:transparent; --sheet-r:28px; --sheet-fl-sh:var(--tip-sh); --sheet-sh:inset 0 1px 0 #fff,inset 0 0 0 .5px rgba(255,255,255,.8),0 -14px 40px rgba(20,30,50,.2);
   --pop-bg:var(--tip-bg); --pop-solid:#f4f6f9; --pop-sh:var(--tip-sh);
   --scrim:rgba(30,40,60,.16); --blur:blur(24px) saturate(1.4); --blur-bar:blur(20px) saturate(1.6);
-  --bar-bg:linear-gradient(180deg,rgba(255,255,255,.5),rgba(255,255,255,0) 60%),rgba(246,247,250,.64);
+  --bar-bg:rgba(248,249,251,.7);
   --bar-sh:inset 0 1px 0 #fff,inset 0 0 0 .5px rgba(15,17,21,.08),0 10px 24px rgba(20,30,50,.1);
-  --dock-bg:linear-gradient(180deg,rgba(255,255,255,.6),rgba(255,255,255,0) 40%),#f7f8fa; --dock-sh:inset 0 1px 0 #fff,inset 0 0 0 .5px rgba(15,17,21,.1),0 12px 32px rgba(20,30,50,.18); --dock-r:28px; --dock-div:rgba(15,17,21,.1);
+  --dock-bg:#f9fafb; --dock-sh:inset 0 1px 0 #fff,inset 0 0 0 .5px rgba(15,17,21,.1),0 12px 32px rgba(20,30,50,.18); --dock-r:28px; --dock-div:rgba(15,17,21,.1);
   --tray-bg:rgba(15,17,21,.06); --tray-sh:inset 0 1px 2px rgba(15,17,21,.13),inset 0 0 0 .5px rgba(15,17,21,.07);
-  --ind-bg:linear-gradient(180deg,#ffffff,#f3f5f8); --ind-sh:inset 0 1px 0 #fff,inset 0 0 0 .5px rgba(15,17,21,.06),0 1px 2px rgba(20,30,50,.16),0 4px 10px rgba(20,30,50,.1);
-  --key-bg:linear-gradient(180deg,rgba(255,255,255,.95),rgba(255,255,255,.6)); --key-hover:linear-gradient(180deg,#fff,rgba(255,255,255,.75)); --key-fg:#0f1115; --key-ic:#353b44;
+  --ind-bg:#fafbfc; --ind-sh:inset 0 1px 0 #fff,inset 0 0 0 .5px rgba(15,17,21,.06),0 1px 2px rgba(20,30,50,.16),0 4px 10px rgba(20,30,50,.1);
+  --key-bg:rgba(255,255,255,.8); --key-hover:rgba(255,255,255,.9); --key-fg:#0f1115; --key-ic:#353b44;
   --key-sh:inset 0 1px 0 #fff,inset 0 -1px 0 rgba(15,17,21,.05),inset 0 0 0 .5px rgba(15,17,21,.08),0 1px 2px rgba(20,30,50,.14),0 4px 10px rgba(20,30,50,.08);
   --key-dn:inset 0 1px 0 #fff,inset 0 -1px 0 rgba(15,17,21,.04),inset 0 0 0 .5px rgba(15,17,21,.1),0 1px 1px rgba(20,30,50,.14),0 0 0 rgba(0,0,0,0);
   --key-on:inset 0 0 0 1px rgba(154,86,0,.6),inset 0 1px 3px rgba(15,17,21,.14),inset 0 0 0 0 transparent,0 0 0 rgba(0,0,0,0),0 0 0 rgba(0,0,0,0);
   --pri-bg:#14161b; --pri-fg:#ffffff; --pri-sh:inset 0 1px 0 rgba(255,255,255,.2),0 1px 2px rgba(20,30,50,.3),0 4px 10px rgba(20,30,50,.2);
   --press-f:brightness(.95) saturate(1.1);
-  --done-bg:#ffb547; --done-fg:#1b1404; --fail-bg:rgba(255,181,71,.2); --fail-fg:#6b3b00; --fail-ring:rgba(154,86,0,.6);
+  --done-bg:#ffb547; --done-fg:#1b1404; --fail-bg:rgba(255,255,255,.75); --fail-fg:#0f1115; --fail-ring:rgba(15,17,21,.5); --live:#6a3fd0;
   --chip-bg:var(--key-bg); --chip-on:rgba(255,181,71,.3); --chip-ring:rgba(154,86,0,.75);
   --row-hov:rgba(15,17,21,.045); --mk-bg:rgba(255,255,255,.7); --mk-line:rgba(15,17,21,.16);
   --dm-flap:#14161b; --dm-crease:rgba(255,255,255,.35); --new-dot:#1f66d1;
@@ -243,8 +245,8 @@ html[data-theme="glass-light"]{
 }
 /* the glass fallback (§6-2): no backdrop-filter, reduced transparency, 유리 흐림 끄기, or the frame watchdog / a low-end phone → the same
    shapes with opaque fills */
-html[data-theme="glass-dark"][data-blur="off"]{--blur:none;--blur-bar:none;--tip-bg:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,0) 30%),#1b1d23;--bar-bg:#14161b}
-html[data-theme="glass-light"][data-blur="off"]{--blur:none;--blur-bar:none;--tip-bg:linear-gradient(180deg,rgba(255,255,255,.5),rgba(255,255,255,0) 30%),#f4f6f9;--bar-bg:#eef1f5}
+html[data-theme="glass-dark"][data-blur="off"]{--blur:none;--blur-bar:none;--tip-bg:#1d1f25;--bar-bg:#14161b}
+html[data-theme="glass-light"][data-blur="off"]{--blur:none;--blur-bar:none;--tip-bg:#f6f7f9;--bar-bg:#eef1f5}
 @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
   html[data-theme="glass-dark"]{--tip-bg:#1b1d23;--bar-bg:#14161b}
   html[data-theme="glass-light"]{--tip-bg:#f4f6f9;--bar-bg:#eef1f5}
@@ -273,119 +275,123 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 
 /* ── Top bar ───────────────────────────── */
-.top{display:flex;align-items:center;gap:20px;padding:12px 18px 10px;flex-wrap:wrap}
-.brand{font-weight:700;font-size:17px;letter-spacing:-.02em;white-space:nowrap;display:flex;align-items:center;gap:8px;min-width:0}
+.top{display:flex;align-items:center;gap:20px;padding:var(--space-5) var(--edge) 10px;flex-wrap:wrap}
+.brand{font-weight:700;font-size:var(--fs-xl);letter-spacing:-.02em;white-space:nowrap;display:flex;align-items:center;gap:var(--space-4);min-width:0}
 .brand i{width:14px;height:14px;display:inline-grid;grid-template-columns:1fr 1fr;gap:1.5px;flex:none}
 .brand i b{display:block;border-radius:1px}
 /* §3-6 the clock (src/extras) takes the title's place while <html class="has-clock">; the title stays for screen readers */
-#clock{display:none;align-items:center;min-width:0;font-weight:500;font-size:13px;letter-spacing:0}
+#clock{display:none;align-items:center;min-width:0;font-weight:500;font-size:var(--fs-md);letter-spacing:0}
 .has-clock #clock{display:flex}
 .has-clock #clock:empty{display:none}
 .has-clock #clock:not(:empty) ~ .ttl{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
-.tabs{display:flex;gap:2px;background:var(--tray-bg);box-shadow:var(--tray-sh);border-radius:var(--r-tray);padding:4px}
-.tabs button{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;min-height:32px;padding:2px 14px;border-radius:var(--r-in);font-size:14px;font-weight:600;color:var(--muted);transition:color var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out);white-space:nowrap}
+.tabs{display:flex;gap:var(--space-1);background:var(--tray-bg);box-shadow:var(--tray-sh);border-radius:var(--r-tray);padding:var(--space-2)}
+.tabs button{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;min-height:var(--h-key);padding:var(--space-1) 14px;border-radius:var(--r-in);font-size:var(--fs-lg);font-weight:600;color:var(--muted);transition:color var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out);white-space:nowrap}
 .tabs button[aria-pressed="true"]{color:var(--fg)}
 .tabs button:hover{color:var(--fg)}
 .tabs .tn{line-height:16px}
-.tabs .st{color:var(--acc);margin-right:2px;font-size:.9em;line-height:1}
+.tabs .st{color:var(--acc);margin-right:var(--space-1);font-size:.9em;line-height:1}
 /* three groups (사용자 2026-11-15 21:38~21:40, A + "칸을 나누든 아님 묶여있는 느낌"): 코스피 · 코스닥 · 전체 | 테마 · 해외 · 지표 · 일정 |
    ★관심 — hairline dividers about 60 % of a tab, centred, decorative (aria-hidden; the buttons and their order are the widget) */
 .tabs .tsep{flex:none;align-self:center;width:1px;height:20px;margin:0 var(--space-2);background:var(--line)}
 /* ★관심 and its divider sit outside the scroller (a flex sibling), so they never scroll and need no sticky (2026-11-15 22:35: Samsung
    Internet's older Chromium left the sticky tab half off the header and the fade in the middle of 지표) */
-.tabs-sc{display:flex;gap:2px;min-width:0}
+.tabs-sc{display:flex;gap:var(--space-1);min-width:0}
 /* §3-16 today's change under 코스피 · 코스닥 · 전체 · ★관심 (blank → the name alone, centred; every tab keeps one height) */
-.tabs .tp{display:block;font-size:11px;line-height:12px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.tabs .tp{display:block;font-size:var(--fs-xs);line-height:12px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
 .tabs .tp:empty{display:none}
-.idx{display:flex;gap:18px;font-size:13px;margin-left:auto}
-.idx div{display:flex;gap:7px;align-items:baseline;white-space:nowrap}
+.idx{display:flex;gap:var(--space-6);font-size:var(--fs-md);margin-left:auto}
+.idx div{display:flex;gap:var(--space-3);align-items:baseline;white-space:nowrap}
 .idx .k{color:var(--muted)} .idx .v{font-weight:600}
-.status{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--fg2);white-space:nowrap}
+.status{display:flex;align-items:center;gap:var(--space-4);font-size:var(--fs-sm);color:var(--fg2);white-space:nowrap}
 .status .dot{width:8px;height:8px;border-radius:50%;background:var(--faint)}
-.status.live .dot{background:var(--acc-fill);box-shadow:0 0 0 0 color-mix(in srgb,var(--acc-fill) 60%,transparent);animation:pulse 1.8s infinite}
-.status .badge{font-size:11.5px;padding:2px 7px;border-radius:5px;background:var(--panel2);color:var(--fg2);border:1px solid var(--line)}
-.status.live .badge,.status.replay .badge{color:var(--acc);border-color:var(--acc-bd);background:var(--acc-soft)}
+.status.live .dot{background:var(--live);animation:pulse 1.8s var(--c-inout) infinite}
+.status .badge{font-size:var(--fs-xs);padding:var(--space-1) var(--space-3);border-radius:var(--r-badge);background:var(--panel2);color:var(--fg2);border:1px solid var(--line)}
+.status.live .badge{color:var(--live);border-color:color-mix(in srgb,var(--live) 45%,transparent);background:color-mix(in srgb,var(--live) 12%,transparent)}
+/* 리플레이 is a mode the user switched on: amber (design.md §2 고름 · 켜짐) */
+.status.replay .badge{color:var(--acc);border-color:var(--acc-bd);background:var(--acc-soft)}
 .status.replay .dot{background:var(--acc-fill);animation:none}
-.status.err .dot{background:var(--dn-text);animation:none}
-.status .tshort{display:none;font-size:12px;color:var(--fg2);font-variant-numeric:tabular-nums}
+/* 연결이 끊겼어요: the dot becomes an "!" in --fail-dot (design.md §2 — a failure is a shape + words, never a data colour) */
+.status.err .dot{position:relative;width:14px;height:14px;background:none;box-shadow:inset 0 0 0 1.5px var(--fail-dot);animation:none}
+.status.err .dot::after{content:"!";position:absolute;inset:0;display:grid;place-items:center;font-size:var(--fs-xs);font-weight:800;line-height:1;color:var(--fail-dot)}
+.status .tshort{display:none;font-size:var(--fs-sm);color:var(--fg2);font-variant-numeric:tabular-nums}
 /* §3-8 price basis outside the regular session: KRX · NXT choice + a badge saying what is drawn (short on phones) */
 .basis[hidden]{display:none}
-.basis button{font-size:12.5px;padding:4px 10px;font-weight:600}
+.basis button{font-size:var(--fs-sm);padding:var(--space-2) var(--space-4);font-weight:600}
 .status .badge .bs{display:none}
 .status.has-blab .badge{font-variant-numeric:tabular-nums}
 .status.has-blab .tshort{display:none}
 @media (max-width:1279px){ .status.has-basis .txt{display:none} }
 /* §3-12 the clock is on and the drawn prices are live: no badge (the pressed button says the basis, the clock the time) */
 .has-clock .status.has-basis.bl-live .badge{display:none}
-@keyframes pulse{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--acc-fill) 55%,transparent)}70%{box-shadow:0 0 0 7px transparent}100%{box-shadow:0 0 0 0 transparent}}
+@keyframes pulse{50%{opacity:.35}}
 
 /* ── Toolbar ───────────────────────────── */
-.tools{position:relative;display:flex;align-items:center;gap:12px;padding:0 18px 10px;flex-wrap:wrap}
+.tools{position:relative;display:flex;align-items:center;gap:var(--space-5);padding:0 var(--edge) 10px;flex-wrap:wrap}
 .search{position:relative;flex:0 1 210px;min-width:170px}
-.search input{width:100%;height:34px;border-radius:var(--r-key);border:0;background:var(--tray-bg);box-shadow:var(--tray-sh);color:var(--fg);font:inherit;font-size:14px;padding:0 35px;outline:none;transition:box-shadow var(--c-fast) var(--c-out)}
+.search input{width:100%;height:34px;border-radius:var(--r-key);border:0;background:var(--tray-bg);box-shadow:var(--tray-sh);color:var(--fg);font:inherit;font-size:var(--fs-lg);padding:0 35px;outline:none;transition:box-shadow var(--c-fast) var(--c-out)}
 .search input:focus{box-shadow:var(--tray-sh),0 0 0 var(--focus-off) var(--page),0 0 0 calc(var(--focus-off) + var(--focus-w)) var(--focus)}
 .search input::placeholder{color:var(--faint)}
 .search svg{position:absolute;left:10px;top:9px;width:16px;height:16px;color:var(--muted);pointer-events:none}
-.search kbd{position:absolute;right:8px;top:7px;font:500 11px var(--sans);color:var(--faint);border:1px solid var(--line2);border-radius:4px;padding:1px 6px}
+.search kbd{position:absolute;right:8px;top:7px;font:500 var(--fs-xs) var(--sans);color:var(--faint);border:1px solid var(--line2);border-radius:var(--r-badge);padding:1px var(--space-3)}
 .search input:focus ~ kbd{display:none}
-.sugg{position:absolute;left:0;right:0;top:40px;z-index:60;background:var(--pop-bg);border:1px solid var(--tip-bd);border-radius:var(--tip-r);padding:4px;box-shadow:var(--pop-sh);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);display:none;max-height:340px;overflow:auto}
+.sugg{position:absolute;left:0;right:0;top:40px;z-index:60;background:var(--pop-bg);border:1px solid var(--tip-bd);border-radius:var(--tip-r);padding:var(--space-2);box-shadow:var(--pop-sh);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);display:none;max-height:340px;overflow:auto}
 .sugg.open{display:block}
-.sugg button{display:grid;grid-template-columns:10px 1fr auto auto;align-items:center;gap:10px;width:100%;text-align:left;padding:8px 10px;border-radius:7px;font-size:14px}
+.sugg button{display:grid;grid-template-columns:10px 1fr auto auto;align-items:center;gap:var(--space-4);width:100%;text-align:left;padding:var(--space-4) var(--space-4);border-radius:var(--r-row);font-size:var(--fs-lg)}
 .sugg button[aria-selected="true"],.sugg button:hover{background:color-mix(in srgb,var(--ov) 6%,transparent)}
-.sugg .sw{width:10px;height:10px;border-radius:2px}
-.sugg .meta{color:var(--muted);font-size:12px}
-.sugg .empty{padding:10px;color:var(--muted);font-size:13px;line-height:1.5}
-.sugg .empty small{display:block;font-size:12px;color:var(--faint);margin-top:2px}
-.ctl{display:flex;align-items:center;gap:6px}
+.sugg .sw{width:10px;height:10px;border-radius:var(--r-mark)}
+.sugg .meta{color:var(--muted);font-size:var(--fs-sm)}
+.sugg .empty{padding:var(--space-4);color:var(--muted);font-size:var(--fs-md);line-height:1.5}
+.sugg .empty small{display:block;font-size:var(--fs-sm);color:var(--faint);margin-top:var(--space-1)}
+.ctl{display:flex;align-items:center;gap:var(--space-3)}
 .ctl[hidden]{display:none}
-.ctl > span{font-size:12.5px;color:var(--muted);white-space:nowrap}
+.ctl > span{font-size:var(--fs-sm);color:var(--muted);white-space:nowrap}
 .ddbtn{display:none}
 .ctl.off{opacity:.42}
 .ctl.off .seg button{cursor:not-allowed}
 .seg{display:flex;background:var(--tray-bg);box-shadow:var(--tray-sh);border-radius:var(--r-tray);padding:3px}
-.seg button{padding:5px 9px;border-radius:var(--r-in);font-size:13px;color:var(--muted);white-space:nowrap;transition:color var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out)}
+.seg button{padding:5px var(--space-4);border-radius:var(--r-in);font-size:var(--fs-md);color:var(--muted);white-space:nowrap;transition:color var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out)}
 .seg button[hidden]{display:none!important}
 .seg button:hover{color:var(--fg)}
 .seg button[aria-pressed="true"]{color:var(--fg)}
-.seg .pal{display:inline-flex;gap:1px;margin-right:6px;vertical-align:-1px}
+.seg .pal{display:inline-flex;gap:1px;margin-right:var(--space-3);vertical-align:-1px}
 .seg .pal b{width:6px;height:11px;display:block}
-.seg .pal b:first-child{border-radius:2px 0 0 2px} .seg .pal b:last-child{border-radius:0 2px 2px 0}
-.setbtn{display:none;align-items:center;gap:7px;height:34px;padding:0 13px;border-radius:var(--r-key);background:var(--key-bg);box-shadow:var(--key-sh);color:var(--key-fg);font-size:13px;font-weight:600;white-space:nowrap}
+.seg .pal b:first-child{border-radius:var(--r-mark) 0 0 var(--r-mark)} .seg .pal b:last-child{border-radius:0 var(--r-mark) var(--r-mark) 0}
+.setbtn{display:none;align-items:center;gap:var(--space-3);height:34px;padding:0 var(--space-5);border-radius:var(--r-key);background:var(--key-bg);box-shadow:var(--key-sh);color:var(--key-fg);font-size:var(--fs-md);font-weight:600;white-space:nowrap}
 .setbtn svg{width:16px;height:16px;color:var(--key-ic);flex:none}
 .setbtn:hover{background:var(--key-hover)}
 .setbtn[aria-expanded="true"]{color:var(--acc);box-shadow:var(--key-on)}
 .setbtn[aria-expanded="true"] svg{color:var(--acc)}
 .ctls-hd{display:none}
-#extras-tools{display:flex;align-items:center;gap:8px;margin-left:auto}
+#extras-tools{display:flex;align-items:center;gap:var(--space-4);margin-left:auto}
 #extras-tools:empty{display:none}
 .scrim2{display:none}
 /* 화면 settings (효과 + module switches from KH.addSetting): a section of the 표시 설정 sheet below 1280px, a small popover above */
 .morebtn{display:none}
-.morep{display:flex;flex-direction:column;gap:13px}
-.morehd{font-size:12.5px;font-weight:700;color:var(--fg)}
-.morep .ctl{flex-direction:column;align-items:stretch;gap:6px}
+.morep{display:flex;flex-direction:column;gap:var(--space-5)}
+.morehd{font-size:var(--fs-md);font-weight:700;color:var(--fg)}
+.morep .ctl{flex-direction:column;align-items:stretch;gap:var(--space-3)}
 .morep .seg button{flex:1 1 auto}
-.morep .hint{font-size:11.5px;color:var(--muted);line-height:1.45}
+.morep .hint{font-size:var(--fs-sm);color:var(--muted);line-height:1.45}
 .morep .hint[hidden]{display:none}
 .morep .seg.wrap{flex-wrap:wrap}
 .morep .seg.wrap button{max-width:100%;overflow:hidden;text-overflow:ellipsis}
-.swbtn{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;min-height:36px;padding:5px 9px 5px 11px;border-radius:var(--r-key);background:var(--key-bg);box-shadow:var(--key-sh);font-size:13px;color:var(--fg);text-align:left;touch-action:pan-y;transition:filter var(--c-fast) var(--c-out)}
+.swbtn{display:flex;align-items:center;justify-content:space-between;gap:var(--space-5);width:100%;min-height:var(--h-row);padding:var(--space-2) var(--space-4) var(--space-2) var(--space-5);border-radius:var(--r-key);background:var(--key-bg);box-shadow:var(--key-sh);font-size:var(--fs-md);color:var(--fg);text-align:left;touch-action:pan-y;transition:filter var(--c-fast) var(--c-out)}
 .swbtn:hover{background:var(--key-hover)}
 .swbtn:active,.swbtn.is-press{filter:var(--press-f);transition-duration:0s}
-/* KH.addSetting({multi: true}): on / off chips (controls §5-7: fill + ring + a check that grows 0 → 14 px), at least `min` stay on */
-.kchips{display:flex;flex-wrap:wrap;gap:6px}
-.kchip{position:relative;display:inline-flex;align-items:center;height:30px;padding:0 11px;border-radius:var(--r-chip);background:var(--chip-bg);box-shadow:var(--key-sh);font-size:12.5px;font-weight:600;color:var(--key-fg);white-space:nowrap;
+/* KH.addSetting({multi:true}): on / off chips (controls §5-7: fill + ring + a check that grows 0 → 14 px), at least `min` stay on */
+.kchips{display:flex;flex-wrap:wrap;gap:var(--space-3)}
+.kchip{position:relative;display:inline-flex;align-items:center;height:var(--h-key);padding:0 var(--space-5);border-radius:var(--r-chip);background:var(--chip-bg);box-shadow:var(--key-sh);font-size:var(--fs-sm);font-weight:600;color:var(--key-fg);white-space:nowrap;
   transition:background var(--c-fast) var(--c-out),box-shadow var(--c-fast) var(--c-out),transform var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out)}
 .kchip .ck{display:inline-block;width:0;height:14px;opacity:0;transform:scale(.6);background:currentColor;-webkit-mask:var(--ck-mask) center/14px no-repeat;mask:var(--ck-mask) center/14px no-repeat;
   transition:width var(--c-fast) var(--c-out),opacity var(--c-fast) var(--c-out),transform var(--c-fast) var(--c-out),margin var(--c-fast) var(--c-out)}
 .kchip[aria-pressed="true"]{background:var(--chip-on);box-shadow:inset 0 0 0 1.5px var(--chip-ring),var(--key-sh)}
-.kchip[aria-pressed="true"] .ck{width:14px;opacity:1;transform:none;margin-right:6px}
-.kchip .n{margin-left:6px;color:var(--fg2);font-weight:500;font-variant-numeric:tabular-nums}
+.kchip[aria-pressed="true"] .ck{width:14px;opacity:1;transform:none;margin-right:var(--space-3)}
+.kchip .n{margin-left:var(--space-3);color:var(--fg2);font-weight:500;font-variant-numeric:tabular-nums}
 .kchip .n:empty{display:none}
 .kchip:not([aria-disabled="true"]):is(:active,.is-press){transform:translateY(1px);box-shadow:var(--key-dn);filter:var(--press-f);transition-duration:0s}
 .kchip[aria-disabled="true"]{cursor:not-allowed}
 @media (pointer:coarse){ .kchip::before{content:"";position:absolute;left:50%;top:50%;width:max(100%,44px);height:44px;transform:translate(-50%,-50%)} }
-.swbtn .swt{--t:0;position:relative;flex:none;width:44px;height:26px;border-radius:13px;background:var(--trk);box-shadow:var(--tray-sh)}
+.swbtn .swt{--t:0;position:relative;flex:none;width:44px;height:26px;border-radius:var(--r-pill);background:var(--trk);box-shadow:var(--tray-sh)}
 .swbtn .swt::before{content:"";position:absolute;inset:0;border-radius:inherit;background:var(--sw-on);box-shadow:inset 0 1px 2px color-mix(in srgb,var(--shc) 28%,transparent);opacity:var(--t);transition:opacity var(--c-switch) var(--c-inout)}
 .swbtn .swt::after{content:"";position:absolute;left:2px;top:2px;width:22px;height:22px;border-radius:50%;background:var(--knob);box-shadow:var(--knob-sh);transform:translateX(calc(var(--t) * 18px));transition:transform var(--c-switch) var(--c-inout),box-shadow var(--c-fast) var(--c-out)}
 .swbtn[aria-checked="true"] .swt{--t:1}
@@ -395,64 +401,64 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 /* wide desktop: every control in one row; 색 기준 and 순매수 기간 open as small popovers; palette names from 1800px */
 @media (min-width:1280px){
   .ctls{display:contents}
-  .seg button{padding:5px 8px}
-  .seg[data-key="palette"] button{padding:5px 7px}
+  .seg button{padding:5px var(--space-4)}
+  .seg[data-key="palette"] button{padding:5px var(--space-3)}
   .seg[data-key="palette"] .pl{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
   .seg[data-key="palette"] .pal{margin-right:0}
   .wide-hide{display:none}
   .ctl[data-ctl="colorBy"].off{display:none}
   .ctl.dd{position:relative}
-  .ddbtn{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 10px 0 12px;border-radius:var(--r-key);background:var(--key-bg);box-shadow:var(--key-sh);color:var(--key-fg);font-size:13px;white-space:nowrap}
+  .ddbtn{display:inline-flex;align-items:center;gap:var(--space-3);height:var(--h-key);padding:0 var(--space-4) 0 var(--space-5);border-radius:var(--r-key);background:var(--key-bg);box-shadow:var(--key-sh);color:var(--key-fg);font-size:var(--fs-md);white-space:nowrap}
   .ddbtn svg{width:12px;height:12px;color:var(--key-ic);flex:none;transition:transform var(--c-base) var(--c-inout)}
   .ddbtn:hover{background:var(--key-hover)}
   .ddbtn[aria-expanded="true"]{box-shadow:var(--key-on)}
   .ddbtn[aria-expanded="true"] svg{transform:rotate(180deg);color:var(--acc)}
-  .ctl.dd > .seg{display:none;position:absolute;top:calc(100% + 6px);left:0;z-index:75;flex-direction:column;min-width:128px;padding:4px;background:var(--pop-bg);border-radius:calc(var(--tip-r) + 2px);box-shadow:inset 0 0 0 1px var(--tip-bd),var(--pop-sh);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur)}
+  .ctl.dd > .seg{display:none;position:absolute;top:calc(100% + 6px);left:0;z-index:75;flex-direction:column;min-width:128px;padding:var(--space-2);background:var(--pop-bg);border-radius:calc(var(--tip-r) + 2px);box-shadow:inset 0 0 0 1px var(--tip-bd),var(--pop-sh);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur)}
   .ctl.dd.open > .seg{display:flex}
-  .ctl.dd > .seg button{text-align:left;padding:8px 11px}
+  .ctl.dd > .seg button{text-align:left;padding:var(--space-4) var(--space-5)}
   .ctl.dd > .seg button[aria-pressed="true"]{color:var(--acc)}
   .ctl.more{position:relative}
-  .morebtn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:32px;padding:0 11px;border-radius:var(--r-key);background:var(--key-bg);box-shadow:var(--key-sh);color:var(--key-fg);font-size:13px;white-space:nowrap}
+  .morebtn{display:inline-flex;align-items:center;justify-content:center;gap:var(--space-3);height:var(--h-key);padding:0 var(--space-5);border-radius:var(--r-key);background:var(--key-bg);box-shadow:var(--key-sh);color:var(--key-fg);font-size:var(--fs-md);white-space:nowrap}
   .morebtn svg{width:16px;height:16px;color:var(--key-ic);flex:none}
   .morebtn:hover{background:var(--key-hover)}
   .morebtn[aria-expanded="true"]{color:var(--acc);box-shadow:var(--key-on)}
   .morebtn[aria-expanded="true"] svg{color:var(--acc)}
-  .morep{display:none;position:absolute;top:calc(100% + 6px);right:0;z-index:75;width:300px;padding:12px 14px 14px;background:var(--pop-bg);border:1px solid var(--tip-bd);border-radius:calc(var(--tip-r) + 2px);box-shadow:var(--tip-sh);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur)}
+  .morep{display:none;position:absolute;top:calc(100% + 6px);right:0;z-index:75;width:300px;padding:var(--space-5) var(--space-5) var(--space-5);background:var(--pop-bg);border:1px solid var(--tip-bd);border-radius:calc(var(--tip-r) + 2px);box-shadow:var(--tip-sh);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur)}
   .ctl.more.open .morep{display:flex}
 }
 /* 1280–1439: the toolbar (with the 화면 button and the extras icons) still fits on one row */
-@media (min-width:1280px) and (max-width:1439px){ .tools{gap:10px} .search{flex-basis:160px} .seg[data-key="topN"] button{padding:5px 6px} }
+@media (min-width:1280px) and (max-width:1439px){ .tools{gap:var(--space-4)} .search{flex-basis:160px} .seg[data-key="topN"] button{padding:5px var(--space-3)} }
 /* §3-27 the 자동 key costs ~39 px: below 1340 the one-line toolbar finds it by dropping the ± (3% · 5% · 10%; the names keep ±) */
-@media (min-width:1280px) and (max-width:1339px){ #rangeseg .pm{display:none} #rangeseg button{padding-left:7px;padding-right:7px} }
+@media (min-width:1280px) and (max-width:1339px){ #rangeseg .pm{display:none} #rangeseg button{padding-left:var(--space-3);padding-right:var(--space-3)} }
 @media (min-width:1280px) and (max-width:1599px){
   .morebtn{width:34px;padding:0}
   .morebtn .mbl{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 }
-@media (min-width:1600px){ .tools{gap:16px} }
+@media (min-width:1600px){ .tools{gap:var(--space-6)} }
 @media (min-width:1800px){
   .seg[data-key="palette"] .pl{position:static;width:auto;height:auto;overflow:visible;clip:auto}
-  .seg[data-key="palette"] .pal{margin-right:6px}
+  .seg[data-key="palette"] .pal{margin-right:var(--space-3)}
 }
 /* narrower screens: one "표시 설정" button opens the controls (popover on tablets, bottom sheet on phones) */
 @media (max-width:1279px){
   .setbtn{display:inline-flex}
-  .ctls{display:none;flex-direction:column;gap:13px}
+  .ctls{display:none;flex-direction:column;gap:var(--space-5)}
   .ctls.open{display:flex}
-  .ctls-hd{display:flex;align-items:center;justify-content:space-between;font-size:14.5px;font-weight:700}
-  .ctls-hd .x{position:relative;width:32px;height:32px;border-radius:var(--r-key);display:grid;place-items:center;color:var(--muted);font-size:19px;margin-right:-6px}
+  .ctls-hd{display:flex;align-items:center;justify-content:space-between;font-size:var(--fs-lg);font-weight:700}
+  .ctls-hd .x{position:relative;width:var(--h-key);height:var(--h-key);border-radius:var(--r-key);display:grid;place-items:center;color:var(--muted);font-size:var(--fs-2xl);margin-right:-6px}
   .ctls-hd .x:hover{background:color-mix(in srgb,var(--ov) 7%,transparent);color:var(--fg)}
-  .ctls .ctl{flex-direction:column;align-items:stretch;gap:6px}
+  .ctls .ctl{flex-direction:column;align-items:stretch;gap:var(--space-3)}
   .ctls .seg{flex-wrap:wrap}
   .ctls .seg button{flex:1 1 auto}
   .ctls .seg[data-key="palette"]{display:grid;grid-template-columns:1fr 1fr}
-  .ctls .morep{border-top:1px solid var(--line);padding-top:13px}
+  .ctls .morep{border-top:1px solid var(--line);padding-top:var(--space-5)}
 }
 @media (min-width:761px) and (max-width:1279px){
-  .ctls{position:absolute;z-index:70;top:42px;width:410px;max-width:calc(100vw - 36px);background:var(--pop-bg);border:1px solid var(--tip-bd);border-radius:calc(var(--tip-r) + 2px);padding:12px 14px 15px;box-shadow:var(--tip-sh);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur)}
+  .ctls{position:absolute;z-index:70;top:42px;width:410px;max-width:calc(100vw - 36px);background:var(--pop-bg);border:1px solid var(--tip-bd);border-radius:calc(var(--tip-r) + 2px);padding:var(--space-5) var(--space-5) var(--space-6);box-shadow:var(--tip-sh);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur)}
 }
 
 /* ── Layout ───────────────────────────── */
-.layout{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:14px;padding:0 18px 14px;flex:1;min-height:0}
+.layout{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:14px;padding:0 var(--edge) 14px;flex:1;min-height:0}
 /* 시장 뉴스 (news.md §4-1): two rows while the card is shown — the side column spans both, so the second row (1fr) is "side end − map
    column end" and the card under the legend stretches to the side's end. The map, legend and side cards don't move a pixel. */
 .layout:has(> .news:not([hidden])){grid-template-rows:auto 1fr}
@@ -460,26 +466,26 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 .layout:has(> .news:not([hidden])) > .side{grid-row:1 / span 2}
 .layout > .news{grid-column:1;grid-row:2;align-self:stretch;min-width:0}
 .stage{display:flex;flex-direction:column;min-width:0}
-.stagebar{display:flex;align-items:center;gap:12px;padding-bottom:6px;min-height:36px}
-.crumbs{display:flex;align-items:center;gap:6px;min-height:30px;font-size:13.5px;flex-wrap:wrap;flex:1;min-width:0}
-.viewseg button{padding:3px 10px;font-size:12.5px}
-.crumbs button.c{color:var(--fg2);padding:3px 6px;border-radius:5px}
+.stagebar{display:flex;align-items:center;gap:var(--space-5);padding-bottom:var(--space-3);min-height:var(--h-row)}
+.crumbs{display:flex;align-items:center;gap:var(--space-3);min-height:30px;font-size:var(--fs-lg);flex-wrap:wrap;flex:1;min-width:0}
+.viewseg button{padding:3px var(--space-4);font-size:var(--fs-sm)}
+.crumbs button.c{color:var(--fg2);padding:3px var(--space-3);border-radius:var(--r-badge)}
 .crumbs button.c:hover{background:var(--panel2);color:var(--fg)}
 .crumbs button.c.cur{color:var(--fg);font-weight:600;cursor:default;background:none}
 .crumbs .sep{color:var(--faint)}
-.crumbs .ci{display:inline-flex;align-items:center;gap:6px;white-space:nowrap;min-width:0;max-width:100%}
+.crumbs .ci{display:inline-flex;align-items:center;gap:var(--space-3);white-space:nowrap;min-width:0;max-width:100%}
 .crumbs .ci .c{overflow:hidden;text-overflow:ellipsis;min-width:0}
-.crumbs .back{margin-right:4px;display:inline-flex;align-items:center;gap:4px;font-size:12.5px;font-weight:600;color:var(--key-fg);background:var(--key-bg);box-shadow:var(--key-sh);padding:4px 10px;border-radius:var(--r-key);white-space:nowrap}
-.crumbs .stat{margin-left:auto;color:var(--muted);font-size:12.5px;white-space:nowrap}
+.crumbs .back{margin-right:var(--space-2);display:inline-flex;align-items:center;gap:var(--space-2);font-size:var(--fs-sm);font-weight:600;color:var(--key-fg);background:var(--key-bg);box-shadow:var(--key-sh);padding:var(--space-2) var(--space-4);border-radius:var(--r-key);white-space:nowrap}
+.crumbs .stat{margin-left:auto;color:var(--muted);font-size:var(--fs-sm);white-space:nowrap}
 .crumbs .stat b{font-weight:600}
-.crumbs .hint{color:var(--faint);font-size:12.5px;margin-left:8px}
+.crumbs .hint{color:var(--faint);font-size:var(--fs-sm);margin-left:var(--space-4)}
 /* a module's chips in the map-header row, before 지도 · 표 (공시 칩, disclosure.md §5-1); empty → no box, no gap */
-.stage-tools{display:flex;align-items:center;gap:8px;flex:none;min-width:0}
+.stage-tools{display:flex;align-items:center;gap:var(--space-4);flex:none;min-width:0}
 .stage-tools:empty{display:none}
 /* §3-20 today's index line in the map header row: B (≥1024) a small readable chart in the row (or its own row when the row is
    short of room), A (phones, 768) a faint line + area behind the row's text — no added height */
 .stagebar{position:relative}
-.ixl{display:flex;align-items:center;gap:10px;min-width:0;font-variant-numeric:tabular-nums;white-space:nowrap}
+.ixl{display:flex;align-items:center;gap:var(--space-4);min-width:0;font-variant-numeric:tabular-nums;white-space:nowrap}
 .ixl[hidden]{display:none}
 .ixl .ixc{position:relative;flex:1 1 auto;min-width:60px;align-self:stretch}
 .ixl svg{position:absolute;left:0;top:0;width:100%;height:100%;overflow:visible}
@@ -490,29 +496,29 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 .ixl .bl{stroke:var(--ix-base);stroke-width:1;stroke-dasharray:3 3}
 .ixl .nw{stroke:var(--ix-now);stroke-width:1}
 .ixl .dt{fill:currentColor;stroke:var(--page);stroke-width:1.5}
-.ixl .ixv,.ixl .ixt{display:flex;flex-direction:column;justify-content:center;line-height:1.2;font-size:11px;color:var(--muted)}
-.ixl .ixv b{font-size:12.5px;font-weight:600;color:var(--fg)}
-.ixl .ixv .ixr{display:flex;gap:5px;align-items:baseline}
-.ixl .ixv .ixr b{font-size:11.5px}
+.ixl .ixv,.ixl .ixt{display:flex;flex-direction:column;justify-content:center;line-height:1.2;font-size:var(--fs-xs);color:var(--muted)}
+.ixl .ixv b{font-size:var(--fs-md);font-weight:600;color:var(--fg)}
+.ixl .ixv .ixr{display:flex;gap:var(--space-2);align-items:baseline}
+.ixl .ixv .ixr b{font-size:var(--fs-sm)}
 .ixl .ixv i{font-style:normal;color:var(--fg2)}
 .ixl .ixv .k2 i{opacity:.75}
 .ixl .ixt{text-align:right;align-items:flex-end}
-.ixl .ixt b{color:var(--fg2);font-weight:600;font-size:11.5px}
-.ixl .ixtip{position:absolute;bottom:calc(100% + 4px);transform:translateX(-50%);z-index:5;background:var(--tip-bg);border:1px solid var(--tip-bd);border-radius:6px;padding:4px 8px;font-size:11.5px;color:var(--fg);pointer-events:none;box-shadow:0 6px 18px color-mix(in srgb,var(--shc) 50%,transparent);line-height:1.35}
+.ixl .ixt b{color:var(--fg2);font-weight:600;font-size:var(--fs-sm)}
+.ixl .ixtip{position:absolute;bottom:calc(100% + 4px);transform:translateX(-50%);z-index:5;background:var(--tip-bg);border:1px solid var(--tip-bd);border-radius:6px;padding:var(--space-2) var(--space-4);font-size:var(--fs-sm);color:var(--fg);pointer-events:none;box-shadow:0 6px 18px color-mix(in srgb,var(--shc) 50%,transparent);line-height:1.35}
 .ixl .ixtip[hidden]{display:none}
 .ixl .ixtip span{display:block}
 .ixl .ixx{position:absolute;top:0;bottom:0;width:1px;background:var(--fg2);opacity:.45;pointer-events:none}
 .ixl .ixx[hidden]{display:none}
-.crumbs .ixl{flex:1 1 360px;max-width:620px;height:30px;margin:0 4px 0 auto}
+.crumbs .ixl{flex:1 1 360px;max-width:620px;height:30px;margin:0 var(--space-2) 0 auto}
 .ixl .ixv .sw{width:12px;height:0;border-top:2px solid currentColor;align-self:center;flex:none}
 .ixl .ixv .k2 .sw{border-top-width:1.5px;opacity:.7}
 .ixl .sw.up{color:var(--up-text)} .ixl .sw.dn{color:var(--dn-text)} .ixl .sw.flat{color:var(--muted)}
 .crumbs.ix-t1 .hint{display:none}
 /* 전체: the two markets side by side — 코스피 left, 코스닥 right (phones: right before the 지도/표 toggle) */
-.crumbs .stat.ixpair{flex:1 1 auto;display:flex;justify-content:space-between;align-items:baseline;gap:10px;min-width:0;margin-left:0;width:auto;order:0}
+.crumbs .stat.ixpair{flex:1 1 auto;display:flex;justify-content:space-between;align-items:baseline;gap:var(--space-4);min-width:0;margin-left:0;width:auto;order:0}
 .crumbs .ixpair .ixr2{white-space:nowrap}
 .crumbs .ixh{white-space:nowrap}
-.crumbs .ixh .ixn{color:var(--fg);font-weight:600;font-size:13.5px}
+.crumbs .ixh .ixn{color:var(--fg);font-weight:600;font-size:var(--fs-lg)}
 .crumbs .ixh b{font-weight:600}
 /* B for 전체 mirrors it: 코스피's value · % on the left, both lines in the middle, 코스닥's on the right (then the time) */
 .ixl.mirror .ixv{display:contents}
@@ -523,7 +529,7 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 .crumbs .ixl.mirror{max-width:none;margin-left:0}
 .crumbs.ix-t2 .stat .capx{display:none}
 .ixl.narrow .ixt{display:none}
-.stagebar.ix-row{flex-wrap:wrap;row-gap:4px}
+.stagebar.ix-row{flex-wrap:wrap;row-gap:var(--space-2)}
 .stagebar.ix-row > .ixl{order:9;flex:1 0 100%;height:34px}
 .stagebar.ix-bg > .ixl{position:absolute;inset:0 0 2px;z-index:0;pointer-events:none;height:auto}
 .stagebar.ix-bg > .ixl .ixv,.stagebar.ix-bg > .ixl .ixt,.stagebar.ix-bg > .ixl .ixtip,.stagebar.ix-bg > .ixl .ixx{display:none}
@@ -540,49 +546,49 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 @keyframes ixdraw{to{stroke-dashoffset:0}}
 @keyframes ixfade{to{opacity:1}}
 /* §3-11 ★관심 group chips (전체 · 기본 · … · ＋) and the small group popover (menu / name / delete / the ☆ picker) */
-.wgbar{margin:0 0 6px;min-width:0}
+.wgbar{margin:0 0 var(--space-3);min-width:0}
 .wgbar[hidden]{display:none}
-.wgchips{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding:1px 1px 2px}
+.wgchips{display:flex;gap:var(--space-3);overflow-x:auto;scrollbar-width:none;padding:1px 1px var(--space-1)}
 .wgchips::-webkit-scrollbar{display:none}
 .wgi{display:inline-flex;flex:none;padding:1px;border-radius:var(--r-chip);background:var(--chip-bg);box-shadow:var(--key-sh);transition:background-color var(--c-fast) var(--c-out),box-shadow var(--c-fast) var(--c-out)}
 .wgi[data-on]{background:var(--chip-on);box-shadow:inset 0 0 0 1.5px var(--chip-ring)}
-.wgc{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 12px;border-radius:var(--r-chip);font-size:13px;font-weight:600;color:var(--fg2);white-space:nowrap;transition:color var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out)}
+.wgc{display:inline-flex;align-items:center;gap:var(--space-3);height:30px;padding:0 var(--space-5);border-radius:var(--r-chip);font-size:var(--fs-md);font-weight:600;color:var(--fg2);white-space:nowrap;transition:color var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out)}
 .wgc:hover,.wgi[data-on] .wgc{color:var(--fg)}
-.wgc .n{font-size:11.5px;font-weight:500;color:var(--muted);font-variant-numeric:tabular-nums;transition:color var(--c-fast) var(--c-out)}
+.wgc .n{font-size:var(--fs-sm);font-weight:500;color:var(--muted);font-variant-numeric:tabular-nums;transition:color var(--c-fast) var(--c-out)}
 .wgi[data-on] .wgc .n{color:var(--acc)}
-.wgm{position:relative;width:28px;height:30px;margin-left:-6px;border-radius:var(--r-chip);color:var(--fg2);font-size:15px;line-height:1}
+.wgm{position:relative;width:28px;height:30px;margin-left:-6px;border-radius:var(--r-chip);color:var(--fg2);font-size:var(--fs-xl);line-height:1}
 .wgm:hover{color:var(--fg);background:color-mix(in srgb,var(--ov) 6%,transparent)}
-.wgadd{position:relative;flex:none;width:34px;height:32px;border-radius:var(--r-chip);background:var(--key-bg);box-shadow:var(--key-sh);color:var(--fg2);font-size:16px}
+.wgadd{position:relative;flex:none;width:34px;height:32px;border-radius:var(--r-chip);background:var(--key-bg);box-shadow:var(--key-sh);color:var(--fg2);font-size:var(--fs-xl)}
 .wgadd:hover{color:var(--fg);background:var(--key-hover)}
-.wgpop{position:fixed;z-index:95;width:max-content;min-width:220px;max-width:min(320px,calc(100vw - 16px));padding:10px;border-radius:calc(var(--tip-r) + 2px);background:var(--pop-bg);border:1px solid var(--tip-bd);box-shadow:var(--tip-sh);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);font-size:13.5px;color:var(--fg)}
+.wgpop{position:fixed;z-index:95;width:max-content;min-width:220px;max-width:min(320px,calc(100vw - 16px));padding:var(--space-4);border-radius:calc(var(--tip-r) + 2px);background:var(--pop-bg);border:1px solid var(--tip-bd);box-shadow:var(--tip-sh);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);font-size:var(--fs-lg);color:var(--fg)}
 .wgpop[hidden]{display:none}
 .wgpop.in-dlg{z-index:210}   /* KH.watch.pick from a dialog (the stock page, z 200): it moves into it, above its own layers */
-.wgpop h3{margin:2px 6px 8px;font-size:13px;font-weight:600;color:var(--fg2);overflow-wrap:anywhere}
-.wgpop .row{display:flex;align-items:center;gap:10px;width:100%;min-height:36px;padding:0 8px;border-radius:var(--r-in);text-align:left;color:var(--fg);cursor:pointer;transition:filter var(--c-fast) var(--c-out)}
+.wgpop h3{margin:var(--space-1) var(--space-3) var(--space-4);font-size:var(--fs-md);font-weight:600;color:var(--fg2);overflow-wrap:anywhere}
+.wgpop .row{display:flex;align-items:center;gap:var(--space-4);width:100%;min-height:var(--h-row);padding:0 var(--space-4);border-radius:var(--r-in);text-align:left;color:var(--fg);cursor:pointer;transition:filter var(--c-fast) var(--c-out)}
 .wgpop .row:active{filter:var(--press-f);transition-duration:0s}
 .wgpop .row:hover{background:color-mix(in srgb,var(--ov) 6%,transparent)}
 .wgpop .row[disabled]{opacity:.4;cursor:default;background:none}
-.wgpop label.row input{-webkit-appearance:none;appearance:none;width:18px;height:18px;margin:0;flex:none;border-radius:5px;background:var(--tray-bg) no-repeat center/0 0;box-shadow:var(--tray-sh);cursor:pointer;transition:background-color var(--c-fast) var(--c-out),background-size var(--c-base) var(--c-out),box-shadow var(--c-fast) var(--c-out)}
+.wgpop label.row input{-webkit-appearance:none;appearance:none;width:18px;height:18px;margin:0;flex:none;border-radius:var(--r-badge);background:var(--tray-bg) no-repeat center/0 0;box-shadow:var(--tray-sh);cursor:pointer;transition:background-color var(--c-fast) var(--c-out),background-size var(--c-base) var(--c-out),box-shadow var(--c-fast) var(--c-out)}
 .wgpop label.row input:checked{background-color:var(--acc-fill);background-size:14px 14px;box-shadow:inset 0 1px 0 color-mix(in srgb,white 30%,transparent);background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M4.5 10.5l3.6 3.6 7.4-8' fill='none' stroke='%231b1404' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")}
 .wgpop label.row input:focus-visible{outline-offset:2px}
 .wgpop .row .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.wgpop .row .n{margin-left:auto;padding-left:12px;color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums}
-.wgpop .row .ck{margin-left:auto;padding-left:12px;color:var(--acc);font-weight:700}
-.wgpop input[type="text"]{width:100%;height:38px;border-radius:var(--r-key);border:0;background:var(--tray-bg);box-shadow:var(--tray-sh);color:var(--fg);font:inherit;padding:0 11px;outline:none}
+.wgpop .row .n{margin-left:auto;padding-left:var(--space-5);color:var(--muted);font-size:var(--fs-sm);font-variant-numeric:tabular-nums}
+.wgpop .row .ck{margin-left:auto;padding-left:var(--space-5);color:var(--acc);font-weight:700}
+.wgpop input[type="text"]{width:100%;height:38px;border-radius:var(--r-key);border:0;background:var(--tray-bg);box-shadow:var(--tray-sh);color:var(--fg);font:inherit;padding:0 var(--space-5);outline:none}
 .wgpop input[type="text"]:focus{box-shadow:var(--tray-sh),0 0 0 var(--focus-off) var(--pop-solid),0 0 0 calc(var(--focus-off) + var(--focus-w)) var(--focus)}
-.wgpop .msg{min-height:18px;margin:6px 6px 0;font-size:12.5px;color:var(--fg2);line-height:1.45}
-.wgpop .acts{display:flex;gap:8px;justify-content:flex-end;margin-top:8px}
-.wgpop .acts button{height:34px;padding:0 15px;border-radius:var(--r-key);background:var(--key-bg);box-shadow:var(--key-sh);color:var(--key-fg);font-weight:600}
+.wgpop .msg{min-height:18px;margin:var(--space-3) var(--space-3) 0;font-size:var(--fs-sm);color:var(--fg2);line-height:1.45}
+.wgpop .acts{display:flex;gap:var(--space-4);justify-content:flex-end;margin-top:var(--space-4)}
+.wgpop .acts button{height:34px;padding:0 var(--space-6);border-radius:var(--r-key);background:var(--key-bg);box-shadow:var(--key-sh);color:var(--key-fg);font-weight:600}
 .wgpop .acts .pri{background:var(--pri-bg);color:var(--pri-fg);box-shadow:var(--pri-sh)}
 .wgpop .acts .pri[disabled]{opacity:.45;cursor:default;box-shadow:none}
-.wgpop .sep{height:1px;background:var(--line);margin:6px 0}
+.wgpop .sep{height:1px;background:var(--line);margin:var(--space-3) 0}
 @media (max-width:760px){
   .wgc{height:40px} .wgm{height:40px;width:38px} .wgadd{height:42px;width:44px}
   .wgpop{left:8px!important;right:8px;top:auto!important;bottom:calc(8px + env(safe-area-inset-bottom));width:auto;max-width:none;background:var(--sheet-bg);border-color:var(--sheet-bd);border-radius:max(4px,calc(var(--sheet-r) - 4px));box-shadow:var(--sheet-fl-sh)}   /* phones: a floating sheet, in the theme's sheet material */
-  .wgpop .row{min-height:44px} .wgpop .acts button{height:44px}
+  .wgpop .row{min-height:var(--h-row)} .wgpop .acts button{height:var(--h-row)}
 }
 /* the table's 그룹 column (★관심) */
-.list td.k-g{color:var(--fg2);font-size:12.5px;max-width:12em;overflow:hidden;text-overflow:ellipsis;text-align:left}
+.list td.k-g{color:var(--fg2);font-size:var(--fs-sm);max-width:12em;overflow:hidden;text-overflow:ellipsis;text-align:left}
 .list th.k-g{text-align:left}
 
 .map{position:relative;background:var(--map-bg);border-radius:var(--r-map);box-shadow:var(--map-sh);overflow:hidden;height:calc(100vh - 200px);min-height:520px;touch-action:manipulation;user-select:none;-webkit-user-select:none}
@@ -595,10 +601,10 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 .sec,.ind{pointer-events:none}
 .sec{z-index:1}
 .ind{z-index:2}
-.sec .hd,.ind .hd{position:absolute;left:0;right:0;top:0;display:flex;align-items:center;gap:6px;padding:0 5px;pointer-events:auto;cursor:zoom-in;white-space:nowrap;overflow:hidden;text-align:left;border-radius:0;width:100%}
+.sec .hd,.ind .hd{position:absolute;left:0;right:0;top:0;display:flex;align-items:center;gap:var(--space-3);padding:0 var(--space-2);pointer-events:auto;cursor:zoom-in;white-space:nowrap;overflow:hidden;text-align:left;border-radius:0;width:100%}
 .sec .hd:focus-visible,.ind .hd:focus-visible{outline-offset:calc(var(--focus-w) * -1);z-index:5}
-.sec .hd{background:var(--sec-bg);font-size:12px;font-weight:700;color:var(--sec-fg)}
-.ind .hd{background:var(--ihd-bg);font-size:10.5px;font-weight:500;color:var(--ihd-fg)}
+.sec .hd{background:var(--sec-bg);font-size:var(--fs-sm);font-weight:700;color:var(--sec-fg)}
+.ind .hd{background:var(--ihd-bg);font-size:var(--fs-xs);font-weight:500;color:var(--ihd-fg)}
 .sec .hd .t,.ind .hd .t{overflow:hidden;text-overflow:ellipsis;min-width:0}
 .sec .hd .v,.ind .hd .v{font-variant-numeric:tabular-nums;flex:none;font-weight:600}
 .sec .hd:hover,.ind .hd:hover{color:var(--sec-hov)}
@@ -615,7 +621,7 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 .tile:focus-visible{outline:var(--focus-w) solid var(--focus);outline-offset:calc(var(--focus-w) * -1);box-shadow:inset 0 0 0 4px var(--tile-ring-in);z-index:6}
 /* tile labels (data-labs): dark themes — white type with a soft dark halo (readable on the brightest fills); light themes — black or white
    type per fill, whichever contrasts more (JS sets it), no halo */
-.tile .lab{display:flex;flex-direction:column;align-items:center;max-width:100%;padding:0 3px;line-height:1.08;text-shadow:var(--lab-sh)}
+.tile .lab{display:flex;flex-direction:column;align-items:center;max-width:100%;padding:0 var(--space-2);line-height:1.08;text-shadow:var(--lab-sh)}
 /* 상한가 = a white bar on the top edge, 하한가 = on the bottom edge: fits any tile size and any palette */
 .tile.limu::before,.tile.limd::before{content:"";position:absolute;left:0;right:0;height:3px;background:var(--lim-bar);pointer-events:none;z-index:1;box-shadow:0 0 0 .5px var(--lim-bar-sh)}
 .tile.limu::before{top:0}
@@ -629,7 +635,7 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 .tile .px{font-size:.52em;font-weight:500;margin-top:.3em;opacity:.78;font-variant-numeric:tabular-nums}
 .tile .mc{font-size:.44em;font-weight:500;margin-top:.2em;opacity:.66;font-variant-numeric:tabular-nums;white-space:nowrap}
 .tile .pc[hidden],.tile .px[hidden],.tile .mc[hidden]{display:none}
-.tile .lim{position:absolute;z-index:2;left:2px;top:5px;font-size:10px;font-weight:700;line-height:14px;padding:0 3px;border-radius:3px;background:var(--badge-bg);color:var(--badge-fg);box-shadow:0 0 0 1px var(--badge-ring)}
+.tile .lim{position:absolute;z-index:2;left:2px;top:5px;font-size:var(--fs-xs);font-weight:700;line-height:14px;padding:0 var(--space-2);border-radius:var(--r-mark);background:var(--badge-bg);color:var(--badge-fg);box-shadow:0 0 0 1px var(--badge-ring)}
 .tile .lim[hidden]{display:none}
 .tile:hover,.tile.hov{box-shadow:inset 0 0 0 2px var(--tile-hov);z-index:5}
 .tile.sel{box-shadow:inset 0 0 0 3px var(--sel-1),0 0 0 1px var(--sel-2);z-index:6}
@@ -648,7 +654,7 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 html[data-motion="fancy"] .tile .dm.pop{animation:dmIn var(--c-base) var(--c-out) both}
 @keyframes dmIn{from{transform:scale(0)}}
 /* the same corner as a swatch: legend · the map-header chip · the table's name cell */
-.dmsw{position:relative;display:inline-block;width:13px;height:13px;flex:none;border-radius:1px;background:var(--limsw);overflow:hidden;vertical-align:-2px}
+.dmsw{position:relative;display:inline-block;width:13px;height:13px;flex:none;border-radius:var(--r-mark);background:var(--limsw);overflow:hidden;vertical-align:-2px}
 .dmsw::after{content:"";position:absolute;right:0;bottom:0;width:7px;height:7px;background:linear-gradient(to top left,var(--dm-cut) 0 calc(50% - .5px),var(--dm-flap) calc(50% + .5px))}
 .dmsw.big{width:17px;height:17px}
 .dmsw.big::after,.dmsw.new::after{width:10px;height:10px}
@@ -657,18 +663,17 @@ html[data-motion="fancy"] .tile .dm.pop{animation:dmIn var(--c-base) var(--c-out
 .map.anim .tile{transition:opacity .3s,background-color .6s,filter .2s}
 .tile{transition:filter .2s}
 .tile.flash-up::after,.tile.flash-dn::after{content:"";position:absolute;inset:0;pointer-events:none;animation:flash .9s ease-out}
-.tile.flash-up::after{background:var(--flash-up)}
-.tile.flash-dn::after{background:var(--flash-dn)}
-/* light themes: a white / black wash would not show — the 기본 flash is a ring in the tick colour, as in 화려하게 */
-html[data-tone="light"] .tile.flash-up::after{box-shadow:inset 0 0 0 2px var(--up-text)}
-html[data-tone="light"] .tile.flash-dn::after{box-shadow:inset 0 0 0 2px var(--dn-text)}
+/* the tick flash (design.md §10-3, ux/std-template): a flat ring in the tick's colour — no wash, no inner glow — in every theme and
+   effect level; 기본 fades it out once (.9 s), 화려하게 rises and fades (below, JS-driven). Short side < 24px → 1px */
+.tile.flash-up::after{box-shadow:inset 0 0 0 2px var(--up-text)}
+.tile.flash-dn::after{box-shadow:inset 0 0 0 2px var(--dn-text)}
 @keyframes flash{from{opacity:1}to{opacity:0}}
-/* 화려하게 (motion-brief a): a tick-direction ring on ::after, only its opacity animates (JS drives it); short side < 24px → 1px ring */
+/* 화려하게 (motion-brief a): the same tick-direction ring on ::after, only its opacity animates (JS drives it) */
 .tile.fl-u::after,.tile.fl-d::after{content:"";position:absolute;inset:0;pointer-events:none;opacity:0;z-index:2}
-.tile.fl-u::after{box-shadow:inset 0 0 0 2px var(--up-text),inset 0 0 14px color-mix(in srgb,var(--up-text) 45%,transparent)}
-.tile.fl-d::after{box-shadow:inset 0 0 0 2px var(--dn-text),inset 0 0 14px color-mix(in srgb,var(--dn-text) 45%,transparent)}
-.tile.fl-sm.fl-u::after{box-shadow:inset 0 0 0 1px var(--up-text)}
-.tile.fl-sm.fl-d::after{box-shadow:inset 0 0 0 1px var(--dn-text)}
+.tile.fl-u::after{box-shadow:inset 0 0 0 2px var(--up-text)}
+.tile.fl-d::after{box-shadow:inset 0 0 0 2px var(--dn-text)}
+.tile.fl-sm:is(.fl-u,.flash-up)::after{box-shadow:inset 0 0 0 1px var(--up-text)}
+.tile.fl-sm:is(.fl-d,.flash-dn)::after{box-shadow:inset 0 0 0 1px var(--dn-text)}
 .tile.fl-css::after{animation:fx-flash var(--m-flash) var(--m-out) var(--dl,0ms)}
 @keyframes fx-flash{0%{opacity:0}12%{opacity:1}100%{opacity:0}}
 /* 화려하게 (motion-brief c): first entry, once per session — tiles open sector by sector (--dl per node), ≤ 700 ms in all */
@@ -676,15 +681,15 @@ html[data-tone="light"] .tile.flash-dn::after{box-shadow:inset 0 0 0 2px var(--d
 .map.fx-intro .sec,.map.fx-intro .ind{animation:fx-fade var(--m-2) var(--m-out) var(--dl,0ms) both}
 @keyframes fx-in{from{opacity:0;transform:scale(.94)}}
 @keyframes fx-fade{from{opacity:0}}
-.tstar{position:absolute;z-index:7;width:24px;height:24px;display:grid;place-items:center;border-radius:6px;background:var(--badge-bg);color:var(--badge-fg);font-size:14px;line-height:1;box-shadow:0 0 0 1px var(--badge-ring);transition:color var(--c-fast) var(--c-out),background-color var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out)}
+.tstar{position:absolute;z-index:7;width:var(--h-chip);height:var(--h-chip);display:grid;place-items:center;border-radius:var(--r-row);background:var(--badge-bg);color:var(--badge-fg);font-size:var(--fs-lg);line-height:1;box-shadow:0 0 0 1px var(--badge-ring);transition:transform var(--c-fast) var(--c-out),color var(--c-fast) var(--c-out),background-color var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out)}
 .tstar:hover{background:color-mix(in srgb,var(--shc) 85%,transparent)}
 .tstar[aria-pressed="true"]{color:var(--acc-fill)}
 .tstar[hidden]{display:none}
-.map-empty{position:absolute;inset:0;display:grid;place-items:center;color:var(--muted);font-size:14px;padding:20px;text-align:center;line-height:1.6}
-.map-empty .we{display:flex;flex-direction:column;align-items:center;gap:6px;max-width:340px}
-.map-empty .we .big{font-size:30px;color:var(--acc);line-height:1}
-.map-empty .we b{font-size:16px;color:var(--fg);font-weight:700}
-.map-empty .we button{margin-top:8px;height:40px;padding:0 15px;border-radius:var(--r-key);background:var(--key-bg);box-shadow:var(--key-sh);color:var(--key-fg);font-size:13px;font-weight:600}
+.map-empty{position:absolute;inset:0;display:grid;place-items:center;color:var(--muted);font-size:var(--fs-lg);padding:var(--space-6);text-align:center;line-height:1.6}
+.map-empty .we{display:flex;flex-direction:column;align-items:center;gap:var(--space-3);max-width:340px}
+.map-empty .we .big{font-size:var(--fs-num);color:var(--fg2);line-height:1}
+.map-empty .we b{font-size:var(--fs-xl);color:var(--fg);font-weight:700}
+.map-empty .we button{margin-top:var(--space-4);height:40px;padding:0 var(--space-6);border-radius:var(--r-key);background:var(--key-bg);box-shadow:var(--key-sh);color:var(--key-fg);font-size:var(--fs-md);font-weight:600}
 .no-d3 .side,.no-d3 .legend,.no-d3 .tools,.no-d3 .stagebar,.no-d3 .tabs{display:none}
 /* 해외 / 원자재 tabs: src/world fills #world; the map, table, side cards and stock-only tools step aside */
 main.layout[hidden],#world[hidden]{display:none}
@@ -698,63 +703,63 @@ main.layout[hidden],#world[hidden]{display:none}
 /* a section whose rows are all hidden goes with its heading and hints (syncSetSections) — never an empty heading */
 .set-empty{display:none!important}
 .is-cal .ctls .morep{border-top:0;padding-top:0}
-.world-missing{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-height:320px;padding:24px;text-align:center;color:var(--muted);font-size:14px;line-height:1.6;background:var(--panel);border:1px solid var(--line);border-radius:10px}
-.world-missing b{color:var(--fg);font-size:16px}
+.world-missing{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:var(--space-3);min-height:320px;padding:var(--space-7);text-align:center;color:var(--muted);font-size:var(--fs-lg);line-height:1.6;background:var(--panel);border:1px solid var(--line);border-radius:var(--r-card)}
+.world-missing b{color:var(--fg);font-size:var(--fs-xl)}
 
 /* legend under the map */
-.legend{display:flex;flex-wrap:wrap;align-items:center;gap:6px 18px;padding-top:7px;min-height:29px;font-size:12px;color:var(--muted)}
+.legend{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-3) 18px;padding-top:7px;min-height:29px;font-size:var(--fs-sm);color:var(--muted)}
 .legend .lg{display:inline-flex;align-items:center;gap:7px;white-space:nowrap}
 .legend .k{color:var(--muted)}
 .legend b{color:var(--fg2);font-weight:600}
-.legend .grad{width:140px;height:8px;border-radius:2px;flex:none}
+.legend .grad{width:140px;height:8px;border-radius:var(--r-mark);flex:none}
 .legend .tk{font-variant-numeric:tabular-nums;color:var(--fg2)}
-.legend .sw{width:10px;height:10px;border-radius:2px;display:inline-block;flex:none}
+.legend .sw{width:10px;height:10px;border-radius:var(--r-mark);display:inline-block;flex:none}
 /* inline `background:` shorthands on these chips would reset the hatch: !important */
 .legend .nxsw,.sw.nonx,.nmcell i.nonx,.movers i.nonx{background-image:repeating-linear-gradient(135deg,var(--nonx-a) 0 2px,var(--nonx-c) 2px 5px)!important}
 .legend .nxsw{background-color:var(--panel2);box-shadow:inset 0 0 0 1px var(--line2)}
 .legend .nodsw{background-color:var(--nodata);background-image:repeating-linear-gradient(135deg,var(--hatch2) 0 2px,transparent 2px 5px);box-shadow:inset 0 0 0 1px var(--line2)}
-.legend .lg-replay{color:var(--acc);border:1px solid var(--acc-bd);background:var(--acc-soft);border-radius:5px;padding:1px 7px;font-weight:600}
+.legend .lg-replay{color:var(--acc);border:1px solid var(--acc-bd);background:var(--acc-soft);border-radius:var(--r-badge);padding:1px var(--space-3);font-weight:600}
 .legend .limsw{width:12px;height:10px;display:inline-block;flex:none;background:var(--limsw);border-radius:1px}
 .legend .limsw.u{box-shadow:inset 0 3px 0 var(--lim-bar)}
 .legend .limsw.d{box-shadow:inset 0 -3px 0 var(--lim-bar)}
 .legend .note{color:var(--faint)}
 .legend .right{margin-left:auto}
 /* §3-27 "자동 ±4%": a hairline tag before the scale's ends (an info mark, not a control — no amber) */
-.legend .rauto{padding:0 7px;line-height:18px;border-radius:var(--r-chip,999px);box-shadow:inset 0 0 0 1px var(--line2);color:var(--fg2);font-weight:600;font-variant-numeric:tabular-nums}
+.legend .rauto{padding:0 var(--space-3);line-height:18px;border-radius:var(--r-chip,999px);box-shadow:inset 0 0 0 1px var(--line2);color:var(--fg2);font-weight:600;font-variant-numeric:tabular-nums}
 
 /* table view */
-.tablewrap{background:var(--panel);border:1px solid var(--line);border-radius:8px;overflow:auto;height:calc(100vh - 200px);min-height:520px}
-table.list{width:100%;border-collapse:collapse;font-size:13.5px}
-.list th{position:sticky;top:0;z-index:1;background:var(--th-bg);color:var(--muted);font-weight:500;font-size:12.5px;text-align:right;padding:0;border-bottom:1px solid var(--line);white-space:nowrap;user-select:none}
-.list th button{display:block;width:100%;padding:9px 12px;font-size:inherit;font-weight:inherit;color:inherit;text-align:inherit;white-space:nowrap}
+.tablewrap{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-row);overflow:auto;height:calc(100vh - 200px);min-height:520px}
+table.list{width:100%;border-collapse:collapse;font-size:var(--fs-md)}
+.list th{position:sticky;top:0;z-index:1;background:var(--th-bg);color:var(--muted);font-weight:500;font-size:var(--fs-sm);text-align:right;padding:0;border-bottom:1px solid var(--line);white-space:nowrap;user-select:none}
+.list th button{display:block;width:100%;padding:var(--space-4) var(--space-5);font-size:inherit;font-weight:inherit;color:inherit;text-align:inherit;white-space:nowrap}
 .list th button:hover{color:var(--fg)}
 .list th button:focus-visible,.list tbody tr:focus-visible{outline-offset:calc(var(--focus-w) * -1)}
 .list th:first-child,.list td:first-child,.list th:nth-child(2),.list td:nth-child(2){text-align:left}
 .list th[aria-sort]{color:var(--fg)}
 .list th[aria-sort="descending"] button::after{content:" ▾"} .list th[aria-sort="ascending"] button::after{content:" ▴"}
-.list td{padding:8px 12px;border-bottom:1px solid color-mix(in srgb,var(--ov) 4%,transparent);text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.list td{padding:var(--space-4) var(--space-5);border-bottom:1px solid color-mix(in srgb,var(--ov) 4%,transparent);text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
 .list tbody tr{cursor:pointer}
 .list tbody tr:hover{background:color-mix(in srgb,var(--ov) 3.5%,transparent)}
 .list tbody tr.sel{background:var(--amber-soft)}
-.list .nmcell{display:flex;align-items:center;gap:9px;font-weight:600}
-.list .nmcell i{width:10px;height:10px;border-radius:2px;flex:none}
+.list .nmcell{display:flex;align-items:center;gap:var(--space-4);font-weight:600}
+.list .nmcell i{width:10px;height:10px;border-radius:var(--r-mark);flex:none}
 .list .nmcell i.nod{background-color:var(--nodata)!important;box-shadow:inset 0 0 0 1px var(--line2)}
-.list .nmcell small{color:var(--faint);font-weight:400;font-size:11.5px}
-.list .indc{color:var(--muted);font-size:12.5px}
+.list .nmcell small{color:var(--faint);font-weight:400;font-size:var(--fs-xs)}
+.list .indc{color:var(--muted);font-size:var(--fs-sm)}
 /* (the long 섹터 · 업종 text gives way to 거래량 · 거래대금: one line, cut with an ellipsis; below 1024 px the column goes) */
 .list .indt{display:block;max-width:13em;overflow:hidden;text-overflow:ellipsis}
 @media (max-width:1439px){ .list .indt{max-width:9.5em} }
 @media (max-width:1023px){ .list .k-i,.list.x7 .k-vol{display:none} }
 .list .nd{color:var(--faint)}
-.wbtn{position:relative;flex:none;display:inline-grid;place-items:center;width:24px;height:24px;margin:-4px -4px -4px -6px;border-radius:6px;font-size:15px;line-height:1;color:var(--faint);transition:color var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out)}
+.wbtn{position:relative;flex:none;display:inline-grid;place-items:center;width:var(--h-chip);height:var(--h-chip);margin:-4px -4px -4px -6px;border-radius:var(--r-row);font-size:var(--fs-xl);line-height:1;color:var(--faint);transition:color var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out)}
 .wbtn:hover{color:var(--fg);background:color-mix(in srgb,var(--ov) 6%,transparent)}
 .wbtn[aria-pressed="true"]{color:var(--acc)}
 .list tr.nonx .nmt{color:var(--fg2);font-weight:500}
-.nxtag{display:inline-block;flex:none;font-size:10.5px;font-weight:600;line-height:16px;padding:0 4px;border-radius:4px;color:var(--muted);border:1px solid var(--line2);white-space:nowrap}
-.card-head .nxrow{display:flex;align-items:baseline;gap:7px;margin-top:4px;font-size:12.5px;color:var(--fg2);font-variant-numeric:tabular-nums;flex-wrap:wrap}
+.nxtag{display:inline-block;flex:none;font-size:var(--fs-xs);font-weight:600;line-height:16px;padding:0 var(--space-2);border-radius:var(--r-badge);color:var(--muted);border:1px solid var(--line2);white-space:nowrap}
+.card-head .nxrow{display:flex;align-items:baseline;gap:var(--space-3);margin-top:var(--space-2);font-size:var(--fs-sm);color:var(--fg2);font-variant-numeric:tabular-nums;flex-wrap:wrap}
 .card-head .nxrow b{font-weight:600;color:var(--muted)}
 .card-head .nxrow .nxk{color:var(--fg2)}
-.limtag{display:inline-block;flex:none;font-size:11px;font-weight:700;line-height:16px;padding:0 5px;border-radius:4px;border:1px solid currentColor;font-variant-numeric:normal}
+.limtag{display:inline-block;flex:none;font-size:var(--fs-xs);font-weight:700;line-height:16px;padding:0 var(--space-2);border-radius:var(--r-badge);border:1px solid currentColor;font-variant-numeric:normal}
 /* 화려하게: the 현재가 / 등락률 cells of a row whose price just moved */
 .list td.fl-u,.list td.fl-d{position:relative}
 .list td.fl-u::after,.list td.fl-d::after{content:"";position:absolute;inset:0;pointer-events:none;opacity:0;animation:fx-flash var(--m-flash) var(--m-out) var(--dl,0ms)}
@@ -762,148 +767,154 @@ table.list{width:100%;border-collapse:collapse;font-size:13.5px}
 .list td.fl-d::after{background:color-mix(in srgb,var(--dn-text) 22%,transparent)}
 
 /* ── Side ───────────────────────────── */
-.side{display:flex;flex-direction:column;gap:12px;min-width:0;padding-top:42px}
+.side{display:flex;flex-direction:column;gap:var(--space-5);min-width:0;padding-top:42px}
 .card{background:var(--card-bg);border:1px solid var(--card-bd);border-radius:var(--card-r);box-shadow:var(--card-sh);padding:14px}
 .card[hidden]{display:none}
-.card h2{margin:0 0 10px;font-size:13.5px;font-weight:var(--w-head);letter-spacing:var(--track-head);font-family:var(--font-head);color:var(--fg);display:flex;align-items:baseline;justify-content:space-between;gap:8px}
-.card h2 small{font-size:12px;font-weight:400;letter-spacing:normal;font-family:var(--sans);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
-.wavg{display:flex;align-items:baseline;gap:10px;margin-bottom:10px}
-.wavg b{font-size:26px;font-weight:700;font-family:var(--font-head);letter-spacing:-.02em;font-variant-numeric:tabular-nums;white-space:nowrap}
-.wavg span{font-size:12.5px;color:var(--muted)}
-.breadth{display:flex;height:8px;border-radius:4px;overflow:hidden;gap:2px;background:transparent}
+.card h2{margin:0 0 var(--space-4);font-size:var(--fs-lg);font-weight:var(--w-head);letter-spacing:var(--track-head);font-family:var(--font-head);color:var(--fg);display:flex;align-items:baseline;justify-content:space-between;gap:var(--space-4)}
+.card h2 small{font-size:var(--fs-sm);font-weight:400;letter-spacing:normal;font-family:var(--sans);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.wavg{display:flex;align-items:baseline;gap:var(--space-4);margin-bottom:var(--space-4)}
+.wavg b{font-size:var(--fs-num);font-weight:700;font-family:var(--font-head);letter-spacing:-.02em;font-variant-numeric:tabular-nums;white-space:nowrap}
+.wavg span{font-size:var(--fs-sm);color:var(--muted)}
+/* 상한가 3 · 하한가 0 (real flags only, the same count as the dock and the 시장 요약 카드): neutral words, the numbers in the up / down colours */
+.wavg{flex-wrap:wrap;row-gap:var(--space-1)}
+.wavg .dlim{margin-left:auto;white-space:nowrap;font-variant-numeric:tabular-nums}
+.wavg .dlim[hidden]{display:none}
+.wavg .dlim span{font-weight:700}
+.wavg .dlim .up{color:var(--up-text)} .wavg .dlim .dn{color:var(--dn-text)} .wavg .dlim .flat{color:var(--muted)}
+.breadth{display:flex;height:8px;border-radius:var(--r-badge);overflow:hidden;gap:var(--space-1);background:transparent}
 .breadth i{display:block;height:100%}
-.breadth-lab{display:flex;justify-content:space-between;font-size:12.5px;margin-top:7px;font-variant-numeric:tabular-nums;gap:6px}
-.hist{display:grid;grid-template-columns:repeat(9,1fr);gap:3px;align-items:end;height:86px;margin-top:16px}
-.hist button{position:relative;height:100%;display:flex;flex-direction:column;justify-content:flex-end;align-items:stretch;border-radius:3px}
-.hist button .bar{display:block;border-radius:3px 3px 1px 1px;min-height:2px;transition:opacity var(--c-fast) var(--c-out)}
-.hist button .cnt{font-size:10.5px;color:var(--fg2);text-align:center;margin-bottom:3px;font-variant-numeric:tabular-nums}
+.breadth-lab{display:flex;justify-content:space-between;font-size:var(--fs-sm);margin-top:var(--space-3);font-variant-numeric:tabular-nums;gap:var(--space-3)}
+.hist{display:grid;grid-template-columns:repeat(9,1fr);gap:var(--space-2);align-items:end;height:86px;margin-top:var(--space-6)}
+.hist button{position:relative;height:100%;display:flex;flex-direction:column;justify-content:flex-end;align-items:stretch;border-radius:var(--r-mark)}
+.hist button .bar{display:block;border-radius:var(--r-mark) var(--r-mark) var(--r-mark) var(--r-mark);min-height:2px;transition:opacity var(--c-fast) var(--c-out)}
+.hist button .cnt{font-size:var(--fs-xs);color:var(--fg2);text-align:center;margin-bottom:var(--space-2);font-variant-numeric:tabular-nums}
 .hist.has-sel button:not([aria-pressed="true"]) .bar{opacity:.28}
 .hist button[aria-pressed="true"] .cnt{color:var(--acc);font-weight:600}
 .hist button:hover .bar{opacity:1!important;filter:brightness(1.15)}
-.hist-axis{display:grid;grid-template-columns:repeat(9,1fr);gap:3px;font-size:10.5px;color:var(--muted);margin-top:5px;text-align:center;font-variant-numeric:tabular-nums}
+.hist-axis{display:grid;grid-template-columns:repeat(9,1fr);gap:var(--space-2);font-size:var(--fs-xs);color:var(--muted);margin-top:var(--space-2);text-align:center;font-variant-numeric:tabular-nums}
 .hist-axis span{white-space:nowrap;overflow:visible}
-.hist-note{font-size:11.5px;color:var(--faint);margin-top:8px}
+.hist-note{font-size:var(--fs-sm);color:var(--faint);margin-top:var(--space-4)}
 .secs{display:flex;flex-direction:column;gap:1px}
-.secs button{display:grid;grid-template-columns:minmax(0,1fr) 92px 58px;align-items:center;gap:8px;padding:6px 6px;margin:0 -6px;border-radius:6px;font-size:13px;text-align:left}
+.secs button{display:grid;grid-template-columns:minmax(0,1fr) 92px 58px;align-items:center;gap:var(--space-4);padding:var(--space-3) var(--space-3);margin:0 -6px;border-radius:var(--r-row);font-size:var(--fs-md);text-align:left}
 .secs.wide button{grid-template-columns:minmax(0,1fr) 70px 70px}
 .secs button:hover{background:color-mix(in srgb,var(--ov) 4.5%,transparent)}
 .secs button.cur{background:var(--amber-soft)}
 .secs .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.secs .nm small{color:var(--faint);font-size:11px;margin-left:4px}
-.secs .v{text-align:right;font-weight:600;font-variant-numeric:tabular-nums;font-size:12.5px;white-space:nowrap}
-.secs .rank-h{font-size:11.5px;color:var(--muted);margin:2px 0 3px}
+.secs .nm small{color:var(--faint);font-size:var(--fs-xs);margin-left:var(--space-2)}
+.secs .v{text-align:right;font-weight:600;font-variant-numeric:tabular-nums;font-size:var(--fs-sm);white-space:nowrap}
+.secs .rank-h{font-size:var(--fs-xs);color:var(--muted);margin:var(--space-1) 0 var(--space-2)}
 .secs .rank-h + button{margin-top:0}
-.secs .rank-h.second{margin-top:10px}
-.secs .none{font-size:12.5px;color:var(--faint);padding:4px 0}
+.secs .rank-h.second{margin-top:var(--space-4)}
+.secs .none{font-size:var(--fs-sm);color:var(--faint);padding:var(--space-2) 0}
 .dbar{position:relative;height:10px}
 /* §3-13 today's candle: the vertical icon (the 10 px square's place) and the horizontal one (the bar's place); colours = the stock
    page chart's (palette ends, flat grey) */
 .cdi{position:relative;display:inline-block;flex:none;width:9px;height:15px;vertical-align:middle;color:var(--cd-flat)}
 span.cdi.cdi > i{position:absolute;left:calc(50% - .5px);width:1px;height:auto;border-radius:0;background:currentColor}
-.cdi b{position:absolute;left:1px;right:1px;background:currentColor;border-radius:1px}
+.cdi b{position:absolute;left:1px;right:1px;background:currentColor;border-radius:var(--r-mark)}
 .cdi.u,.cdb.u{color:var(--cd-up)} .cdi.d,.cdb.d{color:var(--cd-dn)}
 .cdb{position:relative;display:block;height:10px;color:var(--cd-flat)}
 .cdb::before{content:"";position:absolute;left:50%;top:-2px;bottom:-2px;width:1px;background:var(--line2)}
 span.cdb.cdb > i{position:absolute;top:50%;width:auto;height:1px;margin-top:-.5px;border-radius:0;background:currentColor}
-.cdb b{position:absolute;top:1px;bottom:1px;background:currentColor;border-radius:1px}
-.cdb em{position:absolute;top:50%;transform:translateY(-50%);font-style:normal;font-size:8px;line-height:1;color:currentColor}
+.cdb b{position:absolute;top:1px;bottom:1px;background:currentColor;border-radius:var(--r-mark)}
+.cdb em{position:absolute;top:50%;transform:translateY(-50%);font-style:normal;font-size:var(--fs-xs);line-height:1;color:currentColor}
 .cdb .ovr{right:0} .cdb .ovl{left:0}
-.cdhint{font-size:11px;color:var(--muted);padding:5px 6px 0;line-height:1.4}
-.card-head .ohlc{display:flex;align-items:center;gap:9px;margin-top:5px;font-size:12px;line-height:1.35;color:var(--fg2);font-variant-numeric:tabular-nums}
+.cdhint{font-size:var(--fs-xs);color:var(--muted);padding:var(--space-2) var(--space-3) 0;line-height:1.4}
+.card-head .ohlc{display:flex;align-items:center;gap:var(--space-4);margin-top:var(--space-2);font-size:var(--fs-sm);line-height:1.35;color:var(--fg2);font-variant-numeric:tabular-nums}
 .card-head .ohlc .cdb{width:64px;height:12px;flex:none}
 .card-head .ohlc .cdb::before{top:-3px;bottom:-3px;background:var(--muted)}
-.card-head .ohlc .ot{min-width:0;display:flex;flex-wrap:wrap;column-gap:11px;row-gap:1px}
+.card-head .ohlc .ot{min-width:0;display:flex;flex-wrap:wrap;column-gap:var(--space-5);row-gap:1px}
 .card-head .ohlc .og{white-space:nowrap}
 .card-head .ohlc .ot b{font-weight:600;color:var(--fg)}
 .peer .cdi{width:9px;height:13px}
 .movers .cdi{width:10px;height:15px} .list .nmcell .cdi{width:10px;height:15px}
 .dbar::before{content:"";position:absolute;left:50%;top:-2px;bottom:-2px;width:1px;background:var(--line2)}
-.dbar i{position:absolute;top:1px;height:8px;border-radius:2px}
-.movers-tabs{display:flex;gap:2px;margin-bottom:8px;padding:3px;border-radius:var(--r-tray);background:var(--tray-bg);box-shadow:var(--tray-sh)}
-.movers-tabs button{flex:1 1 0;font-size:12.5px;padding:4px 9px;border-radius:var(--r-in);color:var(--muted);white-space:nowrap;transition:color var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out)}
+.dbar i{position:absolute;top:1px;height:8px;border-radius:var(--r-mark)}
+.movers-tabs{display:flex;gap:var(--space-1);margin-bottom:var(--space-4);padding:3px;border-radius:var(--r-tray);background:var(--tray-bg);box-shadow:var(--tray-sh)}
+.movers-tabs button{flex:1 1 0;font-size:var(--fs-sm);padding:var(--space-2) var(--space-4);border-radius:var(--r-in);color:var(--muted);white-space:nowrap;transition:color var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out)}
 .movers-tabs button[aria-pressed="true"]{color:var(--fg)}
 .movers{display:flex;flex-direction:column;gap:1px}
-.movers button{display:grid;grid-template-columns:10px minmax(0,1fr) auto 66px;gap:9px;align-items:center;padding:6px;margin:0 -6px;border-radius:6px;font-size:13px;text-align:left}
+.movers button{display:grid;grid-template-columns:10px minmax(0,1fr) auto 66px;gap:var(--space-4);align-items:center;padding:var(--space-3);margin:0 -6px;border-radius:var(--r-row);font-size:var(--fs-md);text-align:left}
 .movers.amt button{grid-template-columns:10px minmax(0,1fr) auto 76px}
 .movers button:hover{background:color-mix(in srgb,var(--ov) 4.5%,transparent)}
-.movers i{width:10px;height:10px;border-radius:2px}
+.movers i{width:10px;height:10px;border-radius:var(--r-mark)}
 .movers .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500}
-.movers .px{color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums}
+.movers .px{color:var(--muted);font-size:var(--fs-sm);font-variant-numeric:tabular-nums}
 .movers .v{text-align:right;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
-.movers .none{font-size:12.5px;color:var(--faint);padding:4px 0}
+.movers .none{font-size:var(--fs-sm);color:var(--faint);padding:var(--space-2) 0}
 /* §3-14 더보기 / 접기 under a list; the 거래대금 number of a sector */
-.movers .more,.secs .more{position:relative;display:flex;align-items:center;justify-content:center;gap:7px;width:100%;margin:8px 0 0;padding:8px 0;border-radius:var(--r-key);background:var(--key-bg);box-shadow:var(--key-sh);font-size:12.5px;font-weight:600;color:var(--key-fg);text-align:center}
+.movers .more,.secs .more{position:relative;display:flex;align-items:center;justify-content:center;gap:var(--space-3);width:100%;margin:var(--space-4) 0 0;padding:var(--space-4) 0;border-radius:var(--r-key);background:var(--key-bg);box-shadow:var(--key-sh);font-size:var(--fs-sm);font-weight:600;color:var(--key-fg);text-align:center}
 .movers .more:hover,.secs .more:hover{background:var(--key-hover)}
 .movers .more::after,.secs .more::after{content:"";width:6px;height:6px;margin-top:-3px;border:solid var(--key-ic);border-width:0 1.6px 1.6px 0;transform:rotate(45deg)}
-.movers .more[aria-expanded="true"]::after,.secs .more[aria-expanded="true"]::after{margin-top:3px;transform:rotate(225deg)}
+.movers .more[aria-expanded="true"]::after,.secs .more[aria-expanded="true"]::after{margin-top:var(--space-2);transform:rotate(225deg)}
 .more[data-flip]::after{animation:chevFlip var(--c-base) var(--c-inout)}
 .more[aria-expanded="true"][data-flip]::after{animation-name:chevFlip2}
-@keyframes chevFlip{from{margin-top:3px;transform:rotate(225deg)}}
+@keyframes chevFlip{from{margin-top:var(--space-2);transform:rotate(225deg)}}
 @keyframes chevFlip2{from{margin-top:-3px;transform:rotate(45deg)}}
 .secs .v.tvv{color:var(--fg2);font-weight:600}
 @media (max-width:760px){ .movers .more,.secs .more{min-height:42px} }
 .movers-tabs button[hidden]{display:none}
 
-footer{padding:4px 18px 18px;font-size:12px;color:var(--faint);line-height:1.6}
+footer{padding:var(--space-2) var(--edge) var(--space-6);font-size:var(--fs-sm);color:var(--faint);line-height:1.6}
 footer p{margin:0;max-width:92ch}
 footer a{color:var(--muted)}
-footer .credit{margin-top:6px;color:var(--muted)}
-footer .disclaim{margin-top:4px;color:var(--muted)}   /* 사용자 2026-11-14 11:59: 투자 유의 문구는 항상 맨 아래 줄 */   /* 사용자 2026-11-13 23:04: SSSlot처럼 맨 아래 저작권 한 줄 */
-footer .credit button{font:inherit;color:var(--fg2);background:none;border:0;padding:10px 0;margin:-10px 0;cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px}
+footer .credit{margin-top:var(--space-3);color:var(--muted)}
+footer .disclaim{margin-top:var(--space-2);color:var(--muted)}   /* 사용자 2026-11-14 11:59: 투자 유의 문구는 항상 맨 아래 줄 */   /* 사용자 2026-11-13 23:04: SSSlot처럼 맨 아래 저작권 한 줄 */
+footer .credit button{font:inherit;color:var(--fg2);background:none;border:0;padding:var(--space-4) 0;margin:-10px 0;cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px}
 footer .credit button:hover,footer .credit button:focus-visible{color:#5865f2;transition:color var(--c-fast,180ms) var(--c-out,ease)}   /* 마우스를 올리면 디스코드 색 */
-footer .credit button:focus-visible{outline:3px solid var(--focus,var(--amber));outline-offset:2px;border-radius:3px}
-footer .credit button{display:inline-flex;align-items:center;gap:5px}
+footer .credit button:focus-visible{outline:3px solid var(--focus,var(--amber));outline-offset:2px;border-radius:var(--r-mark)}
+footer .credit button{display:inline-flex;align-items:center;gap:var(--space-2)}
 footer .credit .dc-wrap{display:inline-flex;text-decoration:none}
 footer .credit .dc{width:1.15em;height:1.15em;flex:none}
 
 /* ── Tooltip & detail ───────────────────────────── */
-.tip{position:fixed;z-index:80;pointer-events:none;width:300px;background:var(--tip-bg);border:1px solid var(--tip-bd);border-radius:var(--tip-r);box-shadow:var(--tip-sh);font-size:13px;opacity:0;-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);transition:opacity var(--sp-close-dur) var(--sp-close)}
+.tip{position:fixed;z-index:80;pointer-events:none;width:300px;background:var(--tip-bg);border:1px solid var(--tip-bd);border-radius:var(--tip-r);box-shadow:var(--tip-sh);font-size:var(--fs-md);opacity:0;-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);transition:opacity var(--sp-close-dur) var(--sp-close)}
 /* design.md §7 툴팁: it only fades in (`fade`, no growth, no travel on its first appearance) and out (`close`); where it goes is KH.spring `follow` (tipGo) */
 .tip.show{opacity:1;transition:opacity var(--sp-fade-dur) var(--sp-fade)}
-.card-head{padding:11px 13px 10px;border-bottom:1px solid var(--line)}
-.card-head .path{font-size:11.5px;color:var(--muted);margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.card-head .nmrow{display:flex;align-items:baseline;gap:7px;flex-wrap:wrap}
-.card-head .nmrow b,.card-head .nmrow .nmbtn{font-size:17px;font-weight:700;letter-spacing:-.02em;text-align:left}
-.card-head .nmrow .nmbtn{text-decoration:underline;text-decoration-color:var(--acc);text-underline-offset:3px;border-radius:4px}
-.card-head .nmrow small{color:var(--faint);font-size:11.5px}
-.card-head .nmrow .wmark{color:var(--acc);font-size:12px;font-weight:600}
+.card-head{padding:var(--space-5) var(--space-5) var(--space-4);border-bottom:1px solid var(--line)}
+.card-head .path{font-size:var(--fs-xs);color:var(--muted);margin-bottom:var(--space-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card-head .nmrow{display:flex;align-items:baseline;gap:var(--space-3);flex-wrap:wrap}
+.card-head .nmrow b,.card-head .nmrow .nmbtn{font-size:var(--fs-xl);font-weight:700;letter-spacing:-.02em;text-align:left}
+.card-head .nmrow .nmbtn{text-decoration:underline;text-decoration-color:var(--acc);text-underline-offset:3px;border-radius:var(--r-badge)}
+.card-head .nmrow small{color:var(--faint);font-size:var(--fs-xs)}
+.card-head .nmrow .wmark{color:var(--acc);font-size:var(--fs-sm);font-weight:600}
 .card-head .nmrow .limtag{align-self:center}
-.card-head .px{display:flex;align-items:baseline;gap:9px;margin-top:4px;font-variant-numeric:tabular-nums;flex-wrap:wrap}
-.card-head .px b{font-size:21px;font-weight:700;font-family:var(--font-head);letter-spacing:-.01em}
-.card-head .px span{font-weight:600;font-size:13.5px}
-.card-head .mrow{display:flex;align-items:baseline;gap:8px;margin-top:5px;font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums;flex-wrap:wrap}
-.card-head .mrow b{font-size:14px;font-weight:700}
-.card-head .meta{display:flex;gap:14px;margin-top:6px;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;flex-wrap:wrap}
+.card-head .px{display:flex;align-items:baseline;gap:var(--space-4);margin-top:var(--space-2);font-variant-numeric:tabular-nums;flex-wrap:wrap}
+.card-head .px b{font-size:var(--fs-2xl);font-weight:700;font-family:var(--font-head);letter-spacing:-.01em}
+.card-head .px span{font-weight:600;font-size:var(--fs-lg)}
+.card-head .mrow{display:flex;align-items:baseline;gap:var(--space-4);margin-top:var(--space-2);font-size:var(--fs-sm);color:var(--muted);font-variant-numeric:tabular-nums;flex-wrap:wrap}
+.card-head .mrow b{font-size:var(--fs-lg);font-weight:700}
+.card-head .meta{display:flex;gap:var(--space-5);margin-top:var(--space-3);font-size:var(--fs-sm);color:var(--muted);font-variant-numeric:tabular-nums;flex-wrap:wrap}
 .card-head .meta em{font-style:normal;color:var(--fg2)}
-.wstar{position:relative;display:inline-grid;place-items:center;align-self:center;width:30px;height:30px;margin:-6px 0 -6px 0;border-radius:var(--r-in);color:var(--muted);font-size:18px;line-height:1;transition:color var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out),transform var(--c-fast) var(--c-out)}
+.wstar{position:relative;display:inline-grid;place-items:center;align-self:center;width:30px;height:30px;margin:-6px 0 -6px 0;border-radius:var(--r-in);color:var(--muted);font-size:var(--fs-2xl);line-height:1;transition:color var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out),transform var(--c-fast) var(--c-out)}
 .wstar:hover{color:var(--fg);background:color-mix(in srgb,var(--ov) 6%,transparent)}
 .wstar[aria-pressed="true"]{color:var(--acc)}
-.peers{padding:7px 7px 8px}
-.peers .ttl{font-size:11.5px;color:var(--muted);padding:2px 6px 5px}
-.peer{display:grid;grid-template-columns:9px minmax(0,1fr) 70px 54px;gap:8px;align-items:center;padding:3px 6px;border-radius:5px;font-size:12.5px}
+.peers{padding:var(--space-3) var(--space-3) var(--space-4)}
+.peers .ttl{font-size:var(--fs-xs);color:var(--muted);padding:var(--space-1) var(--space-3) var(--space-2)}
+.peer{display:grid;grid-template-columns:9px minmax(0,1fr) 70px 54px;gap:var(--space-4);align-items:center;padding:var(--space-2) var(--space-3);border-radius:var(--r-badge);font-size:var(--fs-sm)}
 .peers.amt .peer{grid-template-columns:9px minmax(0,1fr) 60px 70px}
 .peer.me{background:color-mix(in srgb,var(--ov) 7%,transparent);font-weight:600}
-.peer i{width:9px;height:9px;border-radius:2px}
+.peer i{width:9px;height:9px;border-radius:var(--r-mark)}
 .peer .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .peer .v{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
 .peer .dbar{height:8px}
 .peer .dbar i{height:6px;top:1px}
-.tiphint{padding:6px 13px 9px;font-size:11.5px;color:var(--faint);border-top:1px solid var(--line)}
+.tiphint{padding:var(--space-3) var(--space-5) var(--space-4);font-size:var(--fs-xs);color:var(--faint);border-top:1px solid var(--line)}
 
-.sheet{position:fixed;z-index:90;right:18px;bottom:18px;width:340px;max-height:min(640px,calc(100vh - 36px));overflow:auto;background:var(--sheet-bg);border:1px solid var(--sheet-bd);border-radius:max(2px,calc(var(--sheet-r) - 4px));box-shadow:var(--sheet-fl-sh);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);display:none;font-size:13px}
+.sheet{position:fixed;z-index:90;right:18px;bottom:18px;width:340px;max-height:min(640px,calc(100vh - 36px));overflow:auto;background:var(--sheet-bg);border:1px solid var(--sheet-bd);border-radius:max(2px,calc(var(--sheet-r) - 4px));box-shadow:var(--sheet-fl-sh);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);display:none;font-size:var(--fs-md)}
 .sheet.open{display:block}
 .sheet:focus{outline:none}
 .sheet .grab{display:none}
-.sheet .x{position:absolute;right:8px;top:8px;width:30px;height:30px;border-radius:var(--r-in);display:grid;place-items:center;color:var(--muted);font-size:18px;transition:filter var(--c-fast) var(--c-out),transform var(--c-fast) var(--c-out)}
+.sheet .x{position:absolute;right:8px;top:8px;width:30px;height:30px;border-radius:var(--r-in);display:grid;place-items:center;color:var(--muted);font-size:var(--fs-2xl);transition:filter var(--c-fast) var(--c-out),transform var(--c-fast) var(--c-out)}
 .sheet .x:hover{background:color-mix(in srgb,var(--ov) 7%,transparent);color:var(--fg)}
-.sheet .acts{display:flex;flex-wrap:wrap;gap:8px;padding:10px 13px 13px;border-top:1px solid var(--line)}
-.sheet .acts button,.sheet .acts a{flex:1;display:inline-flex;justify-content:center;align-items:center;height:36px;border-radius:var(--r-key);font-size:13px;font-weight:600;text-decoration:none}
+.sheet .acts{display:flex;flex-wrap:wrap;gap:var(--space-4);padding:var(--space-4) var(--space-5) var(--space-5);border-top:1px solid var(--line)}
+.sheet .acts button,.sheet .acts a{flex:1;display:inline-flex;justify-content:center;align-items:center;height:var(--h-row);border-radius:var(--r-key);font-size:var(--fs-md);font-weight:600;text-decoration:none}
 .sheet .acts .pri{background:var(--pri-bg);color:var(--pri-fg);box-shadow:var(--pri-sh);flex:1 1 100%}
 .sheet .acts .sec2{background:var(--key-bg);box-shadow:var(--key-sh);color:var(--key-fg)}
 .sheet .acts .sec2:hover{background:var(--key-hover)}
-.spark{padding:8px 13px 0}
+.spark{padding:var(--space-4) var(--space-5) 0}
 .spark svg{display:block;width:100%;height:70px}
-.spark .note{font-size:11.5px;color:var(--faint);padding:2px 0 6px}
+.spark .note{font-size:var(--fs-xs);color:var(--faint);padding:var(--space-1) 0 var(--space-3)}
 
 .scrim{display:none}
 
@@ -915,9 +926,9 @@ footer .credit .dc{width:1.15em;height:1.15em;flex:none}
   .layout:has(> .news:not([hidden])) > :is(.stage,.side),.layout > .news{grid-row:auto}
 }
 @media (max-width: 760px){
-  .top{padding:12px 12px 8px;gap:10px 12px}
-  .brand{font-size:16px}
-  .idx{order:3;width:100%;margin-left:0;gap:14px;font-size:12.5px}
+  .top{padding:var(--space-5) var(--space-5) var(--space-4);gap:10px var(--space-5)}
+  .brand{font-size:var(--fs-xl)}
+  .idx{order:3;width:100%;margin-left:0;gap:var(--space-5);font-size:var(--fs-sm)}
   .status{order:2;margin-left:auto}
   .status .txt{display:none}
   .tabs{order:4;width:100%}
@@ -925,53 +936,53 @@ footer .credit .dc{width:1.15em;height:1.15em;flex:none}
   .tabs-sc::-webkit-scrollbar{display:none}
   /* every selected pill the same capsule (사용자 2026-11-15 19:53: 일정's one-line pill was a 40 × 40 circle touching the 휴장 pill above
      and the header's bottom edge): 52px wide at least, 2px in from the row's top and bottom (36px tall, the 40px tap area unchanged) */
-  .tabs button{flex:1 0 auto;min-width:52px;padding:4px 7px;font-size:13.5px}
+  .tabs button{flex:1 0 auto;min-width:52px;padding:var(--space-2) 7px;font-size:var(--fs-lg)}
   .tabs{--ind-iy:2px}
   .tabs .tn{line-height:15px}
   .tabs .tsep{height:24px}
   /* the row fades out over its last 20px while tabs are still hidden to the right (.more-r, syncTabFade) — a mask on the scroller itself */
   .tabs-sc.more-r{-webkit-mask-image:linear-gradient(to right,#000 calc(100% - 20px),transparent);mask-image:linear-gradient(to right,#000 calc(100% - 20px),transparent)}
-  .tools{padding:0 12px 8px;gap:8px}
+  .tools{padding:0 var(--space-5) var(--space-4);gap:var(--space-4)}
   .search{flex:1 1 0;min-width:0}
   .search kbd{display:none}
-  .setbtn{height:40px;padding:0 13px}
+  .setbtn{height:var(--h-key);padding:0 var(--space-5)}
   .ctls{position:fixed;left:0;right:0;bottom:0;z-index:91;max-height:82svh;overflow:auto;background:var(--sheet-bg);border:0;border-top:1px solid var(--sheet-bd);border-radius:var(--sheet-r) var(--sheet-r) 0 0;box-shadow:var(--sheet-sh);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);padding:8px 16px calc(18px + env(safe-area-inset-bottom))}
   .ctls-hd{min-height:44px}
-  .ctls-hd .x{width:40px;height:40px}
+  .ctls-hd .x{width:var(--h-key);height:var(--h-key)}
   .scrim2{position:fixed;inset:0;z-index:89;background:var(--scrim)}
   .scrim2.open{display:block}
-  .layout{padding:0 12px 12px;gap:12px}
+  .layout{padding:0 var(--space-5) var(--space-5);gap:var(--space-5)}
   /* 휴대폰: 시장 뉴스는 지도 바로 아래, 등락 분포(사이드 카드들) 위 — 사용자 2026-11-14 02:00 "모바일에서 시장 뉴스를 히트맵과 등락분포 사이에" */
   .layout > .news{order:1}
   .layout > .side{order:2}
   .crumbs .stat{margin-left:0;width:100%;order:9}
   .crumbs .hint{display:none}
   .map,.tablewrap{height:72svh;min-height:440px}
-  .legend{gap:6px 14px}
+  .legend{gap:var(--space-3) 14px}
   .legend .right{margin-left:0}
   /* 1주 · 1개월 …: "색 1개월 수익률 10월 8일 종가 대비 −20% ▬ +20%" is wider than a 360 phone — its pieces wrap (it pushed the page to 415 px) */
-  .legend .lg{flex-wrap:wrap;row-gap:4px;max-width:100%}
+  .legend .lg{flex-wrap:wrap;row-gap:var(--space-2);max-width:100%}
   .legend .lg > *{white-space:nowrap}
   .legend .grad{width:clamp(96px,32vw,140px)}
   .side{display:flex}
   .tip{display:none}
   .tstar{display:none}
   .sheet{left:0;right:0;bottom:0;width:auto;border-radius:var(--sheet-r) var(--sheet-r) 0 0;box-shadow:var(--sheet-sh);max-height:78svh;padding-bottom:env(safe-area-inset-bottom)}
-  .sheet .grab{display:block;width:38px;height:4px;border-radius:2px;background:var(--line2);margin:8px auto 0}
+  .sheet .grab{display:block;width:38px;height:4px;border-radius:var(--r-mark);background:var(--line2);margin:var(--space-4) auto 0}
   .scrim{position:fixed;inset:0;z-index:85;background:var(--scrim)}
   .scrim.open{display:block}
-  footer{padding:4px 12px 24px}
-  .tabs button,.seg button,.movers-tabs button,.crumbs button.c,.crumbs .back{min-height:40px;display:inline-flex;align-items:center;justify-content:center}
-  .crumbs .back{padding:3px 12px}
+  footer{padding:var(--space-2) var(--space-5) var(--space-7)}
+  .tabs button,.seg button,.movers-tabs button,.crumbs button.c,.crumbs .back{min-height:var(--h-key);display:inline-flex;align-items:center;justify-content:center}
+  .crumbs .back{padding:3px var(--space-5)}
   .secs button,.movers button{min-height:40px}
-  .sheet .x{width:40px;height:40px;right:6px;top:6px}
-  .wstar{width:40px;height:40px;margin:-10px -4px -10px -4px}
+  .sheet .x{width:var(--h-key);height:var(--h-key);right:6px;top:6px}
+  .wstar{width:var(--h-key);height:var(--h-key);margin:-10px -4px -10px -4px}
   .list.th5 th:nth-child(5),.list.th5 td:nth-child(5){display:none}
-  table.list{font-size:12.5px}
-  .list th{font-size:12px}
-  .list th button{min-height:40px;padding:0 6px}
-  .list td{padding:10px 6px}
-  .list .nmcell{gap:6px}
+  table.list{font-size:var(--fs-md)}
+  .list th{font-size:var(--fs-sm)}
+  .list th button{min-height:var(--h-key);padding:0 var(--space-3)}
+  .list td{padding:var(--space-4) var(--space-3)}
+  .list .nmcell{gap:var(--space-3)}
   .list .nmcell small{display:none}
   .list td:first-child{width:100%;max-width:0}
   .list .nmt{min-width:0;overflow:hidden;text-overflow:ellipsis}
@@ -979,25 +990,25 @@ footer .credit .dc{width:1.15em;height:1.15em;flex:none}
   /* compact phone header: one tools row (search · 표시 설정 · extras icons), 지도/표 on the breadcrumb line */
   /* 8px over the clock row (사용자 2026-11-15 19:52 "모바일에서는 시계가 위 테두리랑 너무 붙어보여": the analog face sat 1.5px under the
      glass panel's top edge); PC unchanged */
-  .top{padding:var(--space-4) 12px 4px;gap:6px 12px;min-height:44px}
+  .top{padding:var(--space-4) var(--space-5) var(--space-2);gap:var(--space-3) var(--space-5);min-height:44px}
   .tabs{padding:0;background:none;box-shadow:none;border-radius:0}
-  .tabs-sc{padding:0 0 4px;margin-bottom:-4px}
+  .tabs-sc{padding:0 1px var(--space-2) 0;margin-bottom:-4px}   /* 1px at the end: 14px names give fractional tab widths, and the scroll range (whole px) left the last tab < 1px past the edge */
   .tabs button:focus-visible{outline-offset:calc(var(--focus-w) * -1)}
   .basis{padding:0}
-  .basis button{padding:4px 10px}
+  .basis button{padding:var(--space-2) var(--space-4)}
   .viewseg{padding:0;--ind-in:3px}
-  .tools{padding:0 12px 4px}
+  .tools{padding:0 var(--space-5) var(--space-2)}
   .search{flex:1 1 0;min-width:120px}
-  .search input{height:40px;padding-right:8px}
+  .search input{height:40px;padding-right:var(--space-4)}
   .search svg{top:12px}
   #extras-tools{flex:none;margin-left:0}
-  .stagebar{padding-bottom:4px;min-height:0;gap:8px}
+  .stagebar{padding-bottom:var(--space-2);min-height:0;gap:var(--space-4)}
   .crumbs .stat{margin-left:auto;width:auto;order:0}
   .crumbs .stat .capx{display:none}
   .viewseg button{min-width:44px}
-  .sheet .acts button,.sheet .acts a{height:44px}
-  .swbtn{min-height:44px}
-  .kchip{height:36px;padding:0 13px;font-size:13px}
+  .sheet .acts button,.sheet .acts a{height:var(--h-row)}
+  .swbtn{min-height:var(--h-row)}
+  .kchip{height:var(--h-chip);padding:0 var(--space-5);font-size:var(--fs-md)}
   .status .tshort{display:inline}
   .status.has-blab .tshort{display:none}
   .status.has-blab .badge .bl{display:none}
@@ -1011,28 +1022,28 @@ footer .credit .dc{width:1.15em;height:1.15em;flex:none}
 @media (max-width:760px){
   .status.has-basis #basis,.status.has-basis .badge{display:none}
   .status.has-basis .bchip{display:inline-flex}
-  .status.has-basis{gap:6px}
+  .status.has-basis{gap:var(--space-3)}
 }
 /* 32 px tall, centred in the 40 px row (its tap area reaches the header's top edge: 40 px), so the session bar's sun / moon, which
    rides just below the row, never meets it */
-.bchip{position:relative;align-items:center;gap:0;height:32px;padding:0 9px 0 11px;border-radius:var(--r-key);background:var(--key-bg);box-shadow:var(--key-sh);color:var(--key-fg);font-size:13px;font-weight:600;white-space:nowrap;font-variant-numeric:tabular-nums}
+.bchip{position:relative;align-items:center;gap:0;height:var(--h-chip);padding:0 var(--space-4) 0 var(--space-5);border-radius:var(--r-key);background:var(--key-bg);box-shadow:var(--key-sh);color:var(--key-fg);font-size:var(--fs-md);font-weight:600;white-space:nowrap;font-variant-numeric:tabular-nums}
 .bchip .bcv{display:inline-grid;min-width:2.1em;justify-items:center}
 .bchip::after{content:"";position:absolute;left:0;right:0;top:-8px;bottom:0}
-.bchip .bcs{margin-left:4px;font-size:11.5px;font-weight:500;color:var(--fg2)}
+.bchip .bcs{margin-left:var(--space-2);font-size:var(--fs-sm);font-weight:500;color:var(--fg2)}
 .bchip .bcs:empty{display:none}
-.bchip .bcc{display:inline-block;margin-left:5px;font-size:10px;color:var(--key-ic);transition:transform var(--c-base) var(--c-inout)}
+.bchip .bcc{display:inline-block;margin-left:var(--space-2);font-size:var(--fs-xs);color:var(--key-ic);transition:transform var(--c-base) var(--c-inout)}
 .bchip[aria-expanded="true"]{box-shadow:var(--key-on)}
 .bchip[aria-expanded="true"] .bcc{transform:rotate(180deg);color:var(--acc)}
 .bmenu{position:fixed;inset:0;z-index:95;display:flex;align-items:flex-end;justify-content:center;background:var(--scrim)}
 .bmenu[hidden]{display:none}
 .bm-in{width:100%;max-width:520px;background:var(--sheet-bg);border-top:1px solid var(--sheet-bd);border-radius:var(--sheet-r) var(--sheet-r) 0 0;-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);padding:6px 12px calc(14px + env(safe-area-inset-bottom));box-shadow:var(--sheet-sh)}
-.bm-in .bm-t{font-size:12.5px;color:var(--muted);margin:8px 8px 6px;font-weight:600}
-.bm-it{position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;min-height:54px;padding:8px 40px 8px 12px;border-radius:var(--r-in);text-align:left;transition:filter var(--c-fast) var(--c-out)}
+.bm-in .bm-t{font-size:var(--fs-sm);color:var(--muted);margin:var(--space-4) var(--space-4) var(--space-3);font-weight:600}
+.bm-it{position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:var(--space-1);width:100%;min-height:54px;padding:var(--space-4) 40px var(--space-4) var(--space-5);border-radius:var(--r-in);text-align:left;transition:filter var(--c-fast) var(--c-out)}
 .bm-it:active{filter:var(--press-f);transition-duration:0s}
 .bm-it::after{content:"";position:absolute;right:14px;top:50%;width:16px;height:16px;margin-top:-8px;background:var(--acc);-webkit-mask:var(--ck-mask) center/contain no-repeat;mask:var(--ck-mask) center/contain no-repeat;clip-path:inset(0 100% 0 0);transition:clip-path var(--c-base) var(--c-out) var(--c-fast)}
 .bm-it[aria-checked="true"]::after{clip-path:inset(0 0 0 0)}
-.bm-it b{font-size:15px;color:var(--fg);font-weight:600}
-.bm-it span{font-size:12px;color:var(--muted);white-space:normal}
+.bm-it b{font-size:var(--fs-xl);color:var(--fg);font-weight:600}
+.bm-it span{font-size:var(--fs-sm);color:var(--muted);white-space:normal}
 .bm-it[aria-checked="true"]{background:var(--amber-soft)}
 .bm-it[aria-checked="true"] b{color:var(--acc)}
 .bm-it:hover{background:var(--panel2)}
@@ -1041,17 +1052,17 @@ footer .credit .dc{width:1.15em;height:1.15em;flex:none}
    순매수 column, that instead of 거래대금) */
 @media (max-width:430px){
   .list .k-vol,.list .k-cap,.list.x7 .k-tv,.list .k-g{display:none}
-  .list td{padding:9px 5px}
-  .list th button{padding:0 5px}
+  .list td{padding:var(--space-4) var(--space-2)}
+  .list th button{padding:0 var(--space-2)}
   .list td:first-child{width:auto;max-width:none;min-width:7.2em;white-space:normal}
   .list .nmt{min-width:5.6em;white-space:normal;word-break:keep-all;overflow-wrap:anywhere;line-height:1.25;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
-  .list .limtag{font-size:10.5px;padding:0 3px}
+  .list .limtag{font-size:var(--fs-xs);padding:0 var(--space-2)}
 }
 /* phones and tablets (and a 7-column table below 1440 px): no room for the tag — the hatched chip and the muted name say it (and the
    row's aria-label) */
 @media (max-width:1023px){ .list .nxtag{display:none} }
 @media (max-width:1439px){ .list.x7 .nxtag{display:none} }
-.list th .thv{display:block;font-size:10.5px;line-height:1.15;font-weight:600;color:var(--muted)}
+.list th .thv{display:block;font-size:var(--fs-xs);line-height:1.15;font-weight:600;color:var(--muted)}
 /* 화려하게: the live dot beats once per quote update instead of pulsing on its own (motion-brief g) */
 html[data-motion="fancy"] .status.live .dot{animation:none}
 html[data-motion="fancy"] .status.live .dot.beat{animation:pulse 1.2s var(--m-out) 1}
@@ -1060,29 +1071,28 @@ html[data-motion="reduced"] .map.anim .node,html[data-motion="reduced"] .map.ani
 html[data-motion="reduced"] .status.live .dot{animation:none}
 html[data-motion="reduced"] .tile.flash-up::after,html[data-motion="reduced"] .tile.flash-dn::after{animation:none}
 /* ───────────────── living controls (docs/standards/controls.md, V1 입체): shared parts ─────────────────
-   KH.ui.seg moves one raised indicator per segment / tab row (leading edge --c-fast, trailing --c-base); press = 1px down, shorter
+   KH.ui.seg moves one raised indicator per segment / tab row (leading edge --sp-lead, trailing --sp-trail); press = 1px down, shorter
    shadow, darker (0 ms down, --c-fast up); labels swap in place; 44 px hit areas on touch screens. Other modules may reuse these. */
 :root{--ck-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M4.5 10.5l3.6 3.6 7.4-8' fill='none' stroke='%23000' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")}
-/* a label that changes in place: the old one leaves upward, the new one comes in from below (KH.ui.swap) */
+/* a label that changes in place (KH.ui.swap, design.md §6-4 — the same as extras' xSwap): the old text is the box's ::before, the new one
+   .sw-n, in one grid cell; the script moves them (out 100 ms — fades, blurs ≤ font-size / 6, 4px; in 60 ms later over 180 ms on the fade
+   spring). A label goes up; a value with a direction (P9) comes in from below when it rose and from above when it fell */
 .sw-go{display:inline-grid}
 .sw-go>.sw-n,.sw-go::before{grid-area:1/1}
-.sw-go::before{content:attr(data-was);animation:swOut var(--c-fast) var(--c-in) forwards}
-.sw-go>.sw-n{animation:swIn var(--c-fast) var(--c-out) var(--c-fast) both}
-@keyframes swOut{to{opacity:0;transform:translateY(-6px)}}
-@keyframes swIn{from{opacity:0;transform:translateY(6px)}}
-/* 화려하게: digits that changed roll (up when the number rises); the text stays the value (KH.ui.roll) */
-.rc{display:inline-block;overflow:hidden;vertical-align:top}
-.rs{display:block}
-.rs[data-o]::before{display:block;content:attr(data-o)}
-/* (the downward column is .rs-dn, not .dn: the global .dn down colour must not paint a rolling number) */
-.rs.rs-dn[data-o]::before{content:none}
-.rs.rs-dn[data-o]::after{display:block;content:attr(data-o)}
+.sw-go::before{content:attr(data-was);pointer-events:none}
+/* 화려하게: the changed digits roll on a drum (KH.ui.roll, design.md §6-2 P10 — the same as extras' xRoll): changed digits only, the
+   short way round, the rightmost first 40 ms apart, a 14 % fade at the drum's top and bottom (a mask: shape, not paint), no blur. The
+   digits passed on the way are the column's ::before (going up) / ::after (going down); the text is the value at every moment */
+.rc{position:relative;display:inline-block;overflow:hidden;vertical-align:top;height:var(--rc-h,1.25em);-webkit-mask-image:linear-gradient(transparent,#000 14%,#000 86%,transparent);mask-image:linear-gradient(transparent,#000 14%,#000 86%,transparent)}
+.rs{display:block;white-space:pre;line-height:var(--rc-h,1.25em)}
+.rs[data-b]::before{content:attr(data-b);display:block}
+.rs[data-a]::after{content:attr(data-a);display:block}
 /* async keys (KH.ui.akey · KH.ui.retry): ✓ = the amber surface, ! = the dark amber one with a ring (never red / green). The
    element-qualified selector outranks a module's own key :hover, so a touch screen's leftover hover never hides the state. */
 :is(button,a).kasync[aria-busy="true"]{cursor:progress}
 :is(button,a).kasync[data-st="done"]{background:var(--done-bg);color:var(--done-fg)}
 :is(button,a).kasync[data-st="fail"]{background:var(--fail-bg);color:var(--fail-fg);box-shadow:inset 0 0 0 1px var(--fail-ring),var(--key-sh)}
-:is(button,a).kasync[data-st="fail"] .kwn{color:var(--acc)}
+:is(button,a).kasync[data-st="fail"] .kwn{color:var(--fail-dot)}
 /* ring while it works, check when done (KH.ui) */
 .kspn{display:inline-block;flex:none;width:14px;height:14px;animation:kspn var(--c-spin) linear infinite}
 .kspn circle{fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-dasharray:30 48}
@@ -1092,31 +1102,32 @@ html[data-motion="reduced"] .kspn,html[data-motion="reduced"] .kspn circle{anima
 @keyframes kspnArc{from{stroke-dasharray:12 48}to{stroke-dasharray:34 48}}
 /* labels stacked in one cell (KH.ui.state): the box keeps the widest label, so neighbours never move */
 .klb{display:inline-grid;align-items:center;justify-items:center;min-width:0}
-.kl{grid-area:1/1;display:inline-flex;align-items:center;justify-content:center;gap:6px;opacity:0;transform:translateY(6px);pointer-events:none;white-space:nowrap;transition:opacity var(--c-fast) var(--c-in),transform var(--c-fast) var(--c-in)}
+.kl{grid-area:1/1;display:inline-flex;align-items:center;justify-content:center;gap:var(--space-3);opacity:0;transform:translateY(6px);pointer-events:none;white-space:nowrap;transition:opacity var(--c-fast) var(--c-in),transform var(--c-fast) var(--c-in)}
 .kl.out{transform:translateY(-6px)}
 .kl.on{opacity:1;transform:none;transition:opacity var(--c-fast) var(--c-out) var(--c-fast),transform var(--c-fast) var(--c-out) var(--c-fast)}
-.kl .kck path{stroke-dasharray:22;stroke-dashoffset:22;transition:stroke-dashoffset var(--c-base) var(--c-out)}
+.kl .kck path{stroke-dasharray:13;stroke-dashoffset:13;transition:stroke-dashoffset var(--c-base) var(--c-out)}
 .kl.on .kck path{stroke-dashoffset:0;transition-delay:var(--c-fast)}
 html[data-motion="fancy"] .kl .kck{transform:scale(.6);transition:transform var(--c-base) var(--c-pop)}
 html[data-motion="fancy"] .kl.on .kck{transform:none;transition-delay:var(--c-fast)}
 .kck,.kwn{flex:none;width:15px;height:15px}
 /* a short note under an icon-only key: no layout, nothing to press (KH.ui.bubble) */
-.kbub{position:fixed;z-index:140;padding:6px 10px;border-radius:9px;background:var(--tip-bg);box-shadow:inset 0 0 0 1px var(--tip-bd),var(--tip-sh);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);color:var(--fg);font-size:12.5px;font-weight:600;white-space:nowrap;pointer-events:none;opacity:0;transform:translateY(-4px);transition:opacity var(--c-fast) var(--c-in),transform var(--c-fast) var(--c-in)}
+.kbub{position:fixed;z-index:140;padding:var(--space-3) var(--space-4);border-radius:var(--r-row);background:var(--tip-bg);box-shadow:inset 0 0 0 1px var(--tip-bd),var(--tip-sh);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);color:var(--fg);font-size:var(--fs-sm);font-weight:600;white-space:nowrap;pointer-events:none;opacity:0;transform:translateY(-4px);transition:opacity var(--c-fast) var(--c-in),transform var(--c-fast) var(--c-in)}
 .kbub.up{transform:translateY(4px)}
 .kbub.on{opacity:1;transform:none;transition-timing-function:var(--c-out)}
-.kbub svg{width:13px;height:13px;vertical-align:-2px;margin-right:5px;color:var(--acc)}
+.kbub svg{width:13px;height:13px;vertical-align:-2px;margin-right:var(--space-2);color:var(--acc)}
+.kbub svg.kwn{color:var(--fail-dot)}
 /* segments and tab rows: one raised indicator each (KH.ui.seg) */
 .seg,.tabs-sc,.movers-tabs{position:relative;isolation:isolate}
 .seg>button,.tabs-sc>button,.movers-tabs>button,.tabs>.tpin{position:relative;z-index:1}
 .seg::before,.tabs-sc::before,.movers-tabs::before{content:"";position:absolute;z-index:0;left:var(--il,0px);right:var(--ir,0px);top:var(--it,0px);bottom:var(--ib,0px);border-radius:var(--r-in);background:var(--ind-bg);box-shadow:var(--ind-sh);pointer-events:none;opacity:0}
-.tabs-sc::after{content:"";position:absolute;z-index:2;left:calc(var(--il,0px) + 10px);right:calc(var(--ir,0px) + 10px);bottom:var(--ib,0px);height:2px;border-radius:2px 2px 0 0;background:var(--acc-line);pointer-events:none;opacity:0}
+.tabs-sc::after{content:"";position:absolute;z-index:2;left:calc(var(--il,0px) + 10px);right:calc(var(--ir,0px) + 10px);bottom:var(--ib,0px);height:2px;border-radius:var(--r-mark) var(--r-mark) 0 0;background:var(--acc-line);pointer-events:none;opacity:0}
 :is(.seg,.tabs-sc,.movers-tabs)[data-ind]::before,.tabs-sc[data-ind]::after{opacity:1}
-:is(.seg,.tabs-sc,.movers-tabs)[data-dir="r"]::before,.tabs-sc[data-dir="r"]::after{transition:right var(--c-fast) var(--c-out),left var(--c-base) var(--c-out),top var(--c-base) var(--c-out),bottom var(--c-base) var(--c-out)}
-:is(.seg,.tabs-sc,.movers-tabs)[data-dir="l"]::before,.tabs-sc[data-dir="l"]::after{transition:left var(--c-fast) var(--c-out),right var(--c-base) var(--c-out),top var(--c-base) var(--c-out),bottom var(--c-base) var(--c-out)}
+:is(.seg,.tabs-sc,.movers-tabs)[data-dir="r"]::before,.tabs-sc[data-dir="r"]::after{transition:right var(--sp-lead-dur) var(--sp-lead),left var(--sp-trail-dur) var(--sp-trail),top var(--sp-lead-dur) var(--sp-lead),bottom var(--sp-lead-dur) var(--sp-lead)}
+:is(.seg,.tabs-sc,.movers-tabs)[data-dir="l"]::before,.tabs-sc[data-dir="l"]::after{transition:left var(--sp-lead-dur) var(--sp-lead),right var(--sp-trail-dur) var(--sp-trail),top var(--sp-lead-dur) var(--sp-lead),bottom var(--sp-lead-dur) var(--sp-lead)}
 :is(.seg,.tabs-sc,.movers-tabs):not([data-ind])>button:is([aria-pressed="true"],[aria-selected="true"]){background:var(--ind-bg);box-shadow:var(--ind-sh)}
 .tabs-sc:not([data-ind])>button:is([aria-pressed="true"],[aria-selected="true"]){box-shadow:var(--ind-sh),inset 0 -2px 0 var(--acc-line)}
 .tabs>.tpin::before{content:"";position:absolute;z-index:-1;left:var(--ind-in,0px);right:var(--ind-in,0px);top:calc(var(--ind-in,0px) + var(--ind-iy,0px));bottom:calc(var(--ind-in,0px) + var(--ind-iy,0px));border-radius:var(--r-in);background:var(--ind-bg);box-shadow:var(--ind-sh);pointer-events:none;opacity:0}
-.tabs>.tpin::after{content:"";position:absolute;z-index:1;left:calc(var(--ind-in,0px) + 10px);right:calc(var(--ind-in,0px) + 10px);bottom:calc(var(--ind-in,0px) + var(--ind-iy,0px));height:2px;border-radius:2px 2px 0 0;background:var(--acc-line);pointer-events:none;opacity:0}
+.tabs>.tpin::after{content:"";position:absolute;z-index:1;left:calc(var(--ind-in,0px) + 10px);right:calc(var(--ind-in,0px) + 10px);bottom:calc(var(--ind-in,0px) + var(--ind-iy,0px));height:2px;border-radius:var(--r-mark) var(--r-mark) 0 0;background:var(--acc-line);pointer-events:none;opacity:0}
 /* ★관심's own pill: "go" = it fades in while the shared pill leaves through the scroller's edge (phones), "on" = it alone */
 .tabs>.tpin::before,.tabs>.tpin::after{transition:opacity var(--sp-close-dur) var(--sp-close)}
 .tabs[data-pin]>.tpin::before,.tabs[data-pin]>.tpin::after{opacity:1;transition:none}
@@ -1133,9 +1144,9 @@ html[data-motion="fancy"] .kl.on .kck{transform:none;transition-delay:var(--c-fa
 /* keys without a surface (☆ · × · ⋯ · 경로) and chips: 1px + darker, no shadow */
 :is(.sheet .x,.ctls-hd .x,.wstar,.wbtn,.wgm,.crumbs button.c,.wgc){transition:transform var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out),color var(--c-fast) var(--c-out)}
 :is(.sheet .x,.ctls-hd .x,.wstar,.wbtn,.wgm,.crumbs button.c:not(.cur),.wgc):is(:active,.is-press){transform:translateY(1px);filter:var(--press-f);transition-duration:0s}
-.tstar:is(:active,.is-press){filter:var(--press-f);transition-duration:0s}
+.tstar:is(:active,.is-press){transform:translateY(1px);filter:var(--press-f);transition-duration:0s}
 /* data rows and bars never sink: they only darken */
-:is(.secs button,.movers > button,.hist button,.bm-it,.sugg button):active{filter:brightness(.85);transition:filter 0s}
+:is(.secs button,.movers > button,.hist button,.bm-it,.sugg button):active{filter:var(--press-f);transition:filter 0s}
 .ctl.dd .ddv{display:inline-grid;justify-items:start}
 /* 44 px to press on touch screens, the drawn size unchanged */
 @media (pointer:coarse){
@@ -1159,7 +1170,7 @@ html header.top.tuck{transform:translateY(calc(-1 * var(--stuck-h,60px) - 6px));
 html[data-motion="reduced"] header.top{transition:none}
 html{scroll-padding-top:calc(var(--stuck-h,0px) + 8px)}
 html[data-theme^="glass"] header.top,html[data-theme^="glass"] header.top.is-stuck{background:none;box-shadow:none}
-html[data-theme^="glass"] header.top::before{content:"";position:absolute;z-index:-1;inset:4px 6px 0;border-radius:18px;background:var(--bar-bg);box-shadow:var(--bar-sh);pointer-events:none}
+html[data-theme^="glass"] header.top::before{content:"";position:absolute;z-index:-1;inset:4px 6px 0;border-radius:16px;background:var(--bar-bg);box-shadow:var(--bar-sh);pointer-events:none}
 html[data-theme^="glass"] header.top.is-stuck::before{-webkit-backdrop-filter:var(--blur-bar);backdrop-filter:var(--blur-bar)}
 @media (max-width:760px){html[data-theme^="glass"] header.top::before{inset:2px 4px 0;border-radius:24px}}
 /* the glass falls back to the opaque panel in place (--m-2 cross-fade) when the frame watchdog trips */
@@ -1173,36 +1184,31 @@ html[data-theme="paper"] .legend .grad{box-shadow:0 0 0 1px var(--rule)}
 html[data-theme="paper"] :is(.secs > button,.movers > button){border-radius:0;box-shadow:inset 0 -1px 0 var(--row-bd)}
 @media (min-width:981px){html[data-theme="paper"] .side{position:relative} html[data-theme="paper"] .side::before{content:"";position:absolute;left:-8px;top:42px;bottom:0;width:1px;background:var(--line2)}}
 @media (max-width:760px){html[data-theme="paper"] :is(.sheet,.ctls,.bm-in,.ssheet){box-shadow:inset 0 2px 0 var(--pop-solid),inset 0 3px 0 var(--rule),var(--sheet-sh)}}
-/* 글라스: an edge highlight on the big floating glass (the tooltip and the header panel); cards, keys and the dock carry no blur */
-html[data-theme^="glass"] :is(.tip,header.top)::after{content:"";position:absolute;inset:0;border-radius:inherit;padding:1px;pointer-events:none;
-  background:linear-gradient(140deg,color-mix(in srgb,white 50%,transparent),transparent 28%,transparent 72%,color-mix(in srgb,white 20%,transparent));
-  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask:linear-gradient(#000 0 0) content-box exclude,linear-gradient(#000 0 0)}
-html[data-theme^="glass"] header.top::after{z-index:-1;inset:4px 6px 0;border-radius:18px}
-@media (max-width:760px){html[data-theme^="glass"] header.top::after{inset:2px 4px 0;border-radius:24px}}
-html[data-theme="glass-dark"] header.top::after{opacity:.5}
+/* 글라스: the big floating glass (the tooltip and the header panel) keeps the .5px edge and the 1px top line of its --tip-sh / --bar-sh —
+   the 140° gradient sheen that ran round it went with design.md §2 (no gradients on UI chrome, ux/std-template) */
 
 /* ───────────────── 표시 설정 › 화면 › 테마 (안 A: four at once, 2 × 2 with swatches) · 명조 제목 · 유리 흐림 ───────────────── */
 .thm .seg{display:grid;grid-template-columns:1fr 1fr}
 /* two-row segments (테마 2 × 2, 색상 2 × 2 in the sheet): a capsule radius would turn the tray into one big pill — cap it */
 :is(.thm .seg,.ctls .seg[data-key="palette"]){border-radius:min(var(--r-tray),18px)}
 :is(.thm .seg,.ctls .seg[data-key="palette"])::before{border-radius:min(var(--r-in),14px)}
-.thm .seg button{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:34px}
+.thm .seg button{display:inline-flex;align-items:center;justify-content:center;gap:var(--space-3);min-height:34px}
 .tsw{display:inline-flex;gap:1px;flex:none}
 .tsw b{display:block;width:7px;height:13px;box-shadow:inset 0 0 0 .5px color-mix(in srgb,var(--fg) 30%,transparent)}
-.tsw b:first-child{border-radius:3px 0 0 3px} .tsw b:last-child{border-radius:0 3px 3px 0}
+.tsw b:first-child{border-radius:var(--r-mark) 0 0 var(--r-mark)} .tsw b:last-child{border-radius:0 var(--r-mark) var(--r-mark) 0}
 .morep .ctl[aria-disabled="true"]{opacity:.45}
 .morep .ctl[aria-disabled="true"] button{cursor:not-allowed}
 /* 표시 설정 › 아래 막대: phones only (the dock exists ≤ 760) */
-.dkset{display:flex;flex-direction:column;gap:13px;border-top:1px solid var(--line);padding-top:13px}
-.dkset .dkh{font-size:12.5px;font-weight:700;color:var(--fg)}
-.dkset .hint{font-size:11.5px;color:var(--muted);line-height:1.45}
+.dkset{display:flex;flex-direction:column;gap:var(--space-5);border-top:1px solid var(--line);padding-top:var(--space-5)}
+.dkset .dkh{font-size:var(--fs-md);font-weight:700;color:var(--fg)}
+.dkset .hint{font-size:var(--fs-sm);color:var(--muted);line-height:1.45}
 @media (min-width:761px){.dkset{display:none!important}}
-@media (max-width:760px){.thm .seg button{min-height:40px}}
+@media (max-width:760px){.thm .seg button{min-height:var(--h-key)}}
 
 /* ───────────────── 아래 막대 — the phone dock (docs/standards/dock.md, V2 two cells + swipe pages, 🔍 at the end) ─────────────────
    Floats once the map has gone by (never over it), hides while any sheet / dialog / the stock page / the keyboard is open. No blur, and an
    opaque fill (the draft's α .93–.97 over each page, composited): without blur a translucent fill only ghosts the card text behind its numbers. */
-.dock{position:fixed;z-index:50;left:8px;right:8px;bottom:calc(8px + env(safe-area-inset-bottom));height:56px;display:flex;align-items:stretch;padding:6px;border-radius:var(--dock-r);background:var(--dock-bg);box-shadow:var(--dock-sh);color:var(--fg);
+.dock{position:fixed;z-index:50;left:8px;right:8px;bottom:calc(8px + env(safe-area-inset-bottom));height:56px;display:flex;align-items:stretch;padding:var(--space-3);border-radius:var(--dock-r);background:var(--dock-bg);box-shadow:var(--dock-sh);color:var(--fg);
   transform:translateY(calc(100% + 16px));opacity:0;visibility:hidden;transition:transform var(--m-1) var(--m-exit),opacity var(--m-1) var(--m-exit),visibility 0s linear var(--m-1)}
 .dock.on{transform:none;opacity:1;visibility:visible;transition:transform var(--m-2) var(--m-out),opacity var(--m-2) var(--m-out),visibility 0s}
 html[data-motion="reduced"] .dock{transition:none}
@@ -1212,43 +1218,50 @@ html[data-motion="reduced"] .dock{transition:none}
 .dock.keyonly .dk-pw{display:none}
 @media (min-width:761px){.dock,.ssheet,.ss-scrim{display:none!important}}
 /* the swipe area keeps ≥ 24 px from both screen edges (Android's back-gesture edge): the side without the 🔍 key gets 10 px more */
-.dk-pw{position:relative;flex:1;min-width:0;display:flex;margin-left:10px}
-.dock[data-side="left"] .dk-pw{margin-left:0;margin-right:10px}
+.dk-pw{position:relative;flex:1;min-width:0;display:flex;margin-left:var(--space-4)}
+.dock[data-side="left"] .dk-pw{margin-left:0;margin-right:var(--space-4)}
 .dk-pages{flex:1;min-width:0;display:flex;overflow-x:auto;scroll-snap-type:x mandatory;overscroll-behavior-x:contain;scrollbar-width:none;border-radius:calc(var(--dock-r) - 6px)}
 .dk-pages::-webkit-scrollbar{display:none}
 .dk-pg{flex:0 0 100%;min-width:0;display:flex;scroll-snap-align:start;scroll-snap-stop:always}
-.dk-c{position:relative;flex:1 1 0;min-width:0;display:flex;flex-direction:column;justify-content:center;gap:3px;padding:0 9px 3px;border-radius:calc(var(--dock-r) - 6px);text-align:left;transition:filter var(--c-fast) var(--c-out)}
+.dk-c{position:relative;flex:1 1 0;min-width:0;display:flex;flex-direction:column;justify-content:center;gap:var(--space-2);padding:0 var(--space-4) var(--space-2);border-radius:calc(var(--dock-r) - 6px);text-align:left;transition:filter var(--c-fast) var(--c-out)}
 .dk-c + .dk-c::before{content:"";position:absolute;left:0;top:6px;bottom:9px;width:1px;background:var(--dock-div)}
 .dk-c:active{filter:var(--press-f);transition-duration:0s}
 .dk-c:focus-visible{outline-offset:-3px}
-.dk-l1{display:flex;align-items:baseline;justify-content:space-between;gap:6px;font-size:11.5px;line-height:14px;color:var(--muted);white-space:nowrap}
+.dk-l1{display:flex;align-items:baseline;justify-content:space-between;gap:var(--space-3);font-size:var(--fs-sm);line-height:14px;color:var(--muted);white-space:nowrap}
 .dk-l1 > :first-child{overflow:hidden;text-overflow:ellipsis;min-width:0}
 .dk-l1 b{font-weight:700;color:var(--fg2)}
 .dk-l1 .st{color:var(--acc)}
 .dk-l1 .p{font-weight:700;font-variant-numeric:tabular-nums;flex:none}
-.dk-v{display:flex;align-items:center;justify-content:space-between;gap:6px;height:20px;font:700 16px/20px var(--font-head);letter-spacing:-.01em;font-variant-numeric:tabular-nums;color:var(--fg);white-space:nowrap}
+/* 상한 9 · 하한 0 (등락 분포 cell): neutral words, the numbers in the up / down colours (0 stays neutral); flex:none — the name gives way */
+.dk-l1 .lim,.dk-l1 .cnt{flex:none;font-variant-numeric:tabular-nums}
+.dk-l1 .lim{margin-left:auto}
+.dk-l1 .lim[hidden],.dk-l1 .cnt[hidden]{display:none}
+.dk-l1 .lim .lu,.dk-l1 .lim .ld{margin-left:var(--space-1);font-weight:700}
+.dk-l1 .lim .lsep{margin:0 var(--space-1)}
+.dk-l1 .lim:not([hidden]) + .cnt{margin-left:var(--space-1)}
+.dk-v{display:flex;align-items:center;justify-content:space-between;gap:var(--space-3);height:20px;font:700 var(--fs-xl)/20px var(--font-head);letter-spacing:-.01em;font-variant-numeric:tabular-nums;color:var(--fg);white-space:nowrap}
 .dk-v > span:first-child{overflow:hidden;text-overflow:ellipsis;min-width:0}
 .dk-v svg{width:44px;height:18px;flex:none;overflow:visible}
-.dk-v small{font:600 11px/1 var(--sans);color:var(--muted);overflow:hidden;text-overflow:ellipsis;min-width:0;text-align:right}
+.dk-v small{font:600 var(--fs-xs)/1 var(--sans);color:var(--muted);overflow:hidden;text-overflow:ellipsis;min-width:0;text-align:right}
 .dk-v small .up,.dk-v small .dn{font-weight:700}
 .dk-sp .ln{fill:none;stroke:currentColor;stroke-width:1.5;stroke-linejoin:round;stroke-linecap:round}
 .dk-sp .bl{stroke:var(--ix-base);stroke-width:1;stroke-dasharray:2 2}
 .dk-bar{display:flex;height:6px;gap:1px;border-radius:var(--r-pill);overflow:hidden}
 .dk-bar i{display:block;min-width:0}
 html[data-theme="paper"] .dk-bar{border-radius:0}
-.dk-n{display:flex;justify-content:space-between;gap:4px;font-size:11.5px;line-height:13px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
-.dk-empty{font-size:12.5px;color:var(--muted);white-space:normal;line-height:1.3}
-.dk-dots{position:absolute;left:0;right:0;bottom:-3px;display:flex;justify-content:center;gap:4px;pointer-events:none}
-.dk-dots i{width:4px;height:4px;border-radius:2px;background:var(--line2);transition:width var(--c-fast) var(--c-out),background-color var(--c-fast) var(--c-out)}
+.dk-n{display:flex;justify-content:space-between;gap:var(--space-2);font-size:var(--fs-sm);line-height:13px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
+.dk-empty{font-size:var(--fs-sm);color:var(--muted);white-space:normal;line-height:1.3}
+.dk-dots{position:absolute;left:0;right:0;bottom:-3px;display:flex;justify-content:center;gap:var(--space-2);pointer-events:none}
+.dk-dots i{width:4px;height:4px;border-radius:var(--r-mark);background:var(--line2);transition:width var(--c-fast) var(--c-out),background-color var(--c-fast) var(--c-out)}
 .dk-dots i.on{width:12px;background:var(--fg2)}
 .dk-dots[hidden]{display:none}
 /* 🔍 — a raised key, 44 × 44 (controls §5-1 · §5-2) */
-.dk-k{position:relative;flex:none;width:44px;height:44px;display:grid;place-items:center;border-radius:var(--r-key);background:var(--key-bg);box-shadow:var(--key-sh);color:var(--key-fg);transition:transform var(--c-fast) var(--c-out),box-shadow var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out)}
+.dk-k{position:relative;flex:none;width:var(--h-row);height:var(--h-row);display:grid;place-items:center;border-radius:var(--r-key);background:var(--key-bg);box-shadow:var(--key-sh);color:var(--key-fg);transition:transform var(--c-fast) var(--c-out),box-shadow var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out)}
 .dk-k svg{width:18px;height:18px;color:var(--key-ic)}
 .dk-k:is(:active,.is-press){transform:translateY(1px);box-shadow:var(--key-dn);filter:var(--press-f);transition-duration:0s}
 html[data-theme^="glass"] .dk-k{border-radius:var(--r-pill)}
-.dock:not([data-side="left"]) .dk-k{margin-left:6px}
-.dock[data-side="left"] .dk-k{margin-right:6px}
+.dock:not([data-side="left"]) .dk-k{margin-left:var(--space-3)}
+.dock[data-side="left"] .dk-k{margin-right:var(--space-3)}
 .dock.keyonly .dk-k{margin:0}
 /* 화려하게: the cells rise 4 px, 20 ms apart, when the dock comes up */
 html[data-motion="fancy"] .dock.on .dk-c{animation:dkRise var(--m-2) var(--m-out) both}
@@ -1261,26 +1274,26 @@ html[data-motion="fancy"] .dock.on .dk-c + .dk-c{animation-delay:20ms}
 .ss-scrim{position:fixed;inset:0;z-index:89;background:var(--scrim)}
 .ss-scrim[hidden],.ssheet[hidden]{display:none}
 .ssheet{position:fixed;left:0;right:0;bottom:0;z-index:90;display:flex;flex-direction:column;height:78svh;background:var(--sheet-bg);border-top:1px solid var(--sheet-bd);border-radius:var(--sheet-r) var(--sheet-r) 0 0;box-shadow:var(--sheet-sh);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);padding-bottom:env(safe-area-inset-bottom);overflow:hidden}
-.ssheet .grab{width:38px;height:4px;border-radius:2px;background:var(--line2);margin:8px auto 4px;flex:none}
-.ss-top{display:flex;align-items:center;gap:8px;padding:2px 12px 6px;flex:none}
+.ssheet .grab{width:38px;height:4px;border-radius:var(--r-mark);background:var(--line2);margin:var(--space-4) auto var(--space-2);flex:none}
+.ss-top{display:flex;align-items:center;gap:var(--space-4);padding:var(--space-1) var(--space-5) var(--space-3);flex:none}
 .ss-top .search{flex:1 1 auto;min-width:0}
-.ss-top .search input{height:44px;font-size:16px;padding-right:12px}
+.ss-top .search input{height:var(--h-row);font-size:var(--fs-xl);padding-right:var(--space-5)}
 .ss-top .search svg{top:14px}
 .ss-top .search input::-webkit-search-cancel-button{-webkit-appearance:none;display:none}
-.ss-x{position:relative;flex:none;width:44px;height:44px;display:grid;place-items:center;border-radius:var(--r-key);color:var(--muted);font-size:20px;transition:transform var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out)}
+.ss-x{position:relative;flex:none;width:var(--h-row);height:var(--h-row);display:grid;place-items:center;border-radius:var(--r-key);color:var(--muted);font-size:var(--fs-2xl);transition:transform var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out)}
 .ss-x:is(:active,.is-press){transform:translateY(1px);filter:var(--press-f);transition-duration:0s}
-.ss-hint{flex:none;margin:0;padding:2px 16px 6px;font-size:12px;color:var(--muted)}
-.ss-list{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;padding:0 6px 10px}
-.ss-list > button{display:grid;grid-template-columns:10px minmax(0,1fr) auto auto;align-items:center;gap:10px;width:100%;min-height:48px;padding:0 10px;border-radius:var(--r-in);text-align:left;font-size:14px;transition:filter var(--c-fast) var(--c-out)}
+.ss-hint{flex:none;margin:0;padding:var(--space-1) var(--space-6) var(--space-3);font-size:var(--fs-sm);color:var(--muted)}
+.ss-list{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;padding:0 var(--space-3) var(--space-4)}
+.ss-list > button{display:grid;grid-template-columns:10px minmax(0,1fr) auto auto;align-items:center;gap:var(--space-4);width:100%;min-height:48px;padding:0 var(--space-4);border-radius:var(--r-in);text-align:left;font-size:var(--fs-lg);transition:filter var(--c-fast) var(--c-out)}
 .ss-list > button[aria-selected="true"]{background:color-mix(in srgb,var(--ov) 7%,transparent)}
 html[data-theme="paper"] .ss-list > button[aria-selected="true"]{background:var(--acc-soft)}
 .ss-list > button:active{filter:var(--press-f);transition-duration:0s}
 .ss-list > button:focus-visible{outline-offset:-3px}
 .ss-list > button > span:nth-child(2){overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.ss-list .sw{width:10px;height:10px;border-radius:2px}
-.ss-list .meta{color:var(--muted);font-size:12px}
-.ss-list .empty{padding:12px 10px;color:var(--muted);font-size:13px;line-height:1.5}
-.ss-list .empty small{display:block;font-size:12px;color:var(--faint);margin-top:2px}
+.ss-list .sw{width:10px;height:10px;border-radius:var(--r-mark)}
+.ss-list .meta{color:var(--muted);font-size:var(--fs-sm)}
+.ss-list .empty{padding:var(--space-5) var(--space-4);color:var(--muted);font-size:var(--fs-md);line-height:1.5}
+.ss-list .empty small{display:block;font-size:var(--fs-sm);color:var(--faint);margin-top:var(--space-1)}
 
 /* ───────────────── floating windows: open · close (design.md §5 four kinds · §6-2 · §7 · §8; 사용자 2026-11-15 19:49 "표시 설정처럼
    이런 플로팅되는 창들은 모션 없어?") ─────────────────
@@ -1416,6 +1429,7 @@ html[data-theme="glass-light"]{--sheet-skirt:#f3f5f8}
   <div class="ctls" id="ctls" role="group" aria-label="표시 설정">
     <div class="ctls-hd"><span>표시 설정</span><button type="button" class="x" id="ctlsX" aria-label="표시 설정 닫기">×</button></div>
     <div class="ctl" data-ctl="sizeBy"><span>크기</span><div class="seg" data-key="sizeBy"><button data-v="cap">시가총액</button><button data-v="tv">거래대금</button><button data-v="fgn" title="외국인 순매수 금액" aria-label="외국인 순매수">외국인</button><button data-v="inst" title="기관 순매수 금액" aria-label="기관 순매수">기관</button></div></div>
+    <div class="ctl" data-ctl="groupBy"><span id="groupByLbl">묶음</span><div class="seg" data-key="groupBy" role="group" aria-labelledby="groupByLbl"><button data-v="sector" title="섹터 › 업종으로 묶어 그려요">섹터별</button><button data-v="cap" title="묶지 않고 시가총액이 큰 종목부터 왼쪽 위에서 차례로 그려요">시총순</button></div></div>
     <div class="ctl dd" data-ctl="flowWin" hidden><span><span class="wide-hide">순매수 </span>기간</span><button type="button" class="ddbtn" aria-expanded="false" aria-haspopup="true" aria-label="순매수 기간 고르기"><span class="ddv"></span><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 4.5 3 3 3-3"/></svg></button><div class="seg" data-key="flowWin" role="group" aria-label="순매수 기간"><button data-v="1">1일</button><button data-v="5">5일</button><button data-v="20">20일</button></div></div>
     <div class="ctl dd" data-ctl="colorBy"><span>색 기준</span><button type="button" class="ddbtn" aria-expanded="false" aria-haspopup="true" aria-label="색 기준 고르기"><span class="ddv"></span><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 4.5 3 3 3-3"/></svg></button><div class="seg" data-key="colorBy" role="group" aria-label="색 기준"><button data-v="r" title="오늘 등락률">오늘</button><button data-v="w1" title="1주 수익률">1주</button><button data-v="m1" title="1개월 수익률">1개월</button><button data-v="m3" title="3개월 수익률">3개월</button><button data-v="ytd" title="올해 수익률 (작년 마지막 거래일 종가 대비)">올해</button><button data-v="y1" title="1년 수익률">1년</button></div></div>
     <div class="ctl" data-ctl="topN"><span>종목 수</span><div class="seg" data-key="topN"><button data-v="100">100</button><button data-v="200">200</button><button data-v="300">300</button><button data-v="500">500</button><button data-v="all" title="상장 종목 전부(코스피 약 940 · 코스닥 약 1,760)">전체</button></div></div>
@@ -1449,7 +1463,7 @@ html[data-theme="glass-light"]{--sheet-skirt:#f3f5f8}
   <aside class="side">
     <section class="card">
       <h2><span id="distTitle">등락 분포</span> <small id="breadthScope"></small></h2>
-      <div class="wavg"><b id="wavg">—</b><span id="wavgLab">시가총액 가중</span></div>
+      <div class="wavg"><b id="wavg">—</b><span id="wavgLab">시가총액 가중</span><span class="dlim" id="distLim" hidden></span></div>
       <div class="breadth" id="breadth"></div>
       <div class="breadth-lab" id="breadthLab"></div>
       <div class="hist" id="hist"></div>
@@ -1706,15 +1720,15 @@ const fmtPct = (v, d = 2) => sgn(v) + Math.abs(v).toFixed(d) + '%';
 
 /* ───────────────── living controls (docs/standards/controls.md) — KH.ui, shared with extras · stock · world ─────────────────
    seg(el): the raised indicator of a segment / tab row follows its pressed button — aria-pressed, or aria-selected in a tablist
-   (leading edge --c-fast, trailing --c-base; a resize only re-places it). swap(el, text, from?): a label changes in place. roll(el, text, dir): 화려하게 digits roll (the
+   (design.md §6-3: leading edge the lead spring, trailing edge trail — the CSS curves of KH.spring.edges; a resize only re-places it). swap(el, text, from?): a label changes in place. roll(el, text, dir): 화려하게 digits roll (the
    element's text is the value at every moment). busy(btn, promise): a ring in place of the label while it works. state(el, st):
    .klb/.kl stacked labels (the box keeps the widest one). bubble(anchor, text, 'done'|'fail'): a short note under an icon-only key
    (no layout) + aria-live. sw(btn): a switch row whose knob can be dragged. live(text): a polite announcement. icon(name).
    akey(cls, says, st): an async key (.kasync). retry({run, render, …}): the 다시 시도 key every module uses (✓ / ! on the key).
    Lengths are the --c-* tokens ('줄이기' sets them to 0, so every helper lands in its final state at once). */
 const UI_SVG = {
-  check: '<svg class="kck" viewBox="0 0 20 20" aria-hidden="true"><path d="M4.5 10.5l3.6 3.6 7.4-8" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-  warn: '<svg class="kwn" viewBox="0 0 20 20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><circle cx="10" cy="10" r="7.6"/><path d="M10 6v5M10 14.1v.2"/></svg>',
+  check: '<svg class="kck" viewBox="0 0 20 20" aria-hidden="true"><path d="M4.5 10.5l3.6 3.6 7.4-8" fill="none" stroke="currentColor" stroke-width="1.75" vector-effect="non-scaling-stroke" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  warn: '<svg class="kwn" viewBox="0 0 20 20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><circle cx="10" cy="10" r="7.6" vector-effect="non-scaling-stroke"/><path d="M10 6v5M10 14.1v.2" vector-effect="non-scaling-stroke"/></svg>',
   spin: '<svg class="kspn" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7.5"/></svg>',
 };
 function uiIcon(name) { const t = document.createElement('template'); t.innerHTML = UI_SVG[name] || ''; return t.content.firstElementChild || document.createElement('span'); }
@@ -1781,40 +1795,86 @@ function uiSeg(seg) {
   if (uiSegRO) { uiSegRO.observe(seg); uiSegKids(seg); }
   uiSegPlace(seg, true);
 }
-function uiSwap(el, text, from) {
+/* KH.ui.swap(el, text, from?, dir?) — design.md §6-4 (ported from extras' xSwap, ux/std-template): out 100 ms (opacity, blur ≤ font-size / 6,
+   4px) on the close spring, in 60 ms later over 180 ms on the fade spring. dir (P9): > 0 the value rose (comes in from below), < 0 it fell
+   (from above); none = a label (goes up). 줄이기 / a hidden tab: written at once. A new call ends the running one first. */
+const UI_SWAP = { out: 100, gap: 60, in: 180 }, UI_ROLL_GAP = 40;
+const uiEaseOk = new Map();
+function uiEase(name) {
+  const e = getComputedStyle(document.documentElement).getPropertyValue(`--sp-${name}`).trim();
+  if (!uiEaseOk.has(e)) { let ok = false; try { ok = !!e && !!new KeyframeEffect(null, null, { easing: e }); } catch (x) { ok = false; } uiEaseOk.set(e, ok); }
+  return uiEaseOk.get(e) ? e : 'cubic-bezier(.22,1,.36,1)';
+}
+function uiStop(el) {
+  for (const k of ['__ur', '__us']) if (el[k]) { const a = el[k]; el[k] = null; for (const x of a) { try { x.cancel(); } catch (e) { /* gone */ } } }
+  el.classList.remove('sw-go'); delete el.dataset.was;
+}
+function uiSwap(el, text, from, dir) {
   if (!el) return;
   text = String(text);
   const cur = from != null ? String(from) : el.textContent;
   const wrapped = el.childElementCount === 1 && el.firstElementChild.classList.contains('sw-n');
-  if (cur === text) { if (!wrapped || el.textContent !== text) { const n = document.createElement('span'); n.className = 'sw-n'; n.textContent = text; el.replaceChildren(n); } return; }
+  if (cur === text && wrapped && el.textContent === text) return;          // the same text again: a running swap goes on
+  uiStop(el);
   const n = document.createElement('span'); n.className = 'sw-n'; n.textContent = text;
   el.replaceChildren(n);
-  if (!cur || MOTION === 'reduced' || document.hidden || !el.isConnected) { el.classList.remove('sw-go'); delete el.dataset.was; return; }
-  el.dataset.was = cur; el.classList.remove('sw-go'); void el.offsetWidth; el.classList.add('sw-go');
+  if (!cur || cur === text || MOTION === 'reduced' || document.hidden || !el.isConnected) return;
+  const fs = parseFloat(getComputedStyle(el).fontSize) || 13, blur = `blur(${Math.min(2, fs / 6).toFixed(2)}px)`, sg = dir < 0 ? -1 : 1;
+  el.dataset.was = cur; el.classList.add('sw-go');
+  const an = [];
+  try {
+    an.push(el.animate([{ opacity: 1, transform: 'none', filter: 'blur(0px)' }, { opacity: 0, transform: `translateY(${-4 * sg}px)`, filter: blur }], { duration: UI_SWAP.out, easing: uiEase('close'), fill: 'forwards', pseudoElement: '::before' }));
+    an.push(n.animate([{ opacity: 0, transform: `translateY(${4 * sg}px)`, filter: blur }, { opacity: 1, transform: 'none', filter: 'blur(0px)' }], { duration: UI_SWAP.in, delay: UI_SWAP.gap, easing: uiEase('fade'), fill: 'backwards' }));
+  } catch (e) { uiStop(el); return; }
+  el.__us = an;
+  Promise.all(an.map(a => a.finished)).then(() => { if (el.__us === an) { el.__us = null; el.classList.remove('sw-go'); delete el.dataset.was; } }, () => {});
 }
-document.addEventListener('animationend', e => {
-  if (e.animationName !== 'swIn') return;
-  const el = e.target.parentElement; if (el && el.classList.contains('sw-go')) { el.classList.remove('sw-go'); delete el.dataset.was; }
-});
+// a number written in place: the swap goes the way the value went (no digit roll — design.md §6-2 P10 keeps rolls for the 화려하게 ticker)
+const numOf = t => { const m = /[+−-]?[\d,]*\.?\d+/.exec(String(t || '').replace(/−/g, '-')); return m ? parseFloat(m[0].replace(/,/g, '')) : NaN; };
+function uiSwapNum(el, text, quiet) {
+  if (!el) return;
+  text = String(text);
+  const was = el.textContent;
+  if (was === text) return;
+  if (quiet || !was) { uiStop(el); el.textContent = text; return; }
+  const a = numOf(was), b = numOf(text);
+  uiSwap(el, text, was, isFinite(a) && isFinite(b) ? Math.sign(b - a) : 0);
+}
+/* KH.ui.roll(el, text, dir) — 화려하게 digits on a drum (design.md §6-2 P10, ported from extras' xRoll): changed digits only, the short way
+   (9 → 0 is one step forward; a tie goes the way the value went, dir), the rightmost first 40 ms apart, the roll spring (no overshoot),
+   a 14 % fade mask (CSS .rc). Not 화려하게, a length change or a hidden tab: written at once. */
 function uiRoll(el, text, dir) {
   if (!el) return;
   text = String(text);
-  const old = el.textContent;
-  if (old === text) return;
-  if (MOTION !== 'fancy' || !dir || !old || old.length !== text.length || document.hidden || !el.isConnected) { el.textContent = text; return; }
-  const H = parseFloat(getComputedStyle(el).lineHeight) || el.getBoundingClientRect().height || 14, dur = uiMs('--c-base');
-  el.textContent = '';
+  const old = el.textContent;            // mid-roll too: each drum's text is its target digit, so the text is the value
+  uiStop(el);
+  el.textContent = text;
+  if (!old || old === text || MOTION !== 'fancy' || old.length !== text.length || document.hidden || !el.isConnected) return;
+  const dur = uiMs('--sp-roll-dur');
+  if (!(dur > 0)) return;
+  const H = parseFloat(getComputedStyle(el).lineHeight) || el.getBoundingClientRect().height || 14, ease = uiEase('roll');
+  const kids = [], cols = [];
   for (let i = 0; i < text.length; i++) {
     const a = old[i], c = text[i];
-    if (a === c || !/\d/.test(a) || !/\d/.test(c)) { el.append(c); continue; }
-    const box = document.createElement('span'), col = document.createElement('span');
-    box.className = 'rc'; box.style.height = H + 'px';
-    col.className = dir > 0 ? 'rs' : 'rs rs-dn'; col.dataset.o = a; col.textContent = c;
-    box.append(col); el.append(box);
-    const an = col.animate(dir > 0 ? [{ transform: 'translateY(0)' }, { transform: `translateY(${-H}px)` }] : [{ transform: `translateY(${-H}px)` }, { transform: 'translateY(0)' }],
-      { duration: dur, easing: 'cubic-bezier(.22,1,.36,1)', delay: (text.length - 1 - i) * 40, fill: 'both' });
-    an.onfinish = () => { delete col.dataset.o; an.cancel(); };
+    if (a === c || !/\d/.test(a) || !/\d/.test(c)) { kids.push(c); continue; }
+    const fwd = (+c - +a + 10) % 10, up = fwd < 10 - fwd || (fwd === 5 && dir >= 0), steps = up ? fwd : 10 - fwd;
+    const seq = [];
+    for (let k = 0; k <= steps; k++) seq.push(String((+a + (up ? k : -k) + 10) % 10));
+    // up: the drum reads a … c top to bottom and ends at the bottom (new digits come from below); down: c … a, it ends at the top
+    const col = h('span', { class: 'rs' }, c);
+    if (up) col.dataset.b = seq.slice(0, -1).join('\n'); else col.dataset.a = seq.slice(0, -1).reverse().join('\n');
+    kids.push(h('span', { class: 'rc', style: `--rc-h:${H}px` }, col));
+    cols.push([col, steps, up]);
   }
+  if (!cols.length) return;
+  el.replaceChildren(...kids);
+  const an = [];
+  cols.forEach(([col, steps, up], k) => {
+    const far = `translateY(${-steps * H}px)`, delay = (cols.length - 1 - k) * UI_ROLL_GAP;
+    try { an.push(col.animate(up ? [{ transform: 'none' }, { transform: far }] : [{ transform: far }, { transform: 'none' }], { duration: dur, delay, easing: ease, fill: 'both' })); } catch (e) { /* static digits are fine */ }
+  });
+  el.__ur = an;
+  Promise.all(an.map(a => a.finished)).then(() => { if (el.__ur === an) { el.__ur = null; el.textContent = text; } }, () => {});
 }
 function uiBusy(btn, p) {
   if (!btn || btn.getAttribute('aria-busy') === 'true') return p;
@@ -2050,6 +2110,7 @@ const state = {
   market: bootHash ? bootHash.m : store.get('market', 'Q'),
   theme: bootHash ? bootHash.theme : null,     // theme id while a theme's members are shown
   sizeBy: store.get('sizeBy', 'cap'),
+  groupBy: store.get('groupBy', 'sector') === 'cap' ? 'cap' : 'sector',   // §3-36 묶음: 섹터별 (sector › industry) · 시총순 (one map, biggest cap first)
   flowWin: store.get('flowWin', 5),
   colorBy: store.get('colorBy', 'r'),
   topN: store.get('topN', narrowMQ.matches ? 100 : 300),
@@ -2087,6 +2148,9 @@ if (!COLOR_METRICS[state.colorBy]) state.colorBy = 'r';
 if (!MKT_NAME[state.market]) state.market = 'Q';
 if (state.market !== 'THEME') state.theme = null;
 const isWorld = () => state.market === 'WORLD' || state.market === 'CMDTY' || state.market === 'CAL';   // CAL (일정) steps the map aside the same way
+// §3-36 시총순 지도: 코스피 · 코스닥 · 전체 drawn without sector › industry blocks, the biggest market cap first (the other tabs keep theirs)
+const GROUPABLE = ['K', 'Q', 'ALL'];
+const capOrder = () => state.groupBy === 'cap' && GROUPABLE.includes(state.market);
 // tile marks (KH.marks, disclosure.md §13 ②): name → Map(code → {size, label, title, fresh}); MARK_ONLY = the name whose marks light the map
 const MARKS = new Map(), NO_MARKS = new Map();
 let MARK_ONLY = null;
@@ -2704,7 +2768,10 @@ function krxRow(st, closes) {
   const c = closes && CLOSE ? CLOSE.c[st.c] : null;
   if (!c || !(+c[0] > 0)) return st;
   const p = +c[0];
-  return Object.assign({}, st, { p, d: +c[1] || 0, r: +c[2] || 0, cap: st.p > 0 ? st.cap * p / st.p : st.cap, krx: true, live: st });
+  // limf follows the close drawn (close.json's own flag when the file carries flags — §3-34 ⑤), so the 등락 분포 card · the dock · the
+  // 시장 요약 카드 count 상한가 · 하한가 from one source; an older file keeps the quote's flag
+  const limf = CLOSE.lim ? (c[3] === 1 || c[3] === -1 ? c[3] : 0) : st.limf;
+  return Object.assign({}, st, { p, d: +c[1] || 0, r: +c[2] || 0, cap: st.p > 0 ? st.cap * p / st.p : st.cap, limf, krx: true, live: st });
 }
 // NXT: its price and change; volume / value NXT's own (the quote's while the Worker sends none)
 function nxRow(st) {
@@ -3001,6 +3068,41 @@ function groupRoot(list) {
 }
 // the ★관심 map groups by group when 전체 is shown and two or more groups have stocks on it
 const wgGrouped = list => WG.active === 'all' && WG.groups.filter(g => g.codes.some(c => list.some(s => s.c === c))).length >= 2;
+// 시총순: the stocks in market-cap order (the cap as drawn — basis / replay), whatever 크기 sizes them by; ties by code
+function capRoot(list) {
+  const kids = list.map(st => ({ id: 'T|' + st.c, kind: 'tile', st }));
+  return d3.hierarchy({ id: 'root', children: kids }).sum(d => d.kind === 'tile' ? Math.max(sizeV(d.st), 0) : 0)
+    .sort((a, b) => (b.data.st ? b.data.st.cap || 0 : 0) - (a.data.st ? a.data.st.cap || 0 : 0) || (a.data.id < b.data.id ? -1 : 1));
+}
+/* the ordered strip treemap (Bederson · Shneiderman · Wattenberg 2002, "strip"): rows across the whole width, top to bottom; a row takes
+   the next stocks while their mean aspect ratio still improves. Unlike squarify (which lays a column down the left side, so the 2nd
+   and 3rd biggest end up one under the other) it keeps the given order in reading order — left to right, row after row — for any
+   sizes, so 시총순 still reads as cap rank when 크기 = 거래대금 / 순매수 (sizes then out of order). */
+function stripTile(parent, x0, y0, x1, y1) {
+  const kids = parent.children || [], n = kids.length, W = x1 - x0, H = y1 - y0;
+  if (!n) return;
+  const total = kids.reduce((a, c) => a + Math.max(c.value, 0), 0);
+  if (!(total > 0) || !(W > 0) || !(H > 0)) { for (const c of kids) { c.x0 = c.x1 = x0; c.y0 = c.y1 = y0; } return; }
+  const k = W * H / total;
+  const mean = (i, j, sum) => {            // mean aspect ratio of kids[i..j) laid in one row of height sum·k/W
+    const hh = sum * k / W; let a = 0, m = 0;
+    for (let t = i; t < j; t++) { const v = kids[t].value; if (!(v > 0)) continue; const w = v * k / hh; a += Math.max(w / hh, hh / w); m++; }
+    return m ? a / m : 1;
+  };
+  let i = 0, y = y0;
+  while (i < n) {
+    let j = i + 1, sum = Math.max(kids[i].value, 0), best = mean(i, j, sum);
+    while (j < n) {
+      const s2 = sum + Math.max(kids[j].value, 0), m2 = mean(i, j + 1, s2);
+      if (m2 > best && kids[j].value > 0) break;
+      sum = s2; best = m2; j++;
+    }
+    const hh = j >= n ? y1 - y : sum * k / W;
+    let x = x0;
+    for (let t = i; t < j; t++) { const c = kids[t]; c.y0 = y; c.y1 = y + hh; c.x0 = x; x += sum > 0 ? Math.max(c.value, 0) / sum * W : 0; c.x1 = t === j - 1 ? x1 : x; }
+    y += hh; i = j;
+  }
+}
 function flatRoot(items, themes) {
   const children = themes ? items.map(t => ({ id: 'H|' + t.id, kind: 'theme', t })) : items.map(st => ({ id: 'T|' + st.c, kind: 'tile', st }));
   return d3.hierarchy({ id: 'root', children }).sum(d => d.kind === 'theme' ? Math.max(d.t.cap, 0) : d.kind === 'tile' ? Math.max(sizeV(d.st), 0) : 0).sort((a, b) => b.value - a.value);
@@ -3009,9 +3111,9 @@ function layout(root, W, H, type) {
   const narrow = W < 560;
   const SH = narrow ? 18 : 20, IH = narrow ? 14 : 15;
   const zoomedInd = state.focus && state.focus.i;
-  const inner0 = type === 'themes' ? 2 : type === 'members' ? 1 : 3;
+  const inner0 = type === 'themes' ? 2 : type === 'members' || type === 'cap' ? 1 : 3;
   d3.treemap().size([W, H]).round(true)
-    .tile(d3.treemapSquarify.ratio(1))
+    .tile(type === 'cap' ? stripTile : d3.treemapSquarify.ratio(1))
     .paddingInner(n => n.depth === 0 ? inner0 : n.depth === 1 ? 2 : 1)
     .paddingTop(n => {
       const w = n.x1 - n.x0, hh = n.y1 - n.y0;
@@ -3277,7 +3379,6 @@ function runIntro(root) {
     mapEl.classList.add('fx-intro');
     clearTimeout(introTimer);
     introTimer = setTimeout(finishIntro, last + 220 + 60);
-    countUpIdx();
   });
 }
 function finishIntro() {
@@ -3287,31 +3388,8 @@ function finishIntro() {
   mapEl.classList.remove('fx-intro');
   for (const el of nodes.values()) el.style.removeProperty('--dl');
   for (const t of ['pointerdown', 'keydown', 'wheel']) removeEventListener(t, finishIntro, { capture: true });
-  if (countUp) countUp.stop();
 }
-// header indices: the value counts from the previous close (value − change) to now, the % from 0; colours are final from the start
-let countUp = null;
-function countUpIdx() {
-  if (countUp) countUp.stop();
-  const rows = [...$('#idx').children].filter(r => r.__x);
-  if (!rows.length || !fancy()) return;
-  const fmtV = v => v.toLocaleString('ko-KR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  const t0 = performance.now(), DUR = MT.m3 + MT.m1;
-  let raf = 0;
-  const done = () => { cancelAnimationFrame(raf); for (const r of rows) if (r.isConnected) { r.__v.textContent = fmtV(r.__x.value); r.__p.textContent = fmtPct(r.__x.ratio); } countUp = null; };
-  const step = now => {
-    const t = Math.min(1, (now - t0) / DUR), e = easeOut(t);
-    if (t >= 1 || !rows.some(r => r.isConnected)) { done(); return; }
-    for (const r of rows) {
-      const x = r.__x, from = isFinite(x.change) ? x.value - x.change : x.value;
-      r.__v.textContent = fmtV(from + (x.value - from) * e);
-      r.__p.textContent = fmtPct(x.ratio * e);
-    }
-    raf = requestAnimationFrame(step);
-  };
-  raf = requestAnimationFrame(step);
-  countUp = { stop: done };
-}
+// (the header indices' count-up on the first entry went with design.md §6-2 P4 — data does not move on the first paint, ux/std-template)
 
 /* tick flashes: a ring in the tick's direction (vs the previous quote, not the day's sign) on ::after, opacity only, ≤ 60 at once
    (biggest |Δp/p| × area first), each delayed 0–200 ms by a hash of the code so a poll does not blink all at once */
@@ -3354,6 +3432,7 @@ function flashChanged(changed) {
       const el = nodes.get('T|' + c);
       if (!el) continue;
       el.classList.remove('flash-up', 'flash-dn');
+      el.classList.toggle('fl-sm', !!el.__g && Math.min(el.__g[2], el.__g[3]) < 24);
       els.push([el, dir > 0 ? 'flash-up' : 'flash-dn']);
     }
     if (!els.length) return;
@@ -3487,12 +3566,13 @@ function model() {
   if (m === 'THEME') return { type: 'members', list, uni, secGroups, root: flatRoot(list, false) };
   // ★관심: 전체 → group blocks (or, with one group, sector › industry like a group's own map)
   if (m === 'WATCH') return wgGrouped(list) && !state.focus ? { type: 'watch', grouped: true, list, uni, secGroups, root: groupRoot(list) } : { type: 'watch', list, uni, secGroups, root: buildRoot(list, true) };
+  if (capOrder()) return { type: 'cap', list, uni, secGroups, root: capRoot(list) };
   return { type: 'market', list, uni, secGroups, root: buildRoot(list, true) };
 }
 function emitRender() {
   document.dispatchEvent(new CustomEvent('kh:render', { detail: { view: state.view, market: state.market, theme: state.theme, replay: REPLAY ? REPLAY.t : null } }));
 }
-function render({ animate = false } = {}) {
+function render({ animate = false, regroup = false } = {}) {
   if (isWorld()) { emitRender(); return; }
   // §3-27 자동: measure what this render draws first, so the tiles, the table and (right after, at every caller) the side cards
   // and the legend share one range; the few callers that redraw the map alone get the legend and side cards a moment later
@@ -3511,10 +3591,10 @@ function render({ animate = false } = {}) {
   if (animate) tweenStop();
   const anim = animate && !reduced() && !intro;
   // geometry animation only while the map is small: above ~350 nodes just jump and fade (fewer long tasks)
-  const geo = anim && root.descendants().length <= 350;
+  const geo = anim && (regroup ? root.leaves().length <= 350 : root.descendants().length <= 350);
   mapEl.classList.toggle('anim', anim);
-  mapEl.classList.toggle('focus-leaf', !!(state.focus && state.focus.i) || mdl.type === 'members' || mdl.type === 'themes');
-  mapEl.setAttribute('aria-label', mdl.type === 'themes' ? '테마별 트리맵' : mdl.type === 'members' ? `${(curTheme() || {}).name || ''} 테마 종목 트리맵` : `종목별 ${metricLong()} 트리맵`);
+  mapEl.classList.toggle('focus-leaf', !!(state.focus && state.focus.i) || mdl.type === 'members' || mdl.type === 'themes' || mdl.type === 'cap');
+  mapEl.setAttribute('aria-label', mdl.type === 'themes' ? '테마별 트리맵' : mdl.type === 'members' ? `${(curTheme() || {}).name || ''} 테마 종목 트리맵` : `종목별 ${metricLong()} 트리맵${mdl.type === 'cap' ? ', 시가총액이 큰 종목부터 차례로' : ''}`);
   const seen = new Set();
   const entering = [];
   for (const n of root.descendants()) {
@@ -4272,8 +4352,9 @@ function renderCrumbs() {
     kids.push(item(h('button', { class: 'c' + (f.i ? '' : ' cur'), onclick: () => zoomTo({ s: f.s }), text: f.s })));
     if (f.i) kids.push(item(h('button', { class: 'c cur', 'aria-current': 'location', text: f.i })));
   } else if (state.view === 'map' && state.market !== 'WATCH' && !pairRoot) {
-    kids.push(h('span', { class: 'hint', text: '섹터·업종 이름을 누르면 확대돼요' }));
-    kids[kids.length - 2].title = '섹터·업종 이름을 누르면 확대돼요';     // the hint may give way to the index line (§3-20)
+    const hint = capOrder() ? '시가총액이 큰 종목부터 차례로 그렸어요' : '섹터·업종 이름을 누르면 확대돼요';
+    kids.push(h('span', { class: 'hint', text: hint }));
+    kids[kids.length - 2].title = hint;     // the hint may give way to the index line (§3-20)
   }
   const uni = universe();
   const list = uni.filter(inFocus);
@@ -4398,9 +4479,8 @@ function ixDraw() {
   S.forEach((s, i) => {
     const d = s.pts.map((p, j) => (j ? 'L' : 'M') + f1(X(p[0])) + ' ' + f1(Y(p[1]))).join('');
     const a = s.pts[0], z = s.pts[s.pts.length - 1];
-    // A: the area between the line and the 전일 종가 line, fading toward it
-    const area = bg && s.pts.length > 1 ? `<defs><linearGradient id="ixg${i}" x1="0" x2="0" y1="${s.r < 0 ? 1 : 0}" y2="${s.r < 0 ? 0 : 1}"><stop offset="0" stop-color="currentColor" stop-opacity="${i ? .12 : .2}"/><stop offset="1" stop-color="currentColor" stop-opacity="0"/></linearGradient></defs>`
-      + `<path class="ar" fill="url(#ixg${i})" d="${d}L${f1(X(z[0]))} ${y0}L${f1(X(a[0]))} ${y0}Z"/>` : '';
+    // A: the area between the line and the 전일 종가 line — one flat tint (design.md §2: no gradients, ux/std-template)
+    const area = bg && s.pts.length > 1 ? `<path class="ar" fill="currentColor" fill-opacity="${i ? .06 : .09}" d="${d}L${f1(X(z[0]))} ${y0}L${f1(X(a[0]))} ${y0}Z"/>` : '';
     out += `<g class="${cls(s.r)}${i ? ' k2' : ''}"><path class="ln" pathLength="1" d="${d}"/><g class="fx">${area}<circle class="dt" cx="${f1(X(z[0]))}" cy="${f1(Y(z[1]))}" r="${bg ? 2.2 : 3}"/></g></g>`;
   });
   ixSvg.setAttribute('viewBox', `0 0 ${W} ${H}`);
@@ -4410,8 +4490,19 @@ function ixDraw() {
   const L = S[0], now = kst(new Date()), today = now ? now.date : null;     // a line of an earlier day (before the open, weekends) says its date
   const val = s => s.v != null ? NF2.format(s.v) : '';
   const v = ixEl.querySelector('.ixv'), t = ixEl.querySelector('.ixt');
-  if (S.length === 1) v.replaceChildren(h('b', { text: val(L) || IX_NAME[L.key] }), h('span', { class: cls(L.r), text: fmtPct(L.r) }));
-  else v.replaceChildren(...S.map((s, i) => h('span', { class: 'ixr' + (i ? ' k2' : '') }, h('em', { class: 'sw ' + cls(s.r), 'aria-hidden': 'true' }), h('i', { text: IX_NAME[s.key] }), h('b', { text: val(s) }), h('span', { class: cls(s.r), text: fmtPct(s.r) }))));
+  // the same line as before (same index, same tab): the value and the % change in place, the way they went (design.md §6-4 · P9);
+  // another tab / index, the first draw or a replay frame: written at once (P4)
+  const vk = S.map(s => s.key).join() + '|' + (S.length === 1 && !val(L) ? 'n' : 'v');
+  if (v.__k === vk && v.firstElementChild) {
+    const quiet = !!L.replay || v.__src === DATA;
+    if (S.length === 1) { uiSwapNum(v.children[0], val(L), quiet); v.children[1].className = cls(L.r); uiSwapNum(v.children[1], fmtPct(L.r), quiet); }
+    else S.forEach((s, i) => { const r = v.children[i]; r.children[0].className = 'sw ' + cls(s.r); uiSwapNum(r.children[2], val(s), quiet); r.children[3].className = cls(s.r); uiSwapNum(r.children[3], fmtPct(s.r), quiet); });
+  } else {
+    if (S.length === 1) v.replaceChildren(h('b', { text: val(L) || IX_NAME[L.key] }), h('span', { class: cls(L.r), text: fmtPct(L.r) }));
+    else v.replaceChildren(...S.map((s, i) => h('span', { class: 'ixr' + (i ? ' k2' : '') }, h('em', { class: 'sw ' + cls(s.r), 'aria-hidden': 'true' }), h('i', { text: IX_NAME[s.key] }), h('b', { text: val(s) }), h('span', { class: cls(s.r), text: fmtPct(s.r) }))));
+    v.__k = vk;
+  }
+  v.__src = DATA;
   const past = !L.replay && L.day && today && L.day !== today;
   t.replaceChildren(h('b', { text: past ? `${+L.day.slice(5, 7)}/${+L.day.slice(8, 10)}` : ixHM(L.m) }), h('span', { text: L.done ? '종가' : `/ ${ixHM(END)}` }));
   const what = L.replay ? `${ixHM(L.m)} 다시 보기 흐름` : past ? `${dayName(L.day)} 흐름` : '오늘 흐름';
@@ -4500,7 +4591,7 @@ function renderLegend() {
   const kids = [];
   if (REPLAY) kids.push(h('span', { class: 'lg lg-replay', text: `리플레이 ${hhmm(REPLAY.t)}` }));
   const grad = h('span', { class: 'grad', style: `background:linear-gradient(90deg,${P.join(',')})`, 'aria-hidden': 'true' });
-  const ticks = [h('span', { class: 'tk', text: `${MINUS}${fmtR(R)}%` }), grad, h('span', { class: 'tk', text: `+${fmtR(R)}%` })];
+  const ticks = [h('span', { class: 'tk', 'data-sw': 'lo', text: `${MINUS}${fmtR(R)}%` }), grad, h('span', { class: 'tk', 'data-sw': 'hi', text: `+${fmtR(R)}%` })];
   const themeOv = state.market === 'THEME' && state.theme == null;
   let missing = 0;
   if (themeOv) missing = themeRows().filter(t => t.v == null).length;
@@ -4524,12 +4615,12 @@ function renderLegend() {
     const base = k === 'period' && Pd && Pd.base ? dayName(Pd.base[m.key]) : '';
     kids.push(h('span', { class: 'lg' }, h('span', { class: 'k', text: '색' }), h('b', { text: themeOv && naverThemeDay() ? '테마 등락률' : m.long }),
       base ? h('span', { class: 'note', text: `${base} 종가 대비` }) : null,
-      rangeAuto() ? h('span', { class: 'rauto', title: autoTitle(), text: `자동 ±${fmtR(R)}%` }) : null, ticks));
+      rangeAuto() ? h('span', { class: 'rauto', title: autoTitle() }, '자동 ±', h('span', { 'data-sw': 'auto', text: `${fmtR(R)}%` })) : null, ticks));
     if (k === 'period' && DS.periods.st === 'loading') kids.push(h('span', { class: 'lg note', text: '기간 수익률 데이터를 불러오는 중…' }));
     else if (k === 'period' && DS.periods.st === 'fail') kids.push(h('span', { class: 'lg note', text: '기간 수익률 데이터를 불러오지 못했어요' }));
     kids.push(h('span', { class: 'lg right' }, h('span', { class: 'k', text: '크기' }), h('b', { text: themeOv ? '테마 시가총액' : sizeLabel() })));
   }
-  if (missing) kids.splice(REPLAY ? 2 : 1 + (k === 'flow' ? 1 : 0), 0, h('span', { class: 'lg' }, h('i', { class: 'sw nodsw' }), h('span', { text: `데이터 없음 ${missing}` })));
+  if (missing) kids.splice(REPLAY ? 2 : 1 + (k === 'flow' ? 1 : 0), 0, h('span', { class: 'lg' }, h('i', { class: 'sw nodsw' }), h('span', {}, '데이터 없음 ', h('span', { 'data-sw': 'miss', text: String(missing) }))));
   // NXT prices drawn: how many stocks on the map have no NXT trade (hatched, their KRX value)
   if (!themeOv && distNxt()) {
     const nn = universe().filter(inFocus).filter(s => s.nonx).length;
@@ -4543,8 +4634,8 @@ function renderLegend() {
     if (lu || ld) {
       const at = kids.findIndex(x => x.classList && x.classList.contains('right'));
       kids.splice(at < 0 ? kids.length : at, 0, h('span', { class: 'lg' },
-        lu ? h('i', { class: 'limsw u', 'aria-hidden': 'true' }) : null, lu ? h('span', { text: `상한가 ${lu}` }) : null,
-        ld ? h('i', { class: 'limsw d', 'aria-hidden': 'true' }) : null, ld ? h('span', { text: `하한가 ${ld}` }) : null));
+        lu ? h('i', { class: 'limsw u', 'aria-hidden': 'true' }) : null, lu ? h('span', {}, '상한가 ', h('span', { 'data-sw': 'lu', text: String(lu) })) : null,
+        ld ? h('i', { class: 'limsw d', 'aria-hidden': 'true' }) : null, ld ? h('span', {}, '하한가 ', h('span', { 'data-sw': 'ld', text: String(ld) })) : null));
     }
   }
   // module items (KH.legendItem, e.g. 공시 26종목 · 큰 귀퉁이 = 30분 안) after the scale, before 크기 — not on the theme overview
@@ -4558,7 +4649,13 @@ function renderLegend() {
     const at = kids.findIndex(x => x.classList && x.classList.contains('right'));
     kids.splice(at < 0 ? kids.length : at, 0, ...add);
   }
+  // the legend's numbers (scale ends, 자동 step, counts) change in place the way they went (design.md §6-4 · P9) — only when the same
+  // legend is redrawn (same tab, colour, size, zoom: so new quotes or a range pick moved them); another view writes them at once (P4)
+  const ctxKey = [state.market, state.theme, state.view, state.colorBy, state.sizeBy, state.flowWin, state.groupBy, JSON.stringify(state.focus), k, !!REPLAY].join('|');
+  const old = el.__ctx === ctxKey ? new Map([...el.querySelectorAll('[data-sw]')].map(x => [x.dataset.sw, x.textContent])) : null;
   el.replaceChildren(...kids);
+  el.__ctx = ctxKey;
+  if (old && !REPLAY) for (const x of el.querySelectorAll('[data-sw]')) { const was = old.get(x.dataset.sw); if (was != null && was !== x.textContent) { const t = x.textContent; x.textContent = was; uiSwapNum(x, t); } }
   legendR = R;
   requestAnimationFrame(fitMapHeight);
 }
@@ -4581,16 +4678,19 @@ let DIST = null;
 function distCount(vals) { let up = 0, dn = 0, fl = 0, nd = 0; for (const v of vals) v == null ? nd++ : v > 0 ? up++ : v < 0 ? dn++ : fl++; return { up, dn, fl, nd }; }
 const distTitle = k => k === 'day' ? '등락 분포' : k === 'period' ? `${COLOR_METRICS[state.colorBy].label} 수익률 분포` : '순매수 분포';
 const distWords = k => k === 'flow' ? ['순매수', '중립', '순매도'] : ['상승', '보합', '하락'];
-function renderDist(vals, { scope, big, bigCls, bigLab, unit, note = '', mapVals = null }) {
+function renderDist(vals, { scope, big, bigCls, bigLab, unit, note = '', mapVals = null, lim = null }) {
   const k = kind();
   const { up, dn, fl, nd } = distCount(vals);
   const n = (up + dn + fl) || 1;
-  DIST = { up, dn, fl, nd, n: up + dn + fl, title: distTitle(k), words: distWords(k), scope, unit };
+  DIST = { up, dn, fl, nd, n: up + dn + fl, title: distTitle(k), words: distWords(k), scope, unit, lim };
   $('#distTitle').textContent = distTitle(k);
   $('#breadthScope').textContent = scope;
   $('#breadthScope').title = scope;
   const wv = $('#wavg'); wv.textContent = big; wv.className = bigCls;
   $('#wavgLab').textContent = bigLab;
+  const dl = $('#distLim');
+  dl.hidden = !lim;
+  if (lim) dl.replaceChildren('상한가 ', h('span', { class: lim.lu ? 'up' : 'flat', text: fmtInt(lim.lu) }), ' · 하한가 ', h('span', { class: lim.ld ? 'dn' : 'flat', text: fmtInt(lim.ld) }));
   const P = PAL().stops;
   $('#breadth').replaceChildren(
     h('i', { style: `width:${up / n * 100}%;background:${P[6]}` }),
@@ -4738,7 +4838,8 @@ function distPool() {
       const x = CLOSE.c[c], p = +x[0], r = +x[2] || 0;
       if (!(p > 0)) continue;
       // lim: close.json rows carry it since §3-34 ⑤ ("lim": true — [p, d, r, 1|−1]); an older file: the ±29.5 % guess
-      list.push({ c, n: nm[0], m: nm[1], p, d: +x[1] || 0, r, cap: 0, tv: 0, lim: CLOSE.lim ? (x[3] === 1 || x[3] === -1 ? x[3] : 0) : Math.abs(r) >= 29.5 ? Math.sign(r) : 0 });
+      const lf = CLOSE.lim ? (x[3] === 1 || x[3] === -1 ? x[3] : 0) : undefined;     // limr: the real flag (undefined = an older file without flags)
+      list.push({ c, n: nm[0], m: nm[1], p, d: +x[1] || 0, r, cap: 0, tv: 0, lim: lf !== undefined ? lf : Math.abs(r) >= 29.5 ? Math.sign(r) : 0, limr: lf });
     }
     return { list, scope: k === 'day' ? 'all' : 'data', label };
   }
@@ -4761,7 +4862,7 @@ function distPool() {
       for (const [c, x] of b.rows) {
         if (x[2] == null) continue;
         const s = byCode.get(c);
-        list.push(s && s.nxOn ? s : { c, m, r: x[2], d: 0, p: 0, cap: 0, tv: 0, lim: Math.abs(x[2]) >= 29.5 ? Math.sign(x[2]) : 0 });
+        list.push(s && s.nxOn ? s : { c, m, r: x[2], d: 0, p: 0, cap: 0, tv: 0, lim: Math.abs(x[2]) >= 29.5 ? Math.sign(x[2]) : 0, limr: undefined });
       }
     } else {
       const nxFirst = intDrawn() && DATA.k && DATA.k.hm < '0900';
@@ -4769,7 +4870,7 @@ function distPool() {
         const s = byCode.get(c);
         if (s) { list.push(s); continue; }
         const r = nxFirst && x[2] != null ? x[2] : x[0];
-        list.push({ c, m, r, d: 0, p: 0, cap: 0, tv: 0, lim: r === x[0] ? x[1] : Math.abs(r) >= 29.5 ? Math.sign(r) : 0 });
+        list.push({ c, m, r, d: 0, p: 0, cap: 0, tv: 0, lim: r === x[0] ? x[1] : Math.abs(r) >= 29.5 ? Math.sign(r) : 0, limr: r === x[0] ? x[1] : undefined });
       }
     }
   }
@@ -4801,6 +4902,20 @@ function renderSide() {
   syncBreadth();
   dkRefresh();
 }
+/* 상한가 · 하한가 of the card's pool (사용자 2026-11-16 00:54 "아래 막대에 상승 하락만 있는게 아니라 상한가 하한가도 있으면 좋겠어"):
+   the real flags only — a streamed row's limf, a breadth row's lim, close.json's 4th field (AGENTS §3-34 ⑤) — never the ±29.5 % guess,
+   the same rule as the 시장 요약 카드. null (= say nothing, not 0) when any row's flag is unknown (an older close.json), for NXT prices
+   (no limit flags), during a replay (frames carry no flags) and for period / net-buying colours (today's limits only). */
+function limCount(pool) {
+  if (REPLAY || kind() !== 'day' || distNxt() || pool.scope === 'nxt') return null;
+  let lu = 0, ld = 0;
+  for (const s of pool.list) {
+    const f = 'limr' in s ? s.limr : s.limf;
+    if (f !== 0 && f !== 1 && f !== -1) return null;
+    if (f > 0) lu++; else if (f < 0) ld++;
+  }
+  return { lu, ld };
+}
 // the 등락 분포 card of a stock view: its values and wording (renderSide; the dock under 해외 / 원자재)
 function distSummary() {
   const themeMode = state.market === 'THEME', k = kind();
@@ -4824,7 +4939,7 @@ function distSummary() {
     if (pool.partial) note = '일부 묶음을 받지 못해 받은 종목만 셌어요.';
     const F = isFlow() ? FLO() : null;
     if (F && F.stale) { let st = 0; for (const x of list) if (F.stale[x.c] && amt(x) != null) st++; if (st) note = (note + ` ${fmtInt(st)}종목은 전일 기준이에요.`).trim(); }
-    return { vals, opts: { scope, big: grpText(list, 2), bigCls: grpCls(list), note, mapVals: pool.scope !== 'map' ? universe().filter(inFocus).filter(s => !s.nonx).map(cval) : null,
+    return { vals, opts: { scope, big: grpText(list, 2), bigCls: grpCls(list), note, lim: limCount(pool), mapVals: pool.scope !== 'map' ? universe().filter(inFocus).filter(s => !s.nonx).map(cval) : null,
       bigLab: (k === 'flow' ? `${flowShort()} 순매수 합계` : k === 'day' ? '시가총액 가중' :   /* 사용자 2026-11-13 23:50: "시가총액 가중이라고만" */ `시가총액 가중 ${COLOR_METRICS[state.colorBy].long}`) + capNote, unit: '종목' } };
   }
 }
@@ -5040,18 +5155,23 @@ function renderHeader() {
   for (const b of document.querySelectorAll('.tabs button')) b.setAttribute('aria-pressed', String(b.dataset.mkt === state.market));
   keepTabInView();
   const idx = $('#idx');
-  const kids = [];
-  for (const [k, label] of [['KOSPI', '코스피'], ['KOSDAQ', '코스닥']]) {
-    const x = DATA.index && DATA.index[k];
-    if (!x || !isFinite(+x.value)) continue;
-    const v = h('span', { class: 'v num', text: (+x.value).toLocaleString('ko-KR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) });
-    const pc = h('span', { class: 'num ' + cls(+x.ratio), text: fmtPct(+x.ratio) });
-    const row = h('div', {}, h('span', { class: 'k', text: label }), v, pc);
-    row.__x = { value: +x.value, change: +x.change, ratio: +x.ratio || 0 }; row.__v = v; row.__p = pc;   // for the 화려하게 count-up
-    kids.push(row);
+  const keys = [['KOSPI', '코스피'], ['KOSDAQ', '코스닥']].filter(([k]) => { const x = DATA.index && DATA.index[k]; return x && isFinite(+x.value); });
+  // the same rows as before: the numbers change in place (design.md §6-4 · P9, the way they went — not on the first paint, P4)
+  if (idx.__k === keys.map(k => k[0]).join() && idx.childElementCount === keys.length) {
+    const quiet = idx.__src === DATA || !!REPLAY;
+    keys.forEach(([k], i) => {
+      const x = DATA.index[k], row = idx.children[i];
+      uiSwapNum(row.children[1], (+x.value).toLocaleString('ko-KR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), quiet);
+      row.children[2].className = 'num ' + cls(+x.ratio);
+      uiSwapNum(row.children[2], fmtPct(+x.ratio), quiet);
+    });
+  } else {
+    idx.replaceChildren(...keys.map(([k, label]) => { const x = DATA.index[k];
+      return h('div', {}, h('span', { class: 'k', text: label }), h('span', { class: 'v num', text: (+x.value).toLocaleString('ko-KR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }),
+        h('span', { class: 'num ' + cls(+x.ratio), text: fmtPct(+x.ratio) })); }));
+    idx.__k = keys.map(k => k[0]).join();
   }
-  if (countUp) countUp.stop();
-  idx.replaceChildren(...kids);
+  idx.__src = DATA;
 }
 
 /* §3-16 today's change under 코스피 · 코스닥 · 전체 · ★관심, whatever the colour metric. 코스피 / 코스닥 = the index ratio (the
@@ -5114,7 +5234,7 @@ function tabValue(m) {
 }
 function renderTabs() {
   if (!DATA) return;
-  const fresh = tabSrc && tabSrc !== DATA && !REPLAY && fancy() && !document.hidden;
+  const fresh = tabSrc && tabSrc !== DATA && !REPLAY && !document.hidden;    // new quotes (not a redraw, a tab switch or a replay frame)
   const when = REPLAY ? ` · 다시 보기 ${hhmm(REPLAY.t)}` : MODE !== 'live' && DATA.k ? ` · ${dayName(DATA.k.date)} ${DATA.k.hhmm} 기준` : '';
   for (const m of ['K', 'Q', 'ALL', 'WATCH']) {
     const b = document.querySelector(`.tabs button[data-mkt="${m}"]`), tp = b && b.querySelector('.tp');
@@ -5128,8 +5248,7 @@ function renderTabs() {
     const was = tp.textContent;
     tp.classList.remove('up', 'dn', 'flat'); tp.classList.add(has ? cls(v) : 'flat');
     if (was === txt) continue;
-    if (fresh && was && txt) uiRoll(tp, txt, Math.sign(v - parseFloat(was.replace('−', '-').replace('+', ''))) || 1);
-    else tp.textContent = txt;
+    uiSwapNum(tp, txt, !(fresh && was && txt));
   }
   tabSrc = DATA;
 }
@@ -5315,6 +5434,8 @@ function syncControls() {
   syncAutoKey();
   syncViewSeg();
   $('.ctl[data-ctl="flowWin"]').hidden = !isFlow();
+  const gb = $('.ctl[data-ctl="groupBy"]');
+  if (gb.hidden !== !GROUPABLE.includes(state.market)) { gb.hidden = !GROUPABLE.includes(state.market); syncSetSections(); }
   uiSwap($('.ctl[data-ctl="colorBy"] .ddv'), COLOR_METRICS[state.colorBy].label);
   uiSwap($('.ctl[data-ctl="flowWin"] .ddv'), `${state.flowWin}일`);
   // 종목 수 only applies to market maps; the colour metric is replaced by net buying in a flow size mode
@@ -5349,6 +5470,7 @@ document.addEventListener('click', e => {
   if (k === 'topN') v = v === 'all' ? 'all' : +v;
   else if (k === 'flowWin') v = +v;
   if (state[k] === v) return;
+  if (k === 'groupBy') { setGroupBy(v); return; }
   const scopeWas = allScope();
   const prevKind = kind();
   state[k] = v;
@@ -5366,6 +5488,27 @@ document.addEventListener('click', e => {
   // 전체 on / off: the other quotes stream now (the map draws what it has meanwhile)
   if (k === 'topN' && allScope() !== scopeWas && MODE === 'live') uiBusy(document.querySelector('.seg[data-key="topN"] button[aria-pressed="true"]'), poll());
 });
+// §3-36 묶음: 섹터별 ↔ 시총순 — the tiles move to their new boxes like a zoom (FLIP; 줄이기 at once), the bands fade; a zoom stays (it
+// then filters the cap-ordered map to that sector / industry). Saved as khm.groupBy.
+function setGroupBy(v) {
+  if (v !== 'cap' && v !== 'sector') return;
+  state.groupBy = v; store.set('groupBy', v);
+  state.hoverSector = null; setHover(null); tipHide(0);
+  syncControls();
+  render({ animate: true, regroup: true });
+  renderCrumbs(); renderSide(); renderLegend();
+}
+{
+  // the 묶음 row: in the 표시 설정 sheet (after 크기) below 1280, in the 화면 popover (before 효과) from 1280 (one row, moved — no copy)
+  const gb = document.querySelector('.ctl[data-ctl="groupBy"]'), home = gb && gb.previousElementSibling, wideMQ = matchMedia('(min-width: 1280px)');
+  const place = () => {
+    if (!gb) return;
+    if (wideMQ.matches) { const mo = document.querySelector('#morePanel .ctl[data-ctl="motion"]'); if (mo && mo.previousElementSibling !== gb) mo.before(gb); }
+    else if (home && home.nextElementSibling !== gb) home.after(gb);
+  };
+  place();
+  wideMQ.addEventListener('change', () => { place(); syncSetSections(); });
+}
 // phones: the tab row scrolls sideways; the active tab stays in view — clear of the row's fading right edge (★관심 is outside it)
 function keepTabInView() {
   const sc = $('.tabs-sc'), act = sc && sc.querySelector('button[aria-pressed="true"]');
@@ -6678,7 +6821,9 @@ function dkCell(kind) {
     c.append(h('span', { class: 'dk-l1' }, h('span', {}, h('span', { class: 'st', 'aria-hidden': 'true', text: '★' }), ' ', h('span', { class: 'nm' })), h('span', { class: 'cnt' })),
       h('span', { class: 'dk-v' }, h('span', { class: 'val' }), h('small', {}, h('span', { class: 'mvn' }), ' ', h('span', { class: 'mvp' }))));
   } else {
-    c.append(h('span', { class: 'dk-l1' }, h('b', { class: 'nm' }), h('span', { class: 'cnt' })),
+    c.append(h('span', { class: 'dk-l1' }, h('b', { class: 'nm' }),
+        h('span', { class: 'lim', hidden: true, 'aria-hidden': 'true' }, h('span', { class: 'lk' }), h('span', { class: 'lu' }), h('span', { class: 'lsep', text: '·' }), h('span', { class: 'lk' }), h('span', { class: 'ld' })),
+        h('span', { class: 'cnt' })),
       h('span', { class: 'dk-bar', 'aria-hidden': 'true' }, h('i'), h('i'), h('i')),
       h('span', { class: 'dk-n', 'aria-hidden': 'true' }, h('span', { class: 'up' }), h('span', { class: 'flat' }), h('span', { class: 'dn' })));
   }
@@ -6739,7 +6884,7 @@ function dkDist() {
   state.market = dkDom(); state.focus = null; state.theme = null;
   try {
     const d = distSummary(), c = distCount(d.vals), k = kind();
-    return Object.assign(c, { n: c.up + c.dn + c.fl, title: distTitle(k), words: distWords(k), scope: d.opts.scope, unit: '종목' });
+    return Object.assign(c, { n: c.up + c.dn + c.fl, title: distTitle(k), words: distWords(k), scope: d.opts.scope, unit: '종목', lim: d.opts.lim || null });
   } catch (e) { return null; } finally { state.market = was.m; state.focus = was.f; state.theme = was.t; }
 }
 function dkFill() {
@@ -6782,13 +6927,28 @@ function dkFill() {
     } else {
       const D = dkDist();
       c.querySelector('.nm').textContent = D ? D.title : '등락 분포';
-      c.querySelector('.cnt').textContent = D ? fmtInt(D.n) : '';
+      const cnt = c.querySelector('.cnt'), L = D && D.lim, lim = c.querySelector('.lim');
+      cnt.textContent = D ? fmtInt(D.n) : '';
+      // 상한 9 · 하한 0 on the top line (the cell keeps its height and lines): beside the count while all fits, else in its place
+      // (most phones), else 상 9 · 하 0 (360 px with two-digit counts). Fit = the name's own text width + gaps (≥ 8 px) + the parts,
+      // measured in fractions — scrollWidth rounds and missed a 1.6 px cut at 360. The dock is laid out (only hidden) whenever this runs
+      lim.hidden = !L; cnt.hidden = false;
+      if (L) {
+        const [k1, lu, , k2, ld] = lim.children, l1 = c.querySelector('.dk-l1'), nm = c.querySelector('.nm');
+        k1.textContent = '상한'; k2.textContent = '하한';
+        lu.textContent = fmtInt(L.lu); lu.className = 'lu ' + (L.lu ? 'up' : 'flat');
+        ld.textContent = fmtInt(L.ld); ld.className = 'ld ' + (L.ld ? 'dn' : 'flat');
+        const W = l1.getBoundingClientRect().width, g = Math.max(8, parseFloat(getComputedStyle(l1).columnGap) || 0);
+        const rg = document.createRange(); rg.selectNodeContents(nm);
+        const fits = () => rg.getBoundingClientRect().width + g + lim.getBoundingClientRect().width + (cnt.hidden ? 0 : g + cnt.getBoundingClientRect().width) <= W;
+        if (W > 0 && !fits()) { cnt.hidden = true; if (!fits()) { k1.textContent = '상'; k2.textContent = '하'; } }
+      }
       const [iu, ifl, idn] = c.querySelector('.dk-bar').children;
       const tot = D && D.n ? D.n : 1;
       iu.style.cssText = `flex:${D ? D.up / tot : 0};background:${P[6]}`; ifl.style.cssText = `flex:${D ? D.fl / tot : 1};background:${P[3]}`; idn.style.cssText = `flex:${D ? D.dn / tot : 0};background:${P[0]}`;
       const [nu, nf, nd] = c.querySelector('.dk-n').children;
       nu.textContent = D ? '▲' + fmtInt(D.up) : ''; nf.textContent = D ? fmtInt(D.fl) : ''; nd.textContent = D ? '▼' + fmtInt(D.dn) : '';
-      c.setAttribute('aria-label', D ? `${D.scope} ${D.title}: ${D.words[0]} ${fmtInt(D.up)}, ${D.words[1]} ${fmtInt(D.fl)}, ${D.words[2]} ${fmtInt(D.dn)} — 누르면 등락 분포 카드로` : '등락 분포 — 누르면 등락 분포 카드로');
+      c.setAttribute('aria-label', D ? `${D.scope} ${D.title}: ${D.words[0]} ${fmtInt(D.up)}, ${D.words[1]} ${fmtInt(D.fl)}, ${D.words[2]} ${fmtInt(D.dn)}${L ? `, 상한가 ${fmtInt(L.lu)}종목, 하한가 ${fmtInt(L.ld)}종목` : ''} — 누르면 등락 분포 카드로` : '등락 분포 — 누르면 등락 분포 카드로');
     }
   }
 }

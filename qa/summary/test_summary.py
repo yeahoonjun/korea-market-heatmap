@@ -34,7 +34,7 @@ from playwright.sync_api import sync_playwright
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 PORT = int(os.environ.get('SUMMARY_QA_PORT', 8981))
-assert 8980 <= PORT <= 8988
+assert 8980 <= PORT <= 8988 or 9020 <= PORT <= 9028   # 9020–9029: ux/std-template runs
 URL = f'http://127.0.0.1:{PORT}/'
 BASE_REV = os.environ.get('SUMMARY_QA_BASE', 'main')
 OUT = ROOT / 'qa/shots/market_summary'
