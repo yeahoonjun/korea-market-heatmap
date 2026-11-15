@@ -5,7 +5,7 @@
 //   GET /api/quotes                    → top stocks of KOSPI + KOSDAQ by market cap, plus both indices
 //   GET /api/chart/:code               → today's intraday prices for one stock (heatmap sparkline)
 //   GET /api/stock/:code/summary       → quote + key ratios
-//   GET /api/stock/:code/chart?tf=…    → candles (1d 5d 3m 1y 3y 10y); ?iv=1m|5m|day|week|month&to=&count=  → bars walking back; &warm=N → `pre`
+//   GET /api/stock/:code/chart?tf=…    → candles (1d 5d 3m 1y 3y 10y); ?iv=1m|5m|10m|30m|60m|day|week|month&to=&count=  → bars walking back (10m·30m·60m grouped from 5m); &warm=N → `pre`
 //   GET /api/stock/:code/orderbook     → 5-level order book, best price first
 //   GET /api/stock/:code/investors     → investor net buying, latest 60 days
 //   GET /api/stock/:code/daily?page=N  → daily price table, 60 rows per page
@@ -153,7 +153,7 @@ export default {
             const cr = url.searchParams.get('count');
             if (cr != null && !/^\d{1,4}$/.test(cr)) return fail(400, 'count는 1~1500의 정수여야 해요');
             const count = Math.min(1500, Math.max(1, cr == null ? 250 : parseInt(cr, 10)));
-            const intra = iv === '1m' || iv === '5m';
+            const intra = isMinIv(iv);
             return await edgeCached(request, ctx, `chv-${code}-${iv}-${to || 'now'}-${count}-${warm}`, intra && !to ? 20 : 600, () => getChartIv(code, iv, to, count, warm));
           }
           const tf = url.searchParams.get('tf') || '1d';
@@ -797,8 +797,32 @@ function peersOf(g, self) {
 /* ── /api/stock/:code/chart ─────────────────────────────── */
 // tf → [naver interval, range start]. prevClose = close of the bar just before the first bar shown.
 const kstSec = s => Date.UTC(+s.slice(0, 4), +s.slice(4, 6) - 1, +s.slice(6, 8), +s.slice(8, 10), +s.slice(10, 12), +(s.slice(12, 14) || 0)) / 1000 - 9 * 3600;
-const IVS = ['1m', '5m', 'day', 'week', 'month'];
+const IVS = ['1m', '5m', '10m', '30m', '60m', 'day', 'week', 'month'];
+const IV_GROUP = { '10m': 10, '30m': 30, '60m': 60 };   // grouped here from Naver's 5-minute bars (사용자 2026-11-14 08:10 "분봉으로 통합 … 10분봉 30분봉 60분봉")
+const isMinIv = iv => iv === '1m' || iv === '5m' || iv in IV_GROUP;
 const barOf = r => ({ t: kstSec(String(r.localDateTime)), o: pn(r.openPrice), h: pn(r.highPrice), l: pn(r.lowPrice), c: pn(r.currentPrice), v: pn(r.accumulatedTradingVolume) });
+/* 5-minute bars → n-minute bars (n = 10 | 30 | 60). Naver stamps a minute bar with its FIRST minute (the 09:05 bar = 09:05:00–09:09:59;
+ * checked 2026-11-15 against its 1-minute bars, and Naver's own minute10/30/60 are exactly these sums on the plain clock grid).
+ * Buckets sit on the clock grid from 09:00 KST: first open, highest high, lowest low, last close, summed volume. One change from
+ * Naver's grid: the closing-auction print (stamped at the session end, 15:30 — 16:30 on a late day, seen as trades at 15:20–15:29)
+ * closes the last regular bucket (60m and 30m 15:00, 10m 15:20), so that bar's close is the KRX close; the after-hours bars
+ * (15:40–20:00) then fill buckets that start at the session end (60m: 15:30, 16:00, 17:00 …). `bars`: {t: unix s, o, h, l, c, v}, oldest
+ * first. The same function is in src/stock/stock.js (groupBars) for a Worker that does not know these intervals yet. */
+function groupBars(bars, n) {
+  const late = new Set(), out = [];
+  bars = bars.filter(b => b && b.c != null && Number.isFinite(b.t)).sort((a, b) => a.t - b.t);
+  for (const b of bars) { const k = b.t + 32400, m = Math.floor((k % 86400) / 60); if (m === 920 || m === 925) late.add(Math.floor(k / 86400)); }
+  let cur = null;
+  for (const b of bars) {
+    const k = b.t + 32400, day = Math.floor(k / 86400), m = Math.floor((k % 86400) / 60), end = late.has(day) ? 990 : 930;
+    const s = m < end ? m - (m % n) : m === end ? (end - 1) - ((end - 1) % n) : Math.max(end, m - (m % n));
+    const t = day * 86400 + s * 60 - 32400;
+    const o = b.o != null ? b.o : b.c, h = Math.max(b.h != null ? b.h : b.c, o, b.c), l = Math.min(b.l != null ? b.l : b.c, o, b.c);
+    if (cur && cur.t === t) { cur.h = Math.max(cur.h, h); cur.l = Math.min(cur.l, l); cur.c = b.c; cur.v += b.v || 0; }
+    else { cur = { t, o, h, l, c: b.c, v: b.v || 0 }; out.push(cur); }
+  }
+  return out;
+}
 async function getStockChart(code, tf, warm = 0) {
   const base = `https://api.stock.naver.com/chart/domestic/item/${code}/`;
   const end = ymd(kstNow()) + '235959';
@@ -843,17 +867,25 @@ async function getStockChart(code, tf, warm = 0) {
 }
 const periodBar = (r, interval) => ({ t: weekStart(String(r.localDate), interval), o: pn(r.openPrice), h: pn(r.highPrice), l: pn(r.lowPrice), c: pn(r.closePrice), v: pn(r.accumulatedTradingVolume) });
 
-// /api/stock/:code/chart?iv=1m|5m|day|week|month[&to=YYYYMMDD|YYYYMMDDHHMM][&count=N][&warm=N]
+// /api/stock/:code/chart?iv=1m|5m|10m|30m|60m|day|week|month[&to=YYYYMMDD|YYYYMMDDHHMM][&count=N][&warm=N]
 // → {iv, interval, prevClose, bars, pre?, more}: the `count` bars that end before `to` (default: now), oldest first.
 // `pre` (when warm>0) = up to `warm` bars right before `bars`; `more` = Naver may hold even older bars (false at the end of what it serves).
-// Naver keeps only about 6 trading days of 1-minute and 5-minute bars, whatever range is asked.
+// Naver keeps only about 6 trading days of 1-minute and 5-minute bars, whatever range is asked. 10m · 30m · 60m are grouped from the
+// 5-minute bars (groupBars) before `to`, `count` and `warm` are applied, so those count grouped bars and `to` keeps whole buckets
+// (the bars whose bucket starts before `to`).
 async function getChartIv(code, iv, to, count, warm) {
   const base = `https://api.stock.naver.com/chart/domestic/item/${code}/`;
   const need = count + warm;
   const end = (to ? to.slice(0, 8) : ymd(kstNow())) + '235959';
   const q = from => `?startDateTime=${ymd(from)}000000&endDateTime=${end}`;
-  let list, bar, before;
-  if (iv === '1m' || iv === '5m') {
+  let list, bar;
+  const group = IV_GROUP[iv];
+  if (group) {
+    const rows = await naver(base + 'minute5' + q(kstDaysAgo(12)));
+    const lim = to ? kstSec(to.length === 12 ? to + '00' : to + '000000') : null;
+    list = groupBars((Array.isArray(rows) ? rows : []).map(barOf), group).filter(b => lim == null || b.t < lim);
+    bar = b => b;
+  } else if (iv === '1m' || iv === '5m') {
     const rows = await naver(base + (iv === '1m' ? 'minute' : 'minute5') + q(kstDaysAgo(12)));
     const lim = to ? (to.length === 12 ? to + '00' : to + '000000') : null;   // KST wall-clock, YYYYMMDDHHMMSS
     list = (Array.isArray(rows) ? rows : []).filter(r => !lim || String(r.localDateTime) < lim);
@@ -866,10 +898,10 @@ async function getChartIv(code, iv, to, count, warm) {
     const cut = to ? dash(to.slice(0, 8)) : null;
     list = (Array.isArray(rows) ? rows : []).filter(r => !cut || bar(r).t < cut);   // weekly bars carry their Monday (weekStart)
   }
-  const more = list.length > need || (iv !== '1m' && iv !== '5m' && list.length === need);
+  const more = list.length > need || (!isMinIv(iv) && list.length === need);
   const bars = list.slice(Math.max(0, list.length - count)).map(bar);
   const rest = list.slice(0, Math.max(0, list.length - count));
-  const out = { iv, interval: { '1m': '1m', '5m': '5m', day: '1d', week: '1w', month: '1mo' }[iv], prevClose: rest.length ? bar(rest[rest.length - 1]).c : null, bars, more };
+  const out = { iv, interval: { day: '1d', week: '1w', month: '1mo' }[iv] || iv, prevClose: rest.length ? bar(rest[rest.length - 1]).c : null, bars, more };
   if (warm) out.pre = rest.slice(-warm).map(bar);
   return out;
 }

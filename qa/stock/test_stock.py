@@ -4,17 +4,18 @@
     python3 scripts/build_page.py && python3 qa/stock/test_stock.py      [--extra-only: 뉴스·공시 / 관심종목 / 상·하한가 / 종목 정보]
                                                                           [--info-only: just 종목 정보 / 범위 막대 / 같은 업종 / 오늘 순매수]
 
-Starts qa/stock/mock_api.py on 127.0.0.1:8792, runs Playwright (Chrome), stops the server.
+Starts qa/stock/mock_api.py on 127.0.0.1:8792 (or $STOCK_MOCK_PORT), runs Playwright (Chrome), stops the server.
 Screenshots → qa/shots/stock/ (git-ignored). Summary → qa/stock/results.json.
 """
-import json, pathlib, subprocess, sys, time, urllib.request
+import json, os, pathlib, re, subprocess, sys, time, urllib.request
 from playwright.sync_api import sync_playwright
 
 HERE = pathlib.Path(__file__).resolve().parent
 ROOT = HERE.parent.parent
 SHOTS = ROOT / 'qa/shots/stock'
 SHOTS.mkdir(parents=True, exist_ok=True)
-BASE = 'http://127.0.0.1:8792/'
+PORT = int(os.environ.get('STOCK_MOCK_PORT', '8792'))
+BASE = f'http://127.0.0.1:{PORT}/'
 SNAP = (ROOT / 'dist/index.html').as_uri()
 VP = {
     360: dict(viewport={'width': 360, 'height': 740}, is_mobile=True, has_touch=True, device_scale_factor=2),
@@ -38,6 +39,20 @@ def check(name, ok, detail=None):
 def mock(path):
     with urllib.request.urlopen(BASE + path.lstrip('/'), timeout=10) as r:
         return json.loads(r.read())
+
+
+MIN_TFS = ('1m', '5m', '10m', '30m', '60m')
+
+
+def pick_tf(pg, tf):
+    """The chart tabs are 분 · 일 · 주 · 월 · 년; a minute interval is picked from 분's menu (사용자 2026-11-14 08:10)."""
+    if tf in MIN_TFS:
+        if pg.get_attribute('.sp-tfs [data-tf="min"]', 'aria-expanded') != 'true':
+            pg.click('.sp-tfs [data-tf="min"]')
+        pg.wait_for_selector('.sp-ivm:not([hidden])')
+        pg.click(f'.sp-ivm [data-iv="{tf}"]')
+    else:
+        pg.click(f'.sp-tfs button[data-tf="{tf}"]')
 
 
 class Page:
@@ -114,6 +129,188 @@ PIXELS_JS = r"""(cols) => {
 }"""
 
 
+WD_KO = ['월', '화', '수', '목', '금', '토', '일']
+
+
+def kst_label(t):   # stock.js timeLabel for minute bars: '11월 9일 (월) 15:00'
+    k = time.gmtime(t + 9 * 3600)
+    return f'{k.tm_mon}월 {k.tm_mday}일 ({WD_KO[k.tm_wday]}) {k.tm_hour:02d}:{k.tm_min:02d}'
+
+
+IV_REQ = {'1m': 900, '5m': 800, '10m': 400, '30m': 140, '60m': 70}
+PICK_STATE = """() => { const b = document.querySelector('.sp-tfs [data-tf="min"]'), m = document.querySelector('.sp-ivm'), a = document.activeElement;
+  return { label: b.textContent.trim(), aria: b.getAttribute('aria-label'), pressed: b.getAttribute('aria-pressed'), expanded: b.getAttribute('aria-expanded'),
+    open: !m.hidden, focus: a && (a.dataset.iv || a.dataset.tf || a.className || a.tagName), checked: [...m.children].filter(x => x.getAttribute('aria-checked') === 'true').map(x => x.dataset.iv),
+    roles: [m.getAttribute('role'), ...[...m.children].map(x => x.getAttribute('role'))].join(), stockOpen: KHStock.isOpen() }; }"""
+MENU_FIT = """() => { const m = document.querySelector('.sp-ivm').getBoundingClientRect(), t = document.querySelector('.sp-tfs [data-tf="min"]').getBoundingClientRect();
+  const hit = [...document.querySelectorAll('.sp-ivm button')].map(x => { const r = x.getBoundingClientRect(); const e = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return !!e && x.contains(e); });
+  return { left: m.left, right: m.right, top: m.top, below: m.top - t.bottom, alignedLeft: Math.abs(m.left - t.left) < 1.5, vw: innerWidth, vh: innerHeight, bottom: m.bottom,
+    hit: hit.every(Boolean), minH: Math.min(...[...document.querySelectorAll('.sp-ivm button')].map(x => x.getBoundingClientRect().height)) }; }"""
+MA_ROW = """() => { const r = document.querySelector('.sp-ma'), cs = [...r.querySelectorAll('.sp-mac')];
+  const tops = new Set(cs.map(c => Math.round(c.getBoundingClientRect().top)));
+  return { h: r.getBoundingClientRect().height, lines: tops.size, right: Math.max(...cs.map(c => c.getBoundingClientRect().right)), vw: innerWidth,
+    clipped: cs.filter(c => c.scrollWidth > c.clientWidth + 1).length, chipH: Math.min(...cs.map(c => c.getBoundingClientRect().height)),
+    chips: cs.map(c => [c.dataset.n, c.getAttribute('aria-pressed'), c.querySelector('.n').textContent, c.querySelector('.v').textContent, c.getAttribute('aria-label')]),
+    sw: cs.map(c => getComputedStyle(c.querySelector('.sw')).backgroundColor), title: getComputedStyle(r.querySelector('.sp-ma-t')).display }; }"""
+
+
+def run_iv_ma(b):
+    """분 picker (사용자 2026-11-14 08:10 "1분봉 5분봉 있는게 아니라 분봉으로 통합하고 누르면 1분봉 5분봉 10분봉 30분봉 60분봉 선택 가능하게") on the
+    iv= path, the older-Worker fallbacks, and the 이동평균 legend (사용자 "이동평균선 … 버튼들 레이아웃과 디자인 개선이 필요해보여")."""
+    mock('/__reset')
+    P = Page(b, 390, BASE + '#s-005930')
+    pg = P.pg
+    P.wait_chart()
+    tabs = P.ev("() => [...document.querySelectorAll('.sp-tfs > button')].map(b => [b.dataset.tf, b.textContent.trim()])")
+    check('iv_tabs_are_min_day_week_month_year', tabs == [['min', '분'], ['day', '일'], ['week', '주'], ['month', '월'], ['year', '년']], tabs)
+    st = P.ev(PICK_STATE)
+    check('iv_min_tab_is_menu_button', st['expanded'] == 'false' and not st['open'] and st['pressed'] == 'false' and '분봉' in st['aria']
+          and st['roles'] == 'menu,menuitemradio,menuitemradio,menuitemradio,menuitemradio,menuitemradio', st)
+    # click opens (from 일: nothing checked, 5분 focused), Esc closes and returns focus, the page stays open
+    pg.click('.sp-tfs [data-tf="min"]'); pg.wait_for_timeout(250)
+    st = P.ev(PICK_STATE)
+    check('iv_picker_click_opens_focus_item', st['open'] and st['expanded'] == 'true' and st['focus'] == '5m' and st['checked'] == [], st)
+    fit = P.ev(MENU_FIT)
+    check('iv_picker_fits_390_anchored_not_covered', fit['left'] >= 0 and fit['right'] <= fit['vw'] and fit['bottom'] <= fit['vh'] and fit['alignedLeft'] and 0 <= fit['below'] <= 12 and fit['hit'] and fit['minH'] >= 44, fit)
+    check('iv_picker_taps_ge_40', not P.ev(TAP_JS), P.ev(TAP_JS))
+    pg.screenshot(path=str(SHOTS / 'live390_iv_picker.png'))
+    pg.keyboard.press('Escape'); pg.wait_for_timeout(200)
+    st = P.ev(PICK_STATE)
+    check('iv_picker_esc_closes_returns_focus', not st['open'] and st['expanded'] == 'false' and st['focus'] == 'min' and st['stockOpen'], st)
+    # a tap outside closes (and changes nothing)
+    pg.click('.sp-tfs [data-tf="min"]'); pg.wait_for_timeout(200)
+    pg.click('.sp-name'); pg.wait_for_timeout(200)
+    st = P.ev(PICK_STATE)
+    check('iv_picker_outside_tap_closes', not st['open'] and st['expanded'] == 'false' and st['label'] == '분' and st['stockOpen'], st)
+    # tapping 분 again closes it
+    pg.click('.sp-tfs [data-tf="min"]'); pg.wait_for_timeout(150); pg.click('.sp-tfs [data-tf="min"]'); pg.wait_for_timeout(150)
+    check('iv_picker_tab_toggles', not P.ev(PICK_STATE)['open'])
+    # keyboard: ↓ opens on 5분, ↓ 10분, End 60분, Home 1분, ↑ wraps to 60분, Tab closes; Enter picks
+    P.ev("() => document.querySelector('.sp-tfs [data-tf=\"min\"]').focus()")
+    seq = []
+    for k in ['ArrowDown', 'ArrowDown', 'End', 'Home', 'ArrowUp']:
+        pg.keyboard.press(k); pg.wait_for_timeout(60); seq.append(P.ev(PICK_STATE)['focus'])
+    pg.keyboard.press('Tab'); pg.wait_for_timeout(100)
+    st = P.ev(PICK_STATE)
+    check('iv_picker_arrow_keys_and_tab', seq == ['5m', '10m', '60m', '1m', '60m'] and not st['open'] and st['focus'] == 'min', {'seq': seq, 'after_tab': st})
+    pg.keyboard.press('Enter'); pg.wait_for_timeout(150)
+    for k in ['ArrowDown', 'ArrowDown']:
+        pg.keyboard.press(k); pg.wait_for_timeout(60)
+    pg.keyboard.press('Enter'); P.wait_chart(); pg.wait_for_timeout(200)
+    st = P.ev(PICK_STATE)
+    check('iv_picker_enter_picks_closes_focus_back', st['label'] == '30분' and st['pressed'] == 'true' and not st['open'] and st['focus'] == 'min' and '30분봉' in st['aria'], st)
+    pg.keyboard.press('Space'); pg.wait_for_timeout(150)
+    st = P.ev(PICK_STATE)
+    check('iv_picker_space_opens_on_checked', st['open'] and st['focus'] == '30m' and st['checked'] == ['30m'], st)
+    pg.keyboard.press('Escape'); pg.wait_for_timeout(100)
+    # each minute interval: the API answer, the bars drawn, the tab label, sane times
+    res = {}
+    for tf in MIN_TFS:
+        since = time.time()
+        pick_tf(pg, tf); P.wait_chart(); pg.mouse.move(2, 2); pg.wait_for_timeout(250)
+        j = mock(f'/api/stock/005930/chart?iv={tf}&count={IV_REQ[tf]}&warm=119')
+        allb = j.get('pre', []) + j['bars']
+        o = P.ev("() => ({ n: +document.querySelector('.sp-chart').dataset.n, aria: document.querySelector('.sp-chart').getAttribute('aria-label'), label: document.querySelector('.sp-tfs [data-tf=\"min\"]').textContent.trim(), units: [...document.querySelectorAll('.sp-mac .n')].map(x => x.textContent).join() })")
+        n = {'1m': 1, '5m': 5, '10m': 10, '30m': 30, '60m': 60}[tf]
+        ts = [x['t'] for x in allb]
+        mins = [((t + 32400) % 86400) // 60 for t in ts]
+        grid = all(m % n == 0 or m in (930, 990) for m in mins) if n > 5 else all(m % n == 0 for m in mins)
+        steps = all(b_ - a_ >= n * 60 for a_, b_ in zip(ts, ts[1:]))
+        want_last = f'{kst_label(allb[-1]["t"])} {allb[-1]["c"]:,}원까지'
+        res[tf] = {'n': o['n'], 'api': len(allb), 'label': o['label'], 'last': want_last in o['aria'], 'grid': grid, 'steps': steps, 'session': 540 <= min(mins) and max(mins) <= 1200,
+                   'req': P.count(f'chart?iv={tf}&', since), 'units': o['units'], 'iv': j['iv'] == tf and j['interval'] == tf}
+    check('iv_each_minute_interval_loads', all(r['n'] == r['api'] and r['last'] and r['req'] >= 1 and r['iv'] for r in res.values()), res)
+    check('iv_minute_tab_label_follows', all(r['label'] == tf.replace('m', '분') for tf, r in res.items()), {k: r['label'] for k, r in res.items()})
+    check('iv_minute_bar_times_sane', all(r['grid'] and r['steps'] and r['session'] for r in res.values()), res)
+    check('iv_minute_ma_units', all(r['units'] == '5분,20분,60분,120분' for r in res.values()), {k: r['units'] for k, r in res.items()})
+    # 30분: the 이동평균 values = hand calculation over the grouped bars
+    pick_tf(pg, '30m'); P.wait_chart(); pg.mouse.move(2, 2); pg.wait_for_timeout(250)
+    j = mock('/api/stock/005930/chart?iv=30m&count=140&warm=119')
+    cl = [x['c'] for x in j.get('pre', []) + j['bars']]
+    want = [f'{round(sum(cl[-n:]) / n):,}' for n in (5, 20, 60)]
+    row = P.ev(MA_ROW)
+    check('iv_30m_ma_values_hand_calc', [c[3] for c in row['chips'][:3]] == want and [c[1] for c in row['chips']] == ['true', 'true', 'true', 'false'], {'shown': row['chips'], 'want': want})
+    # the 이동평균 legend at 390: one line, nothing cut, 44 px to press, values in place, off = no value
+    check('ma_legend_390_one_line_no_clip', row['lines'] == 1 and row['clipped'] == 0 and row['right'] <= row['vw'] and row['chipH'] >= 44 and row['h'] <= 46, row)
+    # toggle 60 off: the line goes (its colour leaves the canvas), aria-pressed, stored per interval, kept after reload
+    hexc = lambda c: '#' + ''.join('%02x' % int(x) for x in re.findall(r'[\d.]+', c)[:3])
+    c60 = hexc(row['sw'][2])
+    px0 = P.ev(PIXELS_JS, [c60])[0]
+    pg.click('.sp-mac[data-n="60"]'); pg.wait_for_timeout(250)
+    px1 = P.ev(PIXELS_JS, [c60])[0]
+    row1 = P.ev(MA_ROW)
+    check('ma_toggle_hides_line_and_marks_off', px0 > 40 and px1 < px0 * 0.1 and row1['chips'][2][1] == 'false' and row1['chips'][2][3] == '' and '켜기' in row1['chips'][2][4], {'px': [px0, px1], 'chip': row1['chips'][2]})
+    pg.screenshot(path=str(SHOTS / 'live390_iv_30m_ma.png'))
+    pg.reload(); pg.wait_for_selector('.sp-mac'); P.wait_chart(); pg.wait_for_timeout(200)
+    st = P.ev(PICK_STATE)
+    ls = P.ev("() => [localStorage.getItem('khm.stock.iv'), localStorage.getItem('khm.stock.ma')]")
+    row2 = P.ev(MA_ROW)
+    check('iv_choice_persists_after_reload', st['label'] == '30분' and st['pressed'] == 'true' and ls[0] == '"30m"', [st, ls])
+    check('ma_toggle_persists_per_interval', [c[1] for c in row2['chips']] == ['true', 'true', 'false', 'false'] and json.loads(ls[1]).get('30m') == [5, 20], [row2['chips'], ls[1]])
+    pg.click('.sp-mac[data-n="60"]'); pg.wait_for_timeout(150)
+    # an old stored value ('5m') still works
+    P.ev("() => localStorage.setItem('khm.stock.iv', JSON.stringify('5m'))")
+    pg.reload(); P.wait_chart(); pg.wait_for_timeout(200)
+    st = P.ev(PICK_STATE)
+    check('iv_old_stored_5m_still_valid', st['label'] == '5분' and '5분봉' in P.ev("() => document.querySelector('.sp-chart').getAttribute('aria-label')"), st)
+    o = P.ev(OVERFLOW_JS)
+    check('iv_ma_no_overflow_390', o['doc'] <= 0 and o['root'] <= 0 and o['n'] == 0, o)
+    check('iv_ma_console_clean_390', not P.console, P.console)
+    P.close()
+
+    # 360: the picker and the legend still fit (the legend may wrap only for 7-digit prices)
+    P = Page(b, 360, BASE + '#s-005930'); pg = P.pg; P.wait_chart()
+    pg.click('.sp-tfs [data-tf="day"]'); P.wait_chart(); pg.mouse.move(2, 2); pg.wait_for_timeout(200)
+    row = P.ev(MA_ROW)
+    pg.click('.sp-tfs [data-tf="min"]'); pg.wait_for_timeout(250)
+    fit = P.ev(MENU_FIT); o = P.ev(OVERFLOW_JS)
+    check('iv_ma_360_fit', row['lines'] == 1 and row['clipped'] == 0 and fit['left'] >= 0 and fit['right'] <= fit['vw'] and fit['hit'] and o['doc'] <= 0 and o['n'] == 0, {'row': row, 'fit': fit, 'o': o})
+    check('iv_ma_console_clean_360', not P.console, P.console)
+    P.close()
+
+    # desktop: the picker under its tab, the legend slim with its title
+    P = Page(b, 1440, BASE + '#s-005930'); pg = P.pg; P.wait_chart()
+    pg.click('.sp-tfs [data-tf="day"]'); P.wait_chart(); pg.mouse.move(2, 2); pg.wait_for_timeout(200)
+    row = P.ev(MA_ROW)
+    check('ma_legend_1440_slim_with_title', row['lines'] == 1 and row['h'] <= 34 and row['title'] == 'block' and row['clipped'] == 0, row)
+    pg.click('.sp-tfs [data-tf="min"]'); pg.wait_for_timeout(250)
+    fit = P.ev(MENU_FIT)
+    check('iv_picker_1440_anchored', fit['alignedLeft'] and fit['hit'] and 0 <= fit['below'] <= 12, fit)
+    pg.click('.sp-ivm [data-iv="60m"]'); P.wait_chart()
+    check('iv_60m_desktop_period', P.ev("() => document.querySelector('.sp-period').textContent").startswith('5일 동안'), P.ev("() => document.querySelector('.sp-period').textContent"))
+    check('iv_console_clean_1440', not P.console, P.console)
+    P.close()
+
+    # a Worker from before 10분 · 30분 · 60분 (iv=30m → 400): the page groups its 5-minute bars, the same bars as the new Worker's
+    mock('/__config?oldiv=1')
+    P = Page(b, 390, BASE + '#s-005930'); pg = P.pg; P.wait_chart()
+    since = time.time()
+    pick_tf(pg, '30m'); P.wait_chart(); pg.mouse.move(2, 2); pg.wait_for_timeout(250)
+    mock('/__config?oldiv=')
+    j = mock('/api/stock/005930/chart?iv=30m&count=140&warm=119')
+    allb = j.get('pre', []) + j['bars']
+    o = P.ev("() => ({ n: +document.querySelector('.sp-chart').dataset.n, back: document.querySelector('.sp-chart').dataset.back, aria: document.querySelector('.sp-chart').getAttribute('aria-label') })")
+    row = P.ev(MA_ROW)
+    cl = [x['c'] for x in allb]
+    check('oldworker_30m_grouped_on_page', o['n'] == len(allb) and f'{kst_label(allb[-1]["t"])} {allb[-1]["c"]:,}원까지' in o['aria'] and P.count('chart?iv=5m&', since) >= 1
+          and [c[3] for c in row['chips'][:2]] == [f'{round(sum(cl[-n:]) / n):,}' for n in (5, 20)], {'page': o, 'api': len(allb), 'chips': row['chips'][:2]})
+    noise = [m for m in P.console if 'status of 400' not in m]
+    check('oldworker_30m_only_the_400_probe', not noise and len(P.console) <= 1, P.console)
+    P.close()
+    # a Worker from before iv= (tf= only): 10분 · 30분 · 60분 group tf=5d, no scroll-back
+    mock('/__config?noiv=1')
+    P = Page(b, 390, BASE + '#s-005930'); pg = P.pg; P.wait_chart()
+    r = {}
+    for tf in ('10m', '30m', '60m'):
+        pick_tf(pg, tf); P.wait_chart(); pg.wait_for_timeout(150)
+        r[tf] = P.ev("() => [+document.querySelector('.sp-chart').dataset.n, document.querySelector('.sp-chart').dataset.back, document.querySelector('.sp-tfs [data-tf=\"min\"]').textContent.trim()]")
+    check('oldworker_tf_form_groups_minutes', all(v[0] > 20 and v[1] == '0' and v[2] == tf.replace('m', '분') for tf, v in r.items()) and P.count('chart?tf=5d') >= 1, r)
+    check('oldworker_tf_console_clean', not P.console, P.console)
+    P.close()
+    mock('/__reset')
+
+
+
 def run(b):
     # ── 1. open / close via API, Esc, back button, browser back; focus return; hashes ──────────
     P = Page(b, 1280, BASE + '#kosdaq')
@@ -174,23 +371,24 @@ def run(b):
     check('console_clean_hashload', not P.console, P.console)
     P.close()
 
-    # ── 3. timeframes, legend, KST, palette ───────────────────
+    # ── 3. timeframes, legend, KST, palette (the mock plays a Worker from before iv=: the tf= form; the iv= path is §3c) ──
+    mock('/__reset'); mock('/__config?noiv=1')
     P = Page(b, 390, BASE + '#s-005930', timezone_id='America/New_York')
     pg = P.pg
     P.wait_chart()
     tfs = {}
-    for tf in ['1m', '5m', 'day', 'week', 'month', 'year']:
+    for tf in ['1m', '5m', '10m', '30m', '60m', 'day', 'week', 'month', 'year']:
         since = time.time()
-        pg.click(f'.sp-tfs button[data-tf="{tf}"]')
+        pick_tf(pg, tf)
         P.wait_chart()
         pg.wait_for_timeout(250)
         info = P.ev("() => ({ legend: document.querySelector('.sp-legend').textContent, aria: document.querySelector('.sp-chart').getAttribute('aria-label'), canvases: document.querySelectorAll('.sp-chart canvas').length, pressed: document.querySelector('.sp-tfs [aria-pressed=true]').dataset.tf })")
         info['req'] = P.count('chart?', since)
         tfs[tf] = info
         pg.screenshot(path=str(SHOTS / f'live390_tf_{tf}.png'))
-    check('all_6_timeframes_render', all(v['legend'] and v['canvases'] >= 3 and v['pressed'] == k and '봉' in v['aria'] for k, v in tfs.items()), {k: v['aria'][-40:] for k, v in tfs.items()})
+    check('all_9_intervals_render', all(v['legend'] and v['canvases'] >= 3 and v['pressed'] == ('min' if k in MIN_TFS else k) and '봉' in v['aria'] for k, v in tfs.items()), {k: v['aria'][-40:] for k, v in tfs.items()})
     # KST even though the browser is in New York: the first 1d bar is 09:00
-    pg.click('.sp-tfs button[data-tf="1m"]'); P.wait_chart()
+    pick_tf(pg, '1m'); P.wait_chart()
     aria = P.ev("() => document.querySelector('.sp-chart').getAttribute('aria-label')")
     check('times_in_kst', '9:00' in aria or '09:00' in aria, aria)
     # crosshair legend follows the pointer
@@ -206,14 +404,14 @@ def run(b):
     ref = P.ev("""() => ({ period: document.querySelector('.sp-period').textContent,
         legend: document.querySelector('.sp-legend .sp-lg-r').textContent, head: document.querySelector('.sp-chg').textContent })""")
     check('prev_close_ref_is_header_base_1d', '전일 종가 188,700 대비' in ref['period'] and ref['legend'] in ref['head'] and ref['legend'] in ref['period'], ref)
-    pg.click('.sp-tfs button[data-tf="5m"]'); P.wait_chart(); pg.wait_for_timeout(200)
+    pick_tf(pg, '5m'); P.wait_chart(); pg.wait_for_timeout(200)
     p5 = P.ev("() => document.querySelector('.sp-period').textContent")
     # 5일: from the close before the window (11/02) to the last bar, not from the first bar's open
     j5 = mock('/api/stock/005930/chart?tf=5d')
     want = '%.2f%%' % abs((j5['bars'][-1]['c'] / j5['prevClose'] - 1) * 100)
     check('period_base_5d_is_close_before_window', p5.startswith('5일 동안') and p5.endswith(want), {'shown': p5, 'want': want, 'prevClose': j5['prevClose']})
     P.pg.set_viewport_size({'width': 390, 'height': 844})
-    pg.click('.sp-tfs button[data-tf="1m"]'); P.wait_chart(); pg.wait_for_timeout(200)
+    pick_tf(pg, '1m'); P.wait_chart(); pg.wait_for_timeout(200)
     # palette: krg (red up / green down) → global (green up / red down)
     pal0 = P.ev("() => KH.palette()")
     c0 = P.ev(PIXELS_JS, [pal0['up'], pal0['down']])
@@ -230,6 +428,7 @@ def run(b):
     P.close()
 
     # ── 3b. moving averages (the mock answers like the Worker deployed before iv=: the page falls back to tf=, no scroll-back) ──
+    mock('/__reset'); mock('/__config?noiv=1')
     P = Page(b, 1280, BASE + '#s-005930')
     pg = P.pg
     P.wait_chart()
@@ -263,7 +462,7 @@ def run(b):
     st = P.ev("() => [...document.querySelectorAll('.sp-mac')].map(b => b.getAttribute('aria-pressed')).join()")
     check('ma_toggle_remembered_after_reload', st == 'false,true,true,true', st)
     # defaults per interval: 분 = 5·20·60
-    pg.click('.sp-tfs button[data-tf="1m"]'); P.wait_chart(); pg.wait_for_timeout(200)
+    pick_tf(pg, '1m'); P.wait_chart(); pg.wait_for_timeout(200)
     st = P.ev("() => ({ t: [...document.querySelectorAll('.sp-mac .n')].map(b => b.textContent).join(), on: [...document.querySelectorAll('.sp-mac')].map(b => b.getAttribute('aria-pressed')).join() })")
     check('ma_intraday_defaults_5_20_60', st['t'] == '5분,20분,60분,120분' and st['on'] == 'true,true,true,false', st)
     # the old-Worker path: no iv answer → tf= form, nothing breaks
@@ -271,6 +470,8 @@ def run(b):
     check('ma_no_overflow_1280', P.ev("() => document.documentElement.scrollWidth - innerWidth") == 0)
     pg.screenshot(path=str(SHOTS / 'live1280_ma.png'))
     P.close()
+
+    run_iv_ma(b)
 
     # ── 4. order-book polling (during the regular session; the clock is pinned so the run does not depend on the time of day) ──
     mock('/__reset')
@@ -1304,7 +1505,7 @@ def run_groups(b):
 
 
 if __name__ == '__main__':
-    srv = subprocess.Popen([sys.executable, str(HERE / 'mock_api.py')], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    srv = subprocess.Popen([sys.executable, str(HERE / 'mock_api.py'), '--port', str(PORT)], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     try:
         for _ in range(50):
             try:

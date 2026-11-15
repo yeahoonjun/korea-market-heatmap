@@ -143,27 +143,55 @@ html[data-theme="paper"] .sp-head, html[data-theme^="glass"] .sp-head { backgrou
 .sp-period { display: none; font-size: 12.5px; color: var(--muted); white-space: nowrap; }
 .sp-period b { font-weight: 600; }
 
-/* 이동평균 row: always there (its height is reserved, the values under the crosshair change text only) */
-.sp-ma { flex: none; display: flex; align-items: center; gap: 6px; min-height: 44px; margin: -2px 0 6px; padding: 2px 0; }
-.sp-ma-t { flex: none; font-size: 12px; font-weight: 600; color: var(--muted); white-space: nowrap; margin-right: 2px; }
-.sp-mac { position: relative; flex: 1 1 0; min-width: 0; max-width: 132px; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 1px; height: 40px; padding: 0 7px; border: 0; border-radius: var(--r-chip); background: var(--chip-bg); box-shadow: var(--key-sh, inset 0 0 0 1px var(--line)); color: var(--fg2); font-size: 12px; font-weight: 600; white-space: nowrap;
-  transition: transform var(--c-fast) var(--c-out), box-shadow var(--c-fast) var(--c-out), background-color var(--c-fast) var(--c-out), color var(--c-fast) var(--c-out), filter var(--c-fast) var(--c-out), opacity var(--c-fast) var(--c-out); }
-.sp-mac:hover { background: var(--key-hover, var(--chip-bg)); }
-.sp-mac:is(:active, .is-press) { transform: translateY(1px); box-shadow: var(--key-dn, none); filter: var(--press-f); transition-duration: 0s, 0s, 0s, var(--c-base), 0s, var(--c-fast); }
-.sp-mac .n { display: inline-flex; align-items: center; gap: 5px; color: var(--mc); line-height: 1.2; }
-.sp-mac .n::before { content: ""; flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--mc); box-shadow: 0 0 0 1.5px var(--mc); transition: background-color var(--c-fast) var(--c-out); }
-.sp-mac .v { display: block; width: 100%; min-height: 1.3em; overflow: hidden; font-size: 11px; line-height: 1.3; font-weight: 500; color: var(--fg); text-align: left; }
-.sp-mac[aria-pressed="false"] { box-shadow: inset 0 0 0 1px var(--line); background: transparent; opacity: .62; }
-.sp-mac[aria-pressed="false"] .n::before { background: transparent; }
-.sp-mac[aria-pressed="false"]:hover { opacity: .85; }
-.sp-mac[aria-pressed="true"] { background: var(--chip-on); box-shadow: inset 0 0 0 1.5px var(--mc); }
-.sp-mac:focus-visible { outline-offset: calc(var(--focus-w, 3px) * -1); }
-@media (pointer: coarse) { .sp-mac::after { content: ""; position: absolute; inset: -2px -3px; } }
-@media (hover: none) { .sp-mac:hover { background: var(--chip-bg); } .sp-mac[aria-pressed="false"]:hover { background: transparent; opacity: .62; } .sp-mac[aria-pressed="true"]:hover { background: var(--chip-on); } }
+/* 분's picker (사용자 2026-11-14 08:10): the tab shows the minute interval that is on + a small caret; the menu is the template's dropdown
+   material (--pop-bg, the tip rim, --pop-sh), placed under the tab by stock.js (ivPlace). Checked = amber text + ✓ (the accent, not data). */
+.sp-tfbar { position: relative; }
+.sp-tfmin { display: inline-flex; align-items: center; justify-content: center; gap: 3px; }
+.sp-tfmin .cr { flex: none; width: 10px; height: 10px; margin-right: -2px; opacity: .75; transition: transform var(--c-fast) var(--c-out); }
+.sp-tfmin[aria-expanded="true"] .cr { transform: rotate(180deg); }
+.sp-ivm { position: absolute; z-index: 5; left: 0; top: 100%; display: flex; flex-direction: column; gap: 1px; padding: 4px; background: var(--pop-bg, var(--sp-solid)); border-radius: var(--r-tray, 12px); box-shadow: inset 0 0 0 1px var(--tip-bd, var(--line2)), var(--pop-sh, 0 14px 40px rgba(0, 0, 0, .5)); -webkit-backdrop-filter: var(--blur, none); backdrop-filter: var(--blur, none); transform-origin: top left; }
+.sp-ivm[hidden] { display: none; }
+.sp-ivm:not([hidden]) { animation: spIvm var(--c-fast, 180ms) var(--c-out, ease-out); }
+@keyframes spIvm { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+.sp-ivm button { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 44px; padding: 0 10px 0 12px; border-radius: var(--r-in, 8px); color: var(--fg); font-size: 14px; font-weight: 600; text-align: left; white-space: nowrap; font-variant-numeric: tabular-nums; transition: filter var(--c-fast) var(--c-out), background-color var(--c-fast) var(--c-out); }
+.sp-ivm button:hover { background: color-mix(in srgb, var(--fg) 7%, transparent); }
+.sp-ivm button:active { filter: var(--press-f); transition-duration: 0s; }
+.sp-ivm button:focus-visible { outline-offset: -3px; }
+.sp-ivm .ck { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; visibility: hidden; }
+.sp-ivm button[aria-checked="true"] { color: var(--acc); }
+.sp-ivm button[aria-checked="true"] .ck { visibility: visible; }
+html[data-theme="paper"] .sp-ivm { background: var(--sheet-bg, var(--pop-bg)); border-radius: var(--tip-r, 2px); box-shadow: inset 0 0 0 1px var(--rule, var(--tip-bd)), var(--pop-sh); }
+@media (min-width: 640px) { .sp-ivm button { min-height: 38px; font-size: 13.5px; } }
+
+/* 이동평균 (사용자 2026-11-14 "이동평균선 5일 20일 60일 120일 저 버튼들 레이아웃과 디자인 개선이 필요해보여"): one slim row that reads like
+   the chart's legend and toggles like it — a short line in the MA colour, the period in that colour, the value under the crosshair (tabular,
+   one reserved width, so nothing moves while the pointer does). Off = hollow line, muted text, no value. No fill: the chip ground only
+   shows on hover; the 44 px button keeps a 28 px visible chip (::before), focus ring on the chip. The row's height is fixed. */
+.sp-ma { flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: 0 2px; min-height: 44px; margin: -6px 0 2px -4px; }
+.sp-ma-t { display: none; flex: none; margin: 0 6px 0 5px; font-size: 12px; font-weight: 600; color: var(--muted); white-space: nowrap; }
+.sp-mac { position: relative; flex: none; display: inline-flex; align-items: center; gap: 3px; height: 44px; padding: 0 4px; border: 0; background: none; color: var(--fg); font-size: 11px; font-weight: 600; line-height: 1; white-space: nowrap; transition: filter var(--c-fast) var(--c-out); }
+.sp-mac::before { content: ""; position: absolute; z-index: -1; left: 0; right: 0; top: 8px; bottom: 8px; border-radius: var(--r-in, 8px); background: transparent; transition: background-color var(--c-fast) var(--c-out); }
+.sp-mac { isolation: isolate; }
+.sp-mac:hover::before { background: var(--sp-w5); }
+.sp-mac:is(:active, .is-press) { filter: var(--press-f); transition-duration: 0s; }
+.sp-mac:is(:active, .is-press)::before { background: var(--sp-w6); }
+.sp-mac:focus-visible { outline: none; }
+.sp-mac:focus-visible::before { outline: var(--focus-w, 3px) solid var(--focus, #ffb547); outline-offset: 0; }
+.sp-mac .sw { flex: none; width: 10px; height: 3px; border-radius: 2px; background: var(--mc); transition: background-color var(--c-fast) var(--c-out), box-shadow var(--c-fast) var(--c-out); }
+.sp-mac .n { color: var(--mc); }
+.sp-mac .v { min-width: var(--ma-vw, 6ch); font-weight: 500; color: var(--fg); text-align: left; }
+.sp-mac[aria-pressed="false"] .sw { background: transparent; box-shadow: inset 0 0 0 1.25px var(--muted); }
+.sp-mac[aria-pressed="false"] .n { color: var(--muted); font-weight: 500; }
+.sp-mac[aria-pressed="false"] .v { display: none; }
+@media (hover: none) { .sp-mac:hover::before { background: transparent; } }
+@media (max-width: 374px) { .sp-mac { gap: 2px; padding: 0 3px; font-size: 10.5px; } .sp-mac .sw { width: 8px; } }
+@media (pointer: fine) { .sp-ma { min-height: 32px; margin: -4px 0 4px -6px; } .sp-mac { height: 32px; } .sp-mac::before { top: 2px; bottom: 2px; } }
 @media (min-width: 640px) {
-  .sp-ma { min-height: 38px; margin: 0 0 6px; gap: 8px; }
-  .sp-mac { flex: none; flex-direction: row; align-items: center; justify-content: flex-start; gap: 8px; height: 30px; padding: 0 11px; max-width: none; font-size: 12.5px; }
-  .sp-mac .v { width: 8ch; min-height: 0; font-size: 12px; }
+  .sp-ma { gap: 0 4px; }
+  .sp-ma-t { display: block; }
+  .sp-mac { gap: 5px; padding: 0 7px; font-size: 12.5px; }
+  .sp-mac .sw { width: 14px; }
+  .sp-mac .n { margin-right: 1px; }
 }
 .sp-chnote { position: absolute; z-index: 3; left: 50%; transform: translateX(-50%); bottom: 36px; white-space: nowrap; padding: 3px 9px; border-radius: 999px; background: var(--sp-solid); box-shadow: inset 0 0 0 1px var(--line2); color: var(--fg2); font-size: 11.5px; pointer-events: none; opacity: 0; transition: opacity var(--c-fast) var(--c-out); }
 .sp-chnote.on { opacity: 1; }
