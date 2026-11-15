@@ -34,7 +34,7 @@
 // Contract: AGENTS.md §3, sources and pitfalls: data/ENDPOINTS_DETAIL.md.
 // The Worker has no build-generated modules: page and stock universe come from ASSET_BASE.
 
-import { MarketHub, liveRoute, configureLive } from './live.js';
+import { MarketHub, liveRoute, configureLive, configureRelay, relayNews } from './live.js';
 export { MarketHub };                // the Durable Object class (wrangler.toml [exports.MarketHub]) must be exported by the main module
 // the hub polls the same rows as /api/quotes (quotesCore is a hoisted function declaration below)
 configureLive((env, ms) => quotesCore(env, null, false, ms));
@@ -1525,22 +1525,36 @@ async function getResearch(code) {
 // Fetching: an honest User-Agent (not the Naver one, no browser imitation), 6 s per outlet, all three in parallel
 // (Promise.allSettled), never retried in the same request; 403 / 429 → that outlet rests 15 min (news:cool:<src>).
 // Edge cache 180 s (+ stale-while-revalidate 120): one fetch per outlet per data centre every 3 minutes at most.
+// Relay (news.md §2-6, user 2026-11-14 20:05 "나중에 다른 지역 서버에서 받아오게 해줘"): an outlet marked `via: 'relay'` is fetched
+// by the Durable Object instance 'news-relay' (class MarketHub, locationHint 'enam' — live.js relayNews), so the request leaves
+// from eastern North America. Order: fresh last copy (< 180 s, no DO call) → relay → (relay itself failed) direct from this data
+// centre → last good copy. A 403 / 429 seen by either path rests the outlet 15 min and is never tried from the other place.
+// Diagnostics: a failure leaves KV news:err:<src> {at, colo, path, error, status?, egress?, …} for 3 days, at most once per 30 min.
 const NEWS_UA = 'PanseNewsBot/1.0 (+https://panse.pages.dev)';
 const NEWS_ACCEPT = 'application/rss+xml, application/xml;q=0.9, */*;q=0.5';
 const NEWS_SRC = [
   { key: 'einfomax', url: 'https://news.einfomax.co.kr/rss/allArticle.xml', host: 'news.einfomax.co.kr' },
   { key: 'hankyung', url: 'https://www.hankyung.com/feed/finance', host: 'www.hankyung.com' },
-  { key: 'mk', url: 'https://www.mk.co.kr/rss/50200011/', host: 'www.mk.co.kr' },
+  { key: 'mk', url: 'https://www.mk.co.kr/rss/50200011/', host: 'www.mk.co.kr', via: 'relay' },   // 2026-11-14: failed from ICN, fine from IAD
 ];
 const NEWS_TTL = 180, NEWS_SWR = 120, NEWS_TIMEOUT_MS = 6000, NEWS_PER_SRC = 30;
 const NEWS_COOL_S = 900, NEWS_LAST_S = 6 * 3600, NEWS_REWRITE_MS = 30 * 60e3, NEWS_TITLE_MAX = 200;
+// relay: how long the Worker waits for the DO, and the whole relay → direct chain (the page gives up at 12 s)
+const NEWS_RELAY_WAIT_MS = 7000, NEWS_CHAIN_MS = 10500, NEWS_DIRECT_MIN_MS = 2000;
+const NEWS_ERR_S = 3 * 86400, NEWS_ERR_EVERY_MS = 30 * 60e3;
+const NEWS_ITEM_T = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+09:00$/;
+// the relay instance runs this same bundle: it may fetch only these keys (never a URL from the request)
+configureRelay({
+  has: k => NEWS_SRC.some(s => s.key === k && s.via === 'relay'),
+  fetch: k => newsFetchFeed(NEWS_SRC.find(s => s.key === k && s.via === 'relay'), Date.now(), NEWS_TIMEOUT_MS),
+});
 
 async function getNewsRoute(request, env, ctx) {
   const cache = typeof caches !== 'undefined' ? caches.default : null;
   const cacheKey = new Request(new URL('/__cache/news-v1', request.url).toString());
   const hit = cache && await cache.match(cacheKey);
   if (hit) return hit;
-  const body = await newsCore(env, ctx);
+  const body = await newsCore(env, ctx, { colo: (request.cf && request.cf.colo) || null, base: request.url });
   const ok = body.items.length > 0;
   const res = new Response(JSON.stringify(ok ? body : { error: '세 언론사 모두 뉴스를 불러오지 못했어요', sources: body.sources }), {
     status: ok ? 200 : 502,
@@ -1557,10 +1571,10 @@ async function getNewsRoute(request, env, ctx) {
   return res;
 }
 
-async function newsCore(env, ctx) {
+async function newsCore(env, ctx, where = {}) {
   const kv = env && env.REPLAY && typeof env.REPLAY.get === 'function' ? env.REPLAY : null;
   const now = Date.now();
-  const settled = await Promise.allSettled(NEWS_SRC.map(s => newsOne(s, kv, ctx, now)));
+  const settled = await Promise.allSettled(NEWS_SRC.map(s => newsOne(s, kv, ctx, now, env, where)));
   const sources = {}, merged = [];
   settled.forEach((r, i) => {
     const s = NEWS_SRC[i];
@@ -1568,6 +1582,7 @@ async function newsCore(env, ctx) {
     const meta = { ok: !!v.ok, n: v.items.length, at: v.at || null };
     if (!v.ok) meta.error = v.error || 'error';
     if (v.stale) meta.stale = true;
+    if (v.ok && v.via === 'relay') meta.via = 'relay';          // this copy came through the relay (§2-6)
     sources[s.key] = meta;
     for (const it of v.items) merged.push({ src: s.key, title: it.title, url: it.url, t: it.t, o: i });
   });
@@ -1588,36 +1603,91 @@ function newsKvPut(kv, ctx, key, value, ttl) {
   if (ctx && ctx.waitUntil) ctx.waitUntil(p);
 }
 
-// one outlet: cool-down check → one GET (no retry) → parse → keep the last good copy
-async function newsOne(s, kv, ctx, now) {
+// one outlet: cool-down check → (relay outlets: fresh copy → relay) → one direct GET → parse → keep the last good copy.
+// No retry of the same path; a relay outlet's direct GET happens only when the relay itself could not answer or the outlet
+// failed there for a reason other than 403 / 429.
+async function newsOne(s, kv, ctx, now, env, where = {}) {
   const [cool, last] = await Promise.all([newsKvGet(kv, 'news:cool:' + s.key), newsKvGet(kv, 'news:last:' + s.key, 'json')]);
-  const fallback = error => (last && Array.isArray(last.items) && last.items.length
+  const hasLast = !!(last && Array.isArray(last.items) && last.items.length);
+  const fallback = error => (hasLast
     ? { ok: false, error, stale: true, at: last.at || null, items: last.items }
     : { ok: false, error, items: [] });
   if (cool) return fallback('cool-down');
-  const ac = new AbortController();
-  const timer = setTimeout(() => ac.abort(), NEWS_TIMEOUT_MS);
-  let text;
-  try {
-    const r = await fetch(s.url, { headers: { 'user-agent': NEWS_UA, accept: NEWS_ACCEPT }, redirect: 'follow', signal: ac.signal });
-    if (!r.ok) {
-      if (r.status === 403 || r.status === 429) newsKvPut(kv, ctx, 'news:cool:' + s.key, String(now), NEWS_COOL_S);
-      try { await r.body?.cancel(); } catch (e) { /* nothing to drain */ }
-      return fallback('http ' + r.status);
-    }
-    text = await r.text();
-  } catch (e) {
-    return fallback(e && e.name === 'AbortError' ? 'timeout' : 'network');
-  } finally { clearTimeout(timer); }
-  if (!/<rss\b|<channel\b|<feed\b/i.test(text.slice(0, 2000))) return fallback('not rss');
-  const items = parseNewsFeed(text, s.host, now);
+  const t0 = Date.now();
+  let res = null, relayFail = null;
+  if (s.via === 'relay' && env && env.MARKET) {
+    // another data centre (or this one) fetched it less than one edge-cache TTL ago: serve that copy, no DO request
+    if (hasLast && now - Date.parse(last.at) < NEWS_TTL * 1000) return { ok: true, at: last.at, items: last.items, via: last.via };
+    const r = await relayNews(env, s.key, NEWS_RELAY_WAIT_MS, where.base);
+    if (r && r.ok) res = { ok: true, status: r.status, items: newsCleanItems(r.items, s.host), egress: newsColo(r.egress), path: 'relay' };
+    else if (r && !r.infra && (r.status === 403 || r.status === 429)) res = { ok: false, status: r.status, error: 'http ' + r.status, egress: newsColo(r.egress), path: 'relay' };
+    else relayFail = { error: String((r && r.error) || 'relay error').slice(0, 60), ...(r && !r.infra && r.status ? { status: r.status } : {}), ...(r && newsColo(r.egress) ? { egress: newsColo(r.egress) } : {}) };
+  }
+  if (!res) {
+    const left = relayFail ? Math.max(NEWS_DIRECT_MIN_MS, Math.min(NEWS_TIMEOUT_MS, NEWS_CHAIN_MS - (Date.now() - t0))) : NEWS_TIMEOUT_MS;
+    res = { ...(await newsFetchFeed(s, now, left)), path: 'direct' };
+  }
+  const note = (path, r) => ({ at: newsKstIso(now), colo: where.colo || null, path, error: r.error, ...(r.status ? { status: r.status } : {}), ...(r.egress ? { egress: r.egress } : {}) });
+  if (!res.ok) {
+    if (res.status === 403 || res.status === 429) newsKvPut(kv, ctx, 'news:cool:' + s.key, String(now), NEWS_COOL_S);
+    newsErrNote(kv, ctx, s.key, { ...note(res.path, res), ...(relayFail ? { relay: relayFail } : {}) }, now);
+    return fallback(res.error);
+  }
+  if (relayFail) newsErrNote(kv, ctx, s.key, { ...note('relay', relayFail), fallback: 'direct ok' }, now);
+  const items = res.items;
   const at = newsKstIso(now);
   // keep the last good copy; write only when the list changed or the copy is 30 min old (KV writes stay rare)
   const sig = newsSig(items);
   if (items.length && (!last || last.sig !== sig || !(now - Date.parse(last.at) < NEWS_REWRITE_MS))) {
-    newsKvPut(kv, ctx, 'news:last:' + s.key, JSON.stringify({ at, sig, items }), NEWS_LAST_S);
+    const how = s.via ? { via: res.path, ...(res.egress ? { egress: res.egress } : {}) } : {};   // relay outlets: where it came from
+    newsKvPut(kv, ctx, 'news:last:' + s.key, JSON.stringify({ at, sig, items, ...how }), NEWS_LAST_S);
   }
-  return { ok: true, at, items };
+  return { ok: true, at, items, via: res.path };
+}
+// one GET of one outlet's feed (no retry) → {ok, status?, items?, error?, egress?}. Used by the Worker (direct) and by the
+// relay instance (live.js). egress = the data centre the outlet's own CDN saw (its cf-ray suffix), when it is on Cloudflare.
+async function newsFetchFeed(s, now, timeoutMs) {
+  const ac = new AbortController();
+  const timer = setTimeout(() => ac.abort(), timeoutMs || NEWS_TIMEOUT_MS);
+  let text, status = 0, egress = null;
+  try {
+    const r = await fetch(s.url, { headers: { 'user-agent': NEWS_UA, accept: NEWS_ACCEPT }, redirect: 'follow', signal: ac.signal });
+    status = r.status;
+    egress = newsColo(((r.headers && r.headers.get('cf-ray')) || '').split('-').pop());
+    if (!r.ok) {
+      try { await r.body?.cancel(); } catch (e) { /* nothing to drain */ }
+      return { ok: false, status, error: 'http ' + status, egress };
+    }
+    text = await r.text();
+  } catch (e) {
+    return { ok: false, error: e && e.name === 'AbortError' ? 'timeout' : 'network', egress };
+  } finally { clearTimeout(timer); }
+  if (!/<rss\b|<channel\b|<feed\b/i.test(text.slice(0, 2000))) return { ok: false, status, error: 'not rss', egress };
+  return { ok: true, status, items: parseNewsFeed(text, s.host, now), egress };
+}
+const newsColo = v => (typeof v === 'string' && /^[A-Z]{3}$/.test(v) ? v : null);
+// items that came back from the relay: same shape and the same host rule as a direct parse (defence in depth)
+function newsCleanItems(list, host) {
+  const out = [], seen = new Set();
+  for (const x of Array.isArray(list) ? list : []) {
+    if (!x || typeof x.title !== 'string' || !x.title || typeof x.t !== 'string' || !NEWS_ITEM_T.test(x.t)) continue;
+    const url = newsUrl(x.url, host);
+    if (!url || url !== x.url || seen.has(url)) continue;
+    seen.add(url);
+    out.push({ title: x.title.slice(0, 400), url, t: x.t });
+    if (out.length >= NEWS_PER_SRC) break;
+  }
+  return out;
+}
+// diagnostics (§2-6): KV news:err:<src>, 3 days; read before write so an outlet writes at most once per 30 minutes
+function newsErrNote(kv, ctx, key, rec, now) {
+  if (!kv || typeof kv.put !== 'function') return;
+  const p = (async () => {
+    const old = await newsKvGet(kv, 'news:err:' + key, 'json');
+    if (old && now - Date.parse(old.at) < NEWS_ERR_EVERY_MS) return;
+    await kv.put('news:err:' + key, JSON.stringify(rec), { expirationTtl: NEWS_ERR_S });
+  })().catch(() => {});
+  if (ctx && ctx.waitUntil) ctx.waitUntil(p);
 }
 function newsSig(items) {
   let h = 5381;

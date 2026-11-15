@@ -96,8 +96,54 @@ if(d.dataset.serif==='on'){var s=document.getElementById('kh-serif');if(s&&windo
      the small "unread" dot before a new filing's time (사용자 2026-11-14: 새 글자 대신 시간 앞 동그라미). One token per theme, ≥ 3:1 on
      cards · tooltips · sheets; not red / green (data) and not amber (controls) — switch it here to change the dot everywhere */
   --dm-flap:#eef0f3; --dm-crease:rgba(0,0,0,.38); --dm-cut:var(--map-bg); --new-dot:#4da3ff;
+  /* ── 디자인 기준 (docs/standards/design.md, 승인 사용자 2026-11-15 17:07) — scales shared by every theme ── */
+  /* type §3: 7 steps, min 11px (map tile labels and the chart canvas axis are the only exceptions) */
+  --fs-xs:11px; --fs-sm:12px; --fs-md:13px; --fs-lg:14px; --fs-xl:16px; --fs-2xl:20px; --fs-num:26px;
+  --lh-ui:1.25; --lh-row:1.3; --lh-text:1.45; --lh-num:1.1;
+  /* space §4: 8 steps (1px rules are separate; odd px only to correct a 1px border) */
+  --space-1:2px; --space-2:4px; --space-3:6px; --space-4:8px; --space-5:12px; --space-6:16px; --space-7:24px; --space-8:32px;
+  --edge:18px;
+  /* corners §4: 2 · 4 · 8 · 12 · 16 · 999 — the existing --r-key 12 · --r-in 8 · --r-pill 999 · --sheet-r 16 keep their roles */
+  --r-mark:2px; --r-badge:4px; --r-row:8px; --r-card:12px; --r-float:12px;
+  /* control heights §4 (desktop; phones below) — touch targets stay ≥ 44px on phones */
+  --h-chip:24px; --h-key:32px; --h-row:36px;
+  /* surfaces §2: fill alphas on dark themes; status colours start as today's values and move off amber when each module migrates */
+  --fill-1:rgba(255,255,255,.05); --fill-2:rgba(255,255,255,.09); --fill-3:rgba(255,255,255,.14);
+  --live:var(--acc); --fail-dot:var(--acc);
+  /* ── design.md §6-2 springs (scripts/design_tokens.mjs — generated, do not edit by hand) ── */
+  /* lead 620/40 · ζ 0.80 · 넘침 1.45% · 0.5% 290ms — 세그먼트·탭·밑줄 표시의 가는 쪽 가장자리 */
+  --sp-lead:linear(0, .017 2.3%, .077 5.2%, .214 9.6%, .536 18.8%, .691 24.1%, .808 29.3%, .898 35%, .96 41.2%, 1 49.3%, 1.014 61.5%, 1); --sp-lead-dur:342ms; --sp-lead-kc:"620 40";
+  /* trail 190/23 · ζ 0.83 · 넘침 0.86% · 0.5% 510ms — 같은 표시의 뒤 가장자리 */
+  --sp-trail:linear(0, .019 2.4%, .085 5.4%, .233 10%, .533 18.6%, .685 23.9%, .799 29.1%, .884 34.5%, .95 41.1%, .991 49.5%, 1.008 62.3%, 1); --sp-trail-dur:632ms; --sp-trail-kc:"190 23";
+  /* follow 900/50 · ζ 0.83 · 넘침 0.88% · 0.5% 235ms — 툴팁·십자선·스위치 손잡이 앞 가장자리 */
+  --sp-follow:linear(0, .019 2.4%, .085 5.4%, .229 9.9%, .529 18.5%, .682 23.8%, .797 29%, .884 34.5%, .95 41.1%, .991 49.4%, 1.008 62.1%, 1); --sp-follow-dur:290ms; --sp-follow-kc:"900 50";
+  /* settle 280/27 · ζ 0.81 · 넘침 1.37% · 0.5% 430ms — 손가락을 놓은 뒤(시트·스위치·티커) */
+  --sp-settle:linear(0, .017 2.3%, .08 5.3%, .218 9.7%, .536 18.8%, .693 24.2%, .811 29.5%, .898 35.1%, .961 41.5%, 1 49.8%, 1.014 62.9%, 1); --sp-settle-dur:510ms; --sp-settle-kc:"280 27";
+  /* fade 420/37 · ζ 0.90 · 넘침 0.14% · 0.5% 270ms — 나타남(opacity + 흐림) */
+  --sp-fade:linear(0, .019 2.5%, .084 5.7%, .239 10.9%, .51 19.5%, .662 25.4%, .781 31.5%, .871 38.2%, .936 46%, .978 56.2%, .999 72.8%, 1); --sp-fade-dur:405ms; --sp-fade-kc:"420 37";
+  /* open 360/31 · ζ 0.82 · 넘침 1.17% · 0.5% 377ms — 팝오버·고르기·시트가 트리거에서 자람 */
+  --sp-open:linear(0, .019 2.4%, .081 5.3%, .217 9.6%, .535 18.7%, .689 24%, .806 29.3%, .89 34.6%, .954 40.9%, .995 49%, 1.011 61.1%, 1); --sp-open-dur:454ms; --sp-open-kc:"360 31";
+  /* close 900/57 · ζ 0.95 · 넘침 0.01% · 0.5% 215ms — 모든 닫힘·접힘 */
+  --sp-close:linear(0, .017 2.6%, .083 6.2%, .241 12.1%, .492 21.1%, .645 27.8%, .761 34.5%, .853 42.1%, .92 50.9%, .966 62.5%, .992 80.1%, 1); --sp-close-dur:254ms; --sp-close-kc:"900 57";
+  /* hl 620/40 · ζ 0.80 · 넘침 1.45% · 0.5% 290ms — 메뉴·검색 제안 안 하이라이트 판 */
+  --sp-hl:linear(0, .017 2.3%, .077 5.2%, .214 9.6%, .536 18.8%, .691 24.1%, .808 29.3%, .898 35%, .96 41.2%, 1 49.3%, 1.014 61.5%, 1); --sp-hl-dur:342ms; --sp-hl-kc:"620 40";
+  /* island-w 380/32 · ζ 0.82 · 넘침 1.09% · 0.5% 366ms — 결과 섬 폭 */
+  --sp-island-w:linear(0, .019 2.4%, .084 5.4%, .221 9.7%, .532 18.6%, .686 23.9%, .808 29.4%, .897 35.2%, .96 41.9%, .998 50.5%, 1.011 64.6%, 1); --sp-island-w-dur:443ms; --sp-island-w-kc:"380 32";
+  /* island-h 300/28 · ζ 0.81 · 넘침 1.34% · 0.5% 415ms — 결과 섬 높이 */
+  --sp-island-h:linear(0, .017 2.3%, .08 5.3%, .219 9.7%, .537 18.8%, .694 24.2%, .811 29.5%, .899 35.1%, .963 41.8%, 1.001 50.2%, 1.013 63.4%, 1); --sp-island-h-dur:494ms; --sp-island-h-kc:"300 28";
+  /* roll 320/36 · ζ 1.01 · 넘침 0.00% · 0.5% 422ms — 숫자 자리 굴림(데이터, 넘침 0) */
+  --sp-roll:linear(0, .017 2.1%, .081 5%, .252 10.3%, .482 17.3%, .63 22.8%, .749 28.7%, .839 35.1%, .909 42.9%, .958 53.2%, .988 69.2%, 1); --sp-roll-dur:526ms; --sp-roll-kc:"320 36";
+  /* roll-w 380/39 · ζ 1.00 · 넘침 0.00% · 0.5% 382ms — 자리 수가 바뀔 때 숫자 상자 폭(데이터) */
+  --sp-roll-w:linear(0, .018 2.2%, .082 5.1%, .247 10.3%, .485 17.6%, .63 23.1%, .742 28.6%, .835 35.1%, .906 42.8%, .957 53.2%, .987 68.7%, 1); --sp-roll-w-dur:475ms; --sp-roll-w-kc:"380 39";
+  /* value 420/41 · ζ 1.00 · 넘침 0.00% · 0.5% 363ms — 막대·범례 눈금·지수 선 끝점(데이터) */
+  --sp-value:linear(0, .018 2.2%, .084 5.2%, .26 10.7%, .487 17.7%, .636 23.4%, .748 29%, .839 35.5%, .908 43.2%, .958 53.6%, .988 69.6%, 1); --sp-value-dur:451ms; --sp-value-kc:"420 41";
+  /* pop 520/34 · ζ 0.75 · 넘침 2.98% · 0.5% 315ms — 완료 체크 .6→1에만(화려하게) */
+  --sp-pop:linear(0, .019 2.6%, .084 5.8%, .224 10.4%, .569 20.5%, .727 26.1%, .846 31.6%, .932 37.4%, .989 43.6%, 1.022 51.5%, 1.028 63.4%, 1); --sp-pop-dur:349ms; --sp-pop-kc:"520 34";
+  /* ── end springs ── */
 }
-html[data-motion="reduced"]{--c-fast:0ms; --c-base:0ms; --c-switch:0ms}
+html[data-motion="reduced"]{--c-fast:0ms; --c-base:0ms; --c-switch:0ms; --sp-lead-dur:0ms; --sp-trail-dur:0ms; --sp-follow-dur:0ms; --sp-settle-dur:0ms; --sp-fade-dur:0ms; --sp-open-dur:0ms; --sp-close-dur:0ms; --sp-hl-dur:0ms; --sp-island-w-dur:0ms; --sp-island-h-dur:0ms; --sp-roll-dur:0ms; --sp-roll-w-dur:0ms; --sp-value-dur:0ms; --sp-pop-dur:0ms}
+@media (max-width:760px){:root{--h-chip:32px; --h-key:40px; --h-row:44px; --edge:12px}}
+html:is([data-theme="paper"],[data-theme="glass-light"]){--fill-1:rgba(20,16,12,.04); --fill-2:rgba(20,16,12,.07); --fill-3:rgba(20,16,12,.12)}
 /* ───────────────── themes (docs/standards/themes.md §4): one set of role tokens per theme — colour, light, corners, material and
    type weight only; sizes, gaps, timing and layout are shared, so the map never moves when the theme changes. :root = 기본 (base). */
 html[data-theme="paper"]{
@@ -785,7 +831,8 @@ span.cdb.cdb > i{position:absolute;top:50%;width:auto;height:1px;margin-top:-.5p
 footer{padding:4px 18px 18px;font-size:12px;color:var(--faint);line-height:1.6}
 footer p{margin:0;max-width:92ch}
 footer a{color:var(--muted)}
-footer .credit{margin-top:6px;color:var(--muted)}   /* 사용자 2026-11-13 23:04: SSSlot처럼 맨 아래 저작권 한 줄 */
+footer .credit{margin-top:6px;color:var(--muted)}
+footer .disclaim{margin-top:4px;color:var(--muted)}   /* 사용자 2026-11-14 11:59: 투자 유의 문구는 항상 맨 아래 줄 */   /* 사용자 2026-11-13 23:04: SSSlot처럼 맨 아래 저작권 한 줄 */
 footer .credit button{font:inherit;color:var(--fg2);background:none;border:0;padding:10px 0;margin:-10px 0;cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px}
 footer .credit button:hover,footer .credit button:focus-visible{color:#5865f2;transition:color var(--c-fast,180ms) var(--c-out,ease)}   /* 마우스를 올리면 디스코드 색 */
 footer .credit button:focus-visible{outline:3px solid var(--focus,var(--amber));outline-offset:2px;border-radius:3px}
@@ -4926,15 +4973,17 @@ function creditLine() {
 function footNewsP() { return footNewsP.el || (footNewsP.el = h('p', { id: 'foot-news', hidden: true })); }
 // the 공시 credit line, the same way (src/disclosure writes "공시: 금융감독원 DART (제목 · 링크만)", disclosure.md §2-4)
 function footDiscP() { return footDiscP.el || (footDiscP.el = h('p', { id: 'foot-disc', hidden: true })); }
+// 사용자 2026-11-14 11:59: "투자 판단의 근거로 쓰지 마세요."는 항상 맨 아래 — 출처·뉴스·공시·© 줄이 몇 개든 마지막 줄이에요.
+function disclaimP() { return h('p', { class: 'disclaim', text: '투자 판단의 근거로 쓰지 마세요.' }); }
 function renderFooter() {
   const asOf = DATA.asOf ? kstFmt.format(new Date(DATA.asOf)) : '';
   if (isWorld()) {
-    $('#foot').replaceChildren(h('p', {}, '데이터: 네이버 증권 (finance.naver.com). 투자 판단의 근거로 쓰지 마세요.'), creditLine());
+    $('#foot').replaceChildren(h('p', {}, '데이터: 네이버 증권 (finance.naver.com).'), creditLine(), disclaimP());
     return;
   }
   const k = kind();
   // 사용자 2026-11-13 22:06: 크기·색·분류 설명과 갱신·가격 기준 설명은 아래 출처 줄에서 뺐어요(범례·버튼이 이미 말해요).
-  const parts = [h('p', {}, '데이터: 네이버 증권 (finance.naver.com). 투자 판단의 근거로 쓰지 마세요.')];   // 사용자 22:16: 출처 주소는 finance.naver.com
+  const parts = [h('p', {}, '데이터: 네이버 증권 (finance.naver.com).')];   // 사용자 22:16: 출처 주소는 finance.naver.com
   parts.push(footNewsP());                       // "시장 뉴스: … RSS (제목 · 링크만)" — src/news fills it (news.md §2-5), hidden until then
   parts.push(footDiscP());                       // "공시: 금융감독원 DART (제목 · 링크만)" — src/disclosure fills it, hidden until then
   const daily = [];
@@ -4945,7 +4994,7 @@ function renderFooter() {
   if (daily.length) parts.push(h('p', {}, daily.join('. ') + '.'));
   if (MODE === 'snapshot') parts.push(h('p', {}, `이 화면은 ${asOf} 시세를 담은 스냅샷이라 자동으로 갱신되지 않아요. `,
     h('a', { href: LIVE_URL, target: '_blank', rel: 'noopener', text: '실시간 버전 열기' })));
-  parts.push(creditLine());
+  parts.push(creditLine(), disclaimP());         // 맨 아래 = 투자 유의 문구 (사용자 2026-11-14 11:59)
   $('#foot').replaceChildren(...parts);
 }
 
@@ -7666,14 +7715,16 @@ function buildLive() {
   uiSeg(R.tabs);
   for (const t of TABS) if (t.build) t.build(R.panels[t.key]);
   R.body.append(chartcol, h('section', { class: 'sp-side', 'aria-label': TABS.map(t => t.label).join('·') }, h('div', { class: 'sp-tabwrap' }, R.tabs), ...Object.values(R.panels)));
-  R.foot.append(h('p', {}, '데이터: 네이버 증권(비공식). 투자 판단의 근거로 쓰지 마세요. 차트: ',
-    h('a', { href: 'https://www.tradingview.com/', target: '_blank', rel: 'noopener', text: 'TradingView Lightweight Charts™' }), '.'));
+  R.foot.append(h('p', {}, '데이터: 네이버 증권(비공식). 차트: ',
+    h('a', { href: 'https://www.tradingview.com/', target: '_blank', rel: 'noopener', text: 'TradingView Lightweight Charts™' }), '.'),
+    h('p', { class: 'sp-disclaim', text: '투자 판단의 근거로 쓰지 마세요.' }));   // 사용자 2026-11-14 11:59: 항상 맨 아래 줄
 }
 
 function buildSnapshot() {
   R.offline = h('div', { class: 'sp-offline' });
   R.body.append(R.offline, R.peers);
-  R.foot.append(h('p', { text: `데이터: 네이버 증권. ${asOfLabel(KH.asOf())} 기준 스냅샷이라 시세가 바뀌지 않아요. 투자 판단의 근거로 쓰지 마세요.` }));
+  R.foot.append(h('p', { text: `데이터: 네이버 증권. ${asOfLabel(KH.asOf())} 기준 스냅샷이라 시세가 바뀌지 않아요.` }),
+    h('p', { class: 'sp-disclaim', text: '투자 판단의 근거로 쓰지 마세요.' }));   // 사용자 2026-11-14 11:59: 항상 맨 아래 줄
 }
 
 function measureHead() {
