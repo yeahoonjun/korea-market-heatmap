@@ -38,7 +38,8 @@ Shape values off the scale, on purpose (dock.md fixed them — data and shape, n
   - the panel's 56px height and the key-only panel's 56px width; the 72px of room under the page (8 + 56 + 8)
   - the cell's line heights: the top line 14px (dock.md §2: cell 44 · panel 56 · bottom 8 · top line 14 — qa/std_template limits),
     the value line 20px (font and box), the 등락 분포 count line 13px
-  - the 등락 분포 bar 6px; the index line 44 × 18 (dock.md §2 "오늘 선(44 × 18)"); the page dots 4px (current 12px wide)
+  - the 등락 분포 bar 6px; the index line 44 × 18 (dock.md §2 "오늘 선(44 × 18)") that narrows to 24px before the value is cut (360px
+    with no tracking on the 16px value); the page dots 4px (current 12px wide)
   - icon boxes: 🔍 18px in the key, × 16px, the sheet box's 🔍 at (--h-row − 16px) / 2; the 10px colour mark (column and square)
   - the search sheet's 78svh and its grip 38 × 4 (the same grip as the other phone sheets)
   - the dock's corner per theme (--dock-r): 기본 18 = the 🔍 key's 12 + the panel's 6 · 글라스 28 = the round key's 22 + 6 · 신문 4 (square
@@ -222,7 +223,7 @@ check(f'⑦ --dock-r per theme = the key\'s corner + 6 (기본 18 · 글라스 2
 SHAPES = {
     ('.dock', 'height', '56px'), ('.dock.keyonly', 'width', '56px'),
     ('.dk-l1', 'line-height', '14px'), ('.dk-v', 'height', '20px'), ('.dk-v', 'font', '700 var(--fs-xl)/20px var(--font-head)'),
-    ('.dk-n', 'line-height', '13px'), ('.dk-bar', 'height', '6px'), ('.dk-v svg', 'width', '44px'), ('.dk-v svg', 'height', '18px'),
+    ('.dk-n', 'line-height', '13px'), ('.dk-bar', 'height', '6px'), ('.dk-v svg', 'width', '44px'), ('.dk-v svg', 'height', '18px'), ('.dk-v svg', 'min-width', '24px'),
     ('.dk-dots i', 'width', '4px'), ('.dk-dots i', 'height', '4px'), ('.dk-dots i.on', 'width', '12px'),
     ('.dk-k svg', 'width', '18px'), ('.dk-k svg', 'height', '18px'), ('.ss-x svg', 'width', '16px'), ('.ss-x svg', 'height', '16px'),
     ('.ssheet', 'height', '78svh'), ('.ssheet .grab', 'width', '38px'), ('.ssheet .grab', 'height', '4px'),

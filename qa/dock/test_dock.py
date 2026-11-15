@@ -10,7 +10,8 @@ page    four themes × 360 × 780 · 390 × 844 (touch, DPR 2): hidden on the fi
         edges; no light: the dock has no backdrop blur, no gradient, no zero-offset blurred shadow (glow), in the glass themes too; the
         glass themes keep their material on the search sheet (--sheet-bg's sheen = a gradient, the 1px inset edge, the blur) while
         기본 · 신문 have none; type on the seven steps (≥ 11px); no amber but the ★ (켜짐) and the focus ring; the 🔍 and × icons
-        1.75px (non-scaling); the sheet's rows --h-row (44) with --r-row corners; nothing wider than the screen.
+        1.75px (non-scaling); every number in the cells whole (the mover's name gives way first, dock.md §4); the sheet's rows
+        --h-row (44) with --r-row corners; nothing wider than the screen.
 motion  the dock comes up with `open` + `fade` and leaves with `close` (spring curves, not the old beziers); 줄이기 → at once; 화려하게
         the cells rise 4px 40 ms apart the session's first time only; a new index value → 기본 KH.ui.swap (from below when it rose),
         화려하게 KH.ui.roll (drums, the text = the value); the same value again → nothing moves; a tab switch (another index in the cell)
@@ -136,6 +137,9 @@ OVER = r"""() => {
 }"""
 
 SCALE = {11, 12, 13, 14, 16, 20, 26}
+# numbers cut by an ellipsis (both pages are laid out; page 2 only scrolled aside)
+CUT = r"""() => [...document.querySelectorAll('.dk-c .val:not(.dk-empty), .dk-c .p, .dk-c .mvp, .dk-c .cnt:not([hidden]), .dk-n > span')]
+  .filter(e => e.textContent && e.scrollWidth > e.clientWidth + .5).map(e => e.closest('.dk-c').dataset.k + ' ' + e.className + ' ' + e.textContent)"""
 
 
 def page(br):
@@ -151,6 +155,8 @@ def page(br):
             check(f'page [{tag}]: up once the map has gone by, never over it (map bottom {g["mapGap"]}px above)', up and g['mapGap'] >= 8 and g['aria'] == 'false', (up, g))
             check(f'page [{tag}]: panel 56 · gap 8 · sides 8 · cells 44 · 🔍 44 × 44', (g['h'], g['gap'], g['left'], g['right']) == (56, 8, 8, 8) and g['cells'] == [44, 44] and g['key'] == [44, 44], g)
             check(f'page [{tag}]: the swipe area ≥ 12px from both screen edges ({g["swipeL"]} · {g["swipeR"]})', g['swipeL'] >= 12 and g['swipeR'] >= 12, g)
+            cut = pg.evaluate(CUT)
+            check(f'page [{tag}]: every number in the cells is whole (no ellipsis — the mover\'s name gives way first)', not cut, cut)
             pg.click('.dk-k'); pg.wait_for_timeout(600)
             pg.keyboard.type('삼성'); pg.wait_for_timeout(400)
             lk = pg.evaluate(LOOK)

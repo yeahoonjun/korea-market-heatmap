@@ -1276,12 +1276,18 @@ html[data-theme="paper"] :is(.secs > button,.movers > button){border-radius:0;bo
 /* the value line: 16px, so no tracking (§3: −0.01em starts at 20px) */
 .dk-v{display:flex;align-items:center;justify-content:space-between;gap:var(--space-3);height:20px;font:700 var(--fs-xl)/20px var(--font-head);font-variant-numeric:tabular-nums;color:var(--fg);white-space:nowrap}
 .dk-v > span:first-child{overflow:hidden;text-overflow:ellipsis;min-width:0}
-.dk-v svg{width:44px;height:18px;flex:none;overflow:visible}
-.dk-v small{font:600 var(--fs-xs)/1 var(--sans);color:var(--muted);overflow:hidden;text-overflow:ellipsis;min-width:0;text-align:right}
+/* the index line gives way before the number does (P0: the number is the protagonist) — at 360 the 16px value with no tracking needs
+   ~2px more: the line narrows (to 24px at most, drawn flat — preserveAspectRatio none, strokes non-scaling), the value stays whole */
+.dk-v svg{width:44px;height:18px;flex:0 100 auto;min-width:24px;overflow:visible}
+/* 관심 cell: the group's % and the biggest mover's % stay whole — the mover's name gives way first (dock.md §4 "이름부터 말줄임") */
+.dk-c[data-k="watch"] .val:not(.dk-empty){flex:none}
+.dk-v small{display:flex;justify-content:flex-end;gap:var(--space-2);font:600 var(--fs-xs)/1 var(--sans);color:var(--muted);overflow:hidden;min-width:0}
+.dk-v small .mvn{overflow:hidden;text-overflow:ellipsis;min-width:0}
+.dk-v small .mvp{flex:none}
 .dk-v small .up,.dk-v small .dn{font-weight:700}
 /* the index line is a data line (§4: chart lines keep their own weight) */
-.dk-sp .ln{fill:none;stroke:currentColor;stroke-width:1.5;stroke-linejoin:round;stroke-linecap:round}
-.dk-sp .bl{stroke:var(--ix-base);stroke-width:1;stroke-dasharray:2 2}
+.dk-sp .ln{fill:none;stroke:currentColor;stroke-width:1.5;stroke-linejoin:round;stroke-linecap:round;vector-effect:non-scaling-stroke}
+.dk-sp .bl{stroke:var(--ix-base);stroke-width:1;stroke-dasharray:2 2;vector-effect:non-scaling-stroke}
 .dk-bar{display:flex;height:6px;gap:1px;border-radius:var(--r-pill);overflow:hidden}
 .dk-bar i{display:block;min-width:0;transition:flex-grow var(--sp-value-dur) var(--sp-value)}
 .dk-now .dk-bar i{transition:none}
@@ -6870,7 +6876,7 @@ const SVG_NS = 'http://www.w3.org/2000/svg';
 function dkCell(kind) {
   const c = h('button', { type: 'button', class: 'dk-c', 'data-k': kind });
   if (kind === 'ix' || kind === 'ix2') {
-    const sp = document.createElementNS(SVG_NS, 'svg'); sp.setAttribute('class', 'dk-sp'); sp.setAttribute('viewBox', '0 0 44 18'); sp.setAttribute('aria-hidden', 'true');
+    const sp = document.createElementNS(SVG_NS, 'svg'); sp.setAttribute('class', 'dk-sp'); sp.setAttribute('viewBox', '0 0 44 18'); sp.setAttribute('preserveAspectRatio', 'none'); sp.setAttribute('aria-hidden', 'true');
     c.append(h('span', { class: 'dk-l1' }, h('b', { class: 'nm' }), h('span', { class: 'p' })), h('span', { class: 'dk-v' }, h('span', { class: 'val' }), sp));
   } else if (kind === 'watch') {
     c.append(h('span', { class: 'dk-l1' }, h('span', {}, h('span', { class: 'st', 'aria-hidden': 'true', text: '★' }), ' ', h('span', { class: 'nm' })), h('span', { class: 'cnt' })),
