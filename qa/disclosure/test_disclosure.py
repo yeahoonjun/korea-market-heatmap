@@ -6,6 +6,10 @@
 Starts qa/news/mock_api.py on DISC_QA_PORT (default 8902; serves web/ + /api/news + /api/disclosures/today built from the snapshot at
 request time — modes in its docstring) and, for the "no filings → the map as before" check, a second one on DISC_QA_BASE_PORT (8903)
 serving the web/ of git rev DISC_QA_BASE (default: main) with no disclosure route. --shots writes qa/shots/disc_toggle/*.png. Exit 1 on a fail.
+
+The map switch (오늘 공시 tab, ux/disc-toggle 2026-11-15) is checked as role=switch + aria-checked; its count is .dc-ln "· N종목".
+DISC_QA_BASE=HEAD compares the working tree's build with the last commit's (use it while changing this feature: main may predate it).
+The baseline check is known to be flaky (a late font / ticker frame) — rerun once before chasing a single failure there.
 """
 import json
 import os
@@ -126,8 +130,8 @@ CONTRAST_JS = r"""(sel) => {
 }"""
 TEXT_SEL = ['#news .nw-tt button', '#news .nw-tt .nw-tn', '#news .nw-at span', '#news .dc-ktabs > button', '#news .dc-ktabs small', '#news .dc-only',
             '#news .dc-only .nw-n', '#news .dc-row .dc-tm', '#news .dc-kb', '#news .dc-chip', '#news .dc-chip b', '#news .dc-chipx', '#news .dc-chipx small',
-            '#news .dc-tt a', '#news .dc-x', '#news-p-disc .nw-ft small', '#news-p-disc .nw-msg b', '#news-p-disc .nw-msg small', '#news .dc-lit',
-            '#news .dc-lit .nw-n', '#legend .dc-lg', '#legend .dc-lg b', '#legend .dc-lg2', '#foot-disc']
+            '#news .dc-tt a', '#news .dc-x', '#news-p-disc .nw-ft small', '#news-p-disc .nw-msg b', '#news-p-disc .nw-msg small', '#news .dc-lit .dc-lw',
+            '#news .dc-lit .dc-ln', '#legend .dc-lg', '#legend .dc-lg b', '#legend .dc-lg2', '#foot-disc']
 TIP_SEL = ['#tip .dsc-h', '#tip .dsc-h b', '#tip .dsc .dc-kb', '#tip .dsc .tt', '#tip .dsc .dc-tm', '#tip .dsc-more', '#tip .dsc-more b', '#tip .dsc-hint',
            '#sheet .dsc .tt', '#sheet .dsc .dc-tm', '#sheet .dsc .dc-kb', '#sheet .dc-all']
 DOT_SEL = ['#news .dc-dot', '#tip .dc-dot', '#sheet .dc-dot']
@@ -162,6 +166,10 @@ SIZE_JS = r"""() => {
 }"""
 
 
+# wait for the running CSS transitions (switch knob · fill, tile dim filters) to end — a loaded machine is slower than a fixed wait
+SETTLE_JS = "() => Promise.race([Promise.all(document.getAnimations().filter(a => a instanceof CSSTransition).map(a => a.finished.catch(() => 0))), new Promise(r => setTimeout(r, 3000))])"
+
+
 def worst_of(acc, d):
     for k, v in d.items():
         if k not in acc or v['v'] < acc[k]['v']:
@@ -184,8 +192,8 @@ def run(br):
             check(f'{w}x{h} {th}: overflow 0 · console 0 · no null/NaN · rows', ok, f"page {g['pageOver']} card {g['cardOver']} rows-over {g['rowOver']} bad {g['bad']} rows {g['rows']} err {E.items[:2]}")
             if w in (390, 1280):
                 worst_of(contrast[th], pg.evaluate(CONTRAST_JS, TEXT_SEL)); worst_of(dots[th], pg.evaluate(CONTRAST_JS, DOT_SEL))
-                pg.click('#news .dc-lit'); pg.wait_for_timeout(250)                     # the map toggle pressed (amber fill + ring)
-                worst_of(contrast[th], pg.evaluate(CONTRAST_JS, ['#news .dc-lit', '#news .dc-lit .nw-n']))
+                pg.click('#news .dc-lit'); pg.wait_for_timeout(250)                     # the map switch on (hovered: the --fill-1 tint behind the label)
+                worst_of(contrast[th], pg.evaluate(CONTRAST_JS, ['#news .dc-lit .dc-lw', '#news .dc-lit .dc-ln']))
                 pg.click('#news .dc-lit'); pg.wait_for_timeout(150)
                 if w == 1280:
                     pg.evaluate("scrollTo(0, 0)"); pg.wait_for_timeout(100)
@@ -205,78 +213,81 @@ def run(br):
         f = folds.get(th, {})
         check(f'contrast {th}: corner ≥ 3 against its tile (flap or cut, worst {f.get("worst")} over {f.get("n")} tiles; flap↔cut {f.get("pair")})', f.get('n', 0) > 0 and f['worst'] >= 3, f)
 
-    # ── 2 · tiles: corner sizes, aria-label; the map toggle (오늘 공시 tab) lights exactly the marked stocks (AND search), the table ──
+    # ── 2 · tiles: corner sizes, aria-label; the map switch (오늘 공시 tab) lights exactly the marked stocks (AND search), the table ──
     mode('ok')
     E.items = []
     ctx, pg = open_page(br, LIVE, 1280, 800, errors=E)
     sz = pg.evaluate(SIZE_JS)
     check(f'corners follow §3-2 sizes and tile aria-labels say "오늘 공시 N건" ({sz["drawn"]} drawn, {sz["tiny"]} too small, {sz["marked"]} marked)', sz['nbad'] == 0 and sz['drawn'] > 0, sz)
     hd0 = pg.evaluate("() => { const st = document.getElementById('stage-tools'); return { kids: st.children.length, w: st.offsetWidth, any: document.querySelectorAll('.dc-hchip').length, inTab: !!document.querySelector('#news-p-disc .dc-sub .dc-lit') }; }")
-    check('the map header has no 공시 chip (#stage-tools empty, no box); the map toggle lives in the 오늘 공시 tab', hd0['kids'] == 0 and hd0['w'] == 0 and hd0['any'] == 0 and hd0['inTab'], hd0)
+    check('the map header has no 공시 chip (#stage-tools empty, no box); the map switch lives in the 오늘 공시 tab', hd0['kids'] == 0 and hd0['w'] == 0 and hd0['any'] == 0 and hd0['inTab'], hd0)
     disc_tab(pg)
     c = pg.evaluate("""() => { const m = KH.marks.get('disc'), codes = KH.mapCodes(); const want = codes.filter(c => m.has(c)).length, b = document.querySelector('#news .dc-lit');
       const marksOk = [...m.entries()].every(([c, v]) => KH.disclosures(c).some(x => (KH.getSetting('discKinds') || []).includes(x.k)));
       const sub = [...document.querySelector('#news-p-disc .dc-sub').children].map(e => e.className);
-      return { want, chip: parseInt(b.querySelector('.nw-n').textContent), text: b.textContent, label: b.getAttribute('aria-label'), pressed: b.getAttribute('aria-pressed'), dis: b.getAttribute('aria-disabled'),
+      return { want, chip: parseInt(b.querySelector('.dc-ln').textContent.replace(/\\D/g, '')), word: b.querySelector('.dc-lw').textContent, num: b.querySelector('.dc-ln').textContent, role: b.getAttribute('role'),
+        label: b.getAttribute('aria-label'), pressed: b.getAttribute('aria-checked'), ap: b.getAttribute('aria-pressed'), dis: b.getAttribute('aria-disabled'), track: !!b.querySelector('.dc-trk .dc-knob'),
         legend: document.querySelector('#legend .dc-lg').textContent, marksOk, sub, swatch: !!b.querySelector('.dmsw'),
         nonMarked: KH.disclosures().rows.filter(r => !['실적','주요'].includes(r.k)).every(r => !m.has(r.c) || KH.disclosures(r.c).some(x => ['실적','주요'].includes(x.k))) }; }""")
-    check('map toggle in the tab row after 공시 종류 · 지도 종목만: "[corner] 지도에서 공시 종목만 밝게 N종목", off; N = map stocks with a 실적 · 주요 filing = legend; marks = marked kinds only',
-          c['chip'] == c['want'] and c['want'] > 0 and c['text'].endswith(f"{c['want']}종목") and c['text'].startswith('지도에서 공시 종목만 밝게') and c['swatch'] and c['pressed'] == 'false' and c['dis'] is None
+    check('map switch (role=switch, aria-checked) in the tab row after 공시 종류 · 지도 종목만: "[corner] 지도에서 공시 종목만 밝게 · N종목 [track]", off; N = map stocks with a 실적 · 주요 filing = legend; marks = marked kinds only',
+          c['chip'] == c['want'] and c['want'] > 0 and c['num'] == f"· {c['want']}종목" and c['word'] == '지도에서 공시 종목만 밝게' and c['swatch'] and c['track'] and c['role'] == 'switch' and c['ap'] is None
+          and c['pressed'] == 'false' and c['dis'] is None
           and c['label'] == f"공시 있는 종목만 지도에서 밝게, {c['want']}종목" and str(c['want']) in c['legend'] and c['marksOk'] and c['nonMarked'] and c['sub'][-1] == 'dc-litw' and 'dc-only' in c['sub'][-2], c)
     pos0 = pg.evaluate("() => [document.querySelector('#news .dc-only').getBoundingClientRect().x, document.querySelector('#news-p-disc .dc-sub').offsetHeight, document.getElementById('news').offsetHeight, document.querySelector('#news .dc-lit .dc-lw').getBoundingClientRect().x]")
-    pg.click('#news .dc-lit'); pg.wait_for_timeout(300)
+    pg.click('#news .dc-lit'); pg.wait_for_timeout(300); pg.evaluate(SETTLE_JS)
     d = pg.evaluate("""() => { const m = KH.marks.get('disc'), tiles = [...document.querySelectorAll('#map .tile[data-c]')];
       const lit = tiles.filter(t => !t.classList.contains('mdim')), dim = tiles.filter(t => t.classList.contains('mdim'));
-      return { pressed: document.querySelector('.dc-lit').getAttribute('aria-pressed'), only: KH.marks.onlyName(), lit: lit.length, litMarked: lit.every(t => m.has(t.dataset.c)),
+      const tr = document.querySelector('.dc-lit .dc-trk').getBoundingClientRect(), kn = document.querySelector('.dc-lit .dc-knob').getBoundingClientRect();
+      return { pressed: document.querySelector('.dc-lit').getAttribute('aria-checked'), only: KH.marks.onlyName(), lit: lit.length, litMarked: lit.every(t => m.has(t.dataset.c)),
         dimUnmarked: dim.every(t => !m.has(t.dataset.c)), drawnMarked: tiles.filter(t => m.has(t.dataset.c)).length, filter: getComputedStyle(dim[0]).filter,
-        layoutDim: KH.layout().filter(t => t.kind === 'tile' && t.dim).length, dims: dim.length, ck: document.querySelector('.dc-lit .nw-ck').getBoundingClientRect().width,
+        layoutDim: KH.layout().filter(t => t.kind === 'tile' && t.dim).length, dims: dim.length, knobR: Math.round(tr.right - kn.right), fill: getComputedStyle(document.querySelector('.dc-lit .dc-trk'), '::before').backgroundColor,
         pos: [document.querySelector('#news .dc-only').getBoundingClientRect().x, document.querySelector('#news-p-disc .dc-sub').offsetHeight, document.getElementById('news').offsetHeight, document.querySelector('#news .dc-lit .dc-lw').getBoundingClientRect().x] }; }""")
     pg.wait_for_timeout(100)
     say_on = pg.evaluate("(document.querySelector('body > .sr[role=\"status\"]') || {}).textContent")
-    check('toggle on → aria-pressed, KH.marks.only("disc"): exactly the marked tiles stay bright (.mdim on all others, the search-dim filter); KH.layout() reports them dim; check mark shown',
-          d['pressed'] == 'true' and d['only'] == 'disc' and d['litMarked'] and d['dimUnmarked'] and d['lit'] == d['drawnMarked'] and 'brightness(0.38)' in d['filter'] and d['layoutDim'] == d['dims'] and d['dims'] > 0 and d['ck'] == 14, d)
-    check(f'toggle on: live region "공시 있는 {c["want"]}종목만 밝게 보여요."; nothing moves (지도 종목만 x, the label x, row and card height the same)',
+    check('switch on → aria-checked, KH.marks.only("disc"): exactly the marked tiles stay bright (.mdim on all others, the search-dim filter); KH.layout() reports them dim; knob at the right end (2px in)',
+          d['pressed'] == 'true' and d['only'] == 'disc' and d['litMarked'] and d['dimUnmarked'] and d['lit'] == d['drawnMarked'] and 'brightness(0.38)' in d['filter'] and d['layoutDim'] == d['dims'] and d['dims'] > 0 and d['knobR'] == 2, d)
+    check(f'switch on: live region "공시 있는 {c["want"]}종목만 밝게 보여요."; nothing moves (지도 종목만 x, the label x, row and card height the same)',
           say_on == f'공시 있는 {c["want"]}종목만 밝게 보여요.' and d['pos'] == pos0, f'{say_on} {pos0} → {d["pos"]}')
     pg.fill('#q', '삼성'); pg.wait_for_timeout(300)
     a = pg.evaluate("""() => { const m = KH.marks.get('disc'), tiles = [...document.querySelectorAll('#map .tile[data-c]')];
       const bright = tiles.filter(t => !t.classList.contains('mdim') && !t.classList.contains('dim'));
       return { n: bright.length, ok: bright.every(t => m.has(t.dataset.c) && KH.stock(t.dataset.c).n.includes('삼성')) }; }""")
-    check('toggle AND search: only marked stocks matching "삼성" stay bright', a['ok'] and a['n'] >= 1, a)
+    check('switch AND search: only marked stocks matching "삼성" stay bright', a['ok'] and a['n'] >= 1, a)
     pg.fill('#q', ''); pg.keyboard.press('Escape'); pg.wait_for_timeout(200)
-    # the news / 공시 row hover lights its tile on top of the toggle
+    # the news / 공시 row hover lights its tile on top of the switch
     pg.evaluate("document.getElementById('news').scrollIntoView({block: 'end'})"); pg.wait_for_timeout(200)
     pg.click('#news .dc-ktabs button[data-k="지분"]'); pg.wait_for_timeout(200)
     code = pg.evaluate("(() => { const r = [...document.querySelectorAll('#news .dc-row')].find(r => KH.stock(r.dataset.c) && document.querySelector(`#map .tile[data-c=\"${r.dataset.c}\"]`) && !KH.marks.get('disc').has(r.dataset.c)); return r ? r.dataset.c : null; })()")
     if code:
         pg.hover(f'#news .dc-row[data-c="{code}"] .dc-tt'); pg.wait_for_timeout(250)
         hv = pg.evaluate(f"(() => {{ const t = document.querySelector('#map .tile[data-c=\"{code}\"]'); return {{ nhl: t.classList.contains('nhl'), mdim: t.classList.contains('mdim'), filter: getComputedStyle(t).filter }}; }})()")
-        check('a 지분 row hovered over a dimmed (unmarked) stock lights its tile on top of the toggle', hv['nhl'] and hv['mdim'] and hv['filter'] == 'none', hv)
+        check('a 지분 row hovered over a dimmed (unmarked) stock lights its tile on top of the switch', hv['nhl'] and hv['mdim'] and hv['filter'] == 'none', hv)
         pg.mouse.move(3, 3); pg.wait_for_timeout(200)
     else:
         check('a 지분 row of an unmarked map stock exists in the fixture', False)
     pg.click('#news .dc-ktabs button[data-k="main"]'); pg.wait_for_timeout(100)
     pg.click('#news .dc-lit'); pg.wait_for_timeout(200)
-    off = pg.evaluate("() => ({ n: document.querySelectorAll('#map .tile.mdim').length, only: KH.marks.onlyName(), pressed: document.querySelector('.dc-lit').getAttribute('aria-pressed') })")
+    off = pg.evaluate("() => ({ n: document.querySelectorAll('#map .tile.mdim').length, only: KH.marks.onlyName(), pressed: document.querySelector('.dc-lit').getAttribute('aria-checked') })")
     pg.wait_for_timeout(100)
     say_off = pg.evaluate("(document.querySelector('body > .sr[role=\"status\"]') || {}).textContent")
-    check('toggle off → no .mdim left, KH.marks.only(null), live region "모든 종목을 다시 보여요."', off['n'] == 0 and off['only'] is None and off['pressed'] == 'false' and say_off == '모든 종목을 다시 보여요.', f'{off} {say_off}')
-    # table view: the swatch in the name cell; the toggle keeps marked rows only
+    check('switch off → no .mdim left, KH.marks.only(null), live region "모든 종목을 다시 보여요."', off['n'] == 0 and off['only'] is None and off['pressed'] == 'false' and say_off == '모든 종목을 다시 보여요.', f'{off} {say_off}')
+    # table view: the swatch in the name cell; the switch keeps marked rows only
     pg.click('.viewseg button[data-v="table"]'); pg.wait_for_timeout(400)
     t1 = pg.evaluate("() => ({ rows: document.querySelectorAll('#tablewrap tbody tr').length, sw: document.querySelectorAll('#tablewrap .nmcell .dmsw').length, title: (document.querySelector('#tablewrap .nmcell .dmsw') || {}).title, label: document.querySelector('#tablewrap tr[data-c=\"005930\"]').getAttribute('aria-label') })")
     pg.click('#news .dc-lit'); pg.wait_for_timeout(300)
     t2 = pg.evaluate("() => ({ rows: document.querySelectorAll('#tablewrap tbody tr').length, all: [...document.querySelectorAll('#tablewrap tbody tr')].every(r => KH.marks.get('disc').has(r.dataset.c)) })")
-    check('table: swatch titled "오늘 공시 N건" in the name cell, row aria-label says it; toggle on → only the marked rows (not dimmed)',
+    check('table: swatch titled "오늘 공시 N건" in the name cell, row aria-label says it; switch on → only the marked rows (not dimmed)',
           t1['sw'] == c['want'] and re.match(r'^오늘 공시 \d+건$', t1['title'] or '') and '오늘 공시' in t1['label'] and t2['rows'] == c['want'] and t2['all'], f'{t1} {t2}')
     pg.click('#news .dc-lit'); pg.click('.viewseg button[data-v="map"]'); pg.wait_for_timeout(300)
-    check('no console errors (corners · map toggle · table)', not E.items, E.items[:3])
+    check('no console errors (corners · map switch · table)', not E.items, E.items[:3])
     ctx.close()
 
-    # ── 2b · the map toggle turns off whenever its key leaves the screen; never remembered ──
+    # ── 2b · the map switch turns off whenever its key leaves the screen; never remembered ──
     mode('ok')
     E.items = []
     ctx, pg = open_page(br, LIVE, 1280, 800, errors=E)
     disc_tab(pg)
-    st_js = "() => ({ pressed: document.querySelector('#news .dc-lit') ? document.querySelector('#news .dc-lit').getAttribute('aria-pressed') : null, only: KH.marks.onlyName(), mdim: document.querySelectorAll('#map .tile.mdim').length })"
+    st_js = "() => ({ pressed: document.querySelector('#news .dc-lit') ? document.querySelector('#news .dc-lit').getAttribute('aria-checked') : null, only: KH.marks.onlyName(), mdim: document.querySelectorAll('#map .tile.mdim').length })"
     def on():
         pg.click('#news .dc-lit'); pg.wait_for_timeout(250)
         return pg.evaluate(st_js)
@@ -292,8 +303,8 @@ def run(br):
     check('leave the tab by keyboard (←) → off', l2 == {'pressed': 'false', 'only': None, 'mdim': 0}, l2)
     on(); pg.evaluate("KHNews.hide()"); pg.wait_for_timeout(250)
     l3 = pg.evaluate(st_js); pg.evaluate("KHNews.show()"); pg.wait_for_timeout(400)
-    l3b = pg.evaluate("() => ({ feed: document.getElementById('news').dataset.feed, pressed: document.querySelector('#news .dc-lit').getAttribute('aria-pressed'), mdim: document.querySelectorAll('#map .tile.mdim').length })")
-    check('the news card hidden → off; shown again → the tab with the toggle off', l3 == {'pressed': 'false', 'only': None, 'mdim': 0} and l3b == {'feed': 'disc', 'pressed': 'false', 'mdim': 0}, f'{l3} {l3b}')
+    l3b = pg.evaluate("() => ({ feed: document.getElementById('news').dataset.feed, pressed: document.querySelector('#news .dc-lit').getAttribute('aria-checked'), mdim: document.querySelectorAll('#map .tile.mdim').length })")
+    check('the news card hidden → off; shown again → the tab with the switch off', l3 == {'pressed': 'false', 'only': None, 'mdim': 0} and l3b == {'feed': 'disc', 'pressed': 'false', 'mdim': 0}, f'{l3} {l3b}')
     on(); pg.click('.tabs button[data-mkt="WORLD"]'); pg.wait_for_timeout(500)
     l4 = pg.evaluate(st_js); pg.click('.tabs button[data-mkt="K"]'); pg.wait_for_timeout(700)
     l4b = pg.evaluate(st_js)
@@ -302,7 +313,7 @@ def run(br):
     l5 = pg.evaluate(st_js); pg.click('.tabs button[data-mkt="K"]'); pg.wait_for_timeout(700)
     check('지표 tab → off', l5['pressed'] == 'false' and l5['only'] is None, l5)
     o6 = on(); pg.click('.tabs button[data-mkt="Q"]'); pg.wait_for_timeout(700)
-    l6 = pg.evaluate("() => ({ pressed: document.querySelector('#news .dc-lit').getAttribute('aria-pressed'), only: KH.marks.onlyName(), lit: [...document.querySelectorAll('#map .tile[data-c]')].filter(t => !t.classList.contains('mdim')).every(t => KH.marks.get('disc').has(t.dataset.c)), n: parseInt(document.querySelector('#news .dc-lit .nw-n').textContent), want: KH.mapCodes().filter(c => KH.marks.get('disc').has(c)).length })")
+    l6 = pg.evaluate("() => ({ pressed: document.querySelector('#news .dc-lit').getAttribute('aria-checked'), only: KH.marks.onlyName(), lit: [...document.querySelectorAll('#map .tile[data-c]')].filter(t => !t.classList.contains('mdim')).every(t => KH.marks.get('disc').has(t.dataset.c)), n: parseInt(document.querySelector('#news .dc-lit .dc-ln').textContent.replace(/\\D/g, '')), want: KH.mapCodes().filter(c => KH.marks.get('disc').has(c)).length })")
     check('another stock map (코스닥) keeps it on, lighting the 코스닥 filers; the count follows that map', o6['pressed'] == 'true' and l6['pressed'] == 'true' and l6['only'] == 'disc' and l6['lit'] and l6['n'] == l6['want'] and l6['want'] > 0, l6)
     pg.click('#moreBtn'); pg.wait_for_timeout(200)
     pg.click('[data-set="disc"] .swbtn'); pg.wait_for_timeout(400)
@@ -313,10 +324,10 @@ def run(br):
     disc_tab(pg); on(); pg.reload(); pg.wait_for_timeout(1800); disc_tab(pg)
     l8 = pg.evaluate(st_js)
     keys = pg.evaluate("Object.keys(localStorage).filter(k => /disc|lit|only/i.test(k) && !/discKinds|set\\.disc$/.test(k))")
-    check('not remembered: after a reload the toggle is off, nothing dimmed, nothing stored', l8 == {'pressed': 'false', 'only': None, 'mdim': 0} and not keys, f'{l8} {keys}')
+    check('not remembered: after a reload the switch is off, nothing dimmed, nothing stored', l8 == {'pressed': 'false', 'only': None, 'mdim': 0} and not keys, f'{l8} {keys}')
     # keyboard: Space / Enter toggle it, ring 3px
     pg.focus('#news .dc-only'); pg.keyboard.press('Tab'); pg.keyboard.press('Space'); pg.wait_for_timeout(250)
-    k1 = pg.evaluate("() => { const b = document.activeElement, cs = getComputedStyle(b); return { lit: b.classList.contains('dc-lit'), pressed: b.getAttribute('aria-pressed'), ring: cs.outlineStyle !== 'none' ? parseFloat(cs.outlineWidth) : 0, only: KH.marks.onlyName() }; }")
+    k1 = pg.evaluate("() => { const b = document.activeElement, cs = getComputedStyle(b); return { lit: b.classList.contains('dc-lit'), pressed: b.getAttribute('aria-checked'), ring: cs.outlineStyle !== 'none' ? parseFloat(cs.outlineWidth) : 0, only: KH.marks.onlyName() }; }")
     pg.keyboard.press('Enter'); pg.wait_for_timeout(250)
     k2 = pg.evaluate(st_js)
     check('keyboard: Space turns it on (ring 3px), Enter off', k1 == {'lit': True, 'pressed': 'true', 'ring': 3, 'only': 'disc'} and k2 == {'pressed': 'false', 'only': None, 'mdim': 0}, f'{k1} {k2}')
@@ -325,23 +336,24 @@ def run(br):
       const hm = String(Math.floor(t / 60)).padStart(2, '0') + String(t % 60).padStart(2, '0');
       KH.setReplay({ t: hm, date: d.date, prices: new Map() }); await new Promise(r => setTimeout(r, 400));
       const b = document.querySelector('#news .dc-lit'), map = new Set(KH.mapCodes()), hhmm = hm.slice(0, 2) + ':' + hm.slice(2);
-      const res = { hhmm, title: b.title, label: b.getAttribute('aria-label'), n: parseInt(b.querySelector('.nw-n').textContent),
+      const res = { hhmm, title: b.title, label: b.getAttribute('aria-label'), n: parseInt(b.querySelector('.dc-ln').textContent.replace(/\\D/g, '')),
         want: new Set(d.rows.filter(r => r.s && r.s <= hhmm && ['실적', '주요'].includes(r.k) && map.has(r.c)).map(r => r.c)).size };
       KH.setReplay(null); await new Promise(r => setTimeout(r, 300)); return res; }""")
-    check(f'replay of today ({rq["hhmm"]}): the toggle counts the map filers seen by then; title "다시 보기 — HH:MM까지 들어온 공시", label ends "· HH:MM까지"',
+    check(f'replay of today ({rq["hhmm"]}): the switch counts the map filers seen by then; title "다시 보기 — HH:MM까지 들어온 공시", label ends "· HH:MM까지"',
           rq['n'] == rq['want'] and rq['title'] == f'다시 보기 — {rq["hhmm"]}까지 들어온 공시' and rq['label'].endswith(f'· {rq["hhmm"]}까지'), rq)
     check('no console errors (toggle off paths)', not E.items, E.items[:3])
     ctx.close()
 
-    # ── 2c · 1024 (narrow PC card): the toggle wraps to its own line on the right; the card keeps 시장 뉴스's height; pressing moves nothing ──
+    # ── 2c · 1024 (narrow PC card): the switch is a line of its own at the top of the tab (label left, track at the right end); kind tabs whole;
+    #    the card keeps 시장 뉴스's height; pressing moves nothing ──
     ctx, pg = open_page(br, LIVE, 1024, 768)
     pg.evaluate("document.getElementById('news').scrollIntoView({block: 'center'})"); pg.wait_for_timeout(200)
     hn = pg.evaluate("document.getElementById('news').offsetHeight")
     disc_tab(pg)
-    G2 = "() => { const n = document.getElementById('news'), R = e => e.getBoundingClientRect(), sub = n.querySelector('#news-p-disc .dc-sub'), b = n.querySelector('.dc-lit'); return { h: n.offsetHeight, sub: sub.offsetHeight, right: Math.round(R(sub).right - R(b).right), lw: Math.round(R(b.querySelector('.dc-lw')).x), only: Math.round(R(n.querySelector('.dc-only')).x), below: R(b).top > R(n.querySelector('.dc-only')).bottom, kt: n.querySelector('.dc-ktabs').scrollWidth <= n.querySelector('.dc-ktabs').clientWidth, rows: n.querySelectorAll('#news-p-disc .dc-row').length, over: document.documentElement.scrollWidth - innerWidth }; }"
-    w0 = pg.evaluate(G2); pg.click('#news .dc-lit'); pg.wait_for_timeout(300); w1 = pg.evaluate(G2)
-    check('1024: kind tabs whole; the toggle on its own line at the right; card height = 시장 뉴스; on → same boxes',
-          w0['below'] and w0['right'] == 0 and w0['kt'] and w0['h'] == hn and w0['over'] == 0 and w1 == w0, f'news {hn} {w0} → {w1}')
+    G2 = "() => { const n = document.getElementById('news'), R = e => e.getBoundingClientRect(), sub = n.querySelector('#news-p-disc .dc-sub'), b = n.querySelector('.dc-lit'), kt = n.querySelector('.dc-ktabs'); return { h: n.offsetHeight, sub: sub.offsetHeight, top: Math.round(R(b).top - R(sub).top), above: R(b).bottom <= R(kt).top, full: Math.round(R(b).width) === Math.round(R(sub).width), right: Math.round(R(sub).right - R(b.querySelector('.dc-trk')).right), lw: Math.round(R(b.querySelector('.dc-lw')).x), only: Math.round(R(n.querySelector('.dc-only')).x), kt: kt.scrollWidth <= kt.clientWidth, rows: n.querySelectorAll('#news-p-disc .dc-row').length, over: document.documentElement.scrollWidth - innerWidth }; }"
+    w0 = pg.evaluate(G2); pg.click('#news .dc-lit'); pg.wait_for_timeout(600); w1 = pg.evaluate(G2)
+    check('1024: the switch on its own line at the top (full width, track at the right end), kind tabs whole below; card height = 시장 뉴스; on → same boxes',
+          w0['top'] == 0 and w0['above'] and w0['full'] and w0['right'] == 0 and w0['kt'] and w0['h'] == hn and w0['over'] == 0 and w1 == w0, f'news {hn} {w0} → {w1}')
     ctx.close()
 
     # ── 2e · 1440: the map header without the chip — one row (36 px), nothing past its edge, today's index line ends before 지도 · 표 ──
@@ -354,6 +366,61 @@ def run(br):
               hb == {'h': 36, 'st': 0, 'chip': 0, 'over': 0, 'ix': True, 'page': 0}, hb)
         ctx.close()
 
+    # ── 2f · the switch itself (design.md §7 · §6-4): sunken track + raised knob from the tokens, the knob's edges on follow (front) / settle
+    #    (back) and at most 3px longer while it moves, the fill = --sw-on; the count swaps in place; the knob can be dragged (from 4 px) ──
+    mode('ok')
+    E.items = []
+    ctx, pg = open_page(br, LIVE, 1280, 800, errors=E)
+    disc_tab(pg)
+    sw = pg.evaluate("""() => { const b = document.querySelector('#news .dc-lit'), t = b.querySelector('.dc-trk'), k = b.querySelector('.dc-knob'), R = e => e.getBoundingClientRect(), root = getComputedStyle(document.documentElement);
+      const css = (el, p, pe) => getComputedStyle(el, pe || null)[p], v = n => root.getPropertyValue(n).trim();
+      const probe = document.createElement('i'); document.body.append(probe); const col = c => { probe.style.color = c; return getComputedStyle(probe).color; };
+      const res = { w: R(t).width, h: R(t).height, knob: parseFloat(css(k, 'width', '::before')), trk: css(t, 'backgroundColor') === col(v('--trk')), trkSh: css(t, 'boxShadow').includes('inset'),
+        knobBg: css(k, 'backgroundColor', '::before') === col(v('--knob')), knobSh: css(k, 'boxShadow', '::before') !== 'none', fill: css(t, 'backgroundColor', '::before') === col(v('--sw-on')),
+        notData: ![col(v('--up-text')), col(v('--dn-text'))].includes(css(t, 'backgroundColor', '::before')),
+        offT: [css(k, 'transitionProperty'), css(k, 'transitionDuration'), css(k, 'transitionTimingFunction').split('linear(').length - 1],
+        follow: v('--sp-follow-dur'), settle: v('--sp-settle-dur') };
+      probe.remove(); return res; }""")
+    # the move, frame by frame: the knob's two CSS transitions paused and sought every 10 ms (no frame timing involved)
+    mv = pg.evaluate("""() => { const b = document.querySelector('#news .dc-lit'), k = b.querySelector('.dc-knob'); b.click();
+      const an = k.getAnimations(); an.forEach(a => a.pause()); const kw = [];
+      for (let t = 0; t <= 520; t += 10) { an.forEach(a => { a.currentTime = t; }); kw.push([t, parseFloat(getComputedStyle(k, '::before').width), k.getBoundingClientRect().width]); }
+      an.forEach(a => a.finish()); return { n: an.map(a => a.transitionProperty).sort().join(), kw }; }""")
+    kw = mv['kw']
+    onT = pg.evaluate("() => { const k = document.querySelector('#news .dc-knob'), cs = getComputedStyle(k); return [cs.transitionProperty, cs.transitionDuration]; }")
+    vis = max(x[1] for x in kw); edges = max(x[2] for x in kw)
+    check(f'switch: track {sw["w"]:.0f}×{sw["h"]:.0f} sunken (--trk + inset shadow), knob {sw["knob"]:.0f} raised (--knob + shadow), fill = --sw-on (not the up / down colours)',
+          sw['w'] == 44 and sw['h'] == 26 and sw['knob'] == 22 and sw['trk'] and sw['trkSh'] and sw['knobBg'] and sw['knobSh'] and sw['fill'] and sw['notData'], sw)
+    check(f'switch motion: off → front edge left on follow ({sw["follow"]}), back edge right on settle ({sw["settle"]}); on → the other way round; while moving the edges open {edges - 22:.1f}px, the knob you see ≤ 3px longer ({vis - 22:.1f}), then round again',
+          sw['offT'][0] == 'left, right' and sw['offT'][1] == f'{float(sw["follow"][:-2]) / 1000:g}s, {float(sw["settle"][:-2]) / 1000:g}s' and sw['offT'][2] == 2 and mv['n'] == 'left,right'
+          and onT == ['right, left', sw['offT'][1]] and 24.5 <= vis <= 25 and edges > vis and abs(kw[-1][1] - 22) < .5 and kw[0][1] == 22, f'{sw["offT"]} {onT} {mv["n"]} vis {vis} edges {edges} {kw[::5]}')
+    pg.click('#news .dc-lit'); pg.wait_for_timeout(700)
+    # §6-4: 코스피 → 코스닥 changes the count — the old one leaves, the new one comes in, both in one cell for a moment, then one
+    sx = pg.evaluate("""() => new Promise(res => { const c = document.querySelector('#news .dc-lc'), seen = [];
+      const look = () => { const kids = [...c.children].map(x => x.className + ':' + getComputedStyle(x).animationName + ':' + x.textContent); if (kids.length > 1) seen.push(kids); };
+      const mo = new MutationObserver(look); mo.observe(c, { childList: true, subtree: true });
+      document.querySelector('.tabs button[data-mkt="Q"]').click();
+      setTimeout(() => { mo.disconnect(); res({ seen: seen.slice(0, 2), end: [...c.children].map(x => x.className + ':' + x.textContent) }); }, 900); })""")
+    first = sx['seen'][0] if sx['seen'] else []
+    check('count swap (§6-4): the old "· N종목" leaves (dcTxOut) while the new one comes in (dcTxIn) in the same cell, then only the new one is left',
+          len(first) == 2 and 'out:dcTxOut' in first[0] and 'in:dcTxIn' in first[1] and len(sx['end']) == 1 and sx['end'][0].startswith('dc-lv') and '종목' in sx['end'][0], sx)
+    pg.click('.tabs button[data-mkt="K"]'); pg.wait_for_timeout(700)
+    # drag the knob (KH.ui.sw): 4 px does nothing yet, past half way it lands on, back again lands off
+    def drag(dx):
+        pg.evaluate("document.querySelector('#news .dc-lit').scrollIntoView({block: 'center'})"); pg.wait_for_timeout(150)
+        kb = pg.evaluate("(() => { const r = document.querySelector('#news .dc-knob').getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; })()")
+        pg.mouse.move(kb[0], kb[1]); pg.mouse.down()
+        for i in range(1, 7):
+            pg.mouse.move(kb[0] + dx * i / 6, kb[1]); pg.wait_for_timeout(16)
+        pg.mouse.up(); pg.wait_for_timeout(700)
+        return pg.evaluate("() => ({ checked: document.querySelector('#news .dc-lit').getAttribute('aria-checked'), only: KH.marks.onlyName(), drag: document.querySelector('#news .dc-lit').classList.contains('drag') })")
+    d1 = drag(16); d2 = drag(-16); d3 = drag(3)
+    check('drag the knob: right past half → on (the map dims), left → off; a 3px nudge is a plain press (on)',
+          d1 == {'checked': 'true', 'only': 'disc', 'drag': False} and d2 == {'checked': 'false', 'only': None, 'drag': False} and d3['checked'] == 'true', f'{d1} {d2} {d3}')
+    pg.click('#news .dc-lit'); pg.wait_for_timeout(300)
+    check('no console errors (switch)', not E.items, E.items[:3])
+    ctx.close()
+
     # ── 2d · nothing to light: 0 → off look with the reason (title, label, a bubble + the live region on press), never on ──
     mode('empty')
     E.items = []
@@ -361,10 +428,10 @@ def run(br):
     disc_tab(pg)
     z = pg.evaluate("() => { const b = document.querySelector('#news .dc-lit'); return { dis: b.getAttribute('aria-disabled'), title: b.title, label: b.getAttribute('aria-label'), text: b.textContent, op: getComputedStyle(b).opacity, focus: (b.focus(), document.activeElement === b) }; }")
     pg.click('#news .dc-lit', force=True); pg.wait_for_timeout(250)          # force: Playwright treats aria-disabled as not clickable
-    z2 = pg.evaluate("() => ({ pressed: document.querySelector('#news .dc-lit').getAttribute('aria-pressed'), only: KH.marks.onlyName(), mdim: document.querySelectorAll('#map .tile.mdim').length, bub: (document.querySelector('.kbub') || {}).textContent, say: (document.querySelector('body > .sr[role=\"status\"]') || {}).textContent })")
+    z2 = pg.evaluate("() => ({ pressed: document.querySelector('#news .dc-lit').getAttribute('aria-checked'), only: KH.marks.onlyName(), mdim: document.querySelectorAll('#map .tile.mdim').length, bub: (document.querySelector('.kbub') || {}).textContent, say: (document.querySelector('body > .sr[role=\"status\"]') || {}).textContent })")
     why = '지도 종목에 실적·주요 공시가 아직 없어요'
-    check(f'0 filings: the toggle is off-looking (aria-disabled, .45) and focusable, "0종목"; reason "{why}" in title · label · a bubble · the live region; stays off',
-          z['dis'] == 'true' and z['title'] == why and z['label'] == f'공시 있는 종목만 지도에서 밝게, 0종목 — {why}' and z['text'].endswith('0종목') and z['op'] == '0.45' and z['focus']
+    check(f'0 filings: the switch is off-looking (aria-disabled, .45) and focusable, "· 0종목"; reason "{why}" in title · label · a bubble · the live region; stays off',
+          z['dis'] == 'true' and z['title'] == why and z['label'] == f'공시 있는 종목만 지도에서 밝게, 0종목 — {why}' and z['text'].endswith('· 0종목') and z['op'] == '0.45' and z['focus']
           and z2['pressed'] == 'false' and z2['only'] is None and z2['mdim'] == 0 and z2['bub'] == why and z2['say'] == why, f'{z} {z2}')
     check('no console errors (0 filings)', not E.items, E.items[:3])
     ctx.close()
@@ -423,7 +490,7 @@ def run(br):
     o = pg.evaluate("() => ({ dm: document.querySelectorAll('#map .dm').length, chip: !!document.querySelector('.dc-lit'), lg: !!document.querySelector('#legend .dc-lg'), tab: !!document.getElementById('news-t-disc'), multi: document.getElementById('news').classList.contains('multi'), foot: document.getElementById('foot-disc').hidden, kinds: document.querySelector('[data-set=\"discKinds\"]').classList.contains('off') })")
     pg.evaluate("KH.refresh()"); pg.wait_for_timeout(800)
     k1 = mock('/__stats').get('/api/disclosures/today', 0)
-    check('공시 보기 off → no corners, map toggle, legend item, tab (the news card as before), footer line; kind chips greyed; no request on refresh',
+    check('공시 보기 off → no corners, map switch, legend item, tab (the news card as before), footer line; kind chips greyed; no request on refresh',
           o['dm'] == 0 and not o['chip'] and not o['lg'] and not o['tab'] and not o['multi'] and o['foot'] and o['kinds'] and k1 == k0, f'{o} req {k0}→{k1}')
     pg.click('[data-set="disc"] .swbtn'); pg.wait_for_timeout(1200)
     o2 = pg.evaluate("() => ({ dm: document.querySelectorAll('#map .dm').length, tab: !!document.getElementById('news-t-disc') })")
@@ -464,7 +531,7 @@ def run(br):
       return { tab: document.querySelector('#news-t-disc .nw-tl').textContent, want: `${m}월 ${dd}일 (${wd}) 공시`, lg: document.querySelector('#legend .dc-lg').textContent, wantLg: `${m}/${dd} 공시`,
         times: [...document.querySelectorAll('#news .dc-tm')].slice(0, 3).map(t => t.textContent), dots: document.querySelectorAll('.dc-dot').length, chip: document.querySelector('#news .dc-lit').getAttribute('aria-label'), chipTitle: document.querySelector('#news .dc-lit').title,
         mark: KH.marks.get('disc').get('005930').label, wantMark: `, ${m}월 ${dd}일 공시` }; }""")
-    check(f'non-trading day: tab "{hd["tab"]}", legend "{hd["lg"][:12]}…", map toggle (label · title) / tile labels name the day, no dot', hd['tab'] == hd['want'] and hd['lg'].startswith(hd['wantLg']) and hd['dots'] == 0
+    check(f'non-trading day: tab "{hd["tab"]}", legend "{hd["lg"][:12]}…", map switch (label · title) / tile labels name the day, no dot', hd['tab'] == hd['want'] and hd['lg'].startswith(hd['wantLg']) and hd['dots'] == 0
           and hd['chip'].startswith(hd['want'].split(' (')[0] + ' 공시 있는 종목만 지도에서 밝게') and hd['chipTitle'] == hd['want'] and hd['mark'].startswith(hd['wantMark']) and all(re.match(r'^\d\d:\d\d$', t) for t in hd['times']), hd)
     pg.evaluate("scrollTo(0,0)"); pg.wait_for_timeout(150)
     r = pg.evaluate("(() => { const r = document.querySelector('#map .tile[data-c=\"005930\"]').getBoundingClientRect(); return [r.x + 30, r.y + 20]; })()")
@@ -481,7 +548,7 @@ def run(br):
     l = pg.evaluate("() => ({ sk: document.querySelectorAll('#news .dc-row.skel').length, at: document.querySelector('#news .nw-at').textContent, chip: document.querySelector('.dc-lit').getAttribute('aria-disabled') + '|' + document.querySelector('.dc-lit').textContent + '|' + !!document.querySelector('.dc-lit .kspn') + '|' + document.querySelector('.dc-lit').title, lg: (document.querySelector('#legend .dc-lg') || {}).textContent, dis: [...document.querySelectorAll('#news .dc-ktabs button, #news .dc-only')].every(b => b.getAttribute('aria-disabled') === 'true'), h: document.getElementById('news').offsetHeight })")
     pg.wait_for_selector('#news .dc-row:not(.skel)', timeout=8000); pg.wait_for_timeout(200)
     h2 = pg.evaluate("document.getElementById('news').offsetHeight")
-    check('loading: skeleton rows, "불러오는 중", map toggle ring + label (off, "공시를 불러오는 중이에요"), legend "공시 …", kind tabs + 지도 종목만 off, same card height after',
+    check('loading: skeleton rows, "불러오는 중", map switch ring + label (off, "공시를 불러오는 중이에요"), legend "공시 …", kind tabs + 지도 종목만 off, same card height after',
           l['sk'] >= 5 and l['at'] == '불러오는 중' and l['chip'] == 'true|지도에서 공시 종목만 밝게|true|공시를 불러오는 중이에요' and l['lg'] == '공시 …' and l['dis'] and l['h'] == h2, f'{l} → {h2}')
     ctx.close()
     E.allow = ['503', 'Failed to load resource']
@@ -490,7 +557,7 @@ def run(br):
     ctx, pg = open_page(br, LIVE, 1280, 800, errors=E)
     disc_tab(pg)
     e = pg.evaluate("() => ({ msg: document.querySelector('#news-p-disc .nw-msg').textContent, at: document.querySelector('#news .nw-at').textContent, chip: document.querySelector('.dc-lit').getAttribute('aria-disabled') + '|' + document.querySelector('.dc-lit').textContent + '|' + document.querySelector('.dc-lit').title, lg: document.querySelector('#legend .dc-lg').textContent, more: document.querySelector('#news-p-disc .nw-more').hidden, dm: document.querySelectorAll('#map .dm').length, h: document.getElementById('news').offsetHeight })")
-    check('error: "공시를 불러오지 못했어요" + 다시 시도, head "받은 목록 없음", map toggle "… !" (off, title), legend "공시 —", no corners',
+    check('error: "공시를 불러오지 못했어요" + 다시 시도, head "받은 목록 없음", map switch "… !" (off, title), legend "공시 —", no corners',
           e['msg'].startswith('공시를 불러오지 못했어요DART 응답이 없었어요. 잠시 뒤 다시 눌러 주세요.다시 시도') and e['at'] == '받은 목록 없음' and e['chip'] == 'true|지도에서 공시 종목만 밝게!|공시를 불러오지 못했어요' and e['lg'] == '공시 —' and e['more'] and e['dm'] == 0, e)
     pg.click('#news-p-disc .nw-msg .kasync'); pg.wait_for_timeout(500)
     st1 = pg.evaluate("(document.querySelector('#news-p-disc .nw-msg .kasync') || {}).dataset.st")
@@ -505,14 +572,14 @@ def run(br):
     ctx, pg = open_page(br, LIVE, 1280, 800)
     disc_tab(pg)
     em = pg.evaluate("() => ({ msg: document.querySelector('#news-p-disc .nw-msg').textContent, chip: document.querySelector('.dc-lit').getAttribute('aria-disabled') + '|' + document.querySelector('.dc-lit').textContent, lg: !!document.querySelector('#legend .dc-lg'), dm: document.querySelectorAll('#map .dm').length })")
-    check('empty: a 휴장일 / 아침 / plain message, map toggle "0종목" (off), no legend item, no corners',
-          re.match(r'^(오늘은 휴장일이라 공시가 거의 없어요|아직 오늘 공시가 없어요|아직 공시가 없어요)', em['msg']) and em['chip'] == 'true|지도에서 공시 종목만 밝게0종목' and not em['lg'] and em['dm'] == 0, em)
+    check('empty: a 휴장일 / 아침 / plain message, map switch "0종목" (off), no legend item, no corners',
+          re.match(r'^(오늘은 휴장일이라 공시가 거의 없어요|아직 오늘 공시가 없어요|아직 공시가 없어요)', em['msg']) and em['chip'] == 'true|지도에서 공시 종목만 밝게· 0종목' and not em['lg'] and em['dm'] == 0, em)
     ctx.close()
     mode('stale')
     ctx, pg = open_page(br, LIVE, 1280, 800)
     disc_tab(pg)
     so = pg.evaluate("() => ({ cls: document.querySelector('#news .nw-at').className, at: document.querySelector('#news .nw-at').textContent, key: !!document.querySelector('#news .nw-at .kasync'), bang: !!document.querySelector('.dc-lit .dc-bad'), blab: document.querySelector('.dc-lit').getAttribute('aria-label'), bdis: document.querySelector('.dc-lit').getAttribute('aria-disabled'), rows: document.querySelectorAll('#news .dc-row').length })")
-    check('stale (server stale, asOf 20 min old): list stays, amber ! "HH:MM 기준 · N분째 못 받았어요" + 다시 시도, map toggle "!" (still usable, label says so)',
+    check('stale (server stale, asOf 20 min old): list stays, amber ! "HH:MM 기준 · N분째 못 받았어요" + 다시 시도, map switch "!" (still usable, label says so)',
           'stale' in so['cls'] and re.search(r'\d\d:\d\d 기준 · 2\d분째 못 받았어요', so['at']) and so['key'] and so['bang'] and so['bdis'] is None and so['blab'].endswith('· 몇 분째 새 공시를 받지 못했어요') and so['rows'] > 0, so)
     ctx.close()
 
@@ -557,7 +624,7 @@ def run(br):
       res.back = document.querySelectorAll('#map .dm').length; return res; }""")
     check(f'replay of today ({rp["hhmm"]}): head "다시 보기 중 · HH:MM까지 들어온 공시만", only rows seen by then, corners from those',
           rp['at'] == f'다시 보기 중 · {rp["hhmm"]}까지 들어온 공시만' and all(t == '오늘' or t <= rp['hhmm'] for t in rp['shown']) and rp['marks'] == rp['expectMarks'], rp)
-    check('replay of another day: no corners, no map toggle, legend "다시 보기 중에는 오늘 공시만 보여요", head "다시 보기 중 · 지금 공시예요"; back to live → corners',
+    check('replay of another day: no corners, no map switch, legend "다시 보기 중에는 오늘 공시만 보여요", head "다시 보기 중 · 지금 공시예요"; back to live → corners',
           rp['other']['dm'] == 0 and not rp['other']['chip'] and rp['other']['lg'] == '다시 보기 중에는 오늘 공시만 보여요' and rp['other']['at'] == '다시 보기 중 · 지금 공시예요' and rp['back'] > 0, rp['other'])
     ctx.close()
 
@@ -631,7 +698,7 @@ def run(br):
               (abs(g['bottom'] - g['sideEnd']) <= 1.5 or g['perCol'] == 5) and g['perCol'] >= 5 and whole and g['two'] == (w == 1920), g)
         ctx.close()
 
-    # ── 12 · phone: no header chip, corners on the map, card 5 rows + 더보기, map toggle 32 (hit 44) next to 지도 종목만, kind tabs 40, chips 32 (44), quick view rows ≥ 54 ──
+    # ── 12 · phone: no header chip, corners on the map, card 5 rows + 더보기, map switch 40 (hit 44) on the tab's first line, kind tabs 40, chips 32 (44), quick view rows ≥ 54 ──
     mode('ok')
     E.items = []
     ctx, pg = open_page(br, LIVE, 390, 844, errors=E)
@@ -641,20 +708,22 @@ def run(br):
       const b = n.querySelector('.dc-lit'), o = n.querySelector('.dc-only'), R = e => e.getBoundingClientRect(), sub = n.querySelector('#news-p-disc .dc-sub');
       return { rows: rows.length, clamp: cs.webkitLineClamp, fs: cs.fontSize, chipH: chip.getBoundingClientRect().height, chipHit: getComputedStyle(chip, '::before').height, tabH: tab.getBoundingClientRect().height,
         title: n.querySelector('.nw-tt button').getBoundingClientRect().height, more: n.querySelector('#news-p-disc .nw-more').getBoundingClientRect().height,
-        litH: R(b).height, litHit: getComputedStyle(b, '::before').height, sameLine: Math.abs(R(b).top - R(o).top) < 1, right: Math.round(R(sub).right - R(b).right), short: getComputedStyle(b.querySelector('.dc-lx')).display, text: b.innerText.replace(/\\s+/g, ' ') }; }""")
+        litH: R(b).height, litHit: getComputedStyle(b, '::before').height, top: Math.round(R(b).top - R(sub).top), above: R(b).bottom <= R(n.querySelector('.dc-ktabs')).top, right: Math.round(R(sub).right - R(b.querySelector('.dc-trk')).right),
+        lines: Math.round(R(b.querySelector('.dc-ll')).height), lfs: getComputedStyle(b).fontSize, text: b.innerText.replace(/\\s+/g, ' ') }; }""")
     check('phone: no chip in the map header (one row, nothing past its edge), corners drawn; card 5 rows, titles 15 px two lines, chips 32 (hit 44), kind tabs 40, title tabs 40, 더보기 42',
           ph0['st'] == 0 and ph0['chip'] == 0 and ph0['sb'] <= 46 and ph0['sbOver'] == 0 and ph0['dm'] > 0 and ph['rows'] == 5 and ph['clamp'] == '2' and ph['fs'] == '15px' and round(ph['chipH']) == 32
           and ph['chipHit'] == '44px' and ph['tabH'] >= 40 and ph['title'] >= 40 and ph['more'] >= 42, f'{ph0} {ph}')
-    check('phone: map toggle 32 px (hit 44) on 지도 종목만\'s line, at the right; short label "지도에서 밝게 N종목"',
-          round(ph['litH']) == 32 and ph['litHit'] == '44px' and ph['sameLine'] and ph['right'] == 0 and ph['short'] == 'none' and re.match(r'^지도에서 밝게 \d+종목$', ph['text'].strip()), ph)
+    check('phone: the map switch is the first line of the tab (40 px, hit 44, 14 px), the whole label "지도에서 공시 종목만 밝게 · N종목" on one line, track at the right end',
+          round(ph['litH']) == 40 and ph['litHit'] == '44px' and ph['top'] == 0 and ph['above'] and ph['right'] == 0 and ph['lfs'] == '14px' and ph['lines'] <= 20
+          and re.match(r'^지도에서 공시 종목만 밝게 · \d+종목$', ph['text'].strip()), ph)
     p0 = pg.evaluate("() => [document.querySelector('#news .dc-only').getBoundingClientRect().x, document.querySelector('#news-p-disc .dc-sub').offsetHeight]")
     pg.tap('#news .dc-lit'); pg.wait_for_timeout(300)
     p1 = pg.evaluate("""() => { const m = KH.marks.get('disc'), tiles = [...document.querySelectorAll('#map .tile[data-c]')], dim = tiles.filter(t => t.classList.contains('mdim'));
-      return { pressed: document.querySelector('#news .dc-lit').getAttribute('aria-pressed'), dims: dim.length, ok: dim.every(t => !m.has(t.dataset.c)) && tiles.filter(t => !t.classList.contains('mdim')).every(t => m.has(t.dataset.c)),
+      return { pressed: document.querySelector('#news .dc-lit').getAttribute('aria-checked'), dims: dim.length, ok: dim.every(t => !m.has(t.dataset.c)) && tiles.filter(t => !t.classList.contains('mdim')).every(t => m.has(t.dataset.c)),
         pos: [document.querySelector('#news .dc-only').getBoundingClientRect().x, document.querySelector('#news-p-disc .dc-sub').offsetHeight], over: document.documentElement.scrollWidth - document.documentElement.clientWidth,
-        cardOver: document.getElementById('news').scrollWidth - document.getElementById('news').clientWidth }; }""")
-    check('phone: tap → the map dims all but the filers; 지도 종목만 and the row stay put; no horizontal overflow (page · card)',
-          p1['pressed'] == 'true' and p1['dims'] > 0 and p1['ok'] and p1['pos'] == p0 and p1['over'] == 0 and p1['cardOver'] <= 0, f'{p0} {p1}')
+        cardOver: document.getElementById('news').scrollWidth - document.getElementById('news').clientWidth, bg: getComputedStyle(document.querySelector('#news .dc-lit')).backgroundColor }; }""")
+    check('phone: tap → the map dims all but the filers; 지도 종목만 and the row stay put; no horizontal overflow (page · card); no hover tint left (hover only for a fine pointer)',
+          p1['pressed'] == 'true' and p1['dims'] > 0 and p1['ok'] and p1['pos'] == p0 and p1['over'] == 0 and p1['cardOver'] <= 0 and p1['bg'] in ('rgba(0, 0, 0, 0)', 'transparent'), f'{p0} {p1}')
     pg.tap('#news-t-news'); pg.wait_for_timeout(300)
     p2 = pg.evaluate("() => ({ only: KH.marks.onlyName(), mdim: document.querySelectorAll('#map .tile.mdim').length })")
     check('phone: 시장 뉴스 tab → the map back to normal', p2 == {'only': None, 'mdim': 0}, p2)
@@ -670,9 +739,9 @@ def run(br):
     ctx, pg = open_page(br, LIVE, 1280, 800, motion='reduced')
     disc_tab(pg)
     pg.evaluate("KHDisc.refresh()"); pg.wait_for_timeout(600)
-    rm = pg.evaluate("() => ({ anim: [...document.querySelectorAll('#map .dm, #news .dc-row')].filter(x => getComputedStyle(x).animationName !== 'none').length, ind: getComputedStyle(document.querySelector('#news .dc-ktabs'), '::before').transitionDuration, bar: getComputedStyle(document.querySelector('#news .nw-tt button'), '::after').transitionDuration, lit: getComputedStyle(document.querySelector('#news .dc-lit')).transitionDuration, ck: getComputedStyle(document.querySelector('#news .dc-lit .nw-ck')).transitionDuration })")
+    rm = pg.evaluate("() => ({ anim: [...document.querySelectorAll('#map .dm, #news .dc-row')].filter(x => getComputedStyle(x).animationName !== 'none').length, ind: getComputedStyle(document.querySelector('#news .dc-ktabs'), '::before').transitionDuration, bar: getComputedStyle(document.querySelector('#news .nw-tt button'), '::after').transitionDuration, lit: getComputedStyle(document.querySelector('#news .dc-lit')).transitionDuration, ck: getComputedStyle(document.querySelector('#news .dc-lit .dc-knob')).transitionDuration + ',' + getComputedStyle(document.querySelector('#news .dc-lit .dc-trk'), '::before').transitionDuration + ',' + getComputedStyle(document.querySelector('#news .dc-lit .dc-knob'), '::before').transitionDuration })")
     zero = lambda v: set(v.replace(' ', '').split(',')) <= {'0s'}
-    check('reduced motion: no corner / row animation; kind indicator, title bar, map toggle and its check 0s', rm['anim'] == 0 and zero(rm['ind']) and zero(rm['bar']) and zero(rm['lit']) and zero(rm['ck']), rm)
+    check('reduced motion: no corner / row animation; kind indicator, title bar, map switch (knob edges, fill, knob shadow) 0s', rm['anim'] == 0 and zero(rm['ind']) and zero(rm['bar']) and zero(rm['lit']) and zero(rm['ck']), rm)
     ctx.close()
 
     # ── 14 · a Worker without the route (404): nothing of this shows, the news card as before, one request ──
@@ -685,23 +754,23 @@ def run(br):
     n4 = mock('/__stats').get('/api/disclosures/today', 0)
     pg.evaluate("KH.refresh()"); pg.wait_for_timeout(600)
     n5 = mock('/__stats').get('/api/disclosures/today', 0)
-    check('404: no tab (the news card with its h2 as before), no map toggle, corners, legend item, footer line; no more requests', not g4['tab'] and not g4['multi'] and g4['h2'] and not g4['chip'] and g4['dm'] == 0 and not g4['lg'] and g4['foot'] and n4 == 1 and n5 == 1, f'{g4} {n4}→{n5}')
+    check('404: no tab (the news card with its h2 as before), no map switch, corners, legend item, footer line; no more requests', not g4['tab'] and not g4['multi'] and g4['h2'] and not g4['chip'] and g4['dm'] == 0 and not g4['lg'] and g4['foot'] and n4 == 1 and n5 == 1, f'{g4} {n4}→{n5}')
     E.allow = []
     ctx.close()
 
-    # ── 15 · world tab: no polling, no credit there; the map toggle turns off; back → it counts the new map ──
+    # ── 15 · world tab: no polling, no credit there; the map switch turns off; back → it counts the new map ──
     mode('ok')
     ctx, pg = open_page(br, LIVE, 1280, 800)
     disc_tab(pg)
     pg.click('#news .dc-lit'); pg.wait_for_timeout(250)
     pg.click('.tabs button[data-mkt="WORLD"]'); pg.wait_for_timeout(500)
     k0 = mock('/__stats').get('/api/disclosures/today', 0)
-    w = pg.evaluate("() => ({ pressed: document.querySelector('#news .dc-lit').getAttribute('aria-pressed'), only: KH.marks.onlyName(), foot: document.getElementById('foot').textContent.includes('공시: 금융감독원') })")
+    w = pg.evaluate("() => ({ pressed: document.querySelector('#news .dc-lit').getAttribute('aria-checked'), only: KH.marks.onlyName(), foot: document.getElementById('foot').textContent.includes('공시: 금융감독원') })")
     pg.evaluate("KH.refresh()"); pg.wait_for_timeout(500)
     k1 = mock('/__stats').get('/api/disclosures/today', 0)
     pg.click('.tabs button[data-mkt="Q"]'); pg.wait_for_timeout(700)
-    q = pg.evaluate("() => ({ chip: parseInt((document.querySelector('#news .dc-lit .nw-n') || {}).textContent || '-1'), pressed: document.querySelector('#news .dc-lit').getAttribute('aria-pressed'), mdim: document.querySelectorAll('#map .tile.mdim').length, want: KH.mapCodes().filter(c => KH.marks.get('disc').has(c)).length })")
-    check('world tab: the map toggle off, no credit, no request on refresh; 코스닥 → the toggle (off) counts the 코스닥 map',
+    q = pg.evaluate("() => ({ chip: parseInt(((document.querySelector('#news .dc-lit .dc-ln') || {}).textContent || '-1').replace(/[^\\d-]/g, '')), pressed: document.querySelector('#news .dc-lit').getAttribute('aria-checked'), mdim: document.querySelectorAll('#map .tile.mdim').length, want: KH.mapCodes().filter(c => KH.marks.get('disc').has(c)).length })")
+    check('world tab: the map switch off, no credit, no request on refresh; 코스닥 → the switch (off) counts the 코스닥 map',
           w['pressed'] == 'false' and w['only'] is None and not w['foot'] and k1 == k0 and q['chip'] == q['want'] and q['want'] > 0 and q['pressed'] == 'false' and q['mdim'] == 0, f'{w} {k0}→{k1} {q}')
     ctx.close()
 
@@ -710,7 +779,7 @@ def run(br):
     ctx, pg = open_page(br, SNAP, 1280, 800, errors=E)
     pg.evaluate("document.getElementById('news').scrollIntoView({block: 'center'})"); pg.click('#news-t-disc'); pg.wait_for_timeout(300)
     sn = pg.evaluate("() => ({ text: document.getElementById('news-p-disc').textContent, href: (document.querySelector('#news-p-disc a') || {}).href, chip: !!document.querySelector('.dc-lit, .dc-hchip'), dm: document.querySelectorAll('#map .dm').length, lg: !!document.querySelector('#legend .dc-lg'), foot: document.getElementById('foot-disc') ? document.getElementById('foot-disc').hidden : true, over: document.documentElement.scrollWidth - innerWidth, tabs: [...document.querySelectorAll('#news .nw-tt button')].map(b => b.textContent) })")
-    check('snapshot: tabs 시장 뉴스 · 오늘 공시, "공시는 실시간 버전에서 볼 수 있어요" + LIVE_URL; no map toggle, corners, legend item, footer line; no console errors',
+    check('snapshot: tabs 시장 뉴스 · 오늘 공시, "공시는 실시간 버전에서 볼 수 있어요" + LIVE_URL; no map switch, corners, legend item, footer line; no console errors',
           sn['tabs'] == ['시장 뉴스', '오늘 공시'] and '공시는 실시간 버전에서 볼 수 있어요' in sn['text'] and sn['href'] == 'https://panse.pages.dev/' and not sn['chip'] and sn['dm'] == 0 and not sn['lg'] and sn['foot'] and sn['over'] == 0 and not E.items, f'{sn} {E.items[:2]}')
     ctx.close()
     html = (ROOT / 'dist/index.html').read_text(encoding='utf-8')
@@ -772,7 +841,7 @@ def baseline(br):
 
 
 def shots(br):
-    """--shots → qa/shots/disc_toggle/ (gitignored): the map header without the chip, the 오늘 공시 tab with the map toggle off / on
+    """--shots → qa/shots/disc_toggle/ (gitignored): the page + map header without the chip, the 오늘 공시 tab with the map switch off / on
     (1440 × 900 and 390 × 844, every theme), plus the tooltip and the phone quick view."""
     out = ROOT / 'qa/shots/disc_toggle'
     out.mkdir(parents=True, exist_ok=True)
@@ -780,8 +849,9 @@ def shots(br):
     for th in THEMES:
         for w, h in ((1440, 900), (390, 844)):
             ctx, pg = open_page(br, LIVE, w, h, th)
+            # the page header (#status with #live-mark) down to the map header (no 공시 chip, 지도 · 표 at the end) and the top of the map
             r = pg.evaluate("(() => { const r = document.querySelector('.stagebar').getBoundingClientRect(); return [r.y + scrollY, r.height]; })()")
-            pg.screenshot(path=str(out / f'header_{w}_{th}.png'), clip={'x': 0, 'y': max(0, r[0] - 12), 'width': w, 'height': r[1] + 90})
+            pg.screenshot(path=str(out / f'header_{w}_{th}.png'), clip={'x': 0, 'y': 0, 'width': w, 'height': r[0] + r[1] + 60})
             disc_tab(pg)
             # the card's tab row near the middle of the screen with the map above it (phones: the bottom of the map)
             pg.evaluate("(() => { const s = document.querySelector('#news-p-disc .dc-sub'); scrollTo(0, Math.max(0, s.getBoundingClientRect().top + scrollY - innerHeight * (innerWidth > 760 ? .55 : .5))); })()")

@@ -7,8 +7,8 @@
      a bigger corner when one of them is new (first seen within 30 min and after the server started watching: s > since);
    · the legend item "공시 26종목 · 큰 귀퉁이 = 30분 안"; the tooltip / quick-view block (KH.cardExtra): up to 3 filings, DART links
      in the quick view + "공시 모두 보기" (the stock page's 뉴스·공시 › 공시);
-   · the "오늘 공시" tab of the news card (KHNews.addTab): kind tabs, 지도 종목만, the map toggle "지도에서 공시 종목만 밝게 26종목"
-     (on → only those stocks stay bright, KH.marks.only; only while the tab is shown, not remembered — it was the map-header chip
+   · the "오늘 공시" tab of the news card (KHNews.addTab): kind tabs, 지도 종목만, the map switch "지도에서 공시 종목만 밝게 · 26종목"
+     (role=switch; on → only those stocks stay bright, KH.marks.only; only while the tab is shown, not remembered — it was the map-header chip
      "공시 26" in #stage-tools until 사용자 2026-11-14 08:10 "아래에 뉴스 공시칸으로 옮기든", moved 2026-11-15), stock chips (quick view), row hover
      lights the tile;
    · two settings (공시 보기 · 지도에 표시할 종류) and the footer credit.
@@ -110,7 +110,7 @@ function timeEl(x) {
   return h('time', { class: 'dc-tm', datetime: S.data ? S.data.date + (x.s ? 'T' + x.s : '') : null }, x.isNew ? dot() : null, t);
 }
 
-/* ───────── snapshot: the tab says where to see it; no map toggle, no corners, no rows in the build ───────── */
+/* ───────── snapshot: the tab says where to see it; no map switch, no corners, no rows in the build ───────── */
 if (!LIVE) {
   const pane = h('div', { class: 'dc-pane' }, h('ol', { class: 'nw-list is-msg' }, h('li', { class: 'nw-msg' },
     h('b', { text: '공시는 실시간 버전에서 볼 수 있어요' }),
@@ -122,14 +122,19 @@ if (!LIVE) {
   return;
 }
 
-/* ───────── the map toggle in the 오늘 공시 tab: [✓][corner] 지도에서 공시 종목만 밝게 26종목 — on → only those stocks stay bright ─────────
-   It sat in the map header (#stage-tools) until 2026-11-15 — 사용자 2026-11-14 08:10 "사진의 공시 버튼 차라리 아래에 뉴스 공시칸으로 옮기든 하는게
-   나을거같아". Now it lives in the tab's own row (after 공시 종류 · 지도 종목만) and only works while that tab is on screen: leaving the tab,
-   a hidden card, 해외 · 지표, 공시 보기 off or nothing to light turns the map back to normal (a dimmed map with no visible way back is worse
-   than one more press). Not remembered across reloads. */
-const lit = h('button', { type: 'button', class: 'nw-only dc-lit', 'aria-pressed': 'false' });
-// its box keeps the width of the pressed key (the check's 20 px): pressing never moves 지도 종목만 or wraps the row — the key grows left
+/* ───────── the map switch in the 오늘 공시 tab: [corner] 지도에서 공시 종목만 밝게 · 26종목 [track] — on → only those stocks stay bright ─────────
+   It sat in the map header (#stage-tools) as the chip "공시 26" until 2026-11-15 — 사용자 2026-11-14 08:10 "사진의 공시 버튼 차라리 아래에 뉴스
+   공시칸으로 옮기든 하는게 나을거같아". Now it is a switch (design.md §7: sunken track, raised knob whose two edges move on their own springs —
+   the front one `follow`, the back one `settle` — so it stretches a little on the way) in the tab's own row: at the end of the 공시 종류 ·
+   지도 종목만 line on a wide card, a line of its own at the top of the tab on a narrow one (phones · 1024 PC). It only works while that tab
+   is on screen: leaving the tab, a hidden card, 해외 · 지표, 공시 보기 off or nothing to light turns the map back to normal (a dimmed map with
+   no visible way back is worse than one more press). Not remembered across reloads. The knob can be dragged (KH.ui.sw, from 4 px). */
+const litCount = h('span', { class: 'dc-lc' });                // "· 26종목" (+ "!"), the ring while loading — changes swap in place (§6-4)
+const lit = h('button', { type: 'button', class: 'dc-lit', role: 'switch', 'aria-checked': 'false' },
+  h('span', { class: 'dc-ll' }, h('i', { class: 'dmsw', 'aria-hidden': 'true' }), h('span', { class: 'dc-lw', text: '지도에서 공시 종목만 밝게' }), litCount),
+  h('span', { class: 'dc-trk swt', 'aria-hidden': 'true' }, h('i', { class: 'dc-knob' })));
 const litBox = h('span', { class: 'dc-litw' }, lit);
+if (typeof UI.sw === 'function') UI.sw(lit);
 lit.addEventListener('click', () => {
   if (lit.getAttribute('aria-disabled') === 'true') {        // off look: say why (a bubble under the key + the live region; mouse users also get the title)
     const why = lit.dataset.why || '';
@@ -140,9 +145,27 @@ lit.addEventListener('click', () => {
 });
 function setLit(on, say) {
   S.litOn = !!on;
-  lit.setAttribute('aria-pressed', String(S.litOn));
+  lit.setAttribute('aria-checked', String(S.litOn));
   if (typeof KH.marks === 'object' && KH.marks) KH.marks.only(S.litOn ? 'disc' : null);
   if (say) live(S.litOn ? `공시 있는 ${mapCount()}종목만 밝게 보여요.` : '모든 종목을 다시 보여요.');
+}
+/* design.md §6-4: the old count leaves (100 ms: opacity → 0, blur 2px, 4px up), the new one comes in 60 ms later (180 ms, from 4px below);
+   both sit in one grid cell while they cross. 줄이기, a hidden page or the first draw: the end state at once. */
+function swapCount(sig, kids) {
+  if (litCount.dataset.sig === sig) return;
+  const first = litCount.dataset.sig === undefined;
+  litCount.dataset.sig = sig;
+  const nu = h('span', { class: 'dc-lv' }, kids);
+  const still = first || document.documentElement.dataset.motion === 'reduced' || document.hidden || !lit.offsetWidth;
+  for (const x of litCount.querySelectorAll('.dc-lv.out')) x.remove();
+  const old = litCount.querySelector('.dc-lv');
+  if (still || !old) { put(litCount, nu); return; }
+  old.classList.remove('in'); old.classList.add('out');
+  nu.classList.add('in');
+  litCount.append(nu);
+  const drop = () => { if (old.isConnected) old.remove(); };
+  old.addEventListener('animationend', drop, { once: true });
+  setTimeout(drop, 400);                                      // in case the animation never runs (a display:none ancestor)
 }
 const mapCount = () => { let n = 0; for (const c of S.marks.keys()) if (S.mapSet.has(c)) n++; return n; };
 const newsCard = () => document.getElementById('news');
@@ -150,26 +173,25 @@ const tabShown = () => S.tabbed && !!window.KHNews && typeof window.KHNews.tab =
 const cardShown = () => { const n = newsCard(); return !!n && !n.hidden && !(n.parentElement && n.parentElement.hidden); };
 // there is something to light: live, setting on, a stock map (not 해외 · 지표, not the theme overview), not replaying another day
 const litUsable = () => S.on && !S.gone && !worldTab() && S.mapSet.size > 0 && !(S.rp && S.rp.kind === 'other');
-// …and its key is on screen (the 오늘 공시 tab of a shown card) — otherwise the map goes back to normal
+// …and its switch is on screen (the 오늘 공시 tab of a shown card) — otherwise the map goes back to normal
 const litWanted = () => litUsable() && tabShown() && cardShown();
 const staleNow = () => !!S.data && ((S.tries > 0 && Date.now() - S.okAt > STALE_MS) || (S.data.stale && nowMs() - isoMs(S.data.asOf) > STALE_MS));
 function litOff(why) { lit.setAttribute('aria-disabled', 'true'); lit.dataset.why = why; lit.title = why; }
+const bad = () => h('b', { class: 'dc-bad', 'aria-hidden': 'true', text: '!' });
 function renderLit() {
   if (!litWanted() && S.litOn) setLit(false);
-  litBox.hidden = !litUsable();                              // theme overview · replay of another day: no key (the tab has its own note)
+  litBox.hidden = !litUsable();                              // theme overview · replay of another day: no switch (the tab has its own note)
   if (litBox.hidden) return;
-  const sw = h('i', { class: 'dmsw', 'aria-hidden': 'true' }), ck = h('i', { class: 'nw-ck', 'aria-hidden': 'true' });
-  const word = [h('span', { class: 'dc-lw' }, '지도에서 ', h('span', { class: 'dc-lx', text: '공시 종목만 ' }), '밝게')];
   lit.removeAttribute('title'); delete lit.dataset.why;
   if (!S.data && S.loading) {
-    put(lit, ck, icon('spin'), word);
+    swapCount('load', [icon('spin')]);
     litOff('공시를 불러오는 중이에요'); lit.setAttribute('aria-label', '지도에서 공시 종목만 밝게 — 공시를 불러오는 중이에요');
   } else if (!S.data) {
-    put(lit, ck, sw, word, h('b', { class: 'dc-bad', 'aria-hidden': 'true', text: '!' }));
+    swapCount('err', [bad()]);
     litOff('공시를 불러오지 못했어요'); lit.setAttribute('aria-label', '지도에서 공시 종목만 밝게 — 공시를 불러오지 못했어요');
   } else {
     const n = mapCount(), stale = staleNow(), rp = S.rp && S.rp.kind === 'same';
-    put(lit, ck, sw, word, h('span', { class: 'nw-n', text: `${n}종목` }), stale ? h('b', { class: 'dc-bad', 'aria-hidden': 'true', text: '!' }) : null);
+    swapCount(`${n}|${stale ? 1 : 0}`, [h('span', { class: 'dc-ln', text: `· ${n}종목` }), stale ? bad() : null]);
     const pre = isToday() ? '' : dayWord() + ' ', tail = `${stale ? ' · 몇 분째 새 공시를 받지 못했어요' : ''}${rp ? ` · ${S.rp.hm}까지` : ''}`;
     if (n) {
       lit.removeAttribute('aria-disabled');
@@ -244,7 +266,7 @@ const more = typeof UI.akey === 'function' ? UI.akey('nw-kbtn nw-more', { idle: 
   : h('button', { type: 'button', class: 'nw-kbtn nw-more', text: '더보기' });
 more.setAttribute('aria-expanded', 'false');
 const credit = h('small', { text: '공시: 금융감독원 DART (OpenDART) — 제목 · 종류만 보여 드려요. 시각은 판세가 처음 본 때예요. 원문은 DART에서 새 탭으로 열려요.' });
-// the tab's own row: list filters (공시 종류 · 지도 종목만) first, then the map toggle (wraps to its own line when the card is narrow)
+// the tab's own row: list filters (공시 종류 · 지도 종목만), then the map switch (a narrow card puts it on a line of its own above them — disc.css)
 const pane = h('div', { class: 'dc-pane', id: 'news-p-disc' }, h('div', { class: 'nw-sub dc-sub' }, ktabs, onlyBtn, litBox), list, h('div', { class: 'nw-ft' }, more, credit));
 if (typeof UI.seg === 'function') UI.seg(ktabs);
 
@@ -422,7 +444,7 @@ pane.addEventListener('pointerenter', () => { S.ptr = true; });
 pane.addEventListener('pointerleave', () => { S.ptr = false; flush(); });
 pane.addEventListener('focusout', () => setTimeout(flush, 0));
 
-/* ───────── derive: the rows of the moment (a replay of today: those seen by its time) → corners, map toggle, legend, lists ───────── */
+/* ───────── derive: the rows of the moment (a replay of today: those seen by its time) → corners, map switch, legend, lists ───────── */
 function replayState() {
   const rp = typeof KH.replay === 'function' ? KH.replay() : null;
   if (!rp) return null;
@@ -529,7 +551,7 @@ function load(o = {}) {
     let d = null, status = 0, same = null;
     try { const j = await getJSON(); if (j && j.same) same = j; else { d = accept(j); if (d) S.etag = j.__etag || ''; } } catch (e) { status = (e && e.status) || -1; }
     S.loading = false; S.busy = null;
-    // 404 = a Worker without the route (the page went out first): no tab, no map toggle, no corners — until a reload
+    // 404 = a Worker without the route (the page went out first): no tab, no map switch, no corners — until a reload
     if (status === 404 && !S.data) { gone(); return false; }
     if (same) {                                            // 304: the same list — only its time moves on (and 새 may have run out)
       S.tries = 0; S.okAt = Date.now(); S.err = false;
