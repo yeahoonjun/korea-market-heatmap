@@ -19084,7 +19084,7 @@ sync();
     const s = starOf(e), past = isPast(e);
     const when = e.t ? `${label(e.d)} (${WD[wday(e.d)]}) ${e.t}` : `${label(e.d)} (${WD[wday(e.d)]}) · 종일`;
     const names = e.grp && e.codes ? e.codes.map(c => { const r = KH.stock(c); return { c, n: (r && r.n) || c }; }) : null;
-    dlg.replaceChildren(
+    dlg.replaceChildren(...[       // native replaceChildren prints null as "null" — keep only real nodes
       h('span', { class: 'kc-grab', 'aria-hidden': 'true' }),
       h('div', { class: 'kc-sh' }, h('h3', { id: 'kc-dt' }, e.n && !e.grp ? h('span', { class: 'co', text: `${e.n} · ${e.c}` }) : null, e.title), h('button', { type: 'button', class: 'kc-x', 'aria-label': '닫기', onclick: closeDetail }, svg(IC.x))),
       h('dl', { class: 'kc-kv' },
@@ -19099,7 +19099,7 @@ sync();
       h('div', { class: 'kc-acts' },
         e.url ? h('a', { href: e.url, target: '_blank', rel: 'noopener' }, svg(IC.ext), e.src === 'dart' ? 'DART 원문' : '원천 보기') : null,
         e.c && !e.grp && typeof KH.openStock === 'function' ? h('button', { type: 'button', onclick: () => { closeDetail(true); KH.openStock(e.c, {}); }, text: '종목 페이지' }) : null),
-      h('p', { class: 'foot', text: '시각은 한국 시간이에요. 원천이 일정을 바꾸면 다음 갱신 때 바뀌어요.' }));
+      h('p', { class: 'foot', text: '시각은 한국 시간이에요. 원천이 일정을 바꾸면 다음 갱신 때 바뀌어요.' })].filter(Boolean));
     if (!dlg.open) dlg.showModal();
     document.dispatchEvent(new CustomEvent('kh:worlddetail'));      // the phone dock hides while a sheet is open (template openWins)
     requestAnimationFrame(() => requestAnimationFrame(() => dlg.classList.add('on')));
