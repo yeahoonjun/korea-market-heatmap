@@ -77,7 +77,9 @@ def stock_module() -> str:
     # 공시 배지 (docs/standards/disclosure.md §13 ⑧): after news (it adds the 오늘 공시 tab to the news card); the snapshot: a note only
     # 실시간 갱신 (docs/standards/realtime.md §7-1): last — the WebSocket to the hub; it does nothing in the snapshot (KH.MODE)
     return (module("ui", "spring") + module("stock", "stock") + module("extras", "extras") + module("world", "world") + module("news", "match") + module("news", "news")
-            + module("disclosure", "disc") + module("live", "live"))
+            + module("disclosure", "disc") + module("live", "live")
+            # 오늘의 시장 요약 카드 (docs/standards/market-summary.md, AGENTS §3-34): last — it reads what the others already hold (KH.disclosures …)
+            + module("summary", "summary"))
 
 
 DATA_FILES = ("themes", "periods", "flows", "market")   # market: /api/market after the close (index spark for the §3-20 header line)
@@ -144,8 +146,11 @@ pinned = snap.get("close") == "krx" or (snap.get("close") is None and as_of[11:1
                                          and all(v != "OPEN" for v in (snap.get("marketStatus") or {}).values()))
 close_p = ROOT / "web/close.json"
 if pinned:
-    dump("close.json", {"date": as_of[:10], "asOf": as_of,
-                        "c": {x["c"]: [x.get("p"), x.get("d"), x.get("r")] for x in snap["stocks"] if x.get("p")}})
+    # rows [종가, 전일대비, 등락률, lim?] — the 4th is 1 (상한가) / −1 (하한가) only when set; "lim": true says the rows carry it
+    # (an older file without the key: readers fall back to the ±29.5 % guess). AGENTS §3-3 · §3-34 ⑤
+    lim_of = lambda x: [x["lim"]] if x.get("lim") in (1, -1) else []
+    dump("close.json", {"date": as_of[:10], "asOf": as_of, "lim": True,
+                        "c": {x["c"]: [x.get("p"), x.get("d"), x.get("r")] + lim_of(x) for x in snap["stocks"] if x.get("p")}})
 elif close_p.exists():
     close_p.unlink()                            # never leave a stale close file next to unpinned prices
 print(f"stocks={len(snap['stocks'])}  dist/index.html={len(page('snapshot'))//1024}KB  close.json={'yes' if pinned else 'no'}", file=sys.stderr)
