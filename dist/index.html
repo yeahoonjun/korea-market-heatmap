@@ -13190,6 +13190,11 @@ html[data-theme="glass-light"] #world{--nodata:#e6e9ee}
 .kw-sec[data-g=fx] .kw-sh .t,.kw-sec[data-g=rates] .kw-sh .t{flex:none}
 .kw-sh .a.note{flex:0 1 auto;min-width:0;overflow:hidden}
 .kw-sh .a.note small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* 증시 자금 (AGENTS §3-32, docs/standards/datago.md §6): a day-old statistic — the state column is its business day (no 장중 / 마감
+   dot), the head says which day, and a source line closes the section. Tokens only (design.md §3–4). */
+.kw-sd[hidden]{display:none}
+.kw-sec[data-g=funds] .kw-sh .t{flex:none}
+.kw-fsrc{margin:0;padding:var(--space-3) var(--space-3) var(--space-1);font-size:var(--fs-xs);line-height:var(--lh-ui,1.25);color:var(--faint)}
 .kw-sum .kw-sumk{font-weight:600;color:var(--fg)}
 .kw-rows{display:flex;flex-direction:column}
 .kw-lr{display:grid;grid-template-columns:minmax(0,1fr) 64px var(--kw-vw,76px) var(--kw-cw,62px) 66px 48px;grid-template-areas:"n s v c p b";align-items:center;column-gap:8px;width:100%;min-height:36px;padding:0 6px;border-radius:6px;text-align:left;font-size:13.5px;line-height:1.25;color:var(--fg);box-shadow:inset 0 -1px 0 var(--row-bd,transparent)}
@@ -13505,6 +13510,8 @@ html[data-theme="paper"] .kw-sheet{box-shadow:inset 0 1px 0 var(--rule,#211a15),
    The template shows <div id="world"> (in place of the map + side cards) and calls show(); another tab calls hide().
    Data (live only): GET api/world?kind=…  every 30 s while shown and the browser tab is visible (지표 = kind=commodity&with=fx,rates);
                      GET api/world/chart/{key}?tf=3m|1y for the detail sheet (daily closes; no intraday source exists).
+                     지표 also: GET api/funds (증시 자금, 금융투자협회 — once a day upstream, asked here at most every 10 min) and
+                     api/funds/chart/{key}?tf=3m|1y; an older Worker without the route → the group is simply absent (AGENTS §3-32).
    Uses window.KH (§3): MODE, LIVE_URL, colorOf, palette, fmt, h, market; listens to kh:palette. */
 (() => {
 'use strict';
@@ -13547,7 +13554,7 @@ const KINDS = {
     title: CM_NAME, hash: 'cmdty', noun: CM_NAME,
     fail: `${CM_NAME} 탭의 시세를 불러오지 못했어요`, empty: '지금 보여 줄 원자재·환율·금리 시세가 없어요',
     snapTitle: `${CM_NAME} 탭은 실시간 버전에서 볼 수 있어요`,
-    snapBody: '원유·금·곡물 같은 원자재 선물과 환율·국채 금리를 30초마다 새로 받아 와요. 이 미리보기는 네트워크가 막혀 있어서 시세를 받을 수 없어요.',
+    snapBody: '원유·금·곡물 같은 원자재 선물과 환율·국채 금리를 30초마다, 증시 자금(금융투자협회)은 하루 한 번 새로 받아 와요. 이 미리보기는 네트워크가 막혀 있어서 시세를 받을 수 없어요.',
   },
 };
 // what each tab asks the Worker for: the 지표 tab adds 환율 · 금리 (an older Worker ignores `with` and the groups are simply absent)
@@ -13574,7 +13581,7 @@ const SHORT = {
   US2YT: '미 국채 2년', US10YT: '미 국채 10년', US30YT: '미 국채 30년', JP10YT: '일 국채 10년',
 };
 /* 환율 · 금리 (AGENTS §3-28): the groups the Worker adds with `with=fx,rates` */
-const MACRO_NOTE = { fx: '오르면 원화 약세', rates: '변화는 bp(0.01%p)' };              // beside the section title
+const MACRO_NOTE = { fx: '오르면 원화 약세', rates: '변화는 bp(0.01%p)', funds: '색은 늘고 준 것만' };   // beside the section title
 const FX_SUB = { DXY: '오르면 달러 강세', USDJPY: '오르면 엔화 약세' };                    // rows the section note does not cover
 const FX_UNIT = {
   FX_USDKRW: '원 (1달러당)', FX_JPYKRW: '원 (100엔당)', FX_EURKRW: '원 (1유로당)', FX_CNYKRW: '원 (1위안당)',
@@ -13586,6 +13593,24 @@ const FX_NOTE = {
 };
 const KRW_NOTE = '오르면 원화 약세예요. 같은 외화를 사는 데 원화가 더 든다는 뜻이고, 빨강·초록은 숫자의 오르내림만 나타내요.';
 const RATE_NOTE = '값은 연 수익률(%)이고 변화는 bp(1bp = 0.01%p)로 보여 줘요. 빨강·초록은 금리의 오르내림이에요.';
+/* 증시 자금 (AGENTS §3-32 ①, docs/standards/datago.md §6): 금융투자협회 daily statistics from GET api/funds, merged into the 지표 tab
+   as one more group after 환율 · 금리 (row keys 'fd:<key>'). Values come in 억원 (or % for the share) and are shown as 조원 / 억원;
+   the change is against the previous business day. Red / green = the number went up / down, nothing more — a rising 신용융자
+   is not "good" or "bad" here, exactly like a yield. */
+const FUNDS_URL = 'api/funds', FUNDS_POLL_MS = 10 * 60e3, FUNDS_RETRY_MS = 2 * 60e3, FUND_PFX = 'fd:';
+const FUNDS = { data: null, tried: 0, gone: false, busy: null, chartGone: false };
+const FUND_SRC = '금융투자협회 · 하루 한 번(전 영업일 기준)';
+const FUND_SUB = { forced: '하루 금액', forcedRatio: '미수금 대비' };
+const FUND_NOTE = {
+  deposit: '증권 계좌에 맡겨 둔 돈이에요(장내파생상품 거래예수금은 빼요). 흔히 고객예탁금이라고 불러요.',
+  credit: '증권사가 주식을 살 돈으로 빌려준 신용거래융자의 잔고예요. 코스피와 코스닥을 더한 값이에요.',
+  creditKospi: '신용거래융자 잔고 가운데 유가증권시장(코스피) 몫이에요.',
+  creditKosdaq: '신용거래융자 잔고 가운데 코스닥 몫이에요.',
+  unpaid: '주식을 사고 결제일까지 내지 않은 돈(위탁매매 미수금)이에요.',
+  forced: '미수금을 갚지 못해 증권사가 주식을 처분한 반대매매 금액이에요. 그날 하루의 금액이에요.',
+  forcedRatio: '위탁매매 미수금 가운데 실제로 반대매매된 금액의 비중이에요.',
+};
+const FUND_COLOR_NOTE = ' 빨강·초록은 전 영업일보다 늘었는지 줄었는지만 나타내요. 늘었다고 좋거나 나쁘다는 뜻은 아니에요.';
 /* Naver unit codes → [long, short] */
 const UNITS = {
   'USD/BBL': ['달러/배럴', '$/배럴'], 'USD/MMBTU': ['달러/MMBtu', '$/MMBtu'], 'USD/U GAL': ['달러/갤런', '$/갤런'], 'USD/GAL': ['달러/갤런', '$/갤런'],
@@ -13594,7 +13619,8 @@ const UNITS = {
   KRW: ['원', '원'], JPY: ['엔', '엔'],
 };
 // rates carry their unit in the value ("3.756%")
-const unitOf = it => { if (!it.unit || isRate(it)) return null; const u = UNITS[String(it.unit).toUpperCase()]; return u || [String(it.unit), String(it.unit)]; };
+const unitOf = it => { if (!it.unit || isRate(it) || isFund(it)) return null;   // 증시 자금 carries 조원 / 억원 in its value text
+  const u = UNITS[String(it.unit).toUpperCase()]; return u || [String(it.unit), String(it.unit)]; };
 /* exchange time zones → a place name for "지금 열린 시장" */
 const CET = '유럽 중부';
 const TZ_CITY = {
@@ -13624,13 +13650,33 @@ function dpOf(it) {
   if (d > was) DP.set(it.key, d);
   return Math.max(d, was);
 }
-const isFx = it => it.gkey === 'fx', isRate = it => it.gkey === 'rates', isMacro = it => isFx(it) || isRate(it);
+const isFx = it => it.gkey === 'fx', isRate = it => it.gkey === 'rates', isFund = it => it.gkey === 'funds';
+const isMacro = it => isFx(it) || isRate(it) || isFund(it);
+const isFundPct = it => isFund(it) && it.unit === '%';
+// 억원 → "99.81조원" · "9,303억원" · "47.9억원"; signed: "+1,234억원" (a change that rounds to zero has no sign)
+function eokText(v, signed) {
+  if (v == null || !isFinite(v)) return '—';
+  const a = Math.abs(v);
+  const [txt, zero] = a >= 10000 ? [fixed(a / 10000, 2) + '조원', Math.round(a / 100) === 0] : a >= 100 ? [Math.round(a).toLocaleString('ko-KR') + '억원', false] : [fixed(a, 1) + '억원', Math.round(a * 10) === 0];
+  return (signed ? (zero ? '' : sgn(v)) : v < 0 ? MINUS : '') + txt;
+}
+// a share in %: as many decimals as the source sends (1, sometimes 2); its change in %p
+const fundDp = it => { const dec = v => { if (v == null || !isFinite(v)) return 0; const s = String(Math.abs(v)); const i = s.indexOf('.'); return i < 0 ? 0 : s.length - i - 1; }; return Math.max(1, Math.min(2, Math.max(dec(it.value), dec(it.change)))); };
+const pctpText = (v, dp) => { if (v == null || !isFinite(v)) return '—'; const r = +v.toFixed(dp); return (r ? sgn(r) : '') + fixed(r, dp) + '%p'; };
+const fundVal = it => isFundPct(it) ? fixed(it.value, fundDp(it)) + '%' : eokText(it.value);
+const fundChg = it => isFundPct(it) ? pctpText(it.change, fundDp(it)) : eokText(it.change, true);
+// "11월 13일" from 'YYYY-MM-DD'; with the weekday: "11월 13일 (금)"
+const mdText = (iso, wd) => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso || '')); if (!m) return ''; const t = `${+m[2]}월 ${+m[3]}일`; return wd ? `${t} (${WD[new Date(Date.UTC(+m[1], +m[2] - 1, +m[3])).getUTCDay()]})` : t; };
+const mdShort = iso => { const m = /^\d{4}-(\d{2})-(\d{2})$/.exec(String(iso || '')); return m ? `${m[1]}.${m[2]}` : ''; };
 // bp = 0.01%p, one decimal ("+2.3bp"); a change that rounds to 0.0 has no sign
 const bpOf = it => it.bp != null && isFinite(it.bp) ? it.bp : it.change != null && isFinite(it.change) ? Math.round(it.change * 10000) / 100 : null;
 const bpText = v => { if (v == null || !isFinite(v)) return '—'; const r = Math.round(v * 10) / 10; return sgn(r) + Math.abs(r).toFixed(1) + 'bp'; };
-const valText = it => fixed(it.value, dpOf(it)) + (isRate(it) ? '%' : '');
-const chgText = it => isRate(it) ? bpText(bpOf(it)) : it.change == null || !isFinite(it.change) ? '—' : sgn(it.change) + fixed(it.change, dpOf(it));
-const chipText = it => isRate(it) ? bpText(bpOf(it)) : pct(it.ratio);   // the coloured chip: % change, or bp for a yield
+const valText = it => isFund(it) ? fundVal(it) : fixed(it.value, dpOf(it)) + (isRate(it) ? '%' : '');
+const chgText = it => isFund(it) ? fundChg(it) : isRate(it) ? bpText(bpOf(it)) : it.change == null || !isFinite(it.change) ? '—' : sgn(it.change) + fixed(it.change, dpOf(it));
+// the coloured chip: % change, or bp for a yield, or %p for a share (증시 자금 반대매매 비중)
+const chipText = it => isRate(it) ? bpText(bpOf(it)) : isFundPct(it) ? fundChg(it) : pct(it.ratio);
+// rows whose chip already carries the change: the change column stays empty (the same number twice says nothing)
+const chipIsChange = it => isRate(it) || isFundPct(it);
 const isRef = it => !!it.ref;
 const isFut = it => it.gkey === 'usf';                 // 미국 선물: listed under 미국, never part of its average
 const colorOf = it => isRef(it) ? tok().ref : (it.ratio == null || !isFinite(it.ratio)) ? tok().nodata : KH.colorOf(it.ratio);
@@ -13784,6 +13830,64 @@ function normalise(j, kind) {
   return { asOf: j.asOf || null, kind, groups, all, byKey: new Map(all.map(it => [it.key, it])), charts: j.charts !== false };
 }
 
+/* 증시 자금: /api/funds → items shaped like the others (gkey 'funds'), or null when there is nothing to show */
+const numOr = v => v == null || v === '' || !isFinite(+v) ? null : +v;
+function fundItems(j) {
+  if (!j || !Array.isArray(j.items)) return null;
+  const items = [], seen = new Set();
+  for (const x of j.items) {
+    if (!x || typeof x.key !== 'string' || !/^[A-Za-z]{1,24}$/.test(x.key) || seen.has(x.key) || numOr(x.value) == null) continue;
+    seen.add(x.key);
+    items.push({
+      key: FUND_PFX + x.key, fkey: x.key, name: String(x.name || x.key), value: +x.value, change: numOr(x.change), ratio: numOr(x.ratio),
+      unit: x.unit === '%' ? '%' : '억원', basDt: /^\d{4}-\d{2}-\d{2}$/.test(x.basDt) ? x.basDt : null,
+      prev: numOr(x.prev), prevDt: /^\d{4}-\d{2}-\d{2}$/.test(x.prevDt) ? x.prevDt : null,
+      status: 'CLOSE', tradedAt: null, delayed: 0, tz: null, ref: false, group: '증시 자금', gkey: 'funds', bp: null, eod: false, calc: false, via: '금융투자협회',
+    });
+  }
+  if (!items.length) return null;
+  const basDt = /^\d{4}-\d{2}-\d{2}$/.test(j.basDt) ? j.basDt : items.map(it => it.basDt).filter(Boolean).sort().pop() || null;
+  return { asOf: j.asOf || null, basDt, stale: !!j.stale, items };
+}
+// put the 증시 자금 group at the end of the 지표 data (after 환율 · 금리), or take it away; d is changed in place
+function withFunds(d) {
+  if (!d || d.kind !== 'commodity') return d;
+  d.groups = d.groups.filter(g => g.key !== 'funds');
+  const F = FUNDS.data;
+  if (F) {
+    let ix = d.groups.reduce((m, g) => Math.max(m, ...g.items.map(it => it.ix)), -1);
+    const items = F.items.map(it => Object.assign({}, it, { ix: ++ix }));
+    d.groups.push({ key: 'funds', name: '증시 자금', items, list: items, basDt: F.basDt });
+  }
+  d.all = d.groups.flatMap(g => g.items);
+  d.byKey = new Map(d.all.map(it => [it.key, it]));
+  return d;
+}
+// at most every 10 min while the 지표 tab is shown (the Worker caches an hour; the source changes once a day). 404 = a Worker
+// without the route: stop asking for this page. Other failures keep the last good values.
+function loadFunds(force) {
+  if (!LIVE || FUNDS.gone || FUNDS.busy) return FUNDS.busy;
+  const now = Date.now();
+  if (!force && now - FUNDS.tried < (FUNDS.data ? FUNDS_POLL_MS : FUNDS_RETRY_MS)) return null;
+  FUNDS.tried = now;
+  FUNDS.busy = (async () => {
+    try {
+      FUNDS.data = fundItems(await getJSON(FUNDS_URL));
+      FUNDS.err = null;
+    } catch (e) {
+      if (e.status === 404) { FUNDS.gone = true; FUNDS.data = null; }
+      FUNDS.err = e;
+    } finally { FUNDS.busy = null; }
+    const d = S.data.commodity;
+    if (d) {
+      const had = d.groups.some(g => g.key === 'funds');
+      withFunds(d);
+      if ((had || FUNDS.data) && S.shown && S.kind === 'commodity' && els && !els.snap) render();
+    }
+  })();
+  return FUNDS.busy;
+}
+
 /* ───────── DOM scaffold ───────── */
 function scaffold() {
   root = document.getElementById('world');
@@ -13923,7 +14027,8 @@ function render() {
     return;
   }
   // §3-27 색 범위 자동: hand the template what this tab draws (VIX is a reference, never coloured) before anything takes a colour
-  if (typeof KH.feedRange === 'function') { try { KH.feedRange(S.kind, d.all.filter(it => !isRef(it)).map(it => it.ratio)); } catch (e) { /* fixed range */ } }
+  // 증시 자금 is a day-old statistic, not today's move: it takes colours from the range but does not set it
+  if (typeof KH.feedRange === 'function') { try { KH.feedRange(S.kind, d.all.filter(it => !isRef(it) && !isFund(it)).map(it => it.ratio)); } catch (e) { /* fixed range */ } }
   renderBar(d, err);
   if (mode === 'geoload') {
     els.tiles.clear(); els.heads.clear(); els.boxes = null;
@@ -14140,6 +14245,12 @@ function placeTile(el, t) {
   if (L.lv >= 2) el.__sub = T.pc;
 }
 function ariaOf(it) {
+  if (isFund(it)) {
+    const pctU = isFundPct(it), up = it.change > 0, dn = it.change < 0;
+    const mv = it.change == null ? '' : `, 전 영업일보다 ${up || dn ? fundChg(it).replace(/^[+−]/, '') + (pctU ? (up ? ' 올랐어요' : ' 내렸어요') : (up ? ' 늘었어요' : ' 줄었어요')) : '그대로예요'}`
+      + (!pctU && it.ratio != null && (up || dn) ? ` (${pct(it.ratio)})` : '');
+    return `증시 자금, ${it.name} ${valText(it)}${mv}, ${mdText(it.basDt, true) || '날짜 모름'} 기준, 금융투자협회`;
+  }
   const u = unitOf(it);
   const chg = isRate(it) ? `${chgText(it)}` : `${chgText(it)} (${pct(it.ratio)})`;
   return `${it.group ? it.group + ', ' : ''}${it.name} ${valText(it)}${u ? ' ' + u[0] : ''}, 전일 대비 ${chg}, ` +
@@ -14291,6 +14402,7 @@ const NAME_MIN = 118, FIXED_W = 64 + 66 + 48 + 5 * 8 + 12 + 14, MIN_COL_C = 300,
 const ROW_H = 36, ROW_HC = 52, HEAD_H = 42, SEC_PAD = 12;
 const placeOf = it => PLACE[it.key] || cityOf(it, null) || '';
 function listSub(it, flat) {
+  if (isFund(it)) return FUND_SUB[it.fkey] || '';
   if (isMacro(it)) return FX_SUB[it.key] || '';                 // the section note covers 원/○; 계산값 sits in the state column
   const u = S.kind === 'commodity' ? unitOf(it) : null;
   if (!flat && isFut(it)) return '선물';
@@ -14349,7 +14461,7 @@ function listGeom(W, minWide) {
 // sections → columns with heights as even as possible. Contiguous runs keep the reading order; when that leaves one
 // column much taller, the biggest sections are spread first (each column still lists its sections in the original order).
 function distribute(secs, n, rowH) {
-  const hs = secs.map(s => (s.head ? HEAD_H : 6) + s.items.length * rowH + SEC_PAD);
+  const hs = secs.map(s => (s.head ? HEAD_H : 6) + s.items.length * rowH + SEC_PAD + (s.key === 'funds' ? 24 : 0));
   const colH = idx => idx.reduce((a, i) => a + hs[i], 0) + Math.max(0, idx.length - 1) * COL_GAP;
   n = Math.min(n, secs.length);
   if (n <= 1) return [secs];
@@ -14450,12 +14562,13 @@ function fillRow(el, it, sub, rank, R) {
   sb.hidden = !subText;
   sb.className = 'sub' + (ref || (isFut(it) && !rank) ? ' tag' : '');
   ls.children[0].className = 'kw-sd ' + (open ? 'open' : 'close');
+  ls.children[0].hidden = isFund(it);                    // 증시 자금 does not trade: its state column is the business day it is for
   // 달러/엔 = a cross of two 하나은행 rates (§3-28): "계산값" where the others say 실시간 (the dot still says 장중 / 마감)
-  ls.children[1].textContent = it.calc ? '계산값' : open ? (it.delayed ? dlText(it.delayed) : '실시간') : '마감';
+  ls.children[1].textContent = isFund(it) ? mdShort(it.basDt) : it.calc ? '계산값' : open ? (it.delayed ? dlText(it.delayed) : '실시간') : '마감';
   ls.children[1].className = 'st' + (open && it.delayed ? ' dl' : '');
   ls.children[2].textContent = ref ? '' : sub || '';
-  // a yield: the chip carries its change in bp, the change column stays empty (the same number twice says nothing)
-  const v = valText(it), c = isRate(it) ? '' : chgText(it), p = chipText(it);
+  // a yield: the chip carries its change in bp, the change column stays empty (the same number twice says nothing); same for a share in %
+  const v = valText(it), c = chipIsChange(it) ? '' : chgText(it), p = chipText(it);
   const was = el.__vals;
   lv.textContent = v;
   lc.textContent = c;
@@ -14489,8 +14602,14 @@ function fillHead(sec, hd) {
   a.classList.toggle('note', !!MACRO_NOTE[sec.key]);
   if (sec.flat && !sec.ref) { s.replaceChildren(); a.replaceChildren(); return; }
   const cash = sec.cash || sec.items;                    // 미국: only the cash indices speak for the section
-  const st = stateOf(cash);
-  s.replaceChildren(h('i', { class: 'kw-sd ' + (st.open ? 'open' : 'close'), 'aria-hidden': 'true' }), st.text);
+  if (sec.key === 'funds') {
+    // a day-old statistic: the business day it is for, instead of 장중 / 마감
+    const dt = sec.items.map(it => it.basDt).filter(Boolean).sort().pop();
+    s.replaceChildren(dt ? `${mdText(dt, true)} 기준` : '');
+  } else {
+    const st = stateOf(cash);
+    s.replaceChildren(h('i', { class: 'kw-sd ' + (st.open ? 'open' : 'close'), 'aria-hidden': 'true' }), st.text);
+  }
   if (sec.ref) { a.replaceChildren(h('small', { text: '색칠하지 않는 지표' })); return; }
   // 환율 · 금리: an average of unlike things says nothing — the section says how to read it instead (§3-28)
   if (MACRO_NOTE[sec.key]) { a.replaceChildren(h('small', { class: 'kw-shn', text: MACRO_NOTE[sec.key] })); return; }
@@ -14504,7 +14623,7 @@ function renderList(d) {
   els.listW = W;
   // value / change columns: as wide as the widest text, so numbers line up across sections and columns
   let vw = 0, cw = 0;
-  for (const it of d.all) { vw = Math.max(vw, tw(valText(it), 500)); if (!isRate(it)) cw = Math.max(cw, tw(chgText(it), 500)); }   // a yield's change column is empty
+  for (const it of d.all) { vw = Math.max(vw, tw(valText(it), 500)); if (!chipIsChange(it)) cw = Math.max(cw, tw(chgText(it), 500)); }   // a yield's change column is empty
   const geo = listGeom(W, NAME_MIN + FIXED_W + Math.ceil(vw * 13.5 + 4) + Math.ceil(cw * 12.5 + 4));
   const blocks = buildColumns(d, geo);
   const cols = blocks.flatMap(b => b.cols);
@@ -14539,7 +14658,8 @@ function renderList(d) {
         const id = `kw-sh-${S.kind}-${sec.key}`;
         const hd = h(b.title ? 'h4' : 'h3', { class: 'kw-sh', id }, h('span', { class: 't' }), h('span', { class: 's' }), h('span', { class: 'a' }));
         const el = h('section', { class: 'kw-sec' + (sec.ref ? ' ref' : ''), 'data-g': sec.key, 'aria-labelledby': id }, hd,
-          h('div', { class: 'kw-rows' }, sec.items.map(rowEl)));
+          h('div', { class: 'kw-rows' }, sec.items.map(rowEl)),
+          sec.key === 'funds' ? h('p', { class: 'kw-fsrc', text: FUND_SRC }) : null);
         el.__sec = sec;
         return el;
       })))]).filter(Boolean));
@@ -15086,6 +15206,7 @@ function renderOpen(d) {
   const byCity = new Map();
   let closed = 0;
   for (const g of d.groups) for (const it of g.items) {
+    if (isFund(it)) continue;                            // 증시 자금 is not a market that opens
     if (it.status !== 'OPEN') { closed++; continue; }
     const c = cityOf(it, g);
     const e = byCity.get(c) || byCity.set(c, { city: c, its: [], it }).get(c);
@@ -15106,22 +15227,25 @@ function renderOpen(d) {
     h('p', { class: 'kw-omf' }, `한국 ${kst} · `, closed ? `마감 ${closed}개는 마지막 값이에요` : '모두 장중이에요'));
 }
 function renderSource(d) {
-  const kids = [h('span', {}, S.kind === 'commodity' && d && d.all.some(isMacro) ? '출처: 네이버 증권 · 거래소·기관마다 시세가 늦게 올 수 있어요.'
+  const fxr = it => isFx(it) || isRate(it);
+  const kids = [h('span', {}, S.kind === 'commodity' && d && d.all.some(fxr) ? '출처: 네이버 증권 · 거래소·기관마다 시세가 늦게 올 수 있어요.'
     : '출처: 네이버 증권 · 해외 지수와 원자재는 거래소별로 최대 20분 지연될 수 있어요.')];
   if (d && d.all.length) {
     const cnt = new Map();
-    for (const it of d.all) { const k = it.eod ? -1 : it.delayed || 0; cnt.set(k, (cnt.get(k) || 0) + 1); }
+    for (const it of d.all) { if (isFund(it)) continue; const k = it.eod ? -1 : it.delayed || 0; cnt.set(k, (cnt.get(k) || 0) + 1); }
     const parts = [...cnt].sort((a, b) => (a[0] < 0) - (b[0] < 0) || a[0] - b[0]).map(([k, n]) => `${k < 0 ? '하루 한 번 종가' : k ? dlText(k) : '실시간'} ${n}개`);
     kids.push(h('span', {}, ` 지금 목록: ${parts.join(' · ')}.`));
     const at = d.asOf ? new Date(d.asOf) : null;
     if (at && !isNaN(at)) kids.push(h('span', {}, ` ${fmtKstS.format(at)}(한국 시각)에 받은 값이고, 30초마다 새로 받아요.`));
   }
   if (S.kind === 'commodity') kids.push(h('span', {}, ' 원자재는 근월물 선물 가격이에요.'));
-  if (S.kind === 'commodity' && d && d.all.some(isMacro)) {
+  if (S.kind === 'commodity' && d && d.all.some(fxr)) {
     const fxs = d.all.filter(isFx), eod = fxs.find(it => it.eod), calc = fxs.find(it => it.calc);
     kids.push(h('span', {}, ' 원/달러·원/엔·원/유로·원/위안은 하나은행 고시 환율, 금리는 레피니티브 기준이에요.'
       + (eod ? ' 달러/엔은 하루 한 번 바뀌는 종가예요.' : '') + (calc ? ' 달러/엔은 원/달러와 원/엔으로 계산한 값이에요.' : '')));
   }
+  const fg = S.kind === 'commodity' && d && d.groups.find(g => g.key === 'funds');
+  if (fg) kids.push(h('span', { class: 'kw-src-fd' }, ` 증시 자금은 금융투자협회 통계(금융위원회 공공데이터포털)로 하루 한 번, 전 영업일 값으로 바뀌어요${fg.basDt ? ` — 지금 ${mdText(fg.basDt, true)} 자료` : ''}.`));
   els.src.replaceChildren(...kids);
 }
 
@@ -15252,7 +15376,7 @@ function fillDetail(full) {
     : fx ? (FX_NOTE[it.key] || KRW_NOTE) + (it.eod ? ' 레피니티브 종가라 하루에 한 번 바뀌어요.' : '')
       + (it.calc ? ' 원/달러를 1엔당 원화로 나눈 계산값이고, 차트는 레피니티브 일봉 종가예요.' : '')
     : D.kind === 'commodity' ? '근월물 선물 가격이에요. 거래소 시각 기준으로 하루가 바뀌어요.' : null;
-  const head = h('div', { class: 'kw-dh' },
+  const head = isFund(it) ? fundHead(it) : h('div', { class: 'kw-dh' },
     h('div', { class: 'kw-path', text: [it.group, city && city !== it.group ? city : null].filter(Boolean).join(' · ') }),
     h('div', { class: 'kw-nmrow' }, h('i', { class: 'kw-sw', style: `background:${colorOf(it)}` }), h('b', { id: 'kw-dt', text: it.name }),
       h('span', { class: 'kw-st ' + (it.status === 'OPEN' ? 'open' : 'close'), text: it.status === 'OPEN' ? '장중' : '마감' })),
@@ -15288,8 +15412,26 @@ function fillDetail(full) {
   }
 }
 
+// 증시 자금 in the sheet: the business day it is for, the one before, units, where it comes from; no 장중 / 마감
+function fundHead(it) {
+  const pctU = isFundPct(it);
+  const chgLine = pctU ? fundChg(it) : `${fundChg(it)}${it.ratio != null ? ` (${pct(it.ratio)})` : ''}`;
+  return h('div', { class: 'kw-dh' },
+    h('div', { class: 'kw-path', text: '증시 자금 · 금융투자협회' }),
+    h('div', { class: 'kw-nmrow' }, h('i', { class: 'kw-sw', style: `background:${colorOf(it)}` }), h('b', { id: 'kw-dt', text: it.name }),
+      h('span', { class: 'kw-st close', text: '하루 한 번' })),
+    h('div', { class: 'kw-px' }, h('b', { text: valText(it) }), h('span', { class: it.change == null ? 'flat' : cls(it.change), text: chgLine })),
+    h('dl', { class: 'kw-meta' },
+      h('dt', { text: '기준일' }), h('dd', { text: mdText(it.basDt, true) || '—' }),
+      it.prev != null ? [h('dt', { text: '전 영업일' }), h('dd', {}, valText(Object.assign({}, it, { value: it.prev })), it.prevDt ? h('small', { text: ` ${mdText(it.prevDt, true)}` }) : null)] : null,
+      h('dt', { text: '단위' }), h('dd', { text: pctU ? '% (미수금 대비)' : '조원 · 억원 (원 단위 자료를 줄여 보여 줘요)' }),
+      h('dt', { text: '갱신' }), h('dd', { text: '하루 한 번 · 보통 다음 영업일 오후에 올라와요' }),
+      h('dt', { text: '기준' }), h('dd', { text: '금융투자협회 (금융위원회 공공데이터)' })),
+    h('p', { class: 'kw-note', text: (FUND_NOTE[it.fkey] || '') + FUND_COLOR_NOTE }));
+}
 // the chart of a computed 달러/엔 comes from another source than its headline value: say so
-const srcLine = it => `출처: 네이버 증권${it.via ? ` (${it.via})` : ''} · ${delayText(it)}${it.eod ? '' : ' 시세'}${it.calc ? ' · 차트는 레피니티브 종가' : ''}`;
+const srcLine = it => isFund(it) ? `출처: 금융투자협회 · 금융위원회 공공데이터포털 · ${FUND_SRC.split(' · ')[1]}`
+  : `출처: 네이버 증권${it.via ? ` (${it.via})` : ''} · ${delayText(it)}${it.eod ? '' : ' 시세'}${it.calc ? ' · 차트는 레피니티브 종가' : ''}`;
 // 코스피 / 코스닥 opened from the ticker: today's intraday line ({pts:[[unix s, value]], base}) above the daily chart
 function todayBox(T, it) {
   if (!T || !Array.isArray(T.pts) || T.pts.length < 2) return null;
@@ -15317,7 +15459,8 @@ async function loadChart() {
   if (!D) return;
   const box = $('.kw-chart', sheet);
   const d = S.data[D.kind];
-  if (!S.chartRoute || (d && d.charts === false)) { box.replaceChildren(); box.hidden = true; return; }
+  const fund = D.key.startsWith(FUND_PFX);
+  if ((fund ? FUNDS.chartGone : !S.chartRoute) || (d && d.charts === false && !fund)) { box.replaceChildren(); box.hidden = true; return; }
   box.hidden = false;
   const k = D.key + '|' + D.tf;
   const c = CH.get(k);
@@ -15327,18 +15470,20 @@ async function loadChart() {
   drawChart();
   const res = await fetchChart(D.key, D.tf);
   if (!S.detail || S.detail.key !== D.key || S.detail.tf !== D.tf) return;
-  if (!S.chartRoute) { box.replaceChildren(); box.hidden = true; return; }
+  if (fund ? FUNDS.chartGone : !S.chartRoute) { box.replaceChildren(); box.hidden = true; return; }
   S.detail.chart = res;
   drawChart();
 }
 async function fetchChart(key, tf) {
   let res;
   try {
-    const j = await getJSON(`api/world/chart/${encodeURIComponent(key)}?tf=${tf}`);
+    const fund = key.startsWith(FUND_PFX);
+    const j = await getJSON(fund ? `api/funds/chart/${encodeURIComponent(key.slice(FUND_PFX.length))}?tf=${tf}` : `api/world/chart/${encodeURIComponent(key)}?tf=${tf}`);
     const bars = (j && Array.isArray(j.bars) ? j.bars : []).filter(b => b && b.t != null && isFinite(+b.c)).map(b => ({ t: String(b.t), c: +b.c }));
     res = { at: Date.now(), bars };
   } catch (e) {
-    if (e.status === 404 && !e.json) S.chartRoute = false;          // the Worker has no chart route at all
+    if (e.status === 404 && key.startsWith(FUND_PFX)) FUNDS.chartGone = true;   // 증시 자금 without its chart route
+    else if (e.status === 404 && !e.json) S.chartRoute = false;      // the Worker has no chart route at all
     res = { at: Date.now(), err: e, gone: e.status === 404 || e.status === 400 };
   }
   CH.set(key + '|' + tf, res);
@@ -15351,7 +15496,7 @@ function chartRetry(D) {
     CH.delete(k + '|' + tf);
     const res = await fetchChart(k, tf);
     if (!same()) return null;
-    if (!S.chartRoute) { const box = $('.kw-chart', sheet); if (box) { box.replaceChildren(); box.hidden = true; } return null; }
+    if (k.startsWith(FUND_PFX) ? FUNDS.chartGone : !S.chartRoute) { const box = $('.kw-chart', sheet); if (box) { box.replaceChildren(); box.hidden = true; } return null; }
     S.detail.chart = res;
     return !res.err;
   }, () => drawChart(), 'sm', same);
@@ -15385,7 +15530,8 @@ function drawChart() {
   // the segment moves into the new top row: a focused period button keeps the focus
   const keep = seg.contains(document.activeElement) ? document.activeElement : null;
   const put2 = (...kids) => { box.replaceChildren(...kids); if (keep && !keep.isConnected) return; if (keep && document.activeElement !== keep) keep.focus({ preventScroll: true }); };
-  const top = h('div', { class: 'kw-ctop' }, seg, h('span', { class: 'kw-cnote', text: it && it.calc ? '레피니티브 일봉 종가 · 마지막 점은 계산값' : '일봉 종가 · 마지막 점은 현재 값' }));
+  const fund = !!it && isFund(it);
+  const top = h('div', { class: 'kw-ctop' }, seg, h('span', { class: 'kw-cnote', text: fund ? '영업일마다 · 금융투자협회' : it && it.calc ? '레피니티브 일봉 종가 · 마지막 점은 계산값' : '일봉 종가 · 마지막 점은 현재 값' }));
   if (!C || C.loading) { put2(top, h('div', { class: 'kw-cmsg', text: '차트를 불러오는 중이에요…' })); return; }
   if (C.err) {
     put2(top, h('div', { class: 'kw-cmsg' }, C.gone ? '이 항목은 차트 자료가 없어요.' : '차트를 불러오지 못했어요. ', C.gone ? null : chartRetry(D)));
@@ -15394,26 +15540,28 @@ function drawChart() {
   const bars = C.bars.slice();
   // the last point follows the live value: today's bar (or a new one when the daily source lags behind)
   const L = it && parseLocal(it.tradedAt);
-  if (L && bars.length) {
-    const day = `${L.y}-${pad(L.mo)}-${pad(L.d)}`, lastB = bars[bars.length - 1];
+  const day = L ? `${L.y}-${pad(L.mo)}-${pad(L.d)}` : fund ? it.basDt : null;     // 증시 자금: the list's business day
+  if (day && bars.length) {
+    const lastB = bars[bars.length - 1];
     if (lastB.t === day) { if (lastB.c !== it.value) bars[bars.length - 1] = { t: day, c: it.value }; }
     else if (lastB.t < day) bars.push({ t: day, c: it.value });
   }
   if (bars.length < 2) { put2(top, h('div', { class: 'kw-cmsg', text: '차트 자료가 아직 없어요.' })); return; }
-  const W = Math.max(220, Math.round(box.clientWidth || 300)), H = 150, padL = 2, padR = 58, padT = 10, padB = 20;
+  const W = Math.max(220, Math.round(box.clientWidth || 300)), H = 150, padL = 2, padR = fund && !isFundPct(it) ? 74 : 58, padT = 10, padB = 20;
   const cs = bars.map(b => b.c);
   const lo = Math.min(...cs), hi = Math.max(...cs), first = cs[0], last = cs[cs.length - 1];
   const x = i => padL + (i / (bars.length - 1)) * (W - padL - padR);
   const y = v => hi === lo ? padT + (H - padT - padB) / 2 : padT + (1 - (v - lo) / (hi - lo)) * (H - padT - padB);
   const line = bars.map((b, i) => (i ? 'L' : 'M') + x(i).toFixed(1) + ' ' + y(b.c).toFixed(1)).join('');
   const area = line + `L${x(bars.length - 1).toFixed(1)} ${H - padB}L${x(0).toFixed(1)} ${H - padB}Z`;
-  const chg = (last / first - 1) * 100;
+  // a yield (§3-28): levels in %, moves in bp — "기간 동안 +32.0bp", not a % of a %; 증시 자금's share (%) moves in %p
+  const rate = !!it && isRate(it), share = !!it && isFundPct(it);
+  const chg = share ? last - first : first ? (last / first - 1) * 100 : 0;
   const dirc = isRef(it || {}) ? 'flat' : cls(chg);
   const dp = it ? dpOf(it) : 2;
-  // a yield (§3-28): levels in %, moves in bp — "기간 동안 +32.0bp", not a % of a %
-  const rate = !!it && isRate(it);
-  const fv = v => fixed(v, dp) + (rate ? '%' : '');
-  const mv = (a, b) => rate ? bpText((b - a) * 100) : pct((b / a - 1) * 100);
+  const fv = v => fund ? valText(Object.assign({}, it, { value: v })) : fixed(v, dp) + (rate ? '%' : '');
+  // 증시 자금: money moves in % of the start, a share in %p
+  const mv = (a, b) => rate ? bpText((b - a) * 100) : share ? pctpText(b - a, fundDp(it)) : !a ? '—' : pct((b / a - 1) * 100);
   const s = svg('svg', { class: 'kw-svg ' + dirc, viewBox: `0 0 ${W} ${H}`, width: W, height: H, role: 'img',
     'aria-label': `${TFS.find(t => t[0] === D.tf)[1]} 차트: ${shortDate(bars[0].t)} ${fv(first)}에서 ${shortDate(bars[bars.length - 1].t)} ${fv(last)}, ${mv(first, last)}. 최고 ${fv(hi)}, 최저 ${fv(lo)}` });
   s.append(
@@ -15429,7 +15577,7 @@ function drawChart() {
   s.append(cross, dot);
   const read = h('div', { class: 'kw-read' });
   const showAt = i => {
-    const b = bars[i], r = (b.c / first - 1) * 100;
+    const b = bars[i], r = share ? b.c - first : first ? (b.c / first - 1) * 100 : 0;
     read.replaceChildren(h('span', { text: D.tf === '1y' ? shortDateY(b.t) : shortDate(b.t) }), h('b', { text: fv(b.c) }),
       h('span', { class: isRef(it || {}) ? 'flat' : cls(r), text: i ? `${mv(first, b.c)} (기간 시작 대비)` : '기간 시작' }));
     dot.setAttribute('cx', x(i)); dot.setAttribute('cy', y(b.c));
@@ -15472,7 +15620,8 @@ async function load(kind, quiet) {
   try {
     const j = await getJSON(worldUrl(kind), ac.signal);
     if (seq !== S.seq) return null;
-    S.data[kind] = normalise(j, kind);
+    S.data[kind] = withFunds(normalise(j, kind));
+    if (kind === 'commodity') loadFunds();
     S.at[kind] = Date.now();
     S.err[kind] = null;
     failedW.delete('data:' + kind);
@@ -15548,7 +15697,7 @@ function show(kind) {
   render();
   if (was && sameKind && (S.timer || S.busy === kind)) return;   // already polling / loading this kind
   const age = Date.now() - (S.at[kind] || 0);
-  if (!S.data[kind] || age >= POLL_MS) load(kind); else schedule(POLL_MS - age);
+  if (!S.data[kind] || age >= POLL_MS) load(kind); else { schedule(POLL_MS - age); if (kind === 'commodity') loadFunds(); }
 }
 function hide() {
   S.shown = false;
@@ -15600,7 +15749,7 @@ async function openDetailKey(key, opts) {
   if (!kind && LIVE) {
     await Promise.all(['index', 'commodity'].map(async k => {
       if (S.data[k]) return;
-      try { S.data[k] = normalise(await getJSON(worldUrl(k)), k); S.at[k] = Date.now(); } catch (e) { /* the other kind may still have it */ }
+      try { S.data[k] = withFunds(normalise(await getJSON(worldUrl(k)), k)); S.at[k] = Date.now(); } catch (e) { /* the other kind may still have it */ }
     }));
     kind = find();
   }
