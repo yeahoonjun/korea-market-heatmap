@@ -642,7 +642,7 @@ def overflow_net(br):
     check('no element drawn past the screen sides (360 · 390 · 768 · 1280 × 코스피 · 테마 · 해외 · 지표 · 일정 · 관심)', not found, found)
     # 일정 with real rows (qa/calendar/mock_cal.py: a released value on a past day, long titles): every day of the week strip
     cport = PORT + 1
-    assert 8970 <= cport <= 8979
+    assert 8970 <= cport <= 8979 or 9020 <= cport <= 9029
     subprocess.run(['fuser', '-k', f'{cport}/tcp'], capture_output=True)
     srv = subprocess.Popen([sys.executable, str(ROOT / 'qa/calendar/mock_cal.py'), str(cport)], env=dict(os.environ, MOCK_WEB=os.environ.get('FLOAT_WEB', str(ROOT / 'web'))),
                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
