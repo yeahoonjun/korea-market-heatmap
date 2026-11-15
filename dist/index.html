@@ -12320,9 +12320,14 @@ function spEase(name) {
 }
 const ROLL_GAP = 40;                                         // ms between two digits, the rightmost first (§6-2)
 const SWAP = { out: 100, gap: 60, in: 180 };                   // ms, the text swap of §6-4 (fixed lengths in the standard, not springs)
+// a new value ends whatever was moving on that element (a drum or a swap) and writes the value
+function xStop(el) {
+  for (const k of ['_xr', '_xs']) if (el[k]) { for (const a of el[k]) { try { a.cancel(); } catch (e) { /* gone */ } } el[k] = null; }
+  el.classList.remove('xsw'); delete el.dataset.was;
+}
 function xRoll(el, from, to, dir) {
   to = String(to); from = from == null ? '' : String(from);
-  if (el._xr) { for (const a of el._xr) { try { a.cancel(); } catch (e) { /* gone */ } } el._xr = null; }
+  xStop(el);
   el.textContent = to;
   if (!from || from === to || from.length !== to.length || motion() !== 'fancy' || document.hidden || !el.isConnected) return;
   const dur = spMs('roll');
@@ -12354,7 +12359,7 @@ function xRoll(el, from, to, dir) {
 }
 function xSwap(el, from, to, dir) {
   to = String(to); from = from == null ? '' : String(from);
-  if (el._xs) { for (const a of el._xs) { try { a.cancel(); } catch (e) { /* gone */ } } el._xs = null; }
+  xStop(el);
   const done = () => { el.classList.remove('xsw'); delete el.dataset.was; el.textContent = to; };
   done();
   if (!from || from === to || motion() === 'reduced' || document.hidden || !el.isConnected) return;
