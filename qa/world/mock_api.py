@@ -4,6 +4,7 @@
   python3 qa/world/mock_api.py [port=8803]
 
 Routes: /api/world?kind=index|commodity[&with=fx,rates], /api/world/chart/<key>?tf=3m|1y (1d / unknown key → 400 like the Worker),
+        /api/funds, /api/funds/chart/<key>?tf=3m|1y (증시 자금, AGENTS §3-32),
         /api/quotes, /api/market, /api/replay/dates, /api/breadth, /api/themes, /data/<name>.json, static files from web/.
 Test controls (not part of the contract):
   /__mode?world=ok|fail|empty|closed|slow|html404|drift&chart=ok|none|fail   switch failure modes
@@ -11,6 +12,10 @@ Test controls (not part of the contract):
                                     fixtures/world_macro.json groups (달러/엔 = the computed cross, `calc`); eod = 달러/엔 as the
                                     Worker's fallback, the 레피니티브 daily close; norates = fx only
                                     (drift: every answer moves values a little, deterministically, to test in-place refresh)
+         &funds=empty|on|stale|partial|gone|fail|slow   증시 자금: empty (default) = 200 with no items (the group stays absent, the
+                                    console quiet — other suites are unaffected); on = fixtures/funds.json; stale = the same with
+                                    stale:true; partial = 신용융자 rows a day older; gone = plain 404 (a Worker without the route);
+                                    fail = 503 {error, code}; slow = on after 2.5 s
   /__stats   request counts per route        /__reset   counts + modes back to default
   /__last?kind=index|commodity   the last /api/world answer sent
 """
@@ -33,6 +38,8 @@ FIX = HERE / 'fixtures'
 WORLD = {k: json.loads((FIX / f'world_{k}.json').read_text(encoding='utf-8')) for k in ('index', 'commodity')}
 CHARTS = json.loads((FIX / 'charts.json').read_text(encoding='utf-8'))
 MACRO = json.loads((FIX / 'world_macro.json').read_text(encoding='utf-8'))
+FUNDS = json.loads((FIX / 'funds.json').read_text(encoding='utf-8'))
+FUND_KEYS = {it['key']: it for it in FUNDS['items']}
 KEYS = {it['key']: it for d in list(WORLD.values()) + [MACRO] for g in d['groups'] for it in g['items']}
 MARKET_P = ROOT / 'qa/extras/fixtures/market.json'
 MARKET = json.loads(MARKET_P.read_text(encoding='utf-8')) if MARKET_P.exists() else {'asOf': None, 'items': []}
@@ -45,7 +52,7 @@ for m in ('K', 'Q'):
     rows += sorted((x for x in SNAP['stocks'] if x['m'] == m and x['c'].endswith('0')), key=lambda x: -x['cap'])[:300]
 QUOTES['stocks'] = rows
 
-DEFAULT = {'world': 'ok', 'chart': 'ok', 'macro': 'off'}
+DEFAULT = {'world': 'ok', 'chart': 'ok', 'macro': 'off', 'funds': 'empty'}
 MODE = dict(DEFAULT)
 STATS = {}
 LOCK = threading.Lock()
@@ -66,6 +73,34 @@ def synth_chart(key, days):
             v = v / (1 + rnd.gauss(0.0004, 0.011))
         d -= timedelta(days=1)
     return out[::-1]
+
+
+def funds_body():
+    mode = MODE['funds']
+    d = json.loads(json.dumps(FUNDS))
+    if mode == 'stale':
+        d['stale'] = True
+    if mode == 'partial':
+        d['partial'] = ['credit']
+        for it in d['items']:
+            if it['key'].startswith('credit'):
+                it['basDt'], it['prevDt'] = '2026-11-12', '2026-11-11'
+    return d
+
+
+def funds_chart(key, tf):
+    """business days ending at the fixture value on its basDt (deterministic walk back)"""
+    it = FUND_KEYS[key]
+    rnd = random.Random('fd' + key)
+    end = date.fromisoformat(it['basDt'])
+    days = 64 if tf == '3m' else 250
+    out, v, d = [], it['value'], end
+    while len(out) < days:
+        if d.weekday() < 5:
+            out.append({'t': d.isoformat(), 'c': round(v, 2)})
+            v = max(0.01, v / (1 + rnd.gauss(0.0005, 0.004 if it['unit'] == '억원' else 0.08)))
+        d -= timedelta(days=1)
+    return {'key': key, 'name': it['name'], 'tf': tf, 'unit': it['unit'], 'bars': out[::-1]}
 
 
 def chart(key, tf):
@@ -97,7 +132,7 @@ class H(SimpleHTTPRequestHandler):
         q = dict(urllib.parse.parse_qsl(u.query))
         path = u.path
         with LOCK:
-            k = path if not path.startswith('/api/world/chart/') else '/api/world/chart'
+            k = path if not path.startswith('/api/world/chart/') and not path.startswith('/api/funds/chart/') else path.rsplit('/', 1)[0]
             STATS[k] = STATS.get(k, 0) + 1
             if path == '/api/world':
                 STATS['world:' + q.get('kind', '')] = STATS.get('world:' + q.get('kind', ''), 0) + 1
@@ -171,6 +206,25 @@ class H(SimpleHTTPRequestHandler):
             if tf not in ('3m', '1y'):
                 return self.send_json({'error': 'tf는 3m 또는 1y여야 해요 (해외 분봉 원천이 없어요)'}, 400)
             return self.send_json(chart(key, tf))
+        if path == '/api/funds' or path.startswith('/api/funds/'):
+            mode = MODE['funds']
+            if mode == 'gone':
+                return self.send_body(b'Not found', 404, 'text/plain')
+            if mode == 'fail':
+                return self.send_json({'error': '증시 자금 자료를 아직 받지 못했어요', 'code': 'upstream'}, 503)
+            if mode == 'slow':
+                time.sleep(2.5)
+            if path == '/api/funds':
+                if mode == 'empty':
+                    return self.send_json({'asOf': None, 'basDt': None, 'source': '금융투자협회', 'items': []})
+                return self.send_json(funds_body())
+            key = urllib.parse.unquote(path.rsplit('/', 1)[1])
+            if not path.startswith('/api/funds/chart/') or key not in FUND_KEYS:
+                return self.send_json({'error': '알 수 없는 항목이에요'}, 400)
+            tf = q.get('tf') or '3m'
+            if tf not in ('3m', '1y'):
+                return self.send_json({'error': 'tf는 3m 또는 1y여야 해요'}, 400)
+            return self.send_json(funds_chart(key, tf))
         if path == '/api/quotes':
             return self.send_json(QUOTES)
         if path == '/api/market':
