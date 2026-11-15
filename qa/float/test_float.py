@@ -205,7 +205,7 @@ def phone(br):
     ind = {}
     for m in ('K', 'CAL'):
         pg.click(f'.tabs button[data-mkt="{m}"]'); pg.wait_for_timeout(700)
-        ind[m] = pg.evaluate("(() => { const t = document.querySelector('.tabs'), b = t.querySelector('[aria-pressed=true]'), cs = getComputedStyle(t); return [b.offsetHeight - parseFloat(cs.getPropertyValue('--it')) - parseFloat(cs.getPropertyValue('--ib')) + (t.clientHeight - b.offsetTop - b.offsetHeight) , parseFloat(cs.getPropertyValue('--it')), t.clientHeight - parseFloat(cs.getPropertyValue('--it')) - parseFloat(cs.getPropertyValue('--ib'))]; })()")
+        ind[m] = pg.evaluate("(() => { const t = document.querySelector('.tabs-sc'), b = t.querySelector('[aria-pressed=true]'), cs = getComputedStyle(t); return [b.offsetHeight - parseFloat(cs.getPropertyValue('--it')) - parseFloat(cs.getPropertyValue('--ib')) + (t.clientHeight - b.offsetTop - b.offsetHeight) , parseFloat(cs.getPropertyValue('--it')), t.clientHeight - parseFloat(cs.getPropertyValue('--it')) - parseFloat(cs.getPropertyValue('--ib'))]; })()")
     check('phone: the selected pill is as tall on 일정 (one line) as on 코스피 (two lines), 2px in from the row', ind['K'][2] == ind['CAL'][2] and ind['K'][1] == 2, ind)
     # ── 일정: 표시 설정 shows 화면 · 아래 막대, no empty heading, no map rows ──
     pg.click('#setBtn'); pg.wait_for_timeout(700)
@@ -487,79 +487,102 @@ def shapes(br):
 
 
 TABS = r"""() => {
-  const t = document.querySelector('.tabs'), tr = t.getBoundingClientRect(), R = e => { const r = e.getBoundingClientRect(); return { l: r.left, r: r.right, t: r.top, b: r.bottom, w: r.width, h: r.height }; };
-  const btn = Object.fromEntries([...t.querySelectorAll(':scope > button')].map(b => [b.dataset.mkt, R(b)]));
-  const seps = [...t.querySelectorAll(':scope > .tsep')].map(s => ({ ...R(s), hidden: s.getAttribute('aria-hidden'), bg: getComputedStyle(s).backgroundSize, bgc: getComputedStyle(s).backgroundColor }));
-  const w = t.querySelector(':scope > .tpin'), wr = R(w);
-  const hit = [wr.l + 3, (wr.l + wr.r) / 2, wr.r - 3].every(x => { const e = document.elementFromPoint(x, (wr.t + wr.b) / 2); return !!e && w.contains(e); });
-  const p = getComputedStyle(t, '::before'), own = getComputedStyle(w, '::before');
-  const ind = { l: tr.left + t.clientLeft + parseFloat(p.left) - t.scrollLeft, r: tr.left + t.clientLeft + t.clientWidth - parseFloat(p.right) - t.scrollLeft,
-    t: tr.top + t.clientTop + parseFloat(p.top), b: tr.top + t.clientTop + t.clientHeight - parseFloat(p.bottom), op: +p.opacity };
+  const t = document.querySelector('.tabs'), sc = t.querySelector(':scope > .tabs-sc'), w = t.querySelector(':scope > .tpin');
+  const R = e => { const r = e.getBoundingClientRect(); return { l: r.left, r: r.right, t: r.top, b: r.bottom, w: r.width, h: r.height }; };
+  const scR = R(sc), hd = document.querySelector('header.top'), hs = getComputedStyle(hd), hr = R(hd);
+  const inner = { l: hr.l + parseFloat(hs.paddingLeft), r: hr.r - parseFloat(hs.paddingRight) };
+  const all = [...sc.querySelectorAll(':scope > button'), w];
+  const btn = Object.fromEntries(all.map(b => [b.dataset.mkt, R(b)]));
+  const seps = [...t.querySelectorAll('.tsep')].map(s => ({ ...R(s), hidden: s.getAttribute('aria-hidden') }));
+  // every label: the part inside the scroller's box (or all of ★관심's) is hit-tested at 5 points — only its own button may answer
+  const covered = [];
+  for (const b of all) {
+    const rg = document.createRange(); rg.selectNodeContents(b.querySelector('.tn') || b);
+    for (const q of rg.getClientRects()) {
+      const l = b === w ? q.left : Math.max(q.left, scR.l), r = b === w ? q.right : Math.min(q.right, scR.r);
+      if (r - l < 2) continue;
+      for (let k = 0; k < 5; k++) { const x = l + 1 + (r - l - 2) * k / 4, y = (q.top + q.bottom) / 2, e = document.elementFromPoint(x, y);
+        if (!e || !b.contains(e)) covered.push([b.dataset.mkt, Math.round(x), e ? (e.className || e.tagName) : null]); }
+    }
+  }
+  const p = getComputedStyle(sc, '::before'), own = getComputedStyle(w, '::before'), wr = R(w);
+  const ind = { l: scR.l + sc.clientLeft + parseFloat(p.left) - sc.scrollLeft, r: scR.l + sc.clientLeft + sc.clientWidth - parseFloat(p.right) - sc.scrollLeft,
+    t: scR.t + sc.clientTop + parseFloat(p.top), b: scR.t + sc.clientTop + sc.clientHeight - parseFloat(p.bottom), op: +p.opacity };
   const ownR = { l: wr.l + parseFloat(own.left), r: wr.r - parseFloat(own.right), t: wr.t + parseFloat(own.top), b: wr.b - parseFloat(own.bottom), op: +own.opacity };
-  const sel = t.querySelector('button[aria-pressed="true"]');
-  const cs = getComputedStyle(t), inX = parseFloat(cs.getPropertyValue('--ind-in')) || 0, inY = inX + (parseFloat(cs.getPropertyValue('--ind-iy')) || 0);
-  return { tabs: R(t), sl: t.scrollLeft, max: t.scrollWidth - t.clientWidth, cls: t.className, pin: t.dataset.pin != null, btn, seps, hit, ind, own: ownR, inX, inY,
-    sel: sel && sel.dataset.mkt, selHit: !!sel && (() => { const r = R(sel), e = document.elementFromPoint((r.l + r.r) / 2, (r.t + r.b) / 2); return !!e && sel.contains(e); })(),
-    map: Math.round(document.getElementById('map').getBoundingClientRect().top + scrollY), vw: innerWidth };
+  const sel = t.querySelector('button[aria-pressed="true"]'), cs = getComputedStyle(sc);
+  const inX = parseFloat(cs.getPropertyValue('--ind-in')) || 0, inY = inX + (parseFloat(cs.getPropertyValue('--ind-iy')) || 0);
+  const mask = cs.webkitMaskImage || cs.maskImage || 'none';
+  return { sc: scR, inner, hdr: hr, sl: sc.scrollLeft, max: sc.scrollWidth - sc.clientWidth, more: sc.classList.contains('more-r'), mask, pin: t.dataset.pin || null,
+    btn, seps, covered, ind, own: ownR, inX, inY, sel: sel && sel.dataset.mkt,
+    wHit: [wr.l + 3, (wr.l + wr.r) / 2, wr.r - 3].every(x => { const e = document.elementFromPoint(x, (wr.t + wr.b) / 2); return !!e && w.contains(e); }),
+    selHit: !!sel && (() => { const r = R(sel), e = document.elementFromPoint((r.l + r.r) / 2, (r.t + r.b) / 2); return !!e && sel.contains(e); })(),
+    map: Math.round(document.getElementById('map').getBoundingClientRect().top + scrollY), vw: innerWidth, sticky: getComputedStyle(w).position };
 }"""
 
 
 def tabgroups(br):
-    """the market tabs in three groups with ★관심 pinned on phones (사용자 2026-11-15 21:38~21:40)"""
-    for w, h, top in ((360, 740, 247), (390, 844, 247), (768, 1024, 250), (1280, 800, 207)):
-        for theme in (('base', 'glass-dark') if w == 390 else ('base',)):
+    """the market tabs in three groups; on phones ★관심 sits outside the sideways scroller (사용자 2026-11-15 21:38~21:40, and 22:35:
+    Samsung Internet left the old sticky ★관심 half off the header and the fade in the middle of 지표)"""
+    for w, h, top in ((360, 740, 247), (384, 832, 247), (390, 844, 247), (412, 915, 247), (768, 1024, 250), (1280, 800, 207)):
+        for theme in (('base', 'glass-dark') if w in (384, 390) else ('base',)):
             ctx, pg = open_page(br, w, h, theme=theme)
             tag = f'[{w}{" " + theme if theme != "base" else ""}]'
-            s = pg.evaluate(TABS)
-            check(f'tabs {tag}: map top {s["map"]} (= {top})', s['map'] == top, s['map'])
-            pg.evaluate("document.querySelector('.tabs').scrollLeft = 1e5"); pg.wait_for_timeout(150)
-            e = pg.evaluate(TABS)
+            phone = w <= 760
+            ends = {}
+            for nm, sl in (('start', '0'), ('end', '1e5')):
+                pg.evaluate(f"document.querySelector('.tabs-sc').scrollLeft = {sl}"); pg.wait_for_timeout(150)
+                ends[nm] = pg.evaluate(TABS)
+            s, e = ends['start'], ends['end']
+            check(f'tabs {tag}: map top {s["map"]} (= {top}); ★관심 not sticky', s['map'] == top and s['sticky'] != 'sticky', (s['map'], s['sticky']))
             b, sp = e['btn'], e['seps']
             th = b['K']['h']
-            check(f'tabs {tag}: two dividers, aria-hidden, between 전체|테마 and 일정|★관심, ~60 % of a tab',
+            check(f'tabs {tag}: two dividers, aria-hidden, between 전체|테마 and the row|★관심, ~60 % of a tab',
                   len(sp) == 2 and all(x['hidden'] == 'true' for x in sp)
-                  and b['ALL']['r'] <= sp[0]['l'] + .5 and sp[0]['r'] <= b['THEME']['l'] + .5 and b['CAL']['r'] <= sp[1]['l'] + .5 and sp[1]['r'] <= b['WATCH']['l'] + .5
-                  and .5 <= sp[0]['h'] / th <= .7 and (.5 <= sp[1]['h'] / th <= .7 or '24px' in sp[1]['bg']), (sp, th, {k: (round(v['l']), round(v['r'])) for k, v in b.items()}))
-            phone = w <= 760
+                  and b['ALL']['r'] <= sp[0]['l'] + .5 and sp[0]['r'] <= b['THEME']['l'] + .5 and min(b['CAL']['r'], e['sc']['r']) <= sp[1]['l'] + .5 and sp[1]['r'] <= b['WATCH']['l'] + .5
+                  and all(.5 <= x['h'] / th <= .7 for x in sp), (sp, th, {k: (round(v['l']), round(v['r'])) for k, v in b.items()}))
+            for nm, x in ends.items():
+                wr = x['btn']['WATCH']
+                check(f'tabs {tag}: row at its {nm} — ★관심 wholly inside the header, nothing over it; no label covered except by the row\'s own edge',
+                      wr['l'] >= x['inner']['l'] - .5 and wr['r'] <= x['inner']['r'] + .5 and wr['r'] <= x['vw'] and x['wHit'] and wr['l'] >= x['sc']['r'] and not x['covered'],
+                      (wr, x['inner'], x['sc']['r'], x['wHit'], x['covered'][:6]))
             if phone:
-                check(f'tabs {tag}: the row scrolls and ★관심 is pinned (sticky, its own surface)', s['max'] > 0 and 'pin-on' in s['cls'], s['cls'])
-                for nm, x in (('start', s), ('end', e)):
-                    wr = x['btn']['WATCH']
-                    check(f'tabs {tag}: ★관심 wholly visible with the row at its {nm}', wr['l'] >= x['tabs']['l'] - .5 and wr['r'] <= x['tabs']['r'] + .5 and wr['r'] <= x['vw'] and x['hit'], (wr, x['tabs'], x['hit']))
-                check(f'tabs {tag}: the fade shows only while tabs are hidden to the right', 'more-r' in s['cls'] and 'more-r' not in e['cls'], (s['cls'], e['cls']))
-                pg.evaluate("document.querySelector('.tabs').scrollLeft = 0"); pg.wait_for_timeout(100)
-            # every tab, selected: not under the pinned ★관심 / its divider / the fade, and the pill + underline on it
+                check(f'tabs {tag}: the row scrolls; its own mask fades the right edge only while tabs are hidden to the right',
+                      s['max'] > 0 and s['more'] and 'gradient' in s['mask'] and not e['more'] and e['mask'] == 'none', (s['max'], s['more'], s['mask'][:60], e['more'], e['mask'][:30]))
+            else:
+                check(f'tabs {tag}: the row does not scroll, no fade', s['max'] <= 0 and not s['more'] and not e['more'], (s['max'], s['more']))
+            pg.evaluate("document.querySelector('.tabs-sc').scrollLeft = 0"); pg.wait_for_timeout(100)
+            # every tab, selected: in view (clear of the fade), the pill + underline on it, ★관심 with its own
             bad = []
             for m in ('K', 'Q', 'ALL', 'THEME', 'WORLD', 'CMDTY', 'CAL', 'WATCH', 'K'):
-                pg.evaluate(f"document.querySelector('.tabs button[data-mkt=\"{m}\"]').click()"); pg.wait_for_timeout(560)
+                pg.evaluate(f"document.querySelector('.tabs button[data-mkt=\"{m}\"]').click()"); pg.wait_for_timeout(600)
                 x = pg.evaluate(TABS)
                 br_ = x['btn'][m]
-                lim = x['seps'][1]['l'] - (16 if 'more-r' in x['cls'] else 0) if (phone and m != 'WATCH') else x['tabs']['r']
-                pill = x['own'] if x['pin'] else x['ind']
+                lim = x['sc']['r'] - (20 if x['more'] else 0) if m != 'WATCH' else x['inner']['r']
+                low = x['sc']['l'] if m != 'WATCH' else x['inner']['l']
+                pill = x['own'] if m == 'WATCH' else x['ind']
                 off = max(abs(pill['l'] - (br_['l'] + x['inX'])), abs(pill['r'] - (br_['r'] - x['inX'])), abs(pill['t'] - (br_['t'] + x['inY'])), abs(pill['b'] - (br_['b'] - x['inY'])))
-                ok = x['sel'] == m and x['selHit'] and br_['l'] >= x['tabs']['l'] - .5 and br_['r'] <= lim + .5 and pill['op'] == 1 and off <= 1 and x['pin'] == (phone and m == 'WATCH')
+                ok = (x['sel'] == m and x['selHit'] and br_['l'] >= low - .5 and br_['r'] <= lim + .5 and pill['op'] == 1 and off <= 1
+                      and (x['pin'] == 'on') == (m == 'WATCH') and (m != 'WATCH' or x['ind']['op'] == 0) and not x['covered'])
                 if not ok:
-                    bad.append((m, x['sel'], x['selHit'], round(br_['l']), round(br_['r']), round(lim), x['pin'], round(off, 2), pill['op']))
-            check(f'tabs {tag}: each tab when selected is in view, not under the pinned ★관심, with its pill on it (±1px)', not bad, bad)
+                    bad.append((m, x['sel'], x['selHit'], round(br_['l']), round(br_['r']), round(lim), x['pin'], round(off, 2), pill['op'], x['covered'][:3]))
+            check(f'tabs {tag}: each tab when selected is in view (clear of the fade), its pill on it (±1px); ★관심 with its own', not bad, bad)
+            # ★관심 selected: the row scrolls both ways, its pill stays; leaving it, the shared pill sets out from ★관심
+            pg.evaluate("document.querySelector('.tabs button[data-mkt=\"WATCH\"]').click()"); pg.wait_for_timeout(600)
+            ok = []
+            for sl in ('1e5', '0'):
+                pg.evaluate(f"document.querySelector('.tabs-sc').scrollLeft = {sl}"); pg.wait_for_timeout(120)
+                x = pg.evaluate(TABS); wr = x['btn']['WATCH']
+                ok.append(x['pin'] == 'on' and x['own']['op'] == 1 and x['ind']['op'] == 0 and abs(x['own']['l'] - wr['l']) <= 1 and x['wHit'])
+            check(f'tabs {tag}: ★관심 selected — its own pill on it at either scroll end', all(ok), ok)
+            st = pg.evaluate("""async () => { const t = document.querySelector('.tabs'), sc = t.querySelector('.tabs-sc'), w = t.querySelector('.tpin'), wr = w.getBoundingClientRect();
+              t.querySelector('button[data-mkt="K"]').click(); await null; await null;
+              const p = getComputedStyle(sc, '::before'), q = sc.getBoundingClientRect();
+              return { wl: wr.left, wr: wr.right, l: q.left + sc.clientLeft + parseFloat(p.left) - sc.scrollLeft, r: q.left + sc.clientLeft + sc.clientWidth - parseFloat(p.right) - sc.scrollLeft, pin: t.dataset.pin || null, op: +p.opacity }; }""")
+            check(f'tabs {tag}: leaving ★관심 the shared pill starts on it (not from a stale place)', abs(st['l'] - st['wl']) <= 2 and abs(st['r'] - st['wr']) <= 2 and not st['pin'] and st['op'] == 1, st)
             if phone:
-                # ★관심 selected, the row scrolled both ways: its own pill stays on it; leaving it, the shared pill sets out from where it is
-                pg.evaluate("document.querySelector('.tabs button[data-mkt=\"WATCH\"]').click()"); pg.wait_for_timeout(600)
-                ok = []
-                for sl in ('1e5', '0'):
-                    pg.evaluate(f"document.querySelector('.tabs').scrollLeft = {sl}"); pg.wait_for_timeout(120)
-                    x = pg.evaluate(TABS); wr = x['btn']['WATCH']
-                    ok.append(x['pin'] and x['own']['op'] == 1 and x['ind']['op'] == 0 and abs(x['own']['l'] - wr['l']) <= 1 and x['hit'])
-                check(f'tabs {tag}: ★관심 selected — its own pill, on it at either scroll end', all(ok), ok)
-                st = pg.evaluate("""async () => { const t = document.querySelector('.tabs'), w = t.querySelector('.tpin'), wr = w.getBoundingClientRect();
-                  t.querySelector('button[data-mkt="K"]').click(); await null; await null;
-                  const p = getComputedStyle(t, '::before'), tr = t.getBoundingClientRect();
-                  return { wl: wr.left, wr: wr.right, l: tr.left + t.clientLeft + parseFloat(p.left) - t.scrollLeft, r: tr.left + t.clientLeft + t.clientWidth - parseFloat(p.right) - t.scrollLeft, pin: t.dataset.pin != null, op: +p.opacity }; }""")
-                check(f'tabs {tag}: leaving ★관심 the shared pill starts on it (not from a stale place)', abs(st['l'] - st['wl']) <= 2 and abs(st['r'] - st['wr']) <= 2 and not st['pin'] and st['op'] == 1, st)
-                if theme == 'base' or w == 390:
-                    pg.wait_for_timeout(500)
-                    pg.screenshot(path=str(SHOTS / f'tabs_{w}_{theme}.png'), clip={'x': 0, 'y': 40, 'width': w, 'height': 80})
-            else:
-                check(f'tabs {tag}: the row does not scroll; nothing pinned', e['max'] <= 0 and 'pin-on' not in e['cls'], e['cls'])
+                pg.wait_for_timeout(500)
+                pg.evaluate("document.querySelector('.tabs-sc').scrollLeft = 0"); pg.wait_for_timeout(120)
+                pg.screenshot(path=str(SHOTS / f'tabs_{w}_{theme}.png'), clip={'x': 0, 'y': 40, 'width': w, 'height': 80})
             ctx.close()
 
 
@@ -593,7 +616,7 @@ def overflow_net(br):
       await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
       out.sw = document.documentElement.scrollWidth; out.vw = innerWidth;
       scrollTo(300, 0); await new Promise(r => setTimeout(r, 50)); out.sx = scrollX;
-      const t = document.querySelector('.tabs'); t.scrollLeft = 40; await new Promise(r => setTimeout(r, 50)); out.tabsScroll = t.scrollLeft; t.scrollLeft = 0;
+      const t = document.querySelector('.tabs-sc'); t.scrollLeft = 40; await new Promise(r => setTimeout(r, 50)); out.tabsScroll = t.scrollLeft; t.scrollLeft = 0;
       scrollTo(0, 900); await new Promise(r => setTimeout(r, 400)); out.sy = scrollY;
       const hd = document.querySelector('header.top').getBoundingClientRect(), tb = t.getBoundingClientRect();
       out.headerStuck = tb.top >= -1 && tb.bottom <= 80 && hd.bottom > 0;

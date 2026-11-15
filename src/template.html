@@ -57,7 +57,7 @@ if(d.dataset.serif==='on'){var s=document.getElementById('kh-serif');if(s&&windo
   --pop-bg:rgba(32,34,40,.99); --pop-solid:#202228; --pop-sh:0 14px 40px rgba(0,0,0,.5);
   --sheet-fl-sh:0 24px 70px rgba(0,0,0,.6);
   --scrim:rgba(0,0,0,.45); --blur:none; --blur-bar:none;
-  --bar-bg:var(--page); --bar-sh:none; --bar-stuck:0 1px 0 var(--line2); --pin-bg:var(--bar-bg);
+  --bar-bg:var(--page); --bar-sh:none; --bar-stuck:0 1px 0 var(--line2);
   --dock-bg:#1e2026; --dock-sh:inset 0 0 0 1px var(--line2),inset 0 1px 0 rgba(255,255,255,.06),0 10px 30px rgba(0,0,0,.55); --dock-r:18px; --dock-div:var(--line2);
   /* type (§5): weights and tracking only — sizes and line heights are the same in every theme */
   --w-head:600; --w-strong:700; --track-head:normal; --font-head:var(--sans); --serif:'KH 명조','Noto Serif KR',var(--sans);
@@ -183,7 +183,7 @@ html[data-theme="glass-dark"]{
   --sheet-bg:var(--tip-bg); --sheet-bd:transparent; --sheet-r:28px; --sheet-fl-sh:var(--tip-sh); --sheet-sh:inset 0 1px 0 rgba(255,255,255,.24),inset 0 0 0 .5px rgba(255,255,255,.12),0 -14px 40px rgba(0,0,0,.45);
   --pop-bg:var(--tip-bg); --pop-solid:#1b1d23; --pop-sh:var(--tip-sh);
   --scrim:rgba(0,0,0,.22); --blur:blur(24px) saturate(1.4); --blur-bar:blur(20px) saturate(1.6);
-  --bar-bg:linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,0) 60%),rgba(16,18,24,.62); --bar-tint:rgba(16,18,24,.62); --pin-bg:linear-gradient(var(--bar-tint),var(--bar-tint)),var(--page);
+  --bar-bg:linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,0) 60%),rgba(16,18,24,.62);
   --bar-sh:inset 0 1px 0 rgba(255,255,255,.16),inset 0 0 0 .5px rgba(255,255,255,.1),0 10px 24px rgba(0,0,0,.3);
   --dock-bg:linear-gradient(180deg,rgba(255,255,255,.09),rgba(255,255,255,0) 40%),#15171d; --dock-sh:inset 0 1px 0 rgba(255,255,255,.22),inset 0 0 0 .5px rgba(255,255,255,.14),0 12px 32px rgba(0,0,0,.5); --dock-r:28px; --dock-div:rgba(255,255,255,.12);
   --tray-bg:rgba(0,0,0,.34); --tray-sh:inset 0 1px 2px rgba(0,0,0,.5),inset 0 0 0 .5px rgba(255,255,255,.1);
@@ -221,7 +221,7 @@ html[data-theme="glass-light"]{
   --sheet-bg:var(--tip-bg); --sheet-bd:transparent; --sheet-r:28px; --sheet-fl-sh:var(--tip-sh); --sheet-sh:inset 0 1px 0 #fff,inset 0 0 0 .5px rgba(255,255,255,.8),0 -14px 40px rgba(20,30,50,.2);
   --pop-bg:var(--tip-bg); --pop-solid:#f4f6f9; --pop-sh:var(--tip-sh);
   --scrim:rgba(30,40,60,.16); --blur:blur(24px) saturate(1.4); --blur-bar:blur(20px) saturate(1.6);
-  --bar-bg:linear-gradient(180deg,rgba(255,255,255,.5),rgba(255,255,255,0) 60%),rgba(246,247,250,.64); --bar-tint:rgba(246,247,250,.64); --pin-bg:linear-gradient(var(--bar-tint),var(--bar-tint)),var(--page);
+  --bar-bg:linear-gradient(180deg,rgba(255,255,255,.5),rgba(255,255,255,0) 60%),rgba(246,247,250,.64);
   --bar-sh:inset 0 1px 0 #fff,inset 0 0 0 .5px rgba(15,17,21,.08),0 10px 24px rgba(20,30,50,.1);
   --dock-bg:linear-gradient(180deg,rgba(255,255,255,.6),rgba(255,255,255,0) 40%),#f7f8fa; --dock-sh:inset 0 1px 0 #fff,inset 0 0 0 .5px rgba(15,17,21,.1),0 12px 32px rgba(20,30,50,.18); --dock-r:28px; --dock-div:rgba(15,17,21,.1);
   --tray-bg:rgba(15,17,21,.06); --tray-sh:inset 0 1px 2px rgba(15,17,21,.13),inset 0 0 0 .5px rgba(15,17,21,.07);
@@ -243,15 +243,15 @@ html[data-theme="glass-light"]{
 }
 /* the glass fallback (§6-2): no backdrop-filter, reduced transparency, 유리 흐림 끄기, or the frame watchdog / a low-end phone → the same
    shapes with opaque fills */
-html[data-theme="glass-dark"][data-blur="off"]{--blur:none;--blur-bar:none;--tip-bg:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,0) 30%),#1b1d23;--bar-bg:#14161b;--bar-tint:#14161b}
-html[data-theme="glass-light"][data-blur="off"]{--blur:none;--blur-bar:none;--tip-bg:linear-gradient(180deg,rgba(255,255,255,.5),rgba(255,255,255,0) 30%),#f4f6f9;--bar-bg:#eef1f5;--bar-tint:#eef1f5}
+html[data-theme="glass-dark"][data-blur="off"]{--blur:none;--blur-bar:none;--tip-bg:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,0) 30%),#1b1d23;--bar-bg:#14161b}
+html[data-theme="glass-light"][data-blur="off"]{--blur:none;--blur-bar:none;--tip-bg:linear-gradient(180deg,rgba(255,255,255,.5),rgba(255,255,255,0) 30%),#f4f6f9;--bar-bg:#eef1f5}
 @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
-  html[data-theme="glass-dark"]{--tip-bg:#1b1d23;--bar-bg:#14161b;--bar-tint:#14161b}
-  html[data-theme="glass-light"]{--tip-bg:#f4f6f9;--bar-bg:#eef1f5;--bar-tint:#eef1f5}
+  html[data-theme="glass-dark"]{--tip-bg:#1b1d23;--bar-bg:#14161b}
+  html[data-theme="glass-light"]{--tip-bg:#f4f6f9;--bar-bg:#eef1f5}
 }
 @media (prefers-reduced-transparency:reduce){
-  html[data-theme="glass-dark"]{--blur:none;--blur-bar:none;--tip-bg:#1b1d23;--bar-bg:#14161b;--bar-tint:#14161b}
-  html[data-theme="glass-light"]{--blur:none;--blur-bar:none;--tip-bg:#f4f6f9;--bar-bg:#eef1f5;--bar-tint:#eef1f5}
+  html[data-theme="glass-dark"]{--blur:none;--blur-bar:none;--tip-bg:#1b1d23;--bar-bg:#14161b}
+  html[data-theme="glass-light"]{--blur:none;--blur-bar:none;--tip-bg:#f4f6f9;--bar-bg:#eef1f5}
 }
 /* 명조 제목 (paper only, off by default): titles and big numbers only; line heights are fixed, so nothing moves */
 html[data-theme="paper"][data-serif="on"]{--font-head:var(--serif)}
@@ -291,6 +291,9 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 /* three groups (사용자 2026-11-15 21:38~21:40, A + "칸을 나누든 아님 묶여있는 느낌"): 코스피 · 코스닥 · 전체 | 테마 · 해외 · 지표 · 일정 |
    ★관심 — hairline dividers about 60 % of a tab, centred, decorative (aria-hidden; the buttons and their order are the widget) */
 .tabs .tsep{flex:none;align-self:center;width:1px;height:20px;margin:0 var(--space-2);background:var(--line)}
+/* ★관심 and its divider sit outside the scroller (a flex sibling), so they never scroll and need no sticky (2026-11-15 22:35: Samsung
+   Internet's older Chromium left the sticky tab half off the header and the fade in the middle of 지표) */
+.tabs-sc{display:flex;gap:2px;min-width:0}
 /* §3-16 today's change under 코스피 · 코스닥 · 전체 · ★관심 (blank → the name alone, centred; every tab keeps one height) */
 .tabs .tp{display:block;font-size:11px;line-height:12px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
 .tabs .tp:empty{display:none}
@@ -918,22 +921,16 @@ footer .credit .dc{width:1.15em;height:1.15em;flex:none}
   .status{order:2;margin-left:auto}
   .status .txt{display:none}
   .tabs{order:4;width:100%}
-  .tabs{overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:none}
-  .tabs::-webkit-scrollbar{display:none}
+  .tabs-sc{flex:7 1 auto;overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:none}
+  .tabs-sc::-webkit-scrollbar{display:none}
   /* every selected pill the same capsule (사용자 2026-11-15 19:53: 일정's one-line pill was a 40 × 40 circle touching the 휴장 pill above
      and the header's bottom edge): 52px wide at least, 2px in from the row's top and bottom (36px tall, the 40px tap area unchanged) */
   .tabs button{flex:1 0 auto;min-width:52px;padding:4px 7px;font-size:13.5px}
   .tabs{--ind-iy:2px}
   .tabs .tn{line-height:15px}
   .tabs .tsep{height:24px}
-  /* ★관심 pinned at the row's right end while the row scrolls (.pin-on, set by syncTabPin): it and its divider sit on the header's own
-     surface (--pin-bg) so tabs scrolling under them never show through, and the row fades out just before them (.more-r, only while
-     something is still hidden to the right). Its selected pill is its own (data-pin, KH.ui seg hand-off) so it stays put as the row scrolls. */
-  .tabs > .tpin{position:sticky;right:0;z-index:3}
-  .tabs > .tsep-pin{position:sticky;right:var(--pin-b,52px);z-index:3}
-  .tabs.pin-on > .tpin{background:var(--pin-bg)}
-  .tabs.pin-on > .tsep-pin{align-self:stretch;height:auto;width:calc(1px + 2 * var(--space-2));margin:0;background:linear-gradient(var(--line),var(--line)) center / 1px 24px no-repeat,var(--pin-bg)}
-  .tabs.pin-on.more-r{-webkit-mask-image:linear-gradient(to right,#000 calc(100% - var(--pin-w,64px) - 16px),transparent calc(100% - var(--pin-w,64px)),#000 calc(100% - var(--pin-w,64px)));mask-image:linear-gradient(to right,#000 calc(100% - var(--pin-w,64px) - 16px),transparent calc(100% - var(--pin-w,64px)),#000 calc(100% - var(--pin-w,64px)))}
+  /* the row fades out over its last 20px while tabs are still hidden to the right (.more-r, syncTabFade) — a mask on the scroller itself */
+  .tabs-sc.more-r{-webkit-mask-image:linear-gradient(to right,#000 calc(100% - 20px),transparent);mask-image:linear-gradient(to right,#000 calc(100% - 20px),transparent)}
   .tools{padding:0 12px 8px;gap:8px}
   .search{flex:1 1 0;min-width:0}
   .search kbd{display:none}
@@ -983,7 +980,8 @@ footer .credit .dc{width:1.15em;height:1.15em;flex:none}
   /* 8px over the clock row (사용자 2026-11-15 19:52 "모바일에서는 시계가 위 테두리랑 너무 붙어보여": the analog face sat 1.5px under the
      glass panel's top edge); PC unchanged */
   .top{padding:var(--space-4) 12px 4px;gap:6px 12px;min-height:44px}
-  .tabs{padding:0 0 4px;margin-bottom:-4px;background:none;box-shadow:none;border-radius:0}
+  .tabs{padding:0;background:none;box-shadow:none;border-radius:0}
+  .tabs-sc{padding:0 0 4px;margin-bottom:-4px}
   .tabs button:focus-visible{outline-offset:calc(var(--focus-w) * -1)}
   .basis{padding:0}
   .basis button{padding:4px 10px}
@@ -1108,20 +1106,24 @@ html[data-motion="fancy"] .kl.on .kck{transform:none;transition-delay:var(--c-fa
 .kbub.on{opacity:1;transform:none;transition-timing-function:var(--c-out)}
 .kbub svg{width:13px;height:13px;vertical-align:-2px;margin-right:5px;color:var(--acc)}
 /* segments and tab rows: one raised indicator each (KH.ui.seg) */
-.seg,.tabs,.movers-tabs{position:relative;isolation:isolate}
-.seg>button,.tabs>button,.movers-tabs>button{position:relative;z-index:1}
-.seg::before,.tabs::before,.movers-tabs::before{content:"";position:absolute;z-index:0;left:var(--il,0px);right:var(--ir,0px);top:var(--it,0px);bottom:var(--ib,0px);border-radius:var(--r-in);background:var(--ind-bg);box-shadow:var(--ind-sh);pointer-events:none;opacity:0}
-.tabs::after{content:"";position:absolute;z-index:2;left:calc(var(--il,0px) + 10px);right:calc(var(--ir,0px) + 10px);bottom:var(--ib,0px);height:2px;border-radius:2px 2px 0 0;background:var(--acc-line);pointer-events:none;opacity:0}
-:is(.seg,.tabs,.movers-tabs)[data-ind]::before,.tabs[data-ind]::after{opacity:1}
-:is(.seg,.tabs,.movers-tabs)[data-dir="r"]::before,.tabs[data-dir="r"]::after{transition:right var(--c-fast) var(--c-out),left var(--c-base) var(--c-out),top var(--c-base) var(--c-out),bottom var(--c-base) var(--c-out)}
-:is(.seg,.tabs,.movers-tabs)[data-dir="l"]::before,.tabs[data-dir="l"]::after{transition:left var(--c-fast) var(--c-out),right var(--c-base) var(--c-out),top var(--c-base) var(--c-out),bottom var(--c-base) var(--c-out)}
-:is(.seg,.tabs,.movers-tabs):not([data-ind])>button:is([aria-pressed="true"],[aria-selected="true"]){background:var(--ind-bg);box-shadow:var(--ind-sh)}
-.tabs:not([data-ind])>button:is([aria-pressed="true"],[aria-selected="true"]){box-shadow:var(--ind-sh),inset 0 -2px 0 var(--acc-line)}
+.seg,.tabs-sc,.movers-tabs{position:relative;isolation:isolate}
+.seg>button,.tabs-sc>button,.movers-tabs>button,.tabs>.tpin{position:relative;z-index:1}
+.seg::before,.tabs-sc::before,.movers-tabs::before{content:"";position:absolute;z-index:0;left:var(--il,0px);right:var(--ir,0px);top:var(--it,0px);bottom:var(--ib,0px);border-radius:var(--r-in);background:var(--ind-bg);box-shadow:var(--ind-sh);pointer-events:none;opacity:0}
+.tabs-sc::after{content:"";position:absolute;z-index:2;left:calc(var(--il,0px) + 10px);right:calc(var(--ir,0px) + 10px);bottom:var(--ib,0px);height:2px;border-radius:2px 2px 0 0;background:var(--acc-line);pointer-events:none;opacity:0}
+:is(.seg,.tabs-sc,.movers-tabs)[data-ind]::before,.tabs-sc[data-ind]::after{opacity:1}
+:is(.seg,.tabs-sc,.movers-tabs)[data-dir="r"]::before,.tabs-sc[data-dir="r"]::after{transition:right var(--c-fast) var(--c-out),left var(--c-base) var(--c-out),top var(--c-base) var(--c-out),bottom var(--c-base) var(--c-out)}
+:is(.seg,.tabs-sc,.movers-tabs)[data-dir="l"]::before,.tabs-sc[data-dir="l"]::after{transition:left var(--c-fast) var(--c-out),right var(--c-base) var(--c-out),top var(--c-base) var(--c-out),bottom var(--c-base) var(--c-out)}
+:is(.seg,.tabs-sc,.movers-tabs):not([data-ind])>button:is([aria-pressed="true"],[aria-selected="true"]){background:var(--ind-bg);box-shadow:var(--ind-sh)}
+.tabs-sc:not([data-ind])>button:is([aria-pressed="true"],[aria-selected="true"]){box-shadow:var(--ind-sh),inset 0 -2px 0 var(--acc-line)}
 .tabs>.tpin::before{content:"";position:absolute;z-index:-1;left:var(--ind-in,0px);right:var(--ind-in,0px);top:calc(var(--ind-in,0px) + var(--ind-iy,0px));bottom:calc(var(--ind-in,0px) + var(--ind-iy,0px));border-radius:var(--r-in);background:var(--ind-bg);box-shadow:var(--ind-sh);pointer-events:none;opacity:0}
 .tabs>.tpin::after{content:"";position:absolute;z-index:1;left:calc(var(--ind-in,0px) + 10px);right:calc(var(--ind-in,0px) + 10px);bottom:calc(var(--ind-in,0px) + var(--ind-iy,0px));height:2px;border-radius:2px 2px 0 0;background:var(--acc-line);pointer-events:none;opacity:0}
-.tabs[data-pin]>.tpin::before,.tabs[data-pin]>.tpin::after{opacity:1}
-.tabs[data-pin]::before,.tabs[data-pin]::after{opacity:0!important;transition:none!important}
-:is(.seg,.tabs,.movers-tabs)>button:active,:is(.seg,.tabs,.movers-tabs)>button.is-press{filter:var(--press-f);transition-duration:0s}
+/* ★관심's own pill: "go" = it fades in while the shared pill leaves through the scroller's edge (phones), "on" = it alone */
+.tabs>.tpin::before,.tabs>.tpin::after{transition:opacity var(--sp-close-dur) var(--sp-close)}
+.tabs[data-pin]>.tpin::before,.tabs[data-pin]>.tpin::after{opacity:1;transition:none}
+.tabs[data-pin="go"]>.tpin::before,.tabs[data-pin="go"]>.tpin::after{transition:opacity var(--sp-fade-dur) var(--sp-fade)}
+.tabs.pin-cut>.tpin::before,.tabs.pin-cut>.tpin::after{transition:none!important}   /* PC: the shared pill takes over in the same box */
+.tabs[data-pin="on"]>.tabs-sc::before,.tabs[data-pin="on"]>.tabs-sc::after{opacity:0!important;transition:none!important}
+:is(.seg,.tabs-sc,.movers-tabs)>button:active,:is(.seg,.tabs-sc,.movers-tabs)>button.is-press,.tabs>.tpin:active,.tabs>.tpin.is-press{filter:var(--press-f);transition-duration:0s}
 .seg>button:focus-visible,.movers-tabs>button:focus-visible{outline-offset:-1px}
 .seg button[aria-busy="true"]{color:transparent;cursor:progress}
 .seg button .kov{position:absolute;left:50%;top:50%;width:13px;height:13px;margin:-6.5px 0 0 -6.5px;color:var(--fg)}
@@ -1382,6 +1384,7 @@ html[data-theme="glass-light"]{--sheet-skirt:#f3f5f8}
   <div id="session-bar"></div><!-- §3-12: full-width session progress (src/extras draws it) -->
   <div class="brand"><i aria-hidden="true"><b style="background:#ef3e4a"></b><b style="background:#1f5a41"></b><b style="background:#383c46"></b><b style="background:#12a15b"></b></i><div id="clock"></div><span class="ttl">판세</span></div>
   <div class="tabs" role="group" aria-label="시장">
+    <div class="tabs-sc">
     <button data-mkt="K"><span class="tn">코스피</span><span class="tp" aria-hidden="true"></span></button>
     <button data-mkt="Q"><span class="tn">코스닥</span><span class="tp" aria-hidden="true"></span></button>
     <button data-mkt="ALL"><span class="tn">전체</span><span class="tp" aria-hidden="true"></span></button>
@@ -1390,6 +1393,7 @@ html[data-theme="glass-light"]{--sheet-skirt:#f3f5f8}
     <button data-mkt="WORLD" aria-label="해외 지수">해외</button>
     <button data-mkt="CMDTY">지표</button>
     <button data-mkt="CAL" aria-label="증시 일정">일정</button>
+    </div>
     <span class="tsep tsep-pin" aria-hidden="true"></span>
     <button data-mkt="WATCH" class="tpin" aria-label="관심종목"><span class="tn"><span class="st" aria-hidden="true">★</span>관심</span><span class="tp" aria-hidden="true"></span></button>
   </div>
@@ -1715,30 +1719,40 @@ const UI_SVG = {
 };
 function uiIcon(name) { const t = document.createElement('template'); t.innerHTML = UI_SVG[name] || ''; return t.content.firstElementChild || document.createElement('span'); }
 const uiMs = name => parseFloat(getComputedStyle(document.documentElement).getPropertyValue(name)) || 0;
-const UI_SEG = new WeakMap(), SEG_SEL = '.seg, .tabs, .movers-tabs';
-const TAB_PIN = { w: 0, b: 0 };     // the pinned ★관심's width and its divider's (syncTabPin)
+const UI_SEG = new WeakMap(), SEG_SEL = '.seg, .tabs-sc, .movers-tabs';
 function uiSegPlace(seg, snap) {
   const st = UI_SEG.get(seg); if (!st) return;
-  const bs = [...seg.children].filter(x => x.tagName === 'BUTTON');
+  const ext = segOutside(seg);         // the market row's ★관심: outside the scroller, its own pill (data-pin on the wrapper)
+  const bs = [...seg.children].filter(x => x.tagName === 'BUTTON').concat(ext ? [ext] : []);
   const i = bs.findIndex(b => (b.getAttribute('aria-pressed') === 'true' || b.getAttribute('aria-selected') === 'true') && !b.hidden), b = bs[i];
-  const pin = tabPinned(seg);         // the market row's ★관심 while it is pinned at the scrolling row's right end (else null)
-  if (!b || !b.offsetWidth || !seg.clientWidth) { st.i = i; st.v = ''; delete seg.dataset.ind; delete seg.dataset.pin; return; }
+  const host = seg.parentElement;
+  if (!b || !b.offsetWidth || !seg.clientWidth) { st.i = i; st.v = ''; delete seg.dataset.ind; if (ext) delete host.dataset.pin; return; }
   const cs = getComputedStyle(seg), inset = parseFloat(cs.getPropertyValue('--ind-in')) || 0, iy = inset + (parseFloat(cs.getPropertyValue('--ind-iy')) || 0);
-  // offsetLeft carries a sticky tab's offset, so the pinned ★관심 is measured where it is drawn now
-  const at = x => [x.offsetLeft + inset, seg.clientWidth - x.offsetLeft - x.offsetWidth + inset, x.offsetTop + iy, seg.clientHeight - x.offsetTop - x.offsetHeight + iy]
-    .map(n => Math.round(n * 2) / 2 + 'px');
+  // a tab outside the segment is measured from the screen, in the segment's scrolled coordinates (the shared pill travels to it)
+  const box = x => {
+    if (x !== ext) return [x.offsetLeft, x.offsetTop, x.offsetWidth, x.offsetHeight];
+    const r = x.getBoundingClientRect(), q = seg.getBoundingClientRect();
+    return [r.left - q.left - seg.clientLeft + seg.scrollLeft, r.top - q.top - seg.clientTop, r.width, r.height];
+  };
+  const at = x => { const [l, t, w, hh] = box(x); return [l + inset, seg.clientWidth - l - w + inset, t + iy, seg.clientHeight - t - hh + iy].map(n => Math.round(n * 2) / 2 + 'px'); };
   const put = w => ['--il', '--ir', '--it', '--ib'].forEach((k, j) => seg.style.setProperty(k, w[j]));
   const v = at(b);
   const moved = !snap && st.i >= 0 && i !== st.i && seg.dataset.ind != null;
-  // leaving the pinned tab: its own pill goes and the shared one sets out from where that tab is drawn now (the row may have scrolled)
-  if (seg.dataset.pin != null && b !== pin) {
-    delete seg.dataset.pin;
-    const from = bs[st.i];
-    if (moved && from && from.offsetWidth) { seg.dataset.dir = ''; put(at(from)); void seg.offsetWidth; st.v = ''; }
-  }
   clearTimeout(st.pinT); st.pinT = 0;
-  // arriving at the pinned tab: the shared pill moves there, then hands over to the tab's own (which stays put as the row scrolls)
-  const handOver = () => { if (b === pin) { if (moved) st.pinT = setTimeout(() => { st.pinT = 0; if (tabPinned(seg) === b && b.getAttribute('aria-pressed') === 'true') seg.dataset.pin = ''; }, uiMs('--c-base') + 30); else seg.dataset.pin = ''; } };
+  // leaving ★관심: its own pill fades and the shared one sets out from where ★관심 is drawn now
+  if (ext && host.dataset.pin != null && b !== ext) {
+    if (cs.overflowX === 'visible') { host.classList.add('pin-cut'); requestAnimationFrame(() => requestAnimationFrame(() => host.classList.remove('pin-cut'))); }
+    delete host.dataset.pin;
+    if (moved) { seg.dataset.dir = ''; put(at(ext)); void seg.offsetWidth; st.v = ''; }
+  }
+  // arriving at ★관심: the shared pill moves there. Where the scroller clips (phones) ★관심's own pill fades in at once while the shared
+  // one leaves through the edge; where it does not (PC) the shared pill arrives and then hands over (the same box, no seam)
+  const handOver = () => {
+    if (!ext || b !== ext) return;
+    if (!moved) { host.dataset.pin = 'on'; return; }
+    if (cs.overflowX !== 'visible') host.dataset.pin = 'go';
+    st.pinT = setTimeout(() => { st.pinT = 0; if (ext.getAttribute('aria-pressed') === 'true') host.dataset.pin = 'on'; }, uiMs('--c-base') + 30);
+  };
   if (!moved && v.join() === st.v) { st.i = i; handOver(); return; }          // a redraw that changed nothing: a running move goes on
   seg.dataset.dir = moved ? (i > st.i ? 'r' : 'l') : '';
   put(v);
@@ -1746,15 +1760,13 @@ function uiSegPlace(seg, snap) {
   st.i = i; st.v = v.join();
   handOver();
 }
-// the market tabs (phones, the row scrolls sideways): ★관심 is sticky at the right end; its divider sits just left of it
-function tabPinned(seg) {
-  if (!seg || !seg.classList.contains('tabs')) return null;
-  const p = seg.querySelector(':scope > .tpin');
-  return p && seg.scrollWidth > seg.clientWidth + 1 && getComputedStyle(p).position === 'sticky' ? p : null;
+// the market row's ★관심 (§3-4): a sibling of the scroller (.tabs-sc), part of the same segment
+function segOutside(seg) {
+  return seg && seg.classList.contains('tabs-sc') ? seg.parentElement.querySelector(':scope > .tpin') : null;
 }
 const uiSegMO = new MutationObserver(recs => {
   const segs = new Set();
-  for (const r of recs) { const el = r.target.nodeType === 1 ? r.target : r.target.parentElement, sg = el && el.closest(SEG_SEL); if (sg && UI_SEG.has(sg)) segs.add(sg); }
+  for (const r of recs) { const el = r.target.nodeType === 1 ? r.target : r.target.parentElement, sg = el && (el.closest(SEG_SEL) || (el.closest('.tpin') && el.closest('.tabs').querySelector(':scope > .tabs-sc'))); if (sg && UI_SEG.has(sg)) segs.add(sg); }
   for (const sg of segs) { uiSegKids(sg); uiSegPlace(sg); }
 });
 const uiSegRO = 'ResizeObserver' in window ? new ResizeObserver(es => {
@@ -1765,6 +1777,7 @@ function uiSeg(seg) {
   if (!seg || UI_SEG.has(seg)) return;
   UI_SEG.set(seg, { i: -1, v: '' });
   uiSegMO.observe(seg, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ['aria-pressed', 'aria-selected', 'hidden'] });
+  const ext = segOutside(seg); if (ext) uiSegMO.observe(ext, { attributes: true, attributeFilter: ['aria-pressed', 'hidden'] });
   if (uiSegRO) { uiSegRO.observe(seg); uiSegKids(seg); }
   uiSegPlace(seg, true);
 }
@@ -5353,39 +5366,26 @@ document.addEventListener('click', e => {
   // 전체 on / off: the other quotes stream now (the map draws what it has meanwhile)
   if (k === 'topN' && allScope() !== scopeWas && MODE === 'live') uiBusy(document.querySelector('.seg[data-key="topN"] button[aria-pressed="true"]'), poll());
 });
-// phones: the tab row scrolls sideways; the active tab stays in view — left of the pinned ★관심, its divider and the fade before them
+// phones: the tab row scrolls sideways; the active tab stays in view — clear of the row's fading right edge (★관심 is outside it)
 function keepTabInView() {
-  const tabs = $('.tabs'), act = tabs.querySelector('button[aria-pressed="true"]');
-  syncTabPin();
-  if (!act || tabs.scrollWidth <= tabs.clientWidth + 1) return;
-  const pin = tabPinned(tabs);
-  if (act === pin) return;                                       // always in view
-  const tr = tabs.getBoundingClientRect(), br = act.getBoundingClientRect();
-  const right = tr.right - (pin ? TAB_PIN.w + 16 : 0);
-  if (br.left < tr.left + 4) tabs.scrollLeft -= tr.left + 28 - br.left;
-  else if (br.right > right - 4) tabs.scrollLeft += br.right - right + 28;
-  syncTabPin();
+  const sc = $('.tabs-sc'), act = sc && sc.querySelector('button[aria-pressed="true"]');
+  syncTabFade();
+  if (!act || sc.scrollWidth <= sc.clientWidth + 1) return;
+  const tr = sc.getBoundingClientRect(), br = act.getBoundingClientRect(), right = tr.right - 20;
+  if (br.left < tr.left + 4) sc.scrollLeft -= tr.left + 28 - br.left;
+  else if (br.right > right - 4) sc.scrollLeft += br.right - right + 28;
+  syncTabFade();
 }
-/* the pinned ★관심 (§3-4, 사용자 2026-11-15 21:38~21:40): .pin-on while the row scrolls (its surface), --pin-b its width (the divider's sticky
-   offset), --pin-w with the divider (the fade's end), .more-r while tabs are still hidden to the right (the fade shows only then) */
-function syncTabPin() {
-  const tabs = document.querySelector('.tabs'); if (!tabs) return;
-  const pin = tabPinned(tabs), sep = tabs.querySelector(':scope > .tsep-pin');
-  tabs.classList.toggle('pin-on', !!pin);
-  if (pin) {
-    const b = pin.offsetWidth, w = b + (sep ? sep.offsetWidth : 0);
-    if (b !== TAB_PIN.b) { TAB_PIN.b = b; tabs.style.setProperty('--pin-b', b + 'px'); }
-    if (w !== TAB_PIN.w) { TAB_PIN.w = w; tabs.style.setProperty('--pin-w', w + 'px'); }
-  }
-  tabs.classList.toggle('more-r', !!pin && tabs.scrollLeft < tabs.scrollWidth - tabs.clientWidth - 1);
-  if (!pin && tabs.dataset.pin != null) uiSegPlace(tabs, true);
+// .more-r while tabs are still hidden to the right: the scroller's own mask fades its last 20px (§3-4)
+function syncTabFade() {
+  const sc = document.querySelector('.tabs-sc'); if (!sc) return;
+  sc.classList.toggle('more-r', sc.scrollWidth > sc.clientWidth + 1 && sc.scrollLeft < sc.scrollWidth - sc.clientWidth - 1);
 }
 {
-  const tabs = document.querySelector('.tabs');
-  if (tabs) {
-    tabs.addEventListener('scroll', syncTabPin, { passive: true });
-    if ('ResizeObserver' in window) new ResizeObserver(() => syncTabPin()).observe(tabs);
-    const p = tabs.querySelector(':scope > .tpin'); if (p && 'ResizeObserver' in window) new ResizeObserver(() => syncTabPin()).observe(p);
+  const sc = document.querySelector('.tabs-sc');
+  if (sc) {
+    sc.addEventListener('scroll', syncTabFade, { passive: true });
+    if ('ResizeObserver' in window) new ResizeObserver(() => syncTabFade()).observe(sc);
   }
 }
 /* 해외 / 원자재: window.KHWorld (src/world) draws into <div id="world"> */
