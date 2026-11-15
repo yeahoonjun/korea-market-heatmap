@@ -25,7 +25,7 @@
 //   GET /api/stock/:code/finance?period=annual|quarter → financial statements (cols oldest→newest)
 //   GET /api/stock/:code/research      → broker reports (target / opinion parsed from the preview) + consensus
 //   GET /api/stock/:code/lending|corp|dividend → 대차잔고 · 기업 기본 · 배당 내역 (금융위원회, 하루 한 번 — stock_datago.js)
-//   GET /data/{themes,periods,flows,names,close}.json, PWA files → static from ASSET_BASE (whitelist)
+//   GET /data/{themes,periods,flows,names,close,alerts}.json, /data/theme_why/{id}.json, PWA files → static from ASSET_BASE (whitelist)
 //   scheduled()                        → cron (every minute): appends a replay frame on weekdays 09:00 → session end (stockExchangeType.endTime) KST;
 //                                        never throws — each outcome goes to console + KV replay:status (cron weekdays must be MON-FRI: 1 = Sunday on Cloudflare)
 //   GET /api/health                    → {ok:true}
@@ -131,6 +131,8 @@ export default {
       if (path === '/api/calendar') return await calendarRoute(request, env, ctx, url);   // 증시 캘린더 (calendar.js)
       if (path === '/api/koreaexim/probe') return await koreaeximRoute(request, env, ctx, url);   // 수출입은행 확인용 (koreaexim.js)
       if (ASSETS[path]) return await getAsset(request, env, ctx, path);
+      m = path.match(THEME_WHY_RE);                                   // 테마 편입 이유 (§3-37 ①): one small file per theme
+      if (m) return await getAsset(request, env, ctx, path, { file: `theme_why/${+m[1]}.json`, type: JSON_T, ttl: 600, cors: true });
       m = path.match(/^\/api\/chart\/([^/]+)$/);
       if (m) {
         if (!CODE_RE.test(m[1])) return fail(400, '종목 코드가 올바르지 않아요');
@@ -354,6 +356,17 @@ async function getUniverse(env) {
   }
 }
 
+/* ── 거래정지 (§3-37 ⓐ, data/ENDPOINTS_EXTRA.md §9) ─────────────────────────────── */
+// polling row → true only for a trading halt (거래정지): tradableStatus 'halt' (tradableStatusCode eventHalt01, 102 stocks on
+// 2026-11-13). 'stop' (afterMarketOperationHalt / marketOperationHalt … — VI · CB-like pauses Naver labels 거래불가) and
+// 'sessionRestricted' are NOT halts. tradeStopType.name is HALTED for both halt and stop, so it decides only when a row has
+// no tradableStatus at all (Naver's own client does the same).
+function isHalted(s) {
+  if (!s) return false;
+  if (typeof s.tradableStatus === 'string' && s.tradableStatus) return s.tradableStatus.trim().toLowerCase() === 'halt';
+  return !!(s.tradeStopType && s.tradeStopType.name === 'HALTED');
+}
+
 /* ── NXT (overMarketPriceInfo) ─────────────────────────────── */
 // → {p, d, r, s:'pre'|'reg'|'after', o:1|0, t} | null (no overPrice, unknown session or trading halted). Read-only: no extra calls.
 function nxtOf(i) {
@@ -438,6 +451,7 @@ async function quotesCore(env, only, all, ms) {
     ohlcInto(row, num(s.openPriceRaw), num(s.highPriceRaw), num(s.lowPriceRaw));   // KRX day candle (§3-13)
     if (limName === 'UPPER_LIMIT') row.lim = 1;
     else if (limName === 'LOWER_LIMIT') row.lim = -1;
+    if (isHalted(s)) row.hx = 1;                               // 거래정지 (§3-37 ⓐ) — only when halted, like lim
     if (s.overMarketPriceInfo) {
       const nx = nxtOf(s.overMarketPriceInfo);
       if (nx) { row.nx = nx; if (nx.o) nxOpen = nx.s; else if (!nxSess) nxSess = nx.s; }
@@ -1816,6 +1830,7 @@ const ASSETS = {
   '/data/flows.json': { file: 'flows.json', type: JSON_T, ttl: 600, cors: true },
   '/data/names.json': { file: 'names.json', type: JSON_T, ttl: 600, cors: true },
   '/data/close.json': { file: 'close.json', type: JSON_T, ttl: 600, cors: true },
+  '/data/alerts.json': { file: 'alerts.json', type: JSON_T, ttl: 600, cors: true },   // 시장 경보 (§3-37 ⓐ, daily job 07:50 · 16:40)
   '/manifest.webmanifest': { file: 'manifest.webmanifest', type: 'application/manifest+json', ttl: 3600 },
   '/sw.js': { file: 'sw.js', type: 'text/javascript; charset=utf-8', ttl: 3600, extra: { 'service-worker-allowed': '/' } },
   '/icon.svg': { file: 'icon.svg', type: 'image/svg+xml', ttl: 3600 },
@@ -1823,8 +1838,9 @@ const ASSETS = {
   '/icon-512.png': { file: 'icon-512.png', type: 'image/png', ttl: 3600 },
   '/apple-touch-icon.png': { file: 'apple-touch-icon.png', type: 'image/png', ttl: 3600 },
 };
-async function getAsset(request, env, ctx, path) {
-  const spec = ASSETS[path];
+// /data/theme_why/<theme id>.json → web/theme_why/<id>.json (ids are Naver theme numbers; 1–5 digits, no leading zero)
+const THEME_WHY_RE = /^\/data\/theme_why\/([1-9]\d{0,4})\.json$/;
+async function getAsset(request, env, ctx, path, spec = ASSETS[path]) {
   const cache = caches.default;
   const cacheKey = new Request(new URL('/__cache/asset-' + spec.file, request.url).toString());
   const hit = await cache.match(cacheKey);

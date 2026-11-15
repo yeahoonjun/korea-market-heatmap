@@ -18,6 +18,7 @@ No endpoint here needs cookies or special headers. `m.stock.naver.com` responses
 | 5 | Price limits | `polling.finance.naver.com/api/realtime/domestic/stock/{codes}` -> `compareToPreviousPrice.name` |
 | 6 | Period returns | no bulk endpoint; per-stock `day` chart (or `front-api/.../periodChanges`) |
 | 7 | Investor flows in bulk | none; per-stock `/api/stock/{code}/trend?pageSize=1` |
+| 9 | Market alerts (투자주의 · 경고 · 위험 · 관리 · 거래정지), theme membership reasons, streaks | `stock.naver.com/api/stockSecurity/items/v2/domestic/{code}/profile` (per stock) · polling `tradableStatus` · theme `themeItemInfoMap` · `trend?pageSize=20` (§9, 2026-11-16) |
 
 ---
 
@@ -267,3 +268,67 @@ Drift: if the page is viewed on a later day before the next build, the live pric
 * Consumers must not hard-code 15:30: the page rule "asOf after 15:30" works because `asOf` of a pinned snapshot is the real end (16:30 on those days), and a live `asOf` after that is NXT-mixed.
 
 **Commit step** (`daily.yml`): fetch, `rebase -X theirs` (the job's generated `data/ web/ dist/` win), leftover conflicts in those paths resolved to the job's version, anything else aborts the rebase and fails; push retried 3x with backoff, then fails loudly.
+
+---
+
+## 9. Market alerts, trading halts, theme reasons, streaks (2026-11-16, AGENTS §3-37)
+
+Probed **2026-11-16 (Mon) 01:00-01:40 KST** (market closed; the last session was 11/13 Fri). User-Agent `PanseData/1.0 (+https://panse.pages.dev)`, no cookies,
+no Referer, no Origin. Everything below answered 200 to that honest UA.
+
+### 9a. Per-stock profile (the alert source the daily job uses)
+```
+GET https://stock.naver.com/api/stockSecurity/items/v2/domestic/{code}/profile        (200, ~750 B, ~450 B gzip; mean 0.84 s from the sandbox)
+```
+```json
+{"itemCode":"005930","itemName":"삼성전자","stockEndType":"stock","marketType":"KOSPI","exchangeType":"krx","isNxtTradable":true,
+ "industryCode":"278","industryName":"반도체와반도체장비","isinCode":"KR7005930003","marketAlertType":"normal","tradeStopType":"trading",
+ "tradableStatus":"tradable","tradableStatusCode":"ok","tradableStatusUpdatedAt":"2026-11-13T08:01:52.488+09:00",
+ "isAdministrativeIssue":false,"isLowPbr":false,"isNewlyListed":false, …}
+```
+* **`marketAlertType`** — confirmed by fetching the profiles of the stocks in Naver's own alert lists (§9b): alertType `01` 투자주의 → **`marketAlertCaution`**
+  (LIG디펜스앤에어로스페이스, SKC, 모아라이프플러스 …), `02` 투자경고 → **`marketAlertWarning`** (NHN, 깨끗한나라 …), anything else → **`normal`**.
+  `03` 투자위험 had **no stock** on 11/16, so its profile value is **not confirmed**; the job maps `marketAlertRisk` and `marketAlertDanger` to `risk`
+  and keeps any other non-normal value as the raw string (and warns in the log). Preferred shares carry their own value (깨끗한나라우 = 투자경고).
+* **`isAdministrativeIssue`** — 관리종목 (boolean). Independent of the alert type (모아라이프플러스: caution + 관리 + 거래정지).
+* **`tradableStatus`** — `tradable` | **`halt`** (거래정지, code `eventHalt01`) | `stop` (temporary pause, e.g. `afterMarketOperationHalt` at 16:21 / 17:54
+  in the after-hours single-price session — Naver's own text: "VI · CB 등 거래소 조치로 현재 거래가 일시 중단") | `sessionRestricted`. Naver labels halt
+  거래정지 and stop / sessionRestricted 거래불가.
+* **`tradeStopType`** — `trading` | `suspended`. **`suspended` for both halt and stop**, so it cannot tell a halt from a VI-like pause; use `tradableStatus`.
+* Cost: one call per stock. The daily job asks all 2,701 snapshot stocks (preferreds included) with 8 workers + 0.1 s pause each (≈ 8 calls/s, ≈ 5 min),
+  at 07:50 and 16:40 KST on weekdays → ≈ 5,400 calls/day from GitHub Actions, 0 from the Worker.
+
+### 9b. Naver's alert lists (one call per alert type — cross-check only)
+```
+GET https://stock.naver.com/api/domestic/market/stock/default?tradeType=KRX&marketType=ALL&orderType=marketAlertType&alertType=01&startIdx=0&pageSize=100
+```
+A JSON array of rows `{itemcode, itemname, marketAlertType:'01'|'02'|'03'|'00', manageStatusGb, tradeStopYn:'Y'|'N', tradableStatus, tradableStatusCode,
+managementDate, managementReasonCode, tradingHaltDate, tradingHaltReasonCode, …}`. 11/16: `01` 15 rows, `02` 12 rows, `03` 0 rows (body `[]`).
+Other `orderType`s in the same bundle: `statusTag` (관리종목 list), `tradeStopYn` (거래정지 list) — both ≥ 100 rows, paged by `startIdx`.
+Found in the stock.naver.com JS (`investmentAlert/Warning/Risk → orderType marketAlertType, alertType 01/02/03`). It would replace the 2,700 profile
+calls with ~10, but the plan the user approved uses the profile; the job calls the three alert lists once per full run and only **logs** a warning when
+they disagree with the profiles (a renamed value would show up there first).
+
+### 9c. Trading halt in the polling rows (what `/api/quotes` reads)
+`polling.finance.naver.com/api/realtime/domestic/stock/{codes}` rows carry the same three keys: `tradableStatus`, `tradableStatusCode`, `tradableStatusUpdatedAt`,
+plus `tradeStopType:{code, text, name}` (`{"1","운영.Trading","TRADING"}` / `{"2","정지.Halted","HALTED"}`). All 2,701 stocks on 11/16 01:00:
+`tradable/ok/TRADING` 2,597 · **`halt/eventHalt01/HALTED` 102** · `stop/afterMarketOperationHalt/HALTED` 2 (322780 코퍼스코리아 16:21, 270520 앱튼 17:54).
+A halted row has `openPrice`/`highPrice`/`lowPrice` `"-"`, empty `*Raw`, volume `"-"`, `overMarketPriceInfo: null`.
+→ Worker rule (`isHalted`): `hx:1` when `tradableStatus` is `halt`; when a row has no `tradableStatus`, `tradeStopType.name === 'HALTED'` (Naver's
+client does the same: `tradableStatus` first, else `tradeStop`). `stop` / `sessionRestricted` are not halts (VI stays undecided, feature-candidates §5).
+
+### 9d. Theme membership reasons
+`m.stock.naver.com/api/stocks/theme/{no}?page=N&pageSize=100` (the call the daily job already makes, §1b) has `themeItemInfoMap: {code: text}` for the
+members on that page. Texts are Naver's one-to-three-sentence notes (often a company description first, then why it is in the theme, e.g. "… 창업투자회사. 퓨리오사AI
+투자 이력 부각."), sometimes with a trailing space. All 265 themes, 6,565 member pairs (11/16): every member had a text; 703 were longer than 150 characters.
+Kept to 150 characters (whole text when it fits; else the last sentence end inside 150 if that keeps ≥ 40 %, else the last space + "…"). Stored lengths
+12-150, median 96. **Size: 265 files, 1,500,521 B raw / 625,310 B gzip in total** — mean 5.7 KB, median 3.8 KB per theme, the largest 자동차부품
+(146 members) 34.4 KB raw / 12.4 KB gzip, the smallest 0.5 KB. One bundled file would be 1.5 MB, so the page fetches only the theme it shows.
+
+### 9e. Streaks
+`m.stock.naver.com/api/stock/{code}/trend?pageSize=20` (§7, already called for flows.json) returns 20 rows newest first; `foreignerPureBuyQuant` /
+`organPureBuyQuant` are signed share counts ("+1,509,865", "-458,714", "0"). A streak counts back from the newest row while the sign stays the same; a zero
+day or an unparseable row ends it. All 2,592 common stocks on 11/13: 외국인 ≥ 3 days buy 253 / sell 532, ≥ 7 days 44 / 63; 기관 ≥ 3 days 300 / 377,
+≥ 7 days 117 / 40; a whole 20-day run (shown as "20일 이상") 45 stocks. Long 기관 runs are common in SPACs and small caps with tiny daily amounts
+(e.g. 11 days, 0.0억) — the amount column lets the page filter them.
+
