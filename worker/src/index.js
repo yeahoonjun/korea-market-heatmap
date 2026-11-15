@@ -39,6 +39,7 @@ import { MarketHub, liveRoute, configureLive, configureRelay, relayNews } from '
 import { policyRoute } from './policy.js';   // 정책 자료: KDI RSS + 관보 API (docs/standards/policy-feeds.md)
 import { datagoRoute } from './datago_routes.js';   // 공공데이터포털: /api/funds*, /api/datago/status (AGENTS §3-32, docs/standards/datago.md)
 import { calendarRoute } from './calendar.js';   // 증시 캘린더 /api/calendar (AGENTS §3-33, docs/standards/calendar.md)
+import { koreaeximRoute } from './koreaexim.js';   // 수출입은행 확인용 /api/koreaexim/probe (AGENTS §3-27 끝)
 export { MarketHub };                // the Durable Object class (wrangler.toml [exports.MarketHub]) must be exported by the main module
 // the hub polls the same rows as /api/quotes (quotesCore is a hoisted function declaration below)
 configureLive((env, ms) => quotesCore(env, null, false, ms));
@@ -126,6 +127,7 @@ export default {
       if (path === '/api/news') return await getNewsRoute(request, env, ctx);   // 시장 뉴스 RSS (docs/standards/news.md §2-2)
       if (path === '/api/policy') return await policyRoute(request, env, ctx);   // 정책 자료 (policy.js, AGENTS §3-2)
       if (path === '/api/calendar') return await calendarRoute(request, env, ctx, url);   // 증시 캘린더 (calendar.js)
+      if (path === '/api/koreaexim/probe') return await koreaeximRoute(request, env, ctx, url);   // 수출입은행 확인용 (koreaexim.js)
       if (ASSETS[path]) return await getAsset(request, env, ctx, path);
       m = path.match(/^\/api\/chart\/([^/]+)$/);
       if (m) {
