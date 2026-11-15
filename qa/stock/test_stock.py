@@ -1601,7 +1601,8 @@ def run_groups(b):
         P.pg.uncheck('.sp-gp-row input >> nth=0'); P.pg.uncheck('.sp-gp-row input >> nth=2') if P.ev("() => document.querySelectorAll('.sp-gp-row input')[2].checked") else None
         r['empty'] = P.ev("() => document.querySelector('.sp-star').getAttribute('aria-pressed')")
         P.pg.keyboard.press('Escape'); P.pg.wait_for_timeout(100)
-        r['esc'] = P.ev("() => [!document.querySelector('.sp-gp'), KHStock.isOpen(), document.activeElement.classList.contains('sp-star')]")
+        # closed at once (hidden); the box stays drawn through its `close` exit (§3-35), so "gone" = no picker that is not hidden
+        r['esc'] = P.ev("() => [!document.querySelector('.sp-gp:not([hidden])'), KHStock.isOpen(), document.activeElement.classList.contains('sp-star')]")
         r['err'] = P.console[:]; r['ov'] = [o['doc'], o['root'], o['n']]
         res[w] = r; P.close()
     ok = all(r['single'] == [False, 'true', 1] and r['rows'] == ['기본0', '반도체0'] and r['focus_in'] and r['checked'][0] == [1, 0] and r['checked'][1] == 'true'

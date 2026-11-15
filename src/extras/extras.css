@@ -98,8 +98,8 @@ html[data-tone="light"]{
 @media (pointer:coarse){.xt-btn::before{content:"";position:absolute;left:50%;top:50%;width:max(100%,44px);height:max(100%,44px);transform:translate(-50%,-50%)}}
 @media (hover:none){.xt-btn:hover{background:var(--key-bg)}.xt-async[data-st="done"]:hover{background:var(--done-bg)}.xt-async[data-st="fail"]:hover{background:var(--fail-bg)}}
 
-.xt-toast{position:fixed;left:50%;bottom:calc(18px + var(--rp-h, 0px));z-index:130;max-width:min(420px,calc(100% - 24px));transform:translate(-50%,8px);padding:9px 14px;border-radius:var(--tip-r,9px);border:1px solid var(--tip-bd,var(--line2));background:var(--tip-bg,#26282f);color:var(--fg);font-size:13px;line-height:1.45;box-shadow:var(--tip-sh,0 12px 30px rgba(0,0,0,.5));-webkit-backdrop-filter:var(--blur,none);backdrop-filter:var(--blur,none);opacity:0;pointer-events:none;transition:opacity .18s,transform .18s}
-.xt-toast.show{opacity:1;transform:translate(-50%,0)}
+.xt-toast{position:fixed;left:50%;bottom:calc(18px + var(--rp-h, 0px));z-index:130;max-width:min(420px,calc(100% - 24px));transform:translate(-50%,8px);padding:9px 14px;border-radius:var(--tip-r,9px);border:1px solid var(--tip-bd,var(--line2));background:var(--tip-bg,#26282f);color:var(--fg);font-size:13px;line-height:1.45;box-shadow:var(--tip-sh,0 12px 30px rgba(0,0,0,.5));-webkit-backdrop-filter:var(--blur,none);backdrop-filter:var(--blur,none);opacity:0;pointer-events:none;transition:opacity var(--sp-close-dur) var(--sp-close),transform var(--sp-close-dur) var(--sp-close)}
+.xt-toast.show{opacity:1;transform:translate(-50%,0);transition:opacity var(--sp-fade-dur) var(--sp-fade),transform var(--sp-open-dur) var(--sp-open)}
 
 /* dialogs (image preview in the snapshot, iOS install steps) */
 dialog.xd{position:fixed;width:min(1100px,calc(100% - 24px));max-width:none;max-height:calc(100% - 24px);margin:auto;padding:18px 18px 16px;border:1px solid var(--sheet-bd,var(--line2));border-radius:14px;background:var(--sheet-bg,var(--panel));color:var(--fg);font-family:var(--sans,inherit);box-shadow:var(--tip-sh,0 30px 80px rgba(0,0,0,.6));-webkit-backdrop-filter:var(--blur,none);backdrop-filter:var(--blur,none);overflow:auto}
@@ -122,10 +122,9 @@ dialog.xp{width:min(400px,calc(100% - 24px))}
 /* replay player (fixed at the bottom). Scoped to .rp-player so a stray .rp elsewhere can't become a fixed box.
    JS keeps --rp-h on <html> = the player's height + its bottom offset (the space it takes from the viewport). */
 .rp-open body{padding-bottom:var(--rp-h, 0px)}
-section.rp-player{position:fixed;z-index:75;left:50%;bottom:14px;width:min(1000px,calc(100% - 28px));transform:translateX(-50%);padding:10px 14px 8px;border:1px solid var(--sheet-bd,var(--line2));border-radius:14px;background:var(--sheet-bg,rgba(25,26,31,.97));box-shadow:var(--tip-sh,0 24px 70px rgba(0,0,0,.6));-webkit-backdrop-filter:var(--blur,blur(8px));backdrop-filter:var(--blur,blur(8px));animation:rpIn .2s ease-out}
-section.rp-player[hidden]{display:none}
-@keyframes rpIn{from{opacity:0;transform:translate(-50%,12px)}to{opacity:1;transform:translate(-50%,0)}}
-@keyframes rpUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+section.rp-player{position:fixed;z-index:75;left:50%;bottom:14px;width:min(1000px,calc(100% - 28px));transform:translateX(-50%);padding:10px 14px 8px;border:1px solid var(--sheet-bd,var(--line2));border-radius:14px;background:var(--sheet-bg,rgba(25,26,31,.97));box-shadow:var(--tip-sh,0 24px 70px rgba(0,0,0,.6));-webkit-backdrop-filter:var(--blur,blur(8px));backdrop-filter:var(--blur,blur(8px));opacity:1;translate:none;transition:var(--fl-open)}
+section.rp-player[hidden]{display:none;opacity:0;translate:0 12px;pointer-events:none;transition:var(--fl-close)}
+@starting-style{section.rp-player:not([hidden]){opacity:0;translate:0 12px}}
 .rp-player .rp-x{position:absolute;right:6px;top:6px;width:40px;height:40px;border-radius:8px;display:grid;place-items:center;color:var(--muted);z-index:1}
 .rp-player .rp-hd{display:flex;align-items:center;gap:7px;font-size:12.5px;font-weight:600;color:var(--fg2)}
 .rp-player .rp-badge{font-size:11px;font-weight:500;color:var(--acc,var(--amber));border:1px solid var(--acc-bd,rgba(255,181,71,.4));background:var(--acc-soft,var(--amber-soft));border-radius:5px;padding:0 6px;line-height:17px}
@@ -173,7 +172,9 @@ section.rp-player[hidden]{display:none}
 .rp-player .rp-note:empty{display:none}
 /* tablets and phones: one row (play · time · slider · settings) + one line of indexes; date and speed sit behind the settings toggle */
 @media (max-width:900px){
-  section.rp-player{left:0;right:0;bottom:0;width:auto;transform:none;border-radius:14px 14px 0 0;border-bottom:0;padding:6px 8px calc(6px + env(safe-area-inset-bottom)) 12px;animation-name:rpUp}
+  section.rp-player{left:0;right:0;bottom:0;width:auto;transform:none;border-radius:14px 14px 0 0;border-bottom:0;padding:6px 8px calc(6px + env(safe-area-inset-bottom)) 12px;transition:var(--sh-open)}
+  section.rp-player[hidden]{opacity:1;translate:0 104%;transition:var(--sh-close)}
+  @starting-style{section.rp-player:not([hidden]){opacity:1;translate:0 104%}}
   .rp-player .rp-main{display:grid;grid-template-columns:40px auto minmax(0,1fr) 40px;align-items:center;gap:2px 10px;padding-right:40px}
   .rp-player .rp-play{order:0;grid-column:1;grid-row:1}
   .rp-player .rp-when{order:0;grid-column:2;grid-row:1}
@@ -209,7 +210,6 @@ section.rp-player[hidden]{display:none}
   .rp-player .rp-ticks .o{display:none}
 }
 /* 줄이기 (the template's html[data-motion], which also follows the device setting until the viewer picks one) */
-html[data-motion="reduced"] section.rp-player{animation:none}
 /* the player's keys (controls.md §5-1): raised ones (▶, ⋯, 다시 시도) sink 1px with a shorter shadow, × only sinks and darkens */
 .rp-player :is(.rp-play,.rp-more,.rp-retry,.rp-x){transition:transform var(--c-fast) var(--c-out),box-shadow var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out),background-color var(--c-base) var(--c-out),color var(--c-base) var(--c-out)}
 .rp-player :is(.rp-play,.rp-more,.rp-retry):is(:active,.is-press){transform:translateY(1px);box-shadow:var(--key-dn);filter:var(--press-f);transition-duration:0s,0s,0s,var(--c-base),var(--c-base)}
@@ -361,11 +361,12 @@ html.sb-mid .sb{height:calc(var(--sbh) + 2px)}
 @keyframes sbPulse{50%{opacity:.45}}
 @keyframes sbGlow{50%{filter:drop-shadow(0 0 1px var(--xe-halo)) drop-shadow(0 0 1px var(--xe-halo)) drop-shadow(0 0 7px var(--xe-sunglow2))}}
 /* the bar's note: the bubble's look and motion (in --c-fast, out --c-fast; 줄이기 = at once), no layout */
-.sb-tip{--tip-dy:4px;position:absolute;bottom:calc(var(--sbh) + 22px);padding:6px 10px;border-radius:var(--tip-r,9px);border:0;background:var(--tip-bg,#26282f);box-shadow:inset 0 0 0 1px var(--tip-bd,var(--line2)),var(--tip-sh,0 8px 24px rgba(0,0,0,.5));-webkit-backdrop-filter:var(--blur,none);backdrop-filter:var(--blur,none);color:var(--fg);font-size:12.5px;line-height:1.3;white-space:nowrap;opacity:0;transform:translateY(var(--tip-dy));pointer-events:none;transition:opacity var(--c-fast) var(--c-in),transform var(--c-fast) var(--c-in)}
-.sb-tip.on{opacity:1;transform:none;transition-timing-function:var(--c-out)}
+.sb-tip{position:absolute;bottom:calc(var(--sbh) + 22px);padding:6px 10px;border-radius:var(--tip-r,9px);border:0;background:var(--tip-bg,#26282f);box-shadow:inset 0 0 0 1px var(--tip-bd,var(--line2)),var(--tip-sh,0 8px 24px rgba(0,0,0,.5));-webkit-backdrop-filter:var(--blur,none);backdrop-filter:var(--blur,none);color:var(--fg);font-size:12.5px;line-height:1.3;white-space:nowrap;opacity:0;pointer-events:none;transition:opacity var(--sp-close-dur) var(--sp-close)}
+/* a tooltip (design.md §7): it only fades — `fade` in, `close` out — where it is */
+.sb-tip.on{opacity:1;transition:opacity var(--sp-fade-dur) var(--sp-fade)}
 @media (max-width:760px){html.has-clock{--sbh:4px;--sbgap:5px;--ico:20px}.sb{left:8px;right:8px}}
 @media (prefers-reduced-motion:reduce){.sb-fancy,.sb-fancy .sb-rays{animation:none}}
-html.sb-mid .sb-tip{--tip-dy:-4px;bottom:auto;top:calc(100% + 8px)}
+html.sb-mid .sb-tip{bottom:auto;top:calc(100% + 8px)}
 
 .xc-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 
@@ -460,6 +461,8 @@ dialog.xk{width:min(560px,calc(100% - 24px));max-height:min(760px,calc(100% - 24
 @keyframes sbLive{50%{transform:scale(1.18);opacity:.75}}
 @keyframes sbRing{0%,60%,100%{transform:rotate(0)}10%{transform:rotate(14deg)}20%{transform:rotate(-12deg)}30%{transform:rotate(9deg)}40%{transform:rotate(-6deg)}}
 @media (max-width:760px){.sb-pill{font-size:10.5px;gap:3px;padding-right:6px}}
+/* between the clock row and the tab row: the desktop's 18px pill, so it clears both rows */
+html.sb-mid .sb-pill{--ph:18px}
 @media (prefers-reduced-motion:reduce){.sb-pill.sb-live .sb-pi,.sb-pill.sb-ring .sb-bell{animation:none}}
 @media (min-width:761px){html:not(.sb-mid) .sb-pill{--ph:18px;bottom:calc((var(--sbh) - var(--ph)) / 2 + 2px);font-size:10.5px}}
 
@@ -478,3 +481,28 @@ html[data-theme="paper"] .xt-toast{border-radius:var(--tip-r,2px)}
 }
 html[data-tone="light"] .rp-player .rp-date{color-scheme:light}
 html[data-tone="light"] .sb-pp{color:var(--fg)}
+
+/* ── floating windows: open · close (design.md §5 · §7; the template's "floating windows" tokens — the 일정 sheet's exit technique) ──
+   dialogs (티커 항목 · 정보 · 이미지 · 설치 안내): rise 12px with `open` as they fade in with `fade`, leave with `close` while the
+   backdrop fades; close() keeps them in the top layer through the exit (display · overlay allow-discrete) and makeDialog removes the
+   node after it. 티커 항목 on phones (≤ 600px) is a bottom sheet: up from the bottom edge, drag its title down (KH.ui.sheetDrag).
+   세계 시각: desktop = a popover that grows out of the clock (KH.ui.popIn), phones = the floating card slides up from the bottom edge. */
+dialog.xd{opacity:1;translate:none;transition:var(--fl-open),overlay var(--sp-open-dur) allow-discrete}
+dialog.xd:not([open]){opacity:0;translate:0 12px;pointer-events:none;transition:var(--fl-close),overlay var(--sp-close-dur) allow-discrete}
+@starting-style{dialog.xd[open]{opacity:0;translate:0 12px}}
+dialog.xd::backdrop{opacity:1;transition:opacity var(--sp-fade-dur) var(--sp-fade),display var(--sp-open-dur) allow-discrete,overlay var(--sp-open-dur) allow-discrete}
+dialog.xd:not([open])::backdrop{opacity:0;transition:opacity var(--sp-close-dur) var(--sp-close),display var(--sp-close-dur) allow-discrete,overlay var(--sp-close-dur) allow-discrete}
+@starting-style{dialog.xd[open]::backdrop{opacity:0}}
+@media (max-width:600px){
+  dialog.xk{transition:var(--sh-open),overlay var(--sp-open-dur) allow-discrete}
+  dialog.xk:not([open]){opacity:1;translate:0 104%;transition:var(--sh-close),overlay var(--sp-close-dur) allow-discrete}
+  @starting-style{dialog.xk[open]{opacity:1;translate:0 104%}}
+  dialog.xk{box-shadow:var(--sheet-sh,var(--tip-sh,0 30px 80px rgba(0,0,0,.6))),0 64px 0 var(--sheet-skirt,var(--panel))}
+  dialog.xk .xd-h{touch-action:none}
+}
+.xwc{clip-path:var(--kp-bleed);opacity:1;transition:var(--kp-open)}
+.xwc[hidden]{clip-path:inset(var(--kp-t,0px) var(--kp-r,0px) var(--kp-b,calc(100% - 12px)) var(--kp-l,0px) round var(--kp-rr,12px));opacity:0;pointer-events:none;transition:var(--kp-close)}
+.xwc.xwc-sheet{clip-path:none;opacity:1;translate:none;transition:var(--sh-open)}
+.xwc.xwc-sheet[hidden]{clip-path:none;opacity:1;translate:0 calc(100% + 24px);transition:var(--sh-close)}
+@starting-style{.xwc.xwc-sheet:not([hidden]){translate:0 calc(100% + 24px)}}
+.xwc.xwc-sheet .xwc-hd{touch-action:none}
