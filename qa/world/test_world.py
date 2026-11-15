@@ -471,16 +471,17 @@ def refresh_pass(browser, reduced=False, sort=None):
         page.wait_for_timeout(50)
         st = page.evaluate("""() => ({ k: document.activeElement.dataset.k, tagged: !!document.activeElement.__tag, sy: scrollY,
             fresh: [...document.querySelectorAll('#world .kw-lr')].filter(r => !r.__tag).length,
-            fl: [...document.querySelectorAll('#world .kw-fl')].filter(e => getComputedStyle(e).animationName !== 'none').length })""")
+            fl: document.querySelectorAll('#world .kw-lr .sw-go').length,
+            dirs: [...document.querySelectorAll('#world .kw-lr .kw-lv.sw-go')].map(e => { const a = e.getAnimations()[1]; const k = a && a.effect.getKeyframes()[0]; return k ? k.transform : ''; }).slice(0, 3) })""")
         last = api('/__last?kind=index')
         r = page.evaluate(LIST_JS, last)
         changed = sum(1 for kk, v in page.evaluate("Object.fromEntries([...document.querySelectorAll('#world .kw-lr')].map(r => [r.dataset.k, r.querySelector('.kw-lv').textContent]))").items() if before.get(kk) != v)
         check(f'{tag}: rows updated in place (same elements), values = new API answer', st['fresh'] == 0 and changed > 0 and not (r['bad']['value'] or r['bad']['pct'] or r['bad']['color']), f"{changed} changed; " + '; '.join((r['bad']['value'] + r['bad']['pct'])[:2]))
         check(f'{tag}: focus and scroll kept', st['k'] == k and st['tagged'] and abs(st['sy'] - sy) < 1, f"{k}→{st['k']}, scroll {sy}→{st['sy']}")
         if reduced:
-            check(f'{tag}: no highlight animation', st['fl'] == 0, str(st['fl']))
+            check(f'{tag}: values written at once (no swap)', st['fl'] == 0, str(st['fl']))
         elif not sort:
-            check(f'{tag}: brief highlight on changed values', st['fl'] > 0, str(st['fl']))
+            check(f'{tag}: changed values swap in place (KH.ui.swap, design.md §6-4)', st['fl'] > 0, f"{st['fl']} {st['dirs']}")
     finally:
         api('/__reset')
         ctx.close()
@@ -605,7 +606,7 @@ GEO_JS = r"""
     const lab = narrow ? geo.querySelector(`.kw-gc[data-c="${id}"] .p`) : geo.querySelector(`.kw-gl[data-c="${id}"] .p`);
     if (!lab || lab.textContent !== pct(it.ratio)) out.label.push(`${id} '${lab && lab.textContent}' != ${pct(it.ratio)}`);
     const open = it.status === 'OPEN';
-    const marked = !!geo.querySelector(`.kw-ggl path[data-c="${id}"]`) || !!geo.querySelector(`.kw-gmk.open[data-c="${id}"]`);
+    const marked = !!geo.querySelector(`.kw-gopen path[data-c="${id}"]`) || !!geo.querySelector(`.kw-gmk.open[data-c="${id}"]`);
     if (open !== marked) out.open.push(`${id} open=${open} outline=${marked}`);
     const dot = geo.querySelector(`.kw-gdot[data-c="${id}"], .kw-gmk[data-c="${id}"]`) || geo.querySelector(`.kw-gl[data-c="${id}"] .kw-sd`);
     if (dot && (dot.classList.contains('open') !== open)) out.open.push(`${id} marker state`);
@@ -666,8 +667,8 @@ def geo_pass(browser, width, height):
         lon, lat = subsolar(t0)
         check(f'{tag}: day/night — four 12 % caps + terminator around the antisolar point', nt['caps'] == 4 and nt['line'] == 1 and nt['empty'] == 0 and nt['op'] == '0.12'
               and nt['fill'] == 'rgb(5, 8, 20)' and lon_diff(nt['lon'], lon) < 0.5 and abs(nt['lat'] - lat) < 0.3, f"centre {nt['lon']:.2f},{nt['lat']:.2f} vs {lon:.2f},{lat:.2f}")
-        order = [c for c in r['order'] if c in ('kw-gland', 'kw-gnight', 'kw-gbord', 'kw-gglow', 'kw-glines', 'kw-gmarks')]
-        check(f'{tag}: layers fills → night → borders → glow → lines → markers', order == ['kw-gland', 'kw-gnight', 'kw-gbord', 'kw-gglow', 'kw-glines', 'kw-gmarks'], str(order))
+        order = [c for c in r['order'] if c in ('kw-gland', 'kw-gnight', 'kw-gbord', 'kw-gopen', 'kw-glines', 'kw-gmarks')]
+        check(f'{tag}: layers fills → night → borders → open-market outline → lines → markers', order == ['kw-gland', 'kw-gnight', 'kw-gbord', 'kw-gopen', 'kw-glines', 'kw-gmarks'], str(order))
         ov = page.evaluate("document.documentElement.scrollWidth - document.documentElement.clientWidth")
         check(f'{tag}: no horizontal overflow', ov <= 0, f'{ov}px')
         if mobile:
@@ -852,43 +853,42 @@ def night_pass(browser):
         a = page.evaluate("[+document.querySelector('.kw-gnight').dataset.lon, +document.querySelector('.kw-gnight').dataset.lat]")
         lon, lat = subsolar(t)
         check('day/night: centre at the antisolar point (June solstice, noon UTC)', lon_diff(a[0], lon) < 0.3 and abs(a[1] - lat) < 0.2 and abs(a[1] + 23.4) < 0.2, f'{a} vs {lon:.2f},{lat:.2f}')
-        page.clock.run_for(60 * 60 * 1000)
+        page.clock.fast_forward(60 * 60 * 1000)          # jump an hour (due timers fire once) — run_for fired every page timer for an hour
+        page.clock.run_for(61 * 1000)                     # … then the next minute's redraw
         page.wait_for_timeout(100)
         b = page.evaluate("[+document.querySelector('.kw-gnight').dataset.lon, +document.querySelector('.kw-gnight').dataset.lat]")
-        lon2, _ = subsolar(t + 3600000)
-        check('day/night: redrawn every minute (an hour later the night moved 15° west)', lon_diff(b[0], lon2) < 0.3 and abs(lon_diff(a[0], b[0]) - 15) < 0.3, f'{a[0]} → {b[0]}')
+        t2 = page.evaluate('Date.now()')
+        lon2, _ = subsolar(t2)
+        check('day/night: redrawn every minute (an hour later the night moved ~15° west)', lon_diff(b[0], lon2) < 0.3 and abs(lon_diff(a[0], b[0]) - (t2 - t) / 240000) < 0.4, f'{a[0]} → {b[0]}')
     finally:
         ctx.close()
-    # every effect level draws it; only 'fancy' pulses the open markets (KH.motion() stubbed: the template adds it later)
+    # every effect level draws it (information, AGENTS §3-5); nothing on the map moves on its own at any level (design.md §10 ③)
     ctx, page = open_page(browser, LIVE + '#world', 1280, 800, view='map', reduced=True)
     try:
         wait_world(page, GEO_SEL)
-        r = page.evaluate("({ caps: document.querySelectorAll('.kw-gnight .kw-gn').length, rm: document.getElementById('world').classList.contains('kw-rm'), anim: [...document.querySelectorAll('.kw-gp')].filter(p => getComputedStyle(p).animationName !== 'none').length })")
+        r = page.evaluate("({ caps: document.querySelectorAll('.kw-gnight .kw-gn').length, rm: document.getElementById('world').classList.contains('kw-rm'), anim: document.getElementById('world').getAnimations({ subtree: true }).length })")
         check('day/night under reduced motion: still drawn, nothing moves', r['caps'] == 4 and r['rm'] and r['anim'] == 0, str(r))
     finally:
         ctx.close()
     ctx, page = open_page(browser, LIVE + '#world', 1440, 900, view='map')
     try:
         wait_world(page, GEO_SEL)
-        PULSE = """() => { const rings = [...document.querySelectorAll('#world .kw-gp.on')].filter(p => getComputedStyle(p).animationName === 'kwRing');
-            const labs = [...document.querySelectorAll('#world .kw-gl.in .kw-sd.open')].filter(d => getComputedStyle(d, '::after').animationName === 'kwRing');
-            const open = document.querySelectorAll('#world .kw-gdot.open, #world .kw-gmk.open').length + document.querySelectorAll('#world .kw-gl.in .kw-sd.open').length;
-            const dl = rings.map(p => [+p.getAttribute('cx'), parseFloat(p.style.animationDelay)]).sort((a, b) => a[0] - b[0]).map(x => x[1]);
-            return { rings: rings.length, labs: labs.length, open, wave: dl.every((v, i) => !i || v >= dl[i - 1] - 0.02), glow: document.querySelectorAll('#world .kw-ggl path').length }; }"""
-        std = page.evaluate(PULSE)
-        check("effects 'standard': open markets glow (static), no pulse", std['rings'] == 0 and std['labs'] == 0 and std['glow'] > 0, str(std))
+        # open markets (design.md §10 ③ "열린 나라 빛 → 점 · 테두리"): a flat --live outline and --live dots — no blurred layer, no pulse
+        CUE = """() => { const w = document.getElementById('world'), live = getComputedStyle(document.documentElement).getPropertyValue('--live').trim();
+            const toRgb = c => { const d = document.createElement('i'); d.style.color = c; document.body.append(d); const v = getComputedStyle(d).color; d.remove(); return v; };
+            const L = toRgb(live), paths = [...w.querySelectorAll('.kw-gopen path')];
+            const dots = [...w.querySelectorAll('.kw-gdot.open')].map(d => getComputedStyle(d).fill), labs = [...w.querySelectorAll('.kw-gl .kw-sd.open')].map(d => getComputedStyle(d).backgroundColor);
+            return { outline: paths.length, stroke: paths.every(p => getComputedStyle(p).stroke === L), blur: [...w.querySelectorAll('.kw-gsvg *')].filter(e => /blur|drop-shadow/.test(getComputedStyle(e).filter)).length,
+              dots: dots.length, dotsLive: dots.every(f => f === L), labs: labs.length, labsLive: labs.every(f => f === L),
+              rings: w.querySelectorAll('.kw-gp').length, running: w.getAnimations({ subtree: true }).filter(a => a.effect && a.effect.getComputedTiming().iterations === Infinity).length }; }"""
+        std = page.evaluate(CUE)
+        check("open markets: a flat --live outline + --live dots (no blur, no glow layer)", std['outline'] > 0 and std['stroke'] and std['blur'] == 0 and std['dots'] + std['labs'] > 0 and std['dotsLive'] and std['labsLive'], str(std))
         page.evaluate("KH.motion = () => 'fancy'; document.dispatchEvent(new CustomEvent('kh:motion', { detail: { motion: 'fancy' } }))")
         page.wait_for_timeout(100)
-        fx = page.evaluate(PULSE)
-        check("effects 'fancy': one pulse ring per open marker, staggered west → east", fx['rings'] + fx['labs'] == fx['open'] and fx['open'] > 0 and fx['wave'] and fx['rings'] + fx['labs'] <= 25, str(fx))
-        page.evaluate("Object.defineProperty(document, 'hidden', {configurable: true, get: () => true}); document.dispatchEvent(new Event('visibilitychange'))")
-        ps = page.evaluate("getComputedStyle(document.querySelector('#world .kw-gp.on')).animationPlayState")
-        page.evaluate("Object.defineProperty(document, 'hidden', {configurable: true, get: () => false}); document.dispatchEvent(new Event('visibilitychange'))")
-        check("effects 'fancy': pulse paused while the browser tab is hidden", ps == 'paused', ps)
+        fx = page.evaluate(CUE)
+        check("effects 'fancy': still no pulse rings, nothing endless (design.md §6-6)", fx['rings'] == 0 and fx['running'] == 0 and fx['outline'] == std['outline'], str(fx))
         page.screenshot(path=str(SHOTS / 'geo_fancy_1440.png'))
         page.evaluate("KH.motion = () => 'standard'; document.dispatchEvent(new CustomEvent('kh:motion', { detail: { motion: 'standard' } }))")
-        page.wait_for_timeout(50)
-        check("effects back to 'standard': pulse stops", page.evaluate(PULSE)['rings'] == 0)
     finally:
         ctx.close()
 
@@ -905,15 +905,15 @@ def motion_setting_pass(browser):
             check('효과 setting: template has no KH.motion yet → treated as standard', not page.evaluate("document.getElementById('world').classList.contains('kw-fx')"))
             return
         r = page.evaluate("""({ m: KH.motion(), fx: document.getElementById('world').classList.contains('kw-fx'),
-            rings: [...document.querySelectorAll('#world .kw-gp.on')].filter(p => getComputedStyle(p).animationName === 'kwRing').length })""")
-        check("효과 setting 화려하게 (khm.motion): the world map pulses", r['m'] == 'fancy' and r['fx'] and r['rings'] > 0, str(r))
+            rings: document.querySelectorAll('#world .kw-gp').length, outline: document.querySelectorAll('#world .kw-gopen path').length })""")
+        check("효과 setting 화려하게 (khm.motion): kw-fx on, open markets outlined, no pulse", r['m'] == 'fancy' and r['fx'] and r['rings'] == 0 and r['outline'] > 0, str(r))
         # 효과 · 줄이기 in the template's settings (its button's own handler; the panel may be folded at this width)
         if page.evaluate("!!document.querySelector('#motionseg button[data-mo=\"reduced\"]')"):
             page.evaluate("document.querySelector('#motionseg button[data-mo=\"reduced\"]').click()")
             page.wait_for_timeout(150)
             check('효과 setting 줄이기 picked in the settings → KH.motion() reduced', page.evaluate("KH.motion()") == 'reduced')
         if page.evaluate("KH.motion()") == 'reduced':
-            r2 = page.evaluate("({ rm: document.getElementById('world').classList.contains('kw-rm'), rings: [...document.querySelectorAll('#world .kw-gp.on')].filter(p => getComputedStyle(p).animationName === 'kwRing').length, caps: document.querySelectorAll('.kw-gnight .kw-gn').length })")
+            r2 = page.evaluate("({ rm: document.getElementById('world').classList.contains('kw-rm'), rings: document.getElementById('world').getAnimations({ subtree: true }).length, caps: document.querySelectorAll('.kw-gnight .kw-gn').length })")
             check('효과 setting 줄이기: nothing moves, night still drawn', r2['rm'] and r2['rings'] == 0 and r2['caps'] == 4, str(r2))
     finally:
         ctx.close()

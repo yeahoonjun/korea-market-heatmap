@@ -20,6 +20,7 @@ Test controls (not part of the contract):
   /__last?kind=index|commodity   the last /api/world answer sent
 """
 import json
+import os
 import pathlib
 import random
 import sys
@@ -33,7 +34,7 @@ HERE = pathlib.Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
 sys.path.insert(0, str(ROOT / 'qa/live'))
 from ws_mock import answer_live   # GET /api/live: {t:'off', reason:'closed'} like the real Worker outside the session
-WEB = ROOT / 'web'
+WEB = pathlib.Path(os.environ.get('WORLD_WEB') or ROOT / 'web')      # WORLD_WEB: another build (e.g. main's, for before / after shots)
 FIX = HERE / 'fixtures'
 WORLD = {k: json.loads((FIX / f'world_{k}.json').read_text(encoding='utf-8')) for k in ('index', 'commodity')}
 CHARTS = json.loads((FIX / 'charts.json').read_text(encoding='utf-8'))
@@ -240,6 +241,8 @@ class H(SimpleHTTPRequestHandler):
                                    'counts': {'K': 0, 'Q': 0, 'total': 0, 'byKind': z, 'byKindMarket': {'K': dict(z), 'Q': dict(z)}}, 'since': '07:00'})
         if path == '/api/news':                       # news panel (§3-27): an empty, healthy answer keeps the console quiet
             return self.send_json({'asOf': None, 'items': [], 'sources': {}})
+        if path == '/api/time':                       # the clock's server time (§3-17): a 404 here was a console error on every page
+            return self.send_json({'t': int(time.time() * 1000)})
         if path == '/api/breadth':
             return self.send_json({'m': q.get('m'), 'part': 1, 'parts': 1, 'asOf': None, 'rows': []})
         if path.startswith('/data/'):
