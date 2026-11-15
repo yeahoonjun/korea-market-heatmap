@@ -13,7 +13,8 @@
    Feed tabs (disclosure.md §6, C안): another module may add a tab to this card — KHNews.addTab({key, label, count?, pane, list, at?,
    render(L), onShow?, onHide?}) → the card head becomes a title tablist (시장 뉴스 · 오늘 공시, ←/→, remembered in khm.feedTab), the
    news controls move to a second row like the other tab's, and the card keeps one height: the PC fill (whole rows, min 5, two columns
-   from 1200 px) is measured on the tab shown and handed to it as L = {measure, base, two, phone}. Only the tab shown polls its data. */
+   from 1200 px) is measured on the tab shown and handed to it as L = {measure, base, two, phone}. Only the tab shown polls its data.
+   onHide() runs when its tab stops being shown: another tab picked, the tab removed, or the card hidden (KHNews.hide). */
 (() => {
 'use strict';
 const KH = window.KH, M = window.KHNewsMatch;
@@ -511,6 +512,8 @@ function hide() {
   root.hidden = true; S.visible = false;
   clearTimeout(S.timer); S.timer = 0;
   setHover(null);
+  const ext = curExt();                                  // the tab shown goes off screen with the card (오늘 공시: its map toggle turns off)
+  if (ext && typeof ext.onHide === 'function') ext.onHide();
 }
 // a Worker without /api/news (404): no 시장 뉴스 — the card stays only when another tab has something to show
 function goneNews() {

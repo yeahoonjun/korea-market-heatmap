@@ -15859,7 +15859,8 @@ html[data-motion="reduced"] .news *{animation:none!important}
    Feed tabs (disclosure.md §6, C안): another module may add a tab to this card — KHNews.addTab({key, label, count?, pane, list, at?,
    render(L), onShow?, onHide?}) → the card head becomes a title tablist (시장 뉴스 · 오늘 공시, ←/→, remembered in khm.feedTab), the
    news controls move to a second row like the other tab's, and the card keeps one height: the PC fill (whole rows, min 5, two columns
-   from 1200 px) is measured on the tab shown and handed to it as L = {measure, base, two, phone}. Only the tab shown polls its data. */
+   from 1200 px) is measured on the tab shown and handed to it as L = {measure, base, two, phone}. Only the tab shown polls its data.
+   onHide() runs when its tab stops being shown: another tab picked, the tab removed, or the card hidden (KHNews.hide). */
 (() => {
 'use strict';
 const KH = window.KH, M = window.KHNewsMatch;
@@ -16357,6 +16358,8 @@ function hide() {
   root.hidden = true; S.visible = false;
   clearTimeout(S.timer); S.timer = 0;
   setHover(null);
+  const ext = curExt();                                  // the tab shown goes off screen with the card (오늘 공시: its map toggle turns off)
+  if (ext && typeof ext.onHide === 'function') ext.onHide();
 }
 // a Worker without /api/news (404): no 시장 뉴스 — the card stays only when another tab has something to show
 function goneNews() {
@@ -16387,7 +16390,7 @@ show();
 /* 공시 배지 (src/disclosure/disc.js · docs/standards/disclosure.md — C안). drafts/disclosure.html의 C 모양 그대로, 새 공시 표시만 사용자
    2026-11-14 결정대로 "새" 글자 대신 시각 앞의 작은 점(--new-dot). 타일 귀퉁이 · 견본(.dmsw)은 템플릿에 있어요(표 보기도 써서).
    색은 모두 역할 토큰(themes.md §4) + 템플릿의 ✚ --dm-flap · --dm-crease · --dm-cut · --new-dot. 빨강 · 초록은 등락률 숫자에만, 앰버는
-   컨트롤(켜짐 · 포커스 · 실패 표시)에만. */
+   컨트롤(켜짐 · 포커스 · 실패 표시)에만. 지도 머리줄 공시 칩(.dc-hchip)은 오늘 공시 탭의 지도 스위치(.dc-lit)로 옮겼어요(사용자 2026-11-14 08:10 요청, 11-15 진행). */
 :root{--dc-badge-r:6px}
 html[data-theme="paper"]{--dc-badge-r:2px}
 html[data-theme^="glass"]{--dc-badge-r:999px}
@@ -16400,22 +16403,61 @@ html[data-theme^="glass"]{--dc-badge-r:999px}
 .dc-kb{display:inline-block;flex:none;font-size:11px;font-weight:500;line-height:18px;padding:0 6px;border-radius:var(--dc-badge-r);color:var(--fg2);box-shadow:inset 0 0 0 1px var(--line2);white-space:nowrap;letter-spacing:-.01em}
 .dc-kb.fix{color:var(--fg2);box-shadow:none;outline:1px dashed var(--line2);outline-offset:-1px}
 
-/* ── 머리줄 공시 칩 (controls §5-7 켜고 끄기 칩: 채움 + 테 + 체크 0 → 14px) ── */
-.dc-hchip{position:relative;display:inline-flex;align-items:center;gap:0;height:28px;padding:0 11px;border-radius:var(--r-chip);background:var(--chip-bg);box-shadow:var(--key-sh);font-size:12.5px;font-weight:600;color:var(--key-fg);white-space:nowrap;flex:none;
-  transition:background var(--c-fast) var(--c-out),box-shadow var(--c-fast) var(--c-out),transform var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out)}
-.dc-hchip .ck{display:inline-block;width:0;height:14px;opacity:0;transform:scale(.6);background:currentColor;-webkit-mask:var(--ck-mask) center/14px no-repeat;mask:var(--ck-mask) center/14px no-repeat;
-  transition:width var(--c-fast) var(--c-out),opacity var(--c-fast) var(--c-out),transform var(--c-fast) var(--c-out),margin var(--c-fast) var(--c-out)}
-.dc-hchip[aria-pressed="true"]{background:var(--chip-on);box-shadow:inset 0 0 0 1.5px var(--chip-ring),var(--key-sh)}
-.dc-hchip[aria-pressed="true"] .ck{width:14px;opacity:1;transform:none;margin-right:6px}
-.dc-hchip .dmsw,.dc-hchip .kspn{margin-right:7px}
-.dc-hchip .kspn{width:13px;height:13px}
-.dc-hchip .dc-n{margin-left:6px;color:var(--fg2);font-variant-numeric:tabular-nums}
-.dc-hchip .dc-bad{margin-left:5px;color:var(--acc);font-weight:700}
-.dc-hchip:not([aria-disabled="true"]):is(:active,.is-press){transform:translateY(1px);box-shadow:var(--key-dn);filter:var(--press-f);transition-duration:0s}
-.dc-hchip[aria-disabled="true"]{opacity:.45;cursor:not-allowed}
-.dc-hchip[title][aria-disabled="true"]{cursor:help}
-@media (pointer:coarse){ .dc-hchip::before{content:"";position:absolute;left:50%;top:50%;width:max(100%,44px);height:44px;transform:translate(-50%,-50%)} }
-@media (max-width:760px){ .dc-hchip{height:32px;padding:0 10px;font-size:13px} }
+/* ── 오늘 공시 탭의 지도 스위치 "[귀퉁이] 지도에서 공시 종목만 밝게 · 26종목 [트랙]" (사용자 2026-11-14 08:10: 지도 머리줄 공시 칩을
+   "아래에 뉴스 공시칸으로") — design.md §7 스위치: 파인 트랙 + 솟은 손잡이, 손잡이 두 가장자리가 앞 `follow` · 뒤 `settle`로 따로 움직여
+   가는 동안 늘었다 돌아와요(끈 → 켬: 오른쪽이 앞). 채움(앰버 = 켜짐)은 `fade`. 크기 · 글자 · 간격 · 모서리는 토큰만, 줄이기는 토큰이 0. ──
+   넓은 카드: 공시 종류 · 지도 종목만 줄의 오른쪽 끝. 좁은 카드(820px 이하 — 휴대폰 · 1024 PC): 탭 맨 위에 한 줄(글자 왼쪽 · 트랙 오른쪽). */
+.news .dc-sub{flex-wrap:wrap;row-gap:var(--space-3)}
+.news .dc-litw{display:flex;justify-content:flex-end;flex:none;order:7;margin-left:auto;min-width:0}
+.news .dc-litw[hidden]{display:none}
+.news .dc-lit{
+  --trk-w:calc(var(--space-8) + var(--space-5)); --trk-h:calc(var(--space-7) + var(--space-1)); --trk-in:var(--space-1);
+  --trav:calc(var(--trk-w) - var(--trk-h));
+  position:relative;display:inline-flex;align-items:center;gap:var(--space-5);min-width:0;min-height:var(--h-key);padding:0 var(--space-2) 0 var(--space-3);
+  border-radius:var(--r-row);font-size:var(--fs-md);line-height:var(--lh-ui);font-weight:600;color:var(--fg);text-align:left;
+  touch-action:pan-y;-webkit-tap-highlight-color:transparent;transition:background-color var(--c-fast) var(--c-out)}
+.news .dc-ll{display:inline-flex;align-items:center;flex-wrap:wrap;gap:0 var(--space-2);min-width:0;word-break:keep-all}
+.news .dc-ll .dmsw{flex:none;margin-right:var(--space-1)}
+.news .dc-lw{min-width:0}
+/* 수 "· 26종목": 바뀔 때 design.md §6-4 — 나감 100ms(흐림 2px · 위로 4px) → 60ms 뒤 들어옴 180ms(아래에서 4px). 두 글자가 한 칸에 겹쳐요 */
+.news .dc-lc{display:inline-grid;align-items:center;justify-items:start;font-weight:500;color:var(--fg2);white-space:nowrap;font-variant-numeric:tabular-nums}
+.news .dc-lv{grid-area:1/1;display:inline-flex;align-items:center;gap:var(--space-2)}
+.news .dc-lv.out{animation:dcTxOut var(--dc-tx-out) var(--c-in) forwards;pointer-events:none}
+.news .dc-lv.in{animation:dcTxIn var(--dc-tx-in) var(--sp-fade) calc(var(--dc-tx-out) + var(--dc-tx-gap)) both}
+.news .dc-lit{--dc-tx-out:100ms;--dc-tx-gap:60ms;--dc-tx-in:180ms}
+html[data-motion="reduced"] .news .dc-lit{--dc-tx-out:0ms;--dc-tx-gap:0ms;--dc-tx-in:0ms}
+@keyframes dcTxOut{to{opacity:0;filter:blur(2px);transform:translateY(calc(var(--space-2) * -1))}}
+@keyframes dcTxIn{from{opacity:0;filter:blur(2px);transform:translateY(var(--space-2))}}
+.news .dc-lc .kspn{width:var(--fs-md);height:var(--fs-md);color:var(--fg2)}
+.news .dc-lit .dc-bad{color:var(--fail-dot);font-weight:700}
+/* 트랙 · 채움 · 손잡이 (--t: 0 꺼짐 · 1 켜짐 — 끄는 동안은 KH.ui.sw가 손가락 자리로) */
+.news .dc-trk{--t:0;position:relative;flex:none;width:var(--trk-w);height:var(--trk-h);border-radius:var(--r-pill);background:var(--trk);box-shadow:var(--tray-sh)}
+.news .dc-trk::before{content:"";position:absolute;inset:0;border-radius:inherit;background:var(--sw-on);box-shadow:inset 0 1px 2px color-mix(in srgb,var(--shc) 28%,transparent);opacity:var(--t);
+  transition:opacity var(--sp-fade-dur) var(--sp-fade)}
+/* .dc-knob = the two edges (left / right on their own springs); its ::before = the raised knob you see, at most 3px longer than round
+   (design.md §7 "3px 늘었다 돌아와요" — the follow / settle pair alone opens ≈ 6px over an 18px travel), held to the front edge */
+.news .dc-knob{position:absolute;top:var(--trk-in);bottom:var(--trk-in);left:calc(var(--trk-in) + var(--t) * var(--trav));right:calc(var(--trk-in) + (1 - var(--t)) * var(--trav));
+  display:flex;justify-content:flex-start;
+  transition:left var(--sp-follow-dur) var(--sp-follow),right var(--sp-settle-dur) var(--sp-settle)}
+.news .dc-knob::before{content:"";flex:none;width:100%;max-width:calc(var(--trk-h) - 2 * var(--trk-in) + var(--space-1) * 1.5);border-radius:var(--r-pill);background:var(--knob);box-shadow:var(--knob-sh);
+  transition:box-shadow var(--c-fast) var(--c-out)}
+.news .dc-lit[aria-checked="true"] .dc-trk{--t:1}
+.news .dc-lit[aria-checked="true"] .dc-knob{justify-content:flex-end;transition:right var(--sp-follow-dur) var(--sp-follow),left var(--sp-settle-dur) var(--sp-settle)}
+.news .dc-lit:is(:active,.is-press,.drag):not([aria-disabled="true"]) .dc-knob::before{box-shadow:var(--knob-dn)}
+.news .dc-lit.drag .dc-knob{transition:none}
+.news .dc-lit.drag .dc-trk::before{transition:none}
+.news .dc-lit[aria-disabled="true"]{opacity:.45;cursor:not-allowed}
+.news .dc-lit[aria-disabled="true"][title]{cursor:help}
+.news .dc-lit[aria-disabled="true"] .dc-trk{pointer-events:none}
+@media (hover:hover) and (pointer:fine){ .news .dc-lit:not([aria-disabled="true"]):hover{background:var(--fill-1)} }
+@media (pointer:coarse){ .news .dc-lit::before{content:"";position:absolute;left:0;right:0;top:50%;height:max(100%,44px);transform:translateY(-50%)} }
+/* 좁은 카드: 탭 맨 위 한 줄 — 글자 왼쪽, 트랙 오른쪽 끝 */
+.news .dc-pane{container:dcpane / inline-size}
+@container dcpane (max-width:820px){
+  .news .dc-litw{order:-1;flex:1 1 100%;margin-left:0}
+  .news .dc-lit{width:100%;justify-content:space-between;padding:0 0 0 var(--space-1)}
+}
+@media (max-width:760px){ .news .dc-lit{font-size:var(--fs-lg)} }
 
 /* ── 범례 항목 ── */
 .legend .dc-lg b{font-variant-numeric:tabular-nums}
@@ -16516,10 +16558,12 @@ html[data-motion="reduced"] .news .dc-row{animation:none!important}
    What it draws (all from GET api/disclosures/today, never a body / summary / number pulled out of a filing):
    · tiles: a folded bottom-right corner (KH.marks 'disc') on stocks with a filing of the kinds chosen in 표시 설정 (기본 실적 · 주요),
      a bigger corner when one of them is new (first seen within 30 min and after the server started watching: s > since);
-   · the map-header chip "공시 26" (#stage-tools): on → only those stocks stay bright (KH.marks.only), not remembered;
    · the legend item "공시 26종목 · 큰 귀퉁이 = 30분 안"; the tooltip / quick-view block (KH.cardExtra): up to 3 filings, DART links
      in the quick view + "공시 모두 보기" (the stock page's 뉴스·공시 › 공시);
-   · the "오늘 공시" tab of the news card (KHNews.addTab): kind tabs, 지도 종목만, stock chips (quick view), row hover lights the tile;
+   · the "오늘 공시" tab of the news card (KHNews.addTab): kind tabs, 지도 종목만, the map switch "지도에서 공시 종목만 밝게 · 26종목"
+     (role=switch; on → only those stocks stay bright, KH.marks.only; only while the tab is shown, not remembered — it was the map-header chip
+     "공시 26" in #stage-tools until 사용자 2026-11-14 08:10 "아래에 뉴스 공시칸으로 옮기든", moved 2026-11-15), stock chips (quick view), row hover
+     lights the tile;
    · two settings (공시 보기 · 지도에 표시할 종류) and the footer credit.
    Data: while the setting is on, the page is visible and a stock map is shown — every 60 s on weekdays 07:00–19:00 KST, else 5 min;
    failures back off 1 → 2 → 4 → 5 min, "오래됨" after 5 min of failures. The Worker's weak ETag goes back as If-None-Match: a 304
@@ -16570,7 +16614,7 @@ const S = {
   view: [], byCode: new Map(), marks: new Map(), markSig: '', fresh: new Set(), seen: '', rp: null, rpKey: '',
   mapSet: new Set(), mapKey: '',
   kt: 'main', only: true, open: false, L: { measure: false, base: 5, two: false, phone: narrowMQ.matches, rowsMax: MAX_ROWS },
-  shown: 0, pending: false, ptr: false, hov: '', chipOn: false, lgKey: '', tabbed: false, names: null, namesBusy: false,
+  shown: 0, pending: false, ptr: false, hov: '', litOn: false, lgKey: '', tabbed: false, names: null, namesBusy: false,
 };
 const today = () => kstOf(nowMs()).date;
 const isToday = () => !!S.data && S.data.date === today();
@@ -16619,7 +16663,7 @@ function timeEl(x) {
   return h('time', { class: 'dc-tm', datetime: S.data ? S.data.date + (x.s ? 'T' + x.s : '') : null }, x.isNew ? dot() : null, t);
 }
 
-/* ───────── snapshot: the tab says where to see it; no chip, no corners, no rows in the build ───────── */
+/* ───────── snapshot: the tab says where to see it; no map switch, no corners, no rows in the build ───────── */
 if (!LIVE) {
   const pane = h('div', { class: 'dc-pane' }, h('ol', { class: 'nw-list is-msg' }, h('li', { class: 'nw-msg' },
     h('b', { text: '공시는 실시간 버전에서 볼 수 있어요' }),
@@ -16631,44 +16675,85 @@ if (!LIVE) {
   return;
 }
 
-/* ───────── the map-header chip: [corner] 공시 26 — on → only those stocks stay bright ───────── */
-const chip = h('button', { type: 'button', class: 'dc-hchip', 'aria-pressed': 'false' });
-chip.addEventListener('click', () => {
-  if (chip.getAttribute('aria-disabled') === 'true') return;
-  setChip(!S.chipOn, true);
+/* ───────── the map switch in the 오늘 공시 tab: [corner] 지도에서 공시 종목만 밝게 · 26종목 [track] — on → only those stocks stay bright ─────────
+   It sat in the map header (#stage-tools) as the chip "공시 26" until 2026-11-15 — 사용자 2026-11-14 08:10 "사진의 공시 버튼 차라리 아래에 뉴스
+   공시칸으로 옮기든 하는게 나을거같아". Now it is a switch (design.md §7: sunken track, raised knob whose two edges move on their own springs —
+   the front one `follow`, the back one `settle` — so it stretches a little on the way) in the tab's own row: at the end of the 공시 종류 ·
+   지도 종목만 line on a wide card, a line of its own at the top of the tab on a narrow one (phones · 1024 PC). It only works while that tab
+   is on screen: leaving the tab, a hidden card, 해외 · 지표, 공시 보기 off or nothing to light turns the map back to normal (a dimmed map with
+   no visible way back is worse than one more press). Not remembered across reloads. The knob can be dragged (KH.ui.sw, from 4 px). */
+const litCount = h('span', { class: 'dc-lc' });                // "· 26종목" (+ "!"), the ring while loading — changes swap in place (§6-4)
+const lit = h('button', { type: 'button', class: 'dc-lit', role: 'switch', 'aria-checked': 'false' },
+  h('span', { class: 'dc-ll' }, h('i', { class: 'dmsw', 'aria-hidden': 'true' }), h('span', { class: 'dc-lw', text: '지도에서 공시 종목만 밝게' }), litCount),
+  h('span', { class: 'dc-trk swt', 'aria-hidden': 'true' }, h('i', { class: 'dc-knob' })));
+const litBox = h('span', { class: 'dc-litw' }, lit);
+if (typeof UI.sw === 'function') UI.sw(lit);
+lit.addEventListener('click', () => {
+  if (lit.getAttribute('aria-disabled') === 'true') {        // off look: say why (a bubble under the key + the live region; mouse users also get the title)
+    const why = lit.dataset.why || '';
+    if (why && typeof UI.bubble === 'function') UI.bubble(lit, why); else if (why) live(why);
+    return;
+  }
+  setLit(!S.litOn, true);
 });
-function setChip(on, say) {
-  S.chipOn = !!on;
-  chip.setAttribute('aria-pressed', String(S.chipOn));
-  if (typeof KH.marks === 'object' && KH.marks) KH.marks.only(S.chipOn ? 'disc' : null);
-  if (say) live(S.chipOn ? `공시 있는 ${mapCount()}종목만 밝게 보여요.` : '모든 종목을 다시 보여요.');
+function setLit(on, say) {
+  S.litOn = !!on;
+  lit.setAttribute('aria-checked', String(S.litOn));
+  if (typeof KH.marks === 'object' && KH.marks) KH.marks.only(S.litOn ? 'disc' : null);
+  if (say) live(S.litOn ? `공시 있는 ${mapCount()}종목만 밝게 보여요.` : '모든 종목을 다시 보여요.');
+}
+/* design.md §6-4: the old count leaves (100 ms: opacity → 0, blur 2px, 4px up), the new one comes in 60 ms later (180 ms, from 4px below);
+   both sit in one grid cell while they cross. 줄이기, a hidden page or the first draw: the end state at once. */
+function swapCount(sig, kids) {
+  if (litCount.dataset.sig === sig) return;
+  const first = litCount.dataset.sig === undefined;
+  litCount.dataset.sig = sig;
+  const nu = h('span', { class: 'dc-lv' }, kids);
+  const still = first || document.documentElement.dataset.motion === 'reduced' || document.hidden || !lit.offsetWidth;
+  for (const x of litCount.querySelectorAll('.dc-lv.out')) x.remove();
+  const old = litCount.querySelector('.dc-lv');
+  if (still || !old) { put(litCount, nu); return; }
+  old.classList.remove('in'); old.classList.add('out');
+  nu.classList.add('in');
+  litCount.append(nu);
+  const drop = () => { if (old.isConnected) old.remove(); };
+  old.addEventListener('animationend', drop, { once: true });
+  setTimeout(drop, 400);                                      // in case the animation never runs (a display:none ancestor)
 }
 const mapCount = () => { let n = 0; for (const c of S.marks.keys()) if (S.mapSet.has(c)) n++; return n; };
-// shown: live, setting on, a stock map (not 해외 · 지표, not the theme overview), not replaying another day
-const chipWanted = () => S.on && !S.gone && !worldTab() && S.mapSet.size > 0 && !(S.rp && S.rp.kind === 'other');
+const newsCard = () => document.getElementById('news');
+const tabShown = () => S.tabbed && !!window.KHNews && typeof window.KHNews.tab === 'function' && window.KHNews.tab() === 'disc';
+const cardShown = () => { const n = newsCard(); return !!n && !n.hidden && !(n.parentElement && n.parentElement.hidden); };
+// there is something to light: live, setting on, a stock map (not 해외 · 지표, not the theme overview), not replaying another day
+const litUsable = () => S.on && !S.gone && !worldTab() && S.mapSet.size > 0 && !(S.rp && S.rp.kind === 'other');
+// …and its switch is on screen (the 오늘 공시 tab of a shown card) — otherwise the map goes back to normal
+const litWanted = () => litUsable() && tabShown() && cardShown();
 const staleNow = () => !!S.data && ((S.tries > 0 && Date.now() - S.okAt > STALE_MS) || (S.data.stale && nowMs() - isoMs(S.data.asOf) > STALE_MS));
-function renderChip() {
-  const slot = document.getElementById('stage-tools');
-  if (!chipWanted()) { if (S.chipOn) setChip(false); if (chip.isConnected) chip.remove(); return; }
-  if (slot && chip.parentNode !== slot) slot.append(chip);
-  const sw = h('i', { class: 'dmsw', 'aria-hidden': 'true' }), ck = h('i', { class: 'ck', 'aria-hidden': 'true' });
-  chip.removeAttribute('title');
+function litOff(why) { lit.setAttribute('aria-disabled', 'true'); lit.dataset.why = why; lit.title = why; }
+const bad = () => h('b', { class: 'dc-bad', 'aria-hidden': 'true', text: '!' });
+function renderLit() {
+  if (!litWanted() && S.litOn) setLit(false);
+  litBox.hidden = !litUsable();                              // theme overview · replay of another day: no switch (the tab has its own note)
+  if (litBox.hidden) return;
+  lit.removeAttribute('title'); delete lit.dataset.why;
   if (!S.data && S.loading) {
-    put(chip, ck, icon('spin'), h('span', { text: '공시' }));
-    chip.setAttribute('aria-disabled', 'true'); chip.setAttribute('aria-label', '공시 불러오는 중');
+    swapCount('load', [icon('spin')]);
+    litOff('공시를 불러오는 중이에요'); lit.setAttribute('aria-label', '지도에서 공시 종목만 밝게 — 공시를 불러오는 중이에요');
   } else if (!S.data) {
-    put(chip, ck, sw, h('span', { text: '공시' }), h('b', { class: 'dc-bad', 'aria-hidden': 'true', text: '!' }));
-    chip.setAttribute('aria-disabled', 'true'); chip.title = '공시를 불러오지 못했어요'; chip.setAttribute('aria-label', '공시를 불러오지 못했어요');
+    swapCount('err', [bad()]);
+    litOff('공시를 불러오지 못했어요'); lit.setAttribute('aria-label', '지도에서 공시 종목만 밝게 — 공시를 불러오지 못했어요');
   } else {
     const n = mapCount(), stale = staleNow(), rp = S.rp && S.rp.kind === 'same';
-    put(chip, ck, sw, h('span', { text: '공시' }), h('span', { class: 'dc-n', text: String(n) }), stale ? h('b', { class: 'dc-bad', 'aria-hidden': 'true', text: '!' }) : null);
-    if (n) chip.removeAttribute('aria-disabled'); else chip.setAttribute('aria-disabled', 'true');
-    chip.setAttribute('aria-label', `${isToday() ? '' : dayWord() + ' '}공시 있는 종목만 밝게, ${n}종목${stale ? ' · 몇 분째 새 공시를 받지 못했어요' : ''}${rp ? ` · ${S.rp.hm}까지` : ''}`);
-    if (rp) chip.title = `다시 보기 — ${S.rp.hm}까지 들어온 공시`;
-    else if (!isToday()) chip.title = `${dayLong(S.data.date)} 공시`;
-    if (!n && S.chipOn) setChip(false);
+    swapCount(`${n}|${stale ? 1 : 0}`, [h('span', { class: 'dc-ln', text: `· ${n}종목` }), stale ? bad() : null]);
+    const pre = isToday() ? '' : dayWord() + ' ', tail = `${stale ? ' · 몇 분째 새 공시를 받지 못했어요' : ''}${rp ? ` · ${S.rp.hm}까지` : ''}`;
+    if (n) {
+      lit.removeAttribute('aria-disabled');
+      if (rp) lit.title = `다시 보기 — ${S.rp.hm}까지 들어온 공시`;
+      else if (!isToday()) lit.title = `${dayLong(S.data.date)} 공시`;
+    } else litOff(rp ? `${S.rp.hm}까지 들어온 ${kindLabel()} 공시가 지도 종목에 없어요` : `지도 종목에 ${kindLabel()} 공시가 ${isToday() ? '아직 ' : ''}없어요`);
+    lit.setAttribute('aria-label', `${pre}공시 있는 종목만 지도에서 밝게, ${n}종목${tail}${n ? '' : ' — ' + lit.dataset.why}`);
   }
-  if (S.chipOn && chip.getAttribute('aria-disabled') === 'true') setChip(false);
+  if (S.litOn && lit.getAttribute('aria-disabled') === 'true') setLit(false);
 }
 
 /* ───────── the legend item: [corner] 공시 26종목 · [big corner] 큰 귀퉁이 = 30분 안 ───────── */
@@ -16734,7 +16819,8 @@ const more = typeof UI.akey === 'function' ? UI.akey('nw-kbtn nw-more', { idle: 
   : h('button', { type: 'button', class: 'nw-kbtn nw-more', text: '더보기' });
 more.setAttribute('aria-expanded', 'false');
 const credit = h('small', { text: '공시: 금융감독원 DART (OpenDART) — 제목 · 종류만 보여 드려요. 시각은 판세가 처음 본 때예요. 원문은 DART에서 새 탭으로 열려요.' });
-const pane = h('div', { class: 'dc-pane', id: 'news-p-disc' }, h('div', { class: 'nw-sub dc-sub' }, ktabs, onlyBtn), list, h('div', { class: 'nw-ft' }, more, credit));
+// the tab's own row: list filters (공시 종류 · 지도 종목만), then the map switch (a narrow card puts it on a line of its own above them — disc.css)
+const pane = h('div', { class: 'dc-pane', id: 'news-p-disc' }, h('div', { class: 'nw-sub dc-sub' }, ktabs, onlyBtn, litBox), list, h('div', { class: 'nw-ft' }, more, credit));
 if (typeof UI.seg === 'function') UI.seg(ktabs);
 
 function listFor(kt = S.kt, only = S.only) {
@@ -16842,7 +16928,10 @@ const tabSpec = {
   label: () => (!S.data || isToday() ? '오늘 공시' : `${dayLong(S.data.date)} 공시`),
   count: () => (S.data ? String(listFor('mark', true).length) : ''),
   at: atKids,
-  render(L) { S.L = L; renderPanel({ force: true }); },
+  render(L) { S.L = L; renderPanel({ force: true }); renderLit(); },
+  onShow: () => renderLit(),
+  // leaving the tab (시장 뉴스, the card hidden, the tab removed): the map back to normal — its key is no longer on screen
+  onHide() { if (S.litOn) setLit(false); },
 };
 function addTab() {
   if (S.tabbed || !window.KHNews || typeof window.KHNews.addTab !== 'function') return;
@@ -16856,6 +16945,11 @@ function removeTab() {
 }
 const newsUpdate = () => { if (S.tabbed && window.KHNews && typeof window.KHNews.update === 'function') window.KHNews.update(); };
 const newsRelayout = () => { if (S.tabbed && window.KHNews && typeof window.KHNews.relayout === 'function') window.KHNews.relayout(); };
+// the tab's own row wraps (a narrow card, longer counts): the PC fill measures its rows again so the card keeps its height
+if ('ResizeObserver' in window) {
+  let subH = -1;
+  new ResizeObserver(() => { const hh = pane.firstChild.offsetHeight; if (hh && subH >= 0 && hh !== subH) newsRelayout(); subH = hh; }).observe(pane.firstChild);
+}
 
 ktabs.addEventListener('click', e => {
   const b = e.target.closest('button');
@@ -16903,7 +16997,7 @@ pane.addEventListener('pointerenter', () => { S.ptr = true; });
 pane.addEventListener('pointerleave', () => { S.ptr = false; flush(); });
 pane.addEventListener('focusout', () => setTimeout(flush, 0));
 
-/* ───────── derive: the rows of the moment (a replay of today: those seen by its time) → corners, chip, legend, lists ───────── */
+/* ───────── derive: the rows of the moment (a replay of today: those seen by its time) → corners, map switch, legend, lists ───────── */
 function replayState() {
   const rp = typeof KH.replay === 'function' ? KH.replay() : null;
   if (!rp) return null;
@@ -16935,11 +17029,11 @@ function derive() {
   S.marks = marks;
   if ((sig !== S.markSig || S.fresh.size) && typeof KH.marks === 'object' && KH.marks) { S.markSig = sig; KH.marks.set('disc', marks.size ? marks : null); }
   S.fresh = new Set();
-  if (!show && S.chipOn) setChip(false);
+  if (!show && S.litOn) setLit(false);
   refreshAll();
 }
 function refreshAll() {
-  renderChip(); renderLegend(); renderPanel(); newsUpdate(); renderFoot(); settingCounts();
+  renderLit(); renderLegend(); renderPanel(); newsUpdate(); renderFoot(); settingCounts();
   if (typeof KH.cardExtra === 'object' && KH.cardExtra) KH.cardExtra.refresh();
 }
 function settingCounts() {
@@ -17010,7 +17104,7 @@ function load(o = {}) {
     let d = null, status = 0, same = null;
     try { const j = await getJSON(); if (j && j.same) same = j; else { d = accept(j); if (d) S.etag = j.__etag || ''; } } catch (e) { status = (e && e.status) || -1; }
     S.loading = false; S.busy = null;
-    // 404 = a Worker without the route (the page went out first): no tab, no chip, no corners — until a reload
+    // 404 = a Worker without the route (the page went out first): no tab, no map switch, no corners — until a reload
     if (status === 404 && !S.data) { gone(); return false; }
     if (same) {                                            // 304: the same list — only its time moves on (and 새 may have run out)
       S.tries = 0; S.okAt = Date.now(); S.err = false;
@@ -17019,7 +17113,7 @@ function load(o = {}) {
       return true;
     }
     if (d) { S.tries = 0; S.okAt = Date.now(); S.err = false; setData(d); }
-    else { S.tries++; S.err = !S.data; if (!o.silent) refreshAll(); else { renderChip(); renderLegend(); } }
+    else { S.tries++; S.err = !S.data; if (!o.silent) refreshAll(); else { renderLit(); renderLegend(); } }
     schedule();
     return !!d;
   })();
@@ -17039,7 +17133,7 @@ function schedule() {
 function gone() {
   S.gone = true; S.data = null;
   clearTimeout(S.timer); S.timer = 0;
-  if (S.chipOn) setChip(false);
+  if (S.litOn) setLit(false);
   if (typeof KH.marks === 'object' && KH.marks) KH.marks.set('disc', null);
   S.markSig = '';
   removeTab();
@@ -17056,7 +17150,7 @@ function onToggle() {
     schedule();
   } else {
     clearTimeout(S.timer); S.timer = 0;
-    if (S.chipOn) setChip(false);
+    if (S.litOn) setLit(false);
     if (typeof KH.marks === 'object' && KH.marks) KH.marks.set('disc', null);
     S.markSig = '';
     removeTab();
@@ -17065,7 +17159,7 @@ function onToggle() {
 }
 if (typeof KH.addSetting === 'function') {
   KH.addSetting({ key: 'disc', label: '공시 보기', default: true,
-    hint: 'DART 전자공시를 1분마다 확인해서 지도 타일 귀퉁이 · 공시 칩 · 목록으로 보여 줘요. 끄면 모두 사라지고 받지도 않아요.',
+    hint: 'DART 전자공시를 1분마다 확인해서 지도 타일 귀퉁이 · 툴팁 · 오늘 공시 목록으로 보여 줘요. 끄면 모두 사라지고 받지도 않아요.',
     onChange: v => { S.on = !!v; onToggle(); } });
   KH.addSetting({ key: 'discKinds', label: '지도에 표시할 종류', multi: true, min: 1, default: ['실적', '주요'],
     options: KINDS.map(k => ({ v: k, label: k })),
@@ -17079,13 +17173,13 @@ if (typeof KH.cardExtra === 'object' && KH.cardExtra) KH.cardExtra.add('disc', b
 document.addEventListener('kh:render', () => {
   const moved = syncMap(), rp = replayState(), rk = rp ? rp.kind + (rp.hm || '') : '';
   if (rk !== S.rpKey) { derive(); schedule(); return; }
-  if (moved) { renderChip(); renderLegend(); renderPanel(); newsUpdate(); settingCounts(); }
-  else renderChip();
+  if (moved) { renderLit(); renderLegend(); renderPanel(); newsUpdate(); settingCounts(); }
+  else renderLit();
   renderFoot();
   schedule();
 });
 document.addEventListener('kh:data', () => {
-  if (syncMap()) { renderChip(); renderLegend(); renderPanel(); newsUpdate(); settingCounts(); return; }
+  if (syncMap()) { renderLit(); renderLegend(); renderPanel(); newsUpdate(); settingCounts(); return; }
   // the chips' % follow the map
   for (const b of list.querySelectorAll('.dc-chip[data-c]')) {
     const q = quoteOf(b.dataset.c), v = b.querySelector('b');
@@ -17098,7 +17192,7 @@ document.addEventListener('kh:refresh', () => { if (polling()) load(); });
 document.addEventListener('visibilitychange', () => { if (document.hidden) { clearTimeout(S.timer); S.timer = 0; } else schedule(); });
 narrowMQ.addEventListener('change', () => renderLegend());
 // 새 lasts 30 minutes: the corners and dots follow the clock between answers too (once a minute, while visible)
-setInterval(() => { if (S.data && S.on && !document.hidden) { const before = S.markSig; derive(); if (before === S.markSig) renderChip(); } }, 60e3);
+setInterval(() => { if (S.data && S.on && !document.hidden) { const before = S.markSig; derive(); if (before === S.markSig) renderLit(); } }, 60e3);
 
 /* ───────── API ───────── */
 const info = r => { r = String(r || ''); const x = S.data && S.data.rows.find(y => y.r === r); return x ? { s: x.s, isNew: isNew(x), date: S.data.date } : null; };
