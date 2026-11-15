@@ -1229,29 +1229,41 @@ html[data-theme="paper"] :is(.secs > button,.movers > button){border-radius:0;bo
 
 /* ───────────────── 아래 막대 — the phone dock (docs/standards/dock.md, V2 two cells + swipe pages, 🔍 at the end) ─────────────────
    Floats once the map has gone by (never over it), hides while any sheet / dialog / the stock page / the keyboard is open. No blur, and an
-   opaque fill (the draft's α .93–.97 over each page, composited): without blur a translucent fill only ghosts the card text behind its numbers. */
-.dock{position:fixed;z-index:50;left:8px;right:8px;bottom:calc(8px + env(safe-area-inset-bottom));height:56px;display:flex;align-items:stretch;padding:var(--space-3);border-radius:var(--dock-r);background:var(--dock-bg);box-shadow:var(--dock-sh);color:var(--fg);
-  transform:translateY(calc(100% + 16px));opacity:0;visibility:hidden;transition:transform var(--m-1) var(--m-exit),opacity var(--m-1) var(--m-exit),visibility 0s linear var(--m-1)}
-.dock.on{transform:none;opacity:1;visibility:visible;transition:transform var(--m-2) var(--m-out),opacity var(--m-2) var(--m-out),visibility 0s}
-html[data-motion="reduced"] .dock{transition:none}
+   opaque fill (the draft's α .93–.97 over each page, composited): without blur a translucent fill only ghosts the card text behind its numbers.
+   Design standard (design.md §2 – §8, ux/std-dock): type --fs-*, space --space-*, corners nested (cell = --dock-r − the panel's 6px, the
+   --dock-r of each theme = the 🔍 key's corner + 6, so key, cells and panel share one centre), heights --h-*, no light and no gradient
+   (the glass material — sheen, 1px edge reflection, blur — is the floating glass's: tooltip · header · sheets, never the dock, §2 예외).
+   Shape values dock.md fixed stay off the scale (qa/dock/audit_css.py names them): the panel 56px and the key-only panel 56 × 56, the
+   72px of room under the page (8 + 56 + 8), the top line 14px and the value line 20px (cell 44 = 14 + 4 + 20 + 4 + …), the 등락 분포 bar
+   6px and its count line 13px, the 44 × 18 index line, the page dots 4 / 12px, the 🔍 18px icon box, the sheet's 78svh and its grip.
+   Motion (§6): up with `open` + `fade`, away with `close` (줄이기: every --sp-*-dur is 0 → at once); 화려하게 the cells rise 4px the
+   first time in a session only (a rare first appearance, P3 — 40 ms apart); pages flip with KH.spring `lead` (JS); numbers change through
+   KH.ui.swap / roll (JS); the 등락 분포 bar's parts follow a new count with `value` (data: no overshoot). */
+.dock{position:fixed;z-index:50;left:var(--space-4);right:var(--space-4);bottom:calc(var(--space-4) + env(safe-area-inset-bottom));height:56px;display:flex;align-items:stretch;padding:var(--space-3);border-radius:var(--dock-r);background:var(--dock-bg);box-shadow:var(--dock-sh);color:var(--fg);
+  transform:translateY(calc(100% + var(--space-6)));opacity:0;visibility:hidden;transition:transform var(--sp-close-dur) var(--sp-close),opacity var(--sp-close-dur) var(--sp-close),visibility 0s linear var(--sp-close-dur)}
+.dock.on{transform:none;opacity:1;visibility:visible;transition:transform var(--sp-open-dur) var(--sp-open),opacity var(--sp-fade-dur) var(--sp-fade),visibility 0s}
 .dock[data-side="left"]{flex-direction:row-reverse}
 .dock.keyonly{left:auto;width:56px}
-.dock.keyonly[data-side="left"]{left:8px;right:auto}
+.dock.keyonly[data-side="left"]{left:var(--space-4);right:auto}
 .dock.keyonly .dk-pw{display:none}
 @media (min-width:761px){.dock,.ssheet,.ss-scrim{display:none!important}}
 /* the swipe area keeps ≥ 24 px from both screen edges (Android's back-gesture edge): the side without the 🔍 key gets 10 px more */
 .dk-pw{position:relative;flex:1;min-width:0;display:flex;margin-left:var(--space-4)}
 .dock[data-side="left"] .dk-pw{margin-left:0;margin-right:var(--space-4)}
-.dk-pages{flex:1;min-width:0;display:flex;overflow-x:auto;scroll-snap-type:x mandatory;overscroll-behavior-x:contain;scrollbar-width:none;border-radius:calc(var(--dock-r) - 6px)}
+.dk-pages{flex:1;min-width:0;display:flex;overflow-x:auto;scroll-snap-type:x mandatory;overscroll-behavior-x:contain;scrollbar-width:none;border-radius:calc(var(--dock-r) - var(--space-3))}
 .dk-pages::-webkit-scrollbar{display:none}
+/* a page flip by key (KH.spring writes scrollLeft): snapping waits until it lands — a programmatic scroll would snap at every frame */
+.dk-pages.dk-flip{scroll-snap-type:none}
 .dk-pg{flex:0 0 100%;min-width:0;display:flex;scroll-snap-align:start;scroll-snap-stop:always}
-.dk-c{position:relative;flex:1 1 0;min-width:0;display:flex;flex-direction:column;justify-content:center;gap:var(--space-2);padding:0 var(--space-4) var(--space-2);border-radius:calc(var(--dock-r) - 6px);text-align:left;transition:filter var(--c-fast) var(--c-out)}
-.dk-c + .dk-c::before{content:"";position:absolute;left:0;top:6px;bottom:9px;width:1px;background:var(--dock-div)}
+/* a cell = a list row (controls §5-1): it darkens when pressed, never sinks */
+.dk-c{position:relative;flex:1 1 0;min-width:0;display:flex;flex-direction:column;justify-content:center;gap:var(--space-2);padding:0 var(--space-4) var(--space-2);border-radius:calc(var(--dock-r) - var(--space-3));text-align:left;touch-action:manipulation;-webkit-tap-highlight-color:transparent;transition:filter var(--c-fast) var(--c-out)}
+.dk-c + .dk-c::before{content:"";position:absolute;left:0;top:var(--space-2);bottom:var(--space-4);width:1px;background:var(--dock-div)}
 .dk-c:active{filter:var(--press-f);transition-duration:0s}
 .dk-c:focus-visible{outline-offset:-3px}
 .dk-l1{display:flex;align-items:baseline;justify-content:space-between;gap:var(--space-3);font-size:var(--fs-sm);line-height:14px;color:var(--muted);white-space:nowrap}
 .dk-l1 > :first-child{overflow:hidden;text-overflow:ellipsis;min-width:0}
 .dk-l1 b{font-weight:700;color:var(--fg2)}
+/* ★ = in the watchlist (켜짐: the same ★ as the ★관심 tab's) */
 .dk-l1 .st{color:var(--acc)}
 .dk-l1 .p{font-weight:700;font-variant-numeric:tabular-nums;flex:none}
 /* 상한 9 · 하한 0 (등락 분포 cell): neutral words, the numbers in the up / down colours (0 stays neutral); flex:none — the name gives way */
@@ -1261,38 +1273,46 @@ html[data-motion="reduced"] .dock{transition:none}
 .dk-l1 .lim .lu,.dk-l1 .lim .ld{margin-left:var(--space-1);font-weight:700}
 .dk-l1 .lim .lsep{margin:0 var(--space-1)}
 .dk-l1 .lim:not([hidden]) + .cnt{margin-left:var(--space-1)}
-.dk-v{display:flex;align-items:center;justify-content:space-between;gap:var(--space-3);height:20px;font:700 var(--fs-xl)/20px var(--font-head);letter-spacing:-.01em;font-variant-numeric:tabular-nums;color:var(--fg);white-space:nowrap}
+/* the value line: 16px, so no tracking (§3: −0.01em starts at 20px) */
+.dk-v{display:flex;align-items:center;justify-content:space-between;gap:var(--space-3);height:20px;font:700 var(--fs-xl)/20px var(--font-head);font-variant-numeric:tabular-nums;color:var(--fg);white-space:nowrap}
 .dk-v > span:first-child{overflow:hidden;text-overflow:ellipsis;min-width:0}
 .dk-v svg{width:44px;height:18px;flex:none;overflow:visible}
 .dk-v small{font:600 var(--fs-xs)/1 var(--sans);color:var(--muted);overflow:hidden;text-overflow:ellipsis;min-width:0;text-align:right}
 .dk-v small .up,.dk-v small .dn{font-weight:700}
+/* the index line is a data line (§4: chart lines keep their own weight) */
 .dk-sp .ln{fill:none;stroke:currentColor;stroke-width:1.5;stroke-linejoin:round;stroke-linecap:round}
 .dk-sp .bl{stroke:var(--ix-base);stroke-width:1;stroke-dasharray:2 2}
 .dk-bar{display:flex;height:6px;gap:1px;border-radius:var(--r-pill);overflow:hidden}
-.dk-bar i{display:block;min-width:0}
+.dk-bar i{display:block;min-width:0;transition:flex-grow var(--sp-value-dur) var(--sp-value)}
+.dk-now .dk-bar i{transition:none}
 html[data-theme="paper"] .dk-bar{border-radius:0}
 .dk-n{display:flex;justify-content:space-between;gap:var(--space-2);font-size:var(--fs-sm);line-height:13px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
-.dk-empty{font-size:var(--fs-sm);color:var(--muted);white-space:normal;line-height:1.3}
+.dk-empty{font-size:var(--fs-sm);color:var(--muted);white-space:normal;line-height:var(--lh-row)}
+/* the page dots: the current page's dot is the wide one — it widens with `lead` (an indicator), its ink fades */
 .dk-dots{position:absolute;left:0;right:0;bottom:-3px;display:flex;justify-content:center;gap:var(--space-2);pointer-events:none}
-.dk-dots i{width:4px;height:4px;border-radius:var(--r-mark);background:var(--line2);transition:width var(--c-fast) var(--c-out),background-color var(--c-fast) var(--c-out)}
+.dk-dots i{width:4px;height:4px;border-radius:var(--r-mark);background:var(--line2);transition:width var(--sp-lead-dur) var(--sp-lead),background-color var(--sp-fade-dur) var(--sp-fade)}
 .dk-dots i.on{width:12px;background:var(--fg2)}
 .dk-dots[hidden]{display:none}
-/* 🔍 — a raised key, 44 × 44 (controls §5-1 · §5-2) */
-.dk-k{position:relative;flex:none;width:var(--h-row);height:var(--h-row);display:grid;place-items:center;border-radius:var(--r-key);background:var(--key-bg);box-shadow:var(--key-sh);color:var(--key-fg);transition:transform var(--c-fast) var(--c-out),box-shadow var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out)}
+/* 🔍 — a raised key, 44 × 44 (controls §5-1 · §5-2): 1px down + the shorter shadow + darker, 0 ms down, --c-fast up; the icon 1.75px */
+.dk-k{position:relative;flex:none;width:var(--h-row);height:var(--h-row);display:grid;place-items:center;border-radius:var(--r-key);background:var(--key-bg);box-shadow:var(--key-sh);color:var(--key-fg);touch-action:manipulation;-webkit-tap-highlight-color:transparent;transition:transform var(--c-fast) var(--c-out),box-shadow var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out)}
 .dk-k svg{width:18px;height:18px;color:var(--key-ic)}
 .dk-k:is(:active,.is-press){transform:translateY(1px);box-shadow:var(--key-dn);filter:var(--press-f);transition-duration:0s}
 html[data-theme^="glass"] .dk-k{border-radius:var(--r-pill)}
 .dock:not([data-side="left"]) .dk-k{margin-left:var(--space-3)}
 .dock[data-side="left"] .dk-k{margin-right:var(--space-3)}
 .dock.keyonly .dk-k{margin:0}
-/* 화려하게: the cells rise 4 px, 20 ms apart, when the dock comes up */
-html[data-motion="fancy"] .dock.on .dk-c{animation:dkRise var(--m-2) var(--m-out) both}
-html[data-motion="fancy"] .dock.on .dk-c + .dk-c{animation-delay:20ms}
+/* 화려하게, the session's first time up only (.dk-first, P3): the cells rise 4px and fade in, 40 ms apart */
+html[data-motion="fancy"] .dock.on.dk-first .dk-c{animation:dkRise var(--sp-fade-dur) var(--sp-fade) both}
+html[data-motion="fancy"] .dock.on.dk-first .dk-c + .dk-c{animation-delay:40ms}
 @keyframes dkRise{from{opacity:0;transform:translateY(4px)}}
 /* the end of the page keeps the dock's room (8 + 56 + 8) whenever it can show, so the last line never hides under it */
-@media (max-width:760px){footer{padding-bottom:calc(24px + 72px + env(safe-area-inset-bottom))}}
+@media (max-width:760px){footer{padding-bottom:calc(var(--space-7) + 72px + env(safe-area-inset-bottom))}}
 
-/* 🔍 → the search sheet: the same results as the search box (searchList · pick), its own ids; it sits on the keyboard */
+/* 🔍 → the search sheet: the same results as the search box (searchList · pick), its own ids; it sits on the keyboard. A phone sheet
+   (design.md §5 · §7 · §8): up with `open`, down with `close`, the scrim fades, drag the grip / head down (KH.ui.sheetDrag — the
+   "floating windows" block below). The glass themes keep their material here: --sheet-bg (the top sheen), --sheet-sh (the 1px edge
+   reflection) and the blur. Rows are list rows (--h-row, --r-row — the same as the box's 검색 제안); the keyboard's highlight is one plate
+   that moves with `hl` (.ss-hl); the × is the one close key (SVG, 1.75px). */
 .ss-scrim{position:fixed;inset:0;z-index:89;background:var(--scrim)}
 .ss-scrim[hidden],.ssheet[hidden]{display:none}
 .ssheet{position:fixed;left:0;right:0;bottom:0;z-index:90;display:flex;flex-direction:column;height:78svh;background:var(--sheet-bg);border-top:1px solid var(--sheet-bd);border-radius:var(--sheet-r) var(--sheet-r) 0 0;box-shadow:var(--sheet-sh);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);padding-bottom:env(safe-area-inset-bottom);overflow:hidden}
@@ -1300,21 +1320,26 @@ html[data-motion="fancy"] .dock.on .dk-c + .dk-c{animation-delay:20ms}
 .ss-top{display:flex;align-items:center;gap:var(--space-4);padding:var(--space-1) var(--space-5) var(--space-3);flex:none}
 .ss-top .search{flex:1 1 auto;min-width:0}
 .ss-top .search input{height:var(--h-row);font-size:var(--fs-xl);padding-right:var(--space-5)}
-.ss-top .search svg{top:14px}
+.ss-top .search svg{top:calc((var(--h-row) - 16px) / 2)}
 .ss-top .search input::-webkit-search-cancel-button{-webkit-appearance:none;display:none}
-.ss-x{position:relative;flex:none;width:var(--h-row);height:var(--h-row);display:grid;place-items:center;border-radius:var(--r-key);color:var(--muted);font-size:var(--fs-2xl);transition:transform var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out)}
+.ss-x{position:relative;flex:none;width:var(--h-row);height:var(--h-row);display:grid;place-items:center;border-radius:var(--r-key);color:var(--muted);touch-action:manipulation;-webkit-tap-highlight-color:transparent;transition:transform var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out),color var(--c-fast) var(--c-out)}
+.ss-x svg{width:16px;height:16px}
 .ss-x:is(:active,.is-press){transform:translateY(1px);filter:var(--press-f);transition-duration:0s}
+@media (hover:hover) and (pointer:fine){.ss-x:hover{background:var(--fill-2);color:var(--fg)}}
 .ss-hint{flex:none;margin:0;padding:var(--space-1) var(--space-6) var(--space-3);font-size:var(--fs-sm);color:var(--muted)}
-.ss-list{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;padding:0 var(--space-3) var(--space-4)}
-.ss-list > button{display:grid;grid-template-columns:10px minmax(0,1fr) auto auto;align-items:center;gap:var(--space-4);width:100%;min-height:48px;padding:0 var(--space-4);border-radius:var(--r-in);text-align:left;font-size:var(--fs-lg);transition:filter var(--c-fast) var(--c-out)}
-.ss-list > button[aria-selected="true"]{background:color-mix(in srgb,var(--ov) 7%,transparent)}
-html[data-theme="paper"] .ss-list > button[aria-selected="true"]{background:var(--acc-soft)}
+.ss-list{position:relative;isolation:isolate;flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;padding:0 var(--space-3) var(--space-4)}
+.ss-list > button{position:relative;z-index:1;display:grid;grid-template-columns:10px minmax(0,1fr) auto auto;align-items:center;gap:var(--space-4);width:100%;min-height:var(--h-row);padding:0 var(--space-4);border-radius:var(--r-row);text-align:left;font-size:var(--fs-lg);touch-action:manipulation;-webkit-tap-highlight-color:transparent;transition:filter var(--c-fast) var(--c-out)}
+/* the highlight plate (§6-2 hl): one box behind the highlighted row; it moves with `hl` on ↑ ↓, sits at once when the list is drawn
+   again or a key is held (.ss-now), fades out when nothing is found */
+.ss-hl{position:absolute;z-index:0;left:var(--space-3);right:var(--space-3);top:0;height:var(--hh,var(--h-row));border-radius:var(--r-row);background:var(--fill-2);pointer-events:none;transform:translateY(var(--hy,0px));opacity:1;transition:transform var(--sp-hl-dur) var(--sp-hl),height var(--sp-hl-dur) var(--sp-hl),opacity var(--sp-fade-dur) var(--sp-fade)}
+.ss-hl[hidden]{display:block;opacity:0;transition:opacity var(--sp-close-dur) var(--sp-close)}
+.ss-now .ss-hl{transition:none}
 .ss-list > button:active{filter:var(--press-f);transition-duration:0s}
 .ss-list > button:focus-visible{outline-offset:-3px}
 .ss-list > button > span:nth-child(2){overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ss-list .sw{width:10px;height:10px;border-radius:var(--r-mark)}
 .ss-list .meta{color:var(--muted);font-size:var(--fs-sm)}
-.ss-list .empty{padding:var(--space-5) var(--space-4);color:var(--muted);font-size:var(--fs-md);line-height:1.5}
+.ss-list .empty{padding:var(--space-5) var(--space-4);color:var(--muted);font-size:var(--fs-md);line-height:var(--lh-text)}
 .ss-list .empty small{display:block;font-size:var(--fs-sm);color:var(--faint);margin-top:var(--space-1)}
 
 /* ───────────────── floating windows: open · close (design.md §5 four kinds · §6-2 · §7 · §8; 사용자 2026-11-15 19:49 "표시 설정처럼
@@ -6820,7 +6845,12 @@ const DKSET = {
   index: dkPick('dockIndex', ['tab', 'KOSPI', 'KOSDAQ'], 'tab'),
   side: dkPick('dockSide', ['right', 'left'], 'right'),
 };
-const DK = { el: null, pw: null, pages: null, dots: null, key: null, cells: [], shape: '', shown: false, page: 0, restore: null };
+const DK = { el: null, pw: null, pages: null, dots: null, key: null, cells: [], shape: '', shown: false, page: 0, restore: null, flip: null, quiet: false };
+// the dock's two icons (design.md §4: drawn 1.75px on screen whatever the box — non-scaling strokes, round caps, currentColor)
+const DK_SVG = {
+  search: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" aria-hidden="true"><circle cx="8.5" cy="8.5" r="6" vector-effect="non-scaling-stroke"/><path d="m13 13 4.5 4.5" vector-effect="non-scaling-stroke"/></svg>',
+  close: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 5l10 10M15 5 5 15" vector-effect="non-scaling-stroke"/></svg>',
+};
 const dkDom = () => (['K', 'Q', 'ALL'].includes(lastMarket) ? lastMarket : 'K');
 // "탭 따라": the tab's index; tabs without one (테마 · 관심 · 해외 · 원자재) → the last domestic tab's (전체 → 코스피)
 const dkIxKey = () => DKSET.index !== 'tab' ? DKSET.index : ({ Q: 'KOSDAQ' })[['K', 'Q', 'ALL'].includes(state.market) ? state.market : dkDom()] || 'KOSPI';
@@ -6868,7 +6898,10 @@ function dkBuild() {
   DK.el.dataset.side = DKSET.side;
   DK.el.classList.toggle('keyonly', !DKSET.content);
   DK.page = 0;
+  if (DK.flip) { DK.flip.stop(); DK.flip = null; }
   DK.pages.addEventListener('scroll', dkPageScroll, { passive: true });
+  // a finger on the pages takes over from a key's page flip at once (snapping comes back with it)
+  DK.pages.addEventListener('pointerdown', () => { if (DK.flip) { DK.flip.stop(); DK.flip = null; } DK.pages.classList.remove('dk-flip'); }, { passive: true });
   if (hadFocus) DK.key.focus({ preventScroll: true });
   if (DK.shown) dkFill();
 }
@@ -6879,17 +6912,39 @@ function dkPageScroll() {
   [...DK.dots.children].forEach((x, j) => x.classList.toggle('on', j === i));
   dkData();
 }
-function dkGoPage(i, focus) {
-  const n = DK.pages.children.length;
+// ← → to the next page (design.md §6-3: an interface position — KH.spring `lead`, the same spring as a segment's leading edge; the page
+// dots follow the scroll). Held keys (now), 줄이기, a hidden dock: the page at once (§8). Snapping waits while the spring writes scrollLeft
+function dkGoPage(i, focus, now) {
+  const P = DK.pages, n = P.children.length;
   i = Math.max(0, Math.min(n - 1, i));
-  DK.pages.scrollTo({ left: i * DK.pages.clientWidth, behavior: reduced() ? 'auto' : 'smooth' });
-  if (focus) { const c = DK.pages.children[i].querySelector('.dk-c'); if (c) c.focus({ preventScroll: true }); }
+  const to = i * P.clientWidth, S = springApi();
+  if (DK.flip) { DK.flip.stop(); DK.flip = null; }
+  if (now || !S || typeof S.animate !== 'function' || reduced() || !DK.shown || Math.abs(P.scrollLeft - to) < 1) { P.classList.remove('dk-flip'); P.scrollLeft = to; }
+  else {
+    P.classList.add('dk-flip');
+    const hnd = S.animate({ from: P.scrollLeft, to, name: 'lead', onUpdate: v => { P.scrollLeft = v; },
+      onRest: () => { if (DK.flip === hnd) DK.flip = null; P.classList.remove('dk-flip'); } });
+    DK.flip = hnd;
+  }
+  if (focus) { const c = P.children[i].querySelector('.dk-c'); if (c) c.focus({ preventScroll: true }); }
 }
 // the cells' data: the index line (/api/market) and the 등락 분포 parts follow what is on screen
 function dkData() { ixSync(); syncBreadth(); }
-// a number that changes in place (화려하게: the digits roll)
-function dkText(el, text, dir) { if (el.textContent === text) return; if (dir && fancy() && DK.shown) uiRoll(el, text, dir); else el.textContent = text; }
-const dkNum = t => parseFloat(String(t).replace(/[−]/g, '-').replace(/[^\d.\-]/g, '')) || 0;
+// a cell's number changes in place (design.md §6-4 · P4 · P9 · P10): 기본 KH.ui.swap — a value that rose comes in from below, one that
+// fell from above; 화려하게 the changed digits roll (KH.ui.roll; a length change swaps). At once: the first draw, the same value, 줄이기,
+// a hidden dock or tab, or a cell that now shows another thing (another index, group or scope — DK.quiet). num false = a label (goes up)
+const DK_NUM = /^[▲▼+−-]?[\d,]*\.?\d+%?$/;
+function dkText(el, text, num) {
+  text = String(text);
+  const was = el.textContent;
+  if (was === text) return;
+  if (!was || DK.quiet || !DK.shown || reduced() || document.hidden) { uiStop(el); el.textContent = text; return; }
+  if (num === false || !DK_NUM.test(was) || !DK_NUM.test(text)) { uiSwap(el, text, was); return; }
+  const a = numOf(was), b = numOf(text), dir = isFinite(a) && isFinite(b) ? Math.sign(b - a) : 0;
+  if (fancy() && dir && was.length === text.length) uiRoll(el, text, dir); else uiSwap(el, text, was, dir);
+}
+// the up / down / flat colour without touching the swap's own class
+const dkCls = (el, c) => { for (const k of ['up', 'dn', 'flat']) el.classList.toggle(k, k === c); };
 function dkSpark(svg, s) {
   if (!s || s.pts.length < 2) { svg.replaceChildren(); return; }
   let lo = 0, hi = 0;
@@ -6912,70 +6967,88 @@ function dkDist() {
     return Object.assign(c, { n: c.up + c.dn + c.fl, title: distTitle(k), words: distWords(k), scope: d.opts.scope, unit: '종목', lim: d.opts.lim || null });
   } catch (e) { return null; } finally { state.market = was.m; state.focus = was.f; state.theme = was.t; }
 }
-function dkFill() {
+// quiet: the dock has just come up (what changed while it was away is drawn as it is, not played back as it rises)
+function dkFill(quiet) {
   if (!DK.el || !DATA || !DKSET.content) return;
   const P = PAL().stops, k1 = dkIxKey(), k2 = k1 === 'KOSPI' ? 'KOSDAQ' : 'KOSPI';
-  for (const c of DK.cells) {
-    const kind = c.dataset.k;
-    if (kind === 'ix' || kind === 'ix2') {
-      const key = kind === 'ix' ? k1 : k2, m = key === 'KOSPI' ? 'K' : 'Q', t = tabIndex(m), x = DATA.index && DATA.index[key], s = ixSeries(key);
-      let v = null, ch = null;
-      if (REPLAY) { if (s && s.v != null) v = s.v; }
-      else if (x && +x.value > 0) { v = +x.value; ch = +x.change; }
-      const r = t && t.v != null && isFinite(t.v) ? Math.round(t.v * 100) / 100 : null;
-      c.dataset.key = key;
-      c.querySelector('.nm').textContent = IX_NAME[key];
-      const p = c.querySelector('.p'), val = c.querySelector('.val');
-      p.className = 'p ' + (r == null ? 'flat' : cls(r));
-      dkText(p, r == null ? '—' : fmtPct(r), r == null ? 0 : Math.sign(r - dkNum(p.textContent)));
-      dkText(val, v == null ? (REPLAY ? `다시 보기 ${hhmm(REPLAY.t)}` : '—') : NF2.format(v), v == null ? 0 : Math.sign(v - dkNum(val.textContent)));
-      dkSpark(c.querySelector('svg'), s);
-      c.setAttribute('aria-label', `${IX_NAME[key]} ${v == null ? '' : NF2.format(v) + ', '}${ch != null ? fmtChg2(ch) + ' ' : ''}${r == null ? '' : '(' + fmtPct(r) + ')'}${s ? `, ${REPLAY ? '다시 보기' : '오늘'} 흐름` : ''} — 누르면 지수 상세`);
-    } else if (kind === 'watch') {
-      const gid = wtabId(), codes = wtabCodes(), x = tabValue('WATCH');
-      const gname = gid === 'all' ? '전체 관심' : wgGet(gid).name;
-      c.querySelector('.nm').textContent = gname;
-      c.querySelector('.cnt').textContent = codes.length ? `${fmtInt(codes.length)}종목` : '';
-      const val = c.querySelector('.val'), mvn = c.querySelector('.mvn'), mvp = c.querySelector('.mvp');
-      if (!codes.length) {
-        val.className = 'val dk-empty'; val.textContent = '관심종목이 없어요'; mvn.textContent = ''; mvp.textContent = '';
-        c.setAttribute('aria-label', '관심종목이 없어요 — 누르면 ★관심 탭');
-        continue;
+  // a cell that now shows another thing (another index, group or scope) is drawn at once — P4: no motion for a switch, only for a new value
+  const fresh = (c, id) => { const was = c.dataset.id; c.dataset.id = id; DK.quiet = !!quiet || was !== id; };
+  try {
+    for (const c of DK.cells) {
+      const kind = c.dataset.k;
+      if (kind === 'ix' || kind === 'ix2') {
+        const key = kind === 'ix' ? k1 : k2, m = key === 'KOSPI' ? 'K' : 'Q', t = tabIndex(m), x = DATA.index && DATA.index[key], s = ixSeries(key);
+        let v = null, ch = null;
+        if (REPLAY) { if (s && s.v != null) v = s.v; }
+        else if (x && +x.value > 0) { v = +x.value; ch = +x.change; }
+        const r = t && t.v != null && isFinite(t.v) ? Math.round(t.v * 100) / 100 : null;
+        fresh(c, key + (REPLAY ? '|r' + (REPLAY.date || '') : ''));
+        c.dataset.key = key;
+        c.querySelector('.nm').textContent = IX_NAME[key];
+        const p = c.querySelector('.p'), val = c.querySelector('.val');
+        dkCls(p, r == null ? 'flat' : cls(r));
+        dkText(p, r == null ? '—' : fmtPct(r));
+        dkText(val, v == null ? (REPLAY ? `다시 보기 ${hhmm(REPLAY.t)}` : '—') : NF2.format(v));
+        dkSpark(c.querySelector('svg'), s);
+        c.setAttribute('aria-label', `${IX_NAME[key]} ${v == null ? '' : NF2.format(v) + ', '}${ch != null ? fmtChg2(ch) + ' ' : ''}${r == null ? '' : '(' + fmtPct(r) + ')'}${s ? `, ${REPLAY ? '다시 보기' : '오늘'} 흐름` : ''} — 누르면 지수 상세`);
+      } else if (kind === 'watch') {
+        const gid = wtabId(), codes = wtabCodes(), x = tabValue('WATCH');
+        const gname = gid === 'all' ? '전체 관심' : wgGet(gid).name;
+        fresh(c, gid + '|' + codes.length);
+        c.querySelector('.nm').textContent = gname;
+        c.querySelector('.cnt').textContent = codes.length ? `${fmtInt(codes.length)}종목` : '';
+        const val = c.querySelector('.val'), mvn = c.querySelector('.mvn'), mvp = c.querySelector('.mvp');
+        if (!codes.length) {
+          dkCls(val, null); val.classList.add('dk-empty'); uiStop(val); val.textContent = '관심종목이 없어요';
+          uiStop(mvn); uiStop(mvp); mvn.textContent = ''; mvp.textContent = ''; delete c.dataset.mv;
+          c.setAttribute('aria-label', '관심종목이 없어요 — 누르면 ★관심 탭');
+          continue;
+        }
+        val.classList.remove('dk-empty');
+        const v = x && x.v != null && isFinite(x.v) ? Math.round(x.v * 100) / 100 : null;
+        let mv = null;
+        for (const code of codes) { const st = get(code); if (st && isFinite(st.r) && (!mv || Math.abs(st.r) > Math.abs(mv.r))) mv = st; }
+        dkCls(val, v == null ? 'flat' : cls(v));
+        dkText(val, v == null ? '—' : fmtPct(v));
+        // the biggest mover: another stock → its name and number come in as labels; the same stock → its number moves the way it went
+        const same = !!mv && c.dataset.mv === mv.c;
+        if (mv) c.dataset.mv = mv.c; else delete c.dataset.mv;
+        dkText(mvn, mv ? mv.n : '', false);
+        dkCls(mvp, mv ? cls(mv.r) : 'flat');
+        dkText(mvp, mv ? fmtPct(mv.r, 1) : '', same ? undefined : false);
+        c.setAttribute('aria-label', `관심 그룹 ${gname} ${fmtInt(codes.length)}종목, 시가총액 가중 ${v == null ? '시세를 받는 중' : fmtPct(v)}${mv ? `, 가장 많이 움직인 ${mv.n} ${fmtPct(mv.r)}` : ''} — 누르면 ★관심 탭`);
+      } else {
+        const D = dkDist();
+        fresh(c, D ? D.scope + '|' + D.title : '');
+        c.querySelector('.nm').textContent = D ? D.title : '등락 분포';
+        const cnt = c.querySelector('.cnt'), L = D && D.lim, lim = c.querySelector('.lim');
+        dkText(cnt, D ? fmtInt(D.n) : '');
+        // 상한 9 · 하한 0 on the top line (the cell keeps its height and lines): beside the count while all fits, else in its place
+        // (most phones), else 상 9 · 하 0 (360 px with two-digit counts). Fit = the name's own text width + gaps (≥ 8 px) + the parts,
+        // measured in fractions — scrollWidth rounds and missed a 1.6 px cut at 360. The dock is laid out (only hidden) whenever this runs
+        lim.hidden = !L; cnt.hidden = false;
+        if (L) {
+          const [k1, lu, , k2, ld] = lim.children, l1 = c.querySelector('.dk-l1'), nm = c.querySelector('.nm');
+          k1.textContent = '상한'; k2.textContent = '하한';
+          dkCls(lu, L.lu ? 'up' : 'flat'); dkText(lu, fmtInt(L.lu));
+          dkCls(ld, L.ld ? 'dn' : 'flat'); dkText(ld, fmtInt(L.ld));
+          const W = l1.getBoundingClientRect().width, g = Math.max(8, parseFloat(getComputedStyle(l1).columnGap) || 0);
+          const rg = document.createRange(); rg.selectNodeContents(nm);
+          const fits = () => rg.getBoundingClientRect().width + g + lim.getBoundingClientRect().width + (cnt.hidden ? 0 : g + cnt.getBoundingClientRect().width) <= W;
+          if (W > 0 && !fits()) { cnt.hidden = true; if (!fits()) { k1.textContent = '상'; k2.textContent = '하'; } }
+        }
+        // the bar's parts follow a new count with `value` (data: no overshoot); a switch or the first draw sits at once (.dk-now)
+        const [iu, ifl, idn] = c.querySelector('.dk-bar').children;
+        const tot = D && D.n ? D.n : 1;
+        if (DK.quiet) c.classList.add('dk-now');
+        iu.style.cssText = `flex:${D ? D.up / tot : 0};background:${P[6]}`; ifl.style.cssText = `flex:${D ? D.fl / tot : 1};background:${P[3]}`; idn.style.cssText = `flex:${D ? D.dn / tot : 0};background:${P[0]}`;
+        if (DK.quiet) { void c.offsetWidth; c.classList.remove('dk-now'); }
+        const [nu, nf, nd] = c.querySelector('.dk-n').children;
+        dkText(nu, D ? '▲' + fmtInt(D.up) : ''); dkText(nf, D ? fmtInt(D.fl) : ''); dkText(nd, D ? '▼' + fmtInt(D.dn) : '');
+        c.setAttribute('aria-label', D ? `${D.scope} ${D.title}: ${D.words[0]} ${fmtInt(D.up)}, ${D.words[1]} ${fmtInt(D.fl)}, ${D.words[2]} ${fmtInt(D.dn)}${L ? `, 상한가 ${fmtInt(L.lu)}종목, 하한가 ${fmtInt(L.ld)}종목` : ''} — 누르면 등락 분포 카드로` : '등락 분포 — 누르면 등락 분포 카드로');
       }
-      const v = x && x.v != null && isFinite(x.v) ? Math.round(x.v * 100) / 100 : null;
-      let mv = null;
-      for (const code of codes) { const st = get(code); if (st && isFinite(st.r) && (!mv || Math.abs(st.r) > Math.abs(mv.r))) mv = st; }
-      val.className = 'val ' + (v == null ? 'flat' : cls(v));
-      dkText(val, v == null ? '—' : fmtPct(v), v == null ? 0 : Math.sign(v - dkNum(val.textContent)));
-      mvn.textContent = mv ? mv.n : ''; mvp.className = 'mvp ' + (mv ? cls(mv.r) : 'flat'); mvp.textContent = mv ? fmtPct(mv.r, 1) : '';
-      c.setAttribute('aria-label', `관심 그룹 ${gname} ${fmtInt(codes.length)}종목, 시가총액 가중 ${v == null ? '시세를 받는 중' : fmtPct(v)}${mv ? `, 가장 많이 움직인 ${mv.n} ${fmtPct(mv.r)}` : ''} — 누르면 ★관심 탭`);
-    } else {
-      const D = dkDist();
-      c.querySelector('.nm').textContent = D ? D.title : '등락 분포';
-      const cnt = c.querySelector('.cnt'), L = D && D.lim, lim = c.querySelector('.lim');
-      cnt.textContent = D ? fmtInt(D.n) : '';
-      // 상한 9 · 하한 0 on the top line (the cell keeps its height and lines): beside the count while all fits, else in its place
-      // (most phones), else 상 9 · 하 0 (360 px with two-digit counts). Fit = the name's own text width + gaps (≥ 8 px) + the parts,
-      // measured in fractions — scrollWidth rounds and missed a 1.6 px cut at 360. The dock is laid out (only hidden) whenever this runs
-      lim.hidden = !L; cnt.hidden = false;
-      if (L) {
-        const [k1, lu, , k2, ld] = lim.children, l1 = c.querySelector('.dk-l1'), nm = c.querySelector('.nm');
-        k1.textContent = '상한'; k2.textContent = '하한';
-        lu.textContent = fmtInt(L.lu); lu.className = 'lu ' + (L.lu ? 'up' : 'flat');
-        ld.textContent = fmtInt(L.ld); ld.className = 'ld ' + (L.ld ? 'dn' : 'flat');
-        const W = l1.getBoundingClientRect().width, g = Math.max(8, parseFloat(getComputedStyle(l1).columnGap) || 0);
-        const rg = document.createRange(); rg.selectNodeContents(nm);
-        const fits = () => rg.getBoundingClientRect().width + g + lim.getBoundingClientRect().width + (cnt.hidden ? 0 : g + cnt.getBoundingClientRect().width) <= W;
-        if (W > 0 && !fits()) { cnt.hidden = true; if (!fits()) { k1.textContent = '상'; k2.textContent = '하'; } }
-      }
-      const [iu, ifl, idn] = c.querySelector('.dk-bar').children;
-      const tot = D && D.n ? D.n : 1;
-      iu.style.cssText = `flex:${D ? D.up / tot : 0};background:${P[6]}`; ifl.style.cssText = `flex:${D ? D.fl / tot : 1};background:${P[3]}`; idn.style.cssText = `flex:${D ? D.dn / tot : 0};background:${P[0]}`;
-      const [nu, nf, nd] = c.querySelector('.dk-n').children;
-      nu.textContent = D ? '▲' + fmtInt(D.up) : ''; nf.textContent = D ? fmtInt(D.fl) : ''; nd.textContent = D ? '▼' + fmtInt(D.dn) : '';
-      c.setAttribute('aria-label', D ? `${D.scope} ${D.title}: ${D.words[0]} ${fmtInt(D.up)}, ${D.words[1]} ${fmtInt(D.fl)}, ${D.words[2]} ${fmtInt(D.dn)}${L ? `, 상한가 ${fmtInt(L.lu)}종목, 하한가 ${fmtInt(L.ld)}종목` : ''} — 누르면 등락 분포 카드로` : '등락 분포 — 누르면 등락 분포 카드로');
     }
-  }
+  } finally { DK.quiet = false; }
 }
 const fmtChg2 = v => sgn(v) + NF2.format(Math.abs(v));
 function dkRefresh() { if (DK.el && DK.shown && narrowMQ.matches) dkFill(); }
@@ -7016,10 +7089,13 @@ function dkSync() {
   const want = dkWant();
   if (want === DK.shown) return;
   DK.shown = want;
+  // 화려하게: the cells rise the first time the dock comes up in a session (a rare first appearance — design.md §6-2 P3), never again
+  if (want && !DK.risen) { DK.risen = true; let first = true; try { first = !sessionStorage.getItem('khm.dkRisen'); sessionStorage.setItem('khm.dkRisen', '1'); } catch (e) { /* private mode */ } DK.el.classList.toggle('dk-first', first); }
+  else if (!want) DK.el.classList.remove('dk-first');
   DK.el.classList.toggle('on', want);
   DK.el.setAttribute('aria-hidden', String(!want));
   if (want) {
-    dkFill(); dkData();
+    dkFill(true); dkData();
     // a window opened from the dock has closed while the dock was hidden (focus could not go back then): now it can
     const r = DK.restore; DK.restore = null;
     if (r && r.isConnected && DK.el.contains(r) && (!document.activeElement || document.activeElement === document.body)) r.focus({ preventScroll: true });
@@ -7071,7 +7147,7 @@ async function dkTap(c) {
 }
 function dkInit() {
   DK.key = h('button', { type: 'button', class: 'dk-k', 'aria-label': '종목 검색', 'aria-haspopup': 'dialog' });
-  DK.key.innerHTML = '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="8.5" cy="8.5" r="6"/><path d="m13 13 4.5 4.5" stroke-linecap="round"/></svg>';
+  DK.key.innerHTML = DK_SVG.search;
   DK.el = h('div', { class: 'dock', role: 'region', 'aria-label': '아래 막대', 'aria-hidden': 'true' });
   document.body.append(DK.el);
   dkBuild();
@@ -7082,8 +7158,8 @@ function dkInit() {
     if (!c || (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft')) return;
     const pg = c.closest('.dk-pg'), i = [...DK.pages.children].indexOf(pg), cs = [...pg.querySelectorAll('.dk-c')], j = cs.indexOf(c);
     e.preventDefault();
-    if (e.key === 'ArrowRight') { if (j < cs.length - 1) cs[j + 1].focus(); else dkGoPage(i + 1, true); }
-    else { if (j > 0) cs[j - 1].focus(); else if (i > 0) { dkGoPage(i - 1, false); const p = DK.pages.children[i - 1].querySelectorAll('.dk-c'); if (p.length) p[p.length - 1].focus({ preventScroll: true }); } }
+    if (e.key === 'ArrowRight') { if (j < cs.length - 1) cs[j + 1].focus(); else dkGoPage(i + 1, true, e.repeat); }
+    else { if (j > 0) cs[j - 1].focus(); else if (i > 0) { dkGoPage(i - 1, false, e.repeat); const p = DK.pages.children[i - 1].querySelectorAll('.dk-c'); if (p.length) p[p.length - 1].focus({ preventScroll: true }); } }
   });
   // the windows the dock hides for open and close in other modules too (dialogs, the 해외 detail, the replay player): a light check
   // twice a second on phones, plus right after any press or Esc
@@ -7098,12 +7174,14 @@ function dkInit() {
 
 /* 🔍 → the search sheet: the same searchList() and pick() as the search box, its own ids (#dkq · #dksugg). It sits on the keyboard
    (visualViewport); focus goes to the box, and back to 🔍 on ✕ · a tap outside · Esc; ↑ ↓ Enter move and pick. */
-const SS = { open: false, el: null, scrim: null, inp: null, list: null, hint: null, idx: 0, found: [] };
+const SS = { open: false, el: null, scrim: null, inp: null, list: null, hint: null, hl: null, idx: 0, found: [] };
 function ssBuild() {
   SS.inp = h('input', { id: 'dkq', type: 'search', placeholder: '종목명·코드', autocomplete: 'off', spellcheck: 'false', enterkeyhint: 'search', 'aria-label': '종목 검색', role: 'combobox', 'aria-autocomplete': 'list', 'aria-controls': 'dksugg', 'aria-expanded': 'false' });
-  const lab = h('label', { class: 'search' }); lab.innerHTML = '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="8.5" cy="8.5" r="6"/><path d="m13 13 4.5 4.5" stroke-linecap="round"/></svg>';
+  const lab = h('label', { class: 'search' }); lab.innerHTML = DK_SVG.search;
   lab.append(SS.inp);
-  const x = h('button', { type: 'button', class: 'ss-x', 'aria-label': '검색 닫기', text: '×', onclick: () => ssClose(true) });
+  const x = h('button', { type: 'button', class: 'ss-x', 'aria-label': '검색 닫기', onclick: () => ssClose(true) });
+  x.innerHTML = DK_SVG.close;
+  SS.hl = h('i', { class: 'ss-hl', 'aria-hidden': 'true', hidden: true });
   SS.hint = h('p', { class: 'ss-hint', 'aria-live': 'polite' });
   SS.list = h('div', { class: 'ss-list', id: 'dksugg', role: 'listbox', 'aria-label': '찾은 종목' });
   SS.el = h('div', { class: 'ssheet', role: 'dialog', 'aria-modal': 'true', 'aria-label': '종목 검색', hidden: true }, h('div', { class: 'grab', 'aria-hidden': 'true' }), h('div', { class: 'ss-top' }, lab, x), SS.hint, SS.list);
@@ -7115,7 +7193,7 @@ function ssBuild() {
     if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); ssClose(true); return; }
     if (e.target === SS.inp && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
       e.preventDefault(); if (!SS.found.length) return;
-      SS.idx = (SS.idx + (e.key === 'ArrowDown' ? 1 : -1) + SS.found.length) % SS.found.length; ssMark(); return;
+      SS.idx = (SS.idx + (e.key === 'ArrowDown' ? 1 : -1) + SS.found.length) % SS.found.length; ssMark(e.repeat); return;
     }
     if (e.target === SS.inp && e.key === 'Enter') { e.preventDefault(); if (SS.found[SS.idx]) ssPick(SS.idx); return; }
     if (e.key === 'Tab') { const f = [SS.inp, x]; const i = f.indexOf(document.activeElement); e.preventDefault(); f[(i + (e.shiftKey ? -1 : 1) + f.length) % f.length].focus(); }
@@ -7126,10 +7204,17 @@ function ssFit() {
   SS.el.style.bottom = Math.round(kb) + 'px';
   SS.el.style.height = Math.round(Math.max(220, Math.min(innerHeight * 0.78, vh - 40))) + 'px';
 }
-function ssMark() {
-  for (const [i, b] of [...SS.list.querySelectorAll('[role="option"]')].entries()) b.setAttribute('aria-selected', String(i === SS.idx));
-  if (SS.found.length) { SS.inp.setAttribute('aria-activedescendant', 'dksg-' + SS.idx); const b = $('#dksg-' + SS.idx); if (b) b.scrollIntoView({ block: 'nearest' }); }
-  else SS.inp.removeAttribute('aria-activedescendant');
+// the highlighted row + its plate (design.md §6-2 hl): ↑ ↓ move the plate with `hl`; now (a new list, a held key) puts it there at once
+function ssMark(now) {
+  const opts = [...SS.list.querySelectorAll('[role="option"]')], b = opts[SS.idx];
+  opts.forEach((x, i) => x.setAttribute('aria-selected', String(i === SS.idx)));
+  if (!b) { SS.hl.hidden = true; SS.inp.removeAttribute('aria-activedescendant'); return; }
+  if (now) SS.list.classList.add('ss-now');
+  SS.hl.style.setProperty('--hy', b.offsetTop + 'px'); SS.hl.style.setProperty('--hh', b.offsetHeight + 'px');
+  SS.hl.hidden = false;
+  if (now) { void SS.hl.offsetWidth; SS.list.classList.remove('ss-now'); }
+  SS.inp.setAttribute('aria-activedescendant', b.id);
+  b.scrollIntoView({ block: 'nearest' });
 }
 function ssRender() {
   const q = SS.inp.value.trim();
@@ -7138,10 +7223,10 @@ function ssRender() {
   const where = state.market === 'THEME' ? '테마' : '종목';
   const kids = SS.found.map((s, i) => h('button', { type: 'button', role: 'option', id: 'dksg-' + i, tabindex: '-1', 'aria-selected': String(i === SS.idx), onclick: () => ssPick(i) }, suggKids(s)));
   if (q && !kids.length) kids.push(h('div', { class: 'empty' }, MODE === 'live' && namesSt.st === 'loading' ? '종목 목록을 불러오는 중…' : `'${q}'와 맞는 ${where}이 없어요.`));
-  SS.list.replaceChildren(...kids);
+  SS.list.replaceChildren(SS.hl, ...kids);
   SS.inp.setAttribute('aria-expanded', String(SS.found.length > 0));
   SS.hint.textContent = !q ? '이름이나 코드로 찾아요 · 지금 읽던 자리는 그대로예요' : SS.found.length ? `${SS.found.length}개 찾았어요` : '';
-  ssMark();
+  ssMark(true);
 }
 function ssPick(i) {
   const s = SS.found[i];
