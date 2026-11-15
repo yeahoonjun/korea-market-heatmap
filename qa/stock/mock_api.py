@@ -21,6 +21,11 @@ Control (test helpers, not part of the contract)
                                  &nosum=1 → summary without the §3-3 fields (an older Worker)
                                  &noiv=1 → chart ignores iv= and answers the tf= shape (a Worker from before iv=)
                                  &oldiv=1 → iv=10m|30m|60m answer 400 (a Worker from before 10분 · 30분 · 60분)
+                                 &sdg=ok|empty|fail|wait|stale|gone|nf[&sdgkind=lending|corp|dividend][&sdgdelay=ms]
+                                 → the 공공데이터포털 routes below: fail 502, wait 503 (no copy yet), gone 404 {error:'not found'}
+                                   (a Worker without the routes), nf 404 {error:'정보 없음'} (ETF …), stale = data + stale:true
+공공데이터포털 (AGENTS.md §3 · §3-32, worker/src/stock_datago.js shapes): /api/stock/{code}/lending · corp · dividend for every code
+the other routes know (005930 long lists, others short); 999980 = empty data, 999990 = 502.
 Chart: ?iv=1m|5m|10m|30m|60m|day|week|month[&to=][&count=][&warm=] like the Worker (AGENTS.md §3): 10m · 30m · 60m are the 5-minute
 bars grouped by group_bars, a port of the Worker's groupBars (worker/src/index.js). The tf= form is unchanged.
 Quiet stubs for the heatmap's own routes so a page load is console-clean: /api/news, /api/disclosures/today (an empty day), /api/time,
@@ -415,6 +420,114 @@ def alias_summary(code):
             'cnsPer': None, 'cnsEps': None, 'dps': None, 'peers': []}
 
 
+# ── 공공데이터포털 (금융위원회) — the Worker's shapes (worker/src/stock_datago.js), deterministic per code ──
+SDG_ROUTE = re.compile(r'^/api/stock/([0-9A-Z]{6})/(lending|corp|dividend)$')
+SDG_HOLI = {'2026-10-05', '2026-10-06', '2026-10-07', '2026-10-09'}
+SDG_LAST = dt.date(2026, 11, 13)
+
+
+def sdg_days(n=60):
+    out, d = [], SDG_LAST
+    while len(out) < n:
+        if d.weekday() < 5 and d.isoformat() not in SDG_HOLI:
+            out.append(d.isoformat())
+        d -= dt.timedelta(days=1)
+    return out[::-1]
+
+
+def sdg_seed(code):
+    return sum((i + 1) * ord(c) for i, c in enumerate(code))
+
+
+def sdg_price(code):
+    r = SNAP_ROWS.get(code) or {}
+    return r.get('p') or 70000
+
+
+def sdg_lending(code, empty):
+    import math
+    days = sdg_days()
+    if empty:
+        return {'code': code, 'basDt': days[-1], 'source': '금융위원회', 'asOf': '2026-11-16T14:05:00+09:00', 'days': len(days), 'rows': [], 'latest': None}
+    sd, price = sdg_seed(code), sdg_price(code)
+    base = 6.4e7 if code == '005930' else 2e5 + (sd % 50) * 1e5
+    rows = []
+    for i, d in enumerate(days):
+        sh = int(base * (1 + 0.09 * math.sin(i / 6 + sd % 7)) + i * base * 0.002)
+        rows.append({'date': d, 'shares': sh, 'amount': sh * price, 'lent': int(base * 0.004 * (1 + i % 5)), 'repaid': int(base * 0.0035 * (1 + (i + 2) % 5))})
+    L, P = rows[-1], rows[-2]
+    latest = {'date': L['date'], 'shares': L['shares'], 'amount': L['amount'], 'prevDate': P['date'], 'change': L['shares'] - P['shares'],
+              'ratio': round((L['shares'] / P['shares'] - 1) * 100, 2)}
+    return {'code': code, 'basDt': days[-1], 'source': '금융위원회', 'asOf': '2026-11-16T14:05:00+09:00', 'days': len(days), 'rows': rows, 'latest': latest}
+
+
+def sdg_dividend(code, empty):
+    body = {'code': code, 'basDt': '2026-11-13', 'source': '금융위원회', 'asOf': '2026-11-16T14:05:00+09:00', 'rows': []}
+    if empty:
+        return body
+    kind = '우선주' if code[5] != '0' else '보통주'
+    if code in ('005930', '005935'):
+        for y in range(2026, 2020, -1):
+            for q, pay in (('12-31', '04-17'), ('09-30', '11-20'), ('06-30', '08-19'), ('03-31', '05-20')):
+                rec = f'{y}-{q}'
+                if rec > '2026-09-30':
+                    continue
+                py = y + 1 if q == '12-31' else y
+                body['rows'].append({'recordDate': rec, 'payDate': f'{py}-{pay}' if f'{py}-{pay}' <= '2026-11-20' else None, 'amount': 361 + (1000 if q == '12-31' and y == 2020 else 0),
+                                     'kind': kind, 'reason': '현금배당', 'cashRate': 7.2})
+    else:
+        sd = sdg_seed(code)
+        for y in range(2025, 2020, -1):
+            body['rows'].append({'recordDate': f'{y}-12-31', 'payDate': f'{y + 1}-04-1{sd % 9}', 'amount': 100 * (1 + sd % 30) + (2025 - y) * 10, 'kind': kind, 'reason': '현금배당'})
+        if sd % 3 == 0:
+            body['rows'].insert(2, {'recordDate': '2023-12-31', 'payDate': None, 'amount': 0, 'kind': kind, 'reason': '주식배당', 'stockDate': '2024-04-02', 'stockRate': 2.5})
+    return body
+
+
+def sdg_corp(code, empty):
+    name = (SNAP_ROWS.get(code) or {}).get('n') or code
+    body = {'code': code, 'name': f'{name}(주)', 'basDt': '2026-11-13', 'source': '금융위원회', 'asOf': '2026-11-16T14:05:00+09:00',
+            'outline': None, 'affiliates': None, 'subsidiaries': None}
+    if empty:
+        return body
+    big = code in ('005930', '005935')
+    sd = sdg_seed(code)
+    body['outline'] = {'name': f'{name}(주)', 'ceo': '전영현, 노태문' if big else '홍길동', 'established': '1969-01-13' if big else f'{1980 + sd % 40}-0{1 + sd % 9}-1{sd % 9}',
+                       'listed': '1975-06-11' if big else f'{2000 + sd % 20}-0{1 + sd % 9}-2{sd % 8}', 'employees': 125000 if big else 300 + sd % 4000,
+                       'industry': '통신 및 방송 장비 제조업' if big else '전자부품 제조업', 'business': '반도체 · 스마트폰 · 가전 제조' if big else '전자부품 제조 및 판매',
+                       'settleMonth': 12, 'address': '경기도 수원시 영통구 삼성로 129 (매탄동)' if big else '서울특별시 중구 세종대로 110',
+                       'homepage': 'http://www.samsung.com/sec' if big else 'https://www.example.com/'}
+    n_aff, n_sub = (63, 232) if big else (5 + sd % 12, 3 + sd % 9)
+    stems = ['가람', '나래', '다온', '라온', '마루', '바다', '사랑', '아라', '자람', '차오', '하늘', '한빛']
+    body['affiliates'] = {'basDt': '2026-05-01', 'count': n_aff, 'items': [{'name': f'{stems[i % 12]}{"에너지" if i % 3 == 0 else "테크" if i % 3 == 1 else "로지스"} {i + 1:02d}(주)', 'listed': i < (17 if big else 2)} for i in range(n_aff)]}
+    body['subsidiaries'] = {'basDt': '2026-03-04', 'count': n_sub, 'items': [{'name': (f'{name} {"America Inc." if i % 2 else "Vietnam Co., Ltd."} {i + 1}' if i % 4 else f'{stems[i % 12]}서비스 {i + 1}(주)'), 'main': i % 9 == 0} for i in range(n_sub)]}
+    return body
+
+
+def sdg_answer(code, kind):
+    """→ (status, body) per CONFIG sdg / sdgkind."""
+    mode = CONFIG.get('sdg', 'ok') or 'ok'
+    if CONFIG.get('sdgkind') and CONFIG['sdgkind'] != kind:
+        mode = 'ok'
+    if code == '999990':
+        return 502, {'error': 'mock 502'}
+    if code != '999980' and code not in SNAP_ROWS and not (RAW / code).exists():
+        return 404, {'error': '정보 없음'}
+    if mode == 'gone':
+        return 404, {'error': 'not found'}
+    if mode == 'nf':
+        return 404, {'error': '정보 없음'}
+    if mode == 'fail':
+        return 502, {'error': '자료를 받지 못했어요', 'code': 'upstream'}
+    if mode == 'wait':
+        return 503, {'error': '아직 자료를 받는 중이에요', 'code': 'wait'}
+    empty = mode == 'empty' or code == '999980'
+    body = {'lending': sdg_lending, 'dividend': sdg_dividend, 'corp': sdg_corp}[kind](code, empty)
+    if mode == 'stale':
+        body['stale'] = True
+    return 200, body
+
+
 ROUTE = re.compile(r'^/api/stock/([0-9A-Z]{6})/(summary|chart|orderbook|investors|daily|news|disclosures|finance|research)$')
 
 
@@ -506,6 +619,15 @@ class Handler(SimpleHTTPRequestHandler):
             return self.send_json({'m': mk, 'part': 1, 'parts': 1, 'asOf': dt.datetime.now(KST).replace(microsecond=0).isoformat(), 'rows': rows})
         if path == '/api/world':
             return self.send_json({'asOf': None, 'kind': q.get('kind'), 'groups': []})
+        sm = SDG_ROUTE.match(path)
+        if sm:
+            code, kind = sm.groups()
+            self.count(kind); self.count(f'{kind}:{code}')
+            d = int(CONFIG.get('sdgdelay', 0) or 0)
+            if d:
+                time.sleep(d / 1000)
+            st, body = sdg_answer(code, kind)
+            return self.send_json(body, st)
         m = ROUTE.match(path)
         if not m:
             return self.send_json({'error': 'not found'}, 404)

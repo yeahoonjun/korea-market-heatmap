@@ -373,6 +373,7 @@ function buildLive() {
   R.body.append(chartcol, h('section', { class: 'sp-side', 'aria-label': TABS.map(t => t.label).join('·') }, h('div', { class: 'sp-tabwrap' }, R.tabs), ...Object.values(R.panels)));
   R.foot.append(h('p', {}, '데이터: 네이버 증권(비공식). 차트: ',
     h('a', { href: 'https://www.tradingview.com/', target: '_blank', rel: 'noopener', text: 'TradingView Lightweight Charts™' }), '.'),
+    h('p', { text: '대차잔고 · 배당 내역 · 기업 정보: 금융위원회(공공데이터포털), 하루 한 번.' }),
     h('p', { class: 'sp-disclaim', text: '투자 판단의 근거로 쓰지 마세요.' }));   // 사용자 2026-11-14 11:59: 항상 맨 아래 줄
 }
 
@@ -2055,8 +2056,9 @@ const RES_SHOW = 5, RES_MONTHS = 3;
 function infoReset() {
   S.ci = { fa: null, fq: null, res: null }; S.ciSel = {}; S.resAll = false;
   if (R.ci) for (const k of ['met', 'fin', 'stab', 'div', 'ana']) R.ci[k].sig = null;
+  sdgReset();
 }
-function infoShow() { for (const k in CI_SRC) loadCi(k); renderInfo(); }
+function infoShow() { for (const k in CI_SRC) loadCi(k); renderInfo(); sdgObserve(); }
 function infoSummary() {
   if (!R.ci || S.tab !== 'info') return;
   renderMetrics(); renderDiv(); renderTargetGap();
@@ -2169,14 +2171,21 @@ function buildInfo(panel) {
   R.ci.stabBody = h('div');
   R.ci.stab.body.append(R.ci.stabSeg, R.ci.stabBody);
   R.ci.stab.body = R.ci.stabBody;
+  // 공공데이터포털 (금융위원회): 배당 내역은 배당 칸 아래, 대차잔고 · 기업 정보는 네이버 묶음(과 그 출처 줄) 뒤 — 블록마다 자기 출처 줄
+  R.ci.lend = sec('lend', '대차잔고');
+  R.ci.corp = sec('corp', '기업 정보');
+  R.ci.lend.el.dataset.sdg = 'lend'; R.ci.corp.el.dataset.sdg = 'corp';
+  R.ci.lend.el.classList.add('sp-sdg'); R.ci.corp.el.classList.add('sp-sdg');
+  { const body = h('div', { class: 'sp-dvx-body' }), el = h('div', { class: 'sp-dvx', 'data-sdg': 'dvx' }, body); R.ci.dvx = { el, body, sig: null }; R.ci.div.el.append(el); }
   panel.append(R.ci.met.el, R.ci.fin.el, R.ci.stab.el, R.ci.div.el, R.ci.ana.el,
-    h('p', { class: 'sp-note sp-ci-src', text: '출처: 네이버 증권 · 컨센서스는 증권사 추정치예요' }));
+    h('p', { class: 'sp-note sp-ci-src', text: '출처: 네이버 증권 · 컨센서스는 증권사 추정치예요' }),
+    R.ci.lend.el, R.ci.corp.el);
 }
 function setFinPeriod(k) { finPeriod = k; store.set('stockFinPeriod', k); renderFin(); renderStab(); }
 function setStab(k) { stabKey = k; store.set('stockStab', k); renderStab(); }
 function renderInfo() {
   if (!R.ci) return;
-  renderMetrics(); renderFin(); renderStab(); renderDiv(); renderAna();
+  renderMetrics(); renderFin(); renderStab(); renderDiv(); renderAna(); sdgRenderAll();
   const P = R.panels.info;
   if (!P || P.hidden) return;
   growBars(P, 'info-fin', '.sp-fin-col .b', 'y');
@@ -2455,6 +2464,319 @@ function renderAna() {
   } else kids.push(h('p', { class: 'sp-ana-empty', text: '최근 리포트 목록이 없어요.' }));
   A.body.replaceChildren(...kids);
   renderTargetGap();
+}
+
+/* ── 공공데이터포털 (금융위원회): 대차잔고 · 배당 내역 · 기업 정보 (AGENTS.md §3 · §3-32 ②④⑤) ──
+   /api/stock/{code}/lending · dividend · corp — 하루 한 번 바뀌는 자료라 종목마다 30분 기억해요. 블록이 화면 근처(아래 300px)에 오면 그때 받아요
+   (IntersectionObserver — 탭이 숨으면 교차하지 않아요). 404(옛 Worker, 또는 ETF처럼 자료가 없는 종목)는 그 블록을 숨겨요. 대차잔고 증감은
+   가격이 아니라서 빨강·초록 없이 중립색 글자로만(AGENTS §4: 빨강·초록은 등락에만). */
+const SDG_SRC = { lending: 'lending', dividend: 'dividend', corp: 'corp' };
+const SDG_TTL = 30 * 60e3;
+const SDG_SOURCE = '금융위원회 · 공공데이터포털, 하루 한 번';
+const SDG_NAMES = 8, SDG_DIV_ROWS = 8;
+const sdgCache = new Map();   // `${code}|${kind}` → {at, j} | {at, gone: true}
+const SDG = { st: {}, near: new Set(), io: null, open: {}, mv: null };
+const sdgKey = k => S.code + '|' + k;
+const sdgHit = k => { const x = sdgCache.get(sdgKey(k)); return x && Date.now() - x.at < SDG_TTL ? x : null; };
+// 'gone' (404: hide) · 'ok' · 'err' · 'loading' · 'idle' (not near the viewport yet)
+function sdgState(k) {
+  const x = sdgHit(k);
+  if (x) return x.gone ? 'gone' : 'ok';
+  if (SDG.st[k] && SDG.st[k].err) return 'err';
+  return SDG.st[k] && SDG.st[k].loading ? 'loading' : 'idle';
+}
+const sdgSig = k => { const x = sdgHit(k); return k + ':' + sdgState(k) + ':' + (x ? x.at : '') + ':' + (SDG.st[k] && SDG.st[k].err ? SDG.st[k].err.status || 'n' : ''); };
+function sdgReset() {
+  SDG.st = {}; SDG.near = new Set(); SDG.open = {};
+  if (SDG.mv) { SDG.mv.finish(); SDG.mv = null; }
+  if (R.ci) for (const k of ['lend', 'dvx', 'corp']) if (R.ci[k]) R.ci[k].sig = null;
+}
+async function sdgLoad(k, force, quiet) {
+  const code = S.code, g = S.gen;
+  if (!force && sdgHit(k)) return true;
+  if (SDG.st[k] && SDG.st[k].loading) return null;
+  const prev = SDG.st[k];
+  SDG.st[k] = quiet && prev ? { loading: true, err: prev.err } : { loading: true, err: null };
+  if (!quiet) sdgRender(k);
+  try {
+    const j = await api(SDG_SRC[k], 'sdg-' + k);
+    if (g !== S.gen) return null;
+    sdgCache.set(code + '|' + k, { at: Date.now(), j: j && typeof j === 'object' ? j : {} });
+    SDG.st[k] = null;
+  } catch (e) {
+    if (aborted(e) || g !== S.gen) return null;
+    if (e && e.status === 404) { sdgCache.set(code + '|' + k, { at: Date.now(), gone: true }); SDG.st[k] = null; }
+    else SDG.st[k] = { loading: false, err: e };
+  }
+  if (!quiet && S.tab === 'info') sdgRender(k);
+  return sdgState(k) === 'ok' || sdgState(k) === 'gone';
+}
+// a block near the viewport (or already shown) asks for its data once per stock
+function sdgNear(k) {
+  if (!S.open || S.tab !== 'info' || SDG.near.has(k)) return;
+  SDG.near.add(k);
+  loadSdgFor(k);
+}
+const SDG_OF = { lend: 'lending', dvx: 'dividend', corp: 'corp' };
+function loadSdgFor(blk) { const k = SDG_OF[blk]; if (sdgState(k) === 'idle') sdgLoad(k); else sdgRender(k); }
+function sdgObserve() {
+  if (!R.ci || !R.ci.lend) return;
+  const els = [R.ci.lend.el, R.ci.dvx.el, R.ci.corp.el];
+  if (typeof IntersectionObserver !== 'function') { for (const e of els) sdgNear(e.dataset.sdg); return; }
+  // the scroller is the panel on wide screens (≥ 1100px, the side card scrolls) and the page itself below that: observe in it, so the
+  // 300px look-ahead is real (with the viewport as root, the scroller's clip would cut it off)
+  const scrolls = el => el && /^(auto|scroll)$/.test(getComputedStyle(el).overflowY);
+  const box = scrolls(R.panels.info) ? R.panels.info : scrolls(root) ? root : null;
+  if (!SDG.io || SDG.ioRoot !== box) {
+    if (SDG.io) SDG.io.disconnect();
+    SDG.ioRoot = box;
+    SDG.io = new IntersectionObserver(es => { for (const e of es) if (e.isIntersecting) sdgNear(e.target.dataset.sdg); }, { root: box, rootMargin: '0px 0px 300px 0px' });
+  }
+  SDG.io.disconnect();                    // a fresh first callback for each element (switching stocks with the tab already open)
+  for (const e of els) SDG.io.observe(e);
+}
+const SDG_BLK = { lending: 'lend', dividend: 'dvx', corp: 'corp' };
+function sdgRender(k) { if (!R.ci || !R.ci.lend) return; ({ lending: renderLend, dividend: renderDvx, corp: renderCorp })[k](); }
+function sdgRenderAll() { for (const k in SDG_SRC) sdgRender(k); }
+function sdgRetry(k) {
+  return retryKey('sdg:' + k, () => sdgLoad(k, true, true), () => sdgRender(k));
+}
+// "11월 13일 (금)" this year, "2025년 11월 13일" otherwise
+function sdgDay(d) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(d || ''));
+  if (!m) return '';
+  const wd = WD[new Date(Date.UTC(+m[1], +m[2] - 1, +m[3])).getUTCDay()];
+  return +m[1] === kst(new Date()).y ? `${+m[2]}월 ${+m[3]}일 (${wd})` : `${m[1]}년 ${+m[2]}월 ${+m[3]}일`;
+}
+const longDate = d => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(d || '')); return m ? `${m[1]}년 ${+m[2]}월 ${+m[3]}일` : '—'; };
+const dotDate = d => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(d || '')); return m ? `${m[1]}.${m[2]}.${m[3]}` : '—'; };
+// 64,123,456 → 6,412만 주 · 1.23억 주 · 12,345주 (signed: +12.3만 주)
+function sharesText(v, signed) {
+  if (!isNum(v)) return '—';
+  const sg = signed ? (v > 0 ? '+' : v < 0 ? MINUS : '') : v < 0 ? MINUS : '', a = Math.abs(+v);
+  if (a >= 1e8) return sg + (a / 1e8).toLocaleString('ko-KR', { maximumFractionDigits: 2 }) + '억 주';
+  if (a >= 1e4) return sg + (a / 1e4).toLocaleString('ko-KR', { maximumFractionDigits: a >= 1e6 ? 0 : 1 }) + '만 주';
+  return sg + Math.round(a).toLocaleString('ko-KR') + '주';
+}
+// 원 → 1.23조원 · 4,481억원 · 3,200만원
+function wonText(v) {
+  if (!isNum(v)) return '—';
+  const a = Math.abs(+v), sg = v < 0 ? MINUS : '';
+  if (a >= 1e12) return sg + (a / 1e12).toLocaleString('ko-KR', { maximumFractionDigits: 2 }) + '조원';
+  if (a >= 1e8) return sg + Math.round(a / 1e8).toLocaleString('ko-KR') + '억원';
+  if (a >= 1e4) return sg + Math.round(a / 1e4).toLocaleString('ko-KR') + '만원';
+  return sg + Math.round(a).toLocaleString('ko-KR') + '원';
+}
+function sdgSrc(j, lead) {
+  return h('p', { class: 'sp-sdg-src' }, lead ? lead + ' · ' : '', SDG_SOURCE, j && j.stale ? h('span', { class: 'st', text: ' · 새로 받지 못해 지난 자료예요' }) : null);
+}
+// not near the viewport yet: an empty place (no skeleton, nothing announced — nothing is loading)
+const sdgIdle = k => h('div', { class: 'sp-sdg-idle sp-sdg-idle-' + k, 'aria-hidden': 'true' });
+function sdgWait(k, title) {
+  return h('div', { class: 'sp-skel-rows sp-sdg-wait', role: 'status', 'aria-label': `${title} 불러오는 중` },
+    k === 'lend' ? [skel('9em', '26px'), skel('100%', '64px')] : Array.from({ length: k === 'dvx' ? 3 : 5 }, () => skel('100%', '32px')));
+}
+function sdgFail(k, title) {
+  const e = SDG.st[SDG_OF[k]] && SDG.st[SDG_OF[k]].err;
+  const wait = e && e.status === 503;
+  return msgBox(wait ? `${title} 자료를 아직 받는 중이에요.` : `${title}를 불러오지 못했어요.`,
+    wait ? '금융위원회 자료는 하루 한 번 들어와요. 잠시 뒤 다시 볼 수 있어요.' : errSub(e), sdgRetry(SDG_OF[k]));
+}
+
+/* 대차잔고: 마지막 값 + 전 영업일 대비 + 60영업일 선 */
+function renderLend() {
+  const B = R.ci.lend, sig = sdgSig('lending');
+  if (B.sig === sig) return;
+  B.sig = sig;
+  const st = sdgState('lending');
+  B.el.hidden = st === 'gone';
+  if (st === 'gone') return;
+  if (st === 'idle') { B.body.replaceChildren(sdgIdle('lend')); return; }
+  if (st === 'loading') { B.body.replaceChildren(sdgWait('lend', '대차잔고')); return; }
+  if (st === 'err') { B.body.replaceChildren(sdgFail('lend', '대차잔고')); return; }
+  const j = sdgHit('lending').j, rows = (Array.isArray(j.rows) ? j.rows : []).filter(r => r && isNum(r.shares) && r.date);
+  if (!rows.length) {
+    B.body.replaceChildren(msgBox('최근 대차잔고 기록이 없어요.', '최근 60영업일 동안 빌려준 주식이 없었던 종목이에요.'), sdgSrc(j, j.basDt ? sdgDay(j.basDt) + ' 기준' : ''));
+    return;
+  }
+  const L = rows[rows.length - 1], P0 = rows.length > 1 ? rows[rows.length - 2] : null;
+  const chg = P0 ? L.shares - P0.shares : null, ratio = P0 && P0.shares > 0 ? (L.shares / P0.shares - 1) * 100 : null;
+  const chgText = chg == null ? '전 영업일 자료가 없어요' : chg === 0 ? '전 영업일과 같아요' : `전 영업일보다 ${sharesText(chg, true)}${ratio != null ? ` (${pct(ratio, 2)})` : ''}`;
+  const kv = [['잔고 금액', isNum(L.amount) && L.amount > 0 ? wonText(L.amount) : null], ['그날 빌려줌', isNum(L.lent) ? sharesText(L.lent) : null], ['그날 갚음', isNum(L.repaid) ? sharesText(L.repaid) : null]]
+    .filter(x => x[1] != null);
+  B.body.replaceChildren(h('div', { class: 'sp-lb' },
+    h('div', { class: 'sp-lb-hd' },
+      h('p', { class: 'sp-lb-v' }, h('b', { class: 'num', text: sharesText(L.shares) }), h('span', { class: 'num chg', text: chgText })),
+      kv.length ? h('dl', { class: 'sp-lb-kv' }, kv.map(([t, v]) => h('div', {}, h('dt', { text: t }), h('dd', { class: 'num', text: v })))) : null),
+    rows.length > 1 ? lendLine(rows) : null,
+    h('p', { class: 'sp-note', text: '빌려 간 주식 중 아직 갚지 않은 수량이에요. 늘고 줄어든 것만 보여 줄 뿐 좋고 나쁨을 뜻하지 않아요.' }),
+    sdgSrc(j, sdgDay(L.date) + ' 기준')));
+}
+// a small line of the days the API has (oldest → newest), the newest point marked; neutral series colour (not up / down)
+function lendLine(rows) {
+  const n = rows.length, vs = rows.map(r => +r.shares), mn = Math.min(...vs), mx = Math.max(...vs), span = mx - mn || Math.max(1, mx * 0.02);
+  const X = i => (n === 1 ? 50 : (i / (n - 1)) * 100), Y = v => 4 + (1 - (v - mn) / span) * 52;
+  const line = vs.map((v, i) => `${i ? 'L' : 'M'}${X(i).toFixed(2)} ${Y(v).toFixed(2)}`).join(' ');
+  const hiI = vs.indexOf(mx), loI = vs.indexOf(mn);
+  const label = `대차잔고 ${n}영업일: ${sdgDay(rows[0].date)} ${sharesText(vs[0])}에서 ${sdgDay(rows[n - 1].date)} ${sharesText(vs[n - 1])}, 가장 많았던 날 ${sdgDay(rows[hiI].date)} ${sharesText(mx)}, 가장 적었던 날 ${sdgDay(rows[loI].date)} ${sharesText(mn)}`;
+  return h('figure', { class: 'sp-lb-fig', role: 'img', 'aria-label': label },
+    h('div', { class: 'plot' },
+      svg('svg', { viewBox: '0 0 100 60', preserveAspectRatio: 'none', 'aria-hidden': 'true' },
+        svg('path', { class: 'area', d: `${line} L100 60 L0 60 Z` }), svg('path', { class: 'ln', d: line })),
+      h('span', { class: 'pt', style: `left:${X(n - 1).toFixed(2)}%;top:${(Y(vs[n - 1]) / 60 * 100).toFixed(2)}%` })),
+    h('div', { class: 'sp-lb-x', 'aria-hidden': 'true' }, h('span', { text: shortDate(rows[0].date) }), h('span', { class: 'mid num', text: `최고 ${sharesText(mx)} · 최저 ${sharesText(mn)}` }), h('span', { text: shortDate(rows[n - 1].date) })));
+}
+
+/* 배당 내역: 기준일 · 지급일 · 1주당 배당금 (배당 칸 아래) */
+function renderDvx() {
+  const B = R.ci.dvx, sig = sdgSig('dividend');
+  if (B.sig === sig) return;
+  B.sig = sig;
+  const st = sdgState('dividend');
+  B.el.hidden = st === 'gone';
+  if (st === 'gone') return;
+  const head = h('h4', { class: 'sp-dvx-h' }, '배당 내역', h('small', { text: '금융위원회 자료' }));
+  if (st === 'idle') { B.body.replaceChildren(head, sdgIdle('dvx')); return; }
+  if (st === 'loading') { B.body.replaceChildren(head, sdgWait('dvx', '배당 내역')); return; }
+  if (st === 'err') {
+    const e = SDG.st.dividend.err;
+    B.body.replaceChildren(head, h('p', { class: 'sp-inline-err', role: 'status', text: e && e.status === 503 ? '배당 내역 자료를 아직 받는 중이에요. 잠시 뒤 다시 볼 수 있어요.' : '배당 내역을 불러오지 못했어요.' }), sdgRetry('dividend'));
+    return;
+  }
+  const j = sdgHit('dividend').j, all = (Array.isArray(j.rows) ? j.rows : []).filter(r => r && r.recordDate);
+  const lead = j.basDt ? sdgDay(j.basDt) + ' 자료' : '';
+  if (!all.length) { B.body.replaceChildren(head, h('p', { class: 'sp-dvx-empty', text: '최근 몇 년 동안 금융위원회 배당 자료에 이 종목 기록이 없어요.' }), sdgSrc(j, lead)); return; }
+  const rows = all.slice(0, SDG_DIV_ROWS);
+  const amt = r => {
+    const kids = [];
+    if (isNum(r.amount) && r.amount > 0) kids.push(int(r.amount) + '원');
+    else if (isNum(r.stockRate) && r.stockRate > 0) kids.push(`주식 ${fixed(r.stockRate, 2, '%').replace(/\.?0+%$/, '%')}`);
+    else kids.push('—');
+    if (r.reason && r.reason !== '현금배당') kids.push(h('small', { text: r.reason }));
+    if (isNum(r.extraAmount) && r.extraAmount > 0) kids.push(h('small', { text: `차등 ${int(r.extraAmount)}원` }));
+    return kids;
+  };
+  B.body.replaceChildren(head,
+    h('table', { class: 'sp-tbl sp-dvx-t' },
+      h('caption', { class: 'sp-vh', text: '최근 배당 기준일 · 지급일 · 1주당 배당금' }),
+      h('thead', {}, h('tr', {}, h('th', { scope: 'col', text: '기준일' }), h('th', { scope: 'col', text: '지급일' }), h('th', { scope: 'col', text: '1주당' }))),
+      h('tbody', {}, rows.map(r => h('tr', {}, h('td', { text: dotDate(r.recordDate) }), h('td', { text: r.payDate ? dotDate(r.payDate) : '—' }), h('td', { class: 'num' }, amt(r)))))),
+    h('p', { class: 'sp-note', text: `배당 기준일은 금융위원회 자료 기준이에요. 회사 공시와 다를 수 있어요.${all.length > rows.length ? ` 최근 ${rows.length}건만 보여요.` : ''}` }),
+    sdgSrc(j, lead));
+}
+
+/* 기업 정보: 대표자 · 설립일 · 종업원 수 … + 계열회사 · 종속기업(길면 "모두 보기" — 판만 자라요, design.md §7 펼치는 카드) */
+function renderCorp() {
+  const B = R.ci.corp, sig = sdgSig('corp');
+  if (B.sig === sig) return;
+  B.sig = sig;
+  const st = sdgState('corp');
+  B.el.hidden = st === 'gone';
+  if (st === 'gone') return;
+  if (st === 'idle') { B.body.replaceChildren(sdgIdle('corp')); return; }
+  if (st === 'loading') { B.body.replaceChildren(sdgWait('corp', '기업 정보')); return; }
+  if (st === 'err') { B.body.replaceChildren(sdgFail('corp', '기업 정보')); return; }
+  const j = sdgHit('corp').j, o = j.outline && typeof j.outline === 'object' ? j.outline : null;
+  const aff = j.affiliates && Array.isArray(j.affiliates.items) ? j.affiliates : null, sub = j.subsidiaries && Array.isArray(j.subsidiaries.items) ? j.subsidiaries : null;
+  const lead = j.basDt ? sdgDay(j.basDt) + ' 공개 자료' : '';
+  if (!o && !(aff && aff.count) && !(sub && sub.count)) {
+    B.body.replaceChildren(msgBox('기업 정보가 없어요.', '금융위원회 기업기본정보에 이 회사 자료가 아직 없어요.'), sdgSrc(j, lead));
+    return;
+  }
+  const rows = [];
+  const add = (t, v, cls) => { if (v != null && v !== '') rows.push(h('div', { class: cls || null }, h('dt', { text: t }), h('dd', {}, v))); };
+  if (o) {
+    add('대표자', o.ceo);
+    add('설립일', o.established ? longDate(o.established) : null, 'num');
+    add('상장일', o.listed ? longDate(o.listed) : null, 'num');
+    add('종업원 수', isNum(o.employees) ? int(o.employees) + '명' : null, 'num');
+    add('결산월', isNum(o.settleMonth) ? `${o.settleMonth}월` : null);
+    add('업종', o.industry, 'wide');
+    add('주요 사업', o.business, 'wide');
+    add('주소', o.address, 'wide');
+    const url = safeUrl(o.homepage);
+    if (url) add('홈페이지', h('a', { class: 'sp-cp-link', href: url, target: '_blank', rel: 'noopener' }, url.replace(/^https?:\/\//, '').replace(/\/$/, ''), h('span', { class: 'sp-vh', text: ' (새 탭)' })), 'wide');
+  }
+  const kids = [h('dl', { class: 'sp-cp-kv' }, rows)];
+  if (aff && aff.count) kids.push(corpList('aff', '계열회사', aff, x => (x.listed ? '상장' : null)));
+  if (sub && sub.count) kids.push(corpList('sub', '종속기업', sub, x => (x.main ? '주요' : null)));
+  if (j.partial && j.partial.length) kids.push(h('p', { class: 'sp-inline-err', text: `${j.partial.map(p => (p === 'affiliates' ? '계열회사' : '종속기업')).join(' · ')} 목록은 이번에 받지 못했어요.` }));
+  kids.push(sdgSrc(j, lead));
+  B.body.replaceChildren(...kids);
+}
+function corpNames(key, g, tagOf, all) {
+  const items = all ? g.items : g.items.slice(0, SDG_NAMES);
+  return items.map((x, i) => { const t = tagOf(x); return h('li', { class: i >= SDG_NAMES ? 'x' : null }, String(x.name), t ? h('span', { class: 'sp-tag', text: t }) : null); });
+}
+function corpList(key, title, g, tagOf) {
+  const id = 'sp-cp-' + key, open = !!SDG.open[key], more = g.items.length > SDG_NAMES;
+  const list = h('ul', { class: 'sp-cp-names', id }, corpNames(key, g, tagOf, open));
+  const skin = h('i', { class: 'sp-cp-skin', 'aria-hidden': 'true' });
+  const grow = h('div', { class: 'sp-cp-grow' }, skin, list);
+  const label = () => (SDG.open[key] ? '접기' : `${title} ${g.items.length}개 모두 보기`);
+  const btn = more ? h('button', { type: 'button', class: 'sp-btn sp-fold sp-cp-more', 'aria-expanded': String(open), 'aria-controls': id,
+    onclick: e => corpToggle(key, g, tagOf, grow, list, skin, e.currentTarget, label) }, h('span', { class: 'mt', text: label() })) : null;
+  const capped = g.count > g.items.length ? h('small', { text: `${g.items.length}개까지 보여요` }) : null;
+  return h('section', { class: 'sp-cp-sec', 'aria-labelledby': id + '-h' },
+    h('h4', { class: 'sp-cp-h', id: id + '-h' }, title, h('b', { class: 'num', text: `${int(g.count)}개` }), g.basDt ? h('small', { text: shortDate(g.basDt) + ' 기준' }) : null, capped),
+    grow, btn);
+}
+// design.md §7 펼치는 카드: the list's plate (.sp-cp-skin) grows with `open` / shrinks with `close`; the content below moves once —
+// at the start when opening, after the plate when closing (no height animation of the layout). New names fade in after 25 %.
+function corpToggle(key, g, tagOf, grow, list, skin, btn, label) {
+  if (SDG.mv) SDG.mv.finish();
+  const want = !SDG.open[key], was = btn.textContent;
+  SDG.open[key] = want;
+  btn.setAttribute('aria-expanded', String(want));
+  const swapLabel = () => { const t = btn.querySelector('.mt'); if (UI && typeof UI.swap === 'function' && t) UI.swap(t, label(), was); else if (t) t.textContent = label(); };
+  const springOk = KH.spring && typeof KH.spring.animate === 'function' && !reducedNow();
+  if (!springOk) { list.replaceChildren(...corpNames(key, g, tagOf, want)); swapLabel(); return; }
+  const me = { done: false };
+  const finish = () => { if (me.done) return; me.done = true; if (me.h) me.h.stop(); if (SDG.mv === me) SDG.mv = null; me.end(); };
+  me.finish = finish; SDG.mv = me;
+  const run = (name, from, to, frame) => { me.h = KH.spring.animate({ from, to, name, onUpdate: v => { if (!me.done) frame(v); }, onRest: finish }); };
+  if (want) {
+    const H0 = grow.offsetHeight;
+    list.replaceChildren(...corpNames(key, g, tagOf, true));               // the layout takes its new height here, once
+    const H1 = grow.offsetHeight, D = H1 - H0;
+    swapLabel();
+    grow.classList.add('sp-cp-anim');
+    let shown = false;
+    me.end = () => { grow.classList.remove('sp-cp-anim', 'sp-cp-fadein'); grow.classList.add('sp-cp-in'); skin.style.height = ''; list.style.clipPath = ''; };
+    const frame = p => {
+      skin.style.height = (H0 + p * D).toFixed(1) + 'px';
+      list.style.clipPath = `inset(0 0 ${Math.max(0, (1 - p) * D).toFixed(1)}px 0)`;
+      if (!shown && p >= 0.25) { shown = true; grow.classList.add('sp-cp-fadein'); }
+    };
+    frame(0);
+    run('open', 0, 1, frame);
+    return;
+  }
+  // closing: the extra names leave first (together), then the plate shrinks, then the layout comes up once
+  const H1 = grow.offsetHeight;
+  grow.style.height = H1 + 'px';
+  grow.classList.remove('sp-cp-in', 'sp-cp-fadein');
+  grow.classList.add('sp-cp-out');
+  swapLabel();
+  let H0 = H1;
+  me.end = () => {
+    grow.classList.remove('sp-cp-anim', 'sp-cp-out');
+    list.replaceChildren(...corpNames(key, g, tagOf, false));
+    grow.style.height = ''; skin.style.height = ''; list.style.clipPath = '';
+    const r = btn.getBoundingClientRect();
+    if (r.top < (parseFloat(getComputedStyle(root).getPropertyValue('--sp-hh')) || 0) + 50) btn.scrollIntoView({ block: 'center' });
+  };
+  const t = setTimeout(() => {
+    if (me.done) return;
+    const probe = list.cloneNode(false); probe.replaceChildren(...corpNames(key, g, tagOf, false));
+    probe.style.cssText = 'position:absolute;visibility:hidden;left:0;right:0;top:0'; grow.append(probe);
+    H0 = probe.offsetHeight + (grow.offsetHeight - list.offsetHeight); probe.remove();
+    const D = H1 - H0;
+    grow.classList.add('sp-cp-anim');
+    run('close', 0, 1, p => { skin.style.height = (H1 - p * D).toFixed(1) + 'px'; list.style.clipPath = `inset(0 0 ${(p * D).toFixed(1)}px 0)`; });
+  }, 100);
+  const end0 = me.end;
+  me.end = () => { clearTimeout(t); end0(); };
 }
 
 /* ───────────────── open / close ───────────────── */
