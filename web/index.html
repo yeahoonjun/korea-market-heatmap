@@ -2677,6 +2677,8 @@ function norm(x, asMs = NaN) {
     lim: x.lim === 1 || x.lim === -1 ? x.lim : Math.abs(+x.r || 0) >= 29.5 ? Math.sign(+x.r) : 0,
     // limf: the source's own flag only (no guess) — 시장 요약 카드가 상 · 하한가 수를 셀 때 (AGENTS §3-34 ⑤)
     limf: x.lim === 1 || x.lim === -1 ? x.lim : 0,
+    // hx: 1 while the source says trading is halted (the Worker's quotes · live delta, AGENTS §3-37 ⓐ 시장 경보)
+    hx: x.hx === 1 ? 1 : 0,
     // KRX trade time of the row (ms) when the Worker sends one (t), for 통합; ts: freshness in the quote store (t, else the answer's asOf)
     tm: x.t ? Date.parse(x.t) : NaN, ts: rowTs(x, asMs),
     // §3-13 today's KRX open / high / low (none before the first trade)
