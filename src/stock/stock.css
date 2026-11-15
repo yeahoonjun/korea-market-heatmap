@@ -478,6 +478,8 @@ a.sp-rp:visited .sp-rp-t { color: var(--fg2); }
 .sp-sdg-src { margin: var(--space-4) 0 0; font-size: var(--fs-xs); line-height: var(--lh-ui, 1.25); color: var(--muted); }
 .sp-sdg-src .st { color: var(--fg2); }
 .sp-sdg-wait { gap: var(--space-3); }
+/* a block not near the viewport yet keeps roughly its loaded height, so the page does not jump when it fills in */
+.sp-sdg-idle-lend { min-height: 196px; } .sp-sdg-idle-dvx { min-height: 120px; } .sp-sdg-idle-corp { min-height: 240px; }
 /* 대차잔고: 큰 숫자 + 중립색 증감(가격이 아니라 빨강·초록 없음) + 60영업일 선(계열색) */
 .sp-lb-hd { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: var(--space-4) var(--space-6); }
 .sp-lb-v { display: flex; flex-direction: column; gap: var(--space-1); margin: 0; min-width: 0; }

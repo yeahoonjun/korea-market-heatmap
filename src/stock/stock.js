@@ -2570,6 +2570,8 @@ function wonText(v) {
 function sdgSrc(j, lead) {
   return h('p', { class: 'sp-sdg-src' }, lead ? lead + ' · ' : '', SDG_SOURCE, j && j.stale ? h('span', { class: 'st', text: ' · 새로 받지 못해 지난 자료예요' }) : null);
 }
+// not near the viewport yet: an empty place (no skeleton, nothing announced — nothing is loading)
+const sdgIdle = k => h('div', { class: 'sp-sdg-idle sp-sdg-idle-' + k, 'aria-hidden': 'true' });
 function sdgWait(k, title) {
   return h('div', { class: 'sp-skel-rows sp-sdg-wait', role: 'status', 'aria-label': `${title} 불러오는 중` },
     k === 'lend' ? [skel('9em', '26px'), skel('100%', '64px')] : Array.from({ length: k === 'dvx' ? 3 : 5 }, () => skel('100%', '32px')));
@@ -2589,7 +2591,8 @@ function renderLend() {
   const st = sdgState('lending');
   B.el.hidden = st === 'gone';
   if (st === 'gone') return;
-  if (st === 'idle' || st === 'loading') { B.body.replaceChildren(sdgWait('lend', '대차잔고')); return; }
+  if (st === 'idle') { B.body.replaceChildren(sdgIdle('lend')); return; }
+  if (st === 'loading') { B.body.replaceChildren(sdgWait('lend', '대차잔고')); return; }
   if (st === 'err') { B.body.replaceChildren(sdgFail('lend', '대차잔고')); return; }
   const j = sdgHit('lending').j, rows = (Array.isArray(j.rows) ? j.rows : []).filter(r => r && isNum(r.shares) && r.date);
   if (!rows.length) {
@@ -2633,7 +2636,8 @@ function renderDvx() {
   B.el.hidden = st === 'gone';
   if (st === 'gone') return;
   const head = h('h4', { class: 'sp-dvx-h' }, '배당 내역', h('small', { text: '금융위원회 자료' }));
-  if (st === 'idle' || st === 'loading') { B.body.replaceChildren(head, sdgWait('dvx', '배당 내역')); return; }
+  if (st === 'idle') { B.body.replaceChildren(head, sdgIdle('dvx')); return; }
+  if (st === 'loading') { B.body.replaceChildren(head, sdgWait('dvx', '배당 내역')); return; }
   if (st === 'err') {
     const e = SDG.st.dividend.err;
     B.body.replaceChildren(head, h('p', { class: 'sp-inline-err', role: 'status', text: e && e.status === 503 ? '배당 내역 자료를 아직 받는 중이에요. 잠시 뒤 다시 볼 수 있어요.' : '배당 내역을 불러오지 못했어요.' }), sdgRetry('dividend'));
@@ -2669,7 +2673,8 @@ function renderCorp() {
   const st = sdgState('corp');
   B.el.hidden = st === 'gone';
   if (st === 'gone') return;
-  if (st === 'idle' || st === 'loading') { B.body.replaceChildren(sdgWait('corp', '기업 정보')); return; }
+  if (st === 'idle') { B.body.replaceChildren(sdgIdle('corp')); return; }
+  if (st === 'loading') { B.body.replaceChildren(sdgWait('corp', '기업 정보')); return; }
   if (st === 'err') { B.body.replaceChildren(sdgFail('corp', '기업 정보')); return; }
   const j = sdgHit('corp').j, o = j.outline && typeof j.outline === 'object' ? j.outline : null;
   const aff = j.affiliates && Array.isArray(j.affiliates.items) ? j.affiliates : null, sub = j.subsidiaries && Array.isArray(j.subsidiaries.items) ? j.subsidiaries : null;
