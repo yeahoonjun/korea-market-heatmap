@@ -799,7 +799,7 @@ function peersOf(g, self) {
 const kstSec = s => Date.UTC(+s.slice(0, 4), +s.slice(4, 6) - 1, +s.slice(6, 8), +s.slice(8, 10), +s.slice(10, 12), +(s.slice(12, 14) || 0)) / 1000 - 9 * 3600;
 const IVS = ['1m', '5m', '10m', '30m', '60m', 'day', 'week', 'month'];
 const IV_GROUP = { '10m': 10, '30m': 30, '60m': 60 };   // grouped here from Naver's 5-minute bars (사용자 2026-11-14 08:10 "분봉으로 통합 … 10분봉 30분봉 60분봉")
-const isMinIv = iv => iv === '1m' || iv === '5m' || iv in IV_GROUP;
+const isMinIv = iv => iv === '1m' || iv === '5m' || Object.prototype.hasOwnProperty.call(IV_GROUP, iv);
 const barOf = r => ({ t: kstSec(String(r.localDateTime)), o: pn(r.openPrice), h: pn(r.highPrice), l: pn(r.lowPrice), c: pn(r.currentPrice), v: pn(r.accumulatedTradingVolume) });
 /* 5-minute bars → n-minute bars (n = 10 | 30 | 60). Naver stamps a minute bar with its FIRST minute (the 09:05 bar = 09:05:00–09:09:59;
  * checked 2026-11-15 against its 1-minute bars, and Naver's own minute10/30/60 are exactly these sums on the plain clock grid).
@@ -879,7 +879,7 @@ async function getChartIv(code, iv, to, count, warm) {
   const end = (to ? to.slice(0, 8) : ymd(kstNow())) + '235959';
   const q = from => `?startDateTime=${ymd(from)}000000&endDateTime=${end}`;
   let list, bar;
-  const group = IV_GROUP[iv];
+  const group = isMinIv(iv) ? IV_GROUP[iv] : undefined;
   if (group) {
     const rows = await naver(base + 'minute5' + q(kstDaysAgo(12)));
     const lim = to ? kstSec(to.length === 12 ? to + '00' : to + '000000') : null;

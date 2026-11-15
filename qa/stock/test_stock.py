@@ -7,7 +7,7 @@
 Starts qa/stock/mock_api.py on 127.0.0.1:8792 (or $STOCK_MOCK_PORT), runs Playwright (Chrome), stops the server.
 Screenshots → qa/shots/stock/ (git-ignored). Summary → qa/stock/results.json.
 """
-import json, os, pathlib, re, subprocess, sys, time, urllib.request
+import json, math, os, pathlib, re, subprocess, sys, time, urllib.request
 from playwright.sync_api import sync_playwright
 
 HERE = pathlib.Path(__file__).resolve().parent
@@ -47,9 +47,10 @@ MIN_TFS = ('1m', '5m', '10m', '30m', '60m')
 def pick_tf(pg, tf):
     """The chart tabs are 분 · 일 · 주 · 월 · 년; a minute interval is picked from 분's menu (사용자 2026-11-14 08:10)."""
     if tf in MIN_TFS:
+        pg.wait_for_function("() => document.querySelector('.sp-ivm').dataset.st !== 'closing'", timeout=3000)
         if pg.get_attribute('.sp-tfs [data-tf="min"]', 'aria-expanded') != 'true':
             pg.click('.sp-tfs [data-tf="min"]')
-        pg.wait_for_selector('.sp-ivm:not([hidden])')
+        pg.wait_for_function("() => { const m = document.querySelector('.sp-ivm'); return m.dataset.st === 'open' && !m.style.pointerEvents; }", timeout=3000)
         pg.click(f'.sp-ivm [data-iv="{tf}"]')
     else:
         pg.click(f'.sp-tfs button[data-tf="{tf}"]')
@@ -107,13 +108,14 @@ TAP_JS = r"""() => {
     if (el.closest('[hidden]') || el.closest('.sp-chart') || el.closest('.sp-foot p')) continue;
     const r = el.getBoundingClientRect();
     if (!r.width) continue;
-    if (r.height < 40 || r.width < 40) small.push(`${el.className || el.tagName}:${el.textContent.trim().slice(0, 10)} ${Math.round(r.width)}x${Math.round(r.height)}`);
+    const a = getComputedStyle(el, '::after'), ext = a.content !== 'none' && a.position === 'absolute' ? Math.max(0, -parseFloat(a.top) || 0) + Math.max(0, -parseFloat(a.bottom) || 0) : 0;
+    if (r.height + ext < 40 || r.width < 40) small.push(`${el.className || el.tagName}:${el.textContent.trim().slice(0, 10)} ${Math.round(r.width)}x${Math.round(r.height)}`);
   }
   return small;
 }"""
 
 # count canvas pixels close to the given colours inside the chart
-PIXELS_JS = r"""(cols) => {
+PIXELS_JS = r"""(cols, minA = 250) => {   // minA: thin anti-aliased lines (1 px moving averages at 2x) are mostly partly transparent
   const hex = c => [1, 3, 5].map(i => parseInt(c.slice(i, i + 2), 16));
   const targets = cols.map(hex), counts = cols.map(() => 0);
   for (const cv of document.querySelectorAll('.sp-chart canvas')) {
@@ -121,7 +123,7 @@ PIXELS_JS = r"""(cols) => {
     let d;
     try { d = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data; } catch (e) { continue; }
     for (let i = 0; i < d.length; i += 4) {
-      if (d[i + 3] < 250) continue;
+      if (d[i + 3] < minA) continue;
       targets.forEach((t, k) => { if (Math.abs(d[i] - t[0]) < 8 && Math.abs(d[i + 1] - t[1]) < 8 && Math.abs(d[i + 2] - t[2]) < 8) counts[k]++; });
     }
   }
@@ -138,76 +140,133 @@ def kst_label(t):   # stock.js timeLabel for minute bars: '11월 9일 (월) 15:0
 
 
 IV_REQ = {'1m': 900, '5m': 800, '10m': 400, '30m': 140, '60m': 70}
+jsround = lambda v: int(math.floor(v + 0.5))   # Math.round (Python's round() goes to the even number)
+console_of = lambda P: [m for m in P.console if 'willReadFrequently' not in m]   # the getImageData warning comes from PIXELS_JS, not the page
+IV_NAME = {'1m': '1분', '5m': '5분', '10m': '10분', '30m': '30분', '60m': '60분'}
 PICK_STATE = """() => { const b = document.querySelector('.sp-tfs [data-tf="min"]'), m = document.querySelector('.sp-ivm'), a = document.activeElement;
+  const items = [...m.querySelectorAll('[role="menuitemradio"]')];
   return { label: b.textContent.trim(), aria: b.getAttribute('aria-label'), pressed: b.getAttribute('aria-pressed'), expanded: b.getAttribute('aria-expanded'),
-    open: !m.hidden, focus: a && (a.dataset.iv || a.dataset.tf || a.className || a.tagName), checked: [...m.children].filter(x => x.getAttribute('aria-checked') === 'true').map(x => x.dataset.iv),
-    roles: [m.getAttribute('role'), ...[...m.children].map(x => x.getAttribute('role'))].join(), stockOpen: KHStock.isOpen() }; }"""
+    open: m.dataset.st === 'open', hidden: m.hidden, st: m.dataset.st || '', focus: a && (a.dataset.iv || a.dataset.tf || a.className || a.tagName),
+    checked: items.filter(x => x.getAttribute('aria-checked') === 'true').map(x => x.dataset.iv),
+    roles: [m.getAttribute('role'), ...items.map(x => x.getAttribute('role'))].join(), stockOpen: KHStock.isOpen(),
+    hl: m.querySelector('.sp-ivm-in').dataset.hl != null, hlY: (/translateY\\(([\\d.]+)px\\)/.exec(m.querySelector('.sp-ivm-hl').style.transform) || [])[1],
+    focusY: a && items.includes(a) ? a.offsetTop : null }; }"""
 MENU_FIT = """() => { const m = document.querySelector('.sp-ivm').getBoundingClientRect(), t = document.querySelector('.sp-tfs [data-tf="min"]').getBoundingClientRect();
-  const hit = [...document.querySelectorAll('.sp-ivm button')].map(x => { const r = x.getBoundingClientRect(); const e = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return !!e && x.contains(e); });
+  const its = [...document.querySelectorAll('.sp-ivm [role="menuitemradio"]')];
+  const hit = its.map(x => { const r = x.getBoundingClientRect(); const e = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return !!e && x.contains(e); });
+  let clipped = false; for (let e = document.querySelector('.sp-ivm').parentElement; e && e !== document.body; e = e.parentElement) { const c = getComputedStyle(e);
+    if (/(hidden|clip|auto|scroll)/.test(c.overflowX + c.overflowY) && !e.classList.contains('sp')) { const r = e.getBoundingClientRect(); if (m.left < r.left - .5 || m.right > r.right + .5 || m.top < r.top - .5 || m.bottom > r.bottom + .5) clipped = e.className; } }
   return { left: m.left, right: m.right, top: m.top, below: m.top - t.bottom, alignedLeft: Math.abs(m.left - t.left) < 1.5, vw: innerWidth, vh: innerHeight, bottom: m.bottom,
-    hit: hit.every(Boolean), minH: Math.min(...[...document.querySelectorAll('.sp-ivm button')].map(x => x.getBoundingClientRect().height)) }; }"""
+    hit: hit.every(Boolean), minH: Math.min(...its.map(x => x.getBoundingClientRect().height)), clipped, n: its.length }; }"""
 MA_ROW = """() => { const r = document.querySelector('.sp-ma'), cs = [...r.querySelectorAll('.sp-mac')];
   const tops = new Set(cs.map(c => Math.round(c.getBoundingClientRect().top)));
-  return { h: r.getBoundingClientRect().height, lines: tops.size, right: Math.max(...cs.map(c => c.getBoundingClientRect().right)), vw: innerWidth,
-    clipped: cs.filter(c => c.scrollWidth > c.clientWidth + 1).length, chipH: Math.min(...cs.map(c => c.getBoundingClientRect().height)),
+  const hitH = c => { const a = getComputedStyle(c, '::after'), h = c.getBoundingClientRect().height; return a.content === 'none' || a.position !== 'absolute' ? h : h + Math.max(0, -parseFloat(a.top) || 0) + Math.max(0, -parseFloat(a.bottom) || 0); };
+  return { h: r.getBoundingClientRect().height, lines: tops.size, stack: r.classList.contains('stack'), right: Math.max(...cs.map(c => c.getBoundingClientRect().right)),
+    left: Math.min(...cs.map(c => c.getBoundingClientRect().left)), vw: innerWidth,
+    clipped: cs.filter(c => c.scrollWidth > c.clientWidth + 1).length, chipH: Math.min(...cs.map(c => c.getBoundingClientRect().height)), hitH: Math.min(...cs.map(hitH)),
     chips: cs.map(c => [c.dataset.n, c.getAttribute('aria-pressed'), c.querySelector('.n').textContent, c.querySelector('.v').textContent, c.getAttribute('aria-label')]),
-    sw: cs.map(c => getComputedStyle(c.querySelector('.sw')).backgroundColor), title: getComputedStyle(r.querySelector('.sp-ma-t')).display }; }"""
+    sw: cs.map(c => getComputedStyle(c.querySelector('.sw')).backgroundColor), ring: cs.map(c => getComputedStyle(c.querySelector('.sw')).boxShadow),
+    text: cs.map(c => [getComputedStyle(c.querySelector('.n')).color, getComputedStyle(c.querySelector('.v')).color]),
+    op: cs.map(c => +getComputedStyle(c).opacity * +getComputedStyle(c.querySelector('.n')).opacity), bg: cs.map(c => getComputedStyle(c).backgroundColor),
+    swT: getComputedStyle(cs[0].querySelector('.sw')).transition, fs: getComputedStyle(cs[0]).fontSize,
+    fg: getComputedStyle(document.documentElement).getPropertyValue('--fg').trim(), muted: getComputedStyle(document.documentElement).getPropertyValue('--muted').trim(),
+    title: getComputedStyle(r.querySelector('.sp-ma-t')).display }; }"""
+CSSRGB = "(c) => { const e = document.createElement('i'); e.style.color = c; document.body.append(e); const v = getComputedStyle(e).color; e.remove(); return v; }"
+
+
+def wait_iv(P, tf, timeout=10000):
+    """the chart drew this interval (its aria-label names it) and the loading veil is gone"""
+    name = IV_NAME.get(tf, {'day': '일', 'week': '주', 'month': '월', 'year': '년'}.get(tf, tf))
+    P.pg.wait_for_function("(n) => { const c = document.querySelector('.sp-chart'), m = document.querySelector('.sp-chartmsg'); return c && (c.getAttribute('aria-label') || '').includes(' ' + n + '봉 차트') && m && !m.classList.contains('on'); }", arg=name, timeout=timeout)
 
 
 def run_iv_ma(b):
     """분 picker (사용자 2026-11-14 08:10 "1분봉 5분봉 있는게 아니라 분봉으로 통합하고 누르면 1분봉 5분봉 10분봉 30분봉 60분봉 선택 가능하게") on the
-    iv= path, the older-Worker fallbacks, and the 이동평균 legend (사용자 "이동평균선 … 버튼들 레이아웃과 디자인 개선이 필요해보여")."""
+    iv= path, the older-Worker fallbacks, and the 이동평균 legend (사용자 "이동평균선 … 버튼들 레이아웃과 디자인 개선이 필요해보여"), against
+    docs/standards/design.md §7 (segment · popover · legend toggle) and §2 (the 5-day line is not amber)."""
     mock('/__reset')
     P = Page(b, 390, BASE + '#s-005930')
     pg = P.pg
     P.wait_chart()
     tabs = P.ev("() => [...document.querySelectorAll('.sp-tfs > button')].map(b => [b.dataset.tf, b.textContent.trim()])")
     check('iv_tabs_are_min_day_week_month_year', tabs == [['min', '분'], ['day', '일'], ['week', '주'], ['month', '월'], ['year', '년']], tabs)
+    seg = P.ev("""() => { const s = document.querySelector('.sp-tfs'); s.dataset.dir = 'r'; const t = getComputedStyle(s, '::before').transition; s.dataset.dir = 'l'; const u = getComputedStyle(s, '::before').transition; delete s.dataset.dir;
+      return { r: t, l: u, h: document.querySelector('.sp-tfs [data-tf="day"]').getBoundingClientRect().height, caret: !!document.querySelector('.sp-tfmin svg.cr') }; }""")
+    lead = lambda tr, edge: re.search(edge + r' (0\.342s|342ms) linear\(', tr) is not None
+    trail = lambda tr, edge: re.search(edge + r' (0\.632s|632ms) linear\(', tr) is not None
+    check('iv_segment_indicator_lead_trail_edges', lead(seg['r'], 'right') and trail(seg['r'], 'left') and lead(seg['l'], 'left') and trail(seg['l'], 'right') and seg['h'] == 40 and seg['caret'], seg)
     st = P.ev(PICK_STATE)
-    check('iv_min_tab_is_menu_button', st['expanded'] == 'false' and not st['open'] and st['pressed'] == 'false' and '분봉' in st['aria']
+    check('iv_min_tab_is_menu_button', st['expanded'] == 'false' and not st['open'] and st['hidden'] and st['pressed'] == 'false' and '분봉' in st['aria']
           and st['roles'] == 'menu,menuitemradio,menuitemradio,menuitemradio,menuitemradio,menuitemradio', st)
-    # click opens (from 일: nothing checked, 5분 focused), Esc closes and returns focus, the page stays open
-    pg.click('.sp-tfs [data-tf="min"]'); pg.wait_for_timeout(250)
+    # click opens (from 일: nothing checked, 5분 focused); the box grows out of the tab with the `open` spring, the items fade in after it
+    tab = P.ev("() => document.querySelector('.sp-tfs [data-tf=\"min\"]').getBoundingClientRect().toJSON()")
+    pg.click('.sp-tfs [data-tf="min"]')
+    grow = P.ev("""() => { const m = document.querySelector('.sp-ivm'), an = m.getAnimations().concat(document.querySelector('.sp-ivm-in').getAnimations());
+      const r = m.getBoundingClientRect();
+      return { n: an.length, easings: an.map(a => a.effect.getTiming().easing.slice(0, 7)), durs: an.map(a => a.effect.getTiming().duration), delays: an.map(a => a.effect.getTiming().delay),
+        props: an.map(a => Object.keys(a.effect.getKeyframes()[0]).filter(k => !['offset', 'easing', 'composite', 'computedOffset'].includes(k)).sort().join('+')),
+        start: an[0] && an[0].effect.getKeyframes()[0], w: r.width, pe: m.style.pointerEvents }; }""")
+    k0 = grow.get('start') or {}
+    from_tab = abs(float(str(k0.get('width', '0')).rstrip('px')) - tab['width']) < 1.5 and abs(float(str(k0.get('height', '0')).rstrip('px')) - tab['height']) < 1.5
+    check('iv_picker_grows_from_tab_open_spring', grow['n'] == 3 and grow['easings'][0] == 'linear(' and grow['durs'][0] == 454 and 'borderRadius+height+left+top+width' in grow['props']
+          and from_tab and grow['durs'][2] == 180 and 40 <= grow['delays'][2] <= 60 and grow['pe'] == 'none', grow)
+    pg.wait_for_timeout(650)
     st = P.ev(PICK_STATE)
-    check('iv_picker_click_opens_focus_item', st['open'] and st['expanded'] == 'true' and st['focus'] == '5m' and st['checked'] == [], st)
+    check('iv_picker_click_opens_focus_item', st['open'] and st['expanded'] == 'true' and st['focus'] == '5m' and st['checked'] == [] and not st['hl'], st)
     fit = P.ev(MENU_FIT)
-    check('iv_picker_fits_390_anchored_not_covered', fit['left'] >= 0 and fit['right'] <= fit['vw'] and fit['bottom'] <= fit['vh'] and fit['alignedLeft'] and 0 <= fit['below'] <= 12 and fit['hit'] and fit['minH'] >= 44, fit)
+    check('iv_picker_fits_390_anchored_not_clipped', fit['n'] == 5 and fit['left'] >= 0 and fit['right'] <= fit['vw'] and fit['bottom'] <= fit['vh'] and fit['alignedLeft'] and 0 <= fit['below'] <= 8
+          and fit['hit'] and fit['minH'] >= 44 and not fit['clipped'], fit)
     check('iv_picker_taps_ge_40', not P.ev(TAP_JS), P.ev(TAP_JS))
     pg.screenshot(path=str(SHOTS / 'live390_iv_picker.png'))
-    pg.keyboard.press('Escape'); pg.wait_for_timeout(200)
+    pg.keyboard.press('Escape'); pg.wait_for_timeout(30)
     st = P.ev(PICK_STATE)
-    check('iv_picker_esc_closes_returns_focus', not st['open'] and st['expanded'] == 'false' and st['focus'] == 'min' and st['stockOpen'], st)
-    # a tap outside closes (and changes nothing)
-    pg.click('.sp-tfs [data-tf="min"]'); pg.wait_for_timeout(200)
-    pg.click('.sp-name'); pg.wait_for_timeout(200)
+    closing = P.ev("() => { const m = document.querySelector('.sp-ivm'); return { st: m.dataset.st, inert: m.inert, an: m.getAnimations().length + document.querySelector('.sp-ivm-in').getAnimations().length }; }")
+    pg.wait_for_selector('.sp-ivm[hidden]', state='attached', timeout=2000)
+    st2 = P.ev(PICK_STATE)
+    check('iv_picker_esc_closes_returns_focus', not st['open'] and st['expanded'] == 'false' and st['focus'] == 'min' and st['stockOpen'] and closing['st'] == 'closing' and closing['inert']
+          and closing['an'] >= 2 and st2['hidden'] and st2['stockOpen'], {'at_once': st, 'closing': closing, 'after': st2})
+    # a tap outside closes (and changes nothing): on nothing focusable focus goes back to 분; on something focusable (the name) it goes there
+    pg.click('.sp-tfs [data-tf="min"]'); pg.wait_for_timeout(600)
+    pg.click('.sp-stats', position={'x': 8, 'y': 8}); pg.wait_for_selector('.sp-ivm[hidden]', state='attached', timeout=2000)
     st = P.ev(PICK_STATE)
-    check('iv_picker_outside_tap_closes', not st['open'] and st['expanded'] == 'false' and st['label'] == '분' and st['stockOpen'], st)
+    pg.click('.sp-tfs [data-tf="min"]'); pg.wait_for_timeout(600)
+    pg.click('.sp-name'); pg.wait_for_selector('.sp-ivm[hidden]', state='attached', timeout=2000)
+    st2 = P.ev(PICK_STATE)
+    check('iv_picker_outside_tap_closes', not st['open'] and st['expanded'] == 'false' and st['label'] == '분' and st['stockOpen'] and st['focus'] == 'min'
+          and not st2['open'] and st2['focus'] == 'sp-name' and st2['stockOpen'], [st, st2])
     # tapping 분 again closes it
-    pg.click('.sp-tfs [data-tf="min"]'); pg.wait_for_timeout(150); pg.click('.sp-tfs [data-tf="min"]'); pg.wait_for_timeout(150)
+    pg.click('.sp-tfs [data-tf="min"]'); pg.wait_for_timeout(600); pg.click('.sp-tfs [data-tf="min"]'); pg.wait_for_selector('.sp-ivm[hidden]', state='attached', timeout=2000)
     check('iv_picker_tab_toggles', not P.ev(PICK_STATE)['open'])
-    # keyboard: ↓ opens on 5분, ↓ 10분, End 60분, Home 1분, ↑ wraps to 60분, Tab closes; Enter picks
+    # keyboard: ↓ opens on 5분, ↓ 10분, End 60분, Home 1분, ↑ wraps to 60분 — the highlight plate follows the focus; Tab closes; Enter picks
     P.ev("() => document.querySelector('.sp-tfs [data-tf=\"min\"]').focus()")
-    seq = []
+    seq, plate = [], []
     for k in ['ArrowDown', 'ArrowDown', 'End', 'Home', 'ArrowUp']:
-        pg.keyboard.press(k); pg.wait_for_timeout(60); seq.append(P.ev(PICK_STATE)['focus'])
+        pg.keyboard.press(k); pg.wait_for_timeout(60)
+        s1 = P.ev(PICK_STATE); seq.append(s1['focus']); plate.append(s1['hl'] and s1['hlY'] is not None and abs(float(s1['hlY']) - s1['focusY']) < 1)
+    hlT = P.ev("() => getComputedStyle(document.querySelector('.sp-ivm-hl')).transition")
     pg.keyboard.press('Tab'); pg.wait_for_timeout(100)
     st = P.ev(PICK_STATE)
     check('iv_picker_arrow_keys_and_tab', seq == ['5m', '10m', '60m', '1m', '60m'] and not st['open'] and st['focus'] == 'min', {'seq': seq, 'after_tab': st})
+    check('iv_picker_highlight_plate_hl_spring', all(plate) and re.search(r'transform (0\.342s|342ms) linear\(', hlT) is not None, {'plate': plate, 'transition': hlT[:120]})
+    pg.wait_for_selector('.sp-ivm[hidden]', state='attached', timeout=2000)
     pg.keyboard.press('Enter'); pg.wait_for_timeout(150)
     for k in ['ArrowDown', 'ArrowDown']:
         pg.keyboard.press(k); pg.wait_for_timeout(60)
-    pg.keyboard.press('Enter'); P.wait_chart(); pg.wait_for_timeout(200)
+    pg.keyboard.press('Enter'); pg.wait_for_timeout(40)
+    swap = P.ev("() => { const t = document.querySelector('.sp-tfmin .t'); return { go: t.classList.contains('go'), was: t.dataset.was || '', text: t.textContent, before: getComputedStyle(t, '::before').content, an: t.getAnimations({ subtree: true }).map(a => a.animationName) }; }")
+    wait_iv(P, '30m'); pg.wait_for_timeout(400)
     st = P.ev(PICK_STATE)
-    check('iv_picker_enter_picks_closes_focus_back', st['label'] == '30분' and st['pressed'] == 'true' and not st['open'] and st['focus'] == 'min' and '30분봉' in st['aria'], st)
-    pg.keyboard.press('Space'); pg.wait_for_timeout(150)
+    check('iv_picker_enter_picks_closes_focus_back', st['label'] == '30분' and st['pressed'] == 'true' and not st['open'] and st['hidden'] and st['focus'] == 'min' and '30분봉' in st['aria'], st)
+    check('iv_tab_label_swaps_in_place', swap['go'] and swap['was'] == '분' and swap['text'] == '30분' and '분' in swap['before'] and sorted(swap['an']) == ['spTxIn', 'spTxOut'], swap)
+    pg.keyboard.press('Space'); pg.wait_for_timeout(600)
     st = P.ev(PICK_STATE)
-    check('iv_picker_space_opens_on_checked', st['open'] and st['focus'] == '30m' and st['checked'] == ['30m'], st)
-    pg.keyboard.press('Escape'); pg.wait_for_timeout(100)
+    check('iv_picker_space_opens_on_checked', st['open'] and st['focus'] == '30m' and st['checked'] == ['30m'] and st['hl'], st)
+    pg.keyboard.press('Escape'); pg.wait_for_selector('.sp-ivm[hidden]', state='attached', timeout=2000)
     # each minute interval: the API answer, the bars drawn, the tab label, sane times
     res = {}
     for tf in MIN_TFS:
         since = time.time()
-        pick_tf(pg, tf); P.wait_chart(); pg.mouse.move(2, 2); pg.wait_for_timeout(250)
+        pick_tf(pg, tf); wait_iv(P, tf); pg.mouse.move(2, 2); pg.wait_for_timeout(250)
         j = mock(f'/api/stock/005930/chart?iv={tf}&count={IV_REQ[tf]}&warm=119')
         allb = j.get('pre', []) + j['bars']
         o = P.ev("() => ({ n: +document.querySelector('.sp-chart').dataset.n, aria: document.querySelector('.sp-chart').getAttribute('aria-label'), label: document.querySelector('.sp-tfs [data-tf=\"min\"]').textContent.trim(), units: [...document.querySelectorAll('.sp-mac .n')].map(x => x.textContent).join() })")
@@ -215,33 +274,49 @@ def run_iv_ma(b):
         ts = [x['t'] for x in allb]
         mins = [((t + 32400) % 86400) // 60 for t in ts]
         grid = all(m % n == 0 or m in (930, 990) for m in mins) if n > 5 else all(m % n == 0 for m in mins)
-        steps = all(b_ - a_ >= n * 60 for a_, b_ in zip(ts, ts[1:]))
-        want_last = f'{kst_label(allb[-1]["t"])} {allb[-1]["c"]:,}원까지'
-        res[tf] = {'n': o['n'], 'api': len(allb), 'label': o['label'], 'last': want_last in o['aria'], 'grid': grid, 'steps': steps, 'session': 540 <= min(mins) and max(mins) <= 1200,
+        # bars at least one interval apart, except the after-hours bucket that starts at the session end (60분: 15:00 → 15:30, AGENTS §3)
+        ah = lambda t: ((t + 32400) % 86400) // 60 in (930, 990)   # (the half bucket 15:30–16:00, or 16:30–17:00 on a late day)
+        steps = all(b_ - a_ >= n * 60 or ah(a_) or ah(b_) for a_, b_ in zip(ts, ts[1:]))
+        ohlc = all(x['l'] <= min(x['o'], x['c']) and x['h'] >= max(x['o'], x['c']) and x['v'] >= 0 for x in allb)
+        want_last = f'{kst_label(allb[-1]["t"])} {round(allb[-1]["c"]):,}원까지'
+        res[tf] = {'n': o['n'], 'api': len(allb), 'label': o['label'], 'last': want_last in o['aria'], 'grid': grid, 'steps': steps, 'ohlc': ohlc, 'session': 480 <= min(mins) and max(mins) <= 1200,
                    'req': P.count(f'chart?iv={tf}&', since), 'units': o['units'], 'iv': j['iv'] == tf and j['interval'] == tf}
-    check('iv_each_minute_interval_loads', all(r['n'] == r['api'] and r['last'] and r['req'] >= 1 and r['iv'] for r in res.values()), res)
-    check('iv_minute_tab_label_follows', all(r['label'] == tf.replace('m', '분') for tf, r in res.items()), {k: r['label'] for k, r in res.items()})
-    check('iv_minute_bar_times_sane', all(r['grid'] and r['steps'] and r['session'] for r in res.values()), res)
+    # (req: 0 where the page still had that interval's bars from a moment ago — minute bars are kept 20 s)
+    check('iv_each_minute_interval_loads', all(r['n'] == r['api'] and r['last'] and r['iv'] for r in res.values()) and sum(r['req'] for r in res.values()) >= 4,
+          {k: {x: r[x] for x in ('n', 'api', 'last', 'iv', 'req')} for k, r in res.items()})
+    check('iv_minute_tab_label_follows', all(r['label'] == IV_NAME[tf] for tf, r in res.items()), {k: r['label'] for k, r in res.items()})
+    check('iv_minute_bar_times_sane', all(r['grid'] and r['steps'] and r['session'] and r['ohlc'] for r in res.values()), {k: {x: r[x] for x in ('grid', 'steps', 'session', 'ohlc')} for k, r in res.items()})
     check('iv_minute_ma_units', all(r['units'] == '5분,20분,60분,120분' for r in res.values()), {k: r['units'] for k, r in res.items()})
     # 30분: the 이동평균 values = hand calculation over the grouped bars
-    pick_tf(pg, '30m'); P.wait_chart(); pg.mouse.move(2, 2); pg.wait_for_timeout(250)
+    pick_tf(pg, '30m'); wait_iv(P, '30m'); pg.mouse.move(2, 2); pg.wait_for_timeout(250)
     j = mock('/api/stock/005930/chart?iv=30m&count=140&warm=119')
     cl = [x['c'] for x in j.get('pre', []) + j['bars']]
-    want = [f'{round(sum(cl[-n:]) / n):,}' for n in (5, 20, 60)]
+    want = [f'{jsround(sum(cl[-n:]) / n):,}' for n in (5, 20, 60, 120)]
     row = P.ev(MA_ROW)
-    check('iv_30m_ma_values_hand_calc', [c[3] for c in row['chips'][:3]] == want and [c[1] for c in row['chips']] == ['true', 'true', 'true', 'false'], {'shown': row['chips'], 'want': want})
-    # the 이동평균 legend at 390: one line, nothing cut, 44 px to press, values in place, off = no value
-    check('ma_legend_390_one_line_no_clip', row['lines'] == 1 and row['clipped'] == 0 and row['right'] <= row['vw'] and row['chipH'] >= 44 and row['h'] <= 46, row)
-    # toggle 60 off: the line goes (its colour leaves the canvas), aria-pressed, stored per interval, kept after reload
+    check('iv_30m_ma_values_hand_calc', [c[3] for c in row['chips']] == want and [c[1] for c in row['chips']] == ['true', 'true', 'true', 'false'], {'shown': row['chips'], 'want': want})
+    # the 이동평균 legend at 390 (design.md §7 legend toggle): one line, nothing cut, 32 high / 44 to press, 11 px; on = filled swatch + --fg,
+    # off = hollow swatch (its ring stays) + --muted, no opacity dimming, no fill; the swatch changes with `fade`
+    fg, muted = P.ev(CSSRGB, row['fg']), P.ev(CSSRGB, row['muted'])
+    check('ma_legend_390_one_line_no_clip', row['lines'] == 1 and not row['stack'] and row['clipped'] == 0 and row['right'] <= row['vw'] and row['left'] >= 0 and row['chipH'] == 32 and row['hitH'] >= 44
+          and row['h'] <= 46 and row['fs'] == '11px', {k: row[k] for k in ('lines', 'stack', 'clipped', 'left', 'right', 'vw', 'chipH', 'hitH', 'h', 'fs')})
+    trans = lambda c: c in ('rgba(0, 0, 0, 0)', 'transparent')
+    check('ma_legend_on_off_look', all(not trans(row['sw'][i]) and row['text'][i] == [fg, fg] for i in range(3)) and trans(row['sw'][3]) and row['ring'][3] != 'none'
+          and row['text'][3] == [muted, muted] and all(o == 1 for o in row['op']) and all(trans(x) for x in row['bg'])
+          and re.search(r'background-color (0\.405s|405ms) linear\(', row['swT']) is not None, {k: row[k] for k in ('sw', 'text', 'op', 'bg', 'swT')} | {'fg': fg, 'muted': muted})
+    # toggle 60 off: the line goes (its colour leaves the canvas), aria-pressed, the value stays (muted) so nothing moves, stored per interval
     hexc = lambda c: '#' + ''.join('%02x' % int(x) for x in re.findall(r'[\d.]+', c)[:3])
     c60 = hexc(row['sw'][2])
-    px0 = P.ev(PIXELS_JS, [c60])[0]
-    pg.click('.sp-mac[data-n="60"]'); pg.wait_for_timeout(250)
-    px1 = P.ev(PIXELS_JS, [c60])[0]
+    px0 = P.ev("(c) => (" + PIXELS_JS + ")(c, 96)", [c60])[0]
+    pos0 = P.ev("() => [...document.querySelectorAll('.sp-mac')].map(c => Math.round(c.getBoundingClientRect().left))")
+    pg.click('.sp-mac[data-n="60"]'); pg.wait_for_timeout(450)
+    px1 = P.ev("(c) => (" + PIXELS_JS + ")(c, 96)", [c60])[0]
     row1 = P.ev(MA_ROW)
-    check('ma_toggle_hides_line_and_marks_off', px0 > 40 and px1 < px0 * 0.1 and row1['chips'][2][1] == 'false' and row1['chips'][2][3] == '' and '켜기' in row1['chips'][2][4], {'px': [px0, px1], 'chip': row1['chips'][2]})
+    pos1 = P.ev("() => [...document.querySelectorAll('.sp-mac')].map(c => Math.round(c.getBoundingClientRect().left))")
+    check('ma_toggle_hides_line_and_marks_off', px0 > 40 and px1 < px0 * 0.1 and row1['chips'][2][1] == 'false' and row1['chips'][2][3] == want[2] and row1['text'][2] == [muted, muted] and trans(row1['sw'][2]),
+          {'px': [px0, px1], 'chip': row1['chips'][2], 'text': row1['text'][2]})
+    check('ma_toggle_moves_nothing', pos0 == pos1, [pos0, pos1])
     pg.screenshot(path=str(SHOTS / 'live390_iv_30m_ma.png'))
-    pg.reload(); pg.wait_for_selector('.sp-mac'); P.wait_chart(); pg.wait_for_timeout(200)
+    pg.reload(); pg.wait_for_selector('.sp-mac'); wait_iv(P, '30m'); pg.wait_for_timeout(200)
     st = P.ev(PICK_STATE)
     ls = P.ev("() => [localStorage.getItem('khm.stock.iv'), localStorage.getItem('khm.stock.ma')]")
     row2 = P.ev(MA_ROW)
@@ -250,33 +325,51 @@ def run_iv_ma(b):
     pg.click('.sp-mac[data-n="60"]'); pg.wait_for_timeout(150)
     # an old stored value ('5m') still works
     P.ev("() => localStorage.setItem('khm.stock.iv', JSON.stringify('5m'))")
-    pg.reload(); P.wait_chart(); pg.wait_for_timeout(200)
+    pg.reload(); wait_iv(P, '5m'); pg.wait_for_timeout(200)
     st = P.ev(PICK_STATE)
-    check('iv_old_stored_5m_still_valid', st['label'] == '5분' and '5분봉' in P.ev("() => document.querySelector('.sp-chart').getAttribute('aria-label')"), st)
+    check('iv_old_stored_5m_still_valid', st['label'] == '5분' and '5분봉' in st['aria'], st)
     o = P.ev(OVERFLOW_JS)
     check('iv_ma_no_overflow_390', o['doc'] <= 0 and o['root'] <= 0 and o['n'] == 0, o)
-    check('iv_ma_console_clean_390', not P.console, P.console)
+    check('iv_ma_console_clean_390', not console_of(P), P.console)
     P.close()
 
-    # 360: the picker and the legend still fit (the legend may wrap only for 7-digit prices)
+    # 줄이기 (design.md §6-3: end states only): the picker opens and closes at once, no animation anywhere in it
+    P = Page(b, 390, BASE + '#s-005930'); pg = P.pg; P.wait_chart()
+    P.ev("() => { document.documentElement.dataset.motion = 'reduced'; }")
+    pg.click('.sp-tfs [data-tf="min"]')
+    r1 = P.ev("() => { const m = document.querySelector('.sp-ivm'); return { st: m.dataset.st, an: m.getAnimations().length + document.querySelector('.sp-ivm-in').getAnimations().length, pe: m.style.pointerEvents }; }")
+    pg.click('.sp-ivm [data-iv="10m"]')
+    r2 = P.ev("() => { const m = document.querySelector('.sp-ivm'), t = document.querySelector('.sp-tfmin .t'); return { hidden: m.hidden, go: t.classList.contains('go'), label: t.textContent }; }")
+    check('iv_picker_reduced_motion_no_motion', r1['st'] == 'open' and r1['an'] == 0 and r1['pe'] == '' and r2['hidden'] and not r2['go'] and r2['label'] == '10분', [r1, r2])
+    wait_iv(P, '10m')
+    check('iv_reduced_console_clean', not P.console, P.console)
+    P.close()
+
+    # 360: the picker fits; the legend stays one row — the value goes under its name where the line is too short (.stack)
     P = Page(b, 360, BASE + '#s-005930'); pg = P.pg; P.wait_chart()
-    pg.click('.sp-tfs [data-tf="day"]'); P.wait_chart(); pg.mouse.move(2, 2); pg.wait_for_timeout(200)
+    pg.click('.sp-tfs [data-tf="day"]'); wait_iv(P, 'day'); pg.mouse.move(2, 2); pg.wait_for_timeout(200)
     row = P.ev(MA_ROW)
-    pg.click('.sp-tfs [data-tf="min"]'); pg.wait_for_timeout(250)
+    pg.click('.sp-tfs [data-tf="min"]'); pg.wait_for_timeout(650)
     fit = P.ev(MENU_FIT); o = P.ev(OVERFLOW_JS)
-    check('iv_ma_360_fit', row['lines'] == 1 and row['clipped'] == 0 and fit['left'] >= 0 and fit['right'] <= fit['vw'] and fit['hit'] and o['doc'] <= 0 and o['n'] == 0, {'row': row, 'fit': fit, 'o': o})
+    check('iv_ma_360_fit', row['lines'] == 1 and row['clipped'] == 0 and row['right'] <= row['vw'] and row['hitH'] >= 44 and row['chipH'] == 32 and fit['left'] >= 0 and fit['right'] <= fit['vw'] and fit['hit']
+          and not fit['clipped'] and o['doc'] <= 0 and o['n'] == 0, {'row': {k: row[k] for k in ('lines', 'stack', 'clipped', 'right', 'vw', 'chipH', 'hitH')}, 'fit': fit, 'o': o})
     check('iv_ma_console_clean_360', not P.console, P.console)
     P.close()
 
-    # desktop: the picker under its tab, the legend slim with its title
+    # desktop: the picker under its tab (36 px rows), the hovered row gets the plate; the legend 28 high with its title; 1440 has room
     P = Page(b, 1440, BASE + '#s-005930'); pg = P.pg; P.wait_chart()
-    pg.click('.sp-tfs [data-tf="day"]'); P.wait_chart(); pg.mouse.move(2, 2); pg.wait_for_timeout(200)
+    pg.click('.sp-tfs [data-tf="day"]'); wait_iv(P, 'day'); pg.mouse.move(2, 2); pg.wait_for_timeout(200)
     row = P.ev(MA_ROW)
-    check('ma_legend_1440_slim_with_title', row['lines'] == 1 and row['h'] <= 34 and row['title'] == 'block' and row['clipped'] == 0, row)
-    pg.click('.sp-tfs [data-tf="min"]'); pg.wait_for_timeout(250)
+    check('ma_legend_1440_slim_with_title', row['lines'] == 1 and row['chipH'] == 28 and row['h'] <= 34 and row['title'] == 'block' and row['clipped'] == 0 and row['fs'] == '12px' and not row['stack'], row)
+    tabh = P.ev("() => document.querySelector('.sp-tfs [data-tf=\"day\"]').getBoundingClientRect().height")
+    pg.click('.sp-tfs [data-tf="min"]'); pg.wait_for_timeout(650)
     fit = P.ev(MENU_FIT)
-    check('iv_picker_1440_anchored', fit['alignedLeft'] and fit['hit'] and 0 <= fit['below'] <= 12, fit)
-    pg.click('.sp-ivm [data-iv="60m"]'); P.wait_chart()
+    it = pg.query_selector('.sp-ivm [data-iv="30m"]').bounding_box()
+    pg.mouse.move(it['x'] + 20, it['y'] + it['height'] / 2); pg.mouse.move(it['x'] + 24, it['y'] + it['height'] / 2); pg.wait_for_timeout(450)
+    st = P.ev(PICK_STATE)
+    check('iv_picker_1440_anchored', fit['alignedLeft'] and fit['hit'] and 0 <= fit['below'] <= 8 and fit['minH'] == 36 and tabh == 32 and not fit['clipped'], [fit, tabh])
+    check('iv_picker_1440_hover_plate', st['hl'] and st['focus'] == '30m' and abs(float(st['hlY'] or -99) - st['focusY']) < 1, st)
+    pg.click('.sp-ivm [data-iv="60m"]'); wait_iv(P, '60m')
     check('iv_60m_desktop_period', P.ev("() => document.querySelector('.sp-period').textContent").startswith('5일 동안'), P.ev("() => document.querySelector('.sp-period').textContent"))
     check('iv_console_clean_1440', not P.console, P.console)
     P.close()
@@ -285,15 +378,15 @@ def run_iv_ma(b):
     mock('/__config?oldiv=1')
     P = Page(b, 390, BASE + '#s-005930'); pg = P.pg; P.wait_chart()
     since = time.time()
-    pick_tf(pg, '30m'); P.wait_chart(); pg.mouse.move(2, 2); pg.wait_for_timeout(250)
+    pick_tf(pg, '30m'); wait_iv(P, '30m'); pg.mouse.move(2, 2); pg.wait_for_timeout(250)
     mock('/__config?oldiv=')
     j = mock('/api/stock/005930/chart?iv=30m&count=140&warm=119')
     allb = j.get('pre', []) + j['bars']
     o = P.ev("() => ({ n: +document.querySelector('.sp-chart').dataset.n, back: document.querySelector('.sp-chart').dataset.back, aria: document.querySelector('.sp-chart').getAttribute('aria-label') })")
     row = P.ev(MA_ROW)
     cl = [x['c'] for x in allb]
-    check('oldworker_30m_grouped_on_page', o['n'] == len(allb) and f'{kst_label(allb[-1]["t"])} {allb[-1]["c"]:,}원까지' in o['aria'] and P.count('chart?iv=5m&', since) >= 1
-          and [c[3] for c in row['chips'][:2]] == [f'{round(sum(cl[-n:]) / n):,}' for n in (5, 20)], {'page': o, 'api': len(allb), 'chips': row['chips'][:2]})
+    check('oldworker_30m_grouped_on_page', o['n'] == len(allb) and f'{kst_label(allb[-1]["t"])} {round(allb[-1]["c"]):,}원까지' in o['aria'] and P.count('chart?iv=5m&', since) >= 1
+          and [c[3] for c in row['chips'][:2]] == [f'{jsround(sum(cl[-n:]) / n):,}' for n in (5, 20)], {'page': o, 'api': len(allb), 'chips': row['chips'][:2]})
     noise = [m for m in P.console if 'status of 400' not in m]
     check('oldworker_30m_only_the_400_probe', not noise and len(P.console) <= 1, P.console)
     P.close()
@@ -302,13 +395,12 @@ def run_iv_ma(b):
     P = Page(b, 390, BASE + '#s-005930'); pg = P.pg; P.wait_chart()
     r = {}
     for tf in ('10m', '30m', '60m'):
-        pick_tf(pg, tf); P.wait_chart(); pg.wait_for_timeout(150)
+        pick_tf(pg, tf); wait_iv(P, tf); pg.wait_for_timeout(150)
         r[tf] = P.ev("() => [+document.querySelector('.sp-chart').dataset.n, document.querySelector('.sp-chart').dataset.back, document.querySelector('.sp-tfs [data-tf=\"min\"]').textContent.trim()]")
-    check('oldworker_tf_form_groups_minutes', all(v[0] > 20 and v[1] == '0' and v[2] == tf.replace('m', '분') for tf, v in r.items()) and P.count('chart?tf=5d') >= 1, r)
+    check('oldworker_tf_form_groups_minutes', all(v[0] > 20 and v[1] == '0' and v[2] == IV_NAME[tf] for tf, v in r.items()) and P.count('chart?tf=5d') >= 1, r)
     check('oldworker_tf_console_clean', not P.console, P.console)
     P.close()
     mock('/__reset')
-
 
 
 def run(b):
@@ -318,7 +410,7 @@ def run(b):
     pg.wait_for_timeout(1500)
     check('khstock_api', P.ev("() => typeof KHStock === 'object' && ['open','close','isOpen'].every(k => typeof KHStock[k] === 'function')"))
     mk = lambda: P.ev("() => document.querySelector('.tabs button[aria-pressed=true]').textContent")
-    check('heatmap_market_kosdaq_before', mk() == '코스닥', mk())
+    check('heatmap_market_kosdaq_before', mk().startswith('코스닥'), mk())   # the tab carries its day % under the name (AGENTS §3-16)
     opener = "() => { const b = document.querySelectorAll('.secs button')[1]; b.focus(); return b.textContent; }"
     P.ev(opener)
     hl0 = P.ev('history.length')
@@ -330,8 +422,8 @@ def run(b):
     pg.keyboard.press('Escape')
     pg.wait_for_timeout(400)
     st = P.ev("() => ({ hash: location.hash, open: KHStock.isOpen(), vis: !document.getElementById('kh-stock').hidden, focus: document.activeElement && document.activeElement.textContent, inert: document.querySelector('main.layout').inert, title: document.title })")
-    check('esc_closes_restores_hash_focus', st['hash'] == '#kosdaq' and not st['open'] and not st['vis'] and st['focus'] and not st['inert'] and st['title'] == '한국 증시 히트맵', st)
-    check('heatmap_market_kept_after_close', mk() == '코스닥', mk())
+    check('esc_closes_restores_hash_focus', st['hash'] == '#kosdaq' and not st['open'] and not st['vis'] and st['focus'] and not st['inert'] and st['title'] == '판세', st)   # the site is 판세 (AGENTS §3-26)
+    check('heatmap_market_kept_after_close', mk().startswith('코스닥'), mk())
     # browser back
     P.ev(opener); P.ev("() => KHStock.open('196170', { opener: document.activeElement })"); pg.wait_for_timeout(500)
     pg.go_back(); pg.wait_for_timeout(500)
@@ -437,12 +529,13 @@ def run(b):
     cl = [x['c'] for x in bars]
     fmt = lambda v: f'{round(v):,}'
     ma = lambda n, i: sum(cl[i - n + 1:i + 1]) / n
-    chips = P.ev("() => [...document.querySelectorAll('.sp-mac')].map(b => ({ n: b.dataset.n, on: b.getAttribute('aria-pressed'), t: b.querySelector('.n').textContent, v: b.querySelector('.v').textContent, c: getComputedStyle(b.querySelector('.n')).color }))")
+    chips = P.ev("() => [...document.querySelectorAll('.sp-mac')].map(b => ({ n: b.dataset.n, on: b.getAttribute('aria-pressed'), t: b.querySelector('.n').textContent, v: b.querySelector('.v').textContent, c: getComputedStyle(b.querySelector('.sw')).backgroundColor }))")
     last = len(cl) - 1
     want = {n: fmt(ma(int(n), last)) if last >= int(n) - 1 else '–' for n in ('5', '20', '60', '120')}
     check('ma_chips_daily_all_on_labels_unit', [c['t'] for c in chips] == ['5일', '20일', '60일', '120일'] and all(c['on'] == 'true' for c in chips), chips)
     check('ma_values_match_hand_calc_last_bar', all(c['v'] == want[c['n']] for c in chips), {'shown': [c['v'] for c in chips], 'want': want})
-    check('ma_colours_distinct_not_red_green', len({c['c'] for c in chips}) == 4, [c['c'] for c in chips])
+    # the swatches carry the line colours (the labels are --fg, design.md §7); 5 is pink now, not the amber-like gold (§2)
+    check('ma_colours_distinct_not_red_green', len({c['c'] for c in chips}) == 4 and chips[0]['c'] == 'rgb(255, 128, 196)', [c['c'] for c in chips])
     # hover: the bar under the pointer → its date → hand-calculated MA20 / MA60
     h0 = P.ev("() => document.querySelector('.sp-ma').getBoundingClientRect().height")
     box = pg.query_selector('.sp-chart').bounding_box()
@@ -457,7 +550,8 @@ def run(b):
     # toggle + remembered
     pg.click('.sp-mac[data-n="5"]'); pg.wait_for_timeout(150)
     st = P.ev("() => ({ on: document.querySelector('.sp-mac[data-n=\"5\"]').getAttribute('aria-pressed'), v: document.querySelector('.sp-mac[data-n=\"5\"] .v').textContent, ls: localStorage.getItem('khm.stock.ma'), vis: window.__x })")
-    check('ma_toggle_off_stored', st['on'] == 'false' and st['v'] == '' and '"day":[20,60,120]' in (st['ls'] or ''), st)
+    # off keeps its value (muted) in its place, so the row never moves (design.md §7 legend toggle)
+    check('ma_toggle_off_stored', st['on'] == 'false' and st['v'] == want['5'] and '"day":[20,60,120]' in (st['ls'] or ''), st)
     pg.reload(); pg.wait_for_selector('.sp-mac'); P.wait_chart()
     st = P.ev("() => [...document.querySelectorAll('.sp-mac')].map(b => b.getAttribute('aria-pressed')).join()")
     check('ma_toggle_remembered_after_reload', st == 'false,true,true,true', st)
@@ -534,9 +628,9 @@ def run(b):
     check('daily_tab_paging', d1 == 60 and d2 == 120 and d3['rows'] == 180 and d3['moreHidden'], [d1, d2, d3])
     pg.screenshot(path=str(SHOTS / 'live390_tab_daily.png'))
     pg.focus('#sp-t-daily'); pg.keyboard.press('ArrowRight')
-    k1 = P.ev("() => ({ sel: document.querySelector('[role=tab][aria-selected=true]').id, focus: document.activeElement.id })")
+    k1 = P.ev("() => ({ sel: document.querySelector('#kh-stock [role=tab][aria-selected=true]').id, focus: document.activeElement.id })")
     pg.keyboard.press('ArrowRight')
-    k = P.ev("() => ({ sel: document.querySelector('[role=tab][aria-selected=true]').id, focus: document.activeElement.id })")
+    k = P.ev("() => ({ sel: document.querySelector('#kh-stock [role=tab][aria-selected=true]').id, focus: document.activeElement.id })")
     check('tabs_keyboard_arrows', k1 == {'sel': 'sp-t-news', 'focus': 'sp-t-news'} and k == {'sel': 'sp-t-ob', 'focus': 'sp-t-ob'}, [k1, k])
     taps = P.ev(TAP_JS)
     check('tap_targets_40px_mobile', not taps, taps)
@@ -613,7 +707,7 @@ def run(b):
         'weekend': phase('2026-11-14T11:00:00+09:00', '', 'weekend'),
     }
     mock('/__reset')
-    ok = (ph['open']['chip'] == '장 중' and 'NXT' not in ph['open']['meta'] and ph['open']['ob_reqs_7s'] >= 3
+    ok = (ph['open']['chip'] == '실시간' and 'NXT' not in ph['open']['meta'] and ph['open']['ob_reqs_7s'] >= 3   # the open-session chip reads 실시간 since 0fc4f19
           and ph['after']['chip'] == '시간외' and 'NXT' in ph['after']['meta'] and ph['after']['ob_reqs_7s'] >= 3
           and ph['closed']['chip'] == '장 마감' and 'NXT' in ph['closed']['meta'] and ph['closed']['ob_reqs_7s'] <= 2
           and ph['holiday']['chip'] == '휴장' and '열리지 않아요' in ph['holiday']['meta'] and ph['holiday']['ob_reqs_7s'] <= 2
@@ -705,6 +799,19 @@ NEWS_JS = r"""() => ({
   fixes: [...document.querySelectorAll('#sp-p-news .sp-nw-tag.fix')].map(t => t.textContent),
   datetimes: [...document.querySelectorAll('#sp-p-news time')].map(t => t.getAttribute('datetime')),
 })"""
+def lim_codes():
+    """a limit-up and a limit-down row of data/snapshot.json outside the live top 300 × 2 (web/universe.json K · Q): lim, or |r| >= 29.5"""
+    rows = json.loads((ROOT / 'data/snapshot.json').read_text(encoding='utf8'))['stocks']
+    u = json.loads((ROOT / 'web/universe.json').read_text(encoding='utf8'))
+    top = set()
+    for k in ('K', 'Q'):
+        v = u[k]
+        top |= {v[i:i + 6] for i in range(0, len(v), 8)} if isinstance(v, str) else {x[:6] for x in v}
+    pick = lambda f: next((r['c'] for r in rows if r['c'] not in top and r.get('r') is not None and f(r)), None)
+    return {'up': pick(lambda r: r.get('lim') == 1 or r['r'] >= 29.5), 'dn': pick(lambda r: r.get('lim') == -1 or r['r'] <= -29.5)}
+
+
+LIM_CODES = lim_codes()
 LIM_JS = "() => { const l = document.querySelector('.sp-lim'); return l.hidden ? '' : l.textContent + '|' + l.className + '|' + getComputedStyle(l).color; }"
 
 
@@ -722,13 +829,13 @@ def run_extra(b):
     P.ev("() => localStorage.setItem('khm.stockTab', JSON.stringify('ob'))")
     P.ev("() => KHStock.open('005930')")
     P.wait_chart(); pg.wait_for_timeout(500)
-    n_before = P.count('/news') + P.count('/disclosures')
+    n_before = P.count('/005930/news') + P.count('/005930/disclosures')   # (not the heatmap's /api/news · /api/disclosures/today)
     t0 = time.time()
     pg.click('#sp-t-news')
     pg.wait_for_selector('#sp-p-news .sp-nw-list li')
     pg.wait_for_timeout(300)
     nw = P.ev(NEWS_JS)
-    req = {'news': P.count('/news', t0), 'disc': P.count('/disclosures', t0)}
+    req = {'news': P.count('/005930/news', t0), 'disc': P.count('/005930/disclosures', t0)}
     check('news_fetched_only_when_tab_opens', n_before == 0 and req == {'news': 1, 'disc': 1}, {'before': n_before, 'after_open': req})
     check('news_list', nw['rows'] == 20 and len(nw['press']) == 20 and all(nw['titles']) and nw['pressed'][0][:2] == ['news', 'true'] and '20' in nw['pressed'][1][2],
           {k: nw[k] for k in ('rows', 'pressed')} | {'first': nw['titles'][0], 'press0': nw['press'][0]})
@@ -916,8 +1023,9 @@ def run_extra(b):
     hexrgb = lambda x: 'rgb(%d, %d, %d)' % tuple(int(x[i:i + 2], 16) for i in (1, 3, 5))
     check('limit_badge_live', l0 == '' and l1.startswith('상한가|sp-lim up|') and l1.endswith(hexrgb(pal['upText'])) and l2.startswith('하한가|sp-lim dn|')
           and l2.endswith(hexrgb(pal['dnText'])) and l3.startswith('상한가') and l4 == '', [l0, l1, l2, l3, l4])
-    # outside the live quote universe: the summary's ratio decides (900300 +29.96%)
-    P.ev("() => KHStock.open('900300')"); pg.wait_for_timeout(800)
+    # outside the live quote universe: the summary's ratio decides (a limit-up row of data/snapshot.json outside the top 300 × 2 —
+    # the snapshot is rebuilt every day, so the code is looked up, not fixed)
+    P.ev(f"() => KHStock.open('{LIM_CODES['up']}')"); pg.wait_for_timeout(800)
     l5 = P.ev(LIM_JS)
     check('limit_badge_from_summary', l5.startswith('상한가'), l5)
     check('console_clean_star_limit', not P.console, P.console)
@@ -937,14 +1045,16 @@ def run_extra(b):
         P.close()
 
     # ── snapshot: badge from KH.stock (|r| ≥ 29.5 while snapshot rows have no lim yet), star only with KH.watch, zero fetches ──
-    for code, want in (('900300', '상한가'), ('179530', '하한가')):
+    for code, want in ((LIM_CODES['up'], '상한가'), (LIM_CODES['dn'], '하한가')):
+        if not code:   # no limit-down row that day
+            continue
         P = Page(b, 390, SNAP + '#s-' + code)
         P.pg.wait_for_timeout(900)
         l = P.ev(LIM_JS)
         api = [u for _, u in P.reqs if 'api/' in u]
-        if code == '900300':
+        if code == LIM_CODES['up']:
             P.pg.screenshot(path=str(SHOTS / 'snap390_limit.png'))
-        check(f'snapshot_limit_{code}', l.startswith(want) and not api and not P.console, [l, api, P.console])
+        check(f'snapshot_limit_{"up" if want == "상한가" else "down"}', l.startswith(want) and not api and not P.console, [code, l, api, P.console])
         P.close()
 
 
@@ -1122,7 +1232,7 @@ def run_info(b):
     wp = [[p_['code'], p_['name'], f"{p_['price']:,}", signed_pct(p_['ratio'], 2)] for p_ in s5['peers']]
     hl = P.ev('history.length')
     pg.click('.sp-peer:nth-child(2)'); pg.wait_for_timeout(700)
-    sw = P.ev("() => ({ hash: location.hash, name: document.getElementById('sp-name').textContent, hl: history.length, tab: document.querySelector('[role=tab][aria-selected=true]').id })")
+    sw = P.ev("() => ({ hash: location.hash, name: document.getElementById('sp-name').textContent, hl: history.length, tab: document.querySelector('#kh-stock [role=tab][aria-selected=true]').id })")
     check('peers_from_summary_open_in_place', pe == wp and sw['hash'] == '#s-' + wp[1][0] and sw['name'] == wp[1][1] and sw['hl'] == hl and sw['tab'] == 'sp-t-info', {'chips': pe[:2], 'want': wp[:2], 'after': sw})
     check('console_clean_info', not P.console, P.console)
     P.close()
@@ -1398,7 +1508,7 @@ def run_nxt(b):
     """NXT line under the header price (AGENTS.md §3-8)."""
     mock('/__reset')
     base = mock('/api/stock/005930/summary'); prev = base['price'] - base['change']
-    NX = "() => { const n = document.querySelector('.sp-nxt'); const b = n.getBoundingClientRect(); return { hidden: n.hidden, text: n.textContent, cls: n.className, right: b.right, vw: innerWidth, color: getComputedStyle(n.querySelector('.pv')).color, up: getComputedStyle(document.documentElement).getPropertyValue('--up-text').trim() }; }"
+    NX = "() => { const n = document.querySelector('.sp-nxt'); const b = n.getBoundingClientRect(); return { hidden: n.hidden, text: n.textContent, title: n.title, cls: n.className, right: b.right, vw: innerWidth, color: getComputedStyle(n.querySelector('.pv')).color, up: getComputedStyle(document.documentElement).getPropertyValue('--up-text').trim() }; }"
     REFRESH = "() => document.dispatchEvent(new Event('visibilitychange'))"
 
     def go(w, cfg, motion='standard'):
@@ -1410,15 +1520,18 @@ def run_nxt(b):
     for k, cfg in (('pre', 'nxt=pre'), ('after', 'nxt=after'), ('preclosed', 'nxt=preclosed'), ('afterclosed', 'nxt=afterclosed'), ('none', '')):
         P = go(1280, cfg or 'x=1'); r[k] = P.ev(NX); r[k]['err'] = P.console[:]; P.close()
     np_ = int(round(prev * 1.0611, -2)); pc = f"{(np_ - prev) / prev * 100:+.2f}%".replace('-', '−')
-    ok = (not r['pre']['hidden'] and r['pre']['text'] == f"NXT 프리마켓 {np_:,} {pc} · 08:12" and 'up' in r['pre']['cls']
-          and r['after']['text'].startswith('NXT 애프터마켓 ') and r['preclosed']['text'].startswith('NXT 프리마켓 마감 ') and r['afterclosed']['text'].startswith('NXT 애프터 종가 ') and r['none']['hidden'])
-    check('nxt_line_texts_and_hidden_without_nxt', ok, {k: r[k]['text'] for k in r})
+    # since 0fc4f19 the line names the venue only ("NXT 200,200 +6.09% · 08:12"); the session and whether it trades are in its title
+    # (the mock's clock is the real one, so a session outside its window reads 마감)
+    ok = (not r['pre']['hidden'] and r['pre']['text'] == f"NXT {np_:,} {pc} · 08:12" and 'up' in r['pre']['cls'] and '프리마켓' in r['pre']['title']
+          and r['after']['text'].startswith('NXT ') and '애프터마켓' in r['after']['title'] and '프리마켓 · 마감' in r['preclosed']['title']
+          and '애프터마켓 · 마감' in r['afterclosed']['title'] and r['none']['hidden'])
+    check('nxt_line_texts_and_hidden_without_nxt', ok, {k: [r[k]['text'], r[k]['title'], r[k]['hidden']] for k in r})
     check('nxt_up_colour_from_palette', r['pre']['color'] != '' and r['pre']['up'] != '' and r['pre']['color'] != 'rgb(0, 0, 0)', {'c': r['pre']['color'], 'v': r['pre']['up']})
     # refresh with the summary poll
     P = go(1280, 'nxt=pre'); mock(f'/__config?nxtp={int(prev * 0.97)}'); P.ev(REFRESH)
     P.pg.wait_for_function("() => document.querySelector('.sp-nxt').classList.contains('dn')", timeout=5000)
     t = P.ev(NX)['text']; P.close()
-    check('nxt_line_refreshes_with_summary', '−' in t and t.startswith('NXT 프리마켓'), t)
+    check('nxt_line_refreshes_with_summary', '−' in t and t.startswith('NXT '), t)
     # roll only in fancy
     roll = {}
     for m in ('standard', 'fancy'):
@@ -1514,23 +1627,25 @@ if __name__ == '__main__':
                 time.sleep(0.1)
         with sync_playwright() as p:
             browser = p.chromium.launch(executable_path='/usr/bin/google-chrome', args=['--no-sandbox'])
+            def section(fn):   # a section that stops on an exception is one FAIL; the sections after it still run
+                try:
+                    fn(browser)
+                except Exception as e:
+                    check(f'{fn.__name__}_ran_to_the_end', False, f'{type(e).__name__}: {str(e).splitlines()[0][:200]}')
             try:
                 if '--motion-only' in sys.argv:
-                    run_motion(browser)
+                    section(run_motion)
                 elif '--nxt-only' in sys.argv:
-                    run_nxt(browser)
+                    section(run_nxt)
                 elif '--groups-only' in sys.argv:
-                    run_groups(browser)
+                    section(run_groups)
                 elif '--info-only' in sys.argv:
-                    run_info(browser)
+                    section(run_info)
                 else:
                     if '--extra-only' not in sys.argv:
-                        run(browser)
-                    run_extra(browser)
-                    run_info(browser)
-                    run_motion(browser)
-                    run_nxt(browser)
-                    run_groups(browser)
+                        section(run)
+                    for fn in (run_extra, run_info, run_motion, run_nxt, run_groups):
+                        section(fn)
             finally:
                 browser.close()
     finally:

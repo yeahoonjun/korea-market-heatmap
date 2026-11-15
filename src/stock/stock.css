@@ -15,9 +15,11 @@ html.sp-on, html.sp-on body { overflow: hidden; }
 }
 /* the analyst / finance violet ramp is only 1.3 – 3 : 1 on a light page — light themes get a darker set (each step >= 3 : 1 on paper and light glass) */
 html[data-tone="light"] .sp { --s0: #8a74d6; --s1: #6247c4; --s2: #3e2a96; --sp-w3: color-mix(in srgb, var(--fg) 5%, transparent); --sp-w5: color-mix(in srgb, var(--fg) 8%, transparent); --sp-w6: color-mix(in srgb, var(--fg) 10%, transparent); }
-/* moving averages (not up / down data, so never red or green): gold · sky · violet · grey. Each is >= 3 : 1 on the chart ground of every theme. */
-.sp { --ma-5: #f2c14e; --ma-20: #5cc8ff; --ma-60: #b99cff; --ma-120: #aab1bd; }
-html[data-tone="light"] .sp, html[data-theme="paper"] .sp, html[data-theme="glass-light"] .sp { --ma-5: #7a5200; --ma-20: #0b6498; --ma-60: #6a3fd0; --ma-120: #586070; }
+/* moving averages (not up / down data, so never red or green): pink · sky · violet · grey. Each is >= 3 : 1 on the chart ground of every
+   theme. 5 was gold (#f2c14e / #7a5200), too close to the interface amber (design.md §2): pink is ≥ 60° of hue away from every theme's
+   amber; 120 is a more neutral grey so it stays apart from sky and violet. qa/stock/test_ma_colors.py checks contrast · hue · ΔE00. */
+.sp { --ma-5: #ff80c4; --ma-20: #5cc8ff; --ma-60: #b99cff; --ma-120: #c4c8ce; }
+html[data-tone="light"] .sp, html[data-theme="paper"] .sp, html[data-theme="glass-light"] .sp { --ma-5: #b01f78; --ma-20: #0b6498; --ma-60: #6a3fd0; --ma-120: #474b52; }
 html[data-theme="paper"] .sp { --sp-hair: var(--row-bd, rgba(46, 30, 18, .2)); }
 html[data-theme^="glass"] .sp { --sp-solid: var(--page); --sp-nest: var(--panel2, #202228); }
 .sp[hidden] { display: none; }
@@ -143,56 +145,74 @@ html[data-theme="paper"] .sp-head, html[data-theme^="glass"] .sp-head { backgrou
 .sp-period { display: none; font-size: 12.5px; color: var(--muted); white-space: nowrap; }
 .sp-period b { font-weight: 600; }
 
-/* 분's picker (사용자 2026-11-14 08:10): the tab shows the minute interval that is on + a small caret; the menu is the template's dropdown
-   material (--pop-bg, the tip rim, --pop-sh), placed under the tab by stock.js (ivPlace). Checked = amber text + ✓ (the accent, not data). */
-.sp-tfbar { position: relative; }
-.sp-tfmin { display: inline-flex; align-items: center; justify-content: center; gap: 3px; }
-.sp-tfmin .cr { flex: none; width: 10px; height: 10px; margin-right: -2px; opacity: .75; transition: transform var(--c-fast) var(--c-out); }
-.sp-tfmin[aria-expanded="true"] .cr { transform: rotate(180deg); }
-.sp-ivm { position: absolute; z-index: 5; left: 0; top: 100%; display: flex; flex-direction: column; gap: 1px; padding: 4px; background: var(--pop-bg, var(--sp-solid)); border-radius: var(--r-tray, 12px); box-shadow: inset 0 0 0 1px var(--tip-bd, var(--line2)), var(--pop-sh, 0 14px 40px rgba(0, 0, 0, .5)); -webkit-backdrop-filter: var(--blur, none); backdrop-filter: var(--blur, none); transform-origin: top left; }
-.sp-ivm[hidden] { display: none; }
-.sp-ivm:not([hidden]) { animation: spIvm var(--c-fast, 180ms) var(--c-out, ease-out); }
-@keyframes spIvm { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
-.sp-ivm button { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 44px; padding: 0 10px 0 12px; border-radius: var(--r-in, 8px); color: var(--fg); font-size: 14px; font-weight: 600; text-align: left; white-space: nowrap; font-variant-numeric: tabular-nums; transition: filter var(--c-fast) var(--c-out), background-color var(--c-fast) var(--c-out); }
-.sp-ivm button:hover { background: color-mix(in srgb, var(--fg) 7%, transparent); }
-.sp-ivm button:active { filter: var(--press-f); transition-duration: 0s; }
-.sp-ivm button:focus-visible { outline-offset: -3px; }
-.sp-ivm .ck { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; visibility: hidden; }
-.sp-ivm button[aria-checked="true"] { color: var(--acc); }
-.sp-ivm button[aria-checked="true"] .ck { visibility: visible; }
-html[data-theme="paper"] .sp-ivm { background: var(--sheet-bg, var(--pop-bg)); border-radius: var(--tip-r, 2px); box-shadow: inset 0 0 0 1px var(--rule, var(--tip-bd)), var(--pop-sh); }
-@media (min-width: 640px) { .sp-ivm button { min-height: 38px; font-size: 13.5px; } }
+/* 간격 (design.md §7 segment): 분 · 일 · 주 · 월 · 년 in the template's tray; the raised indicator's leading edge runs on `lead`, the
+   trailing one on `trail` (it stretches a little on the way and settles, §6-2). Heights §4: 32 desktop, 40 phone. */
+.sp .sp-tfs > button { min-height: var(--h-key); font-size: var(--fs-lg); }
+.sp .sp-tfs[data-dir="r"]::before { transition: right var(--sp-lead-dur) var(--sp-lead), left var(--sp-trail-dur) var(--sp-trail), top var(--sp-lead-dur) var(--sp-lead), bottom var(--sp-lead-dur) var(--sp-lead); }
+.sp .sp-tfs[data-dir="l"]::before { transition: left var(--sp-lead-dur) var(--sp-lead), right var(--sp-trail-dur) var(--sp-trail), top var(--sp-lead-dur) var(--sp-lead), bottom var(--sp-lead-dur) var(--sp-lead); }
 
-/* 이동평균 (사용자 2026-11-14 "이동평균선 5일 20일 60일 120일 저 버튼들 레이아웃과 디자인 개선이 필요해보여"): one slim row that reads like
-   the chart's legend and toggles like it — a short line in the MA colour, the period in that colour, the value under the crosshair (tabular,
-   one reserved width, so nothing moves while the pointer does). Off = hollow line, muted text, no value. No fill: the chip ground only
-   shows on hover; the 44 px button keeps a 28 px visible chip (::before), focus ring on the chip. The row's height is fixed. */
-.sp-ma { flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: 0 2px; min-height: 44px; margin: -6px 0 2px -4px; }
-.sp-ma-t { display: none; flex: none; margin: 0 6px 0 5px; font-size: 12px; font-weight: 600; color: var(--muted); white-space: nowrap; }
-.sp-mac { position: relative; flex: none; display: inline-flex; align-items: center; gap: 3px; height: 44px; padding: 0 4px; border: 0; background: none; color: var(--fg); font-size: 11px; font-weight: 600; line-height: 1; white-space: nowrap; transition: filter var(--c-fast) var(--c-out); }
-.sp-mac::before { content: ""; position: absolute; z-index: -1; left: 0; right: 0; top: 8px; bottom: 8px; border-radius: var(--r-in, 8px); background: transparent; transition: background-color var(--c-fast) var(--c-out); }
-.sp-mac { isolation: isolate; }
-.sp-mac:hover::before { background: var(--sp-w5); }
-.sp-mac:is(:active, .is-press) { filter: var(--press-f); transition-duration: 0s; }
-.sp-mac:is(:active, .is-press)::before { background: var(--sp-w6); }
-.sp-mac:focus-visible { outline: none; }
-.sp-mac:focus-visible::before { outline: var(--focus-w, 3px) solid var(--focus, #ffb547); outline-offset: 0; }
-.sp-mac .sw { flex: none; width: 10px; height: 3px; border-radius: 2px; background: var(--mc); transition: background-color var(--c-fast) var(--c-out), box-shadow var(--c-fast) var(--c-out); }
-.sp-mac .n { color: var(--mc); }
-.sp-mac .v { min-width: var(--ma-vw, 6ch); font-weight: 500; color: var(--fg); text-align: left; }
-.sp-mac[aria-pressed="false"] .sw { background: transparent; box-shadow: inset 0 0 0 1.25px var(--muted); }
-.sp-mac[aria-pressed="false"] .n { color: var(--muted); font-weight: 500; }
-.sp-mac[aria-pressed="false"] .v { display: none; }
-@media (hover: none) { .sp-mac:hover::before { background: transparent; } }
-@media (max-width: 374px) { .sp-mac { gap: 2px; padding: 0 3px; font-size: 10.5px; } .sp-mac .sw { width: 8px; } }
-@media (pointer: fine) { .sp-ma { min-height: 32px; margin: -4px 0 4px -6px; } .sp-mac { height: 32px; } .sp-mac::before { top: 2px; bottom: 2px; } }
-@media (min-width: 640px) {
-  .sp-ma { gap: 0 4px; }
-  .sp-ma-t { display: block; }
-  .sp-mac { gap: 5px; padding: 0 7px; font-size: 12.5px; }
-  .sp-mac .sw { width: 14px; }
-  .sp-mac .n { margin-right: 1px; }
+/* 분 (사용자 2026-11-14 08:10 "분봉으로 통합하고 누르면 1분봉 5분봉 10분봉 30분봉 60분봉 선택 가능하게"): the tab reads the minute interval
+   that is on ("5분") or "분", + a small caret; open = the caret turns and goes amber (§2: amber = open). The label changes in place
+   (§6-4, stock.js swapText): the old text is the ::before and leaves upward with a 2 px blur, the new one comes in from 4 px below. */
+.sp { --tx-out: 100ms; --tx-gap: 60ms; --tx-in: 180ms; }
+html[data-motion="reduced"] .sp { --tx-out: 0ms; --tx-gap: 0ms; --tx-in: 0ms; }
+.sp-tfbar { position: relative; }
+.sp-tfmin { display: inline-flex; align-items: center; justify-content: center; gap: var(--space-1); }
+.sp-tfmin .t { display: inline-grid; }
+.sp-tfmin .t > .tn, .sp-tfmin .t::before { grid-area: 1 / 1; }
+.sp-tfmin .t.go::before { content: attr(data-was); animation: spTxOut var(--tx-out) var(--sp-close) forwards; }
+.sp-tfmin .t.go > .tn { animation: spTxIn var(--tx-in) var(--sp-fade) calc(var(--tx-out) + var(--tx-gap)) both; }
+@keyframes spTxOut { to { opacity: 0; filter: blur(2px); transform: translateY(-4px); } }
+@keyframes spTxIn { from { opacity: 0; filter: blur(2px); transform: translateY(4px); } }
+.sp-tfmin .cr { flex: none; width: 10px; height: 10px; margin-right: calc(var(--space-1) * -1); color: var(--muted); transition: transform var(--sp-close-dur) var(--sp-close), color var(--sp-close-dur) var(--sp-close); }
+.sp-tfmin[aria-expanded="true"] .cr { transform: rotate(180deg); color: var(--acc); transition-duration: var(--sp-open-dur); transition-timing-function: var(--sp-open); }
+
+/* the picker (design.md §5 · §7 popover): the dropdown material of the theme (--pop-bg, the tip rim, --pop-sh, glass blur). stock.js sizes
+   the box (left · top · width · height · corner) and grows it out of the tab; the items sit in a fixed-width layer, so nothing reflows. */
+.sp-ivm { position: absolute; z-index: 5; left: 0; top: 0; overflow: hidden; border-radius: var(--r-float); background: var(--pop-solid, var(--sp-solid)); box-shadow: inset 0 0 0 1px var(--tip-bd, var(--line2)), var(--pop-sh, 0 14px 40px rgba(0, 0, 0, .5)); -webkit-backdrop-filter: var(--blur, none); backdrop-filter: var(--blur, none); }
+.sp-ivm[hidden] { display: none; }
+html[data-theme^="glass"] .sp-ivm { background: var(--pop-bg); }   /* glass: the translucent sheet + blur (opaque when blur is off) */
+html[data-theme="paper"] .sp-ivm { border-radius: var(--tip-r, var(--r-mark)); background: var(--sheet-bg, var(--pop-solid)); box-shadow: inset 0 0 0 1px var(--rule, var(--tip-bd)), var(--pop-sh); }
+.sp-ivm-in { position: relative; isolation: isolate; display: flex; flex-direction: column; padding: var(--space-2); }
+/* the highlight plate (§7 `hl`): under the hovered (fine pointer) or keyboard-focused item; inner corner = outer − padding (§4) */
+.sp-ivm-hl { position: absolute; z-index: -1; left: var(--space-2); right: var(--space-2); top: 0; height: var(--h-row); border-radius: calc(var(--r-float) - var(--space-2)); background: var(--fill-2); opacity: 0; pointer-events: none;
+  transition: transform var(--sp-hl-dur) var(--sp-hl), opacity var(--sp-fade-dur) var(--sp-fade); }
+html[data-theme="paper"] .sp-ivm-hl { border-radius: 0; }
+.sp-ivm-in[data-hl] > .sp-ivm-hl { opacity: 1; }
+.sp-ivm-in > button { display: flex; align-items: center; justify-content: space-between; gap: var(--space-6); min-height: var(--h-row); padding: 0 var(--space-4) 0 var(--space-5); border-radius: calc(var(--r-float) - var(--space-2)); color: var(--fg); font-size: var(--fs-lg); font-weight: 600; line-height: var(--lh-row); text-align: left; white-space: nowrap; font-variant-numeric: tabular-nums; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+html[data-theme="paper"] .sp-ivm-in > button { border-radius: 0; }
+.sp-ivm-in > button:active { filter: var(--press-f); }
+.sp-ivm-in > button:focus-visible { outline-offset: calc(var(--focus-w) * -1); }
+.sp-ivm .ck { flex: none; width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; visibility: hidden; }
+.sp-ivm-in > button[aria-checked="true"] { color: var(--acc); }   /* §2: amber = the selected one */
+.sp-ivm-in > button[aria-checked="true"] .ck { visibility: visible; }
+
+/* 이동평균 (사용자 2026-11-14 "이동평균선 5일 20일 60일 120일 저 버튼들 레이아웃과 디자인 개선이 필요해보여") — design.md §7 legend toggle:
+   a short line swatch in the MA colour + the period + the value under the crosshair (tabular, one reserved width — the widest price of
+   the loaded bars — so nothing moves while the pointer does or when one is toggled). No fill. On = filled swatch + --fg; off = hollow
+   swatch + --muted, no opacity dimming. Height 28 desktop / 32 phone (the press area 44 on phones); only the swatch changes, with `fade`. */
+.sp-ma { flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--space-1); min-height: var(--h-key); margin: calc(var(--space-2) * -1) 0 var(--space-1) calc(var(--space-2) * -1); }
+.sp-ma-t { display: none; flex: none; margin: 0 var(--space-3) 0 var(--space-2); font-size: var(--fs-sm); font-weight: 600; color: var(--muted); white-space: nowrap; }
+.sp-mac { position: relative; flex: none; display: inline-flex; align-items: center; gap: var(--space-2); height: calc(var(--h-chip) + var(--space-2)); padding: 0 var(--space-3); border: 0; border-radius: var(--r-row); background: none; color: var(--fg); font-size: var(--fs-sm); font-weight: 600; line-height: var(--lh-ui); white-space: nowrap; font-variant-numeric: tabular-nums; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+.sp-mac .sw { flex: none; width: 14px; height: 4px; border-radius: var(--r-mark); background: var(--mc); box-shadow: inset 0 0 0 1.5px var(--mc); transition: background-color var(--sp-fade-dur) var(--sp-fade); }
+.sp-mac .n, .sp-mac .v { color: var(--fg); }
+.sp-mac .v { display: inline-block; min-width: var(--ma-vw, 6ch); font-weight: 500; text-align: left; }
+.sp-mac[aria-pressed="false"] .sw { background-color: transparent; }
+.sp-mac[aria-pressed="false"] :is(.n, .v) { color: var(--muted); }
+.sp-mac:active { filter: var(--press-f); }
+@media (hover: hover) and (pointer: fine) { .sp-mac:hover { background: var(--fill-1); } }
+/* phones: 32 high, the press area 44 (the row is one line at 390 px even for "120일 199,981"), 11 px type */
+@media (max-width: 760px) {
+  .sp-ma { min-height: 44px; gap: 0 var(--space-1); margin-left: calc(var(--space-1) * -1); margin-right: calc(var(--space-1) * -1); }
+  .sp-mac { height: var(--h-chip); gap: var(--space-2); padding: 0 var(--space-1); font-size: var(--fs-xs); }
+  .sp-mac::after { content: ""; position: absolute; left: 0; right: 0; top: calc((44px - var(--h-chip)) / -2); bottom: calc((44px - var(--h-chip)) / -2); }
+  .sp-mac .sw { width: 10px; }
 }
+/* when the four do not fit one line (a narrow phone, 7-digit prices — stock.js fitMa), each item puts its value under its name */
+.sp-ma.stack .sp-mac { display: inline-grid; grid-template-columns: auto auto; align-content: center; column-gap: var(--space-2); row-gap: 0; }
+.sp-ma.stack .sp-mac .v { grid-column: 1 / -1; min-width: 0; }
+.sp-ma.stack { gap: 0 var(--space-4); }
+@media (min-width: 640px) { .sp-ma-t { display: block; } }
 .sp-chnote { position: absolute; z-index: 3; left: 50%; transform: translateX(-50%); bottom: 36px; white-space: nowrap; padding: 3px 9px; border-radius: 999px; background: var(--sp-solid); box-shadow: inset 0 0 0 1px var(--line2); color: var(--fg2); font-size: 11.5px; pointer-events: none; opacity: 0; transition: opacity var(--c-fast) var(--c-out); }
 .sp-chnote.on { opacity: 1; }
 .sp-legend .sp-lg-live { padding: 0 6px; border-radius: 999px; box-shadow: inset 0 0 0 1px var(--line2); color: var(--fg2); font-size: 10.5px; font-weight: 600; text-shadow: none; }

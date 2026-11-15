@@ -24,7 +24,8 @@ Control (test helpers, not part of the contract)
 Chart: ?iv=1m|5m|10m|30m|60m|day|week|month[&to=][&count=][&warm=] like the Worker (AGENTS.md §3): 10m · 30m · 60m are the 5-minute
 bars grouped by group_bars, a port of the Worker's groupBars (worker/src/index.js). The tf= form is unchanged.
 Quiet stubs for the heatmap's own routes so a page load is console-clean: /api/news, /api/disclosures/today (an empty day), /api/time,
-/api/breadth (from data/snapshot.json), /api/world, /api/live (qa/live/ws_mock.py: {t:'off', reason:'closed'}), /data/*.json from web/.
+/api/breadth (from data/snapshot.json), /api/world, /api/live (qa/live/ws_mock.py: {t:'off', reason:'closed'}), /data/*.json from web/
+(except close.json: 404, as before).
 """
 import datetime as dt, html, json, pathlib, random, re, sys, threading, time
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
@@ -365,6 +366,15 @@ def quotes():
         rows = sorted((x for x in snap['stocks'] if x.get('m') == m and x['c'].endswith('0')), key=lambda x: -x.get('cap', 0))[:300]
         out += rows
     out = [dict(r, lim=1 if r.get('r', 0) >= 29.5 else -1) if abs(r.get('r', 0)) >= 29.5 else r for r in out]   # Worker: lim only when at the limit
+    # the stocks with fixtures quote what their summary says (the same price · change · ratio, bump included): data/snapshot.json is
+    # rebuilt every day, the fixtures are not, and the page's head takes whichever of the two is newer — they must agree
+    for i, r in enumerate(out):
+        if (RAW / r['c']).exists():
+            try:
+                sm = summary(r['c'])
+                out[i] = dict(r, p=sm['price'], d=sm['change'], r=sm['ratio'])
+            except Exception:
+                pass
     return {'asOf': dt.datetime.now(KST).replace(microsecond=0).isoformat(), 'source': '네이버 증권 (mock)',
             'marketStatus': snap['marketStatus'], 'afterHours': True, 'index': snap['index'], 'stocks': out}
 
@@ -451,7 +461,9 @@ class Handler(SimpleHTTPRequestHandler):
                         CONFIG[k] = v
             return self.send_json(dict(CONFIG))
         if re.match(r'^/data/[a-z_]+\.json$', path):   # Worker serves web/*.json here
-            if not (WEB / path[len('/data/'):]).exists():
+            # close.json stays 404: with it the heatmap shows the KRX close after 15:30 instead of the live (mock) quotes the tests
+            # move (test_stock.py Page ignores that 404 and /api/breadth's)
+            if path == '/data/close.json' or not (WEB / path[len('/data/'):]).exists():
                 return self.send_json({'error': 'not built'}, 404)
             self.path = path[len('/data'):]
             return super().do_GET()

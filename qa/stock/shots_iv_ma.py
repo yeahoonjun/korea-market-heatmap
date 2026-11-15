@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Screenshots for the 분 picker + 이동평균 legend (사용자 2026-11-14 08:10) against the mock API.
+"""Screenshots for the 분 picker + 이동평균 legend (사용자 2026-11-14 08:10 · "이동평균선 … 개선") against the mock API.
 
     python3 scripts/build_page.py
     python3 qa/stock/shots_iv_ma.py [--before] [--port 8961]
@@ -21,6 +21,8 @@ THEMES = ['base', 'paper', 'glass-dark', 'glass-light']
 VPS = {390: dict(viewport={'width': 390, 'height': 844}, is_mobile=True, has_touch=True, device_scale_factor=2),
        1440: dict(viewport={'width': 1440, 'height': 900}, device_scale_factor=1)}
 WAIT = "() => { const m = document.querySelector('.sp-chartmsg'); return m && !m.classList.contains('on') && document.querySelector('.sp-legend').textContent.length > 0 }"
+WAIT_IV = "(n) => { const c = document.querySelector('.sp-chart'), m = document.querySelector('.sp-chartmsg'); return (c.getAttribute('aria-label') || '').includes(' ' + n + '봉 차트') && m && !m.classList.contains('on'); }"
+OPEN = "() => { const m = document.querySelector('.sp-ivm'); return m.dataset.st === 'open' && !m.style.pointerEvents && !m.getAnimations().length; }"
 
 
 def clip(pg, sel_top, sel_bottom, pad=8, extra=0):
@@ -57,23 +59,21 @@ def shots_before(b):
 def shots_after(b):
     for theme in THEMES:
         for w in VPS:
-            # the 분 picker open (from 일: the last minute pick is focused, none checked) and from 5분 (5분 checked)
+            # the 분 picker open from 5분 (5분 checked, the box grown out of the tab)
             ctx, pg, errs = page(b, w, theme, {'stock.iv': '"5m"', 'stock.ma': '{"5m":[5,20,60]}'})
             pg.mouse.move(2, 2)
-            pg.click('.sp-tfs [data-tf="min"]'); pg.wait_for_selector('.sp-ivm:not([hidden])'); pg.wait_for_timeout(350)
+            pg.click('.sp-tfs [data-tf="min"]'); pg.wait_for_function(OPEN, timeout=5000); pg.wait_for_timeout(150)
             pg.screenshot(path=str(OUT / f'picker_open_{theme}_{w}.png'), clip=clip(pg, '.sp-tfbar', '.sp-ivm', extra=24))
-            pg.keyboard.press('Escape'); pg.wait_for_timeout(150)
-            # a 30분 chart
-            pg.click('.sp-tfs [data-tf="min"]'); pg.wait_for_selector('.sp-ivm:not([hidden])')
-            pg.click('.sp-ivm [data-iv="30m"]'); pg.wait_for_function(WAIT, timeout=15000); pg.wait_for_timeout(700)
+            # a 30분 chart (picked in the menu)
+            pg.click('.sp-ivm [data-iv="30m"]'); pg.wait_for_function(WAIT_IV, arg='30분', timeout=15000); pg.wait_for_timeout(900)
             pg.mouse.move(2, 2); pg.wait_for_timeout(200)
             pg.screenshot(path=str(OUT / f'chart_30m_{theme}_{w}.png'), clip=clip(pg, '.sp-tfbar', '.sp-chartwrap'))
-            # the 이동평균 row: on and off together (일봉: 5 · 20 · 60 on, 120 off)
-            pg.click('.sp-tfs [data-tf="day"]'); pg.wait_for_function(WAIT, timeout=15000); pg.wait_for_timeout(500)
+            # the 이동평균 legend: on and off together (일봉: 5 · 20 · 60 on, 120 off)
+            pg.click('.sp-tfs [data-tf="day"]'); pg.wait_for_function(WAIT_IV, arg='일', timeout=15000); pg.wait_for_timeout(500)
             on = pg.evaluate("() => [...document.querySelectorAll('.sp-mac')].map(b => b.getAttribute('aria-pressed'))")
             if on[3] == 'true':
-                pg.click('.sp-mac[data-n="120"]'); pg.wait_for_timeout(250)
-            pg.mouse.move(2, 2); pg.wait_for_timeout(250)
+                pg.click('.sp-mac[data-n="120"]')
+            pg.mouse.move(2, 2); pg.wait_for_timeout(600)
             pg.screenshot(path=str(OUT / f'ma_row_{theme}_{w}.png'), clip=clip(pg, '.sp-tfbar', '.sp-ma', extra=60))
             if errs:
                 print('page errors', theme, w, errs)
