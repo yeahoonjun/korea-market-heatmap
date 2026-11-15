@@ -19160,12 +19160,12 @@ html.sm-noanchor{overflow-anchor:none}
 .msum a.sm-a:visited{color:var(--fg2)}
 .msum .sm-off{color:var(--fg2);font-size:var(--fs-sm)}
 
-/* 머리: 장 단계 배지 + 한 문장 + 자세히 키 */
+/* 머리: 장 단계 배지 + 한 문장 + 자세히 키. 배지와 문장 첫 줄은 키(--h-key)의 세로 가운데에 — 문장이 두 줄이 되면 키는 첫 줄 옆에 남아요 */
 .msum .sm-hd{display:flex;align-items:flex-start;gap:var(--space-3)}
 /* 배지 — design.md §5 조리법(11px/600 · 높이 18 · --r-badge · 1px 안쪽 테), 중립. 장중만 앞에 --live 점 */
-.sm-pill{display:inline-flex;align-items:center;gap:var(--space-2);flex:none;margin-top:var(--space-1);padding:var(--space-1) var(--space-3);border-radius:var(--r-badge);font-size:var(--fs-xs);line-height:var(--lh-ui);font-weight:600;color:var(--fg2);box-shadow:inset 0 0 0 1px var(--line2);white-space:nowrap}
+.sm-pill{display:inline-flex;align-items:center;gap:var(--space-2);flex:none;margin-top:calc((var(--h-key) - var(--fs-xs) * var(--lh-ui) - var(--space-1) * 2) / 2);padding:var(--space-1) var(--space-3);border-radius:var(--r-badge);font-size:var(--fs-xs);line-height:var(--lh-ui);font-weight:600;color:var(--fg2);box-shadow:inset 0 0 0 1px var(--line2);white-space:nowrap}
 .sm-pill.sm-ph-open::before{content:"";width:var(--space-3);height:var(--space-3);border-radius:var(--r-pill);background:var(--live)}
-.msum .sm-hl{flex:1;min-width:0;font-size:var(--fs-lg);line-height:var(--lh-row);font-weight:var(--w-strong);font-family:var(--font-head);letter-spacing:var(--track-head);color:var(--fg);word-break:keep-all;padding-top:var(--space-1)}
+.msum .sm-hl{flex:1;min-width:0;font-size:var(--fs-lg);line-height:var(--lh-row);font-weight:var(--w-strong);font-family:var(--font-head);letter-spacing:var(--track-head);color:var(--fg);word-break:keep-all;padding-top:calc((var(--h-key) - var(--fs-lg) * var(--lh-row)) / 2)}
 
 /* 자라는 칸: 접힌 띠(.sm-band) ↔ 펼친 표(.sm-full). 높이는 JS(KH.spring 'open' · 'close'), 글자는 §6-4 */
 .sm-grow{position:relative;margin-top:var(--space-4)}
@@ -19233,11 +19233,12 @@ html.sm-noanchor{overflow-anchor:none}
 .sm-df{display:flex;align-items:center;flex-wrap:wrap;gap:var(--space-3) var(--space-4);padding-top:var(--space-5);border-top:1px solid var(--line)}
 .sm-df .sm-sub{order:3;flex:1 1 100%;min-width:0}
 
-/* 키(V1 입체): 누름 1px · 0ms 내려감 · --c-fast 올라옴 */
+/* 키(V1 입체, design.md §5 · §7): 사이트의 다른 키와 같은 한 벌 — 바탕 --key-bg · 그림자 --key-sh · 높이 --h-key(PC 32 · 휴대폰 40) · 모서리 --r-key,
+   누름 1px · 0ms 내려감 · --c-fast 올라옴. 자세히 키는 꺾쇠만(16px · 선 1.75) 있는 정사각 키, 펼침 = 열린 트리거(.ddbtn · .bchip과 같이 --key-on + 앰버 꺾쇠) */
 .sm-tog,.sm-copy,.sm-fold{position:relative;display:inline-flex;align-items:center;justify-content:center;gap:var(--space-3);height:var(--h-key);padding:0 var(--space-5);border-radius:var(--r-key);background:var(--key-bg);box-shadow:var(--key-sh);color:var(--key-fg);font-size:var(--fs-md);font-weight:600;white-space:nowrap;touch-action:manipulation;transition:filter var(--c-fast) var(--c-out)}
 .sm-tog{flex:none;width:var(--h-key);padding:0}
-:is(.sm-tog,.sm-copy,.sm-fold,.sm-stk):active{transform:translateY(1px);box-shadow:var(--key-dn);filter:var(--press-f);transition-duration:0ms}
 .sm-tog[aria-expanded="true"]{box-shadow:var(--key-on)}
+:is(.sm-tog,.sm-copy,.sm-fold,.sm-stk):active{transform:translateY(1px);box-shadow:var(--key-dn);filter:var(--press-f);transition-duration:0ms}
 .sm-fold{margin-left:auto}
 /* 글로 복사(P11): 키 크기는 그대로 — 아이콘 칸에 세 아이콘(복사 · ✓ · !)이 겹쳐 있고, 글자 칸은 가장 긴 글자 폭(겹친 세 글자).
    바뀔 때: 나가는 아이콘은 100ms에 작아지며 사라지고, 들어오는 아이콘은 살짝 돌며 .5 → 1(`fade` 스프링). 완료 · 실패 아이콘은 앰버(design.md §2) */
@@ -19251,7 +19252,7 @@ html.sm-noanchor{overflow-anchor:none}
 .sm-copy .sm-kl.out{transform:translateY(calc(var(--space-2) * -1));transition:opacity 100ms var(--c-in),transform 100ms var(--c-in)}
 .sm-fold .sm-chev{transform:rotate(180deg)}
 .sm-chev{flex:none;color:var(--key-ic);transition:transform var(--sp-close-dur) var(--sp-close)}
-.sm-tog[aria-expanded="true"] > .sm-chev{transform:rotate(180deg);transition:transform var(--sp-open-dur) var(--sp-open)}
+.sm-tog[aria-expanded="true"] > .sm-chev{transform:rotate(180deg);color:var(--acc);transition:transform var(--sp-open-dur) var(--sp-open)}
 
 @media (hover:hover) and (pointer:fine){
   .msum a.sm-a:hover{text-decoration-color:var(--fg2)}
@@ -19261,6 +19262,7 @@ html.sm-noanchor{overflow-anchor:none}
 /* 손가락 화면: 누르는 곳 44px(design.md §4 — 보이는 크기가 작으면 가상 영역) */
 @media (pointer:coarse){
   :is(.sm-stk,.sm-tog,.sm-copy,.sm-fold)::before{content:"";position:absolute;left:0;right:0;top:50%;height:44px;transform:translateY(-50%)}
+  .sm-tog::before{left:50%;right:auto;width:44px;transform:translate(-50%,-50%)}      /* 정사각 40 키 → 누르는 곳 44 × 44 */
   .msum a.sm-a{display:inline-block;min-height:var(--h-chip)}
 }
 
@@ -19276,10 +19278,6 @@ html.sm-noanchor{overflow-anchor:none}
   .sm-f{padding:var(--space-4) 0}
   .sm-band .sm-n{font-size:var(--fs-md)}
   .msum .sm-hl{font-size:var(--fs-lg)}
-  /* 꺾쇠만 있는 키: 바탕 없이, 누르는 곳 44 */
-  .sm-tog{width:var(--h-row);height:var(--h-row);margin:calc(var(--space-4) * -1) calc(var(--space-4) * -1) calc(var(--space-4) * -1) 0;background:transparent;box-shadow:none}
-  .sm-tog[aria-expanded="true"]{box-shadow:none;background:var(--fill-1)}
-  .sm-copy,.sm-fold{height:var(--h-row)}
   .sm-band > .sm-b2{min-height:calc(var(--fs-lg) * var(--lh-row))}
 }
 

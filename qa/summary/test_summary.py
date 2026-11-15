@@ -10,7 +10,8 @@ Static: summary.css uses only design tokens for type, corners, colour, spacing a
 Browser (live, 360 · 390 · 768 · 1440, 기본 테마; 390 · 1440 also 신문): the card's place (phone: right after the map, before #news;
 tablet / desktop: first in .side), the map's box = the base build's, collapsed by default and after a reload (not remembered), no
 horizontal overflow, no console errors, no "null/undefined/NaN", text ≥ 11 px, red / green only on numbers, no amber text / fill, touch
-targets ≥ 44 px on phones — collapsed and expanded. Motion (design-references-full §7, sampled every frame): 자세히 = only the card's
+targets ≥ 44 px on phones — collapsed and expanded. The 자세히 key is the site's key (--key-bg · --key-sh · square --h-key · --r-key · 16 px
+chevron at 1.75, 44 × 44 on phones), open = --key-on + amber chevron — 기본 · 신문 · 글라스 어둡게 · 밝게. Motion (design-references-full §7, sampled every frame): 자세히 = only the card's
 panel grows by the `open` spring (overshoot ≤ 2 %) while the content below already sits at its new place (moved once, at the start), the
 table text comes in after the panel is ≥ 25 % grown; 접기 = text out together, the panel shrinks (close), the content below moves once at
 the end, focus on the top key (P8 ⓐ). 화려하게: a ≤ 300 ms stagger (gaps 40 → 30 → 20 ms) only on the session's first expand (P3).
@@ -164,6 +165,23 @@ SAMPLE = """async (sel) => {
 }"""
 
 
+# the 자세히 key (사용자 2026-11-15 20:01 "맨 오른쪽 버튼 디자인이 안되어있네"): the site's key — --key-bg · --key-sh · square --h-key · --r-key, a 16 px
+# chevron at 1.75; open = the open-trigger look (--key-on + amber chevron, like .ddbtn · .bchip), never a bare --fill-1 blob
+TOG = """() => { const t = document.querySelector('#summary .sm-tog'), cs = getComputedStyle(t), r = t.getBoundingClientRect(), svg = t.querySelector('svg');
+  const probe = (prop, v) => { const s = document.createElement('span'); s.style[prop] = v; document.body.append(s); const c = getComputedStyle(s)[prop]; s.remove(); return c; };
+  const hk = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--h-key'));
+  const kb = document.createElement('span'); kb.style.background = 'var(--key-bg)'; document.body.append(kb); const kbs = getComputedStyle(kb), bgOk = cs.backgroundImage === kbs.backgroundImage && cs.backgroundColor === kbs.backgroundColor; kb.remove();
+  const hit = getComputedStyle(t, '::before'), coarse = matchMedia('(pointer: coarse)').matches;
+  return { open: t.getAttribute('aria-expanded'), w: Math.round(r.width), h: Math.round(r.height), hk, bgOk, shKey: cs.boxShadow === probe('boxShadow', 'var(--key-sh)'), shOn: cs.boxShadow === probe('boxShadow', 'var(--key-on)'),
+    radius: cs.borderTopLeftRadius === probe('borderTopLeftRadius', 'var(--r-key)'), chevAcc: getComputedStyle(svg).color === probe('color', 'var(--acc)'), icon: [svg.getAttribute('width'), svg.getAttribute('stroke-width')].join('/'),
+    hit: coarse ? [Math.round(parseFloat(hit.width)), Math.round(parseFloat(hit.height))] : null }; }"""
+
+
+def tog_ok(k, open_):
+    base = k['bgOk'] and k['w'] == k['h'] == round(k['hk']) and k['radius'] and k['icon'] == '16/1.75' and (k['hit'] is None or min(k['hit']) >= 44)
+    return base and (k['shOn'] and k['chevAcc'] if open_ else k['shKey'] and not k['chevAcc']) and k['open'] == ('true' if open_ else 'false')
+
+
 HOLD = """async () => {
   const c = document.getElementById('summary'), nx = c.nextElementSibling, top = el => Math.round(el.getBoundingClientRect().top + scrollY), out = [], t0 = performance.now();
   c.querySelector('.sm-tog').click();
@@ -239,6 +257,8 @@ def main():
                         base = bpg.evaluate(MAPBOX); bctx.close()
                         check(f'{tag}: the map box = {BASE_REV} build (left · top · width · height)', mine == base, f'{mine} vs {base}')
                     pg.evaluate("document.getElementById('summary').scrollIntoView({block:'center'})"); pg.wait_for_timeout(300)
+                    k = pg.evaluate(TOG)
+                    check(f'{tag}: 자세히 key = the site key (key bg · shadow · square --h-key · --r-key · 16 px chevron 1.75, touch 44 × 44)', tog_ok(k, False), k)
                     per(f'{tag} collapsed', pg, errs, w)
                     if SHOTS:
                         pg.screenshot(path=str(OUT / f'impl_{w}_{theme}_collapsed.png'))
@@ -253,6 +273,8 @@ def main():
                               'sm-in' in sync[0] and 'sm-go' not in sync[0] and 'sm-out' in sync[1] and sync[2], sync)
                     st = pg.evaluate(STATE)
                     check(f'{tag}: expanded = the table + details + 글로 복사', st['open'] == 'true' and not st['band'] and st['full'] and '코스닥' in st['text'] and '글로 복사' in st['text'] and '오늘 흐름' in st['text'])
+                    k = pg.evaluate(TOG)
+                    check(f'{tag}: expanded 자세히 key = open trigger (--key-on + amber chevron, same box)', tog_ok(k, True), k)
                     per(f'{tag} expanded', pg, errs, w)
                     if SHOTS:
                         pg.evaluate("document.getElementById('summary').scrollIntoView({block:'start'})"); pg.wait_for_timeout(200)
@@ -264,6 +286,16 @@ def main():
                           ok and st['open'] == 'false' and st['band'] and not st['full'] and s['H1'] < s['H0'] - 40 and 'sm-tog' in (s['focus'] or ''), dict(info, focus=s['focus']))
                     if theme == 'base':
                         check(f'{tag}: 접기 — everything leaves together (one .sm-out, no stagger delays)', 'sm-out' in s['sync'][0] and 'sm-stag' not in s['sync'][0] and not any(s['sync'][5]), s['sync'][0])
+                    ctx.close()
+            # the key in the two glass themes (기본 · 신문 are in the loop above)
+            for (w, h) in [(390, 844), (1440, 900)]:
+                for theme in ('glass-dark', 'glass-light'):
+                    ctx, pg, errs = open_page(br, w, h, theme, motion='reduced')
+                    k0 = pg.evaluate(TOG)
+                    pg.focus('#summary .sm-tog'); pg.wait_for_timeout(400)
+                    pg.evaluate("document.querySelector('#summary .sm-tog').click()"); pg.wait_for_timeout(500)     # no mouse over it (hover = --key-hover)
+                    k1 = pg.evaluate(TOG)
+                    check(f'{w}x{h} {theme}: 자세히 key collapsed · expanded = the site key · open trigger, console errors 0', tog_ok(k0, False) and tog_ok(k1, True) and not errs, [k0, k1, errs[:1]])
                     ctx.close()
             # P3: the short stagger only on the first expand of the session (화려하게); a re-open has none
             ctx, pg, errs = open_page(br, 390, 844, motion='fancy')
@@ -310,8 +342,8 @@ def main():
             api = lambda xs, k: sum(1 for u in xs if u.startswith(k))
             keys = ['/api/news', '/api/themes', '/api/market', '/api/world']
             col = {k: (api(before, k), api(seen['base'], k)) for k in keys}
-            check('collapsed: /api/news only from the news card (= the page without the card); themes · market · world fetched ahead for the table',
-                  col['/api/news'][0] == col['/api/news'][1] and all(col[k][0] > col[k][1] for k in keys[1:]), col)
+            check(f'collapsed: /api/news only from the news card (= {BASE_REV}: the card never asks first); themes · market · world fetched ahead for the table',
+                  col['/api/news'][0] == col['/api/news'][1] and col['/api/themes'][0] >= 1 and col['/api/market'][0] > col['/api/news'][0] and col['/api/world'][0] >= 2, col)
             grew = {k: api(seen['mine'], k) - api(before, k) for k in keys}
             check('first 자세히: /api/news once (from the hand on the key), nothing else again', grew == {'/api/news': 1, '/api/themes': 0, '/api/market': 0, '/api/world': 0}, grew)
             # the first press with /api/news still on its way: the chevron turns at once, the panel waits for it (≤ 450 ms), then grows once
