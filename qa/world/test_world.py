@@ -465,6 +465,9 @@ def refresh_pass(browser, reduced=False, sort=None):
         page.wait_for_timeout(100)
         sy = page.evaluate('scrollY')
         before = page.evaluate("Object.fromEntries([...document.querySelectorAll('#world .kw-lr')].map(r => [r.dataset.k, r.querySelector('.kw-lv').textContent]))")
+        # a spy on the template's KH.ui.swap (world.js looks it up at every call): the fake clock finishes WAAPI animations at once,
+        # so the swaps are counted where they start — the cell, the old and new text, the direction
+        page.evaluate("""() => { const s = KH.ui.swap; window.__sw = []; KH.ui.swap = (el, t, f, d) => { if (el.closest('.kw-lr')) __sw.push([el.className.split(' ')[0] || el.parentElement.className.split(' ')[0], String(t), String(f), d]); return s(el, t, f, d); }; }""")
         api('/__mode?world=drift')
         page.clock.run_for(30500)
         page.wait_for_function("(b) => [...document.querySelectorAll('#world .kw-lr')].some(r => r.querySelector('.kw-lv').textContent !== b[r.dataset.k])", arg=before, timeout=5000)
@@ -472,16 +475,19 @@ def refresh_pass(browser, reduced=False, sort=None):
         st = page.evaluate("""() => ({ k: document.activeElement.dataset.k, tagged: !!document.activeElement.__tag, sy: scrollY,
             fresh: [...document.querySelectorAll('#world .kw-lr')].filter(r => !r.__tag).length,
             fl: document.querySelectorAll('#world .kw-lr .sw-go').length,
-            dirs: [...document.querySelectorAll('#world .kw-lr .kw-lv.sw-go')].map(e => { const a = e.getAnimations()[1]; const k = a && a.effect.getKeyframes()[0]; return k ? k.transform : ''; }).slice(0, 3) })""")
+            sw: __sw.filter(x => x[1] !== x[2]),
+            dirOk: __sw.filter(x => x[1] !== x[2] && x[0] === 'kw-lv').every(x => { const n = v => parseFloat(v.replace(/[^\\d.−-]/g, '').replace('−', '-')); return x[3] === Math.sign(n(x[1]) - n(x[2])); }) })""")
         last = api('/__last?kind=index')
         r = page.evaluate(LIST_JS, last)
         changed = sum(1 for kk, v in page.evaluate("Object.fromEntries([...document.querySelectorAll('#world .kw-lr')].map(r => [r.dataset.k, r.querySelector('.kw-lv').textContent]))").items() if before.get(kk) != v)
         check(f'{tag}: rows updated in place (same elements), values = new API answer', st['fresh'] == 0 and changed > 0 and not (r['bad']['value'] or r['bad']['pct'] or r['bad']['color']), f"{changed} changed; " + '; '.join((r['bad']['value'] + r['bad']['pct'])[:2]))
         check(f'{tag}: focus and scroll kept', st['k'] == k and st['tagged'] and abs(st['sy'] - sy) < 1, f"{k}→{st['k']}, scroll {sy}→{st['sy']}")
         if reduced:
-            check(f'{tag}: values written at once (no swap)', st['fl'] == 0, str(st['fl']))
+            check(f'{tag}: values written at once (no swap moving)', st['fl'] == 0, str(st['fl']))
         elif not sort:
-            check(f'{tag}: changed values swap in place (KH.ui.swap, design.md §6-4)', st['fl'] > 0, f"{st['fl']} {st['dirs']}")
+            kinds = sorted({x[0] for x in st['sw']})
+            check(f'{tag}: changed values swap in place (KH.ui.swap, design.md §6-4), up from below · down from above', len(st['sw']) > 0 and st['dirOk'] and 'kw-lv' in kinds and 'kw-pt' in kinds,
+                  f"{len(st['sw'])} swaps {kinds} dirs ok {st['dirOk']} e.g. {st['sw'][:2]}")
     finally:
         api('/__reset')
         ctx.close()

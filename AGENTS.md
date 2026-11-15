@@ -243,7 +243,7 @@ python3 tmp/shot.py /home/claude/heatmap/dist/index.html    # 1440×900 / 390×8
 
 **extras (`src/extras/`)**: 리플레이 재생을 타임랩스로 — 재생 중 프레임 사이를 `KH.setReplay(..., {tween})`로 이어서 끊김 없이, 지도 위에 큰 시각 표시(쇼룸 페이지 같은 굵은 큰 글씨, 반투명, 지도 정보를 가리지 않게 모서리). 시장 띠 값이 바뀔 때 숫자 롤링(자리별로 굴러가는 오도미터).
 **종목 페이지 (`src/stock/`)**: 머리 현재가·등락이 바뀔 때 숫자 롤링, 호가 칸 값이 바뀌면 짧게 반짝.
-**해외 (`src/world/`)**: 세계지도에 실시간 낮/밤 경계(태양 직하점의 반대편 반구를 어둡게, 1분마다 갱신, 경계는 부드러운 그라데이션), 지금 장이 열린 나라·마커에 은은한 빛(맥동은 `fancy`일 때만).
+**해외 (`src/world/`)**: 세계지도에 실시간 낮/밤 경계(태양 직하점의 반대편 반구를 어둡게, 1분마다 갱신, 경계는 부드러운 그라데이션), 지금 장이 열린 나라·마커에 은은한 빛(맥동은 `fancy`일 때만). → **2026-11-16 디자인 기준(§3-31 해외 · 지표 옮김)**: 낮/밤은 흐림 없는 네 겹 평평한 덮개(박명 계단) + 1px 경계선, 열린 나라는 빛 · 맥동 대신 평평한 `--live` 테두리 · 점.
 
 **3D 지도 모듈 `src/map3d/map3d.js`, `map3d.css`** (3D 담당, 빌드가 world 다음에 끼워 넣어요)
 - `window.KH3D = {show(), hide(), isOn()}`. `#map3d` 안에 canvas. 데이터는 `KH.layout()`(타일 x·y·w·h·color·code·label·sub, 섹터·업종 머리글)과 `KH.stock(code)`.
@@ -660,6 +660,7 @@ python3 tmp/shot.py /home/claude/heatmap/dist/index.html    # 1440×900 / 390×8
 - 적용 순서(design.md §11): 기반 → 새로 만드는 것(공시 토글 · 분봉 고르기 · 이동평균 범례 토글 · 시장 요약 카드 · 증시 캘린더 · KDI · 관보) → 기존 화면(템플릿 → extras → 종목 페이지 → 해외 · 지표 → 뉴스 · 공시 · 아래 막대).
 - **템플릿 옮김** (`ux/std-template`, 2026-11-16 — 자세한 건 design.md §11 진행): 상태색 값(`--live` 보라 · `--fail-dot` 먹색, 앰버는 고름 · 포커스 · 열림 · 켜짐만, `--sb-pm` 앰버는 시간대 데이터 색 예외) · 빛과 그라데이션 없음(시세 반짝임 = 등락색 2px 테두리, 글라스 채움 평평하게, 광택 테두리 없앰) · 글자 · 간격 · 모서리 · 높이 토큰(지도 상자를 정하는 머리글 · 도구 줄 · 지도 머리줄 · 범례 · 배치의 척도 밖 값은 그대로 — 목록은 design.md §11) · 탭 % · 지수 · 범례 숫자는 방향 글자 바꿈, 첫 지수 카운트업 없앰 · 공용 `KH.ui.swap(el, text, from?, dir?)` · `KH.ui.roll(el, text, dir)`을 §6으로(extras `xSwap` · `xRoll`과 같은 규칙) · 표시 = `lead`/`trail` 곡선 · ✓ · ! 1.75px. 점검 `python3 qa/std_template/test_std_template.py`(포트 `STD_QA_PORT` 9020~9029). float · summary 점검은 포트 9010~9029도 받아요.
 - **extras 옮김** (`ux/std-extras`, 2026-11-15 — 자세한 건 design.md §11 진행): 토큰 · 빛과 그라데이션 없음(15:20은 `--live` 테두리 + `--fill-2` 판 한 번) · 상태색 `--live`/`--fail-dot` · §6 숫자 드럼(화려하게)과 글자 바꿈(기본) · `KH.spring` 티커 튕김 · 아이콘 1.75px. 클래스 `.xr`/`.xr-c`(드럼) · `.xsw`(글자 바꿈) · `.rp-rail`(리플레이 레일 상자). 점검 `python3 qa/extras/audit_css.py` · `python3 qa/extras/test_std.py`(포트 `EXTRAS_STD_PORT` 9016), 전후 스크린샷 `qa/extras/shots_std.py`.
+- **해외 · 지표 옮김** (`ux/std-world`, 2026-11-16 — 자세한 건 design.md §11 진행): 토큰(글자 · 간격 · 모서리 · 높이 · 채움, 휴대폰 목록 줄 44) · 빛과 그라데이션 없음(세계지도 열린 나라 = 평평한 1.5px `--live` 테두리 + `--live` 점, 맥동 고리 없앰; 낮/밤은 정보라 흐림 없는 네 겹 박명 덮개 + 1px 선으로 그대로; 값 반짝임 없앰) · 상태색 `--live`(장중 점 · 시트 배지) · `--fail-dot`(갱신 실패 !) · 컨트롤 §7(세그먼트 = 템플릿 `.seg`, 키 · 칩 1px 가라앉음, 줄 · 이름표는 `--press-f`, hover는 정밀 포인터만, × SVG 1.75px) · 값은 `KH.ui.swap` 방향 바꿈, 시트 큰 숫자 `--fs-num` + 소수 한 단 작게 · 화려하게 `KH.ui.roll` · 글라스 재질은 템플릿 토큰 그대로. 점검 `python3 qa/world/audit_css.py` · `qa/world/test_world.py` · `test_funds.py` · `test_fx_rates.py`(포트 9040~9049), 전후 스크린샷 `qa/world/shots_std.py`. 목 `qa/world/mock_api.py`에 `/api/time` · `WORLD_WEB`.
 
 ## 3-30. 공시 배지 — 화면 (§3-23b ①, 사용자 2026-11-14 01:44~01:46 "C안으로 할게" · "나머지는 추천대로")
 

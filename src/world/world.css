@@ -402,6 +402,7 @@ html[data-theme="glass-light"] #world{--nodata:#e6e9ee}
   .kw-bar{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:var(--space-1) var(--space-4)}
   .kw-title{grid-area:1/1;min-width:0;overflow:hidden;text-overflow:ellipsis}
   .kw-tools{grid-area:1/2;gap:var(--space-3)}
+  .kw-seg>button{min-width:var(--h-key)}   /* two-letter cells (목록 · 지도) stay ≥ 40 wide to press */
   .kw-sum{grid-area:2/1;gap:var(--space-2);min-width:0}
   .kw-time{grid-area:2/2;margin-left:0;text-align:right}
   .kw-legend .right{margin-left:0}
