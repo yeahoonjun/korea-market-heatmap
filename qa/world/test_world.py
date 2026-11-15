@@ -112,6 +112,13 @@ def wait_world(page, sel='#world .kw-tile', timeout=8000):
     page.wait_for_timeout(350)
 
 
+# Other modules fetch the same /api/world?kind=index on their own schedules (the summary card's pull() every 2 / 10 min,
+# the extras strip and market clock on kh:refresh), so the mock's request count is not this module's alone. This spy on
+# fetch counts only the calls whose stack runs through world.js's load(); read it with page.evaluate('window.__kwF').
+WORLD_FETCH_SPY = r"""() => { if (window.__kwSpy) return; window.__kwSpy = true; window.__kwF = 0; const f = window.fetch;
+    window.fetch = function (u) { if (/api\/world\?kind=index/.test(String(u)) && /\bat load\b/.test(new Error().stack || '')) window.__kwF++; return f.apply(this, arguments); }; }"""
+
+
 # ── page-side probes ──
 LABELS_JS = r"""
 () => {
@@ -465,22 +472,29 @@ def refresh_pass(browser, reduced=False, sort=None):
         page.wait_for_timeout(100)
         sy = page.evaluate('scrollY')
         before = page.evaluate("Object.fromEntries([...document.querySelectorAll('#world .kw-lr')].map(r => [r.dataset.k, r.querySelector('.kw-lv').textContent]))")
+        # a spy on the template's KH.ui.swap (world.js looks it up at every call): the fake clock finishes WAAPI animations at once,
+        # so the swaps are counted where they start — the cell, the old and new text, the direction
+        page.evaluate("""() => { const s = KH.ui.swap; window.__sw = []; KH.ui.swap = (el, t, f, d) => { if (el.closest('.kw-lr')) __sw.push([el.className.split(' ')[0] || el.parentElement.className.split(' ')[0], String(t), String(f), d]); return s(el, t, f, d); }; }""")
         api('/__mode?world=drift')
         page.clock.run_for(30500)
         page.wait_for_function("(b) => [...document.querySelectorAll('#world .kw-lr')].some(r => r.querySelector('.kw-lv').textContent !== b[r.dataset.k])", arg=before, timeout=5000)
         page.wait_for_timeout(50)
         st = page.evaluate("""() => ({ k: document.activeElement.dataset.k, tagged: !!document.activeElement.__tag, sy: scrollY,
             fresh: [...document.querySelectorAll('#world .kw-lr')].filter(r => !r.__tag).length,
-            fl: [...document.querySelectorAll('#world .kw-fl')].filter(e => getComputedStyle(e).animationName !== 'none').length })""")
+            fl: document.querySelectorAll('#world .kw-lr .sw-go').length,
+            sw: __sw.filter(x => x[1] !== x[2]),
+            dirOk: __sw.filter(x => x[1] !== x[2] && x[0] === 'kw-lv').every(x => { const n = v => parseFloat(v.replace(/[^\\d.−-]/g, '').replace('−', '-')); return x[3] === Math.sign(n(x[1]) - n(x[2])); }) })""")
         last = api('/__last?kind=index')
         r = page.evaluate(LIST_JS, last)
         changed = sum(1 for kk, v in page.evaluate("Object.fromEntries([...document.querySelectorAll('#world .kw-lr')].map(r => [r.dataset.k, r.querySelector('.kw-lv').textContent]))").items() if before.get(kk) != v)
         check(f'{tag}: rows updated in place (same elements), values = new API answer', st['fresh'] == 0 and changed > 0 and not (r['bad']['value'] or r['bad']['pct'] or r['bad']['color']), f"{changed} changed; " + '; '.join((r['bad']['value'] + r['bad']['pct'])[:2]))
         check(f'{tag}: focus and scroll kept', st['k'] == k and st['tagged'] and abs(st['sy'] - sy) < 1, f"{k}→{st['k']}, scroll {sy}→{st['sy']}")
         if reduced:
-            check(f'{tag}: no highlight animation', st['fl'] == 0, str(st['fl']))
+            check(f'{tag}: values written at once (no swap moving)', st['fl'] == 0, str(st['fl']))
         elif not sort:
-            check(f'{tag}: brief highlight on changed values', st['fl'] > 0, str(st['fl']))
+            kinds = sorted({x[0] for x in st['sw']})
+            check(f'{tag}: changed values swap in place (KH.ui.swap, design.md §6-4), up from below · down from above', len(st['sw']) > 0 and st['dirOk'] and 'kw-lv' in kinds and 'kw-pt' in kinds,
+                  f"{len(st['sw'])} swaps {kinds} dirs ok {st['dirOk']} e.g. {st['sw'][:2]}")
     finally:
         api('/__reset')
         ctx.close()
@@ -605,7 +619,7 @@ GEO_JS = r"""
     const lab = narrow ? geo.querySelector(`.kw-gc[data-c="${id}"] .p`) : geo.querySelector(`.kw-gl[data-c="${id}"] .p`);
     if (!lab || lab.textContent !== pct(it.ratio)) out.label.push(`${id} '${lab && lab.textContent}' != ${pct(it.ratio)}`);
     const open = it.status === 'OPEN';
-    const marked = !!geo.querySelector(`.kw-ggl path[data-c="${id}"]`) || !!geo.querySelector(`.kw-gmk.open[data-c="${id}"]`);
+    const marked = !!geo.querySelector(`.kw-gopen path[data-c="${id}"]`) || !!geo.querySelector(`.kw-gmk.open[data-c="${id}"]`);
     if (open !== marked) out.open.push(`${id} open=${open} outline=${marked}`);
     const dot = geo.querySelector(`.kw-gdot[data-c="${id}"], .kw-gmk[data-c="${id}"]`) || geo.querySelector(`.kw-gl[data-c="${id}"] .kw-sd`);
     if (dot && (dot.classList.contains('open') !== open)) out.open.push(`${id} marker state`);
@@ -666,8 +680,8 @@ def geo_pass(browser, width, height):
         lon, lat = subsolar(t0)
         check(f'{tag}: day/night — four 12 % caps + terminator around the antisolar point', nt['caps'] == 4 and nt['line'] == 1 and nt['empty'] == 0 and nt['op'] == '0.12'
               and nt['fill'] == 'rgb(5, 8, 20)' and lon_diff(nt['lon'], lon) < 0.5 and abs(nt['lat'] - lat) < 0.3, f"centre {nt['lon']:.2f},{nt['lat']:.2f} vs {lon:.2f},{lat:.2f}")
-        order = [c for c in r['order'] if c in ('kw-gland', 'kw-gnight', 'kw-gbord', 'kw-gglow', 'kw-glines', 'kw-gmarks')]
-        check(f'{tag}: layers fills → night → borders → glow → lines → markers', order == ['kw-gland', 'kw-gnight', 'kw-gbord', 'kw-gglow', 'kw-glines', 'kw-gmarks'], str(order))
+        order = [c for c in r['order'] if c in ('kw-gland', 'kw-gnight', 'kw-gbord', 'kw-gopen', 'kw-glines', 'kw-gmarks')]
+        check(f'{tag}: layers fills → night → borders → open-market outline → lines → markers', order == ['kw-gland', 'kw-gnight', 'kw-gbord', 'kw-gopen', 'kw-glines', 'kw-gmarks'], str(order))
         ov = page.evaluate("document.documentElement.scrollWidth - document.documentElement.clientWidth")
         check(f'{tag}: no horizontal overflow', ov <= 0, f'{ov}px')
         if mobile:
@@ -852,43 +866,42 @@ def night_pass(browser):
         a = page.evaluate("[+document.querySelector('.kw-gnight').dataset.lon, +document.querySelector('.kw-gnight').dataset.lat]")
         lon, lat = subsolar(t)
         check('day/night: centre at the antisolar point (June solstice, noon UTC)', lon_diff(a[0], lon) < 0.3 and abs(a[1] - lat) < 0.2 and abs(a[1] + 23.4) < 0.2, f'{a} vs {lon:.2f},{lat:.2f}')
-        page.clock.run_for(60 * 60 * 1000)
+        page.clock.fast_forward(60 * 60 * 1000)          # jump an hour (due timers fire once) — run_for fired every page timer for an hour
+        page.clock.run_for(61 * 1000)                     # … then the next minute's redraw
         page.wait_for_timeout(100)
         b = page.evaluate("[+document.querySelector('.kw-gnight').dataset.lon, +document.querySelector('.kw-gnight').dataset.lat]")
-        lon2, _ = subsolar(t + 3600000)
-        check('day/night: redrawn every minute (an hour later the night moved 15° west)', lon_diff(b[0], lon2) < 0.3 and abs(lon_diff(a[0], b[0]) - 15) < 0.3, f'{a[0]} → {b[0]}')
+        t2 = page.evaluate('Date.now()')
+        lon2, _ = subsolar(t2)
+        check('day/night: redrawn every minute (an hour later the night moved ~15° west)', lon_diff(b[0], lon2) < 0.3 and abs(lon_diff(a[0], b[0]) - (t2 - t) / 240000) < 0.4, f'{a[0]} → {b[0]}')
     finally:
         ctx.close()
-    # every effect level draws it; only 'fancy' pulses the open markets (KH.motion() stubbed: the template adds it later)
+    # every effect level draws it (information, AGENTS §3-5); nothing on the map moves on its own at any level (design.md §10 ③)
     ctx, page = open_page(browser, LIVE + '#world', 1280, 800, view='map', reduced=True)
     try:
         wait_world(page, GEO_SEL)
-        r = page.evaluate("({ caps: document.querySelectorAll('.kw-gnight .kw-gn').length, rm: document.getElementById('world').classList.contains('kw-rm'), anim: [...document.querySelectorAll('.kw-gp')].filter(p => getComputedStyle(p).animationName !== 'none').length })")
+        r = page.evaluate("({ caps: document.querySelectorAll('.kw-gnight .kw-gn').length, rm: document.getElementById('world').classList.contains('kw-rm'), anim: document.getElementById('world').getAnimations({ subtree: true }).filter(a => a.playState === 'running').length })")
         check('day/night under reduced motion: still drawn, nothing moves', r['caps'] == 4 and r['rm'] and r['anim'] == 0, str(r))
     finally:
         ctx.close()
     ctx, page = open_page(browser, LIVE + '#world', 1440, 900, view='map')
     try:
         wait_world(page, GEO_SEL)
-        PULSE = """() => { const rings = [...document.querySelectorAll('#world .kw-gp.on')].filter(p => getComputedStyle(p).animationName === 'kwRing');
-            const labs = [...document.querySelectorAll('#world .kw-gl.in .kw-sd.open')].filter(d => getComputedStyle(d, '::after').animationName === 'kwRing');
-            const open = document.querySelectorAll('#world .kw-gdot.open, #world .kw-gmk.open').length + document.querySelectorAll('#world .kw-gl.in .kw-sd.open').length;
-            const dl = rings.map(p => [+p.getAttribute('cx'), parseFloat(p.style.animationDelay)]).sort((a, b) => a[0] - b[0]).map(x => x[1]);
-            return { rings: rings.length, labs: labs.length, open, wave: dl.every((v, i) => !i || v >= dl[i - 1] - 0.02), glow: document.querySelectorAll('#world .kw-ggl path').length }; }"""
-        std = page.evaluate(PULSE)
-        check("effects 'standard': open markets glow (static), no pulse", std['rings'] == 0 and std['labs'] == 0 and std['glow'] > 0, str(std))
+        # open markets (design.md §10 ③ "열린 나라 빛 → 점 · 테두리"): a flat --live outline and --live dots — no blurred layer, no pulse
+        CUE = """() => { const w = document.getElementById('world'), live = getComputedStyle(document.documentElement).getPropertyValue('--live').trim();
+            const toRgb = c => { const d = document.createElement('i'); d.style.color = c; document.body.append(d); const v = getComputedStyle(d).color; d.remove(); return v; };
+            const L = toRgb(live), paths = [...w.querySelectorAll('.kw-gopen path')];
+            const dots = [...w.querySelectorAll('.kw-gdot.open')].map(d => getComputedStyle(d).fill), labs = [...w.querySelectorAll('.kw-gl .kw-sd.open')].map(d => getComputedStyle(d).backgroundColor);
+            return { outline: paths.length, stroke: paths.every(p => getComputedStyle(p).stroke === L), blur: [...w.querySelectorAll('.kw-gsvg *')].filter(e => /blur|drop-shadow/.test(getComputedStyle(e).filter)).length,
+              dots: dots.length, dotsLive: dots.every(f => f === L), labs: labs.length, labsLive: labs.every(f => f === L),
+              rings: w.querySelectorAll('.kw-gp').length, running: w.getAnimations({ subtree: true }).filter(a => a.effect && a.effect.getComputedTiming().iterations === Infinity).length }; }"""
+        std = page.evaluate(CUE)
+        check("open markets: a flat --live outline + --live dots (no blur, no glow layer)", std['outline'] > 0 and std['stroke'] and std['blur'] == 0 and std['dots'] + std['labs'] > 0 and std['dotsLive'] and std['labsLive'], str(std))
         page.evaluate("KH.motion = () => 'fancy'; document.dispatchEvent(new CustomEvent('kh:motion', { detail: { motion: 'fancy' } }))")
         page.wait_for_timeout(100)
-        fx = page.evaluate(PULSE)
-        check("effects 'fancy': one pulse ring per open marker, staggered west → east", fx['rings'] + fx['labs'] == fx['open'] and fx['open'] > 0 and fx['wave'] and fx['rings'] + fx['labs'] <= 25, str(fx))
-        page.evaluate("Object.defineProperty(document, 'hidden', {configurable: true, get: () => true}); document.dispatchEvent(new Event('visibilitychange'))")
-        ps = page.evaluate("getComputedStyle(document.querySelector('#world .kw-gp.on')).animationPlayState")
-        page.evaluate("Object.defineProperty(document, 'hidden', {configurable: true, get: () => false}); document.dispatchEvent(new Event('visibilitychange'))")
-        check("effects 'fancy': pulse paused while the browser tab is hidden", ps == 'paused', ps)
+        fx = page.evaluate(CUE)
+        check("effects 'fancy': still no pulse rings, nothing endless (design.md §6-6)", fx['rings'] == 0 and fx['running'] == 0 and fx['outline'] == std['outline'], str(fx))
         page.screenshot(path=str(SHOTS / 'geo_fancy_1440.png'))
         page.evaluate("KH.motion = () => 'standard'; document.dispatchEvent(new CustomEvent('kh:motion', { detail: { motion: 'standard' } }))")
-        page.wait_for_timeout(50)
-        check("effects back to 'standard': pulse stops", page.evaluate(PULSE)['rings'] == 0)
     finally:
         ctx.close()
 
@@ -905,15 +918,15 @@ def motion_setting_pass(browser):
             check('효과 setting: template has no KH.motion yet → treated as standard', not page.evaluate("document.getElementById('world').classList.contains('kw-fx')"))
             return
         r = page.evaluate("""({ m: KH.motion(), fx: document.getElementById('world').classList.contains('kw-fx'),
-            rings: [...document.querySelectorAll('#world .kw-gp.on')].filter(p => getComputedStyle(p).animationName === 'kwRing').length })""")
-        check("효과 setting 화려하게 (khm.motion): the world map pulses", r['m'] == 'fancy' and r['fx'] and r['rings'] > 0, str(r))
+            rings: document.querySelectorAll('#world .kw-gp').length, outline: document.querySelectorAll('#world .kw-gopen path').length })""")
+        check("효과 setting 화려하게 (khm.motion): kw-fx on, open markets outlined, no pulse", r['m'] == 'fancy' and r['fx'] and r['rings'] == 0 and r['outline'] > 0, str(r))
         # 효과 · 줄이기 in the template's settings (its button's own handler; the panel may be folded at this width)
         if page.evaluate("!!document.querySelector('#motionseg button[data-mo=\"reduced\"]')"):
             page.evaluate("document.querySelector('#motionseg button[data-mo=\"reduced\"]').click()")
             page.wait_for_timeout(150)
             check('효과 setting 줄이기 picked in the settings → KH.motion() reduced', page.evaluate("KH.motion()") == 'reduced')
         if page.evaluate("KH.motion()") == 'reduced':
-            r2 = page.evaluate("({ rm: document.getElementById('world').classList.contains('kw-rm'), rings: [...document.querySelectorAll('#world .kw-gp.on')].filter(p => getComputedStyle(p).animationName === 'kwRing').length, caps: document.querySelectorAll('.kw-gnight .kw-gn').length })")
+            r2 = page.evaluate("({ rm: document.getElementById('world').classList.contains('kw-rm'), rings: document.getElementById('world').getAnimations({ subtree: true }).filter(a => a.playState === 'running').length, caps: document.querySelectorAll('.kw-gnight .kw-gn').length })")
             check('효과 setting 줄이기: nothing moves, night still drawn', r2['rm'] and r2['rings'] == 0 and r2['caps'] == 4, str(r2))
     finally:
         ctx.close()
@@ -926,42 +939,37 @@ def refresh_event_pass(browser):
     try:
         wait_list(page)
         page.evaluate('scrollTo(0, 200)')
+        # the extras strip and market clock answer kh:refresh with the same request: count world.js's own (WORLD_FETCH_SPY)
+        page.evaluate(WORLD_FETCH_SPY)
         a = api('/__stats').get('world:index', 0)
         page.evaluate("document.dispatchEvent(new Event('kh:refresh'))")
         page.wait_for_timeout(600)
         b = api('/__stats').get('world:index', 0)
-        check('kh:refresh: fetches now, list and scroll kept', b == a + 1 and page.evaluate("KHWorld.view() === 'list' && scrollY") == 200, f'{a}→{b}')
+        own = page.evaluate('window.__kwF')
+        check('kh:refresh: fetches now, list and scroll kept', own == 1 and b >= a + 1 and page.evaluate("KHWorld.view() === 'list' && scrollY") == 200, f'world.js {own}, all {a}→{b}')
     finally:
         ctx.close()
 
 
 def keyboard_pass(browser):
+    # the 지표 tab has been list-only since AGENTS §3-9 (the tile map exists only off screen for KHWorld.layout()),
+    # so the commodity detail is reached from the list: roving rows → Enter → sheet (chart · meta · 1년 · Tab trap) → Esc
     ctx, page = open_page(browser, LIVE + '#cmdty', 1280, 800, view='map')
     try:
-        wait_world(page)
-        stops = page.evaluate("[...document.querySelectorAll('#world .kw-tile')].filter(t => t.tabIndex === 0).length")
-        check('keyboard: one tab stop in the map (roving)', stops == 1, f'{stops}')
-        page.focus('#world .kw-tile[tabindex="0"]')
+        wait_list(page)
+        stops = page.evaluate("[...document.querySelectorAll('#world .kw-lr')].filter(r => r.tabIndex === 0).length")
+        check('keyboard (지표): one tab stop in the list (roving)', stops == 1, f'{stops}')
+        page.focus('#world .kw-lr[tabindex="0"]')
         first = page.evaluate('document.activeElement.dataset.k')
-        page.keyboard.press('ArrowRight')
-        right = page.evaluate('document.activeElement.dataset.k')
         page.keyboard.press('ArrowDown')
-        down = page.evaluate('document.activeElement.dataset.k')
-        page.keyboard.press('ArrowLeft'); page.keyboard.press('ArrowUp')
-        back = page.evaluate('document.activeElement.dataset.k')
-        check('keyboard: arrows move between tiles', first and right and right != first and down and down != right, f'{first}→{right}→{down}→{back}')
-        moved = page.evaluate("[...document.querySelectorAll('#world .kw-tile')].filter(t => t.tabIndex === 0).map(t => t.dataset.k)")
-        check('keyboard: tab stop follows focus', moved == [back], str(moved))
-        page.keyboard.press('Home')
-        home = page.evaluate('document.activeElement.dataset.k')
-        page.keyboard.press('ArrowRight')
         tgt = page.evaluate('document.activeElement.dataset.k')
+        check('keyboard (지표): ↓ moves to the next row', first and tgt and tgt != first, f'{first}→{tgt}')
         page.keyboard.press('Enter')
         page.wait_for_selector('.kw-sheet:not([hidden])', timeout=3000)
         info = page.evaluate("""() => ({ inSheet: document.querySelector('.kw-sheet').contains(document.activeElement),
-            name: document.querySelector('#kw-dt').textContent, sel: document.querySelector('#world .kw-tile.sel')?.dataset.k,
-            tileName: document.querySelector('#world .kw-tile.sel')?.title })""")
-        check('detail: Enter opens it, focus inside, tile marked', info['inSheet'] and info['sel'] == tgt and info['name'] == info['tileName'], str(info))
+            name: document.querySelector('#kw-dt').textContent, sel: document.querySelector('#world .kw-lr.sel')?.dataset.k,
+            rowName: document.querySelector('#world .kw-lr.sel')?.title })""")
+        check('detail: Enter opens it, focus inside, row marked', info['inSheet'] and info['sel'] == tgt and info['name'] == info['rowName'], str(info))
         page.wait_for_selector('.kw-sheet svg.kw-svg', timeout=5000)
         check('detail: 3개월 chart drawn', page.evaluate("document.querySelectorAll('.kw-sheet .kw-svg path.kw-line').length") == 1)
         meta = page.evaluate("[...document.querySelectorAll('.kw-meta dt')].map(d => d.textContent)")
@@ -978,54 +986,52 @@ def keyboard_pass(browser):
         check('detail: Tab stays inside the sheet', trapped)
         page.keyboard.press('Escape')
         page.wait_for_timeout(100)
-        after = page.evaluate("({ hidden: document.querySelector('.kw-sheet').hidden, k: document.activeElement.dataset.k, sel: document.querySelectorAll('#world .kw-tile.sel').length, still: !document.querySelector('main.layout') || true })")
-        check('detail: Esc closes and focus returns to the tile', after['hidden'] and after['k'] == tgt and after['sel'] == 0, str(after))
-        # Esc must not reach the heatmap (zoom-out etc.) and must not reopen anything
+        after = page.evaluate("({ hidden: document.querySelector('.kw-sheet').hidden, k: document.activeElement.dataset.k, sel: document.querySelectorAll('#world .kw-lr.sel').length })")
+        check('detail: Esc closes and focus returns to the row', after['hidden'] and after['k'] == tgt and after['sel'] == 0, str(after))
         page.keyboard.press('Tab')
-        out = page.evaluate("!document.activeElement.classList.contains('kw-tile')")
-        check('keyboard: Tab leaves the map after one stop', out, page.evaluate('document.activeElement.className'))
-        # side list → detail → Esc back to the row
+        out = page.evaluate("!document.activeElement.classList.contains('kw-lr')")
+        check('keyboard (지표): Tab leaves the list after one stop', out, page.evaluate('document.activeElement.className'))
+        # side list (많이 오른·내린) → detail → Esc back to the row
         page.click('#world .kw-row')
         page.wait_for_selector('.kw-sheet:not([hidden])')
         page.keyboard.press('Escape')
         page.wait_for_timeout(100)
         check('side list: opens detail, Esc returns focus to the row', page.evaluate("document.activeElement.classList.contains('kw-row')"))
-        # click outside closes on desktop
-        page.click('#world .kw-tile')
+        page.click('#world .kw-lr[data-k="GCcv1"]')
         page.wait_for_selector('.kw-sheet:not([hidden])')
         page.mouse.click(5, 300)
         page.wait_for_timeout(100)
         check('detail: click outside closes (desktop)', page.evaluate("document.querySelector('.kw-sheet').hidden"))
-        # layout() for image saving
+        # layout() for image saving: the off-screen tile map of the 지표 groups
         lay = page.evaluate("KHWorld.layout()")
         tiles = [x for x in lay if x['kind'] == 'tile']
-        mw, mh = page.evaluate("[document.querySelector('#world .kw-map').clientWidth, document.querySelector('#world .kw-map').clientHeight]")
-        okb = all(0 <= t['x'] and t['x'] + t['w'] <= mw + 0.5 and 0 <= t['y'] and t['y'] + t['h'] <= mh + 0.5 for t in tiles)
-        subs = page.evaluate("[...document.querySelectorAll('#world .kw-tile')].map(t => [t.dataset.k, t.querySelector('.kw-pc').hidden || t.querySelector('.kw-lab').hidden ? '' : t.querySelector('.kw-pc').textContent])")
-        subok = dict(subs) == {t['code']: t['sub'] for t in tiles}
-        check('KHWorld.layout(): tiles + groups in map pixels, sub = shown %', len(tiles) == COUNT['commodity'] and okb and subok and sum(1 for x in lay if x['kind'] == 'sector') == len(FIX['commodity']['groups']), f'{len(tiles)} tiles, inBounds {okb}, sub {subok}')
+        lw = page.evaluate("document.querySelector('#world .kw-list').clientWidth")
+        okb = all(0 <= t['x'] and t['x'] + t['w'] <= lw + 0.5 and 0 <= t['y'] for t in tiles)
+        check('KHWorld.layout() (지표): tiles + groups in map pixels', len(tiles) == COUNT['commodity'] and okb and sum(1 for x in lay if x['kind'] == 'sector') == len(FIX['commodity']['groups']), f'{len(tiles)} tiles, inBounds {okb}')
         page.screenshot(path=str(SHOTS / 'kbd_1280.png'))
     finally:
         ctx.close()
 
 
 def palette_pass(browser):
-    ctx, page = open_page(browser, LIVE + '#cmdty', 1440, 900, view='map')
+    # the 지표 tile map is gone (AGENTS §3-9): palette · range on the world map (country fills), side swatches and legend
+    ctx, page = open_page(browser, LIVE + '#world', 1440, 900, view='map')
     try:
-        wait_world(page)
-        before = page.evaluate("document.querySelector('#world .kw-tile[data-k=\"GCcv1\"]').style.backgroundColor")
+        wait_world(page, GEO_SEL)
+        fill = "getComputedStyle(document.querySelector('#world .kw-cp.has[data-c=\"840\"]')).fill"
+        before = page.evaluate(fill)
         page.click('.seg[data-key="palette"] button[data-v="global"]')
-        page.wait_for_timeout(150)
-        col = page.evaluate(COLORS_JS, FIX['commodity'])
-        after = page.evaluate("document.querySelector('#world .kw-tile[data-k=\"GCcv1\"]').style.backgroundColor")
-        check('palette switch recolours tiles (초록 상승)', before != after and not col['bad'], f'{before} → {after}')
+        page.wait_for_timeout(700)                       # country fills ease on --sp-value
+        r = page.evaluate(GEO_JS, {c: IDX[k] for c, k in REP_HERE.items()})
+        after = page.evaluate(fill)
+        check('palette switch recolours the countries (초록 상승)', before != after and not r['out']['colour'], f"{before} → {after} " + '; '.join(r['out']['colour'][:2]))
         sw = page.evaluate("[document.querySelector('#world .kw-row .kw-sw').style.background, document.querySelector('#world .kw-legend .grad').style.background]")
         check('palette switch recolours side swatches + legend', 'rgb' in sw[0] and '#f63538' in sw[1].lower() or 'rgb(246, 53, 56)' in sw[1], sw[1][:60])
         page.click('#rangeseg button[data-v="10"]')
-        page.wait_for_timeout(150)
-        col = page.evaluate(COLORS_JS, FIX['commodity'])
+        page.wait_for_timeout(700)
+        r = page.evaluate(GEO_JS, {c: IDX[k] for c, k in REP_HERE.items()})
         tick = page.evaluate("[...document.querySelectorAll('#world .kw-legend .tk')].map(t => t.textContent)")
-        check('range switch (±10%) recolours + legend ticks', not col['bad'] and tick == ['−10%', '+10%'], str(tick))
+        check('range switch (±10%) recolours + legend ticks', not r['out']['colour'] and tick == ['−10%', '+10%'], str(tick) + ' ' + '; '.join(r['out']['colour'][:2]))
         page.click('.seg[data-key="palette"] button[data-v="krg"]')
         page.click('#rangeseg button[data-v="3"]')
     finally:
@@ -1058,7 +1064,7 @@ def states_pass(browser):
         try:
             page.wait_for_selector('#world .kw-msg.busy', timeout=3000)
             check('state loading: message while waiting', '불러오는 중이에요' in page.evaluate("document.querySelector('#world .kw-msg').textContent"))
-            wait_world(page)
+            wait_list(page)
         finally:
             ctx.close()
         api('/__mode?world=ok')
@@ -1122,7 +1128,8 @@ def polling_pass(browser):
     ctx, page = open_page(browser, LIVE + '#world', 1280, 800, clock=True, view='map')
     try:
         wait_world(page, GEO_SEL)
-        n = lambda: api('/__stats').get('world:index', 0)
+        page.evaluate(WORLD_FETCH_SPY)                   # world.js's own requests (the summary card polls the same URL)
+        n = lambda: page.evaluate('window.__kwF')
         a = n()
         page.clock.run_for(30500); page.wait_for_timeout(500)
         b = n()
@@ -1162,11 +1169,12 @@ def polling_pass(browser):
 def mobile_pass(browser):
     ctx, page = open_page(browser, LIVE + '#cmdty', 390, 844, True, view='map')
     try:
-        wait_world(page)
-        page.tap('#world .kw-tile[data-k="CLcv1"]')
+        wait_list(page)
+        page.tap('#world .kw-lr[data-k="CLcv1"]')
         page.wait_for_selector('.kw-sheet:not([hidden])')
         page.wait_for_selector('.kw-sheet svg.kw-svg', timeout=5000)
-        page.wait_for_timeout(350)                       # the 0.2 s slide-in
+        page.wait_for_function("document.querySelector('.kw-sheet').getAnimations({ subtree: true }).every(a => a.playState !== 'running')", timeout=3000)
+        page.wait_for_timeout(50)                        # the open spring (ux/float-motion), not the old fixed 0.2 s slide-in
         geo = page.evaluate("""() => { const r = document.querySelector('.kw-sheet').getBoundingClientRect();
             return { bottom: Math.round(r.bottom), vh: innerHeight, left: Math.round(r.left), w: Math.round(r.width), scrim: getComputedStyle(document.querySelector('.kw-scrim')).display }; }""")
         check('phone: detail is a bottom sheet with a scrim', geo['bottom'] == geo['vh'] and geo['left'] == 0 and geo['w'] == 390 and geo['scrim'] == 'block', str(geo))
@@ -1182,8 +1190,8 @@ def mobile_pass(browser):
         ctx.close()
     ctx, page = open_page(browser, LIVE + '#cmdty', 1440, 900, view='map')
     try:
-        wait_world(page)
-        page.click('#world .kw-tile[data-k="GCcv1"]')
+        wait_list(page)
+        page.click('#world .kw-lr[data-k="GCcv1"]')
         page.wait_for_selector('.kw-sheet svg.kw-svg', timeout=5000)
         page.screenshot(path=str(SHOTS / 'detail_cmdty_1440.png'))
         unit = page.evaluate("[...document.querySelectorAll('.kw-meta dd')].map(d => d.textContent)")
@@ -1195,11 +1203,12 @@ def mobile_pass(browser):
 def reduced_pass(browser):
     ctx, page = open_page(browser, LIVE + '#cmdty', 1280, 800, reduced=True, view='map')
     try:
-        wait_world(page)
-        page.click('#world .kw-tile')
+        wait_list(page)
+        page.click('#world .kw-lr')
         page.wait_for_selector('.kw-sheet:not([hidden])')
-        r = page.evaluate("({ anim: getComputedStyle(document.querySelector('.kw-sheet')).animationName, tr: getComputedStyle(document.querySelector('#world .kw-tile')).transitionDuration })")
-        check('reduced motion: no sheet animation, no tile transition', r['anim'] == 'none' and set(r['tr'].replace(' ', '').split(',')) == {'0s'}, str(r))
+        r = page.evaluate("""({ anim: getComputedStyle(document.querySelector('.kw-sheet')).animationName,
+            tr: [...new Set([...document.querySelectorAll('#world .kw-lr, .kw-sheet, .kw-sheet button')].flatMap(e => getComputedStyle(e).transitionDuration.split(',')))].join(',') })""")
+        check('reduced motion: no sheet animation, no row · sheet transition', r['anim'] == 'none' and set(r['tr'].replace(' ', '').split(',')) == {'0s'}, str(r))
     finally:
         ctx.close()
 
@@ -1208,7 +1217,7 @@ def boot_pass(browser):
     # page opened at #cmdty: the template calls show() before world.js exists → the module starts itself
     ctx, page = open_page(browser, LIVE + '#cmdty', 1280, 800, view='map')
     try:
-        wait_world(page)
+        wait_list(page)
         check('boot at #cmdty: module self-starts (template called show() too early)', page.evaluate("KHWorld.shown()") == 'commodity')
     finally:
         ctx.close()
@@ -1263,16 +1272,13 @@ def real_pass(browser):
             page.screenshot(path=str(SHOTS / 'real_geo_1440.png'), full_page=True)
         finally:
             ctx.close()
-        # 원자재 지도 = the tile map
-        want = sum(len(g['items']) for g in real['commodity']['groups'])
+        # 지표 tab = list only (AGENTS §3-9): a row opens the detail with its chart
         ctx, page = open_page(browser, f'http://127.0.0.1:{REAL_PORT}/#cmdty', 1440, 900, view='map')
         try:
-            wait_world(page, timeout=20000)
-            n = page.evaluate("document.querySelectorAll('#world .kw-tile').length")
-            lab = page.evaluate(LABELS_JS)
-            page.click('#world .kw-tile')
+            wait_list(page, timeout=20000)
+            page.click('#world .kw-lr')
             page.wait_for_selector('.kw-sheet svg.kw-svg', timeout=20000)
-            check('real Worker commodity: tiles, labels inside, chart', abs(n - want) <= 2 and not lab['out'], f'{n} tiles (api {want}); ' + '; '.join(lab['out'][:2]))
+            check('real Worker commodity: list-only tab, row opens the chart', True)
             page.screenshot(path=str(SHOTS / 'real_commodity_1440.png'))
         finally:
             ctx.close()

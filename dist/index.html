@@ -14450,340 +14450,347 @@ document.addEventListener('keyup', e => { if (spaceTaken && (e.key === ' ' || e.
 
 </script>
 <style>
-/* 해외 지수 · 원자재 tabs (src/world/world.js). Same look as the heatmap: black map, tiles coloured by KH.colorOf, side cards. */
-/* Theme colours (docs/standards/themes.md §15-4). The template's role tokens are read as var(--token, today's value), so nothing moves
-   until the template defines them; what only the world views need is defined here, once per theme. The detail sheet sits in <body>,
-   so these live on :root. Geometry never depends on the theme: only colours, lines and corner radii change. */
+/* 해외 지수 · 지표 tabs (src/world/world.js). Same look as the heatmap: the map floor, tiles / countries coloured by KH.colorOf, side cards.
+   Design standard (docs/standards/design.md, AGENTS §3-31 — the 해외 · 지표 step of design.md §11): type --fs-*, space --space-*, corners
+   --r-*, heights --h-*, fills --fill-* / --row-hov, status --live (장중) and --fail-dot (실패 = ! + words); amber only for 고름 · 포커스 ·
+   켜짐. No glow and no gradient paint: the open markets are a flat --live dot and outline (no blur, no pulse), the night side is the
+   map's own stepped twilight shading (data, §3-5), the hatches and the legend's colour scale are data patterns. Glass themes keep
+   their material through the template's role tokens (--sheet-bg / --tip-bg sheen, --sheet-sh edge, --blur — design.md §2 예외).
+   Motion: springs --sp-* (press 0 ms down / --c-fast up), value changes swap in place (KH.ui.swap), the sheet's big number rolls in
+   화려하게 (KH.ui.roll); 줄이기 = html[data-motion="reduced"] sets every length to 0. Hover only on (hover:hover) and (pointer:fine). */
+/* Theme colours (docs/standards/themes.md §15-4): what only the world views need is defined here, once per theme. The detail sheet
+   sits in <body>, so these live on :root. Geometry never depends on the theme: only colours, lines and corner radii change. */
 :root{
   --kw-sea:#0a0b0e; --kw-grat:rgba(255,255,255,.045); --kw-none:#1f2126; --kw-ref:#30333b; --kw-base:#5b5f69;
   --kw-night:#050814; --kw-night-a:.12; --kw-term:rgba(255,255,255,.08);
-  --kw-glow-b:rgba(255,181,71,.18); --kw-glow-l:rgba(255,181,71,.6);
-  --kw-open:var(--acc-fill,var(--amber)); --kw-open-fill:var(--acc-fill,var(--amber));
   --kw-dot-bg:#0b0c10; --kw-dot-o:#9aa0aa; --kw-dot-st:#000; --kw-dot-sel:#fff;
   --kw-ld:rgba(255,255,255,.42); --kw-hov:rgba(255,255,255,.9); --kw-sel-o:#000;
   --kw-tile-fg:#fff; --kw-tile-hov:rgba(255,255,255,.92); --kw-focus-in:rgba(0,0,0,.55);
-  --kw-lab-sh:0 1px 2px rgba(0,0,0,.45); --kw-gl-sh:0 0 2px rgba(0,0,0,.9),0 0 5px rgba(0,0,0,.6);
   --kw-hatch:rgba(255,255,255,.07); --kw-hatch2:rgba(255,255,255,.16);
-  --kw-hv:rgba(255,255,255,.045); --kw-hv2:rgba(255,255,255,.07); --kw-fl:rgba(255,255,255,.2); --kw-flc:rgba(255,255,255,.55);
   --kw-cchip:rgba(0,0,0,.5); --kw-cchip-fg:#fff; --kw-cchip-fg2:rgba(255,255,255,.8); --kw-cchip-ring:rgba(255,255,255,.75);
   --kw-gchip-bg:rgba(17,18,22,.93); --kw-gchip-bd:rgba(255,255,255,.12); --kw-gchip-bdh:rgba(255,255,255,.4); --kw-goff-bg:rgba(17,18,22,.92);
   --kw-in-hov:rgba(0,0,0,.35); --kw-in-ring:rgba(255,255,255,.8);
   --kw-cross:rgba(255,255,255,.35); --kw-cdot-o:#18191e; --kw-chip-l:#2a2c33;
-  --kw-nsw-a:#8a8f9b; --kw-nsw-b:#1a1c22; --kw-pri-hov:#fff; --kw-sheet-r-d:12px;
+  --kw-nsw-a:#8a8f9b; --kw-nsw-b:#1a1c22; --kw-pri-hov:#fff;
+  /* the first opening of the world map (화려하게 only): countries → night → markers, front-loaded 40 → 30 ms (design.md §6-2) */
+  --kw-seq-1:40ms; --kw-seq-2:70ms;
+  /* the badge recipe (design.md §5): 11px / 600 · 18 high · --r-badge · a 1px inset rule */
+  --kw-badge-h:18px;
 }
-html[data-theme="glass-dark"]{--kw-sheet-r-d:28px}
-/* 신문 (paper): ink on warm paper; the open-market glow becomes an ink outline (amber is 1.6:1 on paper) */
+html[data-motion="reduced"]{--kw-seq-1:0ms; --kw-seq-2:0ms}
+/* 신문 (paper): ink on warm paper */
 html[data-theme="paper"]{
   --kw-sea:#fbf1e6; --kw-grat:rgba(33,26,21,.07); --kw-none:#e8d8c6; --kw-ref:#c9bcae; --kw-base:rgba(33,26,21,.45);
   --kw-night:#1f2547; --kw-night-a:.05; --kw-term:rgba(33,26,21,.42);
-  --kw-glow-b:transparent; --kw-glow-l:var(--acc-line,#211a15);
-  --kw-open:var(--acc,#8a4b00); --kw-open-fill:var(--acc-fill,#f3b941);
   --kw-dot-bg:#fbf1e6; --kw-dot-o:#6a5c51; --kw-dot-st:#211a15; --kw-dot-sel:#211a15;
   --kw-ld:rgba(33,26,21,.5); --kw-hov:#211a15; --kw-sel-o:#fbf1e6;
   --kw-tile-fg:#211a15; --kw-tile-hov:#211a15; --kw-focus-in:rgba(246,232,218,.85);
-  --kw-lab-sh:none; --kw-gl-sh:none;
   --kw-hatch:rgba(33,26,21,.1); --kw-hatch2:rgba(33,26,21,.2);
-  --kw-hv:rgba(33,26,21,.06); --kw-hv2:rgba(33,26,21,.08); --kw-fl:rgba(33,26,21,.12); --kw-flc:rgba(33,26,21,.35);
   --kw-cchip:rgba(251,241,230,.84); --kw-cchip-fg:#211a15; --kw-cchip-fg2:#4a3f37; --kw-cchip-ring:#4a3f37;
   --kw-gchip-bg:#fbf1e6; --kw-gchip-bd:rgba(46,30,18,.34); --kw-gchip-bdh:#211a15; --kw-goff-bg:#fbf1e6;
   --kw-in-hov:rgba(251,241,230,.55); --kw-in-ring:#4a3f37;
   --kw-cross:rgba(33,26,21,.4); --kw-cdot-o:#fbf1e6; --kw-chip-l:#eddac7;
-  --kw-nsw-a:#fbf1e6; --kw-nsw-b:#4b4a6b; --kw-pri-hov:#3a3029; --kw-sheet-r-d:4px;
+  --kw-nsw-a:#fbf1e6; --kw-nsw-b:#4b4a6b; --kw-pri-hov:#3a3029;
 }
 html[data-theme="paper"] #world{--nodata:#e8d8c6}
 /* 글라스 밝게 */
 html[data-theme="glass-light"]{
   --kw-sea:#f2f4f8; --kw-grat:rgba(15,17,21,.06); --kw-none:#e3e6ec; --kw-ref:#c2c7d0; --kw-base:rgba(15,17,21,.4);
   --kw-night:#1b2745; --kw-night-a:.055; --kw-term:rgba(15,17,21,.35);
-  --kw-glow-b:rgba(168,98,0,.16); --kw-glow-l:var(--acc-line,#a86200);
-  --kw-open:var(--acc,#7f4700); --kw-open-fill:var(--acc-fill,#ffb547);
   --kw-dot-bg:#fff; --kw-dot-o:#535a65; --kw-dot-st:#0f1115; --kw-dot-sel:#0f1115;
   --kw-ld:rgba(15,17,21,.45); --kw-hov:#0f1115; --kw-sel-o:#fff;
   --kw-tile-fg:#0f1115; --kw-tile-hov:#0f1115; --kw-focus-in:rgba(255,255,255,.85);
-  --kw-lab-sh:none; --kw-gl-sh:none;
   --kw-hatch:rgba(15,17,21,.08); --kw-hatch2:rgba(15,17,21,.18);
-  --kw-hv:rgba(15,17,21,.05); --kw-hv2:rgba(15,17,21,.07); --kw-fl:rgba(15,17,21,.1); --kw-flc:rgba(15,17,21,.3);
   --kw-cchip:rgba(255,255,255,.84); --kw-cchip-fg:#0f1115; --kw-cchip-fg2:#353b44; --kw-cchip-ring:#353b44;
   --kw-gchip-bg:rgba(255,255,255,.92); --kw-gchip-bd:rgba(15,17,21,.15); --kw-gchip-bdh:rgba(15,17,21,.5); --kw-goff-bg:rgba(255,255,255,.88);
   --kw-in-hov:rgba(255,255,255,.55); --kw-in-ring:#353b44;
   --kw-cross:rgba(15,17,21,.35); --kw-cdot-o:#f4f6f9; --kw-chip-l:#e3e7ee;
-  --kw-nsw-a:#f4f6f9; --kw-nsw-b:#5b6275; --kw-pri-hov:#2b2f38; --kw-sheet-r-d:28px;
+  --kw-nsw-a:#f4f6f9; --kw-nsw-b:#5b6275; --kw-pri-hov:#2b2f38;
 }
 html[data-theme="glass-light"] #world{--nodata:#e6e9ee}
 #world[hidden]{display:none!important}
-#world.kw{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:14px;padding:0 18px 14px;flex:1;min-height:0;align-items:start}
+/* the same outer layout as the heatmap's main.layout (its 14px gaps are the template's map-box exceptions, design.md §11) */
+#world.kw{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:14px;padding:0 var(--edge) 14px;flex:1;min-height:0;align-items:start}
 .kw-stage{display:flex;flex-direction:column;min-width:0}
-.kw-bar{display:flex;align-items:center;gap:6px 12px;min-height:36px;padding-bottom:6px;flex-wrap:wrap}
-.kw-title{margin:0;font-size:15px;font-weight:var(--w-strong,700);letter-spacing:-.01em;white-space:nowrap;font-family:var(--font-head,inherit)}
-.kw-sum{display:flex;align-items:baseline;gap:6px;font-size:12.5px;color:var(--fg2);white-space:nowrap;font-variant-numeric:tabular-nums}
+.kw-bar{display:flex;align-items:center;gap:var(--space-3) var(--space-5);min-height:var(--h-row);padding-bottom:var(--space-3);flex-wrap:wrap}
+.kw-title{margin:0;font-size:var(--fs-lg);font-weight:var(--w-strong,700);line-height:var(--lh-ui);white-space:nowrap;font-family:var(--font-head,inherit)}
+.kw-sum{display:flex;align-items:baseline;gap:var(--space-3);font-size:var(--fs-sm);color:var(--fg2);white-space:nowrap;font-variant-numeric:tabular-nums}
 .kw-sum b{font-weight:600}
 .kw-dot{color:var(--faint)}
-.kw-time{margin-left:auto;font-size:12.5px;color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums}
-.kw-stale{color:var(--acc,var(--amber))}
+.kw-time{margin-left:auto;font-size:var(--fs-sm);color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums}
+/* a refresh that failed: ! + words (design.md §2 --fail-dot — no data colour, no amber) */
+.kw-stale{display:inline-flex;align-items:center;gap:var(--space-2);color:var(--fg2)}
+.kw-stale .kwn{width:13px;height:13px;color:var(--fail-dot)}
 
-/* the map */
-.kw-map{position:relative;background:var(--map-bg,#000);border-radius:6px;overflow:hidden;min-height:300px;user-select:none;-webkit-user-select:none;touch-action:manipulation}
+/* the tile map (kept for "이미지로 저장" and an atlas-less fallback; the 지도 view of 해외 is the world map below) */
+.kw-map{position:relative;background:var(--map-bg,#000);border-radius:var(--r-map);box-shadow:var(--map-sh,none);overflow:hidden;min-height:300px;user-select:none;-webkit-user-select:none;touch-action:manipulation}
 .kw-map.kw-msgmode{display:grid;place-items:center;height:auto;min-height:420px}
-.kw-gh{position:absolute;display:flex;align-items:center;gap:6px;padding:0 6px;background:var(--sec-bg,#000);color:var(--sec-fg,#f2f3f5);box-shadow:inset 0 1px 0 var(--rule,transparent);font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;z-index:1;pointer-events:none}
+.kw-gh{position:absolute;display:flex;align-items:center;gap:var(--space-3);padding:0 var(--space-3);background:var(--sec-bg,#000);color:var(--sec-fg,#f2f3f5);box-shadow:inset 0 1px 0 var(--rule,transparent);font-size:var(--fs-sm);font-weight:700;white-space:nowrap;overflow:hidden;z-index:1;pointer-events:none}
 .kw-gh[hidden]{display:none}
 .kw-gh .t{overflow:hidden;text-overflow:ellipsis;min-width:0}
-.kw-gh .s{flex:none;font-size:11px;font-weight:500;color:var(--ihd-fg,#a6abb5)}
+.kw-gh .s{flex:none;font-size:var(--fs-xs);font-weight:500;color:var(--ihd-fg,#a6abb5)}
 .kw-gh .s:empty{display:none}
 .kw-gh .v{flex:none;font-weight:600;font-variant-numeric:tabular-nums;margin-left:auto}
-.kw-tile{position:absolute;display:flex;align-items:center;justify-content:center;overflow:hidden;color:var(--kw-tile-fg);text-align:center;padding:0;margin:0;border:0;border-radius:0;cursor:pointer;z-index:2;transition:background-color .6s,filter var(--c-fast) var(--c-out);-webkit-tap-highlight-color:transparent}
-.kw-tile:hover{box-shadow:inset 0 0 0 2px var(--kw-tile-hov);z-index:4}
-/* data never sinks (controls.md §5-8): a tile, a row or a country only darkens under the finger; focus = the 3px amber ring, inside */
-.kw-tile:active{filter:brightness(.85);transition:background-color .6s,filter 0s}
+.kw-tile{position:absolute;display:flex;align-items:center;justify-content:center;overflow:hidden;color:var(--kw-tile-fg);text-align:center;padding:0;margin:0;border:0;border-radius:0;cursor:pointer;z-index:2;transition:background-color var(--sp-value-dur) var(--sp-value),filter var(--c-fast) var(--c-out);-webkit-tap-highlight-color:transparent}
+@media (hover:hover) and (pointer:fine){.kw-tile:hover{box-shadow:inset 0 0 0 2px var(--kw-tile-hov);z-index:4}}
+/* data never sinks (controls.md §5): a tile, a row or a country only darkens under the finger (the theme's --press-f); focus = the
+   3px ring, inside */
+.kw-tile:active{filter:var(--press-f);transition-duration:var(--sp-value-dur),0s}
 .kw-tile:focus-visible{outline:var(--focus-w) solid var(--focus,var(--amber));outline-offset:calc(var(--focus-w) * -1);box-shadow:inset 0 0 0 4px var(--kw-focus-in);z-index:5}
-.kw-tile.sel{box-shadow:inset 0 0 0 3px var(--acc-line,var(--amber)),0 0 0 1px var(--kw-sel-o);z-index:5}
-.kw-tile.ref,.kw-tile.nod{background-image:repeating-linear-gradient(135deg,var(--kw-hatch) 0 3px,transparent 3px 8px)}
-.kw-lab{display:flex;flex-direction:column;align-items:center;max-width:100%;padding:0 4px;line-height:1.08;text-shadow:var(--kw-lab-sh);pointer-events:none}
+.kw-tile.sel{box-shadow:inset 0 0 0 2px var(--acc-line,var(--amber)),0 0 0 1px var(--kw-sel-o);z-index:5}
+.kw-tile.ref,.kw-tile.nod{background-image:repeating-linear-gradient(135deg,var(--kw-hatch) 0 3px,transparent 3px 8px)}   /* data hatch: 참고 · 값 없음 */
+/* tile labels are fitted to the tile (design.md §3 exception — the map's own labels), in em of the fitted size */
+.kw-lab{display:flex;flex-direction:column;align-items:center;max-width:100%;padding:0 var(--space-2);line-height:1.08;text-shadow:var(--lab-sh);pointer-events:none}
 .kw-lab[hidden]{display:none}
 .kw-nm{font-weight:600;white-space:nowrap;letter-spacing:-.02em}
 .kw-pc{font-size:.8em;font-weight:500;margin-top:.1em;white-space:nowrap;font-variant-numeric:tabular-nums}
 .kw-v{font-size:.58em;font-weight:500;margin-top:.14em;opacity:.86;white-space:nowrap;font-variant-numeric:tabular-nums}
 .kw-pc[hidden],.kw-v[hidden]{display:none}
-.kw-chip{position:absolute;left:3px;top:3px;display:inline-flex;align-items:center;gap:4px;height:15px;padding:0 5px;border-radius:3px;background:var(--kw-cchip);color:var(--kw-cchip-fg);font-size:10.5px;font-weight:500;line-height:15px;white-space:nowrap;pointer-events:none;font-variant-numeric:tabular-nums}
+.kw-chip{position:absolute;left:var(--space-2);top:var(--space-2);display:inline-flex;align-items:center;gap:var(--space-2);height:15px;padding:0 var(--space-2);border-radius:var(--r-badge);background:var(--kw-cchip);color:var(--kw-cchip-fg);font-size:var(--fs-xs);font-weight:500;line-height:15px;white-space:nowrap;pointer-events:none;font-variant-numeric:tabular-nums}
 .kw-chip[hidden]{display:none}
-.kw-chip.open::before{content:"";flex:none;width:5px;height:5px;border-radius:50%;background:var(--kw-open)}
+.kw-chip.open::before{content:"";flex:none;width:5px;height:5px;border-radius:50%;background:var(--live)}
 .kw-chip.close{color:var(--kw-cchip-fg2)}
-.kw-chip.dot{width:13px;height:13px;padding:0;justify-content:center;border-radius:4px}
+.kw-chip.dot{width:13px;height:13px;padding:0;justify-content:center;border-radius:var(--r-badge)}
 .kw-chip.dot.open::before{width:6px;height:6px}
-.kw-chip.dot.close::before{content:"";width:5px;height:5px;border-radius:50%;box-shadow:inset 0 0 0 1.3px var(--kw-cchip-ring)}
+.kw-chip.dot.close::before{content:"";width:5px;height:5px;border-radius:50%;box-shadow:inset 0 0 0 1.5px var(--kw-cchip-ring)}
 
-.kw-msg{display:flex;flex-direction:column;align-items:center;gap:6px;max-width:360px;padding:24px;text-align:center;color:var(--muted);font-size:13.5px;line-height:1.6}
-.kw-msg b{color:var(--fg);font-size:16px;font-weight:700}
-/* loading: the template's ring (KH.ui.icon('spin'), still under 줄이기) after the title */
-.kw-msg.busy b .kspn{width:14px;height:14px;margin-left:8px;vertical-align:-1px;color:var(--acc,var(--amber))}
-/* 다시 시도 = the standard raised key with the shared async states (KH.ui.retry: ring → ✓ amber surface → content, or ! dark amber
-   surface; the template's .kasync rules colour them). The box keeps its widest label, so nothing beside it moves. */
-.kw-retry{position:relative;margin-top:8px;height:36px;padding:0 15px;border-radius:var(--r-key);border:0;background:var(--key-bg);box-shadow:var(--key-sh);color:var(--key-fg);font-size:13px;font-weight:600;transition:transform var(--c-fast) var(--c-out),box-shadow var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out),background-color var(--c-base) var(--c-out),color var(--c-base) var(--c-out)}
-.kw-retry:hover{background:var(--key-hover)}
+.kw-msg{display:flex;flex-direction:column;align-items:center;gap:var(--space-3);max-width:360px;padding:var(--space-7);text-align:center;color:var(--muted);font-size:var(--fs-md);line-height:var(--lh-text)}
+.kw-msg b{color:var(--fg);font-size:var(--fs-xl);font-weight:700;line-height:var(--lh-row)}
+/* loading: the template's ring (KH.ui.icon('spin'), still under 줄이기) after the title — neutral: working is not one of amber's meanings */
+.kw-msg.busy b .kspn{width:14px;height:14px;margin-left:var(--space-4);vertical-align:-1px;color:var(--fg2)}
+/* 다시 시도 = the standard raised key with the shared async states (KH.ui.retry: ring → ✓ amber surface → content, or ! on the neutral
+   fail surface; the template's .kasync rules colour them). The box keeps its widest label, so nothing beside it moves. */
+.kw-retry{position:relative;margin-top:var(--space-4);height:var(--h-key);padding:0 var(--space-6);border-radius:var(--r-key);border:0;background:var(--key-bg);box-shadow:var(--key-sh);color:var(--key-fg);font-size:var(--fs-md);font-weight:600;transition:transform var(--c-fast) var(--c-out),box-shadow var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out),background-color var(--c-base) var(--c-out),color var(--c-base) var(--c-out)}
+@media (hover:hover) and (pointer:fine){.kw-retry:not([data-st="done"]):not([data-st="fail"]):hover{background:var(--key-hover)}}
 .kw-retry:is(:active,.is-press):not([data-st="work"]){transform:translateY(1px);box-shadow:var(--key-dn);filter:var(--press-f);transition-duration:0s,0s,0s,var(--c-base),var(--c-base)}
-.kw-retry.sm{height:30px;margin:0 0 0 6px;padding:0 11px;font-size:12.5px}
+.kw-retry.sm{margin:0 0 0 var(--space-3);padding:0 var(--space-5);font-size:var(--fs-sm)}
 
-/* header toggles: 지역순 · 등락률순, 목록 · 지도 — the template's segment (deep tray + one raised indicator that slides, KH.ui.seg) */
-.kw-tools{display:flex;align-items:center;gap:8px}
+/* header toggles: 지역순 · 등락률순, 목록 · 지도 — the template's segment exactly (deep tray + one raised indicator, KH.ui.seg: the lead
+   edge on --sp-lead, the trailing one on --sp-trail; press = the theme's filter, the cells do not sink; --h-key on phones) */
+.kw-tools{display:flex;align-items:center;gap:var(--space-4)}
 .kw-seg[hidden]{display:none}
-.kw-seg button{padding:4px 10px;font-size:12.5px}
 
 /* list view */
-.kw-list{display:grid;grid-template-columns:repeat(var(--kw-n,1),minmax(0,1fr));gap:12px;align-items:start}
+.kw-list{display:grid;grid-template-columns:repeat(var(--kw-n,1),minmax(0,1fr));gap:var(--space-5);align-items:start}
 .kw-list[hidden],.kw-map[hidden]{display:none}
-.kw-col{display:flex;flex-direction:column;gap:12px;min-width:0}
-.kw-sec{background:var(--card-bg,var(--panel));border:1px solid var(--card-bd,var(--line));border-radius:var(--card-r,10px);box-shadow:var(--card-sh,none);padding:0 6px 6px;min-width:0}
-.kw-sh{display:flex;align-items:center;gap:10px;min-height:41px;margin:0 2px 4px;padding:0 6px;border-bottom:1px solid var(--line);font-size:13.5px;font-weight:var(--w-strong,700);color:var(--fg);white-space:nowrap}
+.kw-col{display:flex;flex-direction:column;gap:var(--space-5);min-width:0}
+.kw-sec{background:var(--card-bg,var(--panel));border:1px solid var(--card-bd,var(--line));border-radius:var(--card-r,10px);box-shadow:var(--card-sh,none);padding:0 var(--space-3) var(--space-3);min-width:0}
+/* group header = the row height (--h-row), the card-title type step */
+.kw-sh{display:flex;align-items:center;gap:var(--space-4);min-height:var(--h-row);margin:0 var(--space-1) var(--space-2);padding:0 var(--space-3);border-bottom:1px solid var(--line);font-size:var(--fs-lg);font-weight:var(--w-strong,700);line-height:var(--lh-ui);color:var(--fg);white-space:nowrap}
 .kw-sh .t{overflow:hidden;text-overflow:ellipsis;min-width:0;flex:0 1 auto}
-.kw-sh .s{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:500;color:var(--muted);flex:none}
+.kw-sh .s{display:inline-flex;align-items:center;gap:var(--space-2);font-size:var(--fs-sm);font-weight:500;color:var(--muted);flex:none}
 .kw-sh .s:empty{display:none}
-.kw-sh .a{margin-left:auto;display:inline-flex;align-items:baseline;gap:6px;flex:none;font-variant-numeric:tabular-nums}
-.kw-sh .a small{font-size:11.5px;font-weight:400;color:var(--muted)}
-.kw-sh .a b{font-size:13px;font-weight:600}
+.kw-sh .a{margin-left:auto;display:inline-flex;align-items:baseline;gap:var(--space-3);flex:none;font-variant-numeric:tabular-nums}
+.kw-sh .a small{font-size:var(--fs-xs);font-weight:400;color:var(--muted)}
+.kw-sh .a b{font-size:var(--fs-md);font-weight:600}
 /* 지표 tab (§3-28): block captions 원자재 / 환율 · 금리 span the list grid; the 환율 · 금리 heads carry a reading note, not an average */
-.kw-bt{grid-column:1/-1;display:flex;align-items:center;gap:10px;margin:2px 2px -4px;font-size:13px;font-weight:var(--w-strong,700);color:var(--fg2);letter-spacing:-.01em;font-family:var(--font-head,inherit)}
+.kw-bt{grid-column:1/-1;display:flex;align-items:center;gap:var(--space-4);margin:var(--space-1) var(--space-1) calc(var(--space-2) * -1);font-size:var(--fs-md);font-weight:var(--w-strong,700);color:var(--fg2);font-family:var(--font-head,inherit)}
 .kw-bt::after{content:"";flex:1 1 auto;height:1px;background:var(--line)}
-.kw-bt~.kw-bt{margin-top:8px}
+.kw-bt~.kw-bt{margin-top:var(--space-4)}
 .kw-sec[data-g=fx] .kw-sh .t,.kw-sec[data-g=rates] .kw-sh .t{flex:none}
 .kw-sh .a.note{flex:0 1 auto;min-width:0;overflow:hidden}
 .kw-sh .a.note small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 /* 증시 자금 (AGENTS §3-32, docs/standards/datago.md §6): a day-old statistic — the state column is its business day (no 장중 / 마감
-   dot), the head says which day, and a source line closes the section. Tokens only (design.md §3–4). */
+   dot), the head says which day, and a source line closes the section. */
 .kw-sd[hidden]{display:none}
 .kw-sec[data-g=funds] .kw-sh .t{flex:none}
 .kw-fsrc{margin:0;padding:var(--space-3) var(--space-3) var(--space-1);font-size:var(--fs-xs);line-height:var(--lh-ui,1.25);color:var(--faint)}
 .kw-sum .kw-sumk{font-weight:600;color:var(--fg)}
 .kw-rows{display:flex;flex-direction:column}
-.kw-lr{display:grid;grid-template-columns:minmax(0,1fr) 64px var(--kw-vw,76px) var(--kw-cw,62px) 66px 48px;grid-template-areas:"n s v c p b";align-items:center;column-gap:8px;width:100%;min-height:36px;padding:0 6px;border-radius:6px;text-align:left;font-size:13.5px;line-height:1.25;color:var(--fg);box-shadow:inset 0 -1px 0 var(--row-bd,transparent)}
-.kw-lr:hover{background:var(--kw-hv)}
-.kw-lr:active{filter:brightness(.85);transition:filter 0s}
+/* a list row (design.md §7 목록 줄): --h-row (36 desktop · 44 phones), --r-row, the theme's press filter (rows never sink) */
+.kw-lr{display:grid;grid-template-columns:minmax(0,1fr) 64px var(--kw-vw,76px) var(--kw-cw,62px) 66px 48px;grid-template-areas:"n s v c p b";align-items:center;column-gap:var(--space-4);width:100%;min-height:var(--h-row);padding:0 var(--space-3);border-radius:var(--r-row);text-align:left;font-size:var(--fs-md);line-height:var(--lh-row);color:var(--fg);box-shadow:inset 0 -1px 0 var(--row-bd,transparent);transition:filter var(--c-fast) var(--c-out);touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+@media (hover:hover) and (pointer:fine){.kw-lr:hover{background:var(--row-hov)}}
+.kw-lr:active{filter:var(--press-f);transition-duration:0s}
 .kw-lr:focus-visible{outline:var(--focus-w) solid var(--focus,var(--amber));outline-offset:calc(var(--focus-w) * -1)}
-.kw-lr.sel{background:var(--acc-soft,var(--amber-soft));box-shadow:inset 3px 0 0 var(--acc-line,var(--amber)),inset 0 -1px 0 var(--row-bd,transparent)}
-.kw-ln{grid-area:n;display:flex;align-items:baseline;gap:7px;min-width:0;overflow:hidden;white-space:nowrap}
-.kw-ln .rk{flex:none;min-width:17px;text-align:right;font-size:11.5px;color:var(--faint);font-variant-numeric:tabular-nums}
+.kw-lr.sel{background:var(--acc-soft,var(--amber-soft));box-shadow:inset 2px 0 0 var(--acc-line,var(--amber)),inset 0 -1px 0 var(--row-bd,transparent)}
+.kw-ln{grid-area:n;display:flex;align-items:baseline;gap:var(--space-3);min-width:0;overflow:hidden;white-space:nowrap}
+.kw-ln .rk{flex:none;min-width:17px;text-align:right;font-size:var(--fs-xs);color:var(--faint);font-variant-numeric:tabular-nums}
 .kw-ln .rk[hidden]{display:none}
-.kw-ln .nm{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;font-weight:600;letter-spacing:-.01em}
-.kw-ln .sub{flex:0 1000 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;font-size:11.5px;color:var(--faint)}
+.kw-ln .nm{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;font-weight:600}
+.kw-ln .sub{flex:0 1000 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;font-size:var(--fs-xs);color:var(--faint)}
 .kw-ln .sub[hidden],.kw-ln .sub.cut{display:none}
-.kw-ln .sub.tag{flex:none;align-self:center;font-size:11px;line-height:16px;padding:0 5px;border-radius:4px;border:1px solid var(--line2);color:var(--fg2)}
-.kw-ls{grid-area:s;display:flex;align-items:center;gap:5px;min-width:0;overflow:hidden;white-space:nowrap;font-size:11.5px;color:var(--muted)}
+.kw-ln .sub.tag{flex:none;align-self:center;font-size:var(--fs-xs);font-weight:600;line-height:var(--kw-badge-h);padding:0 var(--space-2);border-radius:var(--r-badge);box-shadow:inset 0 0 0 1px var(--line2);color:var(--fg2)}
+.kw-ls{grid-area:s;display:flex;align-items:center;gap:var(--space-2);min-width:0;overflow:hidden;white-space:nowrap;font-size:var(--fs-xs);color:var(--muted)}
 .kw-ls .st.dl{color:var(--fg2)}
 .kw-ls .sub2{display:none}
+/* 장중 = a filled --live dot, 마감 = a hollow ring (design.md §2: status is not amber, not red / green) */
 .kw-sd{flex:none;display:inline-block;width:6px;height:6px;border-radius:50%}
-.kw-sd.open{background:var(--kw-open)}
-.kw-sd.close{box-shadow:inset 0 0 0 1.3px var(--muted)}
-.kw-lv{grid-area:v;justify-self:end;white-space:nowrap;font-weight:500;font-variant-numeric:tabular-nums;border-radius:4px;padding:1px 3px;margin:-1px -3px}
-.kw-lc{grid-area:c;text-align:right;white-space:nowrap;font-size:12.5px;font-variant-numeric:tabular-nums}
+.kw-sd.open{background:var(--live)}
+.kw-sd.close{box-shadow:inset 0 0 0 1.5px var(--muted)}
+.kw-lv{grid-area:v;justify-self:end;white-space:nowrap;font-weight:500;font-variant-numeric:tabular-nums}
+.kw-lc{grid-area:c;text-align:right;white-space:nowrap;font-size:var(--fs-sm);font-variant-numeric:tabular-nums}
 .kw-lc.flat{color:var(--fg2)}
 .kw-lp{grid-area:p;display:flex;justify-content:flex-end}
-.kw-pchip{display:inline-block;min-width:100%;height:23px;padding:0 7px;border-radius:5px;font-size:12.5px;font-weight:650;line-height:23px;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums;color:var(--kw-tile-fg)}
+/* the % chip: data (the palette colour), its height from the type and space steps (13 × 1.25 + 2 × 4 ≈ 24) */
+.kw-pchip{display:inline-block;min-width:100%;padding:var(--space-2) var(--space-3);border-radius:var(--r-badge);font-size:var(--fs-md);font-weight:650;line-height:var(--lh-ui);text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums;color:var(--kw-tile-fg)}
 .kw-pchip.ref{background:none;box-shadow:inset 0 0 0 1px var(--line2);color:var(--fg2);font-weight:500}
 .kw-pchip.nod{background:var(--nodata);color:var(--muted)}
 .kw-lb{grid-area:b;position:relative;height:10px}
-.kw-lb::before{content:"";position:absolute;left:50%;top:-2px;bottom:-2px;width:1px;background:var(--line2)}
-.kw-lb i{position:absolute;top:1px;height:8px;border-radius:2px}
+.kw-lb::before{content:"";position:absolute;left:50%;top:calc(var(--space-1) * -1);bottom:calc(var(--space-1) * -1);width:1px;background:var(--line2)}
+.kw-lb i{position:absolute;top:1px;height:8px;border-radius:var(--r-mark)}
 .kw-lb i.ref{background:var(--kw-base)}
-.kw-fl{animation:kwFl 1.4s ease-out}
-@keyframes kwFl{from{background-color:var(--kw-fl)}to{background-color:transparent}}
-.kw-pchip.kw-fl{animation:kwFlc 1.4s ease-out}
-@keyframes kwFlc{from{box-shadow:0 0 0 2px var(--kw-flc)}to{box-shadow:0 0 0 2px transparent}}
-/* two-line rows (phones, narrow columns): name · value · chip / state · place · change · bar under the chip */
-.kw-list.compact .kw-lr{grid-template-columns:minmax(0,1fr) var(--kw-vcw,76px) 70px;grid-template-areas:"n v p" "s c b";column-gap:10px;row-gap:3px;min-height:52px;padding:6px 6px}
-.kw-list.compact .kw-ln{font-size:14.5px}
+/* a value that changed in place (KH.ui.swap, design.md §6-4): the old text leaves and the new one comes in from below when it rose,
+   from above when it fell — in the cell's own box (the chip and the bar never move) */
+.kw-pchip>.kw-pt{display:inline-block}
+/* two-line rows (phones, narrow columns): name · value · chip / state · place · change · bar under the chip — 44px on phones */
+.kw-list.compact .kw-lr{grid-template-columns:minmax(0,1fr) var(--kw-vcw,76px) 70px;grid-template-areas:"n v p" "s c b";column-gap:var(--space-4);row-gap:var(--space-1);padding:var(--space-3)}
+.kw-list.compact .kw-ln{font-size:var(--fs-lg)}
 .kw-list.compact .kw-ln .sub{display:none}
 .kw-list.compact .kw-ln .sub.tag{display:inline-block}
 .kw-list.compact .kw-ls .sub2{display:inline;overflow:hidden;text-overflow:ellipsis;min-width:0;color:var(--faint)}
 .kw-list.compact .kw-ls .sub2:empty{display:none}
-.kw-list.compact .kw-ls .sub2::before{content:"·";margin-right:5px;color:var(--faint)}
-.kw-list.compact .kw-lv{font-size:14px}
-.kw-list.compact .kw-lc{font-size:12px}
-.kw-list.compact .kw-pchip{height:26px;line-height:26px;font-size:13px}
+.kw-list.compact .kw-ls .sub2::before{content:"·";margin-right:var(--space-2);color:var(--faint)}
+.kw-list.compact .kw-lv{font-size:var(--fs-lg)}
+.kw-list.compact .kw-lc{font-size:var(--fs-sm)}
+.kw-list.compact .kw-pchip{padding:var(--space-1) var(--space-3)}
 .kw-list.compact .kw-lb{height:4px;align-self:center}
-.kw-list.compact .kw-lb::before{top:-3px;bottom:-3px}
-.kw-list.compact .kw-lb i{top:0;height:4px;border-radius:2px}
+.kw-list.compact .kw-lb::before{top:calc(var(--space-2) * -1);bottom:calc(var(--space-2) * -1)}
+.kw-list.compact .kw-lb i{top:0;height:4px;border-radius:var(--r-mark)}
 .kw-list.compact .kw-ln .rk{min-width:15px}
 /* world map (해외 지수 · 지도) */
 .kw-geo[hidden],.kw-gnote[hidden]{display:none}
-.kw-gnote{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:0 0 10px;padding:9px 12px;border-radius:8px;background:var(--panel2);border:1px solid var(--line2);font-size:13px;color:var(--fg2)}
+.kw-gnote{display:flex;align-items:center;gap:var(--space-3);flex-wrap:wrap;margin:0 0 var(--space-4);padding:var(--space-4) var(--space-5);border-radius:var(--r-row);background:var(--panel2);box-shadow:inset 0 0 0 1px var(--line2);font-size:var(--fs-md);color:var(--fg2)}
 .kw-gnote .kw-retry.sm{margin-left:auto}
-.kw-gmap{position:relative;background:var(--map-bg,#000);border-radius:6px;overflow:hidden;user-select:none;-webkit-user-select:none;touch-action:manipulation}
+.kw-gmap{position:relative;background:var(--map-bg,#000);border-radius:var(--r-map);box-shadow:var(--map-sh,none);overflow:hidden;user-select:none;-webkit-user-select:none;touch-action:manipulation}
 .kw-gsvg{display:block}
 .kw-gsea{fill:var(--kw-sea)}
 .kw-ggrat{fill:none;stroke:var(--kw-grat);stroke-width:.6}
 .kw-cp{fill:var(--kw-none);stroke:none}
-.kw-cp.has{cursor:pointer;transition:fill .48s cubic-bezier(.2,.7,.2,1)}
+.kw-cp.has{cursor:pointer;transition:fill var(--sp-value-dur) var(--sp-value)}
 .kw-cp.has:active,.kw-gdot:active,.kw-gmk:active{opacity:.8}
-/* layers above the fills (motion brief (e)): night → borders → open-market glow → selection / hover → leader lines → markers */
-.kw-gnight,.kw-gbord,.kw-gglow,.kw-gsel,.kw-ghov,.kw-glines{pointer-events:none}
+/* layers above the fills: night → borders → open markets → selection / hover → leader lines → markers */
+.kw-gnight,.kw-gbord,.kw-gopen,.kw-gsel,.kw-ghov,.kw-glines{pointer-events:none}
+/* day / night (AGENTS §3-5) is information, drawn at every effect level: four flat nested caps (sunset · civil · nautical ·
+   astronomical twilight, each the same low alpha — a stepped data scale, no blur, no gradient) and the terminator as a thin line */
 .kw-gn{fill:var(--kw-night);fill-opacity:var(--kw-night-a)}
 .kw-gterm{fill:none;stroke:var(--kw-term);stroke-width:1}
 .kw-gbord{fill:none;stroke:var(--map-bg,#000);stroke-width:.55;stroke-linejoin:round}
-.kw-ggb{filter:blur(2px)}
-.kw-ggb path{fill:none;stroke:var(--kw-glow-b);stroke-width:4;stroke-linejoin:round}
-.kw-ggl path{fill:none;stroke:var(--kw-glow-l);stroke-width:1.25;stroke-linejoin:round}
+/* open markets (design.md §10 ③ "열린 나라 빛 → 점 · 테두리"): a flat 1.5px --live outline, no blur, no pulse */
+.kw-gopen path{fill:none;stroke:var(--live);stroke-width:1.5;stroke-linejoin:round}
+.kw-fx .kw-gopen path.in{animation:kwFade var(--sp-fade-dur) var(--sp-fade) both}   /* 화려하게: a market that just opened fades in once */
 .kw-gsel path{fill:none;stroke:var(--acc-line,var(--amber));stroke-width:2;stroke-linejoin:round}
 .kw-ghov path{fill:none;stroke:var(--kw-hov);stroke-width:1.2;stroke-linejoin:round}
 .kw-gld{fill:none;stroke:var(--kw-ld);stroke-width:.8}
-/* market markers: amber dot = open, hollow grey dot = closed; 홍콩 is a dot in its index colour with the state as its ring */
+/* market markers: a --live dot = open, a hollow grey dot = closed; 홍콩 is a dot in its index colour with the state as its ring */
 .kw-gdot{fill:var(--kw-dot-bg);stroke:var(--kw-dot-o);stroke-width:1.2;cursor:pointer}
-.kw-gdot.open{fill:var(--kw-open-fill);stroke:var(--kw-dot-st);stroke-width:.8}
-.kw-gdot.sel{stroke:var(--kw-dot-sel);stroke-width:1.4}
-.kw-gmk{stroke:var(--kw-dot-o);stroke-width:1.4;cursor:pointer;paint-order:stroke}
-.kw-gmk.open{stroke:var(--kw-glow-l)}
-.kw-gmk.sel{stroke:var(--kw-dot-sel);stroke-width:2.4}
-.kw-gp{fill:none;stroke:var(--kw-glow-l);stroke-width:1.2;opacity:0;transform-box:fill-box;transform-origin:center;pointer-events:none}
-.kw-fx .kw-gp.on{animation:kwRing 2.4s cubic-bezier(.2,.7,.2,1) infinite}
-.kw-fx .kw-gp.on.just{animation:kwRing .8s cubic-bezier(.2,.7,.2,1) 3;animation-delay:0s!important}
+.kw-gdot.open{fill:var(--live);stroke:var(--kw-dot-st);stroke-width:.8}
+.kw-gdot.sel{stroke:var(--kw-dot-sel);stroke-width:1.5}
+.kw-gmk{stroke:var(--kw-dot-o);stroke-width:1.5;cursor:pointer;paint-order:stroke}
+.kw-gmk.open{stroke:var(--live)}
+.kw-gmk.sel{stroke:var(--kw-dot-sel);stroke-width:2.5}
 .kw-gl.in .kw-sd{position:relative}
-.kw-fx .kw-gl.in .kw-sd.open::after{content:"";position:absolute;inset:0;border-radius:50%;box-shadow:0 0 0 1px var(--kw-open);opacity:0;animation:kwRing 2.4s cubic-bezier(.2,.7,.2,1) var(--pd,0s) infinite}
-@keyframes kwRing{0%{transform:scale(1);opacity:.55}100%{transform:scale(3);opacity:0}}
-.kw-paused .kw-gp,.kw-paused .kw-sd::after{animation-play-state:paused!important}
-/* 'fancy', first opening: countries → night → markers */
-.kw-gin .kw-gland{animation:kwFade .24s cubic-bezier(.2,.7,.2,1) both}
-.kw-gin .kw-gnight{animation:kwFade .48s cubic-bezier(.2,.7,.2,1) .16s both}
-.kw-gin .kw-gglow,.kw-gin .kw-glines,.kw-gin .kw-gmarks,.kw-gin .kw-glabs{animation:kwFade .24s cubic-bezier(.2,.7,.2,1) .56s both}
+/* 화려하게, the first opening: countries → night → markers, one fade each, 40 → 30 ms apart (a rare first appearance, §6-2) */
+.kw-gin .kw-gland{animation:kwFade var(--sp-fade-dur) var(--sp-fade) both}
+.kw-gin .kw-gnight{animation:kwFade var(--sp-fade-dur) var(--sp-fade) var(--kw-seq-1) both}
+.kw-gin .kw-gopen,.kw-gin .kw-glines,.kw-gin .kw-gmarks,.kw-gin .kw-glabs{animation:kwFade var(--sp-fade-dur) var(--sp-fade) var(--kw-seq-2) both}
 @keyframes kwFade{from{opacity:0}}
 .kw-glabs{position:absolute;inset:0;pointer-events:none}
+/* the map's own labels scale with the map's width (--gs, 1 … 1.22 — design.md §3 exception for map labels) */
 .kw-gl{position:absolute;pointer-events:auto;white-space:nowrap;font-variant-numeric:tabular-nums}
-.kw-gl.in{transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:0;padding:2px 4px;border-radius:5px;color:var(--kw-tile-fg);line-height:1.15;text-shadow:var(--kw-gl-sh)}
-.kw-gl.in .n{display:inline-flex;align-items:center;gap:4px;font-size:calc(12px * var(--gs,1));font-weight:600}
-.kw-gl.in .p{font-size:calc(12.5px * var(--gs,1));font-weight:700}
-.kw-gl.in .kw-sd.close{box-shadow:inset 0 0 0 1.3px var(--kw-in-ring)}
-.kw-gl.in.sm{pointer-events:none;padding:0;flex-direction:row;gap:3px}
+.kw-gl.in{transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:0;padding:var(--space-1) var(--space-2);border-radius:var(--r-badge);color:var(--kw-tile-fg);line-height:1.15;text-shadow:var(--lab-sh)}
+.kw-gl.in .n{display:inline-flex;align-items:center;gap:var(--space-2);font-size:calc(var(--fs-sm) * var(--gs,1));font-weight:600}
+.kw-gl.in .p{font-size:calc(var(--fs-sm) * var(--gs,1));font-weight:700}   /* 12.5 → 12, not 13: a crowded map keeps its label boxes (중국 sits between 이탈리아's chip and the 동아시아 chips at 768) */
+.kw-gl.in .kw-sd.close{box-shadow:inset 0 0 0 1.5px var(--kw-in-ring)}
+.kw-gl.in.sm{pointer-events:none;padding:0;flex-direction:row;gap:var(--space-1)}
 .kw-gl.in.sm .kw-sd{width:5px;height:5px}
-.kw-gl.in.sm .p{font-size:10.5px;font-weight:650}
-.kw-gl.chip{transform:translateY(-50%);display:inline-flex;align-items:center;gap:5px;height:21px;padding:0 7px 0 6px;border-radius:5px;background:var(--kw-gchip-bg);border:1px solid var(--kw-gchip-bd);box-shadow:inset 3px 0 0 var(--c,#383c46);padding-left:9px;font-size:11.5px;color:var(--fg)}
+.kw-gl.in.sm .p{font-size:var(--fs-xs);font-weight:650}
+.kw-gl.chip{transform:translateY(-50%);display:inline-flex;align-items:center;gap:var(--space-2);height:21px;padding:0 var(--space-3) 0 var(--space-4);border-radius:var(--r-badge);background:var(--kw-gchip-bg);border:1px solid var(--kw-gchip-bd);box-shadow:inset 3px 0 0 var(--c,#383c46);font-size:var(--fs-sm);color:var(--fg)}
 .kw-gl.chip.end{transform:translate(-100%,-50%)}
 .kw-gl.chip .t{font-weight:600}
 .kw-gl.chip .p{font-weight:650}
 .kw-gl:hover{z-index:2}
-.kw-gl.chip:hover{border-color:var(--kw-gchip-bdh)}
-.kw-gl.in:hover{background:var(--kw-in-hov)}
-/* country labels and the boxes beside the map: press = darker (no sink), focus = the 3px amber ring (selection keeps its 2px) */
-.kw-gb{transition:filter var(--c-fast) var(--c-out)}
-.kw-gb:active{filter:brightness(.85);transition-duration:0s}
+@media (hover:hover) and (pointer:fine){
+  .kw-gl.chip:hover{border-color:var(--kw-gchip-bdh)}
+  .kw-gl.in:hover{background:var(--kw-in-hov)}
+}
+/* country labels and the boxes beside the map: press = the theme's filter (no sink), focus = the 3px ring (selection keeps its 2px) */
+.kw-gb{transition:filter var(--c-fast) var(--c-out);touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+.kw-gb:active{filter:var(--press-f);transition-duration:0s}
 .kw-gl:focus-visible{outline:var(--focus-w) solid var(--focus,var(--amber));outline-offset:var(--focus-off);z-index:3}
 .kw-gl.sel{z-index:2;outline:2px solid var(--acc-line,var(--amber));outline-offset:1px}
-.kw-goff{position:absolute;left:8px;bottom:8px;width:218px;padding:7px 6px 5px;border-radius:8px;background:var(--kw-goff-bg);border:1px solid var(--line);z-index:2}
-.kw-goff.below{position:static;width:auto;margin-top:12px;background:var(--card-bg,var(--panel));box-shadow:var(--card-sh,none);border-radius:var(--card-r,10px);padding:6px;display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));column-gap:12px}
-.kw-goff.below .kw-goh{grid-column:1/-1;padding-top:3px}
-.kw-goh{font-size:11.5px;color:var(--muted);padding:0 4px 4px}
-.kw-go{display:grid;grid-template-columns:8px minmax(0,1fr) auto;align-items:center;gap:7px;width:100%;min-height:26px;padding:0 4px;border-radius:5px;font-size:12px;text-align:left}
+.kw-goff{position:absolute;left:var(--space-4);bottom:var(--space-4);width:218px;padding:var(--space-3) var(--space-3) var(--space-2);border-radius:var(--r-row);background:var(--kw-goff-bg);box-shadow:inset 0 0 0 1px var(--line);z-index:2}
+.kw-goff.below{position:static;width:auto;margin-top:var(--space-5);background:var(--card-bg,var(--panel));box-shadow:var(--card-sh,none);border-radius:var(--card-r,10px);padding:var(--space-3);display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));column-gap:var(--space-5)}
+.kw-goff.below .kw-goh{grid-column:1/-1;padding-top:var(--space-1)}
+.kw-goh{font-size:var(--fs-xs);color:var(--muted);padding:0 var(--space-2) var(--space-2)}
+.kw-go{display:grid;grid-template-columns:8px minmax(0,1fr) auto;align-items:center;gap:var(--space-3);width:100%;min-height:var(--h-chip);padding:0 var(--space-2);border-radius:var(--r-row);font-size:var(--fs-sm);text-align:left}
 .kw-go .t{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.kw-go:hover{background:var(--kw-hv)}
+@media (hover:hover) and (pointer:fine){.kw-go:not(.sel):hover{background:var(--row-hov)}}
 .kw-go:focus-visible{outline:var(--focus-w) solid var(--focus,var(--amber));outline-offset:calc(var(--focus-w) * -1)}
 .kw-go.sel{background:var(--acc-soft,var(--amber-soft))}
-.kw-pchip.sm{height:19px;line-height:19px;min-width:58px;font-size:11.5px;padding:0 6px}
-.kw-ggrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px;margin-top:10px}
-.kw-gc{display:grid;grid-template-columns:10px minmax(0,1fr) auto;align-items:center;gap:8px;min-height:44px;padding:4px 10px;border-radius:8px;background:var(--card-bg,var(--panel));border:1px solid var(--card-bd,var(--line));box-shadow:var(--card-sh,none);text-align:left}
-.kw-gc .sw{width:10px;height:10px;border-radius:2px}
-.kw-gc .t{display:flex;flex-direction:column;min-width:0;line-height:1.25}
-.kw-gc .t b{font-size:13.5px;font-weight:600}
-.kw-gc .t small{font-size:11px;color:var(--faint);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.kw-gc .p{font-size:13px;font-weight:650;font-variant-numeric:tabular-nums}
+.kw-pchip.sm{min-width:58px;padding:var(--space-1) var(--space-3);font-size:var(--fs-sm)}
+.kw-ggrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:var(--space-3);margin-top:var(--space-4)}
+.kw-gc{display:grid;grid-template-columns:10px minmax(0,1fr) auto;align-items:center;gap:var(--space-4);min-height:var(--h-row);padding:var(--space-2) var(--space-4);border-radius:var(--r-row);background:var(--card-bg,var(--panel));border:1px solid var(--card-bd,var(--line));box-shadow:var(--card-sh,none);text-align:left}
+.kw-gc .sw{width:10px;height:10px;border-radius:var(--r-mark)}
+.kw-gc .t{display:flex;flex-direction:column;min-width:0;line-height:var(--lh-ui)}
+.kw-gc .t b{font-size:var(--fs-md);font-weight:600}
+.kw-gc .t small{font-size:var(--fs-xs);color:var(--faint);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.kw-gc .p{font-size:var(--fs-md);font-weight:650;font-variant-numeric:tabular-nums}
 .kw-gc:focus-visible{outline:var(--focus-w) solid var(--focus,var(--amber));outline-offset:calc(var(--focus-w) * -1)}
 .kw-gc.sel{border-color:var(--acc-line,var(--amber));background:var(--acc-soft,var(--amber-soft))}
-.kw-geo.narrow .kw-go{min-height:44px;font-size:13px}
+.kw-geo.narrow .kw-go{min-height:var(--h-row);font-size:var(--fs-md)}
 /* detail sheet: a country's indices = choice chips (controls.md §5-6): raised off, the shown one filled (--chip-on) with the 1.5px
    amber ring and no check; 1px + darker under the finger. The % is data (up / down colour). */
-.kw-peers{display:flex;flex-wrap:wrap;gap:5px;padding:12px 48px 2px 14px}
-.kw-peers-h{width:100%;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:1px}
-.kw-peers button{position:relative;display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 11px;border-radius:var(--r-chip);border:0;background:var(--chip-bg);box-shadow:var(--key-sh);font-size:12px;color:var(--fg2);white-space:nowrap;font-variant-numeric:tabular-nums;transition:transform var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out),background-color var(--c-fast) var(--c-out),box-shadow var(--c-fast) var(--c-out),color var(--c-fast) var(--c-out)}
+.kw-peers{display:flex;flex-wrap:wrap;gap:var(--space-2);padding:var(--space-5) calc(var(--h-key) + var(--space-6)) var(--space-1) var(--space-6)}
+.kw-peers-h{width:100%;font-size:var(--fs-sm);font-weight:600;color:var(--muted);margin-bottom:1px}
+.kw-peers button{position:relative;display:inline-flex;align-items:center;gap:var(--space-3);height:var(--h-key);padding:0 var(--space-5);border-radius:var(--r-chip);border:0;background:var(--chip-bg);box-shadow:var(--key-sh);font-size:var(--fs-sm);color:var(--fg2);white-space:nowrap;font-variant-numeric:tabular-nums;transition:transform var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out),background-color var(--c-fast) var(--c-out),box-shadow var(--c-fast) var(--c-out),color var(--c-fast) var(--c-out)}
 .kw-peers button .v{font-weight:600}
 .kw-peers button[aria-pressed="true"]{background:var(--chip-on);box-shadow:inset 0 0 0 1.5px var(--chip-ring);color:var(--fg)}
-.kw-peers button:hover{color:var(--fg)}
+@media (hover:hover) and (pointer:fine){.kw-peers button:hover{color:var(--fg)}}
 .kw-peers button:is(:active,.is-press){transform:translateY(1px);filter:var(--press-f);transition-duration:0s}
 .kw-peers button:not([aria-pressed="true"]):is(:active,.is-press){box-shadow:var(--key-dn)}
-.kw-sheet.has-peers .kw-dh{padding-top:8px}
+.kw-sheet.has-peers .kw-dh{padding-top:var(--space-4)}
 
 /* legend dots */
-.kw-legend .kw-sd{margin-left:2px}
-.kw-nightsw{background:linear-gradient(90deg,var(--kw-nsw-a) 50%,var(--kw-nsw-b) 50%)!important;border-radius:50%!important;box-shadow:inset 0 0 0 1px var(--line2)}
+.kw-legend .kw-sd{margin-left:var(--space-1)}
+/* day · night swatch: two flat halves (no gradient) */
+.kw-nightsw{background:var(--kw-nsw-a)!important;border-radius:50%!important;box-shadow:inset -5px 0 0 var(--kw-nsw-b),inset 0 0 0 1px var(--line2)}
 
 /* legend (reuses the heatmap's .legend look) */
 .kw-legend .grad{width:120px}
 .kw-nonesw{background:var(--kw-none);box-shadow:inset 0 0 0 1px var(--line2)}
-.kw-refsw{background-color:var(--kw-ref);background-image:repeating-linear-gradient(135deg,var(--kw-hatch2) 0 2px,transparent 2px 5px);box-shadow:inset 0 0 0 1px var(--line2)}
-.kw-chip-l{display:inline-flex;align-items:center;gap:4px;height:16px;padding:0 5px;border-radius:3px;background:var(--kw-chip-l);color:var(--fg2);font-size:11px;line-height:16px}
-.kw-chip-l.open::before{content:"";width:5px;height:5px;border-radius:50%;background:var(--kw-open)}
+.kw-refsw{background-color:var(--kw-ref);background-image:repeating-linear-gradient(135deg,var(--kw-hatch2) 0 2px,transparent 2px 5px);box-shadow:inset 0 0 0 1px var(--line2)}   /* data hatch */
+.kw-chip-l{display:inline-flex;align-items:center;gap:var(--space-2);height:16px;padding:0 var(--space-2);border-radius:var(--r-badge);background:var(--kw-chip-l);color:var(--fg2);font-size:var(--fs-xs);line-height:16px}
+.kw-chip-l.open::before{content:"";width:5px;height:5px;border-radius:50%;background:var(--live)}
 
-/* side */
-.kw-side{display:flex;flex-direction:column;gap:12px;min-width:0;padding-top:42px}
+/* side: the first card lines up with the list (the bar's --h-row + its --space-3) */
+.kw-side{display:flex;flex-direction:column;gap:var(--space-5);min-width:0;padding-top:calc(var(--h-row) + var(--space-3))}
 .kw-card h2 small{font-variant-numeric:tabular-nums}
 .kw-rank{display:flex;flex-direction:column;gap:1px}
-.kw-rh{font-size:11.5px;color:var(--muted);margin:0 0 3px}
-.kw-rh.second{margin-top:10px}
-.kw-row{display:grid;grid-template-columns:10px minmax(0,1fr) auto 62px;gap:8px;align-items:center;padding:6px;margin:0 -6px;border-radius:6px;font-size:13px;text-align:left;width:calc(100% + 12px);box-shadow:inset 0 -1px 0 var(--row-bd,transparent)}
-.kw-row:hover{background:var(--kw-hv)}
-.kw-row:active{filter:brightness(.85);transition:filter 0s}
+.kw-rh{font-size:var(--fs-xs);color:var(--muted);margin:0 0 var(--space-1)}
+.kw-rh.second{margin-top:var(--space-5)}
+.kw-row{display:grid;grid-template-columns:10px minmax(0,1fr) auto 62px;gap:var(--space-4);align-items:center;padding:var(--space-3);margin:0 calc(var(--space-3) * -1);border-radius:var(--r-row);font-size:var(--fs-md);text-align:left;width:calc(100% + 2 * var(--space-3));box-shadow:inset 0 -1px 0 var(--row-bd,transparent);transition:filter var(--c-fast) var(--c-out);touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+@media (hover:hover) and (pointer:fine){.kw-row:hover{background:var(--row-hov)}}
+.kw-row:active{filter:var(--press-f);transition-duration:0s}
 .kw-row:focus-visible{outline-offset:calc(var(--focus-w) * -1)}
-.kw-sw{width:10px;height:10px;border-radius:2px;display:inline-block;flex:none}
-.kw-row .nm{display:flex;align-items:baseline;gap:6px;min-width:0;overflow:hidden;white-space:nowrap;font-weight:500}
-.kw-row .nm small{color:var(--faint);font-size:11px;font-weight:400;overflow:hidden;text-overflow:ellipsis;min-width:0}
-.kw-row .px{color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.kw-sw{width:10px;height:10px;border-radius:var(--r-mark);display:inline-block;flex:none}
+.kw-row .nm{display:flex;align-items:baseline;gap:var(--space-3);min-width:0;overflow:hidden;white-space:nowrap;font-weight:500}
+.kw-row .nm small{color:var(--faint);font-size:var(--fs-xs);font-weight:400;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.kw-row .px{color:var(--muted);font-size:var(--fs-sm);font-variant-numeric:tabular-nums;white-space:nowrap}
 .kw-row .v{text-align:right;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
-.kw-none{margin:2px 0;font-size:12.5px;color:var(--muted);line-height:1.55}
-.kw-oml{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:9px}
-.kw-om1{display:flex;align-items:baseline;justify-content:space-between;gap:8px;font-size:13px}
-.kw-om1 b{font-weight:600;display:inline-flex;align-items:center;gap:7px}
-.kw-om1 b::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--kw-open);flex:none}
+.kw-none{margin:var(--space-1) 0;font-size:var(--fs-sm);color:var(--muted);line-height:var(--lh-text)}
+.kw-oml{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:var(--space-4)}
+.kw-om1{display:flex;align-items:baseline;justify-content:space-between;gap:var(--space-4);font-size:var(--fs-md)}
+.kw-om1 b{font-weight:600;display:inline-flex;align-items:center;gap:var(--space-3)}
+.kw-om1 b::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--live);flex:none}
 .kw-clock{color:var(--fg2);font-variant-numeric:tabular-nums;white-space:nowrap}
-.kw-om2{margin:2px 0 0 13px;font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.kw-omf{margin:11px 0 0;padding-top:9px;border-top:1px solid var(--line);font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
-.kw-src{margin:0;padding:0 2px;font-size:12px;line-height:1.6;color:var(--faint)}
+.kw-om2{margin:var(--space-1) 0 0 calc(6px + var(--space-3));font-size:var(--fs-sm);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kw-omf{margin:var(--space-5) 0 0;padding-top:var(--space-4);border-top:1px solid var(--line);font-size:var(--fs-sm);color:var(--muted);font-variant-numeric:tabular-nums}
+.kw-src{margin:0;padding:0 var(--space-1);font-size:var(--fs-sm);line-height:var(--lh-text);color:var(--faint)}
 
 /* snapshot pointer */
-.kw-snap{grid-column:1/-1;display:grid;place-items:center;min-height:min(520px,70vh);background:var(--map-bg,#000);border-radius:6px;padding:24px}
-.kw-snap-in{display:flex;flex-direction:column;align-items:center;gap:8px;max-width:420px;text-align:center}
-.kw-snap-in b{font-size:17px;font-weight:700;color:var(--fg)}
-.kw-snap-in p{margin:0;color:var(--muted);font-size:13.5px;line-height:1.65}
+.kw-snap{grid-column:1/-1;display:grid;place-items:center;min-height:min(520px,70vh);background:var(--map-bg,#000);border-radius:var(--r-map);box-shadow:var(--map-sh,none);padding:var(--space-7)}
+.kw-snap-in{display:flex;flex-direction:column;align-items:center;gap:var(--space-4);max-width:420px;text-align:center}
+.kw-snap-in b{font-size:var(--fs-xl);font-weight:700;color:var(--fg)}
+.kw-snap-in p{margin:0;color:var(--muted);font-size:var(--fs-md);line-height:var(--lh-text)}
 /* the one action here = the primary key (the light plate, controls.md §5-2) */
-.kw-snap-a{position:relative;margin-top:10px;display:inline-flex;align-items:center;height:40px;padding:0 17px;border-radius:var(--r-key);background:var(--pri-bg);color:var(--pri-fg);box-shadow:var(--pri-sh);font-size:14px;font-weight:700;text-decoration:none;transition:transform var(--c-fast) var(--c-out),box-shadow var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out)}
-.kw-snap-a:hover{background:var(--kw-pri-hov)}
+.kw-snap-a{position:relative;margin-top:var(--space-4);display:inline-flex;align-items:center;min-height:var(--h-row);padding:0 var(--space-6);border-radius:var(--r-key);background:var(--pri-bg);color:var(--pri-fg);box-shadow:var(--pri-sh);font-size:var(--fs-lg);font-weight:700;text-decoration:none;transition:transform var(--c-fast) var(--c-out),box-shadow var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out)}
+@media (hover:hover) and (pointer:fine){.kw-snap-a:hover{background:var(--kw-pri-hov)}}
 .kw-snap-a:is(:active,.is-press){transform:translateY(1px);box-shadow:var(--key-dn);filter:var(--press-f);transition-duration:0s}
 
-/* detail sheet */
+/* detail sheet = the template's floating sheet (design.md §5): its corner (--sheet-r − 4), its shadow (--sheet-fl-sh), its material —
+   in the glass themes --sheet-bg carries the top sheen and the shadow the 1px edge reflection, with the backdrop blur (§2 예외) */
 .kw-scrim{display:none}
-.kw-sheet{position:fixed;z-index:92;right:18px;bottom:18px;width:360px;max-height:min(680px,calc(100vh - 36px));overflow:auto;background:var(--sheet-bg,#18191e);border:1px solid var(--sheet-bd,var(--line2));border-radius:var(--kw-sheet-r-d);box-shadow:var(--sheet-sh,0 24px 70px rgba(0,0,0,.6));-webkit-backdrop-filter:var(--blur,none);backdrop-filter:var(--blur,none);font-size:13px;color:var(--fg);overscroll-behavior:contain;
+.kw-sheet{position:fixed;z-index:92;right:var(--edge);bottom:var(--edge);width:360px;max-height:min(680px,calc(100vh - 2 * var(--edge)));overflow:auto;background:var(--sheet-bg,#18191e);border:1px solid var(--sheet-bd,var(--line2));border-radius:max(2px,calc(var(--sheet-r,16px) - 4px));box-shadow:var(--sheet-fl-sh,var(--sheet-sh));-webkit-backdrop-filter:var(--blur,none);backdrop-filter:var(--blur,none);font-size:var(--fs-md);color:var(--fg);overscroll-behavior:contain;
   opacity:1;translate:none;transition:var(--fl-open)}
 /* open · close (design.md §5 · §7, the template's floating-window tokens — the 일정 sheet's exit technique): desktop = a floating sheet
    that rises 12px with `open` as it fades in (`fade`) and leaves with `close`; phones = up from the bottom edge, the scrim fading, the
@@ -14792,44 +14799,48 @@ html[data-theme="glass-light"] #world{--nodata:#e6e9ee}
 @starting-style{.kw-sheet:not([hidden]){opacity:0;translate:0 12px}}
 .kw-sheet:focus{outline:none}
 .kw-grab{display:none}
-/* × = a key without a surface (controls.md §5-2): 1px + darker under the finger, 44px to press on touch screens */
-.kw-x{position:absolute;right:8px;top:8px;width:32px;height:32px;border-radius:var(--r-in);display:grid;place-items:center;color:var(--muted);font-size:19px;line-height:1;transition:transform var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out),color var(--c-fast) var(--c-out)}
-.kw-x:hover{background:var(--kw-hv2);color:var(--fg)}
+/* × = a key without a surface (controls.md §5-2) and the one close icon (design.md §5: SVG ×, 1.75px, 32 / phones 44): 1px + darker
+   under the finger */
+.kw-x{position:absolute;right:var(--space-4);top:var(--space-4);width:var(--h-key);height:var(--h-key);border-radius:var(--r-in);display:grid;place-items:center;color:var(--muted);touch-action:manipulation;-webkit-tap-highlight-color:transparent;transition:transform var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out),color var(--c-fast) var(--c-out)}
+.kw-x svg{width:16px;height:16px}
+@media (hover:hover) and (pointer:fine){.kw-x:hover{background:var(--fill-2);color:var(--fg)}}
 .kw-x:is(:active,.is-press){transform:translateY(1px);filter:var(--press-f);transition-duration:0s}
-.kw-dh{padding:12px 14px 10px;border-bottom:1px solid var(--line)}
-.kw-path{font-size:11.5px;color:var(--muted);margin:0 40px 6px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.kw-nmrow{display:flex;align-items:center;gap:8px;margin-right:36px;min-width:0}
-.kw-nmrow b{font-family:var(--font-head,inherit);font-size:18px;font-weight:var(--w-strong,700);letter-spacing:-.02em;min-width:0;overflow-wrap:anywhere}
-.kw-st{flex:none;display:inline-flex;align-items:center;gap:4px;font-size:11.5px;font-weight:600;padding:1px 7px;border-radius:5px;border:1px solid var(--line2);color:var(--fg2)}
-.kw-st.open{color:var(--acc,var(--amber));border-color:var(--acc-bd,rgba(255,181,71,.4));background:var(--acc-soft,var(--amber-soft))}
-.kw-st.open::before{content:"";width:5px;height:5px;border-radius:50%;background:var(--kw-open)}
-.kw-px{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-top:6px;font-variant-numeric:tabular-nums}
-.kw-px b{font-family:var(--font-head,inherit);font-size:23px;font-weight:var(--w-strong,700);letter-spacing:-.01em}
-.kw-px small{font-size:12px;color:var(--muted)}
-.kw-px span{font-size:14px;font-weight:600}
-.kw-meta{display:grid;grid-template-columns:auto 1fr;gap:5px 12px;margin:10px 0 0;font-size:12.5px;font-variant-numeric:tabular-nums}
+.kw-dh{padding:var(--space-5) var(--space-6) var(--space-4);border-bottom:1px solid var(--line)}
+.kw-path{font-size:var(--fs-xs);color:var(--muted);margin:0 calc(var(--h-key) + var(--space-4)) var(--space-3) 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kw-nmrow{display:flex;align-items:center;gap:var(--space-4);margin-right:calc(var(--h-key) + var(--space-2));min-width:0}
+.kw-nmrow b{font-family:var(--font-head,inherit);font-size:var(--fs-2xl);font-weight:var(--w-strong,700);line-height:var(--lh-num);letter-spacing:-.01em;min-width:0;overflow-wrap:anywhere}
+/* 장중 / 마감 · 하루 한 번: the neutral badge (design.md §5), 장중 with a --live dot (status is not amber) */
+.kw-st{flex:none;display:inline-flex;align-items:center;gap:var(--space-2);height:var(--kw-badge-h);padding:0 var(--space-3);border-radius:var(--r-badge);box-shadow:inset 0 0 0 1px var(--line2);font-size:var(--fs-xs);font-weight:600;line-height:1;color:var(--fg2);white-space:nowrap}
+.kw-st.open::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--live)}
+/* the sheet's big number (design.md §3 결정 ③): --fs-num, its decimals and unit one step smaller; it rolls in 화려하게 (KH.ui.roll) */
+.kw-px{display:flex;align-items:baseline;gap:var(--space-4);flex-wrap:wrap;margin-top:var(--space-3);font-variant-numeric:tabular-nums}
+.kw-px b{font-family:var(--font-head,inherit);font-size:var(--fs-num);font-weight:var(--w-strong,700);line-height:var(--lh-num);letter-spacing:-.02em;white-space:nowrap}
+.kw-px b .kw-pf{font-size:var(--fs-2xl);letter-spacing:-.01em}
+.kw-px small{font-size:var(--fs-sm);color:var(--muted)}
+.kw-px span.kw-pc2{font-size:var(--fs-lg);font-weight:600}
+.kw-meta{display:grid;grid-template-columns:auto 1fr;gap:var(--space-2) var(--space-5);margin:var(--space-4) 0 0;font-size:var(--fs-sm);line-height:var(--lh-row);font-variant-numeric:tabular-nums}
 .kw-meta dt{color:var(--muted)}
 .kw-meta dd{margin:0;color:var(--fg2);text-align:right}
-.kw-meta dd small{color:var(--muted);font-size:12px}
-.kw-note{margin:10px 0 0;font-size:12px;line-height:1.55;color:var(--fg2);background:var(--panel2);border-radius:7px;padding:8px 10px}
-.kw-chart{padding:10px 14px 4px}
+.kw-meta dd small{color:var(--muted);font-size:var(--fs-sm)}
+.kw-note{margin:var(--space-4) 0 0;font-size:var(--fs-sm);line-height:var(--lh-text);color:var(--fg2);background:var(--panel2);border-radius:var(--r-row);padding:var(--space-4) var(--space-5)}
+.kw-chart{padding:var(--space-4) var(--space-6) var(--space-2)}
 .kw-chart[hidden]{display:none}
-.kw-ctop{display:flex;align-items:center;justify-content:space-between;gap:10px}
-.kw-cnote{font-size:11.5px;color:var(--faint)}
-.kw-read{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;min-height:22px;margin:9px 0 2px;font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums}
-.kw-read b{color:var(--fg);font-weight:700;font-size:13.5px}
+.kw-ctop{display:flex;align-items:center;justify-content:space-between;gap:var(--space-4)}
+.kw-cnote{font-size:var(--fs-xs);color:var(--faint)}
+.kw-read{display:flex;align-items:baseline;gap:var(--space-4);flex-wrap:wrap;min-height:22px;margin:var(--space-4) 0 var(--space-1);font-size:var(--fs-sm);color:var(--muted);font-variant-numeric:tabular-nums}
+.kw-read b{color:var(--fg);font-weight:700;font-size:var(--fs-md)}
 .kw-read b.up{color:var(--up-text)} .kw-read b.dn{color:var(--dn-text)}
 .kw-hl{margin-left:auto}
 .kw-svg{display:block;width:100%;height:auto;overflow:visible;touch-action:pan-y;cursor:crosshair}
 .kw-svg .kw-line{fill:none;stroke:currentColor;stroke-width:1.6;stroke-linejoin:round;stroke-linecap:round}
-.kw-svg .kw-area{fill:currentColor;fill-opacity:.09;stroke:none}
+.kw-svg .kw-area{fill:currentColor;fill-opacity:.09;stroke:none}   /* a flat area under the line (no gradient) */
 .kw-svg .kw-base{stroke:var(--kw-base);stroke-width:1;stroke-dasharray:3 3}
 .kw-svg .kw-cross{stroke:var(--kw-cross);stroke-width:1}
 .kw-svg .kw-cdot{fill:currentColor;stroke:var(--kw-cdot-o);stroke-width:1.5}
-.kw-svg text{fill:var(--muted);font-size:11px;font-family:inherit;font-variant-numeric:tabular-nums}
+.kw-svg text{fill:var(--muted);font-size:var(--fs-xs);font-family:inherit;font-variant-numeric:tabular-nums}
 .kw-svg.flat{color:var(--fg2)}
-.kw-cmsg{padding:22px 0 18px;text-align:center;color:var(--muted);font-size:12.5px}
-.kw-dsrc{margin:0;padding:8px 14px 12px;font-size:11.5px;color:var(--faint)}
+.kw-cmsg{padding:var(--space-7) 0 var(--space-6);text-align:center;color:var(--muted);font-size:var(--fs-sm)}
+.kw-dsrc{margin:0;padding:var(--space-4) var(--space-6) var(--space-5);font-size:var(--fs-xs);line-height:var(--lh-row);color:var(--faint)}
 
 @media (max-width:980px){
   #world.kw{grid-template-columns:1fr}
@@ -14837,22 +14848,22 @@ html[data-theme="glass-light"] #world{--nodata:#e6e9ee}
   .kw-src{grid-column:1/-1}
 }
 @media (max-width:760px){
-  #world.kw{padding:0 12px 12px;gap:12px}
+  #world.kw{padding:0 var(--space-5) var(--space-5);gap:var(--space-5)}
   .kw-side{display:flex}
   /* phones: 제목 + 목록/지도를 한 줄에, 오른·내린 요약과 기준 시각은 그 아래 한 줄 — 사용자 2026-11-13 23:47 "저 줄이 길어서 목록/지도 버튼이 아래로 내려가" */
-  .kw-bar{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:2px 10px}
+  .kw-bar{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:var(--space-1) var(--space-4)}
   .kw-title{grid-area:1/1;min-width:0;overflow:hidden;text-overflow:ellipsis}
-  .kw-tools{grid-area:1/2;gap:6px}
-  .kw-sum{grid-area:2/1;gap:5px;font-size:12px;min-width:0}
-  .kw-time{grid-area:2/2;margin-left:0;text-align:right;font-size:12px}
-  .kw-seg button{padding:4px 10px}
+  .kw-tools{grid-area:1/2;gap:var(--space-3)}
+  .kw-seg>button{min-width:var(--h-key)}   /* two-letter cells (목록 · 지도) stay ≥ 40 wide to press */
+  .kw-sum{grid-area:2/1;gap:var(--space-2);min-width:0}
+  .kw-time{grid-area:2/2;margin-left:0;text-align:right}
   .kw-legend .right{margin-left:0}
-  .kw-row{min-height:44px}
-  .kw-retry{min-height:40px}
-  .kw-retry.sm{height:40px}
-  .kw-x{width:40px;height:40px;right:6px;top:6px}
-  .kw-sheet{left:0;right:0;bottom:0;width:auto;max-height:82svh;border-radius:var(--sheet-r,16px 16px 0 0);padding-bottom:env(safe-area-inset-bottom)}
-  .kw-grab{display:block;width:38px;height:4px;border-radius:2px;background:var(--line2);margin:8px auto 0}
+  .kw-row{min-height:var(--h-row)}
+  /* phones: the two-line row is 44px (--h-row) */
+  .kw-list.compact .kw-lr{padding:var(--space-2) var(--space-3)}
+  .kw-x{width:var(--h-row);height:var(--h-row);right:var(--space-2);top:var(--space-2)}
+  .kw-sheet{left:0;right:0;bottom:0;width:auto;max-height:82svh;border-radius:var(--sheet-r,16px) var(--sheet-r,16px) 0 0;padding-bottom:env(safe-area-inset-bottom)}
+  .kw-grab{display:block;width:38px;height:4px;border-radius:var(--r-mark);background:var(--line2);margin:var(--space-4) auto 0}
   .kw-scrim{position:fixed;inset:0;z-index:91;background:var(--scrim,rgba(0,0,0,.45));opacity:0;pointer-events:none;transition:var(--sc-close)}
   .kw-scrim.open{display:block;opacity:1;pointer-events:auto;transition:var(--sc-open)}
   @starting-style{.kw-scrim.open{opacity:0}}
@@ -14862,9 +14873,9 @@ html[data-theme="glass-light"] #world{--nodata:#e6e9ee}
   .kw-sheet :is(.kw-grab,.kw-dh){touch-action:none}
   .kw-tf button{min-width:64px}
   /* phones: a tidy two-column grid — name left, % right, every chip the same width and height (사용자 13:56 "줄맞춤이 이상해") */
-  .kw-peers{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;padding-right:14px}   /* the × sits beside the country name row, not the chips */
+  .kw-peers{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--space-3);padding-right:var(--space-6)}   /* the × sits beside the country name row, not the chips */
   .kw-peers-h{grid-column:1/-1}
-  .kw-peers button{height:40px;min-width:0;justify-content:space-between;padding:0 11px}
+  .kw-peers button{min-width:0;justify-content:space-between;padding:0 var(--space-5)}
   .kw-peers button .n{min-width:0;overflow:hidden;text-overflow:ellipsis}
   .kw-peers button .v{flex:none}
 }
@@ -14873,39 +14884,19 @@ html[data-theme="glass-light"] #world{--nodata:#e6e9ee}
   :is(.kw-x,.kw-retry,.kw-peers button,.kw-snap-a)::before{content:"";position:absolute;left:50%;top:50%;width:max(100%,44px);height:max(100%,44px);transform:translate(-50%,-50%)}
   :is(.kw-seg,.kw-tf)>button::before{content:"";position:absolute;left:0;right:0;top:50%;height:max(100%,44px);transform:translateY(-50%)}
 }
-/* touch screens keep no hover look after a tap; ✓ / ! keep their surfaces (the template's .kasync rules) */
-@media (hover:none){
-  .kw-retry:not([data-st="done"]):not([data-st="fail"]):hover{background:var(--key-bg)}
-  .kw-x:hover{background:none;color:var(--muted)}
-  .kw-tile:not(.sel):hover{box-shadow:none;z-index:2}
-  .kw-lr:not(.sel):hover,.kw-row:hover,.kw-go:not(.sel):hover,.kw-gl.in:hover{background:none}
-  .kw-gl.chip:hover{border-color:var(--kw-gchip-bd)}
-  .kw-peers button:not([aria-pressed="true"]):hover{color:var(--fg2)}
-  .kw-snap-a:hover{background:var(--pri-bg)}
-}
-/* the device's reduced-motion setting, only when the page has no 효과 setting of its own (no <html data-motion>):
-   with one, KH.motion() decides (a user may pick 기본 on such a device) and .kw-rm below applies */
-@media (prefers-reduced-motion: reduce){
-  html:not([data-motion]) .kw-fl,html:not([data-motion]) .kw-pchip.kw-fl{animation:none}
-  html:not([data-motion]) .kw-tile,html:not([data-motion]) .kw-cp.has{transition:none}
-}
-/* 효과: 줄이기 (KH.motion() 'reduced') — the same, whatever the OS says */
-.kw-rm .kw-fl,.kw-rm .kw-pchip.kw-fl,.kw-rm .kw-gin *{animation:none!important}
-.kw-rm .kw-tile,.kw-rm .kw-cp.has{transition:none}
 
 /* ticker → 코스피 / 코스닥: today's line in the detail sheet */
-.kw-today{padding:8px 14px 2px}
-.kw-today .kw-ctop{display:flex;align-items:baseline;justify-content:space-between;gap:8px;font-size:12px}
-.kw-today-svg{display:block;width:100%;height:64px;margin-top:4px;overflow:visible}
+.kw-today{padding:var(--space-4) var(--space-6) var(--space-1)}
+.kw-today .kw-ctop{display:flex;align-items:baseline;justify-content:space-between;gap:var(--space-4);font-size:var(--fs-sm)}
+.kw-today-svg{display:block;width:100%;height:64px;margin-top:var(--space-2);overflow:visible}
 .kw-today-svg .kw-tb{stroke:var(--kw-base);stroke-width:1;stroke-dasharray:3 3;vector-effect:non-scaling-stroke}
 .kw-today-svg .kw-tl{fill:none;stroke:currentColor;stroke-width:1.6;stroke-linejoin:round;vector-effect:non-scaling-stroke}
 .kw-today-svg .kw-td{fill:currentColor}
 .kw-today-svg.up{color:var(--up-text)} .kw-today-svg.dn{color:var(--dn-text)} .kw-today-svg.flat{color:var(--muted)}
 
-/* theme materials (themes.md §6): the map frame, and the detail sheet as a cut-out paper sheet (paper) or thick glass (glass) */
-html:is([data-theme="glass-dark"],[data-theme="glass-light"]) :is(.kw-map,.kw-gmap,.kw-snap){border-radius:var(--r-map,16px)}
-html[data-theme="paper"] :is(.kw-map,.kw-gmap,.kw-snap){border-radius:0;box-shadow:0 0 0 1px var(--rule,#211a15)}
-html[data-theme="paper"] .kw-sheet{box-shadow:inset 0 1px 0 var(--rule,#211a15),inset 0 3px 0 var(--sheet-bg,#fbf1e6),inset 0 4px 0 var(--rule,#211a15),var(--sheet-sh,0 -10px 30px rgba(70,40,15,.2))}
+/* theme materials (themes.md §6): the detail sheet as a cut-out paper sheet (paper: a double ink rule along the top) */
+html[data-theme="paper"] .kw-sheet{box-shadow:inset 0 1px 0 var(--rule,#211a15),inset 0 3px 0 var(--sheet-bg,#fbf1e6),inset 0 4px 0 var(--rule,#211a15),var(--sheet-fl-sh,var(--sheet-sh))}
+@media (max-width:760px){html[data-theme="paper"] .kw-sheet{box-shadow:inset 0 1px 0 var(--rule,#211a15),inset 0 3px 0 var(--sheet-bg,#fbf1e6),inset 0 4px 0 var(--rule,#211a15),var(--sheet-sh),0 64px 0 var(--sheet-skirt,var(--panel))}}
 
 </style>
 <script>
@@ -15183,9 +15174,25 @@ const calm = () => motion() === 'reduced';
 function syncMotion() {
   if (!root) return;
   const m = motion();
-  root.classList.toggle('kw-fx', m === 'fancy');            // new effects (open-market pulse, map intro) only here
-  root.classList.toggle('kw-rm', m === 'reduced');          // no transitions at all
+  // 화려하게 only: the map's first-opening sequence, a market that just opened fading in, the sheet's number roll. The lengths
+  // themselves are the template's --sp-* tokens, which html[data-motion="reduced"] sets to 0 (one switch, design.md §6-3) — the
+  // classes only say which level this module drew for
+  root.classList.toggle('kw-fx', m === 'fancy');
+  root.classList.toggle('kw-rm', m === 'reduced');
   if (sheet) sheet.classList.toggle('kw-noanim', m === 'reduced');
+}
+/* a value written in place (design.md §6-4, P4 · P9): the template's KH.ui.swap — the old text leaves, the new one comes in from below
+   when the number rose and from above when it fell. Only a real change moves: the first write, a redraw with the same text or a
+   different item (quiet) is written at once. `num` = the number the text stands for (its direction), null = a label (goes up) */
+function swapTo(el, text, num, quiet) {
+  text = String(text);
+  const was = el.__kwT, wasN = el.__kwN;
+  el.__kwT = text; el.__kwN = num;
+  if (!UI || typeof UI.swap !== 'function') { if (el.textContent !== text) el.textContent = text; return; }
+  if (was === text && el.textContent === text) return;
+  if (quiet || was == null) { UI.swap(el, text, text); return; }     // from === text: written at once (a running swap ends first)
+  const dir = num != null && wasN != null && isFinite(num) && isFinite(wasN) ? Math.sign(num - wasN) : 0;
+  UI.swap(el, text, was, dir);
 }
 
 /* living controls (docs/standards/controls.md): the template's KH.ui — segments with one raised indicator (seg), the shared
@@ -15194,6 +15201,10 @@ function syncMotion() {
 const UI = KH.ui && typeof KH.ui.retry === 'function' ? KH.ui : null;
 const uiSeg = el => { if (UI && typeof UI.seg === 'function') UI.seg(el); return el; };
 const uiSpin = () => (UI && typeof UI.icon === 'function' ? UI.icon('spin') : null);
+const uiWarn = () => (UI && typeof UI.icon === 'function' ? UI.icon('warn') : h('span', { 'aria-hidden': 'true', text: '!' }));
+/* the one close icon (design.md §4 · §5): SVG ×, 1.75px on screen whatever its box, round caps, currentColor */
+const closeIcon = () => svg('svg', { viewBox: '0 0 20 20', width: '16', height: '16', 'aria-hidden': 'true', fill: 'none', stroke: 'currentColor', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' },
+  svg('path', { d: 'M5 5l10 10M15 5 5 15', 'stroke-width': '1.75', 'vector-effect': 'non-scaling-stroke' }));
 const failedW = new Set();
 function retryKey(area, run, done, cls, alive) {
   cls = 'kw-retry' + (cls ? ' ' + cls : '');
@@ -15344,8 +15355,6 @@ function scaffold() {
   new ResizeObserver(() => { if (S.shown && S.view === 'map' && els.map.clientWidth !== els.mapW) schedRender(); }).observe(map);
   new ResizeObserver(() => { if (S.shown && S.view === 'list' && els.list.clientWidth !== els.listW) schedRender(); }).observe(list);
   new ResizeObserver(() => { if (S.shown && S.mode === 'geo' && els.g && els.geo.clientWidth !== els.g.W) schedRender(); }).observe(geo);
-  // the open-market pulse ('fancy') stops while the map is off screen or the browser tab is hidden
-  if ('IntersectionObserver' in window) new IntersectionObserver(es => { for (const e of es) S.offscreen = !e.isIntersecting; root.classList.toggle('kw-paused', document.hidden || !!S.offscreen); }).observe(geo);
   geo.addEventListener('click', onGeoClick);
   geo.addEventListener('keydown', onGeoKey);
   geo.addEventListener('focusin', e => { const b = e.target.closest('.kw-gb'); if (b) setGeoFocus(b.dataset.f); });
@@ -15412,7 +15421,7 @@ function render() {
     els.map.style.height = '';
     els.map.classList.add('kw-msgmode');
     els.map.replaceChildren(err ? msgBox(K.fail, errText(err), true) : msgBox('불러오는 중이에요…', `${K.title} 시세를 받아 오고 있어요.`, false, true));
-    put($('.kw-sum', els.bar),);
+    const sum = $('.kw-sum', els.bar); sum.__sig = ''; put(sum);
     $('.kw-time', els.bar).replaceChildren();
     els.legend.replaceChildren();
     els.rank.replaceChildren(h('p', { class: 'kw-none', text: err ? '시세를 받지 못했어요' : '불러오는 중이에요…' }));
@@ -15467,15 +15476,28 @@ function renderBar(d, err) {
   // 지표: the counts are the commodities' (a yield or a won rate going up is not the same kind of "오른"), and say so
   const mixed = d.all.some(isMacro);
   for (const it of d.all) { if (isMacro(it)) continue; if (it.status === 'OPEN') open++; if (isRef(it) || it.ratio == null) continue; if (it.ratio > 0) up++; else if (it.ratio < 0) dn++; else fl++; }
-  put($('.kw-sum', els.bar),
-    mixed ? h('span', { class: 'kw-sumk', text: '원자재' }) : null,
-    h('span', {}, '오른 ', h('b', { class: 'up', text: String(up) })), h('span', { class: 'kw-dot', 'aria-hidden': 'true', text: '·' }),
-    h('span', {}, '내린 ', h('b', { class: 'dn', text: String(dn) })),
-    fl ? [h('span', { class: 'kw-dot', 'aria-hidden': 'true', text: '·' }), h('span', {}, '보합 ', h('b', { class: 'flat', text: String(fl) }))] : null,
-    h('span', { class: 'kw-dot', 'aria-hidden': 'true', text: '·' }), h('span', { text: open ? `장중 ${open}` : '모두 마감' }));
+  // the counts are kept per element and swap in place when a refresh changes them (§6-4: a count that grew comes in from below);
+  // a new shape (another tab, 보합 appears) is drawn at once
+  const sum = $('.kw-sum', els.bar), sig = [S.kind, mixed, !!fl].join('|');
+  const dot = () => h('span', { class: 'kw-dot', 'aria-hidden': 'true', text: '·' });
+  if (sum.__sig !== sig) {
+    sum.__sig = sig;
+    put(sum,
+      mixed ? h('span', { class: 'kw-sumk', text: '원자재' }) : null,
+      h('span', {}, '오른 ', h('b', { class: 'up', 'data-n': 'up' })), dot(),
+      h('span', {}, '내린 ', h('b', { class: 'dn', 'data-n': 'dn' })),
+      fl ? [dot(), h('span', {}, '보합 ', h('b', { class: 'flat', 'data-n': 'fl' }))] : null,
+      dot(), h('span', { 'data-n': 'open' }));
+  }
+  const n = k => sum.querySelector(`[data-n="${k}"]`);
+  swapTo(n('up'), String(up), up);
+  swapTo(n('dn'), String(dn), dn);
+  if (fl) swapTo(n('fl'), String(fl), fl);
+  swapTo(n('open'), open ? `장중 ${open}` : '모두 마감', open);
   const t = $('.kw-time', els.bar);
   const at = d.asOf ? new Date(d.asOf) : new Date(S.at[S.kind]);
-  if (err) t.replaceChildren(h('span', { class: 'kw-stale', text: `새로 받지 못했어요 · ${isNaN(at) ? '' : fmtKst.format(at) + ' 값'}` }));
+  // a refresh that failed: ! + words (design.md §2 --fail-dot), the last good time
+  if (err) t.replaceChildren(h('span', { class: 'kw-stale' }, uiWarn(), `새로 받지 못했어요 · ${isNaN(at) ? '' : fmtKst.format(at) + ' 값'}`));
   else t.replaceChildren(h('span', { text: isNaN(at) ? '' : `${fmtKst.format(at)} 기준` }));
 }
 
@@ -15600,8 +15622,8 @@ function fit(T, w, hh, capH) {
   });
   return best;                                           // null = no label
 }
-// chip candidates, longest first; the last one is a bare dot (amber = 장중, ring = 마감) for tiles too small for words
-const CHIP_H = 15, CHIP_FS = 10.5, DOT = 13;
+// chip candidates, longest first; the last one is a bare dot (--live = 장중, ring = 마감) for tiles too small for words
+const CHIP_H = 15, CHIP_FS = 11, DOT = 13;                // --fs-xs in a 15px chip (world.css .kw-chip)
 function chipCands(it) {
   const open = it.status === 'OPEN';
   const texts = !open ? ['마감'] : it.delayed ? [`장중 · ${dlText(it.delayed)}`, `장중 · ${dlText(it.delayed).replace(' 지연', '')}`, '장중'] : ['장중'];
@@ -15802,8 +15824,10 @@ const PLACE = {
   BVSP: '상파울루', MXX: '멕시코시티', KOSPI: '서울', KOSDAQ: '서울',
 };
 // one-line rows: name (≥ NAME_MIN) · state 64 · value · change · chip 66 · bar 48, gaps 8, row padding 12, section 14 (CSS)
+// the value / change cells' type (world.css: .kw-lr --fs-md · .kw-lc --fs-sm · two-line rows' value --fs-lg)
+const FS_V = 13, FS_C = 12, FS_VC = 14;
 const NAME_MIN = 118, FIXED_W = 64 + 66 + 48 + 5 * 8 + 12 + 14, MIN_COL_C = 300, COL_GAP = 12;
-const ROW_H = 36, ROW_HC = 52, HEAD_H = 42, SEC_PAD = 12;
+const ROW_H = 36, ROW_HC = 44, HEAD_H = 41, SEC_PAD = 12;      // --h-row rows (two-line rows 44 on phones), the head = --h-row + rule + --space-2
 const placeOf = it => PLACE[it.key] || cityOf(it, null) || '';
 function listSub(it, flat) {
   if (isFund(it)) return FUND_SUB[it.fkey] || '';
@@ -15941,19 +15965,14 @@ function rowEl(it) {
       h('span', { class: 'kw-ls', 'aria-hidden': 'true' }, h('i', { class: 'kw-sd' }), h('span', { class: 'st' }), h('span', { class: 'sub2' })),
       h('span', { class: 'kw-lv', 'aria-hidden': 'true' }),
       h('span', { class: 'kw-lc', 'aria-hidden': 'true' }),
-      h('span', { class: 'kw-lp', 'aria-hidden': 'true' }, h('span', { class: 'kw-pchip' })),
+      h('span', { class: 'kw-lp', 'aria-hidden': 'true' }, h('span', { class: 'kw-pchip' }, h('span', { class: 'kw-pt' }))),
       h('span', { class: 'kw-lb', 'aria-hidden': 'true' }, h('i')));
-    el.addEventListener('animationend', e => e.target.classList.remove('kw-fl'));   // a moved row must not fade again
     els.rows.set(it.key, el);
   }
   return el;
 }
-function flash(el) {
-  if (calm()) return;
-  el.classList.remove('kw-fl');
-  void el.offsetWidth;                                   // restart the fade when values change on consecutive refreshes
-  el.classList.add('kw-fl');
-}
+// the number a chip's text stands for (its direction when it changes): bp for a yield, %p for a share, else the % change
+const chipNum = it => isRate(it) ? bpOf(it) : isFundPct(it) ? it.change : it.ratio;
 function fillRow(el, it, sub, rank, R) {
   const [ln, ls, lv, lc, lp, lb] = el.children;
   const [rk, nm, sb] = ln.children;
@@ -15973,19 +15992,17 @@ function fillRow(el, it, sub, rank, R) {
   ls.children[2].textContent = ref ? '' : sub || '';
   // a yield: the chip carries its change in bp, the change column stays empty (the same number twice says nothing); same for a share in %
   const v = valText(it), c = chipIsChange(it) ? '' : chgText(it), p = chipText(it);
-  const was = el.__vals;
-  lv.textContent = v;
-  lc.textContent = c;
-  lc.className = 'kw-lc ' + (ref || it.change == null ? 'flat' : cls(it.change));
+  // values that changed since the last refresh swap in place (KH.ui.swap, design.md §6-4: up from below, down from above); the
+  // first fill of a row and a redraw with the same numbers are written at once (P4). Colours and bars land at once (data, no tween)
+  swapTo(lv, v, it.value);
+  lc.className = 'kw-lc ' + (ref || it.change == null ? 'flat' : cls(it.change));   // before the swap: it adds its own class
+  swapTo(lc, c, it.change);
   const chip = lp.firstChild;
-  chip.textContent = p;
+  swapTo(chip.firstChild, p, chipNum(it));
   const col = ref ? null : colorOf(it);
   chip.style.backgroundColor = col || '';
   chip.style.color = col ? inkOn(col) : '';
   chip.className = 'kw-pchip' + (ref ? ' ref' : it.ratio == null ? ' nod' : '');
-  // a short fade on values that changed since the last refresh (none under reduced motion)
-  if (was && was.v !== v) flash(lv);
-  if (was && was.p !== p) flash(chip);
   el.__col = col;
   const bar = lb.firstChild;
   const frac = it.ratio == null || !R ? 0 : Math.min(Math.abs(it.ratio) / R, 1) * 50;
@@ -15995,7 +16012,6 @@ function fillRow(el, it, sub, rank, R) {
   bar.style.backgroundColor = ref ? '' : col || '';
   bar.className = ref ? 'ref' : '';
   el.classList.toggle('ref', ref);
-  el.__vals = { v, p };
   el.title = it.name;
   el.setAttribute('aria-label', ariaOf(it) + (rank ? `, ${rank}위` : ''));
   el.classList.toggle('sel', !!(S.detail && S.detail.key === it.key));
@@ -16028,10 +16044,10 @@ function renderList(d) {
   // value / change columns: as wide as the widest text, so numbers line up across sections and columns
   let vw = 0, cw = 0;
   for (const it of d.all) { vw = Math.max(vw, tw(valText(it), 500)); if (!chipIsChange(it)) cw = Math.max(cw, tw(chgText(it), 500)); }   // a yield's change column is empty
-  const geo = listGeom(W, NAME_MIN + FIXED_W + Math.ceil(vw * 13.5 + 4) + Math.ceil(cw * 12.5 + 4));
+  const geo = listGeom(W, NAME_MIN + FIXED_W + Math.ceil(vw * FS_V + 4) + Math.ceil(cw * FS_C + 4));
   const blocks = buildColumns(d, geo);
   const cols = blocks.flatMap(b => b.cols);
-  const fsV = geo.compact ? 14 : 13.5, fsC = geo.compact ? 12 : 12.5;
+  const fsV = geo.compact ? FS_VC : FS_V, fsC = FS_C;
   L.style.setProperty('--kw-n', String(Math.max(1, ...blocks.map(b => b.cols.length))));
   L.style.setProperty('--kw-vw', Math.ceil(vw * fsV + 4) + 'px');
   L.style.setProperty('--kw-cw', Math.ceil(cw * fsC + 4) + 'px');
@@ -16304,7 +16320,7 @@ function buildGeo(d, W, narrow, G, sig) {
   const byId = new Map(G.cs.map(x => [x.c.id, x]));
   const s = svgEl('svg', { class: 'kw-gsvg', width: W, height: H, viewBox: `0 0 ${W} ${H}`, 'aria-hidden': 'true' });
   s.append(svgEl('path', { class: 'kw-gsea', d: path({ type: 'Sphere' }) }), svgEl('path', { class: 'kw-ggrat', d: path(d3.geoGraticule10()) }));
-  // layers, bottom to top (motion brief (e)): fills → night → borders → open-market glow → selection / hover → leader lines → markers
+  // layers, bottom to top: fills → night → borders → open markets (a flat --live outline) → selection / hover → leader lines → markers
   const land = svgEl('g', { class: 'kw-gland' });
   const paths = new Map(), dOf = new Map(), border = [];
   for (const f of GEO.features) {
@@ -16317,26 +16333,23 @@ function buildGeo(d, W, narrow, G, sig) {
     land.append(p);
   }
   const layer = c => svgEl('g', { class: c });
-  const night = layer('kw-gnight'), glow = layer('kw-gglow'), selG = layer('kw-gsel'), hov = layer('kw-ghov'), lines = layer('kw-glines'), marks = layer('kw-gmarks');
-  glow.append(layer('kw-ggb'), layer('kw-ggl'));
-  s.append(land, night, svgEl('path', { class: 'kw-gbord', d: border.join('') }), glow, selG, hov, lines, marks);
+  const night = layer('kw-gnight'), openG = layer('kw-gopen'), selG = layer('kw-gsel'), hov = layer('kw-ghov'), lines = layer('kw-glines'), marks = layer('kw-gmarks');
+  s.append(land, night, svgEl('path', { class: 'kw-gbord', d: border.join('') }), openG, selG, hov, lines, marks);
   const hovP = svgEl('path', {});
   hov.append(hovP);
-  land.addEventListener('pointerover', e => { const p = e.target.closest('.kw-cp.has'); hovP.setAttribute('d', p ? dOf.get(p.dataset.c) || '' : ''); });
+  // the hover outline follows a mouse only (design.md §8: no hover look left behind by a finger)
+  land.addEventListener('pointerover', e => { if (e.pointerType && e.pointerType !== 'mouse') return; const p = e.target.closest('.kw-cp.has'); hovP.setAttribute('d', p ? dOf.get(p.dataset.c) || '' : ''); });
   land.addEventListener('pointerleave', () => hovP.setAttribute('d', ''));
   const labs = h('div', { class: 'kw-glabs' });
   const btns = new Map(), dots = new Map(), inLabs = [], colList = [];
   const cols = {};
-  // a market marker: a 5 px dot (amber = open, hollow grey = closed) and, behind it, the ring that pulses in 'fancy'
-  const delay = x => (((x.c.at[0] + 180) / 360) * 2.4).toFixed(2) + 's';       // west → east wave
+  // a market marker: a 5 px dot (--live = open, hollow grey = closed) — flat, nothing pulses (design.md §10 ③)
   const addDot = (x, ax, ay, big) => {
-    const pr = svgEl('circle', { class: 'kw-gp', cx: fx1(ax), cy: fx1(ay), r: big ? 4.5 : 2.5 });
-    pr.style.animationDelay = delay(x);
     const dot = svgEl('circle', { class: big ? 'kw-gmk' : 'kw-gdot', cx: fx1(ax), cy: fx1(ay), r: big ? (narrow ? 3.5 : 4.5) : narrow ? 2.2 : 2.5 });
     dot.dataset.c = x.c.id;
     if (big) dot.append(svgEl('title', {}));
-    marks.append(pr, dot);
-    dots.set(x.c.id, { dot, pr });
+    marks.append(dot);
+    dots.set(x.c.id, { dot });
   };
   for (const x of G.cs) {
     const [ax, ay] = P(x.c.at) || [NaN, NaN];
@@ -16345,12 +16358,12 @@ function buildGeo(d, W, narrow, G, sig) {
     if (narrow) {
       // phones: the big markets carry a % on the map, the others a marker; the buttons under the map are the way in
       if (!x.c.big) { if (!x.c.marker && !x.c.area) addDot(x, ax, ay, false); continue; }
-      const b = h('span', { class: 'kw-gl in sm', 'data-c': x.c.id, 'aria-hidden': 'true', style: `--pd:${delay(x)}` }, h('i', { class: 'kw-sd' }), h('span', { class: 'p' }));
+      const b = h('span', { class: 'kw-gl in sm', 'data-c': x.c.id, 'aria-hidden': 'true' }, h('i', { class: 'kw-sd' }), h('span', { class: 'p' }));
       labs.append(b); btns.set(x.c.id, b); inLabs.push({ el: b, x: ax, y: ay });
       continue;
     }
     if (x.c.big && !(mid && x.c.id === '360')) {
-      const b = h('button', { type: 'button', class: 'kw-gb kw-gl in', 'data-c': x.c.id, 'data-f': 'c' + x.c.id, tabindex: '-1', style: `--pd:${delay(x)}` },
+      const b = h('button', { type: 'button', class: 'kw-gb kw-gl in', 'data-c': x.c.id, 'data-f': 'c' + x.c.id, tabindex: '-1' },
         h('span', { class: 'n' }, h('i', { class: 'kw-sd' }), h('span', { class: 't' })), h('span', { class: 'p' }));
       labs.append(b); btns.set(x.c.id, b); inLabs.push({ el: b, x: ax, y: ay });
       continue;
@@ -16376,7 +16389,7 @@ function buildGeo(d, W, narrow, G, sig) {
   const offBelow = narrow || mid;
   const off = h('div', { class: 'kw-goff' + (offBelow ? ' below' : '') }, h('div', { class: 'kw-goh', text: '미국 선물 및 변동성 지수' }),
     G.off.map(it => h('button', { type: 'button', class: 'kw-gb kw-go', 'data-k': it.key, 'data-f': 'k' + it.key, tabindex: '-1' },
-      h('i', { class: 'kw-sd' }), h('span', { class: 't' }, it.name), h('span', { class: 'kw-pchip sm' }))));
+      h('i', { class: 'kw-sd' }), h('span', { class: 't' }, it.name), h('span', { class: 'kw-pchip sm' }, h('span', { class: 'kw-pt' })))));
   const mapBox = h('div', { class: 'kw-gmap', style: `height:${H}px;--gs:${Math.max(1, Math.min(1.22, W / 1150)).toFixed(3)}` }, s, labs, offBelow || !G.off.length ? null : off);
   // phones: every country as a tap target under the map
   const grid = narrow ? h('div', { class: 'kw-ggrid', role: 'group', 'aria-label': '나라별 대표 지수' }, G.cs.map(x =>
@@ -16385,8 +16398,8 @@ function buildGeo(d, W, narrow, G, sig) {
   put(els.geo, mapBox, grid, offBelow && G.off.length ? off : null);
   els.geo.classList.toggle('narrow', narrow);
   const first = !els.g;
-  els.g = { sig, W, H, P, narrow, paths, dOf, btns, dots, night, glow, selG, lines, inLabs, cols: colList, cs: G.cs, off: G.off, openSig: null, was: new Map(), nightMin: -1 };
-  // 'fancy': the first time the map opens, countries → night → markers fade in (motion brief (e))
+  els.g = { sig, W, H, P, narrow, paths, dOf, btns, dots, night, openG, selG, lines, inLabs, cols: colList, cs: G.cs, off: G.off, openSig: null, was: new Map(), just: new Set(), nightMin: -1 };
+  // 화려하게: the first time the map opens, countries → night → markers fade in, 40 → 30 ms apart (design.md §6-2, a rare first appearance)
   if (first && motion() === 'fancy') {
     mapBox.classList.add('kw-gin');
     setTimeout(() => mapBox.classList.remove('kw-gin'), 1200);
@@ -16415,10 +16428,8 @@ function renderGeo(d) {
     if (m) {
       if (m.dot.classList.contains('kw-gmk')) { m.dot.style.fill = col; m.dot.firstChild.textContent = tip; }
       m.dot.classList.toggle('open', open); m.dot.classList.toggle('sel', sel);
-      m.pr.classList.toggle('on', open);
-      // a market that just opened rings three times first (only seen in 'fancy', where the rings move)
-      if (open && g.was.get(x.c.id) === false) { m.pr.classList.add('just'); setTimeout(() => m.pr.classList.remove('just'), 2500); }
     }
+    if (open && g.was.get(x.c.id) === false) g.just.add(x.c.id);   // it opened since the last answer (화려하게: its outline fades in once)
     g.was.set(x.c.id, open);
     const aria = `${x.c.name} ${it.name} ${valText(it)}, ${pct(it.ratio)}, ${open ? '장중' : '마감'}${x.items.length > 1 ? `, 항목 ${x.items.length}개` : ''}`;
     const b = g.btns.get(x.c.id);
@@ -16426,8 +16437,8 @@ function renderGeo(d) {
       if (b.classList.contains('in')) labInk(b, col);
       const t = b.querySelector('.t'), pp = b.querySelector('.p'), dot = b.querySelector('.kw-sd');
       if (t) t.textContent = x.c.name;
-      pp.textContent = pct(it.ratio);
       if (b.classList.contains('chip')) { pp.className = 'p ' + (it.ratio == null ? 'flat' : cls(it.ratio)); b.style.setProperty('--c', col); }
+      swapTo(pp, pct(it.ratio), it.ratio);                 // a refresh that moved the % swaps it in place (§6-4)
       if (dot) dot.className = 'kw-sd ' + (open ? 'open' : 'close');
       b.classList.toggle('sel', sel);
       if (b.tagName === 'BUTTON') { b.setAttribute('aria-label', aria); b.title = tip; }
@@ -16436,25 +16447,25 @@ function renderGeo(d) {
     if (c) {
       c.querySelector('.sw').style.background = col;
       c.querySelector('small').textContent = `${shortIdx(x.c, it)}${open ? ' · 장중' : ''}`;
-      const pp = c.querySelector('.p'); pp.textContent = pct(it.ratio); pp.className = 'p ' + (it.ratio == null ? 'flat' : cls(it.ratio));
+      const pp = c.querySelector('.p'); pp.className = 'p ' + (it.ratio == null ? 'flat' : cls(it.ratio)); swapTo(pp, pct(it.ratio), it.ratio);
       c.classList.toggle('sel', sel);
       c.setAttribute('aria-label', aria);
     }
   }
-  // open markets: a static amber outline + soft glow, redrawn only when the set changes
+  // open markets: a flat 1.5px --live outline (no blur, no pulse — design.md §10 ③), redrawn only when the set changes; a market
+  // that just opened fades in once in 화려하게 (a real change, P4), the others stay as they are
   const osig = openIds.join(',');
   if (g.openSig !== osig) {
     g.openSig = osig;
-    const [gb, gl] = g.glow.children;
-    gb.replaceChildren(...openIds.filter(id => g.dOf.has(id)).map(id => svgEl('path', { d: g.dOf.get(id) })));
-    gl.replaceChildren(...openIds.filter(id => g.dOf.has(id)).map(id => svgEl('path', { d: g.dOf.get(id), 'data-c': id })));
+    g.openG.replaceChildren(...openIds.filter(id => g.dOf.has(id)).map(id => svgEl('path', { d: g.dOf.get(id), 'data-c': id, class: g.just.has(id) ? 'in' : '' })));
   }
+  g.just.clear();
   syncGeoSel();
   for (const b of els.geo.querySelectorAll('.kw-go')) {
     const it = d.byKey.get(b.dataset.k);
     if (!it) continue;
     const ref = isRef(it), col = ref ? null : colorOf(it), chip = b.querySelector('.kw-pchip');
-    chip.textContent = pct(it.ratio);
+    swapTo(chip.firstChild, pct(it.ratio), it.ratio);
     chip.className = 'kw-pchip sm' + (ref ? ' ref' : '');
     chip.style.backgroundColor = col || '';
     chip.style.color = col ? inkOn(col) : '';
@@ -16782,12 +16793,12 @@ function fillDetail(full) {
     : fx ? (FX_NOTE[it.key] || KRW_NOTE) + (it.eod ? ' 레피니티브 종가라 하루에 한 번 바뀌어요.' : '')
       + (it.calc ? ' 원/달러를 1엔당 원화로 나눈 계산값이고, 차트는 레피니티브 일봉 종가예요.' : '')
     : D.kind === 'commodity' ? '근월물 선물 가격이에요. 거래소 시각 기준으로 하루가 바뀌어요.' : null;
-  const head = isFund(it) ? fundHead(it) : h('div', { class: 'kw-dh' },
+  const head = isFund(it) ? fundHead(it) : h('div', { class: 'kw-dh', 'data-k': it.key },
     h('div', { class: 'kw-path', text: [it.group, city && city !== it.group ? city : null].filter(Boolean).join(' · ') }),
     h('div', { class: 'kw-nmrow' }, h('i', { class: 'kw-sw', style: `background:${colorOf(it)}` }), h('b', { id: 'kw-dt', text: it.name }),
       h('span', { class: 'kw-st ' + (it.status === 'OPEN' ? 'open' : 'close'), text: it.status === 'OPEN' ? '장중' : '마감' })),
-    h('div', { class: 'kw-px' }, h('b', { text: valText(it) }), u ? h('small', { text: u[0] }) : null,
-      h('span', { class: (rate ? cls(it.change) : cls(it.ratio)), text: chgLine })),
+    h('div', { class: 'kw-px' }, bigNum(valText(it), it.value), u ? h('small', { text: u[0] }) : null,
+      h('span', { class: 'kw-pc2 ' + (rate ? cls(it.change) : cls(it.ratio)), text: chgLine })),
     h('dl', { class: 'kw-meta' },
       h('dt', { text: '시세' }), h('dd', { text: `${it.status === 'OPEN' ? '장중' : '마감'} · ${delayText(it)}${it.calc ? ' · 계산값' : ''}` }),
       h('dt', { text: it.eod ? '기준일' : '현지 거래 시각' }), h('dd', {}, localTxt, it.eod ? null : h('small', { text: ` ${city || ''} ${offText(it)}`.trimEnd() })),
@@ -16796,6 +16807,7 @@ function fillDetail(full) {
       h('dt', { text: '단위' }), h('dd', { text: unitTxt }),
       it.via ? [h('dt', { text: '기준' }), h('dd', { text: it.via })] : null),
     note ? h('p', { class: 'kw-note', text: note }) : null);
+  { const pc = head.querySelector('.kw-pc2'); if (pc) { pc.__kwT = pc.textContent; pc.__kwN = chgNum(it); } }
   // a country with several indices: one button each, the shown one pressed
   const peers = D.peers ? h('div', { class: 'kw-peers', role: 'group', 'aria-label': `${D.place || ''} 지수`.trim() },
     D.place ? h('b', { class: 'kw-peers-h', text: D.place }) : null,
@@ -16805,28 +16817,62 @@ function fillDetail(full) {
     const chartBox = h('div', { class: 'kw-chart' });
     put(sheet,   // put(): peers is null for 원자재 — native replaceChildren would print "null"
       h('div', { class: 'kw-grab', 'aria-hidden': 'true' }),
-      h('button', { type: 'button', class: 'kw-x', 'aria-label': '닫기', onclick: () => closeDetail(true) }, '×'),
+      h('button', { type: 'button', class: 'kw-x', 'aria-label': '닫기', onclick: () => closeDetail(true) }, closeIcon()),
       peers, head, todayBox(D.today, it), chartBox,
       h('p', { class: 'kw-dsrc', text: srcLine(it) }));
     sheet.classList.toggle('has-peers', !!peers);
   } else {
     const old = $('.kw-peers', sheet);
     if (old && peers) { const f = old.contains(document.activeElement) ? document.activeElement.dataset.k : null; sheet.replaceChild(peers, old); if (f) { const b = peers.querySelector(`button[data-k="${CSS.escape(f)}"]`); if (b) b.focus({ preventScroll: true }); } }
-    sheet.replaceChild(head, $('.kw-dh', sheet));
+    const oldHead = $('.kw-dh', sheet);
+    // the same item again (a refresh while the sheet is open): its number and change line stay and move to the new values — the big
+    // number rolls in 화려하게, swaps otherwise (design.md §6-2 · §6-4); the rest of the head is redrawn at once
+    if (oldHead && oldHead.dataset.k === head.dataset.k) {
+      const ob = $('.kw-px b', oldHead), nb = $('.kw-px b', head), oc = $('.kw-pc2', oldHead), nc = $('.kw-pc2', head);
+      if (ob && nb) { const t = nb.__kwT, n = nb.__kwN; nb.replaceWith(ob); setBigNum(ob, t, n); }
+      if (oc && nc) { const t = nc.textContent; oc.className = nc.className; nc.replaceWith(oc); swapTo(oc, t, chgNum(it)); }
+    }
+    sheet.replaceChild(head, oldHead);
     const src = $('.kw-dsrc', sheet); if (src) src.textContent = srcLine(it);
     if (S.detail.chart && S.detail.chart.bars) drawChart();   // its last point is the live value
   }
 }
 
+/* the sheet's big number (design.md §3 결정 ③): the whole part at --fs-num, the decimals and the unit one step smaller (.kw-pf) —
+   "6,846" + ".51", "3" + ".756%", "99" + ".81조원". Two cells, so 화려하게 rolls each one's changed digits (KH.ui.roll: changed digits
+   only, the short way, the rightmost first, no overshoot) and 기본 swaps them (KH.ui.swap, the way the value went); 줄이기 at once */
+const splitNum = t => { const m = /^(.*?)(\.\d+)?([^\d.]*)$/.exec(String(t)); return m ? [m[1], (m[2] || '') + (m[3] || '')] : [String(t), '']; };
+function bigNum(text, num) {
+  const [a, b] = splitNum(text);
+  const el = h('b', {}, h('span', { class: 'kw-pi', text: a }), h('span', { class: 'kw-pf', text: b }));
+  el.__kwT = text; el.__kwN = num;
+  return el;
+}
+function setBigNum(el, text, num) {
+  if (!el || text == null || el.__kwT === text) return;
+  const wasN = el.__kwN;
+  el.__kwT = text; el.__kwN = num;
+  const dir = num != null && wasN != null && isFinite(num) && isFinite(wasN) ? Math.sign(num - wasN) : 0;
+  const [a, b] = splitNum(text), [pi, pf] = el.children;
+  const roll = motion() === 'fancy' && UI && typeof UI.roll === 'function';
+  for (const [cell, t] of [[pi, a], [pf, b]]) {
+    if (cell.textContent === t) continue;
+    if (roll) UI.roll(cell, t, dir);
+    else if (UI && typeof UI.swap === 'function') UI.swap(cell, t, cell.textContent, dir);
+    else cell.textContent = t;
+  }
+}
+// the number a sheet's change line stands for (its direction): bp for a yield, else the change
+const chgNum = it => isRate(it) ? bpOf(it) : it.change;
 // 증시 자금 in the sheet: the business day it is for, the one before, units, where it comes from; no 장중 / 마감
 function fundHead(it) {
   const pctU = isFundPct(it);
   const chgLine = pctU ? fundChg(it) : `${fundChg(it)}${it.ratio != null ? ` (${pct(it.ratio)})` : ''}`;
-  return h('div', { class: 'kw-dh' },
+  return h('div', { class: 'kw-dh', 'data-k': it.key },
     h('div', { class: 'kw-path', text: '증시 자금 · 금융투자협회' }),
     h('div', { class: 'kw-nmrow' }, h('i', { class: 'kw-sw', style: `background:${colorOf(it)}` }), h('b', { id: 'kw-dt', text: it.name }),
       h('span', { class: 'kw-st close', text: '하루 한 번' })),
-    h('div', { class: 'kw-px' }, h('b', { text: valText(it) }), h('span', { class: it.change == null ? 'flat' : cls(it.change), text: chgLine })),
+    h('div', { class: 'kw-px' }, bigNum(valText(it), it.value), h('span', { class: 'kw-pc2 ' + (it.change == null ? 'flat' : cls(it.change)), text: chgLine })),
     h('dl', { class: 'kw-meta' },
       h('dt', { text: '기준일' }), h('dd', { text: mdText(it.basDt, true) || '—' }),
       it.prev != null ? [h('dt', { text: '전 영업일' }), h('dd', {}, valText(Object.assign({}, it, { value: it.prev })), it.prevDt ? h('small', { text: ` ${mdText(it.prevDt, true)}` }) : null)] : null,
@@ -17051,7 +17097,6 @@ function announce(kind, ok) {
 }
 document.addEventListener('visibilitychange', () => {
   if (!S.shown || !LIVE) return;
-  root.classList.toggle('kw-paused', document.hidden || !!S.offscreen);
   if (document.hidden) { clearTimeout(S.timer); S.timer = 0; S.seq++; S.busy = null; if (S.ac) S.ac.abort(); clearTimeout(nightT); nightT = 0; return; }
   if (S.mode === 'geo') { drawNight(); schedNight(); }
   const age = Date.now() - (S.at[S.kind] || 0);

@@ -272,9 +272,25 @@ const calm = () => motion() === 'reduced';
 function syncMotion() {
   if (!root) return;
   const m = motion();
-  root.classList.toggle('kw-fx', m === 'fancy');            // new effects (open-market pulse, map intro) only here
-  root.classList.toggle('kw-rm', m === 'reduced');          // no transitions at all
+  // 화려하게 only: the map's first-opening sequence, a market that just opened fading in, the sheet's number roll. The lengths
+  // themselves are the template's --sp-* tokens, which html[data-motion="reduced"] sets to 0 (one switch, design.md §6-3) — the
+  // classes only say which level this module drew for
+  root.classList.toggle('kw-fx', m === 'fancy');
+  root.classList.toggle('kw-rm', m === 'reduced');
   if (sheet) sheet.classList.toggle('kw-noanim', m === 'reduced');
+}
+/* a value written in place (design.md §6-4, P4 · P9): the template's KH.ui.swap — the old text leaves, the new one comes in from below
+   when the number rose and from above when it fell. Only a real change moves: the first write, a redraw with the same text or a
+   different item (quiet) is written at once. `num` = the number the text stands for (its direction), null = a label (goes up) */
+function swapTo(el, text, num, quiet) {
+  text = String(text);
+  const was = el.__kwT, wasN = el.__kwN;
+  el.__kwT = text; el.__kwN = num;
+  if (!UI || typeof UI.swap !== 'function') { if (el.textContent !== text) el.textContent = text; return; }
+  if (was === text && el.textContent === text) return;
+  if (quiet || was == null) { UI.swap(el, text, text); return; }     // from === text: written at once (a running swap ends first)
+  const dir = num != null && wasN != null && isFinite(num) && isFinite(wasN) ? Math.sign(num - wasN) : 0;
+  UI.swap(el, text, was, dir);
 }
 
 /* living controls (docs/standards/controls.md): the template's KH.ui — segments with one raised indicator (seg), the shared
@@ -283,6 +299,10 @@ function syncMotion() {
 const UI = KH.ui && typeof KH.ui.retry === 'function' ? KH.ui : null;
 const uiSeg = el => { if (UI && typeof UI.seg === 'function') UI.seg(el); return el; };
 const uiSpin = () => (UI && typeof UI.icon === 'function' ? UI.icon('spin') : null);
+const uiWarn = () => (UI && typeof UI.icon === 'function' ? UI.icon('warn') : h('span', { 'aria-hidden': 'true', text: '!' }));
+/* the one close icon (design.md §4 · §5): SVG ×, 1.75px on screen whatever its box, round caps, currentColor */
+const closeIcon = () => svg('svg', { viewBox: '0 0 20 20', width: '16', height: '16', 'aria-hidden': 'true', fill: 'none', stroke: 'currentColor', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' },
+  svg('path', { d: 'M5 5l10 10M15 5 5 15', 'stroke-width': '1.75', 'vector-effect': 'non-scaling-stroke' }));
 const failedW = new Set();
 function retryKey(area, run, done, cls, alive) {
   cls = 'kw-retry' + (cls ? ' ' + cls : '');
@@ -433,8 +453,6 @@ function scaffold() {
   new ResizeObserver(() => { if (S.shown && S.view === 'map' && els.map.clientWidth !== els.mapW) schedRender(); }).observe(map);
   new ResizeObserver(() => { if (S.shown && S.view === 'list' && els.list.clientWidth !== els.listW) schedRender(); }).observe(list);
   new ResizeObserver(() => { if (S.shown && S.mode === 'geo' && els.g && els.geo.clientWidth !== els.g.W) schedRender(); }).observe(geo);
-  // the open-market pulse ('fancy') stops while the map is off screen or the browser tab is hidden
-  if ('IntersectionObserver' in window) new IntersectionObserver(es => { for (const e of es) S.offscreen = !e.isIntersecting; root.classList.toggle('kw-paused', document.hidden || !!S.offscreen); }).observe(geo);
   geo.addEventListener('click', onGeoClick);
   geo.addEventListener('keydown', onGeoKey);
   geo.addEventListener('focusin', e => { const b = e.target.closest('.kw-gb'); if (b) setGeoFocus(b.dataset.f); });
@@ -501,7 +519,7 @@ function render() {
     els.map.style.height = '';
     els.map.classList.add('kw-msgmode');
     els.map.replaceChildren(err ? msgBox(K.fail, errText(err), true) : msgBox('불러오는 중이에요…', `${K.title} 시세를 받아 오고 있어요.`, false, true));
-    put($('.kw-sum', els.bar),);
+    const sum = $('.kw-sum', els.bar); sum.__sig = ''; put(sum);
     $('.kw-time', els.bar).replaceChildren();
     els.legend.replaceChildren();
     els.rank.replaceChildren(h('p', { class: 'kw-none', text: err ? '시세를 받지 못했어요' : '불러오는 중이에요…' }));
@@ -556,15 +574,28 @@ function renderBar(d, err) {
   // 지표: the counts are the commodities' (a yield or a won rate going up is not the same kind of "오른"), and say so
   const mixed = d.all.some(isMacro);
   for (const it of d.all) { if (isMacro(it)) continue; if (it.status === 'OPEN') open++; if (isRef(it) || it.ratio == null) continue; if (it.ratio > 0) up++; else if (it.ratio < 0) dn++; else fl++; }
-  put($('.kw-sum', els.bar),
-    mixed ? h('span', { class: 'kw-sumk', text: '원자재' }) : null,
-    h('span', {}, '오른 ', h('b', { class: 'up', text: String(up) })), h('span', { class: 'kw-dot', 'aria-hidden': 'true', text: '·' }),
-    h('span', {}, '내린 ', h('b', { class: 'dn', text: String(dn) })),
-    fl ? [h('span', { class: 'kw-dot', 'aria-hidden': 'true', text: '·' }), h('span', {}, '보합 ', h('b', { class: 'flat', text: String(fl) }))] : null,
-    h('span', { class: 'kw-dot', 'aria-hidden': 'true', text: '·' }), h('span', { text: open ? `장중 ${open}` : '모두 마감' }));
+  // the counts are kept per element and swap in place when a refresh changes them (§6-4: a count that grew comes in from below);
+  // a new shape (another tab, 보합 appears) is drawn at once
+  const sum = $('.kw-sum', els.bar), sig = [S.kind, mixed, !!fl].join('|');
+  const dot = () => h('span', { class: 'kw-dot', 'aria-hidden': 'true', text: '·' });
+  if (sum.__sig !== sig) {
+    sum.__sig = sig;
+    put(sum,
+      mixed ? h('span', { class: 'kw-sumk', text: '원자재' }) : null,
+      h('span', {}, '오른 ', h('b', { class: 'up', 'data-n': 'up' })), dot(),
+      h('span', {}, '내린 ', h('b', { class: 'dn', 'data-n': 'dn' })),
+      fl ? [dot(), h('span', {}, '보합 ', h('b', { class: 'flat', 'data-n': 'fl' }))] : null,
+      dot(), h('span', { 'data-n': 'open' }));
+  }
+  const n = k => sum.querySelector(`[data-n="${k}"]`);
+  swapTo(n('up'), String(up), up);
+  swapTo(n('dn'), String(dn), dn);
+  if (fl) swapTo(n('fl'), String(fl), fl);
+  swapTo(n('open'), open ? `장중 ${open}` : '모두 마감', open);
   const t = $('.kw-time', els.bar);
   const at = d.asOf ? new Date(d.asOf) : new Date(S.at[S.kind]);
-  if (err) t.replaceChildren(h('span', { class: 'kw-stale', text: `새로 받지 못했어요 · ${isNaN(at) ? '' : fmtKst.format(at) + ' 값'}` }));
+  // a refresh that failed: ! + words (design.md §2 --fail-dot), the last good time
+  if (err) t.replaceChildren(h('span', { class: 'kw-stale' }, uiWarn(), `새로 받지 못했어요 · ${isNaN(at) ? '' : fmtKst.format(at) + ' 값'}`));
   else t.replaceChildren(h('span', { text: isNaN(at) ? '' : `${fmtKst.format(at)} 기준` }));
 }
 
@@ -689,8 +720,8 @@ function fit(T, w, hh, capH) {
   });
   return best;                                           // null = no label
 }
-// chip candidates, longest first; the last one is a bare dot (amber = 장중, ring = 마감) for tiles too small for words
-const CHIP_H = 15, CHIP_FS = 10.5, DOT = 13;
+// chip candidates, longest first; the last one is a bare dot (--live = 장중, ring = 마감) for tiles too small for words
+const CHIP_H = 15, CHIP_FS = 11, DOT = 13;                // --fs-xs in a 15px chip (world.css .kw-chip)
 function chipCands(it) {
   const open = it.status === 'OPEN';
   const texts = !open ? ['마감'] : it.delayed ? [`장중 · ${dlText(it.delayed)}`, `장중 · ${dlText(it.delayed).replace(' 지연', '')}`, '장중'] : ['장중'];
@@ -891,8 +922,10 @@ const PLACE = {
   BVSP: '상파울루', MXX: '멕시코시티', KOSPI: '서울', KOSDAQ: '서울',
 };
 // one-line rows: name (≥ NAME_MIN) · state 64 · value · change · chip 66 · bar 48, gaps 8, row padding 12, section 14 (CSS)
+// the value / change cells' type (world.css: .kw-lr --fs-md · .kw-lc --fs-sm · two-line rows' value --fs-lg)
+const FS_V = 13, FS_C = 12, FS_VC = 14;
 const NAME_MIN = 118, FIXED_W = 64 + 66 + 48 + 5 * 8 + 12 + 14, MIN_COL_C = 300, COL_GAP = 12;
-const ROW_H = 36, ROW_HC = 52, HEAD_H = 42, SEC_PAD = 12;
+const ROW_H = 36, ROW_HC = 44, HEAD_H = 41, SEC_PAD = 12;      // --h-row rows (two-line rows 44 on phones), the head = --h-row + rule + --space-2
 const placeOf = it => PLACE[it.key] || cityOf(it, null) || '';
 function listSub(it, flat) {
   if (isFund(it)) return FUND_SUB[it.fkey] || '';
@@ -1030,19 +1063,14 @@ function rowEl(it) {
       h('span', { class: 'kw-ls', 'aria-hidden': 'true' }, h('i', { class: 'kw-sd' }), h('span', { class: 'st' }), h('span', { class: 'sub2' })),
       h('span', { class: 'kw-lv', 'aria-hidden': 'true' }),
       h('span', { class: 'kw-lc', 'aria-hidden': 'true' }),
-      h('span', { class: 'kw-lp', 'aria-hidden': 'true' }, h('span', { class: 'kw-pchip' })),
+      h('span', { class: 'kw-lp', 'aria-hidden': 'true' }, h('span', { class: 'kw-pchip' }, h('span', { class: 'kw-pt' }))),
       h('span', { class: 'kw-lb', 'aria-hidden': 'true' }, h('i')));
-    el.addEventListener('animationend', e => e.target.classList.remove('kw-fl'));   // a moved row must not fade again
     els.rows.set(it.key, el);
   }
   return el;
 }
-function flash(el) {
-  if (calm()) return;
-  el.classList.remove('kw-fl');
-  void el.offsetWidth;                                   // restart the fade when values change on consecutive refreshes
-  el.classList.add('kw-fl');
-}
+// the number a chip's text stands for (its direction when it changes): bp for a yield, %p for a share, else the % change
+const chipNum = it => isRate(it) ? bpOf(it) : isFundPct(it) ? it.change : it.ratio;
 function fillRow(el, it, sub, rank, R) {
   const [ln, ls, lv, lc, lp, lb] = el.children;
   const [rk, nm, sb] = ln.children;
@@ -1062,19 +1090,17 @@ function fillRow(el, it, sub, rank, R) {
   ls.children[2].textContent = ref ? '' : sub || '';
   // a yield: the chip carries its change in bp, the change column stays empty (the same number twice says nothing); same for a share in %
   const v = valText(it), c = chipIsChange(it) ? '' : chgText(it), p = chipText(it);
-  const was = el.__vals;
-  lv.textContent = v;
-  lc.textContent = c;
-  lc.className = 'kw-lc ' + (ref || it.change == null ? 'flat' : cls(it.change));
+  // values that changed since the last refresh swap in place (KH.ui.swap, design.md §6-4: up from below, down from above); the
+  // first fill of a row and a redraw with the same numbers are written at once (P4). Colours and bars land at once (data, no tween)
+  swapTo(lv, v, it.value);
+  lc.className = 'kw-lc ' + (ref || it.change == null ? 'flat' : cls(it.change));   // before the swap: it adds its own class
+  swapTo(lc, c, it.change);
   const chip = lp.firstChild;
-  chip.textContent = p;
+  swapTo(chip.firstChild, p, chipNum(it));
   const col = ref ? null : colorOf(it);
   chip.style.backgroundColor = col || '';
   chip.style.color = col ? inkOn(col) : '';
   chip.className = 'kw-pchip' + (ref ? ' ref' : it.ratio == null ? ' nod' : '');
-  // a short fade on values that changed since the last refresh (none under reduced motion)
-  if (was && was.v !== v) flash(lv);
-  if (was && was.p !== p) flash(chip);
   el.__col = col;
   const bar = lb.firstChild;
   const frac = it.ratio == null || !R ? 0 : Math.min(Math.abs(it.ratio) / R, 1) * 50;
@@ -1084,7 +1110,6 @@ function fillRow(el, it, sub, rank, R) {
   bar.style.backgroundColor = ref ? '' : col || '';
   bar.className = ref ? 'ref' : '';
   el.classList.toggle('ref', ref);
-  el.__vals = { v, p };
   el.title = it.name;
   el.setAttribute('aria-label', ariaOf(it) + (rank ? `, ${rank}위` : ''));
   el.classList.toggle('sel', !!(S.detail && S.detail.key === it.key));
@@ -1117,10 +1142,10 @@ function renderList(d) {
   // value / change columns: as wide as the widest text, so numbers line up across sections and columns
   let vw = 0, cw = 0;
   for (const it of d.all) { vw = Math.max(vw, tw(valText(it), 500)); if (!chipIsChange(it)) cw = Math.max(cw, tw(chgText(it), 500)); }   // a yield's change column is empty
-  const geo = listGeom(W, NAME_MIN + FIXED_W + Math.ceil(vw * 13.5 + 4) + Math.ceil(cw * 12.5 + 4));
+  const geo = listGeom(W, NAME_MIN + FIXED_W + Math.ceil(vw * FS_V + 4) + Math.ceil(cw * FS_C + 4));
   const blocks = buildColumns(d, geo);
   const cols = blocks.flatMap(b => b.cols);
-  const fsV = geo.compact ? 14 : 13.5, fsC = geo.compact ? 12 : 12.5;
+  const fsV = geo.compact ? FS_VC : FS_V, fsC = FS_C;
   L.style.setProperty('--kw-n', String(Math.max(1, ...blocks.map(b => b.cols.length))));
   L.style.setProperty('--kw-vw', Math.ceil(vw * fsV + 4) + 'px');
   L.style.setProperty('--kw-cw', Math.ceil(cw * fsC + 4) + 'px');
@@ -1393,7 +1418,7 @@ function buildGeo(d, W, narrow, G, sig) {
   const byId = new Map(G.cs.map(x => [x.c.id, x]));
   const s = svgEl('svg', { class: 'kw-gsvg', width: W, height: H, viewBox: `0 0 ${W} ${H}`, 'aria-hidden': 'true' });
   s.append(svgEl('path', { class: 'kw-gsea', d: path({ type: 'Sphere' }) }), svgEl('path', { class: 'kw-ggrat', d: path(d3.geoGraticule10()) }));
-  // layers, bottom to top (motion brief (e)): fills → night → borders → open-market glow → selection / hover → leader lines → markers
+  // layers, bottom to top: fills → night → borders → open markets (a flat --live outline) → selection / hover → leader lines → markers
   const land = svgEl('g', { class: 'kw-gland' });
   const paths = new Map(), dOf = new Map(), border = [];
   for (const f of GEO.features) {
@@ -1406,26 +1431,23 @@ function buildGeo(d, W, narrow, G, sig) {
     land.append(p);
   }
   const layer = c => svgEl('g', { class: c });
-  const night = layer('kw-gnight'), glow = layer('kw-gglow'), selG = layer('kw-gsel'), hov = layer('kw-ghov'), lines = layer('kw-glines'), marks = layer('kw-gmarks');
-  glow.append(layer('kw-ggb'), layer('kw-ggl'));
-  s.append(land, night, svgEl('path', { class: 'kw-gbord', d: border.join('') }), glow, selG, hov, lines, marks);
+  const night = layer('kw-gnight'), openG = layer('kw-gopen'), selG = layer('kw-gsel'), hov = layer('kw-ghov'), lines = layer('kw-glines'), marks = layer('kw-gmarks');
+  s.append(land, night, svgEl('path', { class: 'kw-gbord', d: border.join('') }), openG, selG, hov, lines, marks);
   const hovP = svgEl('path', {});
   hov.append(hovP);
-  land.addEventListener('pointerover', e => { const p = e.target.closest('.kw-cp.has'); hovP.setAttribute('d', p ? dOf.get(p.dataset.c) || '' : ''); });
+  // the hover outline follows a mouse only (design.md §8: no hover look left behind by a finger)
+  land.addEventListener('pointerover', e => { if (e.pointerType && e.pointerType !== 'mouse') return; const p = e.target.closest('.kw-cp.has'); hovP.setAttribute('d', p ? dOf.get(p.dataset.c) || '' : ''); });
   land.addEventListener('pointerleave', () => hovP.setAttribute('d', ''));
   const labs = h('div', { class: 'kw-glabs' });
   const btns = new Map(), dots = new Map(), inLabs = [], colList = [];
   const cols = {};
-  // a market marker: a 5 px dot (amber = open, hollow grey = closed) and, behind it, the ring that pulses in 'fancy'
-  const delay = x => (((x.c.at[0] + 180) / 360) * 2.4).toFixed(2) + 's';       // west → east wave
+  // a market marker: a 5 px dot (--live = open, hollow grey = closed) — flat, nothing pulses (design.md §10 ③)
   const addDot = (x, ax, ay, big) => {
-    const pr = svgEl('circle', { class: 'kw-gp', cx: fx1(ax), cy: fx1(ay), r: big ? 4.5 : 2.5 });
-    pr.style.animationDelay = delay(x);
     const dot = svgEl('circle', { class: big ? 'kw-gmk' : 'kw-gdot', cx: fx1(ax), cy: fx1(ay), r: big ? (narrow ? 3.5 : 4.5) : narrow ? 2.2 : 2.5 });
     dot.dataset.c = x.c.id;
     if (big) dot.append(svgEl('title', {}));
-    marks.append(pr, dot);
-    dots.set(x.c.id, { dot, pr });
+    marks.append(dot);
+    dots.set(x.c.id, { dot });
   };
   for (const x of G.cs) {
     const [ax, ay] = P(x.c.at) || [NaN, NaN];
@@ -1434,12 +1456,12 @@ function buildGeo(d, W, narrow, G, sig) {
     if (narrow) {
       // phones: the big markets carry a % on the map, the others a marker; the buttons under the map are the way in
       if (!x.c.big) { if (!x.c.marker && !x.c.area) addDot(x, ax, ay, false); continue; }
-      const b = h('span', { class: 'kw-gl in sm', 'data-c': x.c.id, 'aria-hidden': 'true', style: `--pd:${delay(x)}` }, h('i', { class: 'kw-sd' }), h('span', { class: 'p' }));
+      const b = h('span', { class: 'kw-gl in sm', 'data-c': x.c.id, 'aria-hidden': 'true' }, h('i', { class: 'kw-sd' }), h('span', { class: 'p' }));
       labs.append(b); btns.set(x.c.id, b); inLabs.push({ el: b, x: ax, y: ay });
       continue;
     }
     if (x.c.big && !(mid && x.c.id === '360')) {
-      const b = h('button', { type: 'button', class: 'kw-gb kw-gl in', 'data-c': x.c.id, 'data-f': 'c' + x.c.id, tabindex: '-1', style: `--pd:${delay(x)}` },
+      const b = h('button', { type: 'button', class: 'kw-gb kw-gl in', 'data-c': x.c.id, 'data-f': 'c' + x.c.id, tabindex: '-1' },
         h('span', { class: 'n' }, h('i', { class: 'kw-sd' }), h('span', { class: 't' })), h('span', { class: 'p' }));
       labs.append(b); btns.set(x.c.id, b); inLabs.push({ el: b, x: ax, y: ay });
       continue;
@@ -1465,7 +1487,7 @@ function buildGeo(d, W, narrow, G, sig) {
   const offBelow = narrow || mid;
   const off = h('div', { class: 'kw-goff' + (offBelow ? ' below' : '') }, h('div', { class: 'kw-goh', text: '미국 선물 및 변동성 지수' }),
     G.off.map(it => h('button', { type: 'button', class: 'kw-gb kw-go', 'data-k': it.key, 'data-f': 'k' + it.key, tabindex: '-1' },
-      h('i', { class: 'kw-sd' }), h('span', { class: 't' }, it.name), h('span', { class: 'kw-pchip sm' }))));
+      h('i', { class: 'kw-sd' }), h('span', { class: 't' }, it.name), h('span', { class: 'kw-pchip sm' }, h('span', { class: 'kw-pt' })))));
   const mapBox = h('div', { class: 'kw-gmap', style: `height:${H}px;--gs:${Math.max(1, Math.min(1.22, W / 1150)).toFixed(3)}` }, s, labs, offBelow || !G.off.length ? null : off);
   // phones: every country as a tap target under the map
   const grid = narrow ? h('div', { class: 'kw-ggrid', role: 'group', 'aria-label': '나라별 대표 지수' }, G.cs.map(x =>
@@ -1474,8 +1496,8 @@ function buildGeo(d, W, narrow, G, sig) {
   put(els.geo, mapBox, grid, offBelow && G.off.length ? off : null);
   els.geo.classList.toggle('narrow', narrow);
   const first = !els.g;
-  els.g = { sig, W, H, P, narrow, paths, dOf, btns, dots, night, glow, selG, lines, inLabs, cols: colList, cs: G.cs, off: G.off, openSig: null, was: new Map(), nightMin: -1 };
-  // 'fancy': the first time the map opens, countries → night → markers fade in (motion brief (e))
+  els.g = { sig, W, H, P, narrow, paths, dOf, btns, dots, night, openG, selG, lines, inLabs, cols: colList, cs: G.cs, off: G.off, openSig: null, was: new Map(), just: new Set(), nightMin: -1 };
+  // 화려하게: the first time the map opens, countries → night → markers fade in, 40 → 30 ms apart (design.md §6-2, a rare first appearance)
   if (first && motion() === 'fancy') {
     mapBox.classList.add('kw-gin');
     setTimeout(() => mapBox.classList.remove('kw-gin'), 1200);
@@ -1504,10 +1526,8 @@ function renderGeo(d) {
     if (m) {
       if (m.dot.classList.contains('kw-gmk')) { m.dot.style.fill = col; m.dot.firstChild.textContent = tip; }
       m.dot.classList.toggle('open', open); m.dot.classList.toggle('sel', sel);
-      m.pr.classList.toggle('on', open);
-      // a market that just opened rings three times first (only seen in 'fancy', where the rings move)
-      if (open && g.was.get(x.c.id) === false) { m.pr.classList.add('just'); setTimeout(() => m.pr.classList.remove('just'), 2500); }
     }
+    if (open && g.was.get(x.c.id) === false) g.just.add(x.c.id);   // it opened since the last answer (화려하게: its outline fades in once)
     g.was.set(x.c.id, open);
     const aria = `${x.c.name} ${it.name} ${valText(it)}, ${pct(it.ratio)}, ${open ? '장중' : '마감'}${x.items.length > 1 ? `, 항목 ${x.items.length}개` : ''}`;
     const b = g.btns.get(x.c.id);
@@ -1515,8 +1535,8 @@ function renderGeo(d) {
       if (b.classList.contains('in')) labInk(b, col);
       const t = b.querySelector('.t'), pp = b.querySelector('.p'), dot = b.querySelector('.kw-sd');
       if (t) t.textContent = x.c.name;
-      pp.textContent = pct(it.ratio);
       if (b.classList.contains('chip')) { pp.className = 'p ' + (it.ratio == null ? 'flat' : cls(it.ratio)); b.style.setProperty('--c', col); }
+      swapTo(pp, pct(it.ratio), it.ratio);                 // a refresh that moved the % swaps it in place (§6-4)
       if (dot) dot.className = 'kw-sd ' + (open ? 'open' : 'close');
       b.classList.toggle('sel', sel);
       if (b.tagName === 'BUTTON') { b.setAttribute('aria-label', aria); b.title = tip; }
@@ -1525,25 +1545,25 @@ function renderGeo(d) {
     if (c) {
       c.querySelector('.sw').style.background = col;
       c.querySelector('small').textContent = `${shortIdx(x.c, it)}${open ? ' · 장중' : ''}`;
-      const pp = c.querySelector('.p'); pp.textContent = pct(it.ratio); pp.className = 'p ' + (it.ratio == null ? 'flat' : cls(it.ratio));
+      const pp = c.querySelector('.p'); pp.className = 'p ' + (it.ratio == null ? 'flat' : cls(it.ratio)); swapTo(pp, pct(it.ratio), it.ratio);
       c.classList.toggle('sel', sel);
       c.setAttribute('aria-label', aria);
     }
   }
-  // open markets: a static amber outline + soft glow, redrawn only when the set changes
+  // open markets: a flat 1.5px --live outline (no blur, no pulse — design.md §10 ③), redrawn only when the set changes; a market
+  // that just opened fades in once in 화려하게 (a real change, P4), the others stay as they are
   const osig = openIds.join(',');
   if (g.openSig !== osig) {
     g.openSig = osig;
-    const [gb, gl] = g.glow.children;
-    gb.replaceChildren(...openIds.filter(id => g.dOf.has(id)).map(id => svgEl('path', { d: g.dOf.get(id) })));
-    gl.replaceChildren(...openIds.filter(id => g.dOf.has(id)).map(id => svgEl('path', { d: g.dOf.get(id), 'data-c': id })));
+    g.openG.replaceChildren(...openIds.filter(id => g.dOf.has(id)).map(id => svgEl('path', { d: g.dOf.get(id), 'data-c': id, class: g.just.has(id) ? 'in' : '' })));
   }
+  g.just.clear();
   syncGeoSel();
   for (const b of els.geo.querySelectorAll('.kw-go')) {
     const it = d.byKey.get(b.dataset.k);
     if (!it) continue;
     const ref = isRef(it), col = ref ? null : colorOf(it), chip = b.querySelector('.kw-pchip');
-    chip.textContent = pct(it.ratio);
+    swapTo(chip.firstChild, pct(it.ratio), it.ratio);
     chip.className = 'kw-pchip sm' + (ref ? ' ref' : '');
     chip.style.backgroundColor = col || '';
     chip.style.color = col ? inkOn(col) : '';
@@ -1871,12 +1891,12 @@ function fillDetail(full) {
     : fx ? (FX_NOTE[it.key] || KRW_NOTE) + (it.eod ? ' 레피니티브 종가라 하루에 한 번 바뀌어요.' : '')
       + (it.calc ? ' 원/달러를 1엔당 원화로 나눈 계산값이고, 차트는 레피니티브 일봉 종가예요.' : '')
     : D.kind === 'commodity' ? '근월물 선물 가격이에요. 거래소 시각 기준으로 하루가 바뀌어요.' : null;
-  const head = isFund(it) ? fundHead(it) : h('div', { class: 'kw-dh' },
+  const head = isFund(it) ? fundHead(it) : h('div', { class: 'kw-dh', 'data-k': it.key },
     h('div', { class: 'kw-path', text: [it.group, city && city !== it.group ? city : null].filter(Boolean).join(' · ') }),
     h('div', { class: 'kw-nmrow' }, h('i', { class: 'kw-sw', style: `background:${colorOf(it)}` }), h('b', { id: 'kw-dt', text: it.name }),
       h('span', { class: 'kw-st ' + (it.status === 'OPEN' ? 'open' : 'close'), text: it.status === 'OPEN' ? '장중' : '마감' })),
-    h('div', { class: 'kw-px' }, h('b', { text: valText(it) }), u ? h('small', { text: u[0] }) : null,
-      h('span', { class: (rate ? cls(it.change) : cls(it.ratio)), text: chgLine })),
+    h('div', { class: 'kw-px' }, bigNum(valText(it), it.value), u ? h('small', { text: u[0] }) : null,
+      h('span', { class: 'kw-pc2 ' + (rate ? cls(it.change) : cls(it.ratio)), text: chgLine })),
     h('dl', { class: 'kw-meta' },
       h('dt', { text: '시세' }), h('dd', { text: `${it.status === 'OPEN' ? '장중' : '마감'} · ${delayText(it)}${it.calc ? ' · 계산값' : ''}` }),
       h('dt', { text: it.eod ? '기준일' : '현지 거래 시각' }), h('dd', {}, localTxt, it.eod ? null : h('small', { text: ` ${city || ''} ${offText(it)}`.trimEnd() })),
@@ -1885,6 +1905,7 @@ function fillDetail(full) {
       h('dt', { text: '단위' }), h('dd', { text: unitTxt }),
       it.via ? [h('dt', { text: '기준' }), h('dd', { text: it.via })] : null),
     note ? h('p', { class: 'kw-note', text: note }) : null);
+  { const pc = head.querySelector('.kw-pc2'); if (pc) { pc.__kwT = pc.textContent; pc.__kwN = chgNum(it); } }
   // a country with several indices: one button each, the shown one pressed
   const peers = D.peers ? h('div', { class: 'kw-peers', role: 'group', 'aria-label': `${D.place || ''} 지수`.trim() },
     D.place ? h('b', { class: 'kw-peers-h', text: D.place }) : null,
@@ -1894,28 +1915,62 @@ function fillDetail(full) {
     const chartBox = h('div', { class: 'kw-chart' });
     put(sheet,   // put(): peers is null for 원자재 — native replaceChildren would print "null"
       h('div', { class: 'kw-grab', 'aria-hidden': 'true' }),
-      h('button', { type: 'button', class: 'kw-x', 'aria-label': '닫기', onclick: () => closeDetail(true) }, '×'),
+      h('button', { type: 'button', class: 'kw-x', 'aria-label': '닫기', onclick: () => closeDetail(true) }, closeIcon()),
       peers, head, todayBox(D.today, it), chartBox,
       h('p', { class: 'kw-dsrc', text: srcLine(it) }));
     sheet.classList.toggle('has-peers', !!peers);
   } else {
     const old = $('.kw-peers', sheet);
     if (old && peers) { const f = old.contains(document.activeElement) ? document.activeElement.dataset.k : null; sheet.replaceChild(peers, old); if (f) { const b = peers.querySelector(`button[data-k="${CSS.escape(f)}"]`); if (b) b.focus({ preventScroll: true }); } }
-    sheet.replaceChild(head, $('.kw-dh', sheet));
+    const oldHead = $('.kw-dh', sheet);
+    // the same item again (a refresh while the sheet is open): its number and change line stay and move to the new values — the big
+    // number rolls in 화려하게, swaps otherwise (design.md §6-2 · §6-4); the rest of the head is redrawn at once
+    if (oldHead && oldHead.dataset.k === head.dataset.k) {
+      const ob = $('.kw-px b', oldHead), nb = $('.kw-px b', head), oc = $('.kw-pc2', oldHead), nc = $('.kw-pc2', head);
+      if (ob && nb) { const t = nb.__kwT, n = nb.__kwN; nb.replaceWith(ob); setBigNum(ob, t, n); }
+      if (oc && nc) { const t = nc.textContent; oc.className = nc.className; nc.replaceWith(oc); swapTo(oc, t, chgNum(it)); }
+    }
+    sheet.replaceChild(head, oldHead);
     const src = $('.kw-dsrc', sheet); if (src) src.textContent = srcLine(it);
     if (S.detail.chart && S.detail.chart.bars) drawChart();   // its last point is the live value
   }
 }
 
+/* the sheet's big number (design.md §3 결정 ③): the whole part at --fs-num, the decimals and the unit one step smaller (.kw-pf) —
+   "6,846" + ".51", "3" + ".756%", "99" + ".81조원". Two cells, so 화려하게 rolls each one's changed digits (KH.ui.roll: changed digits
+   only, the short way, the rightmost first, no overshoot) and 기본 swaps them (KH.ui.swap, the way the value went); 줄이기 at once */
+const splitNum = t => { const m = /^(.*?)(\.\d+)?([^\d.]*)$/.exec(String(t)); return m ? [m[1], (m[2] || '') + (m[3] || '')] : [String(t), '']; };
+function bigNum(text, num) {
+  const [a, b] = splitNum(text);
+  const el = h('b', {}, h('span', { class: 'kw-pi', text: a }), h('span', { class: 'kw-pf', text: b }));
+  el.__kwT = text; el.__kwN = num;
+  return el;
+}
+function setBigNum(el, text, num) {
+  if (!el || text == null || el.__kwT === text) return;
+  const wasN = el.__kwN;
+  el.__kwT = text; el.__kwN = num;
+  const dir = num != null && wasN != null && isFinite(num) && isFinite(wasN) ? Math.sign(num - wasN) : 0;
+  const [a, b] = splitNum(text), [pi, pf] = el.children;
+  const roll = motion() === 'fancy' && UI && typeof UI.roll === 'function';
+  for (const [cell, t] of [[pi, a], [pf, b]]) {
+    if (cell.textContent === t) continue;
+    if (roll) UI.roll(cell, t, dir);
+    else if (UI && typeof UI.swap === 'function') UI.swap(cell, t, cell.textContent, dir);
+    else cell.textContent = t;
+  }
+}
+// the number a sheet's change line stands for (its direction): bp for a yield, else the change
+const chgNum = it => isRate(it) ? bpOf(it) : it.change;
 // 증시 자금 in the sheet: the business day it is for, the one before, units, where it comes from; no 장중 / 마감
 function fundHead(it) {
   const pctU = isFundPct(it);
   const chgLine = pctU ? fundChg(it) : `${fundChg(it)}${it.ratio != null ? ` (${pct(it.ratio)})` : ''}`;
-  return h('div', { class: 'kw-dh' },
+  return h('div', { class: 'kw-dh', 'data-k': it.key },
     h('div', { class: 'kw-path', text: '증시 자금 · 금융투자협회' }),
     h('div', { class: 'kw-nmrow' }, h('i', { class: 'kw-sw', style: `background:${colorOf(it)}` }), h('b', { id: 'kw-dt', text: it.name }),
       h('span', { class: 'kw-st close', text: '하루 한 번' })),
-    h('div', { class: 'kw-px' }, h('b', { text: valText(it) }), h('span', { class: it.change == null ? 'flat' : cls(it.change), text: chgLine })),
+    h('div', { class: 'kw-px' }, bigNum(valText(it), it.value), h('span', { class: 'kw-pc2 ' + (it.change == null ? 'flat' : cls(it.change)), text: chgLine })),
     h('dl', { class: 'kw-meta' },
       h('dt', { text: '기준일' }), h('dd', { text: mdText(it.basDt, true) || '—' }),
       it.prev != null ? [h('dt', { text: '전 영업일' }), h('dd', {}, valText(Object.assign({}, it, { value: it.prev })), it.prevDt ? h('small', { text: ` ${mdText(it.prevDt, true)}` }) : null)] : null,
@@ -2140,7 +2195,6 @@ function announce(kind, ok) {
 }
 document.addEventListener('visibilitychange', () => {
   if (!S.shown || !LIVE) return;
-  root.classList.toggle('kw-paused', document.hidden || !!S.offscreen);
   if (document.hidden) { clearTimeout(S.timer); S.timer = 0; S.seq++; S.busy = null; if (S.ac) S.ac.abort(); clearTimeout(nightT); nightT = 0; return; }
   if (S.mode === 'geo') { drawNight(); schedNight(); }
   const age = Date.now() - (S.at[S.kind] || 0);
