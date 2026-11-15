@@ -66,6 +66,7 @@ GRAD_OK = [   # selector (substring) → why a gradient is fine there
     ('.tile.nod', 'no-data hatch'), ('.tile.nonx', 'no-NXT hatch'), ('.legend .nxsw', 'legend hatch swatch'), ('.legend .nodsw', 'legend hatch swatch'),
     ('.tile .dm', 'the folded 공시 corner (a hard-stop diagonal = a shape)'), ('.dmsw::after', 'the corner swatch'),
     ('.tabs-sc.more-r', 'the tab row overflow mask (a mask, not paint)'),
+    ('.rc', 'the number drum\'s 14 % fade (a mask, not paint — design.md §6-2 P10)'),
 ]
 HALO_OK = ['.tile .lab', '.stagebar.ix-bg .crumbs']   # dark text halos: legibility over data (tile colours · the index line)
 STATUS_SEL = re.compile(r'\.status\.(live|err)|\.err\b|stale|\[data-st="fail"\]|\.kwn|\.fail')
@@ -84,7 +85,7 @@ def audit():
         if any(k in sel for k, _ in GRAD_OK):
             continue
         bad.append(sel[:80])
-    check('audit: linear gradients only on the allow-list (data scale, hatches, 공시 corner, overflow mask)', not bad, bad)
+    check('audit: linear gradients only on the allow-list (data scale, hatches, 공시 corner, overflow · drum masks)', not bad, bad)
     js_grad = [m.group(0)[:90] for m in re.finditer(r'[^\n]*gradient\([^\n]*', src[src.index('</style>'):]) if 'legend' not in m.group(0) and "class: 'grad'" not in m.group(0)]
     check('audit: the script draws no gradient but the legend colour scale', not js_grad, js_grad)
     glow = []
@@ -205,8 +206,8 @@ def page(br):
                 t = pg.evaluate(TOKENS)
                 live, fail, acc, nd, pgc = (parse_rgb(t[k]) for k in ('live', 'fail', 'acc', 'nd', 'page'))
                 hl, hs = hue(live)
-                check(f'page [{theme}]: --live {t["live"]} — ≥ 30° from the amber and the new-filing blue, saturated, ≥ 3:1 on the page',
-                      hdist(hl, hue(acc)[0]) >= 30 and hdist(hl, hue(nd)[0]) >= 30 and hs > .3 and contrast(live, pgc) >= 3, (round(hl), round(hue(acc)[0]), round(hue(nd)[0]), round(contrast(live, pgc), 2)))
+                check(f'page [{theme}]: --live {t["live"]} — ≥ 30° from the amber and the new-filing blue, saturated, ≥ 4.5:1 on the page (extras writes the countdown in it)',
+                      hdist(hl, hue(acc)[0]) >= 30 and hdist(hl, hue(nd)[0]) >= 30 and hs > .3 and contrast(live, pgc) >= 4.5, (round(hl), round(hue(acc)[0]), round(hue(nd)[0]), round(contrast(live, pgc), 2)))
                 check(f'page [{theme}]: --fail-dot {t["fail"]} — not amber, ≥ 4.5:1 on the page', t['fail'] != t['acc'] and contrast(fail, pgc) >= 4.5, round(contrast(fail, pgc), 2))
                 # the status: live (a live answer during the session is the mock's — force the classes the code sets) and error
                 st = pg.evaluate("""() => { const s = document.getElementById('status'), d = s.querySelector('.dot'), b = s.querySelector('.badge');
@@ -221,6 +222,54 @@ def page(br):
                   el.classList.add('fl-d'); const b = getComputedStyle(el, '::after').boxShadow; el.classList.remove('fl-d'); return [a, b]; }""")
                 check(f'page [{theme}]: tick flash = a flat 2px ring (기본 · 화려하게), no blur', all(re.fullmatch(r'rgb\([^)]*\) 0px 0px 0px 2px inset', x) for x in fl), fl)
             ctx.close()
+    motion(br)
+
+
+MOTION_JS = r"""async () => {
+  const out = {};
+  const box = document.createElement('span'); box.style.cssText = 'position:fixed;left:10px;top:300px;font-size:13px;line-height:16px'; document.body.append(box);
+  // KH.ui.swap: a label goes up; a value that rose comes in from below, one that fell from above (§6-4 · P9)
+  const sw = dir => { box.textContent = 'A'; KH.ui.swap(box, 'B', 'A', dir); const an = box.getAnimations({ subtree: true });
+    const kf = an.map(a => a.effect.getKeyframes()); return { cls: box.className, was: box.dataset.was, n: an.length, out: kf[0] && kf[0][1].transform, inn: kf[1] && kf[1][0].transform, blur: kf[0] && kf[0][1].filter,
+      dur: an.map(a => a.effect.getTiming().duration), delay: an.map(a => a.effect.getTiming().delay), text: box.textContent }; };
+  out.up = sw(1); out.dn = sw(-1); out.label = sw();
+  // KH.ui.roll (화려하게): changed digits only, the rightmost first 40 ms apart, the short way, a 14 % fade mask
+  box.textContent = '12.19'; KH.ui.roll(box, '12.20', 1);
+  const cols = [...box.querySelectorAll('.rc')];
+  out.roll = { drums: cols.length, delays: cols.map(c => c.firstChild.getAnimations()[0].effect.getTiming().delay), mask: getComputedStyle(cols[0]).webkitMaskImage || getComputedStyle(cols[0]).maskImage,
+    text: box.textContent, steps: cols.map(c => (c.firstChild.dataset.b || c.firstChild.dataset.a || '').split('\n').length) };
+  box.textContent = '0.9'; KH.ui.roll(box, '0.0', 1);
+  out.short = (box.querySelector('.rs') || {}).dataset ? Object.assign({}, box.querySelector('.rs').dataset) : null;
+  box.remove();
+  // the shared icons: ✓ and ! drawn 1.75px on screen
+  const ic = ['check', 'warn'].map(n => { const e = KH.ui.icon(n); return [...e.querySelectorAll('path,circle')].map(x => [x.getAttribute('stroke-width') || e.getAttribute('stroke-width'), x.getAttribute('vector-effect')]); });
+  out.icons = ic;
+  // tab %: new quotes move the 코스피 number in place, the way it went (no digit roll)
+  const q = await (await fetch('/api/quotes')).json(), tp = document.querySelector('.tabs button[data-mkt="K"] .tp'), was = tp.textContent;
+  q.index.KOSPI.ratio = +q.index.KOSPI.ratio + 0.5; q.index.KOSPI.value = +q.index.KOSPI.value * 1.005; q.asOf = new Date(Date.now() + 60000).toISOString();
+  const fed = KH.feed(q);
+  await new Promise(r => setTimeout(r, 30));
+  const an = tp.getAnimations({ subtree: true });
+  out.tab = { fed, was, now: tp.textContent, cls: tp.className, n: an.length, drums: tp.querySelectorAll('.rc').length, inn: an[1] && an[1].effect.getKeyframes()[0].transform };
+  return out;
+}"""
+
+
+def motion(br):
+    ctx, pg = open_page(br, 1440, 900, motion='fancy')
+    m = pg.evaluate(MOTION_JS)
+    up, dn, lb = m['up'], m['dn'], m['label']
+    check('motion: KH.ui.swap = out 100 ms (blur, 4px) → in 180 ms 60 ms later; rose → from below, fell → from above, a label goes up',
+          up['n'] == 2 and up['dur'] == [100, 180] and up['delay'] == [0, 60] and 'blur' in (up['blur'] or '') and up['inn'] == 'translateY(4px)' and up['out'] == 'translateY(-4px)'
+          and dn['inn'] == 'translateY(-4px)' and dn['out'] == 'translateY(4px)' and lb['inn'] == 'translateY(4px)' and up['text'] == 'B', m)
+    r = m['roll']
+    check('motion: KH.ui.roll (화려하게) — changed digits only, the rightmost first (40 ms apart), a 14 % fade mask, the text = the value',
+          r['drums'] == 2 and r['delays'] == [40, 0] and '14%' in (r['mask'] or '') and r['text'] == '12.20', r)
+    check('motion: KH.ui.roll goes the short way (9 → 0 is one step forward)', m['short'] == {'b': '9'}, m['short'])
+    check('motion: the ✓ and ! icons are drawn 1.75px on screen (non-scaling strokes)', all(w == '1.75' and v == 'non-scaling-stroke' for ic in m['icons'] for w, v in ic), m['icons'])
+    t = m['tab']
+    check('motion: new quotes swap the 코스피 tab % in place, from below when it rose — no digit drum', t['fed'] and t['was'] != t['now'] and 'sw-go' in t['cls'] and t['drums'] == 0 and t['inn'] == 'translateY(4px)', t)
+    ctx.close()
 
 
 # ───────────────────────── 시총순 ─────────────────────────

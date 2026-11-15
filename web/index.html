@@ -1068,26 +1068,19 @@ html[data-motion="reduced"] .tile.flash-up::after,html[data-motion="reduced"] .t
    KH.ui.seg moves one raised indicator per segment / tab row (leading edge --sp-lead, trailing --sp-trail); press = 1px down, shorter
    shadow, darker (0 ms down, --c-fast up); labels swap in place; 44 px hit areas on touch screens. Other modules may reuse these. */
 :root{--ck-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M4.5 10.5l3.6 3.6 7.4-8' fill='none' stroke='%23000' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")}
-/* a label that changes in place (KH.ui.swap, design.md §6-4): the old one leaves (100 ms: fades, blurs 2px, moves 4px), 60 ms later the
-   new one comes in (180 ms, the fade spring). A label leaves upward and comes in from below; a value with a direction (P9) — tab %,
-   index, legend — comes in from below when it rose and from above when it fell (.sw-dn) */
-.sw-go{display:inline-grid;--sw-out:100ms;--sw-in:180ms}
+/* a label that changes in place (KH.ui.swap, design.md §6-4 — the same as extras' xSwap): the old text is the box's ::before, the new one
+   .sw-n, in one grid cell; the script moves them (out 100 ms — fades, blurs ≤ font-size / 6, 4px; in 60 ms later over 180 ms on the fade
+   spring). A label goes up; a value with a direction (P9) comes in from below when it rose and from above when it fell */
+.sw-go{display:inline-grid}
 .sw-go>.sw-n,.sw-go::before{grid-area:1/1}
-.sw-go::before{content:attr(data-was);animation:swOut var(--sw-out) var(--c-in) forwards}
-.sw-go>.sw-n{animation:swIn var(--sw-in) var(--sp-fade) calc(var(--sw-out) + 60ms) both}
-.sw-go.sw-dn::before{animation-name:swOutDn}
-.sw-go.sw-dn>.sw-n{animation-name:swInDn}
-@keyframes swOut{to{opacity:0;filter:blur(2px);transform:translateY(calc(var(--space-2) * -1))}}
-@keyframes swIn{from{opacity:0;filter:blur(2px);transform:translateY(var(--space-2))}}
-@keyframes swOutDn{to{opacity:0;filter:blur(2px);transform:translateY(var(--space-2))}}
-@keyframes swInDn{from{opacity:0;filter:blur(2px);transform:translateY(calc(var(--space-2) * -1))}}
-/* 화려하게: digits that changed roll (up when the number rises); the text stays the value (KH.ui.roll) */
-.rc{display:inline-block;overflow:hidden;vertical-align:top}
-.rs{display:block}
-.rs[data-o]::before{display:block;content:attr(data-o)}
-/* (the downward column is .rs-dn, not .dn: the global .dn down colour must not paint a rolling number) */
-.rs.rs-dn[data-o]::before{content:none}
-.rs.rs-dn[data-o]::after{display:block;content:attr(data-o)}
+.sw-go::before{content:attr(data-was);pointer-events:none}
+/* 화려하게: the changed digits roll on a drum (KH.ui.roll, design.md §6-2 P10 — the same as extras' xRoll): changed digits only, the
+   short way round, the rightmost first 40 ms apart, a 14 % fade at the drum's top and bottom (a mask: shape, not paint), no blur. The
+   digits passed on the way are the column's ::before (going up) / ::after (going down); the text is the value at every moment */
+.rc{position:relative;display:inline-block;overflow:hidden;vertical-align:top;height:var(--rc-h,1.25em);-webkit-mask-image:linear-gradient(transparent,#000 14%,#000 86%,transparent);mask-image:linear-gradient(transparent,#000 14%,#000 86%,transparent)}
+.rs{display:block;white-space:pre;line-height:var(--rc-h,1.25em)}
+.rs[data-b]::before{content:attr(data-b);display:block}
+.rs[data-a]::after{content:attr(data-a);display:block}
 /* async keys (KH.ui.akey · KH.ui.retry): ✓ = the amber surface, ! = the dark amber one with a ring (never red / green). The
    element-qualified selector outranks a module's own key :hover, so a touch screen's leftover hover never hides the state. */
 :is(button,a).kasync[aria-busy="true"]{cursor:progress}
@@ -1106,7 +1099,7 @@ html[data-motion="reduced"] .kspn,html[data-motion="reduced"] .kspn circle{anima
 .kl{grid-area:1/1;display:inline-flex;align-items:center;justify-content:center;gap:var(--space-3);opacity:0;transform:translateY(6px);pointer-events:none;white-space:nowrap;transition:opacity var(--c-fast) var(--c-in),transform var(--c-fast) var(--c-in)}
 .kl.out{transform:translateY(-6px)}
 .kl.on{opacity:1;transform:none;transition:opacity var(--c-fast) var(--c-out) var(--c-fast),transform var(--c-fast) var(--c-out) var(--c-fast)}
-.kl .kck path{stroke-dasharray:22;stroke-dashoffset:22;transition:stroke-dashoffset var(--c-base) var(--c-out)}
+.kl .kck path{stroke-dasharray:13;stroke-dashoffset:13;transition:stroke-dashoffset var(--c-base) var(--c-out)}
 .kl.on .kck path{stroke-dashoffset:0;transition-delay:var(--c-fast)}
 html[data-motion="fancy"] .kl .kck{transform:scale(.6);transition:transform var(--c-base) var(--c-pop)}
 html[data-motion="fancy"] .kl.on .kck{transform:none;transition-delay:var(--c-fast)}
@@ -1721,8 +1714,8 @@ const fmtPct = (v, d = 2) => sgn(v) + Math.abs(v).toFixed(d) + '%';
    akey(cls, says, st): an async key (.kasync). retry({run, render, …}): the 다시 시도 key every module uses (✓ / ! on the key).
    Lengths are the --c-* tokens ('줄이기' sets them to 0, so every helper lands in its final state at once). */
 const UI_SVG = {
-  check: '<svg class="kck" viewBox="0 0 20 20" aria-hidden="true"><path d="M4.5 10.5l3.6 3.6 7.4-8" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-  warn: '<svg class="kwn" viewBox="0 0 20 20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><circle cx="10" cy="10" r="7.6"/><path d="M10 6v5M10 14.1v.2"/></svg>',
+  check: '<svg class="kck" viewBox="0 0 20 20" aria-hidden="true"><path d="M4.5 10.5l3.6 3.6 7.4-8" fill="none" stroke="currentColor" stroke-width="1.75" vector-effect="non-scaling-stroke" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  warn: '<svg class="kwn" viewBox="0 0 20 20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><circle cx="10" cy="10" r="7.6" vector-effect="non-scaling-stroke"/><path d="M10 6v5M10 14.1v.2" vector-effect="non-scaling-stroke"/></svg>',
   spin: '<svg class="kspn" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7.5"/></svg>',
 };
 function uiIcon(name) { const t = document.createElement('template'); t.innerHTML = UI_SVG[name] || ''; return t.content.firstElementChild || document.createElement('span'); }
@@ -1789,22 +1782,40 @@ function uiSeg(seg) {
   if (uiSegRO) { uiSegRO.observe(seg); uiSegKids(seg); }
   uiSegPlace(seg, true);
 }
-// dir (design.md §6-4 · P9): a value with a direction — > 0 rose (the new text comes in from below), < 0 fell (from above); none = a label
+/* KH.ui.swap(el, text, from?, dir?) — design.md §6-4 (ported from extras' xSwap, ux/std-template): out 100 ms (opacity, blur ≤ font-size / 6,
+   4px) on the close spring, in 60 ms later over 180 ms on the fade spring. dir (P9): > 0 the value rose (comes in from below), < 0 it fell
+   (from above); none = a label (goes up). 줄이기 / a hidden tab: written at once. A new call ends the running one first. */
+const UI_SWAP = { out: 100, gap: 60, in: 180 }, UI_ROLL_GAP = 40;
+const uiEaseOk = new Map();
+function uiEase(name) {
+  const e = getComputedStyle(document.documentElement).getPropertyValue(`--sp-${name}`).trim();
+  if (!uiEaseOk.has(e)) { let ok = false; try { ok = !!e && !!new KeyframeEffect(null, null, { easing: e }); } catch (x) { ok = false; } uiEaseOk.set(e, ok); }
+  return uiEaseOk.get(e) ? e : 'cubic-bezier(.22,1,.36,1)';
+}
+function uiStop(el) {
+  for (const k of ['__ur', '__us']) if (el[k]) { const a = el[k]; el[k] = null; for (const x of a) { try { x.cancel(); } catch (e) { /* gone */ } } }
+  el.classList.remove('sw-go'); delete el.dataset.was;
+}
 function uiSwap(el, text, from, dir) {
   if (!el) return;
   text = String(text);
   const cur = from != null ? String(from) : el.textContent;
   const wrapped = el.childElementCount === 1 && el.firstElementChild.classList.contains('sw-n');
-  if (cur === text) { if (!wrapped || el.textContent !== text) { const n = document.createElement('span'); n.className = 'sw-n'; n.textContent = text; el.replaceChildren(n); } return; }
+  if (cur === text && wrapped && el.textContent === text) return;          // the same text again: a running swap goes on
+  uiStop(el);
   const n = document.createElement('span'); n.className = 'sw-n'; n.textContent = text;
   el.replaceChildren(n);
-  if (!cur || MOTION === 'reduced' || document.hidden || !el.isConnected) { el.classList.remove('sw-go', 'sw-dn'); delete el.dataset.was; return; }
-  el.dataset.was = cur; el.classList.remove('sw-go', 'sw-dn'); void el.offsetWidth; el.classList.add('sw-go'); if (dir < 0) el.classList.add('sw-dn');
+  if (!cur || cur === text || MOTION === 'reduced' || document.hidden || !el.isConnected) return;
+  const fs = parseFloat(getComputedStyle(el).fontSize) || 13, blur = `blur(${Math.min(2, fs / 6).toFixed(2)}px)`, sg = dir < 0 ? -1 : 1;
+  el.dataset.was = cur; el.classList.add('sw-go');
+  const an = [];
+  try {
+    an.push(el.animate([{ opacity: 1, transform: 'none', filter: 'blur(0px)' }, { opacity: 0, transform: `translateY(${-4 * sg}px)`, filter: blur }], { duration: UI_SWAP.out, easing: uiEase('close'), fill: 'forwards', pseudoElement: '::before' }));
+    an.push(n.animate([{ opacity: 0, transform: `translateY(${4 * sg}px)`, filter: blur }, { opacity: 1, transform: 'none', filter: 'blur(0px)' }], { duration: UI_SWAP.in, delay: UI_SWAP.gap, easing: uiEase('fade'), fill: 'backwards' }));
+  } catch (e) { uiStop(el); return; }
+  el.__us = an;
+  Promise.all(an.map(a => a.finished)).then(() => { if (el.__us === an) { el.__us = null; el.classList.remove('sw-go'); delete el.dataset.was; } }, () => {});
 }
-document.addEventListener('animationend', e => {
-  if (e.animationName !== 'swIn' && e.animationName !== 'swInDn') return;
-  const el = e.target.parentElement; if (el && el.classList.contains('sw-go')) { el.classList.remove('sw-go', 'sw-dn'); delete el.dataset.was; }
-});
 // a number written in place: the swap goes the way the value went (no digit roll — design.md §6-2 P10 keeps rolls for the 화려하게 ticker)
 const numOf = t => { const m = /[+−-]?[\d,]*\.?\d+/.exec(String(t || '').replace(/−/g, '-')); return m ? parseFloat(m[0].replace(/,/g, '')) : NaN; };
 function uiSwapNum(el, text, quiet) {
@@ -1812,29 +1823,45 @@ function uiSwapNum(el, text, quiet) {
   text = String(text);
   const was = el.textContent;
   if (was === text) return;
-  if (quiet || !was) { el.textContent = text; el.classList.remove('sw-go', 'sw-dn'); return; }
+  if (quiet || !was) { uiStop(el); el.textContent = text; return; }
   const a = numOf(was), b = numOf(text);
   uiSwap(el, text, was, isFinite(a) && isFinite(b) ? Math.sign(b - a) : 0);
 }
+/* KH.ui.roll(el, text, dir) — 화려하게 digits on a drum (design.md §6-2 P10, ported from extras' xRoll): changed digits only, the short way
+   (9 → 0 is one step forward; a tie goes the way the value went, dir), the rightmost first 40 ms apart, the roll spring (no overshoot),
+   a 14 % fade mask (CSS .rc). Not 화려하게, a length change or a hidden tab: written at once. */
 function uiRoll(el, text, dir) {
   if (!el) return;
   text = String(text);
-  const old = el.textContent;
-  if (old === text) return;
-  if (MOTION !== 'fancy' || !dir || !old || old.length !== text.length || document.hidden || !el.isConnected) { el.textContent = text; return; }
-  const H = parseFloat(getComputedStyle(el).lineHeight) || el.getBoundingClientRect().height || 14, dur = uiMs('--c-base');
-  el.textContent = '';
+  const old = el.textContent;            // mid-roll too: each drum's text is its target digit, so the text is the value
+  uiStop(el);
+  el.textContent = text;
+  if (!old || old === text || MOTION !== 'fancy' || old.length !== text.length || document.hidden || !el.isConnected) return;
+  const dur = uiMs('--sp-roll-dur');
+  if (!(dur > 0)) return;
+  const H = parseFloat(getComputedStyle(el).lineHeight) || el.getBoundingClientRect().height || 14, ease = uiEase('roll');
+  const kids = [], cols = [];
   for (let i = 0; i < text.length; i++) {
     const a = old[i], c = text[i];
-    if (a === c || !/\d/.test(a) || !/\d/.test(c)) { el.append(c); continue; }
-    const box = document.createElement('span'), col = document.createElement('span');
-    box.className = 'rc'; box.style.height = H + 'px';
-    col.className = dir > 0 ? 'rs' : 'rs rs-dn'; col.dataset.o = a; col.textContent = c;
-    box.append(col); el.append(box);
-    const an = col.animate(dir > 0 ? [{ transform: 'translateY(0)' }, { transform: `translateY(${-H}px)` }] : [{ transform: `translateY(${-H}px)` }, { transform: 'translateY(0)' }],
-      { duration: dur, easing: 'cubic-bezier(.22,1,.36,1)', delay: (text.length - 1 - i) * 40, fill: 'both' });
-    an.onfinish = () => { delete col.dataset.o; an.cancel(); };
+    if (a === c || !/\d/.test(a) || !/\d/.test(c)) { kids.push(c); continue; }
+    const fwd = (+c - +a + 10) % 10, up = fwd < 10 - fwd || (fwd === 5 && dir >= 0), steps = up ? fwd : 10 - fwd;
+    const seq = [];
+    for (let k = 0; k <= steps; k++) seq.push(String((+a + (up ? k : -k) + 10) % 10));
+    // up: the drum reads a … c top to bottom and ends at the bottom (new digits come from below); down: c … a, it ends at the top
+    const col = h('span', { class: 'rs' }, c);
+    if (up) col.dataset.b = seq.slice(0, -1).join('\n'); else col.dataset.a = seq.slice(0, -1).reverse().join('\n');
+    kids.push(h('span', { class: 'rc', style: `--rc-h:${H}px` }, col));
+    cols.push([col, steps, up]);
   }
+  if (!cols.length) return;
+  el.replaceChildren(...kids);
+  const an = [];
+  cols.forEach(([col, steps, up], k) => {
+    const far = `translateY(${-steps * H}px)`, delay = (cols.length - 1 - k) * UI_ROLL_GAP;
+    try { an.push(col.animate(up ? [{ transform: 'none' }, { transform: far }] : [{ transform: far }, { transform: 'none' }], { duration: dur, delay, easing: ease, fill: 'both' })); } catch (e) { /* static digits are fine */ }
+  });
+  el.__ur = an;
+  Promise.all(an.map(a => a.finished)).then(() => { if (el.__ur === an) { el.__ur = null; el.textContent = text; } }, () => {});
 }
 function uiBusy(btn, p) {
   if (!btn || btn.getAttribute('aria-busy') === 'true') return p;
