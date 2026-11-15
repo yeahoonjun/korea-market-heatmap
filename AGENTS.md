@@ -556,6 +556,13 @@ python3 tmp/shot.py /home/claude/heatmap/dist/index.html    # 1440×900 / 390×8
 - 화면이 쓰는 법: ⓐ 가장 쉬운 길 — 같은 주소(`after` 없이)를 기본 `fetch`로 60초마다. 브라우저가 30초 뒤부터 알아서 `If-None-Match`로 다시 확인하고, 304면 저장해 둔 본문을 그대로 줘요(본문 `asOf`는 옛값일 수 있으니 시각은 `res.headers.get('x-as-of')`). ⓑ 직접 — 마지막 `ETag`를 `If-None-Match`로 보내고 `after=<가진 것 중 가장 새 r>`로 받으면, 304 = 변화 없음, 200 + `after` = 새 행만(앞에 붙이기), 200인데 `after` 없음 = 날짜가 바뀜(통째로 바꾸기). **새 행이 없는데 태그만 바뀌면**(빈 `rows`) 예전 행의 비고·`stale`이 바뀐 것 → 가끔 `after` 없이 통째로 다시 받으세요.
 - `after`는 접수번호 앞 8자리(접수일)로 날짜를 비교해요(접수번호 = 접수일 8자리 + 일련번호 6자리).
 
+## 3-32. 공공데이터포털 API (사용자 2026-11-15 17:16 신청 목록 15개 → 17:21 "추천대로하고 추가적으로 7번만 다음에 고려해보자")
+- 키: 공공데이터포털 키 하나로 승인된 API를 모두 써요 — **Worker 비밀값 `DATA_GO_KR_KEY`**(§3-27 끝). 금융위원회 API는 **실시간이 아니고 하루 한 번**, 대부분 **다음 영업일 13시 이후**(금요일 자료는 월요일), 기업재무 · 기업기본 · 금투협 통계는 당일 13시 이후 — 하루 한 번 받아 KV에 두고 써요.
+- **넣기**: ① 금융위원회_금융투자협회종합통계정보 `GetKofiaStatisticsInfoService`(고객예탁금 · 신용융자 · 미수금 · 반대매매 비중 → 지표 탭 "증시 자금" · 시장 요약 카드) ② 금융위원회_주식대차정보 `GetStocLendBorrInfoService_V2`(종목별 대차잔고 · 대차 상위 → 종목 페이지) ③ 금융위원회_주식발행정보 `GetStocIssuInfoService_V3`(의무보호예수 반환 → 증시 캘린더) ④ 금융위원회_주식배당정보 `GetStocDiviInfoService_V2`(배당 기준일 · 지급일 · 금액 → 캘린더 · 종목 페이지 배당) ⑤ 금융위원회_기업기본정보 `GetCorpBasicInfoService_V2`(종업원 수 · 계열회사 · 종속기업 → 종목 페이지) ⑥ 금융위원회_KRX상장종목정보 `GetKrxListedInfoService_V2`(법인등록번호 ↔ 종목코드 연결표).
+- **나중에 고려**: 관세청 수출입통계(`nitemtrade`, 월 1회, 품목 · 나라별 — 캘린더 · 지표 다음 단계).
+- **넣지 않음**(겹치거나 쓸 곳 적음): 외화증권 예탁결제 · 일반상품시세 · 주식시세 · 지수시세 · 파생상품시세 · 기업재무 · 금융위 공시정보(OpenDART와 같은 것을 하루 늦게) · 예탁결제원 API(한글 파일은 개정 이력).
+- 원문 명세(활용가이드 docx · hwp)는 사용자가 올린 파일 — 저장소에 올리지 않아요. 구현 메모는 `docs/standards/datago.md`.
+
 ## 3-31. 디자인 기준 (사용자 2026-11-15 16:25 "디자인 기준을 먼저 잡고 가자" → 17:07 "1~9 추천대로 10번은 화려하게가 기본 · 스프링 모션 시안은 제안대로")
 - **규칙 문서 `docs/standards/design.md`(승인)** — `controls.md` · `themes.md` · `dock.md` · `docs/motion-brief.md`보다 위. 근거 `docs/research/design-references.md` · `docs/research/ui-audit.md`, 움직임 시안 `drafts/springs.html`(claude.ai 아티팩트로도 올림).
 - 토큰(`src/template.html :root`): 글자 `--fs-xs…num` · 행간 `--lh-*` · 간격 `--space-1…8` · 모서리 `--r-mark/badge/row/card/float`(+ 기존 `--r-key/in/pill`) · 높이 `--h-chip/key/row`(760px 아래 휴대폰 값) · 채움 `--fill-1…3` · 상태 `--live` · `--fail-dot`(지금은 앰버 — 모듈을 옮길 때 바꿔요) · 스프링 `--sp-<이름>`(`linear()`) · `--sp-<이름>-dur` · `--sp-<이름>-kc`(`"k c"`, JS 엔진용). 스프링 표는 `scripts/design_tokens.mjs` 한 곳 — 바꾸면 `node scripts/design_tokens.mjs`로 다시 만들고 `--check`로 확인.
