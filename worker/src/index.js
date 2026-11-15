@@ -35,6 +35,7 @@
 // The Worker has no build-generated modules: page and stock universe come from ASSET_BASE.
 
 import { MarketHub, liveRoute, configureLive, configureRelay, relayNews } from './live.js';
+import { datagoRoute } from './datago_routes.js';   // 공공데이터포털: /api/funds*, /api/datago/status (AGENTS §3-32, docs/standards/datago.md)
 export { MarketHub };                // the Durable Object class (wrangler.toml [exports.MarketHub]) must be exported by the main module
 // the hub polls the same rows as /api/quotes (quotesCore is a hoisted function declaration below)
 configureLive((env, ms) => quotesCore(env, null, false, ms));
@@ -59,6 +60,7 @@ export default {
       if (path === '/api/health') return json({ ok: true });
       if (path === '/api/live' || path === '/api/live/state') return await liveRoute(request, env, ctx, url);   // 실시간 갱신 (live.js)
       if (path === '/api/time') return json({ t: Date.now() });   // §3-17: server clock (ms) for the page clock's offset — never cached
+      if (path === '/api/funds' || path.startsWith('/api/funds/') || path === '/api/datago/status') return await datagoRoute(request, env, ctx, url);   // 증시 자금 · 상태
       if (path === '/api/quotes') {
         const raw = url.searchParams.get('codes'), scope = url.searchParams.get('scope');
         if (scope != null && scope !== 'all') return fail(400, 'scope는 all만 쓸 수 있어요');
