@@ -136,9 +136,11 @@ for s, k, v in D:
                 halo.append((s, layer))
 check('② no glow shadows (only the legend\'s rim in the chart ground colour)', not halo, halo)
 kf = re.findall(r'@keyframes\s+([\w-]+)\s*\{((?:[^{}]*\{[^{}]*\})*)\s*\}', css)
-bad = [n for n, body in kf if re.search(r'box-shadow|text-shadow|drop-shadow|background', body) or re.search(r'glow|pulse|shim', n, re.I)]
+# (the 호가 flash's number pill — spFlUp / spFlDn, the map's 2+4 — paints a flat background colour; nothing else animates paint)
+bad = [n for n, body in kf if re.search(r'box-shadow|text-shadow|drop-shadow', body) or (re.search(r'background', body) and n not in ('spFlUp', 'spFlDn'))
+       or re.search(r'glow|pulse|shim', n, re.I)]
 bad += [n for n, body in kf for b in re.findall(r'blur\((\d*\.?\d+)px\)', body) if float(b) > 2]
-check('② keyframes animate no shadow / paint (blur ≤ 2px only, the §6-4 text swap)', not bad and len(kf) >= 6, (bad, [n for n, _ in kf]))
+check('② keyframes animate no shadow / paint (blur ≤ 2px only — the §6-4 text swap; the 호가 number pill of the 2+4 flash)', not bad and len(kf) >= 6, (bad, [n for n, _ in kf]))
 check('② the old pulse ring and shimmer are gone', 'spPulse' not in CSS and 'spShim' not in CSS and 'linear-gradient(90deg, var(--sp-w5)' not in CSS)
 
 # ③ status colours

@@ -334,12 +334,19 @@ html[data-motion="reduced"] .sp-fold-x { transition: none; }
 .sp-p[data-mark]::after { content: ""; position: absolute; left: -1px; right: -1px; height: 2px; background: var(--fg); z-index: 1; }
 .sp-p[data-mark="top"]::after { top: -1px; }
 .sp-p[data-mark="bottom"]::after { bottom: -1px; }
-/* a changed 호가 cell (화려하게, AGENTS §3-5): a flat ring in the tick's colour that fades — no wash, no glow (the map's tick flash,
-   design.md §10-3); a new price level = a neutral ring */
-.sp :is(.sp-q, .sp-p)[data-fl]::before { content: ""; position: absolute; inset: 0; z-index: 2; pointer-events: none; opacity: 0; box-shadow: inset 0 0 0 2px var(--fg2); animation: spFl var(--m-flash, 700ms) var(--m-out, ease-out) both; }
-.sp :is(.sp-q, .sp-p)[data-fl="up"]::before { box-shadow: inset 0 0 0 2px var(--up-text); }
-.sp :is(.sp-q, .sp-p)[data-fl="dn"]::before { box-shadow: inset 0 0 0 2px var(--dn-text); }
+/* a changed 호가 cell (화려하게, AGENTS §3-5): the map's tick flash "2+4" (사용자 2026-11-16 01:43, AGENTS §3-38 · design.md §11) — ② the cell
+   washes once on ::before (dark tone: rose = a light wash --fl-wu, fell = a dark one --fl-wd; light tone: a faint dark wash both ways;
+   a new price level = --fill-2), ④ the 잔량 number gets a pill of the page colour with its direction colour for a moment, then fades
+   back. Flat — no ring of light, no glow; opacity / colour only, --m-flash like the map */
+.sp :is(.sp-q, .sp-p)[data-fl]::before { content: ""; position: absolute; inset: 0; z-index: 0; pointer-events: none; opacity: 0; background: var(--fill-2); animation: spFl var(--m-flash, 700ms) var(--m-out, ease-out) both; }
+.sp :is(.sp-q, .sp-p)[data-fl="up"]::before { background: var(--fl-wu, var(--fill-2)); }
+.sp :is(.sp-q, .sp-p)[data-fl="dn"]::before { background: var(--fl-wd, var(--fill-2)); }
+.sp-q > span { padding: 0 var(--space-1); margin-inline: calc(var(--space-1) * -1); border-radius: var(--r-mark); }
+.sp-q[data-fl="up"] > span { animation: spFlUp var(--m-flash, 700ms) var(--m-out, ease-out); }
+.sp-q[data-fl="dn"] > span { animation: spFlDn var(--m-flash, 700ms) var(--m-out, ease-out); }
 @keyframes spFl { 0% { opacity: 0; } 12% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes spFlUp { 0%, 18% { background-color: var(--fl-chip, var(--sp-solid)); color: var(--up-text); } 100% { background-color: transparent; } }
+@keyframes spFlDn { 0%, 18% { background-color: var(--fl-chip, var(--sp-solid)); color: var(--dn-text); } 100% { background-color: transparent; } }
 .sp-ob-info { display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-4); min-width: 0; font-size: var(--fs-xs); color: var(--muted); }
 .sp-ob-info.top { grid-column: 3; grid-row: 1 / span 5; justify-content: flex-end; }
 .sp-ob-info.bot { grid-column: 1; grid-row: 6 / span 5; justify-content: flex-start; }
@@ -740,6 +747,7 @@ a.sp-nw-a:visited .sp-nw-t { color: var(--fg2); }
 html[data-motion="reduced"] .sp.sp-in { animation: none; }
 html[data-motion="reduced"] :is(.sp-chip.live i, .sp-skel, .sp-chart-skel i, .sp-fin-skel i) { animation: none; }
 html[data-motion="reduced"] .sp :is(.sp-q, .sp-p)[data-fl]::before { animation: none; opacity: 0; }
+html[data-motion="reduced"] .sp-q[data-fl] > span { animation: none; }
 html[data-motion="reduced"] .sp-q .bar { transition: none; }
 
 /* 관심 그룹 picker: the template's own popover (.wgpop — its look, the theme's popover material incl. the glass, its grow-from-☆ motion
