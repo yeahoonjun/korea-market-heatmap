@@ -112,6 +112,13 @@ def wait_world(page, sel='#world .kw-tile', timeout=8000):
     page.wait_for_timeout(350)
 
 
+# Other modules fetch the same /api/world?kind=index on their own schedules (the summary card's pull() every 2 / 10 min,
+# the extras strip and market clock on kh:refresh), so the mock's request count is not this module's alone. This spy on
+# fetch counts only the calls whose stack runs through world.js's load(); read it with page.evaluate('window.__kwF').
+WORLD_FETCH_SPY = r"""() => { if (window.__kwSpy) return; window.__kwSpy = true; window.__kwF = 0; const f = window.fetch;
+    window.fetch = function (u) { if (/api\/world\?kind=index/.test(String(u)) && /\bat load\b/.test(new Error().stack || '')) window.__kwF++; return f.apply(this, arguments); }; }"""
+
+
 # ── page-side probes ──
 LABELS_JS = r"""
 () => {
@@ -932,11 +939,14 @@ def refresh_event_pass(browser):
     try:
         wait_list(page)
         page.evaluate('scrollTo(0, 200)')
+        # the extras strip and market clock answer kh:refresh with the same request: count world.js's own (WORLD_FETCH_SPY)
+        page.evaluate(WORLD_FETCH_SPY)
         a = api('/__stats').get('world:index', 0)
         page.evaluate("document.dispatchEvent(new Event('kh:refresh'))")
         page.wait_for_timeout(600)
         b = api('/__stats').get('world:index', 0)
-        check('kh:refresh: fetches now, list and scroll kept', b == a + 1 and page.evaluate("KHWorld.view() === 'list' && scrollY") == 200, f'{a}→{b}')
+        own = page.evaluate('window.__kwF')
+        check('kh:refresh: fetches now, list and scroll kept', own == 1 and b >= a + 1 and page.evaluate("KHWorld.view() === 'list' && scrollY") == 200, f'world.js {own}, all {a}→{b}')
     finally:
         ctx.close()
 
@@ -1118,7 +1128,8 @@ def polling_pass(browser):
     ctx, page = open_page(browser, LIVE + '#world', 1280, 800, clock=True, view='map')
     try:
         wait_world(page, GEO_SEL)
-        n = lambda: api('/__stats').get('world:index', 0)
+        page.evaluate(WORLD_FETCH_SPY)                   # world.js's own requests (the summary card polls the same URL)
+        n = lambda: page.evaluate('window.__kwF')
         a = n()
         page.clock.run_for(30500); page.wait_for_timeout(500)
         b = n()
@@ -1162,7 +1173,8 @@ def mobile_pass(browser):
         page.tap('#world .kw-lr[data-k="CLcv1"]')
         page.wait_for_selector('.kw-sheet:not([hidden])')
         page.wait_for_selector('.kw-sheet svg.kw-svg', timeout=5000)
-        page.wait_for_timeout(350)                       # the 0.2 s slide-in
+        page.wait_for_function("document.querySelector('.kw-sheet').getAnimations({ subtree: true }).every(a => a.playState !== 'running')", timeout=3000)
+        page.wait_for_timeout(50)                        # the open spring (ux/float-motion), not the old fixed 0.2 s slide-in
         geo = page.evaluate("""() => { const r = document.querySelector('.kw-sheet').getBoundingClientRect();
             return { bottom: Math.round(r.bottom), vh: innerHeight, left: Math.round(r.left), w: Math.round(r.width), scrim: getComputedStyle(document.querySelector('.kw-scrim')).display }; }""")
         check('phone: detail is a bottom sheet with a scrim', geo['bottom'] == geo['vh'] and geo['left'] == 0 and geo['w'] == 390 and geo['scrim'] == 'block', str(geo))
