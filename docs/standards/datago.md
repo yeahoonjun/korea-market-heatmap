@@ -1,7 +1,7 @@
 # 공공데이터포털(apis.data.go.kr) — 구현 메모
 
 > **상태: 구현 `feat/datago` (2026-11-15).** 결정은 AGENTS §3-32(사용자 2026-11-15 17:21 "추천대로하고 추가적으로 7번만 다음에 고려해보자"). 원문 명세(활용가이드)는 사용자가 올린 파일이라 저장소에 넣지 않아요 — 아래 필드 · 오퍼레이션 이름은 거기서 옮겼어요.
-> 코드: `worker/src/datago.js`(공용 도우미) · `datago_crno.js`(법인등록번호 표) · `datago_funds.js`(증시 자금) · `datago_routes.js`(경로) · `src/world/world.js`(지표 탭 "증시 자금"). 점검: `qa/datago/*.mjs` · `qa/world/test_funds.py`.
+> 코드: `worker/src/datago.js`(공용 도우미) · `datago_crno.js`(법인등록번호 표) · `datago_funds.js`(증시 자금) · `datago_routes.js`(경로) · `stock_datago.js`(종목 페이지 대차 · 기업 · 배당, `feat/stock-datago`) · `src/world/world.js`(지표 탭 "증시 자금") · `src/stock/stock.js`(종목 정보 탭). 점검: `qa/datago/*.mjs` · `qa/world/test_funds.py` · `qa/worker/test_stock_datago.mjs` · `qa/stock/test_stock_datago.py`.
 
 ## 0. 한 줄 규칙
 
@@ -19,10 +19,10 @@
 |---|---|---|---|---|---|
 | `kofia` | 금융위원회_금융투자협회종합통계정보 | `/1160100/service/GetKofiaStatisticsInfoService` | `getSecuritiesMarketTotalCapitalInfo`(증시자금추이) · `getGrantingOfCreditBalanceInfo`(신용공여잔고추이) | `/api/funds` | 300 |
 | `krx` | 금융위원회_KRX상장종목정보 | `/1160100/GetKrxListedInfoService_V2` | `getItemInfo_V2` | `crnoOf()` (다른 경로용) | 100 |
-| `lend` | 금융위원회_주식대차정보 | `/1160100/GetStocLendBorrInfoService_V2` | — (다음 작업) | 종목 페이지 대차 | 1,000 |
+| `lend` | 금융위원회_주식대차정보 | `/1160100/GetStocLendBorrInfoService_V2` | `getStLendAndBorrItemRank_V2` | 종목 페이지 대차잔고(§5-2) | 200 |
 | `issu` | 금융위원회_주식발행정보 | `/1160100/GetStocIssuInfoService_V3` | `getLockUpRetuInfo_V3` · `getStocIssuStat_V3` | 보호예수 → 캘린더(`calendar.js`) | 1,000 |
-| `divi` | 금융위원회_주식배당정보 | `/1160100/GetStocDiviInfoService_V2` | `getDiviInfo_V2` | 배당 → 캘린더 | 1,000 |
-| `corp` | 금융위원회_기업기본정보 | `/1160100/service/GetCorpBasicInfoService_V2` | — | 기업 기본 | 1,000 |
+| `divi` | 금융위원회_주식배당정보 | `/1160100/GetStocDiviInfoService_V2` | `getDiviInfo_V2` | 배당 → 캘린더 · 종목 페이지 배당 내역(§5-2) | 1,000 |
+| `corp` | 금융위원회_기업기본정보 | `/1160100/service/GetCorpBasicInfoService_V2` | `getCorpOutline_V2` · `getAffiliate_V2` · `getConsSubsComp_V2` | 종목 페이지 기업 정보(§5-2) | 600 |
 | `rights` | 금융위원회_주식권리일정정보 | `/1160100/GetStocRighScheService_V2` | `getRighExerReasSche_V2` | 권리 기준일 · 명부폐쇄 → 캘린더 (2026-11-15 신청 — 승인 전이면 403 → 그 부분만 1시간씩 쉼) | 200 |
 
 - 오퍼레이션 이름은 활용가이드의 **Call Back URL** 철자를 따라요(목록 표의 `GetSecuritiesMarketTotalCapitalI nfo`는 대문자 G에 줄바꿈 — 오타로 봐요).
@@ -43,6 +43,7 @@ dgParse(status, contentType, text)                  // 봉투 해석 → {items,
 - `list`: `totalCount`에 닿을 때까지 쪽을 넘겨요(`maxPages`에서 멈추면 `partial:true` — 표를 만드는 쪽은 이걸 실패로 봐요).
 - `items` 모양: `{item:[…]}` · `{item:{…}}`(한 건) · `''`(없음) 모두 배열로.
 - `spec = {api, key, ttlS, due(snap, now), build(prev, run, now), background?, memMs?}` — `build()`가 새 본문을 돌려주면 `at`을 붙여 KV에 쓰고(TTL `ttlS`), `DgErr`를 던지면 이전 사본을 지켜요. 일부만 실패하면 `run.errors.push(err)` + `{…, partial:[…]}`(새 사본은 쓰고, 오류 기록만 남기고, 쉬지 않아요). `background`이고 `ctx`가 있으면 지금 사본을 바로 주고 갱신은 `ctx.waitUntil`에서. 같은 isolate의 동시 갱신은 하나로 합쳐요. isolate 메모리에 사본을 `memMs`(기본 60초) 들고 있어요.
+- `MEM_SNAP`(isolate 메모리 사본)은 최근 400개 키까지만 들고 있어요 — 종목별 사본(§5-2)이 종목을 볼 때마다 늘지 않게.
 - 날짜(KST, 평일만 — 휴일 표는 없어요. 휴일은 "자료 없는 날"로 보여요): `expectedBasDt(now)` = **지금까지 공개됐어야 하는 가장 최근 영업일** = "가장 최근 평일 13:00"의 바로 앞 평일(월 14:00 → 금, 월 10:00 → 목, 토 → 목). `lastWeekdayAt(now, HHMM)`, `prevWeekday`, `nextKstMidnight`.
 
 ### 3-1. 봉투와 오류 코드
@@ -103,6 +104,28 @@ GET /api/funds/chart/{key}?tf=3m|1y → {key, name, tf, unit, bars:[{t:'YYYY-MM-
 - KV **`datago:funds`**(약 35 KB, 10일) = `{v, at, basDt, opDt:{cap, credit}, series:{key:[[YYYYMMDD, 값]…]}, partial?}`.
 - **언제 다시 받나(`fundsDue`)**: 두 오퍼레이션의 최신 날짜가 `expectedBasDt` 이상이면 **6시간**마다, 하나라도 뒤처졌으면 평일 13:00~20:00엔 **30분**, 그 밖엔 **3시간**마다. 그 위에 **엣지 캐시 1시간**(stale이면 10분) — 그래서 새 영업일 자료는 공개 뒤 보통 1시간 안팎에 보여요(시뮬레이션: 13:40 공개 → 20분 뒤).
 
+## 5-2. 종목 페이지 대차 · 기업 · 배당 (`worker/src/stock_datago.js`, AGENTS §3 표 · §3-32 ②⑤④)
+
+```
+GET /api/stock/{code}/lending   → {code, basDt, source, asOf, days, rows:[{date, shares, amount, lent, repaid, recall?}] (오래된 순), latest, stale?}
+GET /api/stock/{code}/corp      → {code, name, basDt, source, asOf, outline, affiliates, subsidiaries, partial?, stale?}
+GET /api/stock/{code}/dividend  → {code, basDt, source, asOf, rows:[{recordDate, payDate, amount, kind, reason, …}] (최신순), stale?}
+```
+
+| 경로 | 오퍼레이션 · 요청 변수 | 사본 (KV `REPLAY`) | 언제 다시 받나 |
+|---|---|---|---|
+| `lending` | `getStLendAndBorrItemRank_V2` — `basDt=YYYYMMDD`만, `numOfRows=4000`(하루 약 2,800행 = 1쪽, 모자라면 2쪽, `partial`이면 그날 버림) | 공용 표: 날마다 `sdg:lend:d:<YYYYMMDD>`(줄마다 `코드,잔고주수,잔고금액,체결,상환,리콜`, 약 130 KB, 150일) + 목차 `sdg:lend:idx`(`days:{날: 행 수}`, 빈 날 `zero:{날: 확인 시각}`) · 종목마다 자른 것 `sdg:lend:<code>`(4일, 목차의 마지막 날이 바뀌면 다시 자름) | 목차에 없는 날이 있을 때(`lendWant`): `expectedBasDt(now, 1310)`부터 거꾸로 평일 90일 안에서 자료 있는 날 60개까지. 처음 요청은 3날을 기다려 받고, 그 뒤는 **2분 이상 간격으로 배경에서 8날씩** — 처음 채우기 ≈ 65번(한 번만). 빈 날(휴일 · 늦게 열림)은 기억하고, 가장 최근 3평일 안의 빈 날만 2시간 뒤 다시 물어요 |
+| `corp` | `getCorpOutline_V2`(`crno`, `numOfRows=10`) · `getAffiliate_V2` · `getConsSubsComp_V2`(`crno`, `basDt` 없이, `numOfRows=1000`, 더 있으면 **마지막 쪽도**) | `sdg:corp:<보통주 코드>`(10일) | 회사마다 **KST 하루 한 번까지**, 그리고 지난 시도 뒤에 평일 13:10이 지났을 때만(`companyDue`). 배경 갱신(지금 사본으로 답하고 `ctx.waitUntil`) |
+| `dividend` | `getDiviInfo_V2`(`crno`, `basDt` 없이, `numOfRows=1000`, 더 있으면 마지막 쪽도) | `sdg:divi:<보통주 코드>`(10일) — 회사의 모든 주식 · 배당, 같은 배당(ISIN · 기준일 · 사유)은 가장 최근 적재(`basDt`) 하나 | `corp`와 같음 |
+
+- **왜 대차는 공용 표인가**: 종목별 오퍼레이션 `getStItemLendAndBorrStatu_V2`는 `basDt` · `isinCdNm`으로만 거르고(활용가이드 샘플이 이름 칸에 ISIN을 적어 무엇을 받는지 모호), **잔고 금액이 없어요**. 순위 오퍼레이션은 `basDt` 하나로 그날 전 종목 · 금액(`lnbBal`)까지 줘요 → 종목을 몇 개 보든 원천 호출은 하루 1~2번. `isinCd`는 6자리 코드 · `A` + 코드 · `KR7…` ISIN · 외국 ISIN이 섞여 있어서 모두 같은 열쇠로(외국 회사는 ISIN, `crnoInfo`의 `isin`으로 찾음). 채권 행(`lnbScrtDcdNm` 채권)은 빼요.
+- **기업 · 배당 목록의 `basDt`**: 공시 기준일 묶음(계열회사 5월 · 종속기업 3월 식)이라 오늘 날짜를 넣으면 비어요. 그래서 `crno`만 보내고 받은 행에서 가장 최근 `basDt` 묶음을 써요. 정렬 방향을 모르니 1쪽과 마지막 쪽을 함께 봐요(2번).
+- **법인등록번호**: `crnoTable` → `t.get(code)`. 없으면(ETF · ETN · 외국 회사 · 모르는 코드) 404 `{error:'정보 없음'}`, 원천 호출 없음. 우선주는 보통주의 crno · 사본(같은 회사)을 쓰고, 배당은 응답에서 그 주식의 ISIN 행만(ISIN이 없으면 보통주/우선주 이름으로). 법인등록번호는 응답에 넣지 않아요(KRX 표 재배포 금지와 같은 선).
+- **하루 한 번 보장**: `companyDue` = 사본이 없거나 · crno가 다르거나 · (오늘 아직 시도하지 않았고 **그리고** 지난 시도가 가장 최근 평일 13:10보다 이르면). 실패해도 이전 사본이 있으면 그 사본을 `err`와 함께 새 `at`으로 다시 써서 **그 회사는 그날 다시 묻지 않아요**(`dgNote`로 API 쉬기 · 기록은 그대로). 사본이 없을 때의 실패만 쉬기가 끝난 뒤 다시 시도(503 `{error, code}`).
+- **응답**: 엣지 캐시 1시간, stale 10분, 배경 갱신 중이면 2분(새 사본이 곧 보이게). 503 · 404 · 400은 캐시 안 함. 텍스트는 `&amp;cr;` · 엔티티 · `NULL`을 지우고, 홈페이지는 `http(s)`만, 날짜는 `YYYY-MM-DD`.
+- **화면**(종목 정보 탭, `src/stock/stock.js` `renderLend` · `renderDvx` · `renderCorp`): 블록이 화면 아래 300px 안에 오면 받아요(IntersectionObserver — PC는 옆 카드가 스크롤 상자), 종목마다 30분 기억. 대차 증감은 가격이 아니라 **중립색**(빨강 · 초록 없음) + "늘고 준 것은 좋고 나쁨을 뜻하지 않아요". 404 → 그 블록 숨김(옛 Worker · ETF), 503 → "자료를 아직 받는 중이에요", 실패 → 다시 시도, `stale` → 출처 줄에 "새로 받지 못해 지난 자료예요".
+- **배포 뒤 확인**(키가 Worker에만 있어 실제 응답은 아직 못 봤어요): ① `GET /api/datago/status` → `apis.lend` · `corp` · `divi`의 `lastError` 없음, `snapshots.lend.rows` 2,000 이상(하루 행 수), 몇 분 간격으로 몇 번 부르면 `days`가 60까지. ② `GET /api/stock/005930/lending` → `rows[].date`가 영업일, `shares`가 수천만 주 · `amount`가 조원 단위(= 주수 × 그날 종가 근처), `isinCd`가 어느 모양으로 왔는지는 `sdg:lend:d:*` 첫 줄로. ③ `corp` → `outline.employees` · `ceo` · `established`가 사업보고서와 같은지, `affiliates.basDt` · `subsidiaries.basDt`가 최근 연도인지(오래된 묶음이면 쪽 정렬 가정이 틀린 것), `crno`가 응답의 `totalCount`를 줄이는지(활용가이드 기업개요 샘플은 `totalCount` 288,173 — 거르기가 안 먹으면 첫 행이 다른 회사, 우리는 crno로 다시 걸러서 `outline:null`이 돼요). ④ `dividend` → 005930 최근 분기 배당(1주당 361원대) · 기준일 · 지급일, 005935는 우선주 행, `basDt` 없이 보낸 `totalCount`가 몇 백 행 안인지(아주 크면 basDt마다 전체를 다시 싣는 모양 — 마지막 쪽 가정 확인).
+
 ## 6. 화면 (지표 탭, `src/world/world.js`)
 
 - `kind=commodity&with=fx,rates`를 받을 때 `api/funds`도 따로 받아요 — **10분에 한 번까지**(30초 시세 갱신마다가 아님), 실패하면 2분 뒤. 받은 항목은 `gkey:'funds'` 묶음 "증시 자금"으로 **환율 · 금리 다음**에 붙어 같은 덩어리가 돼요(제목 줄 "환율 · 금리 · 증시 자금", 1920은 세 단, 1280은 환율+금리 | 증시 자금, 휴대폰은 한 단). 행 키는 `fd:<key>`.
@@ -116,7 +139,7 @@ GET /api/funds/chart/{key}?tf=3m|1y → {key, name, tf, unit, bars:[{t:'YYYY-MM-
 
 ## 7. 상태 경로 `GET /api/datago/status[?warm=1]`
 
-`{now, key:boolean, expectedBasDt, apis:{kofia, krx}:{name, calls, cap, cool, lastError}, snapshots:{funds:{basDt, at, opDt, points, partial?}|null, crno:{basDt, at, n, withCrno}|null}}`, `no-store`. 키 · URL · 법인등록번호 표는 없어요. `warm=1`이면 두 사본의 `due()`를 먼저 돌려요(때가 아니면 아무것도 부르지 않아요) — 배포 직후 확인용.
+`{now, key:boolean, expectedBasDt, apis:{kofia, krx, lend, corp, divi}:{name, calls, cap, cool, lastError}, snapshots:{funds:{basDt, at, opDt, points, partial?}|null, crno:{basDt, at, n, withCrno}|null, lend:{basDt, at, days, empty, rows}|null}}`, `no-store`. 키 · URL · 법인등록번호 표는 없어요. `warm=1`이면 두 사본의 `due()`를 먼저 돌려요(때가 아니면 아무것도 부르지 않아요) — 배포 직후 확인용.
 
 ## 8. 호출량 (하루 추정)
 
@@ -124,6 +147,8 @@ GET /api/funds/chart/{key}?tf=3m|1y → {key, name, tf, unit, bars:[{t:'YYYY-MM-
 |---|---|---|
 | 증시 자금 (갱신당 2번) | 평일 6번 갱신 ≈ **12번**(점검 시뮬레이션: 2분마다 요청 · colo 둘 · 13:40 공개 → 12번) | 자료가 하루 늦게 계속 뒤처지면 13~20시 30분 · 그 밖 3시간 ≈ 40번, 엣지 캐시 때문에 실제로는 시간당 colo 하나 |
 | 법인등록번호 표 | 평일 1번 갱신 = 2번(+ 휴일마다 1번), 주말 0 | 7평일 거꾸로 + 2쪽 = 9번 |
+| 종목 페이지 대차 (공용 표) | 평일 1~2번(+ 빈 날 다시 묻기 2시간마다 몇 번) | 처음 채우기 ≈ 65번(한 번만, 2분 간격 8날씩) |
+| 종목 페이지 기업 · 배당 | 본 회사 수 × (기업 3~5 + 배당 1~2) — 회사마다 하루 한 번까지, 엣지 캐시 1시간 | 상한 corp 600 · divi 1,000(캘린더와 같이)에서 멈추고 KST 자정까지 쉬어요(사본은 계속 답함) |
 | 증시 캘린더 (배당 · 보호예수 · 권리일정, `calendar.js` §9-2) | 영업일마다 basDt 하나씩 API당 1~2쪽 + 보호예수 종목마다 발행현황 1번 ≈ **5~15번** | 처음(10영업일 거꾸로) API당 ≤ 20번 = 60번 |
 | 합계 | **≈ 15번/일** (+ 캘린더 5~15) | ≈ 50번/일 — 상한 300 · 100, 포털 10,000과 거리가 멀어요 |
 
@@ -138,6 +163,8 @@ KV: 쓰기는 갱신마다 사본 1 + 계수 1(+ 실패 시 쉬기 · 기록), �
 | `datago:calls:<api>:<YYYYMMDD>` | 그날 호출 수 | 2일 |
 | `datago:cool:<api>` | 쉬는 중 `{code, until}` | 쉬는 동안 |
 | `datago:err:<api>` | 마지막 실패 기록 | 3일 |
+| `sdg:lend:idx` · `sdg:lend:d:<YYYYMMDD>` | 대차 공용 표 목차 · 날마다 전 종목 줄 | 150일 |
+| `sdg:lend:<code>` · `sdg:corp:<code>` · `sdg:divi:<code>` | 종목 페이지: 대차 60영업일(자른 것) · 기업 · 배당 사본(보통주 코드) | 4일 · 10일 · 10일 |
 | `cal:fsc:divi` · `cal:fsc:lock` · `cal:fsc:rights` | 증시 캘린더 사본 `{v, basDt, days:{YYYYMMDD: 행 수}, evs:[…], at}` (`calendar.md` §9-2) | 45일 |
 
 ## 10. 운영 (runbook)
@@ -146,11 +173,13 @@ KV: 쓰기는 갱신마다 사본 1 + 계수 1(+ 실패 시 쉬기 · 기록), �
 2. **`lastError.code`로 원인 보기**: `key` → 비밀값 철자(앞뒤 공백 · 따옴표) · 포털 키 상태 · 활용기간; `forbidden` → 그 API 활용 신청 · 승인; `notfound` → 오퍼레이션 철자(대소문자) · 서비스 경로; `quota` → 포털 하루 한도(자정에 풀려요); `rate` → 잠깐 뒤 저절로; `upstream` · `timeout` → 기관 서버(15분 뒤 다시); `empty` → 그 범위에 자료가 없음(휴일 · 공개 지연 · 날짜 계산); `shape` → 응답 모양이 바뀜(필드 이름을 활용가이드와 비교). `partial:true`면 두 오퍼레이션 중 하나만 실패(`op`에 이름).
 3. **멈추기**: Worker 비밀값 `DATAGO_CAP=0`(배포 스크립트가 지키는 건 비밀값뿐이라 일반 변수 말고 비밀값으로) → 모든 공공데이터포털 호출을 멈추고 KV 사본만 내줘요(사본은 10일 뒤 만료). 숫자를 넣으면 API마다 그 수 아래로 낮춰요. 지우면 원래대로.
 4. **키 바꾸기**: Cloudflare 대시보드(또는 `wrangler secret put DATA_GO_KR_KEY`)에서만 — 저장소 · 파일 · 로그 · 메모리에 쓰지 않아요. 배포 스크립트는 `secret_text` 바인딩을 지켜요. 바꾼 뒤 `datago:cool:<api>`가 남아 있으면 그 시간까지 기다리거나(최대 1시간, quota는 자정) 키를 지워요.
-5. **새 API 붙이기**(대차 · 기업기본 · 배당 · 보호예수): `DG_APIS`에 이미 있어요. `dgSnapshot(env, ctx, {api: DG_APIS.lend, key: 'datago:<이름>', ttlS, due, build})` 하나를 만들고, 종목별이면 `crnoOf(env, code, ctx)`로 법인등록번호를 얻어요. 종목별 호출은 요청마다 하지 말고 KV에 하루 한 번(또는 종목별 키 + 긴 TTL)으로.
+5. **새 API 붙이기**(보호예수 등 — 대차 · 기업기본 · 배당은 §5-2로 붙었어요): `DG_APIS`에 이미 있어요. `dgSnapshot(env, ctx, {api: DG_APIS.lend, key: 'datago:<이름>', ttlS, due, build})` 하나를 만들고, 종목별이면 `crnoOf(env, code, ctx)`로 법인등록번호를 얻어요. 종목별 호출은 요청마다 하지 말고 KV에 하루 한 번(또는 종목별 키 + 긴 TTL)으로.
 
 ## 11. 점검
 
 - `node qa/datago/test_datago.mjs` — 봉투(JSON · 옛 XML · 게이트웨이 글자 · XML 정상), 키 세 철자 · 한 번 인코딩, 요청 변수, 쪽 넘김, 8초 · 시간 초과, 계수 · 상한 · 0 = 끄기, 마지막 성공본 · 쉬기 길이 · 자정까지 · 기록 30분, 동시 갱신 하나, 배경 갱신, 일부 실패, KST 날짜 규칙, 키 새는 곳 없음.
 - `node qa/datago/test_crno.mjs` — 13시 규칙의 basDt, 2쪽, `A` 떼기, crno 정리 · 외국 회사, 우선주 → 보통주, 휴일 거꾸로, 7평일 빈 날, 평일마다 한 번(배경), 절반 미만 거절, 키 오류에도 옛 표, quota 자정, KV 없이, 키 없음.
 - `node qa/datago/test_funds.mjs` — 진짜 라우터(`worker/src/index.js`)로 `/api/funds` 모양 · 단위 · 앞 영업일 대비(한글날 건너뜀) · 요청 범위, 일부 실패, 모두 실패(stale · 503), `due()`, 차트 경로 · 400, 상태 경로 · `warm`, 하루 호출 시뮬레이션, 상한, 키 새는 곳 없음.
+- `node qa/worker/test_stock_datago.mjs` — 진짜 라우터로 세 경로: 대차 요청 변수 · 오래된 순 · 전 영업일 대비 · 금액, 2분 간격 배경 채우기 → 60영업일 · 한글날 빈 날 · 다음 13:10까지 0번, 코드 모양(6자리 · KR7 · A · 외국 ISIN) · 404/200 빈 목록, 늦게 열린 날 2시간 뒤, 실패 → stale · 쉬기 · 기록, 키 없음 · `DATAGO_CAP=0` 503, 엣지 캐시; 기업 세 오퍼레이션 · `&amp;cr;` · 홈페이지 · 최근 묶음(1쪽 + 마지막 쪽) · 하루 한 번(우선주 = 같은 사본, 아침 사본은 그날 오후에 안 받음) · ETF 404 · 일부 실패 partial · 실패 → 그날 다시 안 물음; 배당 다시 실은 행 · ISIN · 6년 · 20건 · 마지막 쪽; 상한 · 상태 경로 · 키 새는 곳 없음.
+- `python3 qa/stock/test_stock_datago.py` — 화면 블록: 화면 근처에서만 받기, 값 · 중립색 · 출처 줄, "모두 보기"(판이 자라고 아래는 한 번에 · 접기는 판 먼저 · 줄이기 = 바로), 상태(불러오는 중 · 빈 자료 · 503 · 실패 → 다시 시도 · 지난 자료 · 404 숨김), 출처 줄 순서, 360 · 390 · 768 · 1440 가로 넘침 · 콘솔 · 누름 44px · 11px · 조언 문구.
 - `python3 qa/world/test_funds.py` — `qa/world/mock_api.py`의 `/__mode?funds=empty|on|stale|partial|gone|fail|slow`(기본 `empty` — 다른 점검은 그대로)로 화면 전부(§6), 390 · 768 · 1280 · 1920 + 네 테마 390, 가로 넘침 0, 콘솔 오류 0.
