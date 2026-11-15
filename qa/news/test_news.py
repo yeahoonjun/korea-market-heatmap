@@ -528,6 +528,20 @@ def design(br):
           return { alpha: +a, edge: /inset/.test(cs.boxShadow) && /rgba\(255, 255, 255/.test(cs.boxShadow), r: cs.borderTopLeftRadius }; }""")
         check(f'glass {th}: the news card keeps its material — translucent plate, 1px edge reflection, 22px corner (template .card)', gl['alpha'] < 1 and gl['edge'] and gl['r'] == '22px', gl)
         ctx.close()
+    # kept: while the market summary card is open (PC) the news card does not grow with the side column — nw-hold, rows as when folded
+    ctx, pg = open_page(br, LIVE, 1440, 900)
+    pg.wait_for_selector('#news .nw-row:not(.skel)', timeout=8000); pg.wait_for_timeout(600)
+    st = "() => ({ hold: document.getElementById('news').classList.contains('nw-hold'), rows: document.querySelectorAll('#news .nw-row').length, sum: !!(window.KHSummary && KHSummary.isOpen) })"
+    h0 = pg.evaluate(st)
+    if h0['sum']:
+        pg.evaluate("KHSummary.open()"); pg.wait_for_timeout(1600)
+        h1 = pg.evaluate(st)
+        pg.evaluate("KHSummary.close()"); pg.wait_for_timeout(2200)
+        h2 = pg.evaluate(st)
+        check('kept: summary card open → the news card holds (nw-hold, rows as folded); closed → back', not h0['hold'] and h1['hold'] and h1['rows'] == h0['rows'] and not h2['hold'] and h2['rows'] == h0['rows'], f'{h0} {h1} {h2}')
+    else:
+        check('kept: summary card present for the nw-hold check', False, h0)
+    ctx.close()
 
 
 DESIGN_JS = r"""() => {

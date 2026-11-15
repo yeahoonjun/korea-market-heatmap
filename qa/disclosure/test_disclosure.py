@@ -38,7 +38,7 @@ SIZES = [(360, 740), (390, 844), (768, 1024), (1280, 800), (1920, 1080)]
 THEMES = ['base', 'paper', 'glass-dark', 'glass-light']
 NOPROXY = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 SHOTS = '--shots' in sys.argv
-ONLY = next((a.split('=', 1)[1] for a in sys.argv if a.startswith('--only=')), '')   # --only=design: the design-standard section alone
+ONLY = next((a.split('=', 1)[1] for a in sys.argv if a.startswith('--only=')), '')   # --only=design | baseline: that section alone
 results = []
 
 
@@ -488,11 +488,11 @@ def run(br):
     pg.click('[data-set="discKinds"] .kchip[data-si="0"]'); pg.click('[data-set="discKinds"] .kchip[data-si="1"]'); pg.click('[data-set="discKinds"] .kchip[data-si="2"]'); pg.wait_for_timeout(300)
     k0 = mock('/__stats').get('/api/disclosures/today', 0)
     pg.click('[data-set="disc"] .swbtn'); pg.wait_for_timeout(500)
-    o = pg.evaluate("() => ({ dm: document.querySelectorAll('#map .dm').length, chip: !!document.querySelector('.dc-lit'), lg: !!document.querySelector('#legend .dc-lg'), tab: !!document.getElementById('news-t-disc'), multi: document.getElementById('news').classList.contains('multi'), foot: document.getElementById('foot-disc').hidden, kinds: document.querySelector('[data-set=\"discKinds\"]').classList.contains('off') })")
+    o = pg.evaluate("() => ({ dm: document.querySelectorAll('#map .dm').length, chip: !!document.querySelector('.dc-lit'), lg: !!document.querySelector('#legend .dc-lg'), tab: !!document.getElementById('news-t-disc'), multi: document.getElementById('news').classList.contains('multi'), pol: !!document.getElementById('news-t-policy'), foot: document.getElementById('foot-disc').hidden, kinds: document.querySelector('[data-set=\"discKinds\"]').classList.contains('off') })")
     pg.evaluate("KH.refresh()"); pg.wait_for_timeout(800)
     k1 = mock('/__stats').get('/api/disclosures/today', 0)
     check('공시 보기 off → no corners, map switch, legend item, tab (the news card as before), footer line; kind chips greyed; no request on refresh',
-          o['dm'] == 0 and not o['chip'] and not o['lg'] and not o['tab'] and not o['multi'] and o['foot'] and o['kinds'] and k1 == k0, f'{o} req {k0}→{k1}')
+          o['dm'] == 0 and not o['chip'] and not o['lg'] and not o['tab'] and o['multi'] == o['pol'] and o['foot'] and o['kinds'] and k1 == k0, f'{o} req {k0}→{k1}')   # (the 정책 자료 tab, when there, keeps the title tabs)
     pg.click('[data-set="disc"] .swbtn'); pg.wait_for_timeout(1200)
     o2 = pg.evaluate("() => ({ dm: document.querySelectorAll('#map .dm').length, tab: !!document.getElementById('news-t-disc') })")
     check('공시 보기 on again → corners and tab back', o2['dm'] > 0 and o2['tab'], o2)
@@ -751,11 +751,11 @@ def run(br):
     mode('none')
     ctx, pg = open_page(br, LIVE, 1280, 800, errors=E)
     pg.evaluate("document.getElementById('news').scrollIntoView({block: 'center'})"); pg.wait_for_timeout(800)
-    g4 = pg.evaluate("() => ({ tab: !!document.getElementById('news-t-disc'), multi: document.getElementById('news').classList.contains('multi'), h2: !!document.querySelector('#news h2'), chip: !!document.querySelector('.dc-lit'), dm: document.querySelectorAll('#map .dm').length, lg: !!document.querySelector('#legend .dc-lg'), foot: document.getElementById('foot-disc').hidden })")
+    g4 = pg.evaluate("() => ({ tab: !!document.getElementById('news-t-disc'), multi: document.getElementById('news').classList.contains('multi'), pol: !!document.getElementById('news-t-policy'), h2: !!document.querySelector('#news h2'), chip: !!document.querySelector('.dc-lit'), dm: document.querySelectorAll('#map .dm').length, lg: !!document.querySelector('#legend .dc-lg'), foot: document.getElementById('foot-disc').hidden })")
     n4 = mock('/__stats').get('/api/disclosures/today', 0)
     pg.evaluate("KH.refresh()"); pg.wait_for_timeout(600)
     n5 = mock('/__stats').get('/api/disclosures/today', 0)
-    check('404: no tab (the news card with its h2 as before), no map switch, corners, legend item, footer line; no more requests', not g4['tab'] and not g4['multi'] and g4['h2'] and not g4['chip'] and g4['dm'] == 0 and not g4['lg'] and g4['foot'] and n4 == 1 and n5 == 1, f'{g4} {n4}→{n5}')
+    check('404: no tab (the news card with its h2 as before), no map switch, corners, legend item, footer line; no more requests', not g4['tab'] and g4['multi'] == g4['pol'] and g4['h2'] != g4['pol'] and not g4['chip'] and g4['dm'] == 0 and not g4['lg'] and g4['foot'] and n4 == 1 and n5 == 1, f'{g4} {n4}→{n5}')
     E.allow = []
     ctx.close()
 
@@ -779,9 +779,9 @@ def run(br):
     E.items = []
     ctx, pg = open_page(br, SNAP, 1280, 800, errors=E)
     pg.evaluate("document.getElementById('news').scrollIntoView({block: 'center'})"); pg.click('#news-t-disc'); pg.wait_for_timeout(300)
-    sn = pg.evaluate("() => ({ text: document.getElementById('news-p-disc').textContent, href: (document.querySelector('#news-p-disc a') || {}).href, chip: !!document.querySelector('.dc-lit, .dc-hchip'), dm: document.querySelectorAll('#map .dm').length, lg: !!document.querySelector('#legend .dc-lg'), foot: document.getElementById('foot-disc') ? document.getElementById('foot-disc').hidden : true, over: document.documentElement.scrollWidth - innerWidth, tabs: [...document.querySelectorAll('#news .nw-tt button')].map(b => b.textContent) })")
+    sn = pg.evaluate("() => ({ text: document.getElementById('news-p-disc').textContent, href: (document.querySelector('#news-p-disc a') || {}).href, chip: !!document.querySelector('.dc-lit, .dc-hchip'), dm: document.querySelectorAll('#map .dm').length, lg: !!document.querySelector('#legend .dc-lg'), foot: document.getElementById('foot-disc') ? document.getElementById('foot-disc').hidden : true, over: document.documentElement.scrollWidth - innerWidth, tabs: [...document.querySelectorAll('#news .nw-ftabs > button')].map(b => b.textContent) })")
     check('snapshot: tabs 시장 뉴스 · 오늘 공시, "공시는 실시간 버전에서 볼 수 있어요" + LIVE_URL; no map switch, corners, legend item, footer line; no console errors',
-          sn['tabs'] == ['시장 뉴스', '오늘 공시'] and '공시는 실시간 버전에서 볼 수 있어요' in sn['text'] and sn['href'] == 'https://panse.pages.dev/' and not sn['chip'] and sn['dm'] == 0 and not sn['lg'] and sn['foot'] and sn['over'] == 0 and not E.items, f'{sn} {E.items[:2]}')
+          sn['tabs'][:2] == ['시장 뉴스', '오늘 공시'] and '공시는 실시간 버전에서 볼 수 있어요' in sn['text'] and sn['href'] == 'https://panse.pages.dev/' and not sn['chip'] and sn['dm'] == 0 and not sn['lg'] and sn['foot'] and sn['over'] == 0 and not E.items, f'{sn} {E.items[:2]}')
     ctx.close()
     html = (ROOT / 'dist/index.html').read_text(encoding='utf-8')
     check('dist/index.html carries no disclosure rows (no rcpNo link, no fixture title)', 'rcpNo=2026' not in html and '연결재무제표기준영업(잠정)실적' not in html)
@@ -890,8 +890,15 @@ def baseline(br):
             for name, url in (('base', BASE), ('new', LIVE)):
                 ctx, pg = open_page(br, url, w, h, 'base', motion='reduced', store={'clock': False}, wait=2200)
                 pg.add_style_tag(content='#tip{display:none!important}')
-                shots[name] = {k: pg.locator(sel).screenshot() for k, sel in (('map', '#map'), ('legend', '#legend'), ('side', 'main.layout > .side > section:nth-child(1)'),
-                                                                              ('side2', 'main.layout > .side > section:nth-child(2)'), ('side3', 'main.layout > .side > section:nth-child(3)'))}
+                shots[name] = {k: pg.locator(sel).screenshot() for k, sel in (('map', '#map'), ('legend', '#legend'))}
+                # the side cards with the news card out of the way: on phones they sit under it, and a card above that ends on a fractional
+                # pixel (its wrapped titles: 14px × 1.45) shifts their thin bars' anti-aliasing — what is compared is the cards themselves
+                ys = pg.evaluate("scrollY")
+                pg.add_style_tag(content='#news{display:none!important}')
+                shots[name].update({k: pg.locator(sel).screenshot() for k, sel in (('side', 'main.layout > .side > section:nth-child(1)'),
+                                    ('side2', 'main.layout > .side > section:nth-child(2)'), ('side3', 'main.layout > .side > section:nth-child(3)'))})
+                pg.evaluate("document.querySelectorAll('style').forEach(s => { if (s.textContent.includes('#news{display:none')) s.remove(); })")
+                pg.evaluate(f"scrollTo(0, {ys})"); pg.wait_for_timeout(150)
                 shots[name]['geo'] = pg.evaluate("() => ['#map', '#legend', ...document.querySelectorAll('main.layout > .side > section')].map(s => { const r = (typeof s === 'string' ? document.querySelector(s) : s).getBoundingClientRect(); return [Math.round(r.x), Math.round(r.y + scrollY), Math.round(r.width), Math.round(r.height)]; })")
                 shots[name]['dom'] = pg.evaluate("() => [...document.querySelectorAll('#map .node')].map(n => [n.className, n.style.cssText, n.getAttribute('aria-label') || '', n.textContent, n.style.color]).join('\\n') + document.getElementById('legend').innerHTML")
                 ctx.close()
@@ -967,10 +974,11 @@ def main():
                 time.sleep(0.1)
         with sync_playwright() as p:
             br = p.chromium.launch(executable_path='/usr/bin/google-chrome', args=['--no-sandbox'])
-            if ONLY != 'design':
+            if not ONLY:
                 run(br)
-            design(br)
-            if ONLY != 'design':
+            if ONLY in ('', 'design'):
+                design(br)
+            if ONLY in ('', 'baseline'):
                 baseline(br)
             if SHOTS:
                 shots(br)
