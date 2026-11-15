@@ -72,6 +72,8 @@ GRAD_OK = [   # selector (substring) → why a gradient is fine there
     ('.tile .dm', 'the folded 공시 corner (a hard-stop diagonal = a shape)'), ('.dmsw::after', 'the corner swatch'),
     ('.tabs-sc.more-r', 'the tab row overflow mask (a mask, not paint)'),
     ('.rc', 'the number drum\'s 14 % fade (a mask, not paint — design.md §6-2 P10)'),
+    ('html[data-theme^="glass"] :is(.tip,header.top)::after', 'glass material: edge reflection (user 2026-11-16 01:32 — glass themes only)'),
+    ('html[data-theme="glass-', 'glass material: top sheen in --tip-bg / --bar-bg (user 2026-11-16 01:32 — glass themes only)'),
 ]
 HALO_OK = ['.tile .lab', '.stagebar.ix-bg .crumbs']   # dark text halos: legibility over data (tile colours · the index line)
 STATUS_SEL = re.compile(r'\.status\.(live|err)|\.err\b|stale|\[data-st="fail"\]|\.kwn|\.fail')
