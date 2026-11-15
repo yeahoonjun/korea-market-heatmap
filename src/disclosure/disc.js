@@ -15,7 +15,11 @@
    Data: while the setting is on, the page is visible and a stock map is shown — every 60 s on weekdays 07:00–19:00 KST, else 5 min;
    failures back off 1 → 2 → 4 → 5 min, "오래됨" after 5 min of failures. The Worker's weak ETag goes back as If-None-Match: a 304
    keeps the list and takes the time from x-as-of. A Worker without the route (404): nothing of this shows. Snapshot (dist/): the tab says
-   "실시간 버전에서 볼 수 있어요", nothing else. */
+   "실시간 버전에서 볼 수 있어요", nothing else.
+   Design standard (docs/standards/design.md, ux/std-news 2026-11-16): the kind tabs are an underline row (KH.ui.seg, lead / trail),
+   더보기 · 접기 is the card's fold (KHNews.fold: only the list's box grows on `open`, what is below moves once), counts that move with a
+   new answer and a chip's % on a new quote change in place the way they went (KH.ui.swap, §6-4 · P9; the first draw, a map / filter
+   change: at once — P4), the switch's count swaps (§6-4). ! = --fail-dot; amber only selected / on / focus. */
 (() => {
 'use strict';
 const KH = window.KH;
@@ -53,6 +57,19 @@ function asOfText(iso) {
   return m[1] === kstOf(nowMs()).date ? m[2] : `${dayShort(m[1])} ${m[2]}`;
 }
 const isoMs = iso => { const t = Date.parse(iso || ''); return isNaN(t) ? 0 : t; };
+// a number written in place (design.md §6-4 · P9): with new data it changes the way it went (KH.ui.swap — up from below, down from above);
+// quiet (the first draw, a map / filter change; 줄이기 is KH.ui.swap's own check) writes it at once
+const numOf = t => { const m = /[+−-]?\d[\d,]*\.?\d*/.exec(String(t || '').replace(/−/g, '-')); return m ? parseFloat(m[0].replace(/,/g, '')) : NaN; };
+function swapNum(el, text, quiet) {
+  if (!el) return;
+  text = String(text);
+  const was = el.textContent;
+  if (was === text) return;
+  const sw = typeof UI.swap === 'function';
+  if (quiet || !was || !text || !sw) { if (sw && el.childElementCount) UI.swap(el, text, text); el.textContent = text; return; }   // (stops a running swap first)
+  const a = numOf(was), b = numOf(text);
+  UI.swap(el, text, was, isFinite(a) && isFinite(b) ? Math.sign(b - a) : 0);
+}
 
 /* ───────── state ───────── */
 const S = {
@@ -61,7 +78,7 @@ const S = {
   view: [], byCode: new Map(), marks: new Map(), markSig: '', fresh: new Set(), seen: '', rp: null, rpKey: '',
   mapSet: new Set(), mapKey: '',
   kt: 'main', only: true, open: false, L: { measure: false, base: 5, two: false, phone: narrowMQ.matches, rowsMax: MAX_ROWS },
-  shown: 0, pending: false, ptr: false, hov: '', litOn: false, lgKey: '', tabbed: false, names: null, namesBusy: false,
+  pending: false, ptr: false, hov: '', litOn: false, lgKey: '', tabbed: false, names: null, namesBusy: false, swap: false,
 };
 const today = () => kstOf(nowMs()).date;
 const isToday = () => !!S.data && S.data.date === today();
@@ -296,11 +313,12 @@ function stockChip(c) {
   return h('button', { type: 'button', class: 'dc-chipx', 'data-c': c, 'data-x': '1', 'aria-label': `${n}${m ? ' ' + m : ''} · 종목 페이지` },
     h('span', { class: 'dc-cn', text: n }), m ? h('small', { text: m }) : null);
 }
-function row(x, k, grow) {
-  const note = noteText(x.nt), name = nameOf(x.c), anim = grow && k >= S.shown;
+// rows past the first row count are .nw-x: they come in / leave together with the 더보기 fold (KHNews.fold · news.css)
+function row(x, k, base) {
+  const note = noteText(x.nt), name = nameOf(x.c);
   const label = `${name} ${x.t}${x.n > 1 ? ` (${x.n}건)` : ''}${note ? ` (${note})` : ''}`;
   const tt = [x.t, x.n > 1 ? h('span', { class: 'dc-x', text: `${x.n}건` }) : null];
-  return h('li', { class: 'dc-row' + (anim ? ' in' : ''), style: anim ? `--d:${Math.min(8, k - S.shown) * 20}ms` : null, 'data-c': x.c },
+  return h('li', { class: 'dc-row' + (k >= base ? ' nw-x' : ''), 'data-c': x.c },
     timeEl(x), h('span', { class: 'dc-cc' }, stockChip(x.c)),
     h('span', { class: 'dc-k' }, h('span', { class: 'dc-kb', text: x.k }), note ? h('span', { class: 'dc-kb fix', text: note }) : null),
     h('span', { class: 'nw-tt dc-tt', title: x.t + (x.f ? ` · 제출인 ${x.f}` : '') },
@@ -323,11 +341,11 @@ function renderPanel(o = {}) {
     b.setAttribute('aria-pressed', String(b.dataset.k === S.kt));
     if (none) b.setAttribute('aria-disabled', 'true'); else b.removeAttribute('aria-disabled');
     const t = none ? '' : String(listFor(b.dataset.k).length), sm = b.querySelector('small');
-    if (sm.textContent !== t) sm.textContent = t;
+    swapNum(sm, t, !S.swap);
   }
   if (none) onlyBtn.setAttribute('aria-disabled', 'true'); else onlyBtn.removeAttribute('aria-disabled');
   onlyBtn.setAttribute('aria-pressed', String(S.only));
-  onlyBtn.querySelector('.nw-n').textContent = none ? '' : String(new Set(S.view.filter(x => S.mapSet.has(x.c)).map(x => x.c)).size);
+  swapNum(onlyBtn.querySelector('.nw-n'), none ? '' : String(new Set(S.view.filter(x => S.mapSet.has(x.c)).map(x => x.c)).size), !S.swap);
   const all = d ? listFor() : [], base = L.base;
   const shown = L.measure ? 0 : S.open ? Math.min(MAX_ROWS, all.length) : base;
   const perCol = n => (L.two ? Math.ceil(n / 2) : n);
@@ -344,11 +362,10 @@ function renderPanel(o = {}) {
     kids = [msg(S.only ? `지도 종목의 ${kn} 공시가 ${past ? '' : '아직 '}없어요` : `${past ? '' : '아직 '}이 종류 공시가 없어요`, S.only ? "'지도 종목만'을 끄면 상장사 전체를 볼 수 있어요." : '')];
   } else {
     if (!S.only && all.slice(0, shown).some(x => !KH.stock(x.c))) needNames();
-    kids = all.slice(0, shown).map((x, k) => row(x, k, o.grow));
+    kids = all.slice(0, shown).map((x, k) => row(x, k, base));
   }
   put(list, kids);
   list.classList.toggle('is-msg', kids.length === 1 && kids[0].classList.contains('nw-msg'));
-  if (!L.measure) S.shown = d ? Math.min(shown, all.length) : 0;
   const total = Math.min(MAX_ROWS, all.length);
   const lab = more.querySelector('.kl[data-l="idle"]');
   if (lab) lab.textContent = `더보기 (${total}개)`;
@@ -390,7 +407,7 @@ function removeTab() {
   S.tabbed = false; setHover(null);
   if (window.KHNews && typeof window.KHNews.removeTab === 'function') window.KHNews.removeTab('disc');
 }
-const newsUpdate = () => { if (S.tabbed && window.KHNews && typeof window.KHNews.update === 'function') window.KHNews.update(); };
+const newsUpdate = () => { if (S.tabbed && window.KHNews && typeof window.KHNews.update === 'function') window.KHNews.update({ swap: S.swap }); };
 const newsRelayout = () => { if (S.tabbed && window.KHNews && typeof window.KHNews.relayout === 'function') window.KHNews.relayout(); };
 // the tab's own row wraps (a narrow card, longer counts): the PC fill measures its rows again so the card keeps its height
 if ('ResizeObserver' in window) {
@@ -407,16 +424,21 @@ onlyBtn.addEventListener('click', () => {
   if (onlyBtn.getAttribute('aria-disabled') === 'true') return;
   S.only = !S.only; renderPanel({ force: true });
 });
+// 휴대폰: 접으면 카드 머리로 (§3-14와 같아요)
+function headBack() {
+  if (!narrowMQ.matches) return;
+  const card = document.getElementById('news'), top = (card || pane).getBoundingClientRect().top;
+  const stuck = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--stuck-h')) || 0;
+  if (top < stuck) scrollBy({ top: top - stuck - 8, behavior: (typeof KH.motion === 'function' ? KH.motion() : '') === 'reduced' ? 'auto' : 'smooth' });
+}
+// 더보기 · 접기 = the card's fold (design.md §7: only the list's box grows on `open`, what is below moves once; news.js KHNews.fold)
 more.addEventListener('click', () => {
-  S.open = !S.open;
-  if (typeof UI.state === 'function') UI.state(more, S.open ? 'less' : 'idle');
-  more.setAttribute('aria-expanded', String(S.open));
-  renderPanel({ force: true, grow: S.open });
-  if (!S.open && narrowMQ.matches) {                   // 휴대폰: 접으면 카드 머리로 (§3-14와 같아요)
-    const card = document.getElementById('news'), top = (card || pane).getBoundingClientRect().top;
-    const stuck = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--stuck-h')) || 0;
-    if (top < stuck) scrollBy({ top: top - stuck - 8, behavior: (typeof KH.motion === 'function' ? KH.motion() : '') === 'reduced' ? 'auto' : 'smooth' });
-  }
+  const want = !S.open;
+  if (typeof UI.state === 'function') UI.state(more, want ? 'less' : 'idle');
+  more.setAttribute('aria-expanded', String(want));
+  const apply = w => { S.open = w; renderPanel({ force: true }); };
+  if (window.KHNews && typeof window.KHNews.fold === 'function') window.KHNews.fold(list, want, apply, { onEnd: want ? null : headBack });
+  else { apply(want); if (!want) headBack(); }
   more.focus({ preventScroll: true });
 });
 list.addEventListener('click', e => {
@@ -482,6 +504,7 @@ function derive() {
 function refreshAll() {
   renderLit(); renderLegend(); renderPanel(); newsUpdate(); renderFoot(); settingCounts();
   if (typeof KH.cardExtra === 'object' && KH.cardExtra) KH.cardExtra.refresh();
+  S.swap = false;
 }
 function settingCounts() {
   if (typeof KH.settingState !== 'function') return;
@@ -541,6 +564,7 @@ function setData(d) {
   if (prev && (!S.data || S.data.date === d.date)) for (const x of d.rows) if (x.r > prev && S.kinds.has(x.k)) S.fresh.add(x.c);
   S.seen = max || prev;
   S.data = d;
+  S.swap = true;                                        // counts that move with this answer change in place (§6-4); reset in refreshAll
   derive();
 }
 function load(o = {}) {
@@ -632,7 +656,7 @@ document.addEventListener('kh:data', () => {
     const q = quoteOf(b.dataset.c), v = b.querySelector('b');
     if (!q || !v) continue;
     const t = pct(q.r);
-    if (v.textContent !== t) { v.textContent = t; v.className = cls(q.r); b.setAttribute('aria-label', `${q.n} ${t} · 빠른 보기`); }
+    if (v.textContent !== t) { swapNum(v, t); v.className = cls(q.r); b.setAttribute('aria-label', `${q.n} ${t} · 빠른 보기`); }   // a new quote: §6-4 the way it went
   }
 });
 document.addEventListener('kh:refresh', () => { if (polling()) load(); });

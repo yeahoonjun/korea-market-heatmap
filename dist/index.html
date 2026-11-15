@@ -17396,22 +17396,26 @@ if (root) root.KHNewsMatch = NEWS_MATCH;
 
 </script>
 <style>
-/* 시장 뉴스 패널 (src/news/news.js · docs/standards/news.md — C안, 사용자 2026-11-13 23:14). drafts/news.html의 C · 휴대폰 모양 그대로.
+/* 시장 뉴스 패널 (src/news/news.js · docs/standards/news.md — C안, 사용자 2026-11-13 23:14). drafts/news.html의 C · 휴대폰 모양.
    카드 = 템플릿의 <section class="card news" id="news">: PC는 지도 열의 두 번째 줄(옆 칸 끝까지 늘어나요), 980px 이하는 옆 카드 다음.
-   색은 모두 역할 토큰(themes.md §4) + 템플릿의 ✚ --row-hov · --mk-bg · --mk-line · --dchip-bg. 빨강 · 초록은 등락률 숫자에만. */
-:root{--nw-badge-r:6px}
-html[data-theme="paper"]{--nw-badge-r:2px}
-html[data-theme^="glass"]{--nw-badge-r:999px}
-
-.news{display:flex;flex-direction:column;min-width:0;min-height:0;--nw-rh:32px}
+   디자인 기준(docs/standards/design.md, ux/std-news 2026-11-16): 글자 --fs-* · 간격 --space-* · 모서리 --r-* · 높이 --h-* · 채움 --fill-* 토큰만,
+   움직임은 --sp-* 스프링(누름만 0 → --c-fast), hover는 (hover:hover) and (pointer:fine) 안에서만, 줄이기는 html[data-motion] 하나.
+   색은 역할 토큰(themes.md §4) + 템플릿의 --row-hov · --mk-bg · --mk-line · --dchip-bg. 빨강 · 초록은 등락률 숫자에만, 앰버는 고름(밑줄 ·
+   켜진 칩) · 포커스에만, 실패 !는 --fail-dot. 빛 · 그라데이션 없음. 카드의 재질(글라스 반투명 · 가장자리 반사)은 템플릿 .card 그대로 —
+   이 파일은 카드 바탕 · 그림자 · 흐림을 덮어쓰지 않아요(design.md §2 글라스 예외, qa/news/audit_css.py). */
+.news{display:flex;flex-direction:column;min-width:0;min-height:0;--nw-rh:var(--h-row);
+  /* design.md §6-4 글자 바꿈 길이 · 뼈대 숨쉬기 (줄이기 = 0) */
+  --nw-tx-out:100ms;--nw-tx-gap:60ms;--nw-tx-in:180ms;--nw-skel-t:1.4s}
+html[data-motion="reduced"] .news{--nw-tx-out:0ms;--nw-tx-gap:0ms;--nw-tx-in:0ms}
 .news[hidden]{display:none}
-@media (pointer:coarse) and (min-width:761px){.news{--nw-rh:44px}}
-.news .nw-hd{display:flex;align-items:center;gap:8px 14px;min-height:30px;margin:0 0 10px;min-width:0}
+/* 손가락 태블릿: 줄 44 = 휴대폰 줄 높이(--h-row 36 + --space-4) */
+@media (pointer:coarse) and (min-width:761px){.news{--nw-rh:calc(var(--h-row) + var(--space-4))}}
+.news .nw-hd{display:flex;align-items:center;gap:var(--space-4) var(--space-5);min-height:var(--h-key);margin:0 0 var(--space-4);min-width:0}
 .news .nw-hd h2{margin:0;flex:none}
-/* 언론사 탭 = 사이트의 .movers-tabs (KH.ui.seg: 앞 가장자리 --c-fast · 뒤 --c-base) */
+/* 언론사 탭 = 템플릿 세그먼트 .movers-tabs 그대로(KH.ui.seg: 앞 가장자리 lead · 뒤 trail), 크기를 덮어쓰지 않아요 */
 .news .nw-tabs{margin:0;flex:none;min-width:0}
-.news .nw-tabs > button{flex:1 1 auto;padding:3px 11px;min-height:24px}
-.news .nw-tabs > button .nw-bad{display:inline-block;margin-left:4px;color:var(--acc);font-weight:700}
+.news .nw-tabs > button{flex:1 1 auto}
+.news .nw-tabs > button .nw-bad{display:inline-block;margin-left:var(--space-2);color:var(--fail-dot);font-weight:700}
 .news .nw-tabs > button[aria-disabled="true"],.news .nw-only[aria-disabled="true"]{opacity:.45;cursor:not-allowed}
 .news .nw-tabs > button[aria-disabled="true"]:active{filter:none}
 /* feed tabs (disclosure.md §6, C안): one tab → .nw-pane is invisible to layout (the card exactly as before); several → the head holds the
@@ -17419,132 +17423,146 @@ html[data-theme^="glass"]{--nw-badge-r:999px}
 .news .nw-pane{display:contents}
 .news.multi .nw-pane{display:flex;flex-direction:column;flex:1 1 auto;min-height:0;min-width:0}
 .news.multi .nw-pane[hidden]{display:none}
-.news.multi .nw-hd{margin:0 0 8px}
-.news .nw-sub{display:flex;align-items:center;gap:8px 12px;min-height:30px;margin:0 0 6px;min-width:0}
-/* title tabs: words with a 2px bar under the one shown (controls §5-6 글자 탭; the bar opens with --c-base) */
-.news .nw-tt{display:flex;align-items:stretch;flex:0 1 auto;min-width:0}
-.news .nw-tt button{position:relative;height:30px;padding:0 4px;margin-right:12px;font-size:14.5px;font-weight:var(--w-head);letter-spacing:var(--track-head);color:var(--muted);font-family:var(--font-head);display:inline-flex;align-items:center;gap:6px;white-space:nowrap;min-width:0;transition:color var(--c-fast) var(--c-out)}
-.news .nw-tt button:last-child{margin-right:0}
-.news .nw-tt button::after{content:"";position:absolute;left:4px;right:4px;bottom:0;height:2px;border-radius:2px;background:var(--acc-line);transform:scaleX(0);transition:transform var(--c-base) var(--c-out)}
-.news .nw-tt button[aria-selected="true"]{color:var(--fg)}
-.news .nw-tt button[aria-selected="true"]::after{transform:none}
-.news .nw-tt button:hover{color:var(--fg)}
-.news .nw-tt .nw-tl{overflow:hidden;text-overflow:ellipsis;min-width:0}
-.news .nw-tt .nw-tn{font-size:12px;font-weight:500;color:var(--muted);font-family:var(--sans);font-variant-numeric:tabular-nums;letter-spacing:0}
-.news .nw-tt .nw-tn:empty{display:none}
-.news .nw-tt button:focus-visible{outline-offset:0;border-radius:4px}
-.news .nw-tt button:active{filter:var(--press-f);transition-duration:0s}
-.news .nw-at{margin-left:auto;display:inline-flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums;min-width:0}
+.news.multi .nw-hd{margin:0 0 var(--space-4)}
+.news .nw-sub{display:flex;align-items:center;gap:var(--space-4) var(--space-5);min-height:var(--h-key);margin:0 0 var(--space-3);min-width:0}
+/* 제목 탭 = 밑줄 탭(design.md §7 ③): 고른 탭 아래 2px --acc-line 하나가 KH.ui.seg로 옮겨 가요 — 가는 쪽 가장자리 lead · 뒤 trail
+   (템플릿 .seg 표시를 밑줄로, 공시 종류 탭 · 종목 페이지 공시 종류와 같은 조리법) */
+.news .nw-ftabs.seg{display:flex;align-items:stretch;flex:0 1 auto;gap:var(--space-5);min-width:0;padding:0;border-radius:0;background:none;box-shadow:none}
+.news .nw-ftabs.seg::before{top:auto;height:2px;border-radius:var(--r-mark) var(--r-mark) 0 0;background:var(--acc-line);box-shadow:none}
+.news .nw-ftabs.seg:not([data-ind]) > button[aria-selected="true"]{background:none;box-shadow:inset 0 -2px 0 var(--acc-line)}
+.news .nw-ftabs > button{display:inline-flex;align-items:center;gap:var(--space-3);height:var(--h-key);min-width:0;padding:0 var(--space-1);border-radius:0;
+  font-size:var(--fs-lg);line-height:var(--lh-row);font-weight:var(--w-head);letter-spacing:var(--track-head);font-family:var(--font-head);color:var(--muted);white-space:nowrap;
+  touch-action:manipulation;-webkit-tap-highlight-color:transparent;transition:color var(--sp-fade-dur) var(--sp-fade),filter var(--c-fast) var(--c-out)}
+.news .nw-ftabs > button[aria-selected="true"]{color:var(--fg)}
+.news .nw-ftabs .nw-tl{overflow:hidden;text-overflow:ellipsis;min-width:0}
+.news .nw-ftabs .nw-tn{font-size:var(--fs-sm);font-weight:500;color:var(--muted);font-family:var(--sans);font-variant-numeric:tabular-nums;letter-spacing:0}
+.news .nw-ftabs .nw-tn:empty{display:none}
+@media (hover:hover) and (pointer:fine){ .news .nw-ftabs > button:hover{color:var(--fg)} }
+.news .nw-at{margin-left:auto;display:inline-flex;align-items:center;gap:var(--space-4);font-size:var(--fs-sm);line-height:var(--lh-ui);color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums;min-width:0}
 .news .nw-at > span{overflow:hidden;text-overflow:ellipsis;min-width:0}
-.news .nw-at.stale{color:var(--acc);font-weight:600}
+/* 오래됨 = 실패 표시: ! (--fail-dot) + 글자 — 앰버 아님(design.md §2) */
+.news .nw-at.stale{color:var(--fg2);font-weight:600}
 .news .nw-at svg{width:15px;height:15px;flex:none}
-/* 켜고 끄기 칩 "지도 종목 기사만" (controls §5-7): 채움 + 테 + 체크가 0 → 14px (줄 끝이라 옆이 안 밀려요) */
-.news .nw-only{position:relative;display:inline-flex;align-items:center;gap:0;height:28px;padding:0 11px;border-radius:var(--r-chip);background:var(--chip-bg);box-shadow:var(--key-sh);font-size:12.5px;font-weight:600;color:var(--key-fg);white-space:nowrap;flex:none;
-  transition:background var(--c-fast) var(--c-out),box-shadow var(--c-fast) var(--c-out),transform var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out)}
+.news .nw-at .kwn{color:var(--fail-dot)}
+/* 켜고 끄기 칩 "지도 종목 기사만" (필터 = 알약 칩, design.md §7): 채움 + 1.5px 테 + 체크가 0 → 14px (lead), 체크는 fade로 나타나요 */
+.news .nw-only{position:relative;display:inline-flex;align-items:center;height:var(--h-chip);padding:0 var(--space-5);border-radius:var(--r-chip);background:var(--chip-bg);box-shadow:var(--key-sh);
+  font-size:var(--fs-sm);line-height:var(--lh-ui);font-weight:600;color:var(--key-fg);white-space:nowrap;flex:none;touch-action:manipulation;-webkit-tap-highlight-color:transparent;
+  transition:background var(--sp-lead-dur) var(--sp-lead),box-shadow var(--sp-lead-dur) var(--sp-lead),transform var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out)}
 .news .nw-only .nw-ck{display:inline-block;width:0;height:14px;opacity:0;transform:scale(.6);background:currentColor;-webkit-mask:var(--ck-mask) center/14px no-repeat;mask:var(--ck-mask) center/14px no-repeat;
-  transition:width var(--c-fast) var(--c-out),opacity var(--c-fast) var(--c-out),transform var(--c-fast) var(--c-out),margin var(--c-fast) var(--c-out)}
+  transition:width var(--sp-lead-dur) var(--sp-lead),opacity var(--sp-fade-dur) var(--sp-fade),transform var(--sp-lead-dur) var(--sp-lead),margin var(--sp-lead-dur) var(--sp-lead)}
 .news .nw-only[aria-pressed="true"]{background:var(--chip-on);box-shadow:inset 0 0 0 1.5px var(--chip-ring),var(--key-sh)}
-.news .nw-only[aria-pressed="true"] .nw-ck{width:14px;opacity:1;transform:none;margin-right:6px}
-.news .nw-only .nw-n{margin-left:6px;color:var(--fg2);font-variant-numeric:tabular-nums}
+.news .nw-only[aria-pressed="true"] .nw-ck{width:14px;opacity:1;transform:none;margin-right:var(--space-3)}
+.news .nw-only .nw-n{margin-left:var(--space-3);color:var(--fg2);font-weight:500;font-variant-numeric:tabular-nums}
 .news .nw-only:not([aria-disabled="true"]):is(:active,.is-press){transform:translateY(1px);box-shadow:var(--key-dn);filter:var(--press-f);transition-duration:0s}
+@media (hover:hover) and (pointer:fine){ .news .nw-only:not([aria-disabled="true"]):not([aria-pressed="true"]):hover{background:var(--key-hover)} }
 
-/* 오래된 목록 한 줄 (한 곳이 이번에 실패해서 마지막으로 받은 목록을 보여 줄 때) */
-.news .nw-note{display:flex;align-items:center;gap:8px;min-height:30px;margin:-4px 0 4px;font-size:12.5px;color:var(--fg2);min-width:0}
+/* 오래된 목록 한 줄 (한 곳이 이번에 실패해서 마지막으로 받은 목록을 보여 줄 때) — ! = --fail-dot */
+.news .nw-note{display:flex;align-items:center;gap:var(--space-4);min-height:var(--h-key);margin:calc(-1 * var(--space-2)) 0 var(--space-2);font-size:var(--fs-sm);line-height:var(--lh-ui);color:var(--fg2);min-width:0}
 .news .nw-note[hidden]{display:none}
 .news .nw-note > span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.news .nw-note > svg{color:var(--acc);width:15px;height:15px;flex:none}
+.news .nw-note > svg{color:var(--fail-dot);width:15px;height:15px;flex:none}
 .news .nw-note .kasync{margin-left:auto}
 
-/* 목록: 줄은 늘 통째로(반 줄 없음), 줄 높이 32 */
-.news .nw-list{flex:1 1 auto;min-height:0;list-style:none;margin:0;padding:0;display:grid;grid-auto-rows:var(--nw-rh);align-content:start}
-.news .nw-list.c2{grid-auto-flow:column;grid-template-columns:minmax(0,1fr) minmax(0,1fr);column-gap:28px;grid-template-rows:repeat(var(--nw-r,5),var(--nw-rh))}
-.news .nw-row{position:relative;display:grid;grid-template-columns:40px auto minmax(0,1fr) auto;grid-template-areas:"t s tt k";align-items:center;column-gap:10px;height:var(--nw-rh);padding:0 6px;margin:0 -6px;border-radius:6px;box-shadow:inset 0 -1px 0 var(--row-bd);min-width:0;transition:background var(--c-fast) var(--c-out)}
-.news .nw-row:hover{background:var(--row-hov)}
-.news .nw-row time{grid-area:t;font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+/* 목록: 줄은 늘 통째로(반 줄 없음), 줄 높이 --nw-rh = 목록 줄 --h-row(36 · 휴대폰은 내용대로 44 이상), 1200px 넘는 카드는 두 단 */
+.news .nw-list{position:relative;flex:1 1 auto;min-height:0;list-style:none;margin:0;padding:0;display:grid;grid-auto-rows:var(--nw-rh);align-content:start}
+.news .nw-list.c2{grid-auto-flow:column;grid-template-columns:minmax(0,1fr) minmax(0,1fr);column-gap:var(--space-7);grid-template-rows:repeat(var(--nw-r,5),var(--nw-rh))}
+.news .nw-row{position:relative;display:grid;grid-template-columns:40px auto minmax(0,1fr) auto;grid-template-areas:"t s tt k";align-items:center;column-gap:var(--space-5);height:var(--nw-rh);
+  padding:0 var(--space-3);margin:0 calc(-1 * var(--space-3));border-radius:var(--r-row);box-shadow:inset 0 -1px 0 var(--row-bd);min-width:0}
+@media (hover:hover) and (pointer:fine){ .news .nw-row:not(.skel):hover{background:var(--row-hov)} }
+.news .nw-row time{grid-area:t;font-size:var(--fs-sm);line-height:var(--lh-ui);color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
 .news .nw-row .nw-src{grid-area:s}
 .news .nw-row .nw-tt{grid-area:tt}
 .news .nw-row .nw-stk{grid-area:k}
 .news:not([data-tab="all"]) .nw-row .nw-src{display:none}
 .news:not([data-tab="all"]) .nw-row{grid-template-columns:40px 0 minmax(0,1fr) auto}
-/* 언론사 = 글자 배지 · 중립색 (빨강 · 초록 · 언론사 색 · 로고 없음) */
-.news .nw-src{display:inline-block;font-size:11px;font-weight:500;line-height:18px;padding:0 6px;border-radius:var(--nw-badge-r);color:var(--fg2);box-shadow:inset 0 0 0 1px var(--line2);white-space:nowrap;letter-spacing:-.01em}
-.news .nw-tt{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13.5px;color:var(--fg)}
+/* 언론사 = 배지 한 조리법(design.md §5: 11px/600 · 높이 18 · --r-badge · 1px 안쪽 테), 중립색 (언론사 색 · 로고 없음) */
+.news .nw-src{display:inline-block;height:18px;font-size:var(--fs-xs);font-weight:600;line-height:18px;padding:0 var(--space-3);border-radius:var(--r-badge);color:var(--fg2);box-shadow:inset 0 0 0 1px var(--line2);white-space:nowrap}
+.news .nw-tt{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:var(--fs-md);line-height:var(--lh-row);color:var(--fg);word-break:keep-all}
 .news .nw-tt a{text-decoration:none;color:var(--fg)}
-.news .nw-tt a:hover{text-decoration:underline;text-decoration-color:var(--muted);text-underline-offset:3px}
-.news .nw-tt a:focus-visible{outline-offset:-2px;border-radius:3px}
+@media (hover:hover) and (pointer:fine){ .news .nw-tt a:hover{text-decoration:underline;text-decoration-color:var(--muted);text-underline-offset:3px} }
+.news .nw-tt a:focus-visible{outline-offset:calc(-1 * var(--space-1));border-radius:var(--r-badge)}
 .news .nw-tt a:visited{color:var(--fg2)}
 /* 제목 안의 종목 이름: 점선 밑줄만(누르지 않음) — 누르는 곳은 오른쪽 칩 */
 .news .nw-tt mark{background:none;color:inherit;text-decoration:underline dotted;text-decoration-color:var(--muted);text-decoration-thickness:1.5px;text-underline-offset:3px}
-/* 종목 칩 = 가는 칩 (controls §5-7: 솟음, 누르면 1px) — 이름 + 오늘 등락률(지도와 같은 값) */
-.news .nw-stk{display:flex;gap:6px;justify-content:flex-end;align-items:center;min-width:0}
-.news .nw-chip{position:relative;display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 9px;border-radius:var(--r-chip);background:var(--dchip-bg);box-shadow:var(--key-sh);font-size:12.5px;font-weight:600;color:var(--key-fg);white-space:nowrap;
+/* 종목 칩 = 데이터 칩(솟음, 누르면 1px) — 이름 + 오늘 등락률(지도와 같은 값, 바뀌면 KH.ui.swap 방향 글자 바꿈) */
+.news .nw-stk{display:flex;gap:var(--space-3);justify-content:flex-end;align-items:center;min-width:0}
+.news .nw-chip{position:relative;display:inline-flex;align-items:center;gap:var(--space-3);height:var(--h-chip);padding:0 var(--space-4);border-radius:var(--r-chip);background:var(--dchip-bg);box-shadow:var(--key-sh);
+  font-size:var(--fs-sm);line-height:var(--lh-ui);font-weight:600;color:var(--key-fg);white-space:nowrap;touch-action:manipulation;-webkit-tap-highlight-color:transparent;
   transition:transform var(--c-fast) var(--c-out),box-shadow var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out)}
 .news .nw-chip b{font-weight:600;font-variant-numeric:tabular-nums}
-.news .nw-chip:hover{filter:brightness(1.1)}
+@media (hover:hover) and (pointer:fine){ .news .nw-chip:hover{background:color-mix(in srgb,var(--dchip-bg) 92%,var(--ov))} }
 .news .nw-chip:is(:active,.is-press){transform:translateY(1px);box-shadow:var(--key-dn);filter:var(--press-f);transition-duration:0s}
-.news .nw-moren{font-size:12px;color:var(--muted);align-self:center;font-variant-numeric:tabular-nums}
+.news .nw-moren{font-size:var(--fs-sm);color:var(--muted);align-self:center;font-variant-numeric:tabular-nums}
 /* 터치 화면: 누르는 곳 44px (보이는 크기는 그대로) */
 @media (pointer:coarse){ .news :is(.nw-chip,.nw-only,.nw-kbtn.sm)::before{content:"";position:absolute;left:50%;top:50%;width:max(100%,44px);height:44px;transform:translate(-50%,-50%)} }
 
 /* 줄 아래: 더보기(akey — 글자 상자가 가장 긴 글자 폭) · 출처 */
-.news .nw-ft{display:flex;align-items:center;gap:8px 14px;margin-top:8px;min-height:34px}
-.news .nw-ft small{margin-left:auto;font-size:11.5px;color:var(--faint);text-align:right;line-height:1.45;min-width:0}
-.news .nw-kbtn{position:relative;display:inline-flex;align-items:center;justify-content:center;gap:7px;height:34px;padding:0 14px;border-radius:var(--r-key);background:var(--key-bg);box-shadow:var(--key-sh);font-size:12.5px;font-weight:600;color:var(--key-fg);white-space:nowrap;flex:none;
-  transition:transform var(--c-fast) var(--c-out),box-shadow var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out),background var(--c-base) var(--c-out),color var(--c-fast) var(--c-out)}
-.news .nw-kbtn:hover{background:var(--key-hover)}
+.news .nw-ft{display:flex;align-items:center;gap:var(--space-4) var(--space-6);margin-top:var(--space-4);min-height:var(--h-key)}
+.news .nw-ft small{margin-left:auto;font-size:var(--fs-xs);line-height:var(--lh-text);color:var(--faint);text-align:right;min-width:0}
+.news .nw-kbtn{position:relative;display:inline-flex;align-items:center;justify-content:center;gap:var(--space-3);height:var(--h-key);padding:0 var(--space-6);border-radius:var(--r-key);background:var(--key-bg);box-shadow:var(--key-sh);
+  font-size:var(--fs-sm);line-height:var(--lh-ui);font-weight:600;color:var(--key-fg);white-space:nowrap;flex:none;touch-action:manipulation;-webkit-tap-highlight-color:transparent;
+  transition:transform var(--c-fast) var(--c-out),box-shadow var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out),background var(--sp-fade-dur) var(--sp-fade),color var(--sp-fade-dur) var(--sp-fade)}
+@media (hover:hover) and (pointer:fine){ .news .nw-kbtn:hover{background:var(--key-hover)} }
 .news .nw-kbtn:is(:active,.is-press){transform:translateY(1px);box-shadow:var(--key-dn);filter:var(--press-f);transition-duration:0s}
-.news .nw-kbtn.sm{height:26px;padding:0 10px;font-size:12px}
+.news .nw-kbtn.sm{height:var(--h-chip);padding:0 var(--space-5)}
 .news .nw-kbtn[hidden]{display:inline-flex;visibility:hidden}
-.news .nw-more::after{content:"";width:6px;height:6px;margin-top:-3px;border:solid var(--key-ic);border-width:0 1.6px 1.6px 0;transform:rotate(45deg);transition:transform var(--c-base) var(--c-inout),margin var(--c-base) var(--c-inout)}
-.news .nw-more[aria-expanded="true"]::after{margin-top:3px;transform:rotate(225deg)}
-@media (hover:none){ .news .nw-kbtn:hover{background:var(--key-bg)} .news .nw-row:hover{background:none} .news .nw-chip:hover{filter:none} }
-/* 화려하게: 더보기로 펼친 줄이 4px 아래에서 (20ms 간격, 8줄까지) */
-html[data-motion="fancy"] .news .nw-row.in{animation:nwIn var(--c-base) var(--c-out) both;animation-delay:var(--d,0ms)}
-@keyframes nwIn{from{opacity:0;transform:translateY(4px)}}
+/* 꺾쇠(선 1.75px): 펼칠 때 open, 접을 때 close로 반 바퀴 */
+.news .nw-more::after{content:"";flex:none;width:6px;height:6px;border:solid var(--key-ic);border-width:0 1.75px 1.75px 0;transform:translateY(-25%) rotate(45deg);transition:transform var(--sp-close-dur) var(--sp-close)}
+.news .nw-more[aria-expanded="true"]::after{transform:translateY(25%) rotate(225deg);transition-duration:var(--sp-open-dur);transition-timing-function:var(--sp-open)}
+
+/* 더보기 · 접기 = 펼치는 목록 (design.md §7 · §12 ①, 종목 페이지 foldMove와 같음 — news.js fold, KHNews.fold): 목록 상자만 open으로 자라고
+   (아래가 열리는 클립) 아래 내용은 한 번에 — 펼칠 땐 누르는 순간, 접을 땐 상자가 준 뒤. 새 줄(.nw-x)은 상자가 25 % 열린 뒤 §6-4로
+   (opacity · 흐림 2px · 아래에서 4px) 다 함께 들어오고, 접을 땐 먼저 다 함께 나가요. 순차 없음(자주 여는 것 — §6-2). */
+.news .nw-list.nw-fold-anim > .nw-x{opacity:0;transform:translateY(var(--space-2));filter:blur(2px)}
+.news .nw-list.nw-fold-in > .nw-x{opacity:1;transform:none;filter:none;transition:opacity var(--nw-tx-in) var(--sp-fade),transform var(--nw-tx-in) var(--sp-fade),filter var(--nw-tx-in) var(--sp-fade)}
+.news .nw-list.nw-fold-out > .nw-x{opacity:0;transform:translateY(calc(-1 * var(--space-2)));filter:blur(2px);transition:opacity var(--nw-tx-out) var(--sp-close),transform var(--nw-tx-out) var(--sp-close),filter var(--nw-tx-out) var(--sp-close)}
+/* 화려하게: 제목 탭을 바꾸면 새 탭 내용이 4px 아래에서 fade (다 함께) */
+html[data-motion="fancy"] .news.multi .nw-pane.nw-in{animation:nwPane var(--sp-fade-dur) var(--sp-fade) both}
+@keyframes nwPane{from{opacity:0;transform:translateY(var(--space-2))}}
 
 /* 빈 · 오류 · 불러오는 중: 목록 자리를 그대로 차지해요 — 상태가 바뀌어도 카드 높이 그대로 */
 .news .nw-list.is-msg{display:flex;flex-direction:column}
-.news .nw-msg{flex:1 1 auto;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;font-size:13.5px;color:var(--fg2);padding:8px}
+.news .nw-msg{flex:1 1 auto;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:var(--space-5);text-align:center;padding:var(--space-4);font-size:var(--fs-md);line-height:var(--lh-text);color:var(--fg2);word-break:keep-all}
 .news .nw-msg b{font-weight:600;color:var(--fg)}
-.news .nw-msg small{font-size:12px;color:var(--muted)}
+.news .nw-msg small{font-size:var(--fs-sm);color:var(--muted)}
 .news .nw-msg a{color:var(--fg);font-weight:600;text-underline-offset:3px}
-.news .nw-msg .kasync{margin-top:2px}
-.news .nw-sk{display:block;height:10px;border-radius:5px;background:var(--line);opacity:.8}
+.news .nw-msg .kasync{margin-top:var(--space-1)}
+/* 뼈대: 평평한 --fill-2 막대가 투명도로만 숨쉬어요(흐르는 그라데이션 없음) — 공시 탭 줄도 같은 막대 */
+.news .nw-sk{display:block;height:10px;border-radius:var(--r-pill);background:var(--fill-2)}
 .news .nw-row.skel .nw-tt .nw-sk{width:calc(60% + var(--w,0%))}
-html:not([data-motion="reduced"]) .news .nw-row.skel .nw-sk{animation:nwSk 1.4s var(--c-inout) infinite alternate}
-@keyframes nwSk{to{opacity:.35}}
+html:not([data-motion="reduced"]) .news :is(.nw-row,.dc-row).skel .nw-sk{animation:nwSk var(--nw-skel-t) var(--c-inout) infinite alternate}
+@keyframes nwSk{from{opacity:1}to{opacity:.45}}
 
-/* 휴대폰 (≤760): 맨 아래 카드 · 5개 + 더보기 · 시각 · 언론사 / 제목 두 줄 / 종목 칩 한 줄 */
+/* 휴대폰 (≤760): 맨 아래 카드 · 5개 + 더보기 · 시각 · 언론사 / 제목 두 줄(14px · 행간 1.45) / 종목 칩 한 줄, 줄 44px 이상 */
 @media (max-width:760px){
   .news{--nw-rh:auto}
   .news .nw-hd{flex-wrap:wrap}
   .news .nw-hd h2{flex:1 1 auto}
   .news.multi .nw-hd{flex-wrap:nowrap}
   .news.multi .nw-hd .nw-at{margin-left:auto}
-  .news .nw-tt button{height:40px;font-size:15px;margin-right:10px}
-  .news .nw-sub{flex-wrap:wrap;margin-bottom:4px}
+  .news .nw-ftabs.seg{gap:var(--space-4)}
+  .news .nw-sub{flex-wrap:wrap;margin-bottom:var(--space-2)}
   .news .nw-tabs{order:5;width:100%}
-  .news .nw-tabs > button{min-height:40px;padding:0 6px;font-size:13px}
+  .news .nw-tabs > button{padding:0 var(--space-3);font-size:var(--fs-md)}
   .news .nw-at{margin-left:0}
-  .news .nw-only{order:6;height:32px}
+  .news .nw-only{order:6;font-size:var(--fs-md)}
   .news .nw-list{grid-auto-rows:auto}
-  .news .nw-row{grid-template-columns:auto minmax(0,1fr);grid-template-areas:"t s" "tt tt" "k k";row-gap:4px;align-items:center;justify-items:start;height:auto;padding:11px 0 12px;margin:0;border-radius:0}
-  .news .nw-row:hover{background:none}
-  .news .nw-row time{font-size:12px}
-  .news .nw-row .nw-tt{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;font-size:15px;line-height:21px;font-weight:500;width:100%}
+  .news .nw-row{grid-template-columns:auto minmax(0,1fr);grid-template-areas:"t s" "tt tt" "k k";row-gap:var(--space-2);align-items:center;justify-items:start;
+    height:auto;min-height:var(--h-row);padding:var(--space-5) 0;margin:0;border-radius:0}
+  .news .nw-row .nw-tt{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;font-size:var(--fs-lg);line-height:var(--lh-text);font-weight:500;width:100%}
   .news .nw-row .nw-tt a{display:block}
-  .news .nw-row .nw-stk{justify-content:flex-start;flex-wrap:wrap;gap:8px;margin-top:6px}
+  .news .nw-row .nw-stk{justify-content:flex-start;flex-wrap:wrap;gap:var(--space-4);margin-top:var(--space-3)}
   .news .nw-row .nw-stk:empty{display:none}
-  .news .nw-chip{height:32px;padding:0 12px;font-size:13px}
+  .news .nw-chip{padding:0 var(--space-5);font-size:var(--fs-md)}
   .news:not([data-tab="all"]) .nw-row{grid-template-columns:auto minmax(0,1fr)}
-  .news .nw-ft{flex-direction:column;align-items:stretch;gap:10px}
-  .news .nw-ft .nw-kbtn{height:42px;width:100%}
+  .news .nw-ft{flex-direction:column;align-items:stretch;gap:var(--space-5)}
+  .news .nw-ft .nw-kbtn:not(.sm){height:var(--h-row);width:100%}
   .news .nw-ft small{margin-left:0;text-align:left}
-  .news .nw-note{flex-wrap:wrap;margin:0 0 4px}
+  .news .nw-note{flex-wrap:wrap;margin:0 0 var(--space-2)}
   .news .nw-note > span{white-space:normal}
   .news .nw-msg{min-height:300px}
   .news .nw-wide{display:none}
-  .news.is-snap .nw-msg{min-height:0;padding:18px 8px}
+  .news.is-snap .nw-msg{min-height:0;padding:var(--space-6) var(--space-4)}
 }
 html[data-motion="reduced"] .news *{animation:none!important}
 
@@ -17569,7 +17587,12 @@ html[data-motion="reduced"] .news *{animation:none!important}
    render(L), onShow?, onHide?}) → the card head becomes a title tablist (시장 뉴스 · 오늘 공시, ←/→, remembered in khm.feedTab), the
    news controls move to a second row like the other tab's, and the card keeps one height: the PC fill (whole rows, min 5, two columns
    from 1200 px) is measured on the tab shown and handed to it as L = {measure, base, two, phone}. Only the tab shown polls its data.
-   onHide() runs when its tab stops being shown: another tab picked, the tab removed, or the card hidden (KHNews.hide). */
+   onHide() runs when its tab stops being shown: another tab picked, the tab removed, or the card hidden (KHNews.hide).
+   Design standard (docs/standards/design.md, ux/std-news 2026-11-16): the title tabs are an underline row (KH.ui.seg, lead / trail), the
+   outlet tabs the template's segment; 더보기 · 접기 is a fold (only the list's box grows on `open`, what is below moves once — KHNews.fold
+   for the other tabs); a number that moves with new data (a chip's %, a count) changes in place the way it went (KH.ui.swap, §6-4 · P9),
+   the first draw and a tab / map change write it at once (P4); 화려하게 fades a picked tab's content in (4 px). The one reduce switch is
+   html[data-motion]. Colours: ! of a failed / stale outlet = --fail-dot (no amber). */
 (() => {
 'use strict';
 const KH = window.KH, M = window.KHNewsMatch;
@@ -17594,6 +17617,19 @@ const timeText = t => (t.slice(0, 10) === kstDay(nowMs()) ? t.slice(11, 16) : `$
 const put = (el, ...kids) => el.replaceChildren(...kids.flat(Infinity).filter(k => k != null && k !== false));
 const icon = name => (typeof UI.icon === 'function' ? UI.icon(name) : null);
 const motion = () => (typeof KH.motion === 'function' ? KH.motion() : document.documentElement.dataset.motion || 'standard');
+// a number written in place (design.md §6-4 · P9): with KH.ui.swap it goes the way the value went — up from below, down from above;
+// quiet (the first draw, a tab / map change, 줄이기 — KH.ui.swap checks that) writes it at once
+const numOf = t => { const m = /[+−-]?\d[\d,]*\.?\d*/.exec(String(t || '').replace(/−/g, '-')); return m ? parseFloat(m[0].replace(/,/g, '')) : NaN; };
+function swapNum(el, text, quiet) {
+  if (!el) return;
+  text = String(text);
+  const was = el.textContent;
+  if (was === text) return;
+  const sw = typeof UI.swap === 'function';
+  if (quiet || !was || !text || !sw) { if (sw && el.childElementCount) UI.swap(el, text, text); el.textContent = text; return; }   // (stops a running swap first)
+  const a = numOf(was), b = numOf(text);
+  UI.swap(el, text, was, isFinite(a) && isFinite(b) ? Math.sign(b - a) : 0);
+}
 
 root.setAttribute('aria-labelledby', 'news-h');
 
@@ -17603,12 +17639,13 @@ const ftKey = (() => { try { return JSON.parse(localStorage.getItem('khm.feedTab
 const curExt = () => (FT.cur === 'news' ? null : FT.list.find(t => t.key === FT.cur) || null);
 const labelOf = t => String(typeof t.label === 'function' ? t.label() : t.label);
 const h2 = h('h2', { id: 'news-h', text: '시장 뉴스' });
-const ttl = h('div', { class: 'nw-tt', role: 'tablist', id: 'news-h', 'aria-label': '지도 아래 패널' });
+// title tabs = an underline row (design.md §7 ③): the template's segment indicator drawn as a 2px bar (news.css .nw-ftabs), moved by KH.ui.seg
+const ttl = h('div', { class: 'seg nw-ftabs', role: 'tablist', id: 'news-h', 'aria-label': '지도 아래 패널' });
 const at = h('span', { class: 'nw-at' });
 const hd = h('div', { class: 'nw-hd' });
 const newsPane = h('div', { class: 'nw-pane', id: 'news-p-news' });
 const newsSub = h('div', { class: 'nw-sub' });
-function renderTT() {
+function renderTT(o) {
   if (FT.list.length < 2) return;
   if (ttl.children.length !== FT.list.length || [...ttl.children].some((b, i) => b.dataset.k !== FT.list[i].key))
     put(ttl, FT.list.map(t => h('button', { type: 'button', role: 'tab', id: 'news-t-' + t.key, 'data-k': t.key, 'aria-controls': t.key === 'news' ? newsPane.id : t.pane.id },
@@ -17618,7 +17655,8 @@ function renderTT() {
     b.setAttribute('aria-selected', String(on)); b.tabIndex = on ? 0 : -1;
     const lab = labelOf(t), n = typeof t.count === 'function' ? String(t.count() || '') : '';
     if (b.firstChild.textContent !== lab) b.firstChild.textContent = lab;
-    if (b.lastChild.textContent !== n) b.lastChild.textContent = n;
+    // a count that moved with new data (o.swap) changes in place, the way it went (§6-4 · P9); the first draw, a map / tab change: at once
+    if (b.lastChild.textContent !== n) swapNum(b.lastChild, n, !(o && o.swap) || !b.lastChild.textContent || !n);
   }
 }
 // the card's parts in place: one tab → the news card as it always was (h2 · outlet tabs · chip · time in one row); two or more → the
@@ -17628,7 +17666,7 @@ function arrange() {
   const multi = FT.list.length > 1, hasNews = !!FT.list.length && FT.list[0].key === 'news';
   root.classList.toggle('multi', multi || !hasNews);          // a lone other tab (no 시장 뉴스 on this Worker) keeps its own row too
   root.setAttribute('aria-labelledby', 'news-h');
-  if (multi) { put(hd, ttl, at); renderTT(); }
+  if (multi) { put(hd, ttl, at); renderTT(); if (typeof UI.seg === 'function') UI.seg(ttl); }
   else { h2.textContent = FT.list.length ? labelOf(FT.list[0]) : '시장 뉴스'; put(hd, h2, at); }
   if (hasNews) arrangeNews(multi);
   for (const t of FT.list) {
@@ -17649,6 +17687,11 @@ function select(key, user) {
   root.dataset.feed = key;
   if (was && typeof was.onHide === 'function') was.onHide();
   arrange();
+  if (user && motion() === 'fancy') {                   // 화려하게: the new tab's content comes in on `fade` from 4 px below, all at once
+    const pane = t.key === 'news' ? newsPane : t.pane;
+    pane.classList.remove('nw-in'); void pane.offsetWidth; pane.classList.add('nw-in');
+    pane.addEventListener('animationend', () => pane.classList.remove('nw-in'), { once: true });
+  }
   onSelect(t);
   if (t.key !== 'news' && typeof t.onShow === 'function') t.onShow();
 }
@@ -17697,7 +17740,8 @@ if (!LIVE) {
   arrange();
   root.hidden = false;
   window.KHNews = { show() { root.hidden = false; }, hide() { root.hidden = true; }, refresh: () => Promise.resolve(false),
-    addTab, removeTab, select: k => select(k, false), tab: () => FT.cur, update() { renderTT(); }, relayout() {} };
+    addTab, removeTab, select: k => select(k, false), tab: () => FT.cur, update() { renderTT(); }, relayout() {},
+    fold: (box, want, apply, o) => { apply(want); if (o && o.onEnd) o.onEnd(); } };
   return;
 }
 
@@ -17706,7 +17750,7 @@ const S = {
   data: null, next: null,   // the list drawn · one that waits while the reader is in the card
   okAt: 0, lastTry: 0, tries: 0, loading: true, busy: null, timer: 0,
   tab: 'all', only: false, open: false,
-  n: MIN_ROWS, two: false, measure: false, shown: 0,
+  n: MIN_ROWS, two: false, measure: false,
   visible: false, near: !('IntersectionObserver' in window), ptr: false, hov: '',
 };
 
@@ -17826,10 +17870,10 @@ function chip(code) {
   return h('button', { type: 'button', class: 'nw-chip', 'data-c': code, 'aria-label': `${q.n} ${pct(q.r)} · 빠른 보기` },
     q.n, h('b', { class: cls(q.r), text: pct(q.r) }));
 }
-function row(it, k, grow) {
+// rows past the first row count are .nw-x: they come in / leave together with the 더보기 fold (news.css, fold below)
+function row(it, k, base) {
   const m = matchOf(it), codes = codesOf(it), phone = narrowMQ.matches, cap = phone ? 3 : 2;
-  const anim = grow && k >= S.shown;
-  return h('li', { class: 'nw-row' + (anim ? ' in' : ''), style: anim ? `--d:${Math.min(8, k - S.shown) * 20}ms` : null, 'data-codes': codes.length ? codes.join(',') : null },
+  return h('li', { class: 'nw-row' + (k >= base ? ' nw-x' : ''), 'data-codes': codes.length ? codes.join(',') : null },
     h('time', { datetime: it.t, text: timeText(it.t) }),
     h('span', { class: 'nw-src', text: SRC[it.src] }),
     h('span', { class: 'nw-tt', title: m.text }, titleLink(it, m)),
@@ -17856,7 +17900,7 @@ function render(o = {}) {
   renderTabs(none);
   // the only-chip: off look when there is nothing to filter (controls §5-12)
   if (none) onlyBtn.setAttribute('aria-disabled', 'true'); else onlyBtn.removeAttribute('aria-disabled');
-  onlyBtn.querySelector('.nw-n').textContent = d ? String(listFor(S.tab, true).length) : '';
+  swapNum(onlyBtn.querySelector('.nw-n'), d ? String(listFor(S.tab, true).length) : '', !o.data);
   // an outlet failed this time and its last good list is shown: one line (전체 탭 · 그 언론사 탭)
   const stale = d ? SRC_ORDER.filter(k => d.sources[k] && d.sources[k].stale && d.items.some(x => x.src === k) && (S.tab === 'all' || S.tab === k)) : [];
   note.hidden = !stale.length;
@@ -17878,10 +17922,9 @@ function render(o = {}) {
   else if (!d && S.loading) kids = skel(base);
   else if (!d) kids = [msg('뉴스를 불러오지 못했어요', '세 언론사 모두 응답이 없었어요. 잠시 뒤 다시 눌러 주세요.', true)];
   else if (!all.length) kids = [msg(S.only ? '지도 종목이 나오는 기사가 아직 없어요' : '아직 새 기사가 없어요', S.only ? '' : '3분마다 다시 확인해요.', false)];
-  else kids = all.slice(0, shown).map((it, k) => row(it, k, o.grow));
+  else kids = all.slice(0, shown).map((it, k) => row(it, k, base));
   put(list, kids);
   list.classList.toggle('is-msg', kids.length === 1 && kids[0].classList.contains('nw-msg'));
-  if (!S.measure) S.shown = d ? Math.min(shown, all.length) : 0;
   // 더보기 (N개) / 접기 — at the first row count the key keeps its place, hidden
   const total = Math.min(MAX_ROWS, all.length);
   const lab = more.querySelector('.kl[data-l="idle"]');
@@ -17894,6 +17937,51 @@ function render(o = {}) {
   const fn = document.getElementById('foot-news');   // the template's footer line (re-attached on every footer redraw)
   if (fn) { fn.textContent = outs.length ? `시장 뉴스: ${outs.join(' · ')} RSS (제목 · 링크만)` : ''; fn.hidden = !outs.length; }
   if (S.hov && !list.querySelector('.nw-row[data-codes]:hover')) setHover(null);
+}
+
+/* ───────── 더보기 · 접기 = a fold (design.md §7 · §12 ① "펼치는 목록은 판만 자라고, 아래 내용은 한 번에") ─────────
+   The stock page's foldMove, for this card's lists (시장 뉴스 here, 오늘 공시 through KHNews.fold): opening — the layout takes its new
+   height at once (what is below moves once, when the key is pressed), the list's box is clipped back to its old height and opens on the
+   `open` spring; the new rows (.nw-x) come in together once it is a quarter open (§6-4: opacity, 2px blur, 4px). Closing — the new rows
+   leave first (100 ms, together), then the box closes on `close` while it keeps its height, then the layout comes up once (apply(false)
+   at the end, nothing jumps under the reader). 줄이기 · a hidden page · no spring engine: the end state at once. No stagger (§6-2). */
+const FOLDS = new WeakMap(), TX_OUT = 100, BLEED = 8;
+const clipTo = b => `inset(-${BLEED}px -${BLEED}px ${Math.max(0, b).toFixed(1)}px -${BLEED}px)`;   // the rows' 6px side bleed stays visible
+// the height the list closes to: the first new row's top (two columns: the first rows' per-column count)
+function foldTarget(box) {
+  const rows = [...box.children], x = rows.find(r => r.classList.contains('nw-x'));
+  if (!x) return box.offsetHeight;
+  if (box.classList.contains('c2')) return rows[0].offsetHeight * Math.ceil(rows.indexOf(x) / 2);
+  return x.offsetTop;
+}
+function fold(box, want, apply, o = {}) {
+  const prev = FOLDS.get(box);
+  if (prev) prev.finish();
+  const ok = KH.spring && typeof KH.spring.animate === 'function' && motion() !== 'reduced' && !document.hidden && box.isConnected && box.getClientRects().length > 0;
+  if (!ok) { apply(want); if (o.onEnd) o.onEnd(); return; }
+  const me = { done: false, h: null, t: 0, end: () => {} };
+  const finish = () => { if (me.done) return; me.done = true; clearTimeout(me.t); if (me.h) me.h.stop(); FOLDS.delete(box); me.end(); if (o.onEnd) o.onEnd(); };
+  me.finish = finish; FOLDS.set(box, me);
+  const run = (name, frame) => { me.h = KH.spring.animate({ from: 0, to: 1, name, onUpdate: p => { if (!me.done) frame(p); }, onRest: finish }); };
+  if (want) {
+    const H0 = box.offsetHeight;
+    apply(true);                                         // the layout takes its new height here, once
+    const D = box.offsetHeight - H0;
+    me.end = () => { box.classList.remove('nw-fold-anim', 'nw-fold-in'); box.style.clipPath = ''; };
+    if (!(D > 0)) { finish(); return; }
+    box.classList.add('nw-fold-anim');
+    let shown = false;
+    const frame = p => { box.style.clipPath = clipTo((1 - p) * D); if (!shown && p >= 0.25) { shown = true; box.classList.add('nw-fold-in'); } };
+    frame(0);
+    run('open', frame);
+    return;
+  }
+  const H1 = box.offsetHeight, D = H1 - foldTarget(box);
+  box.style.height = H1 + 'px';                          // held until the box has closed; then the layout comes up once
+  box.classList.add('nw-fold-out');
+  me.end = () => { box.classList.remove('nw-fold-out'); box.style.clipPath = ''; box.style.height = ''; apply(false); };
+  if (!(D > 0)) { finish(); return; }
+  me.t = setTimeout(() => { if (!me.done) run('close', p => { box.style.clipPath = clipTo(p * D); }); }, TX_OUT);
 }
 
 /* ───────── PC fill: the card is stretched to the side column's end; whole rows that fit, at least 5 ───────── */
@@ -17964,7 +18052,7 @@ function accept(j) {
   for (const k of SRC_ORDER) { const s = j.sources && j.sources[k]; sources[k] = s && typeof s === 'object' ? { ok: !!s.ok, n: +s.n || 0, at: typeof s.at === 'string' ? s.at : null, stale: !!s.stale } : { ok: false, n: 0, at: null, stale: false }; }
   return { asOf: j.asOf, items, sources };
 }
-function apply(data) { S.data = data; S.next = null; ensureIdx(); render(); }
+function apply(data) { S.data = data; S.next = null; ensureIdx(); render({ data: true }); }
 function load(o = {}) {
   if (S.busy) return S.busy;
   clearTimeout(S.timer); S.timer = 0;
@@ -18012,15 +18100,17 @@ onlyBtn.addEventListener('click', () => {
   onlyBtn.setAttribute('aria-pressed', String(S.only));
   render();
 });
+// 휴대폰: 접으면 카드 머리로 (§3-14와 같아요)
+function headBack() {
+  if (!narrowMQ.matches) return;
+  const top = root.getBoundingClientRect().top, stuck = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--stuck-h')) || 0;
+  if (top < stuck) scrollBy({ top: top - stuck - 8, behavior: motion() === 'reduced' ? 'auto' : 'smooth' });
+}
 more.addEventListener('click', () => {
-  S.open = !S.open;
-  if (typeof UI.state === 'function') UI.state(more, S.open ? 'less' : 'idle');
-  more.setAttribute('aria-expanded', String(S.open));
-  render({ grow: S.open });
-  if (!S.open && narrowMQ.matches) {                     // 휴대폰: 접으면 카드 머리로 (§3-14와 같아요)
-    const top = root.getBoundingClientRect().top, stuck = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--stuck-h')) || 0;
-    if (top < stuck) scrollBy({ top: top - stuck - 8, behavior: motion() === 'reduced' ? 'auto' : 'smooth' });
-  }
+  const want = !S.open;
+  if (typeof UI.state === 'function') UI.state(more, want ? 'less' : 'idle');
+  more.setAttribute('aria-expanded', String(want));
+  fold(list, want, w => { S.open = w; render(); }, { onEnd: want ? null : headBack });
   more.focus({ preventScroll: true });
 });
 list.addEventListener('click', e => {
@@ -18054,7 +18144,7 @@ document.addEventListener('kh:data', () => {
     const q = quoteOf(b.dataset.c), v = b.querySelector('b');
     if (!q || !v) continue;
     const t = pct(q.r);
-    if (v.textContent !== t) { v.textContent = t; v.className = cls(q.r); b.setAttribute('aria-label', `${q.n} ${t} · 빠른 보기`); }
+    if (v.textContent !== t) { swapNum(v, t); v.className = cls(q.r); b.setAttribute('aria-label', `${q.n} ${t} · 빠른 보기`); }   // a new quote: §6-4 the way it went
   }
 });
 document.addEventListener('kh:refresh', () => { if (!S.gone && !root.hidden && root.offsetParent && !document.hidden && FT.cur === 'news') load(); });
@@ -18096,7 +18186,9 @@ onSelect = t => {
 window.KHNews = { show, hide, refresh: () => load(),
   addTab, removeTab, select: k => select(k, false), tab: () => FT.cur,
   // a tab's label / count / head line changed (no list redraw)
-  update() { renderTT(); if (curExt()) renderHead(); },
+  update(o) { renderTT(o); if (curExt()) renderHead(); },
+  // 더보기 of another tab: the same fold (its list box grows on `open`, its .nw-x rows come in at a quarter)
+  fold: (box, want, apply, o) => fold(box, want, apply, o),
   // the tab's content changed size or rule (a state message, the phone): fill again
   relayout: () => refit(true) };
 show();
@@ -18104,21 +18196,23 @@ show();
 
 </script>
 <style>
-/* 공시 배지 (src/disclosure/disc.js · docs/standards/disclosure.md — C안). drafts/disclosure.html의 C 모양 그대로, 새 공시 표시만 사용자
-   2026-11-14 결정대로 "새" 글자 대신 시각 앞의 작은 점(--new-dot). 타일 귀퉁이 · 견본(.dmsw)은 템플릿에 있어요(표 보기도 써서).
-   색은 모두 역할 토큰(themes.md §4) + 템플릿의 ✚ --dm-flap · --dm-crease · --dm-cut · --new-dot. 빨강 · 초록은 등락률 숫자에만, 앰버는
-   컨트롤(켜짐 · 포커스 · 실패 표시)에만. 지도 머리줄 공시 칩(.dc-hchip)은 오늘 공시 탭의 지도 스위치(.dc-lit)로 옮겼어요(사용자 2026-11-14 08:10 요청, 11-15 진행). */
-:root{--dc-badge-r:6px}
-html[data-theme="paper"]{--dc-badge-r:2px}
-html[data-theme^="glass"]{--dc-badge-r:999px}
+/* 공시 배지 (src/disclosure/disc.js · docs/standards/disclosure.md — C안). drafts/disclosure.html의 C 모양, 새 공시 표시만 사용자 2026-11-14
+   결정대로 "새" 글자 대신 시각 앞의 작은 점(--new-dot). 타일 귀퉁이 · 견본(.dmsw)은 템플릿에 있어요(표 보기도 써서).
+   디자인 기준(docs/standards/design.md, ux/std-news 2026-11-16): 글자 --fs-* · 간격 --space-* · 모서리 --r-* · 높이 --h-* · 채움 --fill-* 토큰만,
+   움직임은 --sp-* 스프링(누름만 0 → --c-fast), hover는 (hover:hover) and (pointer:fine) 안에서만, 줄이기는 html[data-motion] 하나.
+   색은 역할 토큰(themes.md §4) + 템플릿의 --dm-flap · --dm-crease · --dm-cut · --new-dot. 빨강 · 초록은 등락률 숫자에만, 앰버는 고름(밑줄) ·
+   켜짐(칩 · 스위치 채움) · 포커스에만, 실패 !는 --fail-dot. 빛 · 그라데이션 없음. 툴팁 · 빠른 보기 덩어리(.dsc)는 템플릿 판(.tip · .sheet)
+   안에 그려져서 그 판의 글라스 재질(광택 · 1px 가장자리 반사 · 흐림)을 덮지 않아요(바탕 · 흐림 · 그림자 없음 — qa/disclosure/audit_css.py).
+   지도 머리줄 공시 칩(.dc-hchip)은 오늘 공시 탭의 지도 스위치(.dc-lit)로 옮겼어요(사용자 2026-11-14 08:10 요청, 11-15 진행). */
 
 /* 새 공시: 시각 앞의 작은 점 (글자 "새" 대신, 화면 읽기는 "새 공시") */
 .dc-dot{display:inline-block;flex:none;width:7px;height:7px;border-radius:50%;background:var(--new-dot);vertical-align:1px}
-.dc-tm{display:inline-flex;align-items:center;gap:5px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.dc-tm{display:inline-flex;align-items:center;gap:var(--space-2);white-space:nowrap;font-variant-numeric:tabular-nums}
 
-/* 공시 종류 = 글자 배지 · 중립색 (종목 페이지 .sp-nw-tag · 뉴스의 언론사 배지와 같은 재료), 꼬리표(정정 · 철회)는 점선 테 */
-.dc-kb{display:inline-block;flex:none;font-size:11px;font-weight:500;line-height:18px;padding:0 6px;border-radius:var(--dc-badge-r);color:var(--fg2);box-shadow:inset 0 0 0 1px var(--line2);white-space:nowrap;letter-spacing:-.01em}
-.dc-kb.fix{color:var(--fg2);box-shadow:none;outline:1px dashed var(--line2);outline-offset:-1px}
+/* 공시 종류 = 배지 한 조리법(design.md §5: 11px/600 · 높이 18 · --r-badge · 1px 안쪽 테), 중립색 — 뉴스의 언론사 배지 · 종목 페이지 .sp-nw-tag와
+   같아요. 꼬리표(정정 · 철회)는 같은 배지에 점선 테 */
+.dc-kb{display:inline-block;flex:none;height:18px;font-size:var(--fs-xs);font-weight:600;line-height:18px;padding:0 var(--space-3);border-radius:var(--r-badge);color:var(--fg2);box-shadow:inset 0 0 0 1px var(--line2);white-space:nowrap}
+.dc-kb.fix{box-shadow:none;outline:1px dashed var(--line2);outline-offset:-1px}
 
 /* ── 오늘 공시 탭의 지도 스위치 "[귀퉁이] 지도에서 공시 종목만 밝게 · 26종목 [트랙]" (사용자 2026-11-14 08:10: 지도 머리줄 공시 칩을
    "아래에 뉴스 공시칸으로") — design.md §7 스위치: 파인 트랙 + 솟은 손잡이, 손잡이 두 가장자리가 앞 `follow` · 뒤 `settle`로 따로 움직여
@@ -18132,17 +18226,15 @@ html[data-theme^="glass"]{--dc-badge-r:999px}
   --trav:calc(var(--trk-w) - var(--trk-h));
   position:relative;display:inline-flex;align-items:center;gap:var(--space-5);min-width:0;min-height:var(--h-key);padding:0 var(--space-2) 0 var(--space-3);
   border-radius:var(--r-row);font-size:var(--fs-md);line-height:var(--lh-ui);font-weight:600;color:var(--fg);text-align:left;
-  touch-action:pan-y;-webkit-tap-highlight-color:transparent;transition:background-color var(--c-fast) var(--c-out)}
+  touch-action:pan-y;-webkit-tap-highlight-color:transparent;transition:background-color var(--sp-fade-dur) var(--sp-fade)}
 .news .dc-ll{display:inline-flex;align-items:center;flex-wrap:wrap;gap:0 var(--space-2);min-width:0;word-break:keep-all}
 .news .dc-ll .dmsw{flex:none;margin-right:var(--space-1)}
 .news .dc-lw{min-width:0}
-/* 수 "· 26종목": 바뀔 때 design.md §6-4 — 나감 100ms(흐림 2px · 위로 4px) → 60ms 뒤 들어옴 180ms(아래에서 4px). 두 글자가 한 칸에 겹쳐요 */
+/* 수 "· 26종목": 바뀔 때 design.md §6-4 — 나감 100ms(close, 흐림 2px · 위로 4px) → 60ms 뒤 들어옴 180ms(fade, 아래에서 4px). 두 글자가 한 칸에 겹쳐요 */
 .news .dc-lc{display:inline-grid;align-items:center;justify-items:start;font-weight:500;color:var(--fg2);white-space:nowrap;font-variant-numeric:tabular-nums}
 .news .dc-lv{grid-area:1/1;display:inline-flex;align-items:center;gap:var(--space-2)}
-.news .dc-lv.out{animation:dcTxOut var(--dc-tx-out) var(--c-in) forwards;pointer-events:none}
-.news .dc-lv.in{animation:dcTxIn var(--dc-tx-in) var(--sp-fade) calc(var(--dc-tx-out) + var(--dc-tx-gap)) both}
-.news .dc-lit{--dc-tx-out:100ms;--dc-tx-gap:60ms;--dc-tx-in:180ms}
-html[data-motion="reduced"] .news .dc-lit{--dc-tx-out:0ms;--dc-tx-gap:0ms;--dc-tx-in:0ms}
+.news .dc-lv.out{animation:dcTxOut var(--nw-tx-out) var(--sp-close) forwards;pointer-events:none}
+.news .dc-lv.in{animation:dcTxIn var(--nw-tx-in) var(--sp-fade) calc(var(--nw-tx-out) + var(--nw-tx-gap)) both}
 @keyframes dcTxOut{to{opacity:0;filter:blur(2px);transform:translateY(calc(var(--space-2) * -1))}}
 @keyframes dcTxIn{from{opacity:0;filter:blur(2px);transform:translateY(var(--space-2))}}
 .news .dc-lc .kspn{width:var(--fs-md);height:var(--fs-md);color:var(--fg2)}
@@ -18182,89 +18274,87 @@ html[data-motion="reduced"] .news .dc-lit{--dc-tx-out:0ms;--dc-tx-gap:0ms;--dc-t
 .legend .dc-lg2{color:var(--muted)}
 @media (max-width:760px){ .legend .dc-lg .u,.legend .dc-lg2{display:none} }
 
-/* ── 툴팁 · 빠른 보기 덩어리 (headBlock 바로 아래, 같은 업종 목록 위) ── */
-.dsc{padding:9px 13px 9px;border-bottom:1px solid var(--line);font-size:12.5px;color:var(--fg)}
-.dsc-h{display:flex;align-items:center;gap:7px;min-height:18px;margin-bottom:5px;font-size:12px;color:var(--muted)}
+/* ── 툴팁 · 빠른 보기 덩어리 (headBlock 바로 아래, 같은 업종 목록 위) — 템플릿 머리(.card-head)와 같은 안쪽 가장자리 12 ── */
+.dsc{padding:var(--space-4) var(--space-5);border-bottom:1px solid var(--line);font-size:var(--fs-sm);line-height:var(--lh-ui);color:var(--fg)}
+.dsc-h{display:flex;align-items:center;gap:var(--space-3);min-height:18px;margin-bottom:var(--space-2);font-size:var(--fs-sm);color:var(--muted)}
 .dsc-h b{color:var(--fg2);font-weight:600}
-.dsc-h .r{margin-left:auto;display:inline-flex;align-items:center;gap:5px;font-variant-numeric:tabular-nums}
-.dsc .dr{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;column-gap:7px;min-height:24px;color:var(--fg);text-decoration:none}
-.dsc .dr .dk{display:inline-flex;gap:4px}
-.dsc .dr .tt{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12.5px}
-.dsc .dr .dc-tm{font-size:12px;color:var(--muted)}
-.dsc-more{font-size:12px;color:var(--muted);margin-top:3px;line-height:18px}
+.dsc-h .r{margin-left:auto;display:inline-flex;align-items:center;gap:var(--space-2);font-variant-numeric:tabular-nums}
+.dsc .dr{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;column-gap:var(--space-3);min-height:var(--h-chip);color:var(--fg);text-decoration:none}
+.dsc .dr .dk{display:inline-flex;gap:var(--space-2)}
+.dsc .dr .tt{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--fs-sm)}
+.dsc .dr .dc-tm{font-size:var(--fs-sm);color:var(--muted)}
+.dsc-more{font-size:var(--fs-sm);color:var(--muted);margin-top:var(--space-1);line-height:18px}
 .dsc-more b{color:var(--fg2);font-weight:500}
-.dsc-hint{font-size:11.5px;color:var(--muted);margin-top:4px}
-/* 빠른 보기: 줄 = DART 링크(새 탭) — 종류 / 제목 두 줄 / 시각, 누르는 곳 44px 이상 */
-.dsc.dsc-q .dr{grid-template-columns:auto minmax(0,1fr);grid-template-areas:"k tt" ". tm";row-gap:1px;min-height:44px;padding:6px 0;align-items:start;box-shadow:inset 0 -1px 0 var(--line);border-radius:2px}
+.dsc-hint{font-size:var(--fs-xs);color:var(--muted);margin-top:var(--space-2)}
+/* 빠른 보기: 줄 = DART 링크(새 탭) — 종류 / 제목 두 줄 / 시각, 누르는 곳 44px 이상(휴대폰 52) */
+.dsc.dsc-q .dr{grid-template-columns:auto minmax(0,1fr);grid-template-areas:"k tt" ". tm";row-gap:1px;min-height:calc(var(--h-row) + var(--space-4));padding:var(--space-3) 0;align-items:start;box-shadow:inset 0 -1px 0 var(--line);border-radius:var(--r-mark)}
 .dsc.dsc-q .dr:last-of-type{box-shadow:none}
 .dsc.dsc-q .dr .dk{grid-area:k;margin-top:1px}
-.dsc.dsc-q .dr .tt{grid-area:tt;white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;font-size:13.5px;line-height:20px}
+.dsc.dsc-q .dr .tt{grid-area:tt;white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;font-size:var(--fs-md);line-height:var(--lh-text);word-break:keep-all}
 .dsc.dsc-q .dr .dc-tm{grid-area:tm}
-.dsc.dsc-q a.dr:hover .tt{text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--muted)}
+@media (hover:hover) and (pointer:fine){ .dsc.dsc-q a.dr:hover .tt{text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--muted)} }
 .dsc.dsc-q a.dr:visited .tt{color:var(--fg2)}
-.dsc.dsc-q a.dr:focus-visible{outline-offset:-2px}
-.dsc .dall{display:flex;margin-top:8px}
-.dsc .dc-all{position:relative;flex:1;display:inline-flex;align-items:center;justify-content:center;height:36px;border-radius:var(--r-key);background:var(--key-bg);box-shadow:var(--key-sh);color:var(--key-fg);font-size:13px;font-weight:600;
-  transition:transform var(--c-fast) var(--c-out),box-shadow var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out),background-color var(--c-base) var(--c-out)}
-.dsc .dc-all:hover{background:var(--key-hover)}
+.dsc.dsc-q a.dr:focus-visible{outline-offset:calc(-1 * var(--space-1))}
+.dsc .dall{display:flex;margin-top:var(--space-4)}
+.dsc .dc-all{position:relative;flex:1;display:inline-flex;align-items:center;justify-content:center;height:var(--h-row);border-radius:var(--r-key);background:var(--key-bg);box-shadow:var(--key-sh);color:var(--key-fg);
+  font-size:var(--fs-md);line-height:var(--lh-ui);font-weight:600;touch-action:manipulation;-webkit-tap-highlight-color:transparent;
+  transition:transform var(--c-fast) var(--c-out),box-shadow var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out),background-color var(--sp-fade-dur) var(--sp-fade)}
+@media (hover:hover) and (pointer:fine){ .dsc .dc-all:hover{background:var(--key-hover)} }
 .dsc .dc-all:is(:active,.is-press){transform:translateY(1px);box-shadow:var(--key-dn);filter:var(--press-f);transition-duration:0s}
 @media (max-width:760px){
-  .dsc{padding:10px 16px 12px}
-  .dsc.dsc-q .dr{min-height:54px;padding:8px 0}
-  .dsc.dsc-q .dr .tt{font-size:14px}
-  .dsc .dc-all{height:44px}
+  .dsc{padding:var(--space-4) var(--space-6) var(--space-5)}
+  .dsc.dsc-q .dr{padding:var(--space-4) 0}
+  .dsc.dsc-q .dr .tt{font-size:var(--fs-lg)}
 }
 
-/* ── 패널의 "오늘 공시" 탭 (뉴스 카드 안 — 자리 · 채우기 · 두 단 · 더보기 · 휴대폰 규칙은 뉴스와 같아요) ── */
-/* 공시 종류 = 밑줄 탭 (controls §5-6, 종목 페이지 .sp-dfilt와 같음): 고른 칸 표시를 2px 밑줄로 */
-.news .dc-ktabs{display:flex;gap:2px;flex:1 1 auto;min-width:0;overflow-x:auto;scrollbar-width:none;padding:0;border-radius:0;background:none;box-shadow:inset 0 -1px 0 var(--line)}
+/* ── 패널의 "오늘 공시" 탭 (뉴스 카드 안 — 자리 · 채우기 · 두 단 · 더보기(접고 펴기 = news.css fold) · 휴대폰 규칙은 뉴스와 같아요) ── */
+/* 공시 종류 = 밑줄 탭 (design.md §7 ③, 종목 페이지 .sp-dfilt · 카드 제목 탭과 같음): 템플릿 세그먼트 표시를 2px 밑줄로 — KH.ui.seg가
+   가는 쪽 가장자리 lead · 뒤 trail로 옮겨요 */
+.news .dc-ktabs{display:flex;gap:var(--space-1);flex:1 1 auto;min-width:0;overflow-x:auto;scrollbar-width:none;padding:0;border-radius:0;background:none;box-shadow:inset 0 -1px 0 var(--line)}
 .news .dc-ktabs::-webkit-scrollbar{display:none}
-.news .dc-ktabs::before{top:auto;height:2px;border-radius:2px 2px 0 0;background:var(--acc-line);box-shadow:none}
+.news .dc-ktabs::before{top:auto;height:2px;border-radius:var(--r-mark) var(--r-mark) 0 0;background:var(--acc-line);box-shadow:none}
 .news .dc-ktabs:not([data-ind]) > button[aria-pressed="true"]{background:none;box-shadow:inset 0 -2px 0 var(--acc-line)}
-.news .dc-ktabs > button{flex:none;display:inline-flex;align-items:center;gap:5px;height:30px;padding:0 9px;border-radius:0;font-size:13px;font-weight:600;color:var(--muted);white-space:nowrap}
-.news .dc-ktabs > button small{font-size:11.5px;font-weight:500;color:var(--muted);font-variant-numeric:tabular-nums}
-.news .dc-ktabs > button:hover,.news .dc-ktabs > button[aria-pressed="true"]{color:var(--fg)}
+.news .dc-ktabs > button{flex:none;display:inline-flex;align-items:center;gap:var(--space-2);height:var(--h-key);padding:0 var(--space-4);border-radius:0;font-size:var(--fs-md);line-height:var(--lh-ui);font-weight:600;color:var(--muted);white-space:nowrap;
+  touch-action:manipulation;-webkit-tap-highlight-color:transparent;transition:color var(--sp-fade-dur) var(--sp-fade),filter var(--c-fast) var(--c-out)}
+.news .dc-ktabs > button small{font-size:var(--fs-xs);font-weight:500;color:var(--muted);font-variant-numeric:tabular-nums}
+.news .dc-ktabs > button[aria-pressed="true"]{color:var(--fg)}
 .news .dc-ktabs > button[aria-pressed="true"] small{color:var(--fg2)}
-.news .dc-ktabs > button:focus-visible{outline-offset:-3px;border-radius:4px}
+@media (hover:hover) and (pointer:fine){ .news .dc-ktabs > button:not([aria-disabled="true"]):hover{color:var(--fg)} }
+.news .dc-ktabs > button:focus-visible{outline-offset:calc(-1 * var(--focus-w));border-radius:var(--r-badge)}
 .news .dc-ktabs > button[aria-disabled="true"]{opacity:.45;cursor:not-allowed}
-.news .dc-sub .nw-only{height:26px;font-size:12px;padding:0 10px}
-/* 줄 (PC 32px): 시각 58 · 종목 칩 150 · 종류 auto · 제목 1fr */
-.news .dc-row{position:relative;display:grid;grid-template-columns:58px 150px auto minmax(0,1fr);grid-template-areas:"t c k tt";align-items:center;column-gap:10px;height:var(--nw-rh);padding:0 6px;margin:0 -6px;border-radius:6px;box-shadow:inset 0 -1px 0 var(--row-bd);min-width:0;transition:background var(--c-fast) var(--c-out)}
-.news .dc-row:hover{background:var(--row-hov)}
-.news .dc-row .dc-tm{grid-area:t;font-size:12.5px;color:var(--muted)}
+/* 줄 (PC = 목록 줄 --nw-rh): 시각 58 · 종목 칩 150 · 종류 auto · 제목 1fr */
+.news .dc-row{position:relative;display:grid;grid-template-columns:58px 150px auto minmax(0,1fr);grid-template-areas:"t c k tt";align-items:center;column-gap:var(--space-5);height:var(--nw-rh);
+  padding:0 var(--space-3);margin:0 calc(-1 * var(--space-3));border-radius:var(--r-row);box-shadow:inset 0 -1px 0 var(--row-bd);min-width:0}
+@media (hover:hover) and (pointer:fine){ .news .dc-row:not(.skel):hover{background:var(--row-hov)} }
+.news .dc-row .dc-tm{grid-area:t;font-size:var(--fs-sm);line-height:var(--lh-ui);color:var(--muted)}
 .news .dc-row .dc-cc{grid-area:c;min-width:0;display:flex}
-.news .dc-row .dc-k{grid-area:k;display:inline-flex;gap:4px;min-width:0}
+.news .dc-row .dc-k{grid-area:k;display:inline-flex;gap:var(--space-2);min-width:0}
 .news .dc-row .dc-tt{grid-area:tt}
 .news .dc-pane[data-k1="1"] .dc-row .dc-kb:not(.fix){display:none}
-.news .dc-x{color:var(--muted);font-size:12px;margin-left:6px;font-variant-numeric:tabular-nums}
+.news .dc-x{color:var(--muted);font-size:var(--fs-sm);margin-left:var(--space-3);font-variant-numeric:tabular-nums}
 .news .dc-chip,.news .dc-chipx{max-width:100%;min-width:0}
 .news .dc-cn{overflow:hidden;text-overflow:ellipsis;min-width:0}
-/* 지도에 없는 종목: 테만 있는 이름 + 시장 → 종목 페이지 */
-.news .dc-chipx{position:relative;display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 9px;border-radius:var(--r-chip);background:none;box-shadow:inset 0 0 0 1px var(--line2);font-size:12.5px;font-weight:600;color:var(--fg);white-space:nowrap;
+/* 지도에 없는 종목: 테만 있는 이름 + 시장 → 종목 페이지 (데이터 칩과 같은 크기, 누르면 1px) */
+.news .dc-chipx{position:relative;display:inline-flex;align-items:center;gap:var(--space-3);height:var(--h-chip);padding:0 var(--space-4);border-radius:var(--r-chip);background:none;box-shadow:inset 0 0 0 1px var(--line2);
+  font-size:var(--fs-sm);line-height:var(--lh-ui);font-weight:600;color:var(--fg);white-space:nowrap;touch-action:manipulation;-webkit-tap-highlight-color:transparent;
   transition:transform var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out)}
-.news .dc-chipx small{font-weight:500;color:var(--muted);font-size:11.5px}
-.news .dc-chipx:hover{background:var(--row-hov)}
+.news .dc-chipx small{font-weight:500;color:var(--muted);font-size:var(--fs-xs)}
+@media (hover:hover) and (pointer:fine){ .news .dc-chipx:hover{background:var(--row-hov)} }
 .news .dc-chipx:is(:active,.is-press){transform:translateY(1px);filter:var(--press-f);transition-duration:0s}
 @media (pointer:coarse){ .news :is(.dc-chipx)::before{content:"";position:absolute;left:50%;top:50%;width:max(100%,44px);height:44px;transform:translate(-50%,-50%)} }
 .news .dc-row.skel .nw-sk{display:block}
-html:not([data-motion="reduced"]) .news .dc-row.skel .nw-sk{animation:nwSk 1.4s var(--c-inout) infinite alternate}
-html[data-motion="fancy"] .news .dc-row.in{animation:nwIn var(--c-base) var(--c-out) both;animation-delay:var(--d,0ms)}
-@media (hover:none){ .news .dc-row:hover{background:none} }
-/* 휴대폰 (≤760): 1줄 종목 칩 · 종류 · 시각(오른쪽) / 2줄 제목 15px 두 줄 — 5개 + 더보기 */
+/* 휴대폰 (≤760): 1줄 종목 칩 · 종류 · 시각(오른쪽) / 2줄 제목 두 줄(14px · 행간 1.45) — 5개 + 더보기, 줄 44px 이상 */
 @media (max-width:760px){
   .news .dc-sub{flex-wrap:wrap}
   .news .dc-ktabs{flex:1 1 100%;width:100%}
-  .news .dc-ktabs > button{height:40px;padding:0 9px;font-size:13.5px}
-  .news .dc-sub .nw-only{height:32px;font-size:12.5px}
-  .news .dc-row{grid-template-columns:auto auto minmax(0,1fr);grid-template-areas:"c k t" "tt tt tt";row-gap:6px;height:auto;padding:11px 0 12px;margin:0;border-radius:0}
+  .news .dc-row{grid-template-columns:auto auto minmax(0,1fr);grid-template-areas:"c k t" "tt tt tt";row-gap:var(--space-3);height:auto;min-height:var(--h-row);padding:var(--space-5) 0;margin:0;border-radius:0}
   .news .dc-pane[data-k1="1"] .dc-row{grid-template-columns:auto auto minmax(0,1fr)}
-  .news .dc-row .dc-tm{justify-self:end;font-size:12px}
+  .news .dc-row .dc-tm{justify-self:end}
   .news .dc-row .dc-cc{max-width:200px}
-  .news .dc-row .dc-tt{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;font-size:15px;line-height:21px;font-weight:500;width:100%}
+  .news .dc-row .dc-tt{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;font-size:var(--fs-lg);line-height:var(--lh-text);font-weight:500;width:100%}
   .news .dc-row .dc-tt a{display:inline}
-  .news .dc-chip,.news .dc-chipx{height:32px;padding:0 12px;font-size:13px}
+  .news .dc-chipx{padding:0 var(--space-5);font-size:var(--fs-md)}
 }
-html[data-motion="reduced"] .news .dc-row{animation:none!important}
 
 </style>
 <script>
@@ -18285,7 +18375,11 @@ html[data-motion="reduced"] .news .dc-row{animation:none!important}
    Data: while the setting is on, the page is visible and a stock map is shown — every 60 s on weekdays 07:00–19:00 KST, else 5 min;
    failures back off 1 → 2 → 4 → 5 min, "오래됨" after 5 min of failures. The Worker's weak ETag goes back as If-None-Match: a 304
    keeps the list and takes the time from x-as-of. A Worker without the route (404): nothing of this shows. Snapshot (dist/): the tab says
-   "실시간 버전에서 볼 수 있어요", nothing else. */
+   "실시간 버전에서 볼 수 있어요", nothing else.
+   Design standard (docs/standards/design.md, ux/std-news 2026-11-16): the kind tabs are an underline row (KH.ui.seg, lead / trail),
+   더보기 · 접기 is the card's fold (KHNews.fold: only the list's box grows on `open`, what is below moves once), counts that move with a
+   new answer and a chip's % on a new quote change in place the way they went (KH.ui.swap, §6-4 · P9; the first draw, a map / filter
+   change: at once — P4), the switch's count swaps (§6-4). ! = --fail-dot; amber only selected / on / focus. */
 (() => {
 'use strict';
 const KH = window.KH;
@@ -18323,6 +18417,19 @@ function asOfText(iso) {
   return m[1] === kstOf(nowMs()).date ? m[2] : `${dayShort(m[1])} ${m[2]}`;
 }
 const isoMs = iso => { const t = Date.parse(iso || ''); return isNaN(t) ? 0 : t; };
+// a number written in place (design.md §6-4 · P9): with new data it changes the way it went (KH.ui.swap — up from below, down from above);
+// quiet (the first draw, a map / filter change; 줄이기 is KH.ui.swap's own check) writes it at once
+const numOf = t => { const m = /[+−-]?\d[\d,]*\.?\d*/.exec(String(t || '').replace(/−/g, '-')); return m ? parseFloat(m[0].replace(/,/g, '')) : NaN; };
+function swapNum(el, text, quiet) {
+  if (!el) return;
+  text = String(text);
+  const was = el.textContent;
+  if (was === text) return;
+  const sw = typeof UI.swap === 'function';
+  if (quiet || !was || !text || !sw) { if (sw && el.childElementCount) UI.swap(el, text, text); el.textContent = text; return; }   // (stops a running swap first)
+  const a = numOf(was), b = numOf(text);
+  UI.swap(el, text, was, isFinite(a) && isFinite(b) ? Math.sign(b - a) : 0);
+}
 
 /* ───────── state ───────── */
 const S = {
@@ -18331,7 +18438,7 @@ const S = {
   view: [], byCode: new Map(), marks: new Map(), markSig: '', fresh: new Set(), seen: '', rp: null, rpKey: '',
   mapSet: new Set(), mapKey: '',
   kt: 'main', only: true, open: false, L: { measure: false, base: 5, two: false, phone: narrowMQ.matches, rowsMax: MAX_ROWS },
-  shown: 0, pending: false, ptr: false, hov: '', litOn: false, lgKey: '', tabbed: false, names: null, namesBusy: false,
+  pending: false, ptr: false, hov: '', litOn: false, lgKey: '', tabbed: false, names: null, namesBusy: false, swap: false,
 };
 const today = () => kstOf(nowMs()).date;
 const isToday = () => !!S.data && S.data.date === today();
@@ -18566,11 +18673,12 @@ function stockChip(c) {
   return h('button', { type: 'button', class: 'dc-chipx', 'data-c': c, 'data-x': '1', 'aria-label': `${n}${m ? ' ' + m : ''} · 종목 페이지` },
     h('span', { class: 'dc-cn', text: n }), m ? h('small', { text: m }) : null);
 }
-function row(x, k, grow) {
-  const note = noteText(x.nt), name = nameOf(x.c), anim = grow && k >= S.shown;
+// rows past the first row count are .nw-x: they come in / leave together with the 더보기 fold (KHNews.fold · news.css)
+function row(x, k, base) {
+  const note = noteText(x.nt), name = nameOf(x.c);
   const label = `${name} ${x.t}${x.n > 1 ? ` (${x.n}건)` : ''}${note ? ` (${note})` : ''}`;
   const tt = [x.t, x.n > 1 ? h('span', { class: 'dc-x', text: `${x.n}건` }) : null];
-  return h('li', { class: 'dc-row' + (anim ? ' in' : ''), style: anim ? `--d:${Math.min(8, k - S.shown) * 20}ms` : null, 'data-c': x.c },
+  return h('li', { class: 'dc-row' + (k >= base ? ' nw-x' : ''), 'data-c': x.c },
     timeEl(x), h('span', { class: 'dc-cc' }, stockChip(x.c)),
     h('span', { class: 'dc-k' }, h('span', { class: 'dc-kb', text: x.k }), note ? h('span', { class: 'dc-kb fix', text: note }) : null),
     h('span', { class: 'nw-tt dc-tt', title: x.t + (x.f ? ` · 제출인 ${x.f}` : '') },
@@ -18593,11 +18701,11 @@ function renderPanel(o = {}) {
     b.setAttribute('aria-pressed', String(b.dataset.k === S.kt));
     if (none) b.setAttribute('aria-disabled', 'true'); else b.removeAttribute('aria-disabled');
     const t = none ? '' : String(listFor(b.dataset.k).length), sm = b.querySelector('small');
-    if (sm.textContent !== t) sm.textContent = t;
+    swapNum(sm, t, !S.swap);
   }
   if (none) onlyBtn.setAttribute('aria-disabled', 'true'); else onlyBtn.removeAttribute('aria-disabled');
   onlyBtn.setAttribute('aria-pressed', String(S.only));
-  onlyBtn.querySelector('.nw-n').textContent = none ? '' : String(new Set(S.view.filter(x => S.mapSet.has(x.c)).map(x => x.c)).size);
+  swapNum(onlyBtn.querySelector('.nw-n'), none ? '' : String(new Set(S.view.filter(x => S.mapSet.has(x.c)).map(x => x.c)).size), !S.swap);
   const all = d ? listFor() : [], base = L.base;
   const shown = L.measure ? 0 : S.open ? Math.min(MAX_ROWS, all.length) : base;
   const perCol = n => (L.two ? Math.ceil(n / 2) : n);
@@ -18614,11 +18722,10 @@ function renderPanel(o = {}) {
     kids = [msg(S.only ? `지도 종목의 ${kn} 공시가 ${past ? '' : '아직 '}없어요` : `${past ? '' : '아직 '}이 종류 공시가 없어요`, S.only ? "'지도 종목만'을 끄면 상장사 전체를 볼 수 있어요." : '')];
   } else {
     if (!S.only && all.slice(0, shown).some(x => !KH.stock(x.c))) needNames();
-    kids = all.slice(0, shown).map((x, k) => row(x, k, o.grow));
+    kids = all.slice(0, shown).map((x, k) => row(x, k, base));
   }
   put(list, kids);
   list.classList.toggle('is-msg', kids.length === 1 && kids[0].classList.contains('nw-msg'));
-  if (!L.measure) S.shown = d ? Math.min(shown, all.length) : 0;
   const total = Math.min(MAX_ROWS, all.length);
   const lab = more.querySelector('.kl[data-l="idle"]');
   if (lab) lab.textContent = `더보기 (${total}개)`;
@@ -18660,7 +18767,7 @@ function removeTab() {
   S.tabbed = false; setHover(null);
   if (window.KHNews && typeof window.KHNews.removeTab === 'function') window.KHNews.removeTab('disc');
 }
-const newsUpdate = () => { if (S.tabbed && window.KHNews && typeof window.KHNews.update === 'function') window.KHNews.update(); };
+const newsUpdate = () => { if (S.tabbed && window.KHNews && typeof window.KHNews.update === 'function') window.KHNews.update({ swap: S.swap }); };
 const newsRelayout = () => { if (S.tabbed && window.KHNews && typeof window.KHNews.relayout === 'function') window.KHNews.relayout(); };
 // the tab's own row wraps (a narrow card, longer counts): the PC fill measures its rows again so the card keeps its height
 if ('ResizeObserver' in window) {
@@ -18677,16 +18784,21 @@ onlyBtn.addEventListener('click', () => {
   if (onlyBtn.getAttribute('aria-disabled') === 'true') return;
   S.only = !S.only; renderPanel({ force: true });
 });
+// 휴대폰: 접으면 카드 머리로 (§3-14와 같아요)
+function headBack() {
+  if (!narrowMQ.matches) return;
+  const card = document.getElementById('news'), top = (card || pane).getBoundingClientRect().top;
+  const stuck = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--stuck-h')) || 0;
+  if (top < stuck) scrollBy({ top: top - stuck - 8, behavior: (typeof KH.motion === 'function' ? KH.motion() : '') === 'reduced' ? 'auto' : 'smooth' });
+}
+// 더보기 · 접기 = the card's fold (design.md §7: only the list's box grows on `open`, what is below moves once; news.js KHNews.fold)
 more.addEventListener('click', () => {
-  S.open = !S.open;
-  if (typeof UI.state === 'function') UI.state(more, S.open ? 'less' : 'idle');
-  more.setAttribute('aria-expanded', String(S.open));
-  renderPanel({ force: true, grow: S.open });
-  if (!S.open && narrowMQ.matches) {                   // 휴대폰: 접으면 카드 머리로 (§3-14와 같아요)
-    const card = document.getElementById('news'), top = (card || pane).getBoundingClientRect().top;
-    const stuck = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--stuck-h')) || 0;
-    if (top < stuck) scrollBy({ top: top - stuck - 8, behavior: (typeof KH.motion === 'function' ? KH.motion() : '') === 'reduced' ? 'auto' : 'smooth' });
-  }
+  const want = !S.open;
+  if (typeof UI.state === 'function') UI.state(more, want ? 'less' : 'idle');
+  more.setAttribute('aria-expanded', String(want));
+  const apply = w => { S.open = w; renderPanel({ force: true }); };
+  if (window.KHNews && typeof window.KHNews.fold === 'function') window.KHNews.fold(list, want, apply, { onEnd: want ? null : headBack });
+  else { apply(want); if (!want) headBack(); }
   more.focus({ preventScroll: true });
 });
 list.addEventListener('click', e => {
@@ -18752,6 +18864,7 @@ function derive() {
 function refreshAll() {
   renderLit(); renderLegend(); renderPanel(); newsUpdate(); renderFoot(); settingCounts();
   if (typeof KH.cardExtra === 'object' && KH.cardExtra) KH.cardExtra.refresh();
+  S.swap = false;
 }
 function settingCounts() {
   if (typeof KH.settingState !== 'function') return;
@@ -18811,6 +18924,7 @@ function setData(d) {
   if (prev && (!S.data || S.data.date === d.date)) for (const x of d.rows) if (x.r > prev && S.kinds.has(x.k)) S.fresh.add(x.c);
   S.seen = max || prev;
   S.data = d;
+  S.swap = true;                                        // counts that move with this answer change in place (§6-4); reset in refreshAll
   derive();
 }
 function load(o = {}) {
@@ -18902,7 +19016,7 @@ document.addEventListener('kh:data', () => {
     const q = quoteOf(b.dataset.c), v = b.querySelector('b');
     if (!q || !v) continue;
     const t = pct(q.r);
-    if (v.textContent !== t) { v.textContent = t; v.className = cls(q.r); b.setAttribute('aria-label', `${q.n} ${t} · 빠른 보기`); }
+    if (v.textContent !== t) { swapNum(v, t); v.className = cls(q.r); b.setAttribute('aria-label', `${q.n} ${t} · 빠른 보기`); }   // a new quote: §6-4 the way it went
   }
 });
 document.addEventListener('kh:refresh', () => { if (polling()) load(); });

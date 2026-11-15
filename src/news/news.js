@@ -14,7 +14,12 @@
    render(L), onShow?, onHide?}) → the card head becomes a title tablist (시장 뉴스 · 오늘 공시, ←/→, remembered in khm.feedTab), the
    news controls move to a second row like the other tab's, and the card keeps one height: the PC fill (whole rows, min 5, two columns
    from 1200 px) is measured on the tab shown and handed to it as L = {measure, base, two, phone}. Only the tab shown polls its data.
-   onHide() runs when its tab stops being shown: another tab picked, the tab removed, or the card hidden (KHNews.hide). */
+   onHide() runs when its tab stops being shown: another tab picked, the tab removed, or the card hidden (KHNews.hide).
+   Design standard (docs/standards/design.md, ux/std-news 2026-11-16): the title tabs are an underline row (KH.ui.seg, lead / trail), the
+   outlet tabs the template's segment; 더보기 · 접기 is a fold (only the list's box grows on `open`, what is below moves once — KHNews.fold
+   for the other tabs); a number that moves with new data (a chip's %, a count) changes in place the way it went (KH.ui.swap, §6-4 · P9),
+   the first draw and a tab / map change write it at once (P4); 화려하게 fades a picked tab's content in (4 px). The one reduce switch is
+   html[data-motion]. Colours: ! of a failed / stale outlet = --fail-dot (no amber). */
 (() => {
 'use strict';
 const KH = window.KH, M = window.KHNewsMatch;
@@ -39,6 +44,19 @@ const timeText = t => (t.slice(0, 10) === kstDay(nowMs()) ? t.slice(11, 16) : `$
 const put = (el, ...kids) => el.replaceChildren(...kids.flat(Infinity).filter(k => k != null && k !== false));
 const icon = name => (typeof UI.icon === 'function' ? UI.icon(name) : null);
 const motion = () => (typeof KH.motion === 'function' ? KH.motion() : document.documentElement.dataset.motion || 'standard');
+// a number written in place (design.md §6-4 · P9): with KH.ui.swap it goes the way the value went — up from below, down from above;
+// quiet (the first draw, a tab / map change, 줄이기 — KH.ui.swap checks that) writes it at once
+const numOf = t => { const m = /[+−-]?\d[\d,]*\.?\d*/.exec(String(t || '').replace(/−/g, '-')); return m ? parseFloat(m[0].replace(/,/g, '')) : NaN; };
+function swapNum(el, text, quiet) {
+  if (!el) return;
+  text = String(text);
+  const was = el.textContent;
+  if (was === text) return;
+  const sw = typeof UI.swap === 'function';
+  if (quiet || !was || !text || !sw) { if (sw && el.childElementCount) UI.swap(el, text, text); el.textContent = text; return; }   // (stops a running swap first)
+  const a = numOf(was), b = numOf(text);
+  UI.swap(el, text, was, isFinite(a) && isFinite(b) ? Math.sign(b - a) : 0);
+}
 
 root.setAttribute('aria-labelledby', 'news-h');
 
@@ -48,12 +66,13 @@ const ftKey = (() => { try { return JSON.parse(localStorage.getItem('khm.feedTab
 const curExt = () => (FT.cur === 'news' ? null : FT.list.find(t => t.key === FT.cur) || null);
 const labelOf = t => String(typeof t.label === 'function' ? t.label() : t.label);
 const h2 = h('h2', { id: 'news-h', text: '시장 뉴스' });
-const ttl = h('div', { class: 'nw-tt', role: 'tablist', id: 'news-h', 'aria-label': '지도 아래 패널' });
+// title tabs = an underline row (design.md §7 ③): the template's segment indicator drawn as a 2px bar (news.css .nw-ftabs), moved by KH.ui.seg
+const ttl = h('div', { class: 'seg nw-ftabs', role: 'tablist', id: 'news-h', 'aria-label': '지도 아래 패널' });
 const at = h('span', { class: 'nw-at' });
 const hd = h('div', { class: 'nw-hd' });
 const newsPane = h('div', { class: 'nw-pane', id: 'news-p-news' });
 const newsSub = h('div', { class: 'nw-sub' });
-function renderTT() {
+function renderTT(o) {
   if (FT.list.length < 2) return;
   if (ttl.children.length !== FT.list.length || [...ttl.children].some((b, i) => b.dataset.k !== FT.list[i].key))
     put(ttl, FT.list.map(t => h('button', { type: 'button', role: 'tab', id: 'news-t-' + t.key, 'data-k': t.key, 'aria-controls': t.key === 'news' ? newsPane.id : t.pane.id },
@@ -63,7 +82,8 @@ function renderTT() {
     b.setAttribute('aria-selected', String(on)); b.tabIndex = on ? 0 : -1;
     const lab = labelOf(t), n = typeof t.count === 'function' ? String(t.count() || '') : '';
     if (b.firstChild.textContent !== lab) b.firstChild.textContent = lab;
-    if (b.lastChild.textContent !== n) b.lastChild.textContent = n;
+    // a count that moved with new data (o.swap) changes in place, the way it went (§6-4 · P9); the first draw, a map / tab change: at once
+    if (b.lastChild.textContent !== n) swapNum(b.lastChild, n, !(o && o.swap) || !b.lastChild.textContent || !n);
   }
 }
 // the card's parts in place: one tab → the news card as it always was (h2 · outlet tabs · chip · time in one row); two or more → the
@@ -73,7 +93,7 @@ function arrange() {
   const multi = FT.list.length > 1, hasNews = !!FT.list.length && FT.list[0].key === 'news';
   root.classList.toggle('multi', multi || !hasNews);          // a lone other tab (no 시장 뉴스 on this Worker) keeps its own row too
   root.setAttribute('aria-labelledby', 'news-h');
-  if (multi) { put(hd, ttl, at); renderTT(); }
+  if (multi) { put(hd, ttl, at); renderTT(); if (typeof UI.seg === 'function') UI.seg(ttl); }
   else { h2.textContent = FT.list.length ? labelOf(FT.list[0]) : '시장 뉴스'; put(hd, h2, at); }
   if (hasNews) arrangeNews(multi);
   for (const t of FT.list) {
@@ -94,6 +114,11 @@ function select(key, user) {
   root.dataset.feed = key;
   if (was && typeof was.onHide === 'function') was.onHide();
   arrange();
+  if (user && motion() === 'fancy') {                   // 화려하게: the new tab's content comes in on `fade` from 4 px below, all at once
+    const pane = t.key === 'news' ? newsPane : t.pane;
+    pane.classList.remove('nw-in'); void pane.offsetWidth; pane.classList.add('nw-in');
+    pane.addEventListener('animationend', () => pane.classList.remove('nw-in'), { once: true });
+  }
   onSelect(t);
   if (t.key !== 'news' && typeof t.onShow === 'function') t.onShow();
 }
@@ -142,7 +167,8 @@ if (!LIVE) {
   arrange();
   root.hidden = false;
   window.KHNews = { show() { root.hidden = false; }, hide() { root.hidden = true; }, refresh: () => Promise.resolve(false),
-    addTab, removeTab, select: k => select(k, false), tab: () => FT.cur, update() { renderTT(); }, relayout() {} };
+    addTab, removeTab, select: k => select(k, false), tab: () => FT.cur, update() { renderTT(); }, relayout() {},
+    fold: (box, want, apply, o) => { apply(want); if (o && o.onEnd) o.onEnd(); } };
   return;
 }
 
@@ -151,7 +177,7 @@ const S = {
   data: null, next: null,   // the list drawn · one that waits while the reader is in the card
   okAt: 0, lastTry: 0, tries: 0, loading: true, busy: null, timer: 0,
   tab: 'all', only: false, open: false,
-  n: MIN_ROWS, two: false, measure: false, shown: 0,
+  n: MIN_ROWS, two: false, measure: false,
   visible: false, near: !('IntersectionObserver' in window), ptr: false, hov: '',
 };
 
@@ -271,10 +297,10 @@ function chip(code) {
   return h('button', { type: 'button', class: 'nw-chip', 'data-c': code, 'aria-label': `${q.n} ${pct(q.r)} · 빠른 보기` },
     q.n, h('b', { class: cls(q.r), text: pct(q.r) }));
 }
-function row(it, k, grow) {
+// rows past the first row count are .nw-x: they come in / leave together with the 더보기 fold (news.css, fold below)
+function row(it, k, base) {
   const m = matchOf(it), codes = codesOf(it), phone = narrowMQ.matches, cap = phone ? 3 : 2;
-  const anim = grow && k >= S.shown;
-  return h('li', { class: 'nw-row' + (anim ? ' in' : ''), style: anim ? `--d:${Math.min(8, k - S.shown) * 20}ms` : null, 'data-codes': codes.length ? codes.join(',') : null },
+  return h('li', { class: 'nw-row' + (k >= base ? ' nw-x' : ''), 'data-codes': codes.length ? codes.join(',') : null },
     h('time', { datetime: it.t, text: timeText(it.t) }),
     h('span', { class: 'nw-src', text: SRC[it.src] }),
     h('span', { class: 'nw-tt', title: m.text }, titleLink(it, m)),
@@ -301,7 +327,7 @@ function render(o = {}) {
   renderTabs(none);
   // the only-chip: off look when there is nothing to filter (controls §5-12)
   if (none) onlyBtn.setAttribute('aria-disabled', 'true'); else onlyBtn.removeAttribute('aria-disabled');
-  onlyBtn.querySelector('.nw-n').textContent = d ? String(listFor(S.tab, true).length) : '';
+  swapNum(onlyBtn.querySelector('.nw-n'), d ? String(listFor(S.tab, true).length) : '', !o.data);
   // an outlet failed this time and its last good list is shown: one line (전체 탭 · 그 언론사 탭)
   const stale = d ? SRC_ORDER.filter(k => d.sources[k] && d.sources[k].stale && d.items.some(x => x.src === k) && (S.tab === 'all' || S.tab === k)) : [];
   note.hidden = !stale.length;
@@ -323,10 +349,9 @@ function render(o = {}) {
   else if (!d && S.loading) kids = skel(base);
   else if (!d) kids = [msg('뉴스를 불러오지 못했어요', '세 언론사 모두 응답이 없었어요. 잠시 뒤 다시 눌러 주세요.', true)];
   else if (!all.length) kids = [msg(S.only ? '지도 종목이 나오는 기사가 아직 없어요' : '아직 새 기사가 없어요', S.only ? '' : '3분마다 다시 확인해요.', false)];
-  else kids = all.slice(0, shown).map((it, k) => row(it, k, o.grow));
+  else kids = all.slice(0, shown).map((it, k) => row(it, k, base));
   put(list, kids);
   list.classList.toggle('is-msg', kids.length === 1 && kids[0].classList.contains('nw-msg'));
-  if (!S.measure) S.shown = d ? Math.min(shown, all.length) : 0;
   // 더보기 (N개) / 접기 — at the first row count the key keeps its place, hidden
   const total = Math.min(MAX_ROWS, all.length);
   const lab = more.querySelector('.kl[data-l="idle"]');
@@ -339,6 +364,51 @@ function render(o = {}) {
   const fn = document.getElementById('foot-news');   // the template's footer line (re-attached on every footer redraw)
   if (fn) { fn.textContent = outs.length ? `시장 뉴스: ${outs.join(' · ')} RSS (제목 · 링크만)` : ''; fn.hidden = !outs.length; }
   if (S.hov && !list.querySelector('.nw-row[data-codes]:hover')) setHover(null);
+}
+
+/* ───────── 더보기 · 접기 = a fold (design.md §7 · §12 ① "펼치는 목록은 판만 자라고, 아래 내용은 한 번에") ─────────
+   The stock page's foldMove, for this card's lists (시장 뉴스 here, 오늘 공시 through KHNews.fold): opening — the layout takes its new
+   height at once (what is below moves once, when the key is pressed), the list's box is clipped back to its old height and opens on the
+   `open` spring; the new rows (.nw-x) come in together once it is a quarter open (§6-4: opacity, 2px blur, 4px). Closing — the new rows
+   leave first (100 ms, together), then the box closes on `close` while it keeps its height, then the layout comes up once (apply(false)
+   at the end, nothing jumps under the reader). 줄이기 · a hidden page · no spring engine: the end state at once. No stagger (§6-2). */
+const FOLDS = new WeakMap(), TX_OUT = 100, BLEED = 8;
+const clipTo = b => `inset(-${BLEED}px -${BLEED}px ${Math.max(0, b).toFixed(1)}px -${BLEED}px)`;   // the rows' 6px side bleed stays visible
+// the height the list closes to: the first new row's top (two columns: the first rows' per-column count)
+function foldTarget(box) {
+  const rows = [...box.children], x = rows.find(r => r.classList.contains('nw-x'));
+  if (!x) return box.offsetHeight;
+  if (box.classList.contains('c2')) return rows[0].offsetHeight * Math.ceil(rows.indexOf(x) / 2);
+  return x.offsetTop;
+}
+function fold(box, want, apply, o = {}) {
+  const prev = FOLDS.get(box);
+  if (prev) prev.finish();
+  const ok = KH.spring && typeof KH.spring.animate === 'function' && motion() !== 'reduced' && !document.hidden && box.isConnected && box.getClientRects().length > 0;
+  if (!ok) { apply(want); if (o.onEnd) o.onEnd(); return; }
+  const me = { done: false, h: null, t: 0, end: () => {} };
+  const finish = () => { if (me.done) return; me.done = true; clearTimeout(me.t); if (me.h) me.h.stop(); FOLDS.delete(box); me.end(); if (o.onEnd) o.onEnd(); };
+  me.finish = finish; FOLDS.set(box, me);
+  const run = (name, frame) => { me.h = KH.spring.animate({ from: 0, to: 1, name, onUpdate: p => { if (!me.done) frame(p); }, onRest: finish }); };
+  if (want) {
+    const H0 = box.offsetHeight;
+    apply(true);                                         // the layout takes its new height here, once
+    const D = box.offsetHeight - H0;
+    me.end = () => { box.classList.remove('nw-fold-anim', 'nw-fold-in'); box.style.clipPath = ''; };
+    if (!(D > 0)) { finish(); return; }
+    box.classList.add('nw-fold-anim');
+    let shown = false;
+    const frame = p => { box.style.clipPath = clipTo((1 - p) * D); if (!shown && p >= 0.25) { shown = true; box.classList.add('nw-fold-in'); } };
+    frame(0);
+    run('open', frame);
+    return;
+  }
+  const H1 = box.offsetHeight, D = H1 - foldTarget(box);
+  box.style.height = H1 + 'px';                          // held until the box has closed; then the layout comes up once
+  box.classList.add('nw-fold-out');
+  me.end = () => { box.classList.remove('nw-fold-out'); box.style.clipPath = ''; box.style.height = ''; apply(false); };
+  if (!(D > 0)) { finish(); return; }
+  me.t = setTimeout(() => { if (!me.done) run('close', p => { box.style.clipPath = clipTo(p * D); }); }, TX_OUT);
 }
 
 /* ───────── PC fill: the card is stretched to the side column's end; whole rows that fit, at least 5 ───────── */
@@ -409,7 +479,7 @@ function accept(j) {
   for (const k of SRC_ORDER) { const s = j.sources && j.sources[k]; sources[k] = s && typeof s === 'object' ? { ok: !!s.ok, n: +s.n || 0, at: typeof s.at === 'string' ? s.at : null, stale: !!s.stale } : { ok: false, n: 0, at: null, stale: false }; }
   return { asOf: j.asOf, items, sources };
 }
-function apply(data) { S.data = data; S.next = null; ensureIdx(); render(); }
+function apply(data) { S.data = data; S.next = null; ensureIdx(); render({ data: true }); }
 function load(o = {}) {
   if (S.busy) return S.busy;
   clearTimeout(S.timer); S.timer = 0;
@@ -457,15 +527,17 @@ onlyBtn.addEventListener('click', () => {
   onlyBtn.setAttribute('aria-pressed', String(S.only));
   render();
 });
+// 휴대폰: 접으면 카드 머리로 (§3-14와 같아요)
+function headBack() {
+  if (!narrowMQ.matches) return;
+  const top = root.getBoundingClientRect().top, stuck = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--stuck-h')) || 0;
+  if (top < stuck) scrollBy({ top: top - stuck - 8, behavior: motion() === 'reduced' ? 'auto' : 'smooth' });
+}
 more.addEventListener('click', () => {
-  S.open = !S.open;
-  if (typeof UI.state === 'function') UI.state(more, S.open ? 'less' : 'idle');
-  more.setAttribute('aria-expanded', String(S.open));
-  render({ grow: S.open });
-  if (!S.open && narrowMQ.matches) {                     // 휴대폰: 접으면 카드 머리로 (§3-14와 같아요)
-    const top = root.getBoundingClientRect().top, stuck = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--stuck-h')) || 0;
-    if (top < stuck) scrollBy({ top: top - stuck - 8, behavior: motion() === 'reduced' ? 'auto' : 'smooth' });
-  }
+  const want = !S.open;
+  if (typeof UI.state === 'function') UI.state(more, want ? 'less' : 'idle');
+  more.setAttribute('aria-expanded', String(want));
+  fold(list, want, w => { S.open = w; render(); }, { onEnd: want ? null : headBack });
   more.focus({ preventScroll: true });
 });
 list.addEventListener('click', e => {
@@ -499,7 +571,7 @@ document.addEventListener('kh:data', () => {
     const q = quoteOf(b.dataset.c), v = b.querySelector('b');
     if (!q || !v) continue;
     const t = pct(q.r);
-    if (v.textContent !== t) { v.textContent = t; v.className = cls(q.r); b.setAttribute('aria-label', `${q.n} ${t} · 빠른 보기`); }
+    if (v.textContent !== t) { swapNum(v, t); v.className = cls(q.r); b.setAttribute('aria-label', `${q.n} ${t} · 빠른 보기`); }   // a new quote: §6-4 the way it went
   }
 });
 document.addEventListener('kh:refresh', () => { if (!S.gone && !root.hidden && root.offsetParent && !document.hidden && FT.cur === 'news') load(); });
@@ -541,7 +613,9 @@ onSelect = t => {
 window.KHNews = { show, hide, refresh: () => load(),
   addTab, removeTab, select: k => select(k, false), tab: () => FT.cur,
   // a tab's label / count / head line changed (no list redraw)
-  update() { renderTT(); if (curExt()) renderHead(); },
+  update(o) { renderTT(o); if (curExt()) renderHead(); },
+  // 더보기 of another tab: the same fold (its list box grows on `open`, its .nw-x rows come in at a quarter)
+  fold: (box, want, apply, o) => fold(box, want, apply, o),
   // the tab's content changed size or rule (a state message, the phone): fill again
   relayout: () => refit(true) };
 show();
