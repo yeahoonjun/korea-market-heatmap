@@ -149,3 +149,6 @@ html:not([data-motion="reduced"]) .news .nw-row.skel .nw-sk{animation:nwSk 1.4s 
   .news.is-snap .nw-msg{min-height:0;padding:18px 8px}
 }
 html[data-motion="reduced"] .news *{animation:none!important}
+
+/* 요약 카드가 펼쳐진 동안(PC) 뉴스 카드는 옆 칸 끝까지 늘어나지 않아요 — 줄 수는 접혀 있을 때 그대로 (news.js summaryHeld) */
+.layout > .news.nw-hold{align-self:start}

@@ -366,10 +366,18 @@ function layoutKey() {
   return [FT.cur, deskMQ.matches, narrowMQ.matches, root.clientWidth, stage ? stage.offsetHeight : 0,
     side ? [...side.children].map(c => c.offsetHeight).join(',') : ''].join('|');
 }
+// 시장 요약 카드가 펼쳐져 있는 동안(PC)은 옆 칸이 크게 길어져도 줄 수를 그대로 둬요 — 카드는 위에 붙고(늘어나지 않고) 접힌 높이만큼만
+// (사용자 2026-11-15 22:38 "pc에서 시장 요약카드 자세히보면 기사가 엄청 많이 나오는데" → 23:01 "추천대로 해줘")
+let holdT = 0;
+const summaryHeld = () => { const m = window.KHSummary; return !!(m && deskMQ.matches && ((m.isOpen && m.isOpen()) || (m.moving && m.moving()))); };
 function refit(force) {
   cancelAnimationFrame(fitRaf);
   fitRaf = requestAnimationFrame(() => {
     if (root.hidden || !root.offsetParent) return;
+    const held = summaryHeld();
+    root.classList.toggle('nw-hold', held);
+    clearTimeout(holdT);
+    if (held) { fitKey = ''; holdT = setTimeout(() => refit(), 800); return; }   // 접힘이 끝나면(요약이 알림을 보내지 않아서) 스스로 다시 확인
     const k = layoutKey();
     if (!force && k === fitKey) return;
     fitKey = k; fit(); fitKey = layoutKey();
