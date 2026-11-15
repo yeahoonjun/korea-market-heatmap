@@ -218,7 +218,7 @@ python3 tmp/shot.py /home/claude/heatmap/dist/index.html    # 1440×900 / 390×8
 
 **효과 설정 (히트맵이 제공) — 사용자 2026-11-10 01:09: "현재 효과를 기본으로 하고 화려한 효과를 따로 켤 수 있게"**
 - `표시 설정`에 `효과: 기본 · 화려하게`. **기본 = 지금 있는 모션 그대로**(확대 FLIP, 시장 띠 티커 등). 아래의 새 효과(플래시·롤링·첫 진입 연출·타임랩스 트윈·빛 맥동·3D 관성)는 **`화려하게`일 때만** 켜져요. 기기가 `prefers-reduced-motion: reduce`면 `줄이기`(지금처럼 전환까지 끔)로 시작하고, 설정에서 다시 바꿀 수 있어요. localStorage `khm.motion`.
-- `KH.motion()` → `'reduced'|'standard'|'fancy'`(기본 `'standard'`), 바뀌면 document 이벤트 `kh:motion` `{motion}`. 모든 모듈: `fancy`가 아니면 새 효과를 쓰지 않고 바로 최종 상태를 그려요. `reduced`면 기존 전환도 꺼요.
+- `KH.motion()` → `'reduced'|'standard'|'fancy'`(기본 **`'fancy'`** — 사용자 2026-11-15 17:07 "10번은 화려하게가 기본", 처음 결정 2026-11-10의 standard를 바꿈), 바뀌면 document 이벤트 `kh:motion` `{motion}`. 모든 모듈: `fancy`가 아니면 새 효과를 쓰지 않고 바로 최종 상태를 그려요. `reduced`면 기존 전환도 꺼요.
 - 정보 자체인 것은 효과 설정과 상관없이 보여요: 세계지도 낮/밤 경계(정적 음영), 3D 보기(따로 켜는 보기, 기본 꺼짐 — 단 `fancy`가 아니면 카메라 관성·높이 트윈 없이).
 - 디자인 참고: 사용자가 보낸 레퍼런스(쇼룸 페이지 `/mnt/user-data/uploads/4567632c-koh-young-showroom.html`, 모션 사이트 링크들)를 정리한 브리프가 `docs/motion-brief.md`에 생기면 그걸 따라요.
 - 성능: 애니메이션은 `transform`·`opacity`·`filter` 위주, 동시에 도는 플래시는 최대 60개 정도로 제한, 숨은 탭에서는 아무것도 안 돌아요.
@@ -554,6 +554,11 @@ python3 tmp/shot.py /home/claude/heatmap/dist/index.html    # 1440×900 / 390×8
 - 엣지 캐시: 그날 전체 응답을 `dis-today` 키로 30초, ETag·`x-as-of`를 같이 저장해요. 요청마다 그 캐시에서 304를 판단하고 `after`를 잘라요(캐시 적중이면 KV·DART를 건드리지 않아요). ETag 전 Worker가 캐시한 항목(태그 없음)은 304 없이 그대로 200.
 - 화면이 쓰는 법: ⓐ 가장 쉬운 길 — 같은 주소(`after` 없이)를 기본 `fetch`로 60초마다. 브라우저가 30초 뒤부터 알아서 `If-None-Match`로 다시 확인하고, 304면 저장해 둔 본문을 그대로 줘요(본문 `asOf`는 옛값일 수 있으니 시각은 `res.headers.get('x-as-of')`). ⓑ 직접 — 마지막 `ETag`를 `If-None-Match`로 보내고 `after=<가진 것 중 가장 새 r>`로 받으면, 304 = 변화 없음, 200 + `after` = 새 행만(앞에 붙이기), 200인데 `after` 없음 = 날짜가 바뀜(통째로 바꾸기). **새 행이 없는데 태그만 바뀌면**(빈 `rows`) 예전 행의 비고·`stale`이 바뀐 것 → 가끔 `after` 없이 통째로 다시 받으세요.
 - `after`는 접수번호 앞 8자리(접수일)로 날짜를 비교해요(접수번호 = 접수일 8자리 + 일련번호 6자리).
+
+## 3-31. 디자인 기준 (사용자 2026-11-15 16:25 "디자인 기준을 먼저 잡고 가자" → 17:07 "1~9 추천대로 10번은 화려하게가 기본 · 스프링 모션 시안은 제안대로")
+- **규칙 문서 `docs/standards/design.md`(승인)** — `controls.md` · `themes.md` · `dock.md` · `docs/motion-brief.md`보다 위. 근거 `docs/research/design-references.md` · `docs/research/ui-audit.md`, 움직임 시안 `drafts/springs.html`(claude.ai 아티팩트로도 올림).
+- 토큰(`src/template.html :root`): 글자 `--fs-xs…num` · 행간 `--lh-*` · 간격 `--space-1…8` · 모서리 `--r-mark/badge/row/card/float`(+ 기존 `--r-key/in/pill`) · 높이 `--h-chip/key/row`(760px 아래 휴대폰 값) · 채움 `--fill-1…3` · 상태 `--live` · `--fail-dot`(지금은 앰버 — 모듈을 옮길 때 바꿔요) · 스프링 `--sp-<이름>`(`linear()`) · `--sp-<이름>-dur` · `--sp-<이름>-kc`(`"k c"`, JS 엔진용). 스프링 표는 `scripts/design_tokens.mjs` 한 곳 — 바꾸면 `node scripts/design_tokens.mjs`로 다시 만들고 `--check`로 확인.
+- 적용 순서(design.md §11): 기반 → 새로 만드는 것(공시 토글 · 분봉 고르기 · 이동평균 범례 토글 · 시장 요약 카드 · 증시 캘린더 · KDI · 관보) → 기존 화면(템플릿 → extras → 종목 페이지 → 해외 · 지표 → 뉴스 · 공시 · 아래 막대).
 
 ## 3-30. 공시 배지 — 화면 (§3-23b ①, 사용자 2026-11-14 01:44~01:46 "C안으로 할게" · "나머지는 추천대로")
 
