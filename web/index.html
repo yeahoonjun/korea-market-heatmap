@@ -18743,7 +18743,7 @@ sync();
   }
 
   // ── footer line (above the disclaimer, §3-30): the template's renderFooter() puts <p id="foot-cal"> with footText() on the 일정 tab
-  const FOOT = '일정: 한국은행 경제통계 공표일정 · 국가데이터처 보도계획 · 미국 지표는 FRED® 발표 일정(This product uses the FRED® API but is not endorsed or certified by the Federal Reserve Bank of St. Louis.) · 발표값은 한국은행 ECOS · FRED · 금통위 · FOMC · 휴장은 한국은행 · 연준 · 한국거래소 공지를 보고 직접 넣어요 · 회사 일정: 금융감독원 DART. 시각은 모두 한국 시간이고, 일정은 원천 사정으로 바뀔 수 있어요.';
+  const FOOT = '일정: 한국은행 경제통계 공표일정 · 국가데이터처 보도계획 · 미국 지표는 FRED® 발표 일정(This product uses the FRED® API but is not endorsed or certified by the Federal Reserve Bank of St. Louis.) · 발표값은 한국은행 ECOS · FRED · 금통위 · FOMC · 휴장은 한국은행 · 연준 · 한국거래소 공지를 보고 직접 넣어요 · 회사 일정: 금융감독원 DART · 금융위원회(공공데이터포털). 시각은 모두 한국 시간이고, 일정은 원천 사정으로 바뀔 수 있어요.';
   function footLine() { const p = document.getElementById('foot-cal'); if (p && st.on) p.textContent = FOOT; }
 
   // ── lifecycle

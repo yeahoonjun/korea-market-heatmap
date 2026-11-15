@@ -11,11 +11,14 @@
 //   cb   금통위 · FOMC (hand-entered, 1 year ahead) + minutes by rule
 //   mkt  KRX holidays / special days (hand-entered) + 코스피200 expiries by rule (weekly ones flagged `weekly`, the page hides them)
 //   corp OpenDART 무상 · 유상증자 dates (env.DART_KEY): list.json B001/C001 per day → fricDecsn · pifricDecsn · estkRs
-//        금융위 배당 · 보호예수 · 권리일정 (env.DATA_GO_KR_KEY): code ready, OFF until the shared data.go.kr helper is wired in
-//        (configureCalendar({fsc})) and env.CAL_FSC === 'on' — see fscRefresh()
+//        금융위 배당 · 보호예수 · 권리일정 (env.DATA_GO_KR_KEY) through the shared helper worker/src/datago.js — one KV snapshot
+//        per API, its own daily cap and cool-down (see FSC_SPECS); env.CAL_FSC === 'off' switches them off
 //   values after a release: ECOS KeyStatisticList (env.ECOS_KEY, one call) · FRED series/observations — text only, no colour
 //
 // Keys go into upstream URLs and nowhere else: errors are short fixed codes, KV/answers/logs never carry a URL.
+
+import { DG_APIS, DgErr, dgKey, dgSnapshot } from './datago.js';
+import { CRNO_SPEC } from './datago_crno.js';
 
 const UA = 'Mozilla/5.0 (compatible; panse/1.0; +https://panse.pages.dev)';
 const ORIGIN = 'https://panse.pages.dev';
@@ -224,7 +227,6 @@ export const SOURCES = {
   fred: { every: 20 * 3600e3, retry: 30 * 60e3, key: 'FRED_KEY' },
   vals: { every: 30 * 60e3, retry: 15 * 60e3 },
   dart: { every: 30 * 60e3, retry: 15 * 60e3, key: 'DART_KEY' },
-  fsc: { every: 3 * 3600e3, retry: 60 * 60e3, key: 'DATA_GO_KR_KEY' },
 };
 
 async function bokRefresh(env, now, prev) {
@@ -418,47 +420,107 @@ export function dartEvents(f, rcept, j) {
   return out;
 }
 
-// 금융위 (data.go.kr) — 배당 · 보호예수 · 권리일정. OFF until the shared helper is wired: configureCalendar({ fsc: { list, codeOfCrno } })
-// list(apiId 'divi'|'issu'|'rights', op, params) → Promise<items[]> (the helper counts calls, pages and keeps the key out of errors);
-// codeOfCrno(env, crno) → Promise<'005930'|null>. Gate: env.CAL_FSC === 'on'.
-const FSC = { list: null, codeOfCrno: null };
-export function configureCalendar(o) { if (o && o.fsc) Object.assign(FSC, o.fsc); }
-export const fscEnabled = env => env.CAL_FSC === 'on' && typeof FSC.list === 'function' && !!env.DATA_GO_KR_KEY;
-const isinCode = isin => /^KR7(\d{6})\d{3}$/.test(isin || '') ? isin.slice(3, 9) : null;
-async function fscRefresh(env, now) {
-  if (!fscEnabled(env)) throw new CalErr('off');
-  const basDt = ymd(expectedBasDt(now)), evs = [];
-  const parts = await Promise.allSettled([
-    FSC.list('divi', 'getDiviInfo_V2', { basDt }),
-    FSC.list('issu', 'getLockUpRetuInfo_V3', { basDt }),
-    FSC.list('rights', 'getRighExerReasSche_V2', { basDt }),
-  ]);
-  const [divi, lock, rights] = parts.map(p => p.status === 'fulfilled' && Array.isArray(p.value) ? p.value : null);
-  if (!divi && !lock && !rights) throw new CalErr('fsc');
-  for (const x of divi || []) evs.push(...fscDivEvents(x));
-  const pctCache = new Map();
-  for (const x of lock || []) {
-    const c = isinCode(x.isinCd) || (/^A?\d{6}$/.test(x.itmsShrtnCd || '') ? x.itmsShrtnCd.slice(-6) : null), d = datesIn(x.rsrnDt)[0];
+// 금융위원회 (공공데이터포털, env.DATA_GO_KR_KEY) — 배당 · 보호예수 · 권리일정 through the shared helper (datago.js): one KV
+// snapshot per API (cal:fsc:divi · cal:fsc:lock · cal:fsc:rights) with the helper's daily cap (DG_APIS), cool-down after a
+// failure (a 주식권리일정 key not approved yet stops that part only) and the key only in the upstream URL. The FSC opens a business
+// day's rows after 13:00 KST of the next one: a snapshot asks for the basDt that should be out by now (expectedBasDt, holidays
+// skipped) and, the first time, up to FSC_BACK business days before it; events are kept by id until FSC_KEEP_DAYS after their
+// day. Whether basDt answers "the schedule as of that day" (future dates) or "rows changed that day" is checked live after deploy
+// (docs/standards/calendar.md §9-5) — either way the union by id is what the calendar shows.
+const FSC_BACK = 10, FSC_KEEP_DAYS = 14, FSC_EMPTY_RETRY_MS = 3 * 3600e3, FSC_MAX_EVENTS = 4000;
+export const fscOn = env => env.CAL_FSC !== 'off' && !!dgKey(env);
+const isinCode = isin => /^KR7([0-9A-Z]{6})[0-9A-Z]{3}$/.test(isin || '') ? isin.slice(3, 9) : null;
+const crnoDigits = v => String(v == null ? '' : v).replace(/\D/g, '');
+const md = d => `${+d.slice(5, 7)}/${+d.slice(8)}`;
+function fscTargets(now) {
+  const out = [];
+  for (let d = expectedBasDt(now); out.length < FSC_BACK; d = addDays(d, -1)) if (isTradingDay(d)) out.push(d);
+  return out;                                                         // newest first
+}
+function fscWant(snap, now) {
+  const days = (snap && snap.days) || {}, exp = expectedBasDt(now);
+  return fscTargets(now).filter(d => !(ymd(d) in days) || (d === exp && days[ymd(d)] === 0 && now - (snap.at || 0) > FSC_EMPTY_RETRY_MS));
+}
+export const fscDue = (snap, now) => !snap || !snap.days || fscWant(snap, now).length > 0;
+function fscBuild(fetchDay) {
+  return async (prev, run, now) => {
+    const days = Object.assign({}, prev && prev.days), byId = new Map(((prev && prev.evs) || []).map(e => [e.id, e]));
+    let got = 0;
+    for (const d of fscWant(prev, now)) {
+      let evs;
+      try { evs = await fetchDay(run, ymd(d)); }
+      catch (e) {
+        if (!got) throw e;                                            // nothing new: keep the copy, the helper cools this API down
+        if (!(e instanceof DgErr && e.code === 'cap')) run.errors.push(e instanceof DgErr ? e : new DgErr('internal'));
+        break;                                                        // the rest next time
+      }
+      got++;
+      days[ymd(d)] = evs.length;
+      for (const e of evs) byId.set(e.id, e);
+    }
+    const keep = addDays(kstDate(now), -FSC_KEEP_DAYS), oldest = ymd(addDays(kstDate(now), -45));
+    for (const k of Object.keys(days)) if (k < oldest) delete days[k];
+    const evs = [...byId.values()].filter(e => e.d >= keep).sort((a, b) => a.d.localeCompare(b.d)).slice(0, FSC_MAX_EVENTS);
+    return { v: 1, basDt: ymd(expectedBasDt(now)), days, evs };
+  };
+}
+async function fscDiviDay(run, basDt) {
+  const r = await run.list('getDiviInfo_V2', { basDt }, { numOfRows: 1000, maxPages: 3 });
+  return r.items.flatMap(fscDivEvents);
+}
+async function fscLockDay(run, basDt) {
+  const r = await run.list('getLockUpRetuInfo_V3', { basDt }, { numOfRows: 1000, maxPages: 2 });
+  const out = [], stat = new Map();
+  for (const x of r.items) {
+    const c = isinCode(x.isinCd) || (/^A?[0-9A-Z]{6}$/.test(String(x.itmsShrtnCd || '')) ? String(x.itmsShrtnCd).slice(-6) : null), d = datesIn(x.rsrnDt)[0];
     if (!c || !d) continue;
     let pct = null;
-    if (x.crno) {
-      if (!pctCache.has(x.crno)) pctCache.set(x.crno, FSC.list('issu', 'getStocIssuStat_V3', { basDt, crno: x.crno }).then(r => r && r[0]).catch(() => null));
-      const s = await pctCache.get(x.crno), tot = s && +(/우선/.test(x.scrsItmsKcdNm || '') ? s.pfstTisuCnt : s.onskTisuCnt);
+    const crno = crnoDigits(x.crno);
+    if (crno.length === 13) {                                         // 상장주식 수 (발행현황) for the share released; best effort within the run's calls
+      if (!stat.has(crno)) stat.set(crno, run.call('getStocIssuStat_V3', { basDt, crno }, { numOfRows: 20 }).then(s => s.items).catch(() => null));
+      const items = await stat.get(crno), s = items && (items.find(i => isinCode(i.isinCd) === c) || items[0]);
+      const tot = s && +(/우선/.test(x.scrsItmsKcdNm || '') ? s.pfstTisuCnt : s.onskTisuCnt);
       if (tot > 0 && +x.rsrnStckCnt > 0) pct = Math.round(+x.rsrnStckCnt / tot * 1000) / 10;
     }
-    evs.push({ id: `fsc:lock:${c}:${d}:${x.lkupRegDt || ''}`, d, t: null, k: 'corp', src: 'fsc', api: 'getLockUpRetuInfo_V3', c, n: strip(x.stckIssuCmpyNm),
+    out.push({ id: `fsc:lock:${c}:${d}:${x.lkupRegDt || ''}`, d, t: null, k: 'corp', src: 'fsc', api: 'getLockUpRetuInfo_V3', c, n: strip(x.stckIssuCmpyNm),
       star: pct == null ? 1 : pct >= 10 ? 3 : pct >= 3 ? 2 : 1, pct: pct == null ? undefined : pct,
-      title: `보호예수 해제 ${fmtShares(+x.rsrnStckCnt)}`, sub: [pct != null ? `상장주식의 ${pct}%` : null, strip(x.stckLblHoldRcdNm) || null].filter(Boolean).join(' · ') || undefined });
+      title: `보호예수 해제 ${fmtShares(+x.rsrnStckCnt)}`.trim(), sub: [pct != null ? `상장주식의 ${pct}%` : null, strip(x.stckLblHoldRcdNm) || null].filter(Boolean).join(' · ') || undefined });
   }
-  for (const x of rights || []) {
-    const c = FSC.codeOfCrno && x.crno ? await FSC.codeOfCrno(env, x.crno) : null;
-    if (!c) continue;
-    const why = strip(x.rgtExertRcdNm) || '권리', a = datesIn(x.nmlsLckSttgDt)[0], b = datesIn(x.nmlsLckEdDt)[0];
-    if (a) evs.push({ id: `fsc:rights:${c}:${a}:${x.rgtExertRcd || ''}`, d: a, t: null, k: 'corp', src: 'fsc', api: 'getRighExerReasSche_V2', c, n: strip(x.stckIssuCmpyNm), star: 1,
-      title: `${why} 명부폐쇄`, sub: b && b !== a ? `~${+b.slice(5, 7)}/${+b.slice(8)}` : undefined, why });
-  }
-  return { evs, basDt, partial: parts.some(p => p.status !== 'fulfilled') || undefined };
+  return out;
 }
+// 법인등록번호 → 종목코드 from the shared table (datago_crno.js; the common share when a company has several), per table copy
+let CRNO_REV = { at: -1, map: null, m: null };
+async function crnoReverse(env) {
+  const { snap } = await dgSnapshot(env, null, CRNO_SPEC);
+  if (!snap || !snap.m) return null;
+  if (CRNO_REV.at !== snap.at) {
+    const map = new Map();
+    for (const [code, v] of Object.entries(snap.m)) { const crno = v && v[0]; if (crno && (!map.has(crno) || (code[5] === '0' && map.get(crno)[5] !== '0'))) map.set(crno, code); }
+    CRNO_REV = { at: snap.at, map, m: snap.m };
+  }
+  return CRNO_REV;
+}
+async function fscRightsDay(run, basDt) {
+  const r = await run.list('getRighExerReasSche_V2', { basDt }, { numOfRows: 1000, maxPages: 2 });
+  if (!r.items.length) return [];
+  const rev = await crnoReverse(run.env);
+  if (!rev) throw new DgErr('empty', { op: 'crno' });                 // no code table yet: try again later
+  const out = [];
+  for (const x of r.items) {
+    const crno = crnoDigits(x.crno), issuer = String(x.scrsIssuMnbdCd || '').trim();
+    const c = (crno.length === 13 && rev.map.get(crno)) || (/^[0-9A-Z]{5}$/.test(issuer) && rev.m[issuer + '0'] ? issuer + '0' : null);
+    const d = datesIn(x.rgtExertSttgDt)[0] || datesIn(x.nmlsLckSttgDt)[0];
+    if (!c || !d) continue;
+    const kind = strip(x.stckIssuRcdNm) || '권리', why = strip(x.rgtExertRcdNm) || '기준일';
+    const a = datesIn(x.nmlsLckSttgDt)[0], b = datesIn(x.nmlsLckEdDt)[0];
+    out.push({ id: `fsc:rights:${c}:${d}:${x.stckIssuRcd || ''}${x.rgtExertRcd || ''}`, d, t: null, k: 'corp', src: 'fsc', api: 'getRighExerReasSche_V2', c, n: strip(x.stckIssuCmpyNm),
+      star: 1, title: `${kind} ${why}`, sub: a ? `명부폐쇄 ${md(a)}${b && b !== a ? `~${md(b)}` : ''}` : undefined, why: kind });
+  }
+  return out;
+}
+const fscSpec = (id, api, fetchDay) => ({ api, key: 'cal:fsc:' + id, ttlS: 45 * 86400, due: fscDue, build: fscBuild(fetchDay), background: true, memMs: 60e3, maxCalls: 20 });
+export const FSC_SPECS = { divi: fscSpec('divi', DG_APIS.divi, fscDiviDay), lock: fscSpec('lock', DG_APIS.issu, fscLockDay), rights: fscSpec('rights', DG_APIS.rights, fscRightsDay) };
+const FSC_NOT_YET = new Set(['forbidden', 'notfound', 'nokey']);     // an API not approved (yet): that part is simply absent
 export function fscDivEvents(x) {
   const c = isinCode(x.isinCd); if (!c) return [];
   const amt = +String(x.stckGenrDvdnAmt || '').replace(/,/g, ''), n = strip(x.stckIssuCmpyNm), out = [];
@@ -479,7 +541,7 @@ function expectedBasDt(now) {
 }
 
 // ───────────────────────── refresh orchestration ─────────────────────────
-const RUN = { bok: bokRefresh, kostat: kostatRefresh, fred: fredRefresh, vals: valsRefresh, dart: dartRefresh, fsc: fscRefresh };
+const RUN = { bok: bokRefresh, kostat: kostatRefresh, fred: fredRefresh, vals: valsRefresh, dart: dartRefresh };
 const inflight = new Map();
 export function calKey(id) { return 'cal:' + id; }
 async function refreshOne(env, id, now, prev, extra) {
@@ -494,7 +556,7 @@ async function refreshOne(env, id, now, prev, extra) {
       snap = { at: now, ok: true, data: body, tried: now };
     } catch (e) {
       snap = Object.assign({}, prev || { data: null }, { ok: false, tried: now, err: errCode(e) });   // the last good data stays
-      if (id !== 'fsc' || errCode(e) !== 'off') console.log(`calendar ${id}: ${errCode(e)}`);
+      console.log(`calendar ${id}: ${errCode(e)}`);
     }
     await kvPut(env, calKey(id), snap, 400 * 86400);
     return snap;
@@ -607,8 +669,14 @@ export async function buildAnswer(env, ctx, from, to, kinds, now) {
   const snaps = Object.fromEntries(await Promise.all(ids.map(async id => [id, await kvGet(env, calKey(id))])));
   // refresh what is due: the first ever copy is awaited (bounded), the rest runs after the answer
   const wait = [];
+  let fsc = null;                                                    // [[part, {snap, stale, error?}]] from the shared helper
+  if (fscOn(env)) {
+    const p = Promise.all(Object.entries(FSC_SPECS).map(([part, spec]) => dgSnapshot(env, ctx, spec).then(r => [part, r], () => [part, { snap: null, error: 'internal' }])))
+      .then(r => { fsc = r; });
+    wait.push(p);                                                    // instant when the copies exist (a due refresh runs in ctx.waitUntil)
+    if (ctx && ctx.waitUntil) ctx.waitUntil(p);
+  }
   for (const id of ids) {
-    if (id === 'fsc' && !fscEnabled(env)) continue;
     if (SOURCES[id].key && !env[SOURCES[id].key]) continue;
     if (id === 'vals') continue;
     if (!due(id, snaps[id], now)) continue;
@@ -623,6 +691,7 @@ export async function buildAnswer(env, ctx, from, to, kinds, now) {
       if (ctx && ctx.waitUntil) ctx.waitUntil(p); else await p;
     }
   }
+  snaps.fsc = { data: { evs: (fsc || []).flatMap(([, r]) => (r.snap && r.snap.evs) || []) } };
   let events = buildEvents(from, to, snaps, now);
   if (kinds) events = events.filter(e => kinds.has(e.k));
   events = groupCorp(events);
@@ -630,13 +699,34 @@ export async function buildAnswer(env, ctx, from, to, kinds, now) {
   for (let d = from; d <= to; d = addDays(d, 1)) if (KRX_DAYS[d]) days[d] = Object.assign({}, KRX_DAYS[d]);
   const sources = {};
   for (const id of ids) {
-    const s = snaps[id], off = (id === 'fsc' && !fscEnabled(env)) || (SOURCES[id].key && !env[SOURCES[id].key]);
+    const s = snaps[id], off = !!(SOURCES[id].key && !env[SOURCES[id].key]);
     sources[id] = { name: SRC_NAME[id], ok: !!(s && s.ok !== false && s.data), at: s && s.at ? new Date(s.at + KST_MS).toISOString().slice(0, 16).replace('T', ' ') : null };
     if (off) sources[id].off = true;
     if (s && s.ok === false && !off) sources[id].err = s.err;
   }
-  const stale = ids.some(id => !sources[id].off && sources[id].ok === false && id !== 'vals');
+  sources.fsc = fscStatus(env, fsc);
+  const stale = [...ids, 'fsc'].some(id => !sources[id].off && sources[id].ok === false && id !== 'vals');
   return { asOf: new Date(now + KST_MS).toISOString().slice(0, 19) + '+09:00', from, to, tz: 'Asia/Seoul', days, events, sources, stale: stale || undefined, manual: '2026-11-15' };
+}
+
+// sources.fsc: one line for the three parts — parts:{divi, lock, rights: 'ok' | short error code | 'wait' (first copy still coming)}
+function fscStatus(env, fsc) {
+  const out = { name: SRC_NAME.fsc, ok: false, at: null };
+  if (!fscOn(env)) return Object.assign(out, { off: true });
+  const parts = {};
+  let at = 0, bad = null;
+  for (const [part, r] of fsc || []) {
+    const code = r.error || (r.snap ? 'ok' : 'wait');
+    parts[part] = code;
+    if (r.snap && r.snap.at > at) at = r.snap.at;
+    if (code !== 'ok' && code !== 'wait' && !FSC_NOT_YET.has(code) && !bad) bad = code;
+  }
+  out.ok = !bad && at > 0;
+  out.at = at ? new Date(at + KST_MS).toISOString().slice(0, 16).replace('T', ' ') : null;
+  if (bad) out.err = bad;
+  if (!at && !bad) delete out.ok;                                    // nothing yet and nothing wrong: neither ok nor failed
+  out.parts = parts;
+  return out;
 }
 
 // ───────────────────────── route ─────────────────────────

@@ -392,15 +392,16 @@ Cloudflare(가족 · 지인 규모, 화면 요청 하루 ≤ 2,000번 가정): W
 | 발표값 ECOS `KeyStatisticList` | 30분(필요할 때만) | ≤ 48 | 한국 지표 · 금통위가 끝난 뒤 20일 안에만, 기간이 맞는 값만 |
 | 발표값 FRED `series/observations` | 30분(필요할 때만) | 보통 0~10 | 발표 60분 뒤부터 7일 안, 그 발표의 값이 들어올 때까지만 · 한 번에 ≤ 8 |
 | OpenDART 무상 · 유상증자 | 평일 07~20시 30분 · 그 밖 3시간 | 오늘 `list.json` B001 · C001 × 코스피 · 코스닥 ≈ 120 + 상세 ≤ 30/회 · **상한 400/일**(`cal:dart:calls:<YYYYMMDD>`) | 공시 배지의 `dart:cool`을 같이 따라요, 지난 60일은 한 번에 평일 6일씩 채워요 |
-| 금융위 배당 · 보호예수 · 권리일정 | 3시간 | **0 (꺼 둠)** | 아래 9-2 |
+| 금융위 배당 · 보호예수 · 권리일정 | 영업일마다(다음 영업일 13시 뒤 그날 basDt) | API당 1~2 + 보호예수 종목마다 1 ≈ 5~15 (처음엔 10영업일 거꾸로, API당 ≤ 20) | 공용 도우미 `datago.js`, 아래 9-2 |
 
 - 키는 `env`에서만 읽고 요청 URL에만 넣어요 — 응답 · KV · 로그 · 오류 코드에 남지 않아요(점검이 가짜 키로 확인).
 
-### 9-2. 꺼 둔 것 — 금융위(공공데이터포털)
+### 9-2. 금융위원회(공공데이터포털) — 공용 도우미로
 
-- `GetStocDiviInfoService_V2/getDiviInfo_V2`(배당 기준일 · 지급일) · `GetStocIssuInfoService_V3/getLockUpRetuInfo_V3`(+ `getStocIssuStat_V3`로 상장주식 대비 % → 10 % 이상 ★3 · 3 % 이상 ★2) · **`GetStocRighScheService_V2/getRighExerReasSche_V2`**(권리락 · 명부폐쇄 · 권리행사, 사용자가 2026-11-15 신청) 코드는 들어 있지만 **`env.CAL_FSC === 'on'`이고 공공데이터포털 도우미가 연결됐을 때만** 돌아요. 도우미(`datago.js`, 다른 브랜치)가 아직 병합 전이라 `configureCalendar({fsc: {list(apiId, op, params), codeOfCrno(env, crno)}})`로 끼우게 해 뒀어요.
-- 권리일정은 법인등록번호 → 종목코드(`crnoOf`)로 잇고, 같은 종목의 DART 무상증자 기준일 · 금융위 배당 기준일과 ±3일 안에서 겹치면 빼요.
-- 켜기: datago 병합 → `index.js`에서 `configureCalendar` 연결 → **실제 호출로 권리일정 개발계정 승인 확인** → Worker 변수 `CAL_FSC=on`.
+- `worker/src/datago.js`(공용 도우미, `feat/datago`)의 `dgSnapshot`으로 API마다 사본 하나: `cal:fsc:divi`(`GetStocDiviInfoService_V2/getDiviInfo_V2` — 배당 기준일 · 지급일 · 1주당 금액) · `cal:fsc:lock`(`GetStocIssuInfoService_V3/getLockUpRetuInfo_V3` + 종목마다 `getStocIssuStat_V3`으로 상장주식 대비 % → 10 % 이상 ★3 · 3 % 이상 ★2) · `cal:fsc:rights`(**`GetStocRighScheService_V2/getRighExerReasSche_V2`**, `DG_APIS.rights` 하루 상한 200 — "임시총회 기준일 · 명부폐쇄 12/1~12/5" 식). 하루 상한 · 쉬기 · 실패 기록 · 키 숨기기는 도우미가 해요(`datago:calls|cool|err:<api>`).
+- 날짜: 금융위는 그 영업일 자료를 **다음 영업일 13시 뒤**에 열어요 → 사본마다 "지금 나와 있어야 할 basDt"(휴장 건너뜀)를 하나씩 받고, 처음엔 10영업일 거꾸로 채워요. 이벤트는 id로 합쳐 두고 그 날짜 14일 뒤에 버려요. 빈 날(0행)은 3시간 뒤 한 번 더.
+- 권리일정은 법인등록번호뿐이라 `datago_crno.js`의 표를 거꾸로 써서 종목코드로(한 회사에 여러 코드면 보통주), 없으면 `scrsIssuMnbdCd + '0'`이 상장 코드일 때만. 같은 종목의 DART 무상증자 기준일 · 금융위 배당 기준일과 ±3일 안에서 겹치는 권리일정은 빼요.
+- `sources.fsc.parts = {divi, lock, rights}` — `ok` · 짧은 오류 코드 · `wait`(첫 사본을 받는 중). **승인 전 API(403 `forbidden` · `notfound`)는 그 부분만 빠지고 실패로 치지 않아요**(`stale` 아님). 끄기: Worker 변수 `CAL_FSC=off`(공용 끄기 `DATAGO_CAP=0`도 그대로 먹어요).
 
 ### 9-3. 화면 — `src/calendar/calendar.js · calendar.css` (빌드: 다른 모듈 다음)
 
@@ -411,11 +412,11 @@ Cloudflare(가족 · 지인 규모, 화면 요청 하루 ≤ 2,000번 가정): W
 
 ### 9-4. 점검
 
-- `node qa/worker/test_calendar.mjs` — 21개(가짜 fetch · KV, 네트워크 · 키 없이): 파싱(한국은행 · 국가데이터처 실제 페이지 일부 `qa/calendar/fixtures/`), 서머타임, 만기 규칙, DART 예산 · 쉬기 · 상한, 값 창, 지난 값 유지, 키가 응답 · KV · 로그에 없음, 금융위 켬(가짜 도우미).
-- `python3 qa/calendar/test_calendar.py` — 46개(목 `qa/calendar/mock_cal.py`, `CAL_QA_PORT` 기본 8995): 탭 · 해시 · 지도 숨김, 주 띠 · 목록, 칩 · 저장, 위클리 기본 숨김, 관심 배지, 자세히 · Esc · 포커스, 묶음 15종목, 주 넘기기 · 키보드, 월 달력 · 칸 고르기, 실패 · 404 · 빈 · 느림 · `stale`, 스냅샷, 360 · 390 · 1440 넘침 0 · 11px · 44px · 빨강 · 초록 0 · 콘솔 오류 0.
+- `node qa/worker/test_calendar.mjs` — 23개(가짜 fetch · KV · 시계, 네트워크 · 키 없이): 파싱(한국은행 · 국가데이터처 실제 페이지 일부 `qa/calendar/fixtures/`), 서머타임, 만기 규칙, DART 예산 · 쉬기 · 상한, 값 창, 지난 값 유지, 키가 응답 · KV · 로그에 없음, 금융위(공용 도우미 · 가짜 data.go.kr): 배당 · 보호예수 % · 권리일정 crno → 코드 · 겹침 빼기 · 하루 한 basDt, 권리일정 403이면 그 부분만, `CAL_FSC=off`.
+- `python3 qa/calendar/test_calendar.py` — 53개(목 `qa/calendar/mock_cal.py`, `CAL_QA_PORT` 기본 8995): 탭 · 해시 · 지도 숨김, 주 띠 · 목록, 칩 · 저장, 위클리 기본 숨김, 관심 배지, 자세히 · Esc · 포커스, 묶음 15종목, 주 넘기기 · 키보드, 월 달력 · 칸 고르기, 실패 · 404 · 빈 · 느림 · `stale`, 스냅샷, 360 · 390 · 768 · 1440 넘침 0 · 11px · 44px(760px 이하) · 빨강 · 초록 0 · 콘솔 오류 0.
 
 ### 9-5. 배포 뒤 실제로 확인할 것
 
-1. 금융위 권리일정 개발계정 승인(실제 호출 한 번) — 되면 9-2 순서대로 켜기. 그때 배당 · 보호예수가 **앞으로의 날짜**를 주는지도.
+1. `GET /api/calendar`의 `sources.fsc.parts.rights`가 `ok`인지(`forbidden`이면 주식권리일정 승인 전 — 승인되면 1시간 안에 저절로 다시 해요) · `GET /api/datago/status`의 호출 수. 배당 · 보호예수 · 권리일정이 **앞으로의 날짜**를 주는지(`basDt`가 "그날 기준 전체"인지 "그날 바뀐 것"인지)도 첫 사본으로 확인.
 2. `GET /api/calendar` 첫 응답의 `sources`: 한국은행 · 국가데이터처 페이지가 Worker에서 읽히는지(HTML 모양), FRED 앞날 날짜, ECOS 키 값, DART 하루 호출 수(`cal:dart:calls:<날>`).
 3. 산업생산 · 미시간대 발표 시각(지금 날짜만), 2027 금통위 · 한국은행 2027 공표일정 · 거래소 2027 휴장 공지가 올라오면 표 고치기.

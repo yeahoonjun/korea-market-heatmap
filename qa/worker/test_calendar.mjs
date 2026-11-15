@@ -4,8 +4,9 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
   calendarRoute, parseBok, parseKostat, etToKst, expiryEvents, datesIn, dartEvents, periodOf, groupCorp, fmtVal,
-  configureCalendar, fscDivEvents, starKr, BOK_MEETINGS,
+  fscDivEvents, starKr, BOK_MEETINGS,
 } from '../../worker/src/calendar.js';
+import { dgResetMemory } from '../../worker/src/datago.js';
 
 const FIX = new URL('../calendar/fixtures/', import.meta.url);
 const BOK_HTML = readFileSync(new URL('bok_2026.html', FIX), 'utf8');
@@ -26,7 +27,31 @@ class FakeKV {
   dump() { return [...this.m].map(([k, v]) => k + '=' + v).join('\n'); }
 }
 const CALLS = [];
-const UP = { fail: new Set(), dartStatus: '000', cpi: ['2026-10-01', '3.0'] };
+// 공공데이터포털 (금융위): UP.dg = 'empty' (resultCode 03 for every day) | 'data' (rows on basDt 20261113, the code table) ;
+// UP.dgDeny = Set of service names answering the new gateway's 403 (a key not approved for that API)
+const DG = {
+  getDiviInfo_V2: [{ basDt: '20261113', isinCd: 'KR7900002003', crno: '1101110000002', stckIssuCmpyNm: '가나전자', dvdnBasDt: '20261130', cashDvdnPayDt: '20261218', stckGenrDvdnAmt: '361', scrsItmsKcdNm: '보통주' }],
+  getLockUpRetuInfo_V3: [{ basDt: '20261113', isinCd: 'KR7900007009', crno: '1101110000007', stckIssuCmpyNm: '자차바이오', rsrnDt: '20261130', rsrnStckCnt: '21500000', scrsItmsKcdNm: '보통주', stckLblHoldRcdNm: '최대주주', lkupRegDt: '20251130' }],
+  getStocIssuStat_V3: [{ basDt: '20261113', crno: '1101110000007', isinCd: 'KR7900007009', onskTisuCnt: '116847826', pfstTisuCnt: '0' }],
+  getRighExerReasSche_V2: [
+    { basDt: '20261113', crno: '1101110000002', stckIssuCmpyNm: '가나전자', stckIssuRcdNm: '현금배당', rgtExertRcd: '01', rgtExertRcdNm: '기준일', rgtExertSttgDt: '20261130', nmlsLckSttgDt: '20261201', nmlsLckEdDt: '20261205' },
+    { basDt: '20261113', crno: '1101110000009', stckIssuCmpyNm: '마바증권', stckIssuRcdNm: '유상증자', rgtExertRcd: '01', rgtExertRcdNm: '기준일', rgtExertSttgDt: '20261127', nmlsLckSttgDt: '20261128', nmlsLckEdDt: '' },
+    { basDt: '20261113', crno: '', scrsIssuMnbdCd: '90001', stckIssuCmpyNm: '사아', stckIssuRcdNm: '임시총회', rgtExertRcd: '01', rgtExertRcdNm: '기준일', rgtExertSttgDt: '20261204', nmlsLckSttgDt: '' },
+    { basDt: '20261113', crno: '1101119999999', stckIssuCmpyNm: '비상장회사', stckIssuRcdNm: '정기총회', rgtExertRcdNm: '기준일', rgtExertSttgDt: '20261204' }],
+  getItemInfo_V2: [['900002', '1101110000002'], ['900007', '1101110000007'], ['900009', '1101110000009'], ['900010', '1101110000010'], ['900015', '1101110000010']]
+    .map(([c, crno]) => ({ basDt: '20261113', srtnCd: 'A' + c, isinCd: 'KR7' + c + '003', crno, itmsNm: 'x' + c, corpNm: 'x' + c, mrktCtg: 'KOSDAQ' })),
+};
+function dataGoKr(u) {
+  const op = u.pathname.split('/').pop(), svc = u.pathname.split('/').slice(-2)[0];
+  if ((UP.dgDeny || new Set()).has(svc)) return Promise.resolve(new Response('Forbidden', { status: 403, headers: { 'content-type': 'text/plain' } }));
+  const day = u.searchParams.get('basDt');
+  let rows = UP.dg === 'data' && (op === 'getItemInfo_V2' || day === '20261113') ? (DG[op] || []) : [];
+  if (op === 'getStocIssuStat_V3') rows = rows.filter(r => r.crno === u.searchParams.get('crno'));
+  const body = rows.length ? { response: { header: { resultCode: '00', resultMsg: 'NORMAL SERVICE.' }, body: { numOfRows: +u.searchParams.get('numOfRows'), pageNo: 1, totalCount: rows.length, items: { item: rows } } } }
+    : { response: { header: { resultCode: '03', resultMsg: 'NODATA_ERROR' }, body: { numOfRows: 10, pageNo: 1, totalCount: 0, items: '' } } };
+  return Promise.resolve(new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json' } }));
+}
+const UP = { fail: new Set(), dartStatus: '000', cpi: ['2026-10-01', '3.0'], dg: 'empty' };
 function fakeFetch(url) {
   const u = new URL(String(url));
   CALLS.push(u);
@@ -68,7 +93,7 @@ function fakeFetch(url) {
     if (p === 'estkRs.json') return ok({ status: '000', group: [{ title: '일반사항', list: [{ rcept_no: '20261112000222', sbd: '2026년 11월 26일 ~ 2026년 11월 27일', pymd: '2026년 12월 03일', asstd: '2026년 11월 10일' }] }] });
     return ok({ status: '013' });
   }
-  if (host === 'apis.data.go.kr') return Promise.reject(new Error('data.go.kr must not be called while FSC is off'));
+  if (host === 'apis.data.go.kr') return dataGoKr(u);
   return Promise.resolve(new Response('not mocked', { status: 404 }));
 }
 globalThis.fetch = fakeFetch;
@@ -79,7 +104,13 @@ console.error = (...a) => logs.push(a.join(' '));
 
 const env0 = () => Object.assign({ REPLAY: new FakeKV() }, SECRETS);
 const ctx0 = () => { const ps = []; return { ps, waitUntil(p) { ps.push(p); }, async drain() { while (ps.length) await ps.shift(); } }; };
+// the shared data.go.kr helper reads Date.now(): follow the test's clock; a new env = a new isolate for the helper's memory
+let FAKE_NOW = null, LAST_ENV = null;
+const realNow = Date.now;
+Date.now = () => (FAKE_NOW == null ? realNow() : FAKE_NOW);
 async function call(env, ctx, qs, nowIso) {
+  FAKE_NOW = KST(nowIso);
+  if (env !== LAST_ENV) { dgResetMemory(); LAST_ENV = env; }
   const url = new URL('https://x/api/calendar' + qs);
   const res = await calendarRoute(new Request(url), env, ctx, url, KST(nowIso));
   const text = await res.text();
@@ -189,8 +220,12 @@ await t('route: first answer builds every source (awaited) — kr · us · cb ·
   const fr = b.events.filter(e => e.src === 'dart');
   assert.deepEqual(fr.map(e => e.d + ' ' + e.title).sort(), ['2026-11-10 유상증자 배정기준일', '2026-11-26 유상증자 청약', '2026-12-01 무상증자 신주배정기준일'].sort());
   assert.equal(b.days['2026-11-19'].kind, 'special');
-  assert.equal(b.sources.fsc.off, true, 'FSC off by default');
-  assert.ok(!CALLS.some(u => u.hostname === 'apis.data.go.kr'));
+  assert.deepEqual(b.sources.fsc.parts, { divi: 'ok', lock: 'ok', rights: 'ok' }, 'FSC through the shared helper (no rows that day)');
+  const dg = CALLS.filter(u => u.hostname === 'apis.data.go.kr');
+  for (const op of ['getDiviInfo_V2', 'getLockUpRetuInfo_V3', 'getRighExerReasSche_V2']) {
+    const n = dg.filter(u => u.pathname.endsWith(op)).length;
+    assert.ok(n >= 1 && n <= 10, op + ' ' + n + ' calls (≤ 10 business days back, one page each)');
+  }
   assert.ok(b.events.every((e, i, a) => i === 0 || a[i - 1].d <= e.d), 'sorted by day');
   assert.ok(b.sources.bok.ok && b.sources.kostat.ok && b.sources.fred.ok && b.sources.dart.ok);
 });
@@ -279,39 +314,63 @@ await t('no keys: 공개 원천만, sources off', async () => {
   CALLS.length = 0;
   const r = await call(env, ctx, '?from=2026-11-16&to=2026-11-29', '2026-11-16T09:12:00+09:00'); await ctx.drain();
   assert.equal(r.res.status, 200);
-  assert.ok(r.body.sources.fred.off && r.body.sources.dart.off);
-  assert.ok(!CALLS.some(u => u.hostname === 'api.stlouisfed.org' || u.hostname === 'opendart.fss.or.kr'));
+  assert.ok(r.body.sources.fred.off && r.body.sources.dart.off && r.body.sources.fsc.off);
+  assert.ok(!CALLS.some(u => u.hostname === 'api.stlouisfed.org' || u.hostname === 'opendart.fss.or.kr' || u.hostname === 'apis.data.go.kr'));
   assert.ok(r.body.events.some(e => e.src === 'bok') && r.body.events.some(e => e.k === 'cb'));
 });
-await t('FSC (flag on, fake helper): 배당 · 보호예수 % · 권리일정 dedupe', async () => {
-  const seen = [];
-  configureCalendar({ fsc: {
-    async list(api, op, params) {
-      seen.push(api + ':' + op);
-      assert.ok(!JSON.stringify(params).includes(SECRETS.DATA_GO_KR_KEY));
-      if (op === 'getDiviInfo_V2') return [{ isinCd: 'KR7900002003', stckIssuCmpyNm: '가나전자', dvdnBasDt: '20261130', cashDvdnPayDt: '20261218', stckGenrDvdnAmt: '361', scrsItmsKcdNm: '보통주' }];
-      if (op === 'getLockUpRetuInfo_V3') return [{ isinCd: 'KR7900007009', crno: '1101110000007', stckIssuCmpyNm: '자차바이오', rsrnDt: '20261130', rsrnStckCnt: '21500000', scrsItmsKcdNm: '보통주', stckLblHoldRcdNm: '최대주주', lkupRegDt: '20251130' }];
-      if (op === 'getStocIssuStat_V3') return [{ onskTisuCnt: '116847826', pfstTisuCnt: '0' }];
-      if (op === 'getRighExerReasSche_V2') return [
-        { crno: '1101110000002', stckIssuCmpyNm: '가나전자', rgtExertRcdNm: '배당', rgtExertRcd: '01', nmlsLckSttgDt: '20261201', nmlsLckEdDt: '20261205' },
-        { crno: '1101110000009', stckIssuCmpyNm: '마바증권', rgtExertRcdNm: '유상증자', rgtExertRcd: '03', nmlsLckSttgDt: '20261127', nmlsLckEdDt: '20261127' }];
-      return [];
-    },
-    async codeOfCrno(env, crno) { return { '1101110000002': '900002', '1101110000009': '900009' }[crno] || null; },
-  } });
-  const env = Object.assign(env0(), { CAL_FSC: 'on' }), ctx = ctx0();
+await t('FSC through the shared helper: 배당 · 보호예수 % · 권리일정 (crno → code, dedupe), once a day', async () => {
+  UP.dg = 'data';
+  const env = env0(), ctx = ctx0();
+  CALLS.length = 0;
   const r = await call(env, ctx, '?from=2026-11-16&to=2026-12-20', '2026-11-16T14:00:00+09:00'); await ctx.drain();
   const fsc = r.body.events.filter(e => e.src === 'fsc');
   assert.ok(fsc.find(e => e.title === '배당 기준일' && e.d === '2026-11-30' && e.sub === '1주당 361원'));
   assert.ok(fsc.find(e => e.title === '배당금 지급' && e.d === '2026-12-18'));
   const lock = fsc.find(e => /보호예수/.test(e.title));
-  assert.deepEqual([lock.d, lock.pct, lock.star, lock.title], ['2026-11-30', 18.4, 3, '보호예수 해제 2,150만 주']);
-  assert.ok(!fsc.some(e => e.c === '900002' && /명부폐쇄/.test(e.title)), 'dividend rights row deduped against the dividend');
-  assert.ok(fsc.find(e => e.c === '900009' && e.title === '유상증자 명부폐쇄'));
-  assert.ok(seen.includes('divi:getDiviInfo_V2') && seen.includes('issu:getLockUpRetuInfo_V3') && seen.includes('rights:getRighExerReasSche_V2'));
-  assert.equal(r.body.sources.fsc.off, undefined);
-  assert.ok(noSecret(r.text) && noSecret(env.REPLAY.dump()));
-  configureCalendar({ fsc: { list: null, codeOfCrno: null } });
+  assert.deepEqual([lock.d, lock.c, lock.pct, lock.star, lock.title], ['2026-11-30', '900007', 18.4, 3, '보호예수 해제 2,150만 주']);
+  assert.ok(!fsc.some(e => e.c === '900002' && e.api === 'getRighExerReasSche_V2'), 'the 현금배당 기준일 row is the dividend already shown');
+  const ri = fsc.find(e => e.c === '900009');
+  assert.deepEqual([ri.d, ri.title, ri.sub], ['2026-11-27', '유상증자 기준일', '명부폐쇄 11/28']);
+  assert.ok(fsc.find(e => e.c === '900010' && e.title === '임시총회 기준일' && e.d === '2026-12-04'), 'no crno: issuer code + 0 when that code is listed');
+  assert.ok(!fsc.some(e => /비상장/.test(e.n || '')), 'a crno without a listed code is dropped');
+  assert.equal(r.body.sources.fsc.ok, true);
+  assert.deepEqual(r.body.sources.fsc.parts, { divi: 'ok', lock: 'ok', rights: 'ok' });
+  const dg = CALLS.filter(u => u.hostname === 'apis.data.go.kr');
+  assert.ok(dg.every(u => u.searchParams.get('resultType') === 'json'));
+  assert.equal(dg.filter(u => u.pathname.endsWith('getStocIssuStat_V3')).length, 1, 'one 발행현황 call for the one lock-up');
+  assert.ok(+(await env.REPLAY.get('datago:calls:rights:20261116')) >= 1, 'counted against the rights API cap');
+  // a second request the same afternoon: nothing is due
+  CALLS.length = 0;
+  await call(env, ctx, '?from=2026-11-16&to=2026-12-20', '2026-11-16T16:00:00+09:00'); await ctx.drain();
+  assert.ok(!CALLS.some(u => u.hostname === 'apis.data.go.kr'), CALLS.map(u => u.pathname).join(','));
+  // the next business day after 13:00: one new basDt per API, the earlier rows stay
+  const r2 = await call(env, ctx, '?from=2026-11-16&to=2026-12-20', '2026-11-17T13:30:00+09:00'); await ctx.drain();
+  const r3 = await call(env, ctx, '?from=2026-11-16&to=2026-12-20', '2026-11-17T13:31:00+09:00');
+  const asked = CALLS.filter(u => u.hostname === 'apis.data.go.kr' && !u.pathname.endsWith('getItemInfo_V2')).map(u => u.searchParams.get('basDt'));
+  assert.deepEqual([...new Set(asked)], ['20261116'], asked.join(','));
+  assert.ok(r3.body.events.some(e => e.c === '900007' && /보호예수/.test(e.title)));
+  assert.ok(noSecret(r.text) && noSecret(r3.text) && noSecret(env.REPLAY.dump()) && noSecret(logs.join('\n')));
+  UP.dg = 'empty';
+});
+await t('FSC: a key not approved for 주식권리일정 (403) stops that part only — no stale, no secret', async () => {
+  UP.dg = 'data'; UP.dgDeny = new Set(['GetStocRighScheService_V2']);
+  const env = env0(), ctx = ctx0();
+  const r = await call(env, ctx, '?from=2026-11-16&to=2026-12-20', '2026-11-16T14:00:00+09:00'); await ctx.drain();
+  UP.dg = 'empty'; UP.dgDeny = null;
+  assert.equal(r.body.sources.fsc.parts.rights, 'forbidden');
+  assert.equal(r.body.sources.fsc.ok, true);
+  assert.equal(r.body.stale, undefined);
+  assert.ok(r.body.events.some(e => e.src === 'fsc' && /보호예수/.test(e.title)) && !r.body.events.some(e => e.api === 'getRighExerReasSche_V2'));
+  const cool = JSON.parse(await env.REPLAY.get('datago:cool:rights'));
+  assert.equal(cool.code, 'forbidden');
+  assert.ok(noSecret(env.REPLAY.dump()) && noSecret(r.text));
+});
+await t('FSC: CAL_FSC=off switches the three parts off', async () => {
+  const env = Object.assign(env0(), { CAL_FSC: 'off' }), ctx = ctx0();
+  CALLS.length = 0;
+  const r = await call(env, ctx, '?from=2026-11-16&to=2026-11-29', '2026-11-16T14:00:00+09:00'); await ctx.drain();
+  assert.equal(r.body.sources.fsc.off, true);
+  assert.ok(!CALLS.some(u => u.hostname === 'apis.data.go.kr'));
 });
 await t('fscDivEvents: 우선주 · isin → code', () => {
   const e = fscDivEvents({ isinCd: 'KR7005935002', stckIssuCmpyNm: '삼성전자', dvdnBasDt: '20261231', stckGenrDvdnAmt: '1,445', scrsItmsKcdNm: '우선주' });

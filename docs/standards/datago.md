@@ -20,9 +20,10 @@
 | `kofia` | 금융위원회_금융투자협회종합통계정보 | `/1160100/service/GetKofiaStatisticsInfoService` | `getSecuritiesMarketTotalCapitalInfo`(증시자금추이) · `getGrantingOfCreditBalanceInfo`(신용공여잔고추이) | `/api/funds` | 300 |
 | `krx` | 금융위원회_KRX상장종목정보 | `/1160100/GetKrxListedInfoService_V2` | `getItemInfo_V2` | `crnoOf()` (다른 경로용) | 100 |
 | `lend` | 금융위원회_주식대차정보 | `/1160100/GetStocLendBorrInfoService_V2` | — (다음 작업) | 종목 페이지 대차 | 1,000 |
-| `issu` | 금융위원회_주식발행정보 | `/1160100/GetStocIssuInfoService_V3` | — | 보호예수 → 캘린더 | 1,000 |
-| `divi` | 금융위원회_주식배당정보 | `/1160100/GetStocDiviInfoService_V2` | — | 배당 | 1,000 |
+| `issu` | 금융위원회_주식발행정보 | `/1160100/GetStocIssuInfoService_V3` | `getLockUpRetuInfo_V3` · `getStocIssuStat_V3` | 보호예수 → 캘린더(`calendar.js`) | 1,000 |
+| `divi` | 금융위원회_주식배당정보 | `/1160100/GetStocDiviInfoService_V2` | `getDiviInfo_V2` | 배당 → 캘린더 | 1,000 |
 | `corp` | 금융위원회_기업기본정보 | `/1160100/service/GetCorpBasicInfoService_V2` | — | 기업 기본 | 1,000 |
+| `rights` | 금융위원회_주식권리일정정보 | `/1160100/GetStocRighScheService_V2` | `getRighExerReasSche_V2` | 권리 기준일 · 명부폐쇄 → 캘린더 (2026-11-15 신청 — 승인 전이면 403 → 그 부분만 1시간씩 쉼) | 200 |
 
 - 오퍼레이션 이름은 활용가이드의 **Call Back URL** 철자를 따라요(목록 표의 `GetSecuritiesMarketTotalCapitalI nfo`는 대문자 G에 줄바꿈 — 오타로 봐요).
 - 포털 쪽 한도: 개발계정은 보통 API마다 하루 10,000번이에요. 우리 상한은 그보다 훨씬 낮게 두고(`DG_APIS[*].cap`), Worker 비밀값 **`DATAGO_CAP`**(숫자)로 **낮추기만** 할 수 있어요 — `0`이면 모든 호출을 멈추고 KV 사본만 내줘요(끄기 스위치, §10).
@@ -123,7 +124,8 @@ GET /api/funds/chart/{key}?tf=3m|1y → {key, name, tf, unit, bars:[{t:'YYYY-MM-
 |---|---|---|
 | 증시 자금 (갱신당 2번) | 평일 6번 갱신 ≈ **12번**(점검 시뮬레이션: 2분마다 요청 · colo 둘 · 13:40 공개 → 12번) | 자료가 하루 늦게 계속 뒤처지면 13~20시 30분 · 그 밖 3시간 ≈ 40번, 엣지 캐시 때문에 실제로는 시간당 colo 하나 |
 | 법인등록번호 표 | 평일 1번 갱신 = 2번(+ 휴일마다 1번), 주말 0 | 7평일 거꾸로 + 2쪽 = 9번 |
-| 합계 | **≈ 15번/일** | ≈ 50번/일 — 상한 300 · 100, 포털 10,000과 거리가 멀어요 |
+| 증시 캘린더 (배당 · 보호예수 · 권리일정, `calendar.js` §9-2) | 영업일마다 basDt 하나씩 API당 1~2쪽 + 보호예수 종목마다 발행현황 1번 ≈ **5~15번** | 처음(10영업일 거꾸로) API당 ≤ 20번 = 60번 |
+| 합계 | **≈ 15번/일** (+ 캘린더 5~15) | ≈ 50번/일 — 상한 300 · 100, 포털 10,000과 거리가 멀어요 |
 
 KV: 쓰기는 갱신마다 사본 1 + 계수 1(+ 실패 시 쉬기 · 기록), 하루 20번 안팎. 읽기는 엣지 캐시가 빗나갈 때만.
 
@@ -136,6 +138,7 @@ KV: 쓰기는 갱신마다 사본 1 + 계수 1(+ 실패 시 쉬기 · 기록), �
 | `datago:calls:<api>:<YYYYMMDD>` | 그날 호출 수 | 2일 |
 | `datago:cool:<api>` | 쉬는 중 `{code, until}` | 쉬는 동안 |
 | `datago:err:<api>` | 마지막 실패 기록 | 3일 |
+| `cal:fsc:divi` · `cal:fsc:lock` · `cal:fsc:rights` | 증시 캘린더 사본 `{v, basDt, days:{YYYYMMDD: 행 수}, evs:[…], at}` (`calendar.md` §9-2) | 45일 |
 
 ## 10. 운영 (runbook)
 

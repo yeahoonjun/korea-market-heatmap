@@ -117,7 +117,7 @@ class H(mock_api.H):
         evs, days = events_for(frm, to, mode)
         src = {k: {'name': n, 'ok': True, 'at': datetime.now(KST).strftime('%Y-%m-%d %H:%M')} for k, n in
                (('bok', '한국은행 통계공표일정'), ('kostat', '국가데이터처 보도계획'), ('fred', 'FRED 발표 일정'), ('vals', '발표값(ECOS · FRED)'), ('dart', 'OpenDART'), ('fsc', '금융위원회'))}
-        src['fsc']['off'] = True
+        src['fsc']['parts'] = {'divi': 'ok', 'lock': 'ok', 'rights': 'ok'}
         body = {'asOf': datetime.now(KST).strftime('%Y-%m-%dT%H:%M:%S+09:00'), 'from': q['from'], 'to': q['to'], 'tz': 'Asia/Seoul', 'days': days, 'events': evs, 'sources': src, 'manual': '2026-11-15'}
         if mode == 'stale':
             body['sources']['fred'].update(ok=False, err='network')
