@@ -1065,16 +1065,22 @@ html[data-motion="reduced"] .map.anim .node,html[data-motion="reduced"] .map.ani
 html[data-motion="reduced"] .status.live .dot{animation:none}
 html[data-motion="reduced"] .tile.flash-up::after,html[data-motion="reduced"] .tile.flash-dn::after{animation:none}
 /* ───────────────── living controls (docs/standards/controls.md, V1 입체): shared parts ─────────────────
-   KH.ui.seg moves one raised indicator per segment / tab row (leading edge --c-fast, trailing --c-base); press = 1px down, shorter
+   KH.ui.seg moves one raised indicator per segment / tab row (leading edge --sp-lead, trailing --sp-trail); press = 1px down, shorter
    shadow, darker (0 ms down, --c-fast up); labels swap in place; 44 px hit areas on touch screens. Other modules may reuse these. */
 :root{--ck-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M4.5 10.5l3.6 3.6 7.4-8' fill='none' stroke='%23000' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")}
-/* a label that changes in place: the old one leaves upward, the new one comes in from below (KH.ui.swap) */
-.sw-go{display:inline-grid}
+/* a label that changes in place (KH.ui.swap, design.md §6-4): the old one leaves (100 ms: fades, blurs 2px, moves 4px), 60 ms later the
+   new one comes in (180 ms, the fade spring). A label leaves upward and comes in from below; a value with a direction (P9) — tab %,
+   index, legend — comes in from below when it rose and from above when it fell (.sw-dn) */
+.sw-go{display:inline-grid;--sw-out:100ms;--sw-in:180ms}
 .sw-go>.sw-n,.sw-go::before{grid-area:1/1}
-.sw-go::before{content:attr(data-was);animation:swOut var(--c-fast) var(--c-in) forwards}
-.sw-go>.sw-n{animation:swIn var(--c-fast) var(--c-out) var(--c-fast) both}
-@keyframes swOut{to{opacity:0;transform:translateY(-6px)}}
-@keyframes swIn{from{opacity:0;transform:translateY(6px)}}
+.sw-go::before{content:attr(data-was);animation:swOut var(--sw-out) var(--c-in) forwards}
+.sw-go>.sw-n{animation:swIn var(--sw-in) var(--sp-fade) calc(var(--sw-out) + 60ms) both}
+.sw-go.sw-dn::before{animation-name:swOutDn}
+.sw-go.sw-dn>.sw-n{animation-name:swInDn}
+@keyframes swOut{to{opacity:0;filter:blur(2px);transform:translateY(calc(var(--space-2) * -1))}}
+@keyframes swIn{from{opacity:0;filter:blur(2px);transform:translateY(var(--space-2))}}
+@keyframes swOutDn{to{opacity:0;filter:blur(2px);transform:translateY(var(--space-2))}}
+@keyframes swInDn{from{opacity:0;filter:blur(2px);transform:translateY(calc(var(--space-2) * -1))}}
 /* 화려하게: digits that changed roll (up when the number rises); the text stays the value (KH.ui.roll) */
 .rc{display:inline-block;overflow:hidden;vertical-align:top}
 .rs{display:block}
@@ -1117,8 +1123,8 @@ html[data-motion="fancy"] .kl.on .kck{transform:none;transition-delay:var(--c-fa
 .seg::before,.tabs-sc::before,.movers-tabs::before{content:"";position:absolute;z-index:0;left:var(--il,0px);right:var(--ir,0px);top:var(--it,0px);bottom:var(--ib,0px);border-radius:var(--r-in);background:var(--ind-bg);box-shadow:var(--ind-sh);pointer-events:none;opacity:0}
 .tabs-sc::after{content:"";position:absolute;z-index:2;left:calc(var(--il,0px) + 10px);right:calc(var(--ir,0px) + 10px);bottom:var(--ib,0px);height:2px;border-radius:2px 2px 0 0;background:var(--acc-line);pointer-events:none;opacity:0}
 :is(.seg,.tabs-sc,.movers-tabs)[data-ind]::before,.tabs-sc[data-ind]::after{opacity:1}
-:is(.seg,.tabs-sc,.movers-tabs)[data-dir="r"]::before,.tabs-sc[data-dir="r"]::after{transition:right var(--c-fast) var(--c-out),left var(--c-base) var(--c-out),top var(--c-base) var(--c-out),bottom var(--c-base) var(--c-out)}
-:is(.seg,.tabs-sc,.movers-tabs)[data-dir="l"]::before,.tabs-sc[data-dir="l"]::after{transition:left var(--c-fast) var(--c-out),right var(--c-base) var(--c-out),top var(--c-base) var(--c-out),bottom var(--c-base) var(--c-out)}
+:is(.seg,.tabs-sc,.movers-tabs)[data-dir="r"]::before,.tabs-sc[data-dir="r"]::after{transition:right var(--sp-lead-dur) var(--sp-lead),left var(--sp-trail-dur) var(--sp-trail),top var(--sp-lead-dur) var(--sp-lead),bottom var(--sp-lead-dur) var(--sp-lead)}
+:is(.seg,.tabs-sc,.movers-tabs)[data-dir="l"]::before,.tabs-sc[data-dir="l"]::after{transition:left var(--sp-lead-dur) var(--sp-lead),right var(--sp-trail-dur) var(--sp-trail),top var(--sp-lead-dur) var(--sp-lead),bottom var(--sp-lead-dur) var(--sp-lead)}
 :is(.seg,.tabs-sc,.movers-tabs):not([data-ind])>button:is([aria-pressed="true"],[aria-selected="true"]){background:var(--ind-bg);box-shadow:var(--ind-sh)}
 .tabs-sc:not([data-ind])>button:is([aria-pressed="true"],[aria-selected="true"]){box-shadow:var(--ind-sh),inset 0 -2px 0 var(--acc-line)}
 .tabs>.tpin::before{content:"";position:absolute;z-index:-1;left:var(--ind-in,0px);right:var(--ind-in,0px);top:calc(var(--ind-in,0px) + var(--ind-iy,0px));bottom:calc(var(--ind-in,0px) + var(--ind-iy,0px));border-radius:var(--r-in);background:var(--ind-bg);box-shadow:var(--ind-sh);pointer-events:none;opacity:0}
@@ -1417,6 +1423,7 @@ html[data-theme="glass-light"]{--sheet-skirt:#f3f5f8}
   <div class="ctls" id="ctls" role="group" aria-label="표시 설정">
     <div class="ctls-hd"><span>표시 설정</span><button type="button" class="x" id="ctlsX" aria-label="표시 설정 닫기">×</button></div>
     <div class="ctl" data-ctl="sizeBy"><span>크기</span><div class="seg" data-key="sizeBy"><button data-v="cap">시가총액</button><button data-v="tv">거래대금</button><button data-v="fgn" title="외국인 순매수 금액" aria-label="외국인 순매수">외국인</button><button data-v="inst" title="기관 순매수 금액" aria-label="기관 순매수">기관</button></div></div>
+    <div class="ctl" data-ctl="groupBy"><span id="groupByLbl">묶음</span><div class="seg" data-key="groupBy" role="group" aria-labelledby="groupByLbl"><button data-v="sector" title="섹터 › 업종으로 묶어 그려요">섹터별</button><button data-v="cap" title="묶지 않고 시가총액이 큰 종목부터 왼쪽 위에서 차례로 그려요">시총순</button></div></div>
     <div class="ctl dd" data-ctl="flowWin" hidden><span><span class="wide-hide">순매수 </span>기간</span><button type="button" class="ddbtn" aria-expanded="false" aria-haspopup="true" aria-label="순매수 기간 고르기"><span class="ddv"></span><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 4.5 3 3 3-3"/></svg></button><div class="seg" data-key="flowWin" role="group" aria-label="순매수 기간"><button data-v="1">1일</button><button data-v="5">5일</button><button data-v="20">20일</button></div></div>
     <div class="ctl dd" data-ctl="colorBy"><span>색 기준</span><button type="button" class="ddbtn" aria-expanded="false" aria-haspopup="true" aria-label="색 기준 고르기"><span class="ddv"></span><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 4.5 3 3 3-3"/></svg></button><div class="seg" data-key="colorBy" role="group" aria-label="색 기준"><button data-v="r" title="오늘 등락률">오늘</button><button data-v="w1" title="1주 수익률">1주</button><button data-v="m1" title="1개월 수익률">1개월</button><button data-v="m3" title="3개월 수익률">3개월</button><button data-v="ytd" title="올해 수익률 (작년 마지막 거래일 종가 대비)">올해</button><button data-v="y1" title="1년 수익률">1년</button></div></div>
     <div class="ctl" data-ctl="topN"><span>종목 수</span><div class="seg" data-key="topN"><button data-v="100">100</button><button data-v="200">200</button><button data-v="300">300</button><button data-v="500">500</button><button data-v="all" title="상장 종목 전부(코스피 약 940 · 코스닥 약 1,760)">전체</button></div></div>
@@ -1707,7 +1714,7 @@ const fmtPct = (v, d = 2) => sgn(v) + Math.abs(v).toFixed(d) + '%';
 
 /* ───────────────── living controls (docs/standards/controls.md) — KH.ui, shared with extras · stock · world ─────────────────
    seg(el): the raised indicator of a segment / tab row follows its pressed button — aria-pressed, or aria-selected in a tablist
-   (leading edge --c-fast, trailing --c-base; a resize only re-places it). swap(el, text, from?): a label changes in place. roll(el, text, dir): 화려하게 digits roll (the
+   (design.md §6-3: leading edge the lead spring, trailing edge trail — the CSS curves of KH.spring.edges; a resize only re-places it). swap(el, text, from?): a label changes in place. roll(el, text, dir): 화려하게 digits roll (the
    element's text is the value at every moment). busy(btn, promise): a ring in place of the label while it works. state(el, st):
    .klb/.kl stacked labels (the box keeps the widest one). bubble(anchor, text, 'done'|'fail'): a short note under an icon-only key
    (no layout) + aria-live. sw(btn): a switch row whose knob can be dragged. live(text): a polite announcement. icon(name).
@@ -1782,7 +1789,8 @@ function uiSeg(seg) {
   if (uiSegRO) { uiSegRO.observe(seg); uiSegKids(seg); }
   uiSegPlace(seg, true);
 }
-function uiSwap(el, text, from) {
+// dir (design.md §6-4 · P9): a value with a direction — > 0 rose (the new text comes in from below), < 0 fell (from above); none = a label
+function uiSwap(el, text, from, dir) {
   if (!el) return;
   text = String(text);
   const cur = from != null ? String(from) : el.textContent;
@@ -1790,13 +1798,24 @@ function uiSwap(el, text, from) {
   if (cur === text) { if (!wrapped || el.textContent !== text) { const n = document.createElement('span'); n.className = 'sw-n'; n.textContent = text; el.replaceChildren(n); } return; }
   const n = document.createElement('span'); n.className = 'sw-n'; n.textContent = text;
   el.replaceChildren(n);
-  if (!cur || MOTION === 'reduced' || document.hidden || !el.isConnected) { el.classList.remove('sw-go'); delete el.dataset.was; return; }
-  el.dataset.was = cur; el.classList.remove('sw-go'); void el.offsetWidth; el.classList.add('sw-go');
+  if (!cur || MOTION === 'reduced' || document.hidden || !el.isConnected) { el.classList.remove('sw-go', 'sw-dn'); delete el.dataset.was; return; }
+  el.dataset.was = cur; el.classList.remove('sw-go', 'sw-dn'); void el.offsetWidth; el.classList.add('sw-go'); if (dir < 0) el.classList.add('sw-dn');
 }
 document.addEventListener('animationend', e => {
-  if (e.animationName !== 'swIn') return;
-  const el = e.target.parentElement; if (el && el.classList.contains('sw-go')) { el.classList.remove('sw-go'); delete el.dataset.was; }
+  if (e.animationName !== 'swIn' && e.animationName !== 'swInDn') return;
+  const el = e.target.parentElement; if (el && el.classList.contains('sw-go')) { el.classList.remove('sw-go', 'sw-dn'); delete el.dataset.was; }
 });
+// a number written in place: the swap goes the way the value went (no digit roll — design.md §6-2 P10 keeps rolls for the 화려하게 ticker)
+const numOf = t => { const m = /[+−-]?[\d,]*\.?\d+/.exec(String(t || '').replace(/−/g, '-')); return m ? parseFloat(m[0].replace(/,/g, '')) : NaN; };
+function uiSwapNum(el, text, quiet) {
+  if (!el) return;
+  text = String(text);
+  const was = el.textContent;
+  if (was === text) return;
+  if (quiet || !was) { el.textContent = text; el.classList.remove('sw-go', 'sw-dn'); return; }
+  const a = numOf(was), b = numOf(text);
+  uiSwap(el, text, was, isFinite(a) && isFinite(b) ? Math.sign(b - a) : 0);
+}
 function uiRoll(el, text, dir) {
   if (!el) return;
   text = String(text);
@@ -2051,6 +2070,7 @@ const state = {
   market: bootHash ? bootHash.m : store.get('market', 'Q'),
   theme: bootHash ? bootHash.theme : null,     // theme id while a theme's members are shown
   sizeBy: store.get('sizeBy', 'cap'),
+  groupBy: store.get('groupBy', 'sector') === 'cap' ? 'cap' : 'sector',   // §3-36 묶음: 섹터별 (sector › industry) · 시총순 (one map, biggest cap first)
   flowWin: store.get('flowWin', 5),
   colorBy: store.get('colorBy', 'r'),
   topN: store.get('topN', narrowMQ.matches ? 100 : 300),
@@ -2088,6 +2108,9 @@ if (!COLOR_METRICS[state.colorBy]) state.colorBy = 'r';
 if (!MKT_NAME[state.market]) state.market = 'Q';
 if (state.market !== 'THEME') state.theme = null;
 const isWorld = () => state.market === 'WORLD' || state.market === 'CMDTY' || state.market === 'CAL';   // CAL (일정) steps the map aside the same way
+// §3-36 시총순 지도: 코스피 · 코스닥 · 전체 drawn without sector › industry blocks, the biggest market cap first (the other tabs keep theirs)
+const GROUPABLE = ['K', 'Q', 'ALL'];
+const capOrder = () => state.groupBy === 'cap' && GROUPABLE.includes(state.market);
 // tile marks (KH.marks, disclosure.md §13 ②): name → Map(code → {size, label, title, fresh}); MARK_ONLY = the name whose marks light the map
 const MARKS = new Map(), NO_MARKS = new Map();
 let MARK_ONLY = null;
@@ -3002,6 +3025,41 @@ function groupRoot(list) {
 }
 // the ★관심 map groups by group when 전체 is shown and two or more groups have stocks on it
 const wgGrouped = list => WG.active === 'all' && WG.groups.filter(g => g.codes.some(c => list.some(s => s.c === c))).length >= 2;
+// 시총순: the stocks in market-cap order (the cap as drawn — basis / replay), whatever 크기 sizes them by; ties by code
+function capRoot(list) {
+  const kids = list.map(st => ({ id: 'T|' + st.c, kind: 'tile', st }));
+  return d3.hierarchy({ id: 'root', children: kids }).sum(d => d.kind === 'tile' ? Math.max(sizeV(d.st), 0) : 0)
+    .sort((a, b) => (b.data.st ? b.data.st.cap || 0 : 0) - (a.data.st ? a.data.st.cap || 0 : 0) || (a.data.id < b.data.id ? -1 : 1));
+}
+/* the ordered strip treemap (Bederson · Shneiderman · Wattenberg 2002, "strip"): rows across the whole width, top to bottom; a row takes
+   the next stocks while their mean aspect ratio still improves. Unlike squarify (which lays a column down the left side, so the 2nd
+   and 3rd biggest end up one under the other) it keeps the given order in reading order — left to right, row after row — for any
+   sizes, so 시총순 still reads as cap rank when 크기 = 거래대금 / 순매수 (sizes then out of order). */
+function stripTile(parent, x0, y0, x1, y1) {
+  const kids = parent.children || [], n = kids.length, W = x1 - x0, H = y1 - y0;
+  if (!n) return;
+  const total = kids.reduce((a, c) => a + Math.max(c.value, 0), 0);
+  if (!(total > 0) || !(W > 0) || !(H > 0)) { for (const c of kids) { c.x0 = c.x1 = x0; c.y0 = c.y1 = y0; } return; }
+  const k = W * H / total;
+  const mean = (i, j, sum) => {            // mean aspect ratio of kids[i..j) laid in one row of height sum·k/W
+    const hh = sum * k / W; let a = 0, m = 0;
+    for (let t = i; t < j; t++) { const v = kids[t].value; if (!(v > 0)) continue; const w = v * k / hh; a += Math.max(w / hh, hh / w); m++; }
+    return m ? a / m : 1;
+  };
+  let i = 0, y = y0;
+  while (i < n) {
+    let j = i + 1, sum = Math.max(kids[i].value, 0), best = mean(i, j, sum);
+    while (j < n) {
+      const s2 = sum + Math.max(kids[j].value, 0), m2 = mean(i, j + 1, s2);
+      if (m2 > best && kids[j].value > 0) break;
+      sum = s2; best = m2; j++;
+    }
+    const hh = j >= n ? y1 - y : sum * k / W;
+    let x = x0;
+    for (let t = i; t < j; t++) { const c = kids[t]; c.y0 = y; c.y1 = y + hh; c.x0 = x; x += sum > 0 ? Math.max(c.value, 0) / sum * W : 0; c.x1 = t === j - 1 ? x1 : x; }
+    y += hh; i = j;
+  }
+}
 function flatRoot(items, themes) {
   const children = themes ? items.map(t => ({ id: 'H|' + t.id, kind: 'theme', t })) : items.map(st => ({ id: 'T|' + st.c, kind: 'tile', st }));
   return d3.hierarchy({ id: 'root', children }).sum(d => d.kind === 'theme' ? Math.max(d.t.cap, 0) : d.kind === 'tile' ? Math.max(sizeV(d.st), 0) : 0).sort((a, b) => b.value - a.value);
@@ -3010,9 +3068,9 @@ function layout(root, W, H, type) {
   const narrow = W < 560;
   const SH = narrow ? 18 : 20, IH = narrow ? 14 : 15;
   const zoomedInd = state.focus && state.focus.i;
-  const inner0 = type === 'themes' ? 2 : type === 'members' ? 1 : 3;
+  const inner0 = type === 'themes' ? 2 : type === 'members' || type === 'cap' ? 1 : 3;
   d3.treemap().size([W, H]).round(true)
-    .tile(d3.treemapSquarify.ratio(1))
+    .tile(type === 'cap' ? stripTile : d3.treemapSquarify.ratio(1))
     .paddingInner(n => n.depth === 0 ? inner0 : n.depth === 1 ? 2 : 1)
     .paddingTop(n => {
       const w = n.x1 - n.x0, hh = n.y1 - n.y0;
@@ -3278,7 +3336,6 @@ function runIntro(root) {
     mapEl.classList.add('fx-intro');
     clearTimeout(introTimer);
     introTimer = setTimeout(finishIntro, last + 220 + 60);
-    countUpIdx();
   });
 }
 function finishIntro() {
@@ -3288,31 +3345,8 @@ function finishIntro() {
   mapEl.classList.remove('fx-intro');
   for (const el of nodes.values()) el.style.removeProperty('--dl');
   for (const t of ['pointerdown', 'keydown', 'wheel']) removeEventListener(t, finishIntro, { capture: true });
-  if (countUp) countUp.stop();
 }
-// header indices: the value counts from the previous close (value − change) to now, the % from 0; colours are final from the start
-let countUp = null;
-function countUpIdx() {
-  if (countUp) countUp.stop();
-  const rows = [...$('#idx').children].filter(r => r.__x);
-  if (!rows.length || !fancy()) return;
-  const fmtV = v => v.toLocaleString('ko-KR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  const t0 = performance.now(), DUR = MT.m3 + MT.m1;
-  let raf = 0;
-  const done = () => { cancelAnimationFrame(raf); for (const r of rows) if (r.isConnected) { r.__v.textContent = fmtV(r.__x.value); r.__p.textContent = fmtPct(r.__x.ratio); } countUp = null; };
-  const step = now => {
-    const t = Math.min(1, (now - t0) / DUR), e = easeOut(t);
-    if (t >= 1 || !rows.some(r => r.isConnected)) { done(); return; }
-    for (const r of rows) {
-      const x = r.__x, from = isFinite(x.change) ? x.value - x.change : x.value;
-      r.__v.textContent = fmtV(from + (x.value - from) * e);
-      r.__p.textContent = fmtPct(x.ratio * e);
-    }
-    raf = requestAnimationFrame(step);
-  };
-  raf = requestAnimationFrame(step);
-  countUp = { stop: done };
-}
+// (the header indices' count-up on the first entry went with design.md §6-2 P4 — data does not move on the first paint, ux/std-template)
 
 /* tick flashes: a ring in the tick's direction (vs the previous quote, not the day's sign) on ::after, opacity only, ≤ 60 at once
    (biggest |Δp/p| × area first), each delayed 0–200 ms by a hash of the code so a poll does not blink all at once */
@@ -3489,12 +3523,13 @@ function model() {
   if (m === 'THEME') return { type: 'members', list, uni, secGroups, root: flatRoot(list, false) };
   // ★관심: 전체 → group blocks (or, with one group, sector › industry like a group's own map)
   if (m === 'WATCH') return wgGrouped(list) && !state.focus ? { type: 'watch', grouped: true, list, uni, secGroups, root: groupRoot(list) } : { type: 'watch', list, uni, secGroups, root: buildRoot(list, true) };
+  if (capOrder()) return { type: 'cap', list, uni, secGroups, root: capRoot(list) };
   return { type: 'market', list, uni, secGroups, root: buildRoot(list, true) };
 }
 function emitRender() {
   document.dispatchEvent(new CustomEvent('kh:render', { detail: { view: state.view, market: state.market, theme: state.theme, replay: REPLAY ? REPLAY.t : null } }));
 }
-function render({ animate = false } = {}) {
+function render({ animate = false, regroup = false } = {}) {
   if (isWorld()) { emitRender(); return; }
   // §3-27 자동: measure what this render draws first, so the tiles, the table and (right after, at every caller) the side cards
   // and the legend share one range; the few callers that redraw the map alone get the legend and side cards a moment later
@@ -3513,10 +3548,10 @@ function render({ animate = false } = {}) {
   if (animate) tweenStop();
   const anim = animate && !reduced() && !intro;
   // geometry animation only while the map is small: above ~350 nodes just jump and fade (fewer long tasks)
-  const geo = anim && root.descendants().length <= 350;
+  const geo = anim && (regroup ? root.leaves().length <= 350 : root.descendants().length <= 350);
   mapEl.classList.toggle('anim', anim);
-  mapEl.classList.toggle('focus-leaf', !!(state.focus && state.focus.i) || mdl.type === 'members' || mdl.type === 'themes');
-  mapEl.setAttribute('aria-label', mdl.type === 'themes' ? '테마별 트리맵' : mdl.type === 'members' ? `${(curTheme() || {}).name || ''} 테마 종목 트리맵` : `종목별 ${metricLong()} 트리맵`);
+  mapEl.classList.toggle('focus-leaf', !!(state.focus && state.focus.i) || mdl.type === 'members' || mdl.type === 'themes' || mdl.type === 'cap');
+  mapEl.setAttribute('aria-label', mdl.type === 'themes' ? '테마별 트리맵' : mdl.type === 'members' ? `${(curTheme() || {}).name || ''} 테마 종목 트리맵` : `종목별 ${metricLong()} 트리맵${mdl.type === 'cap' ? ', 시가총액이 큰 종목부터 차례로' : ''}`);
   const seen = new Set();
   const entering = [];
   for (const n of root.descendants()) {
@@ -4274,8 +4309,9 @@ function renderCrumbs() {
     kids.push(item(h('button', { class: 'c' + (f.i ? '' : ' cur'), onclick: () => zoomTo({ s: f.s }), text: f.s })));
     if (f.i) kids.push(item(h('button', { class: 'c cur', 'aria-current': 'location', text: f.i })));
   } else if (state.view === 'map' && state.market !== 'WATCH' && !pairRoot) {
-    kids.push(h('span', { class: 'hint', text: '섹터·업종 이름을 누르면 확대돼요' }));
-    kids[kids.length - 2].title = '섹터·업종 이름을 누르면 확대돼요';     // the hint may give way to the index line (§3-20)
+    const hint = capOrder() ? '시가총액이 큰 종목부터 차례로 그렸어요' : '섹터·업종 이름을 누르면 확대돼요';
+    kids.push(h('span', { class: 'hint', text: hint }));
+    kids[kids.length - 2].title = hint;     // the hint may give way to the index line (§3-20)
   }
   const uni = universe();
   const list = uni.filter(inFocus);
@@ -4411,8 +4447,19 @@ function ixDraw() {
   const L = S[0], now = kst(new Date()), today = now ? now.date : null;     // a line of an earlier day (before the open, weekends) says its date
   const val = s => s.v != null ? NF2.format(s.v) : '';
   const v = ixEl.querySelector('.ixv'), t = ixEl.querySelector('.ixt');
-  if (S.length === 1) v.replaceChildren(h('b', { text: val(L) || IX_NAME[L.key] }), h('span', { class: cls(L.r), text: fmtPct(L.r) }));
-  else v.replaceChildren(...S.map((s, i) => h('span', { class: 'ixr' + (i ? ' k2' : '') }, h('em', { class: 'sw ' + cls(s.r), 'aria-hidden': 'true' }), h('i', { text: IX_NAME[s.key] }), h('b', { text: val(s) }), h('span', { class: cls(s.r), text: fmtPct(s.r) }))));
+  // the same line as before (same index, same tab): the value and the % change in place, the way they went (design.md §6-4 · P9);
+  // another tab / index, the first draw or a replay frame: written at once (P4)
+  const vk = S.map(s => s.key).join() + '|' + (S.length === 1 && !val(L) ? 'n' : 'v');
+  if (v.__k === vk && v.firstElementChild) {
+    const quiet = !!L.replay || v.__src === DATA;
+    if (S.length === 1) { uiSwapNum(v.children[0], val(L), quiet); v.children[1].className = cls(L.r); uiSwapNum(v.children[1], fmtPct(L.r), quiet); }
+    else S.forEach((s, i) => { const r = v.children[i]; r.children[0].className = 'sw ' + cls(s.r); uiSwapNum(r.children[2], val(s), quiet); r.children[3].className = cls(s.r); uiSwapNum(r.children[3], fmtPct(s.r), quiet); });
+  } else {
+    if (S.length === 1) v.replaceChildren(h('b', { text: val(L) || IX_NAME[L.key] }), h('span', { class: cls(L.r), text: fmtPct(L.r) }));
+    else v.replaceChildren(...S.map((s, i) => h('span', { class: 'ixr' + (i ? ' k2' : '') }, h('em', { class: 'sw ' + cls(s.r), 'aria-hidden': 'true' }), h('i', { text: IX_NAME[s.key] }), h('b', { text: val(s) }), h('span', { class: cls(s.r), text: fmtPct(s.r) }))));
+    v.__k = vk;
+  }
+  v.__src = DATA;
   const past = !L.replay && L.day && today && L.day !== today;
   t.replaceChildren(h('b', { text: past ? `${+L.day.slice(5, 7)}/${+L.day.slice(8, 10)}` : ixHM(L.m) }), h('span', { text: L.done ? '종가' : `/ ${ixHM(END)}` }));
   const what = L.replay ? `${ixHM(L.m)} 다시 보기 흐름` : past ? `${dayName(L.day)} 흐름` : '오늘 흐름';
@@ -4501,7 +4548,7 @@ function renderLegend() {
   const kids = [];
   if (REPLAY) kids.push(h('span', { class: 'lg lg-replay', text: `리플레이 ${hhmm(REPLAY.t)}` }));
   const grad = h('span', { class: 'grad', style: `background:linear-gradient(90deg,${P.join(',')})`, 'aria-hidden': 'true' });
-  const ticks = [h('span', { class: 'tk', text: `${MINUS}${fmtR(R)}%` }), grad, h('span', { class: 'tk', text: `+${fmtR(R)}%` })];
+  const ticks = [h('span', { class: 'tk', 'data-sw': 'lo', text: `${MINUS}${fmtR(R)}%` }), grad, h('span', { class: 'tk', 'data-sw': 'hi', text: `+${fmtR(R)}%` })];
   const themeOv = state.market === 'THEME' && state.theme == null;
   let missing = 0;
   if (themeOv) missing = themeRows().filter(t => t.v == null).length;
@@ -4525,12 +4572,12 @@ function renderLegend() {
     const base = k === 'period' && Pd && Pd.base ? dayName(Pd.base[m.key]) : '';
     kids.push(h('span', { class: 'lg' }, h('span', { class: 'k', text: '색' }), h('b', { text: themeOv && naverThemeDay() ? '테마 등락률' : m.long }),
       base ? h('span', { class: 'note', text: `${base} 종가 대비` }) : null,
-      rangeAuto() ? h('span', { class: 'rauto', title: autoTitle(), text: `자동 ±${fmtR(R)}%` }) : null, ticks));
+      rangeAuto() ? h('span', { class: 'rauto', title: autoTitle() }, '자동 ±', h('span', { 'data-sw': 'auto', text: `${fmtR(R)}%` })) : null, ticks));
     if (k === 'period' && DS.periods.st === 'loading') kids.push(h('span', { class: 'lg note', text: '기간 수익률 데이터를 불러오는 중…' }));
     else if (k === 'period' && DS.periods.st === 'fail') kids.push(h('span', { class: 'lg note', text: '기간 수익률 데이터를 불러오지 못했어요' }));
     kids.push(h('span', { class: 'lg right' }, h('span', { class: 'k', text: '크기' }), h('b', { text: themeOv ? '테마 시가총액' : sizeLabel() })));
   }
-  if (missing) kids.splice(REPLAY ? 2 : 1 + (k === 'flow' ? 1 : 0), 0, h('span', { class: 'lg' }, h('i', { class: 'sw nodsw' }), h('span', { text: `데이터 없음 ${missing}` })));
+  if (missing) kids.splice(REPLAY ? 2 : 1 + (k === 'flow' ? 1 : 0), 0, h('span', { class: 'lg' }, h('i', { class: 'sw nodsw' }), h('span', {}, '데이터 없음 ', h('span', { 'data-sw': 'miss', text: String(missing) }))));
   // NXT prices drawn: how many stocks on the map have no NXT trade (hatched, their KRX value)
   if (!themeOv && distNxt()) {
     const nn = universe().filter(inFocus).filter(s => s.nonx).length;
@@ -4544,8 +4591,8 @@ function renderLegend() {
     if (lu || ld) {
       const at = kids.findIndex(x => x.classList && x.classList.contains('right'));
       kids.splice(at < 0 ? kids.length : at, 0, h('span', { class: 'lg' },
-        lu ? h('i', { class: 'limsw u', 'aria-hidden': 'true' }) : null, lu ? h('span', { text: `상한가 ${lu}` }) : null,
-        ld ? h('i', { class: 'limsw d', 'aria-hidden': 'true' }) : null, ld ? h('span', { text: `하한가 ${ld}` }) : null));
+        lu ? h('i', { class: 'limsw u', 'aria-hidden': 'true' }) : null, lu ? h('span', {}, '상한가 ', h('span', { 'data-sw': 'lu', text: String(lu) })) : null,
+        ld ? h('i', { class: 'limsw d', 'aria-hidden': 'true' }) : null, ld ? h('span', {}, '하한가 ', h('span', { 'data-sw': 'ld', text: String(ld) })) : null));
     }
   }
   // module items (KH.legendItem, e.g. 공시 26종목 · 큰 귀퉁이 = 30분 안) after the scale, before 크기 — not on the theme overview
@@ -4559,7 +4606,13 @@ function renderLegend() {
     const at = kids.findIndex(x => x.classList && x.classList.contains('right'));
     kids.splice(at < 0 ? kids.length : at, 0, ...add);
   }
+  // the legend's numbers (scale ends, 자동 step, counts) change in place the way they went (design.md §6-4 · P9) — only when the same
+  // legend is redrawn (same tab, colour, size, zoom: so new quotes or a range pick moved them); another view writes them at once (P4)
+  const ctxKey = [state.market, state.theme, state.view, state.colorBy, state.sizeBy, state.flowWin, state.groupBy, JSON.stringify(state.focus), k, !!REPLAY].join('|');
+  const old = el.__ctx === ctxKey ? new Map([...el.querySelectorAll('[data-sw]')].map(x => [x.dataset.sw, x.textContent])) : null;
   el.replaceChildren(...kids);
+  el.__ctx = ctxKey;
+  if (old && !REPLAY) for (const x of el.querySelectorAll('[data-sw]')) { const was = old.get(x.dataset.sw); if (was != null && was !== x.textContent) { const t = x.textContent; x.textContent = was; uiSwapNum(x, t); } }
   legendR = R;
   requestAnimationFrame(fitMapHeight);
 }
@@ -5041,18 +5094,23 @@ function renderHeader() {
   for (const b of document.querySelectorAll('.tabs button')) b.setAttribute('aria-pressed', String(b.dataset.mkt === state.market));
   keepTabInView();
   const idx = $('#idx');
-  const kids = [];
-  for (const [k, label] of [['KOSPI', '코스피'], ['KOSDAQ', '코스닥']]) {
-    const x = DATA.index && DATA.index[k];
-    if (!x || !isFinite(+x.value)) continue;
-    const v = h('span', { class: 'v num', text: (+x.value).toLocaleString('ko-KR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) });
-    const pc = h('span', { class: 'num ' + cls(+x.ratio), text: fmtPct(+x.ratio) });
-    const row = h('div', {}, h('span', { class: 'k', text: label }), v, pc);
-    row.__x = { value: +x.value, change: +x.change, ratio: +x.ratio || 0 }; row.__v = v; row.__p = pc;   // for the 화려하게 count-up
-    kids.push(row);
+  const keys = [['KOSPI', '코스피'], ['KOSDAQ', '코스닥']].filter(([k]) => { const x = DATA.index && DATA.index[k]; return x && isFinite(+x.value); });
+  // the same rows as before: the numbers change in place (design.md §6-4 · P9, the way they went — not on the first paint, P4)
+  if (idx.__k === keys.map(k => k[0]).join() && idx.childElementCount === keys.length) {
+    const quiet = idx.__src === DATA || !!REPLAY;
+    keys.forEach(([k], i) => {
+      const x = DATA.index[k], row = idx.children[i];
+      uiSwapNum(row.children[1], (+x.value).toLocaleString('ko-KR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), quiet);
+      row.children[2].className = 'num ' + cls(+x.ratio);
+      uiSwapNum(row.children[2], fmtPct(+x.ratio), quiet);
+    });
+  } else {
+    idx.replaceChildren(...keys.map(([k, label]) => { const x = DATA.index[k];
+      return h('div', {}, h('span', { class: 'k', text: label }), h('span', { class: 'v num', text: (+x.value).toLocaleString('ko-KR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }),
+        h('span', { class: 'num ' + cls(+x.ratio), text: fmtPct(+x.ratio) })); }));
+    idx.__k = keys.map(k => k[0]).join();
   }
-  if (countUp) countUp.stop();
-  idx.replaceChildren(...kids);
+  idx.__src = DATA;
 }
 
 /* §3-16 today's change under 코스피 · 코스닥 · 전체 · ★관심, whatever the colour metric. 코스피 / 코스닥 = the index ratio (the
@@ -5115,7 +5173,7 @@ function tabValue(m) {
 }
 function renderTabs() {
   if (!DATA) return;
-  const fresh = tabSrc && tabSrc !== DATA && !REPLAY && fancy() && !document.hidden;
+  const fresh = tabSrc && tabSrc !== DATA && !REPLAY && !document.hidden;    // new quotes (not a redraw, a tab switch or a replay frame)
   const when = REPLAY ? ` · 다시 보기 ${hhmm(REPLAY.t)}` : MODE !== 'live' && DATA.k ? ` · ${dayName(DATA.k.date)} ${DATA.k.hhmm} 기준` : '';
   for (const m of ['K', 'Q', 'ALL', 'WATCH']) {
     const b = document.querySelector(`.tabs button[data-mkt="${m}"]`), tp = b && b.querySelector('.tp');
@@ -5129,8 +5187,7 @@ function renderTabs() {
     const was = tp.textContent;
     tp.classList.remove('up', 'dn', 'flat'); tp.classList.add(has ? cls(v) : 'flat');
     if (was === txt) continue;
-    if (fresh && was && txt) uiRoll(tp, txt, Math.sign(v - parseFloat(was.replace('−', '-').replace('+', ''))) || 1);
-    else tp.textContent = txt;
+    uiSwapNum(tp, txt, !(fresh && was && txt));
   }
   tabSrc = DATA;
 }
@@ -5316,6 +5373,8 @@ function syncControls() {
   syncAutoKey();
   syncViewSeg();
   $('.ctl[data-ctl="flowWin"]').hidden = !isFlow();
+  const gb = $('.ctl[data-ctl="groupBy"]');
+  if (gb.hidden !== !GROUPABLE.includes(state.market)) { gb.hidden = !GROUPABLE.includes(state.market); syncSetSections(); }
   uiSwap($('.ctl[data-ctl="colorBy"] .ddv'), COLOR_METRICS[state.colorBy].label);
   uiSwap($('.ctl[data-ctl="flowWin"] .ddv'), `${state.flowWin}일`);
   // 종목 수 only applies to market maps; the colour metric is replaced by net buying in a flow size mode
@@ -5350,6 +5409,7 @@ document.addEventListener('click', e => {
   if (k === 'topN') v = v === 'all' ? 'all' : +v;
   else if (k === 'flowWin') v = +v;
   if (state[k] === v) return;
+  if (k === 'groupBy') { setGroupBy(v); return; }
   const scopeWas = allScope();
   const prevKind = kind();
   state[k] = v;
@@ -5367,6 +5427,27 @@ document.addEventListener('click', e => {
   // 전체 on / off: the other quotes stream now (the map draws what it has meanwhile)
   if (k === 'topN' && allScope() !== scopeWas && MODE === 'live') uiBusy(document.querySelector('.seg[data-key="topN"] button[aria-pressed="true"]'), poll());
 });
+// §3-36 묶음: 섹터별 ↔ 시총순 — the tiles move to their new boxes like a zoom (FLIP; 줄이기 at once), the bands fade; a zoom stays (it
+// then filters the cap-ordered map to that sector / industry). Saved as khm.groupBy.
+function setGroupBy(v) {
+  if (v !== 'cap' && v !== 'sector') return;
+  state.groupBy = v; store.set('groupBy', v);
+  state.hoverSector = null; setHover(null); tipHide(0);
+  syncControls();
+  render({ animate: true, regroup: true });
+  renderCrumbs(); renderSide(); renderLegend();
+}
+{
+  // the 묶음 row: in the 표시 설정 sheet (after 크기) below 1280, in the 화면 popover (before 효과) from 1280 (one row, moved — no copy)
+  const gb = document.querySelector('.ctl[data-ctl="groupBy"]'), home = gb && gb.previousElementSibling, wideMQ = matchMedia('(min-width: 1280px)');
+  const place = () => {
+    if (!gb) return;
+    if (wideMQ.matches) { const mo = document.querySelector('#morePanel .ctl[data-ctl="motion"]'); if (mo && mo.previousElementSibling !== gb) mo.before(gb); }
+    else if (home && home.nextElementSibling !== gb) home.after(gb);
+  };
+  place();
+  wideMQ.addEventListener('change', () => { place(); syncSetSections(); });
+}
 // phones: the tab row scrolls sideways; the active tab stays in view — clear of the row's fading right edge (★관심 is outside it)
 function keepTabInView() {
   const sc = $('.tabs-sc'), act = sc && sc.querySelector('button[aria-pressed="true"]');

@@ -243,8 +243,141 @@ def run(parts):
         check(f'console errors: {len(ERRS)}', not ERRS, ERRS[:6])
 
 
+CAPSTATE = r"""() => {
+  const tiles = [...document.querySelectorAll('#map .tile')].filter(t => !t.classList.contains('leaving') && t.offsetWidth > 0);
+  const boxes = tiles.map(t => ({ c: t.dataset.c, x: t.offsetLeft, y: t.offsetTop, w: t.offsetWidth, h: t.offsetHeight }));
+  // reading order: rows by top edge, then left to right (strips share their top edge)
+  const read = boxes.slice().sort((a, b) => a.y - b.y || a.x - b.x).map(b => b.c);
+  const cap = c => (KH.stock(c) || {}).cap || 0;
+  const byCap = boxes.map(b => b.c).sort((a, b) => cap(b) - cap(a) || (a < b ? -1 : 1));
+  let inv = 0; for (let i = 1; i < read.length; i++) if (cap(read[i]) > cap(read[i - 1])) inv++;
+  const lay = KH.layout();
+  const bad = [];
+  for (const t of tiles) { const l = t.querySelector('.lab'); if (!l || l.hidden) continue; const a = t.getBoundingClientRect(), b = l.getBoundingClientRect();
+    if (b.left < a.left - .5 || b.right > a.right + .5 || b.top < a.top - .5 || b.bottom > a.bottom + .5) bad.push(t.dataset.c); }
+  return { n: tiles.length, codes: KH.mapCodes().length, read: read.slice(0, 20), byCap: byCap.slice(0, 20), inv, secs: document.querySelectorAll('#map .node.sec, #map .node.ind').length,
+    laySec: lay.filter(n => n.kind !== 'tile').length, layTiles: lay.filter(n => n.kind === 'tile').length, overflow: bad.slice(0, 5),
+    store: localStorage.getItem('khm.groupBy'), aria: document.getElementById('map').getAttribute('aria-label'), hint: (document.querySelector('#crumbs .hint') || {}).textContent || '' };
+}"""
+
+GBROW = r"""() => { const r = document.querySelector('.ctl[data-ctl="groupBy"]'); if (!r) return null;
+  const cs = getComputedStyle(r), box = r.getBoundingClientRect();
+  return { hidden: r.hidden, shown: cs.display !== 'none' && box.width > 0 && box.height > 0 && !r.closest('.set-empty'), inMore: !!r.closest('#morePanel'), inCtls: !!r.closest('#ctls'),
+    pressed: [...r.querySelectorAll('button')].filter(b => b.getAttribute('aria-pressed') === 'true').map(b => b.dataset.v), labels: [...r.querySelectorAll('button')].map(b => b.textContent) }; }"""
+
+
 def cap(br):
-    pass
+    # ── the option: 코스피 · 코스닥 · 전체 only; 표시 설정 sheet < 1280 (after 크기), 화면 popover ≥ 1280 ──
+    for w, h in ((390, 844), (1000, 900), (1440, 900)):
+        ctx, pg = open_page(br, w, h, market='K')
+        seen = {}
+        for m in ('K', 'Q', 'ALL', 'THEME', 'WORLD', 'CMDTY', 'CAL', 'WATCH'):
+            pg.evaluate(f"document.querySelector('.tabs button[data-mkt=\"{m}\"]').click()"); pg.wait_for_timeout(500)
+            opener = '#moreBtn' if w >= 1280 else '#setBtn'
+            pg.click(opener); pg.wait_for_timeout(500)
+            seen[m] = pg.evaluate(GBROW)
+            pg.keyboard.press('Escape'); pg.wait_for_timeout(350)
+        want = {m: m in ('K', 'Q', 'ALL') for m in seen}
+        got = {m: bool(x and x['shown']) for m, x in seen.items()}
+        where = {m: (x['inMore'], x['inCtls']) for m, x in seen.items() if x}
+        place_ok = all(v[0] for v in where.values()) if w >= 1280 else all(v[1] and not v[0] for v in where.values())
+        check(f'cap [{w}]: 묶음 shown on 코스피 · 코스닥 · 전체 only, {"in the 화면 popover" if w >= 1280 else "in the 표시 설정 sheet"}; 섹터별 · 시총순, 섹터별 pressed',
+              got == want and place_ok and seen['K']['labels'] == ['섹터별', '시총순'] and seen['K']['pressed'] == ['sector'], (got, where, seen['K']))
+        ctx.close()
+    # ── 시총순 on 코스피 (1440, 300 tiles) ──
+    ctx, pg = open_page(br, 1440, 900, market='K')
+    before = pg.evaluate(CAPSTATE)
+    pg.click('#moreBtn'); pg.wait_for_timeout(400)
+    pg.click('.ctl[data-ctl="groupBy"] button[data-v="cap"]'); pg.wait_for_timeout(100)
+    mid = pg.evaluate("() => [...document.querySelectorAll('#map .tile')].filter(t => t.getAnimations().length).length")
+    pg.keyboard.press('Escape'); pg.wait_for_timeout(900)
+    st = pg.evaluate(CAPSTATE)
+    check('cap [1440 K]: 시총순 pressed → saved khm.groupBy "cap", no sector / industry node in the map or KH.layout(), the same tiles',
+          st['store'] == '"cap"' and st['secs'] == 0 and st['laySec'] == 0 and st['layTiles'] == st['n'] == before['codes'] == st['codes'] and before['secs'] > 0, (st['store'], st['secs'], st['laySec'], st['n'], before['codes']))
+    check('cap [1440 K]: the tiles moved to their new boxes (FLIP, as a zoom)', mid > 100, mid)
+    check('cap [1440 K]: reading order = market-cap order (first 20 exact, no inversion anywhere)', st['read'] == st['byCap'] and st['inv'] == 0, (st['read'][:8], st['byCap'][:8], st['inv']))
+    check('cap [1440 K]: labels inside their tiles; map named "시가총액이 큰 종목부터"; the crumbs hint says so',
+          not st['overflow'] and '시가총액이 큰 종목부터' in st['aria'] and '시가총액이 큰' in st['hint'], (st['overflow'], st['aria'], st['hint']))
+    pg.screenshot(path=str(ROOT / 'qa/shots/std_template/cap_1440_K.png'))
+    # 크기 = 거래대금: sized by trading value, still in cap order
+    pg.evaluate("document.querySelector('.seg[data-key=\"sizeBy\"] button[data-v=\"tv\"]').click()"); pg.wait_for_timeout(900)
+    st2 = pg.evaluate(CAPSTATE)
+    check('cap [1440 K]: 크기 = 거래대금 — still read in cap order (sizes by trading value)', st2['read'] == st2['byCap'] and st2['inv'] == 0 and not st2['overflow'], (st2['read'][:6], st2['inv']))
+    pg.screenshot(path=str(ROOT / 'qa/shots/std_template/cap_1440_K_tv.png'))
+    pg.evaluate("document.querySelector('.seg[data-key=\"sizeBy\"] button[data-v=\"cap\"]').click()"); pg.wait_for_timeout(700)
+    # search highlight · tooltip · quick view · disclosure marks · image save
+    pg.fill('#q', '삼성'); pg.wait_for_timeout(500)
+    hl = pg.evaluate("() => { const t = [...document.querySelectorAll('#map .tile')]; return { dim: t.filter(x => x.classList.contains('dim')).length, lit: t.filter(x => !x.classList.contains('dim')).map(x => KH.stock(x.dataset.c).n) }; }")
+    check('cap [1440 K]: search highlight — only the 삼성 tiles stay lit', hl['dim'] > 200 and hl['lit'] and all('삼성' in n for n in hl['lit']), (hl['dim'], hl['lit'][:5]))
+    pg.fill('#q', ''); pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
+    box = pg.evaluate("(() => { const t = document.querySelector('#map .tile'); const r = t.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2, t.dataset.c]; })()")
+    pg.mouse.move(box[0], box[1]); pg.wait_for_timeout(600)
+    tip = pg.evaluate("() => { const t = document.getElementById('tip'); return { on: getComputedStyle(t).opacity > 0.5, txt: t.textContent.slice(0, 40) }; }")
+    name = pg.evaluate(f"KH.stock('{box[2]}').n")
+    check(f'cap [1440 K]: tooltip on the biggest tile ({name})', tip['on'] and name in tip['txt'], tip)
+    # desktop: a tile opens the stock page (stubbed here — the mock has no /api/stock); the quick view is checked on the phone below
+    pg.evaluate("() => { window.__op = null; const k = window.KHStock; if (k) k.open = (c) => { window.__op = c; }; }")
+    pg.mouse.click(box[0], box[1]); pg.wait_for_timeout(300)
+    check('cap [1440 K]: a tile opens its stock page', pg.evaluate('window.__op') == box[2], pg.evaluate('window.__op'))
+    pg.mouse.move(5, 5); pg.wait_for_timeout(200)
+    mk = pg.evaluate("""() => { const c = [...document.querySelectorAll('#map .tile')].slice(0, 6).map(t => t.dataset.c);
+      KH.marks.set('qa', new Map(c.map(x => [x, { size: 'n', label: ', 시험' }]))); const n = document.querySelectorAll('#map .tile .dm').length;
+      const lay = KH.layout().filter(t => t.mark).length; return { n, lay }; }""")
+    check('cap [1440 K]: 공시 귀퉁이 (KH.marks) drawn on the cap-ordered tiles and in KH.layout()', mk['n'] >= 6 and mk['lay'] >= 6, mk)
+    pg.evaluate("KH.marks.set('qa', null)")
+    try:
+        with pg.expect_download(timeout=8000) as dl:
+            pg.click('.xt-btn[data-x="image"]')
+        out = ROOT / 'qa/shots/std_template/cap_export.png'
+        dl.value.save_as(str(out))
+        from PIL import Image
+        im = Image.open(out); colors = len(set(im.convert('RGB').resize((80, 80)).get_flattened_data()))
+        check(f'cap [1440 K]: the image save (extras) draws the cap map — {im.size[0]}×{im.size[1]}, {colors} colours', im.size[0] > 800 and colors > 30, (im.size, colors))
+    except Exception as e:
+        check('cap [1440 K]: the image save (extras) draws the cap map', False, e)
+    # a replay frame keeps the cap order and the shape
+    rp = pg.evaluate("""() => { const m = new Map(); for (const s of KH.stocks().slice(0, 600)) m.set(s.c, { p: s.p * 1.01, r: (s.r || 0) + 1 });
+      KH.setReplay({ t: '1030', date: '2026-11-13', prices: m }); const n = document.querySelectorAll('#map .node.sec').length; return n; }""")
+    pg.wait_for_timeout(500)
+    st3 = pg.evaluate(CAPSTATE)
+    pg.evaluate("KH.setReplay(null)"); pg.wait_for_timeout(400)
+    check('cap [1440 K]: a replay frame draws the cap map (no bands, cap order)', rp == 0 and st3['secs'] == 0 and st3['inv'] == 0, (rp, st3['secs'], st3['inv']))
+    # back to 섹터별: bands return
+    pg.click('#moreBtn'); pg.wait_for_timeout(400)
+    pg.click('.ctl[data-ctl="groupBy"] button[data-v="sector"]'); pg.keyboard.press('Escape'); pg.wait_for_timeout(900)
+    bk = pg.evaluate(CAPSTATE)
+    check('cap [1440 K]: back to 섹터별 — sector / industry bands again, saved "sector"', bk['secs'] > 0 and bk['store'] == '"sector"', (bk['secs'], bk['store']))
+    ctx.close()
+    # ── phones, 전체, every theme: order, no overflow, map top unchanged ──
+    for theme in THEMES:
+        for w, h, m, top in ((390, 844, 'ALL', 247), (1440, 900, 'Q', 207)):
+            ctx, pg = open_page(br, w, h, theme=theme, market=m, extra={'groupBy': 'cap'})
+            st = pg.evaluate(CAPSTATE)
+            g = pg.evaluate("() => Math.round(document.getElementById('map').getBoundingClientRect().top + scrollY)")
+            ov = pg.evaluate(OVER)
+            check(f'cap [{w} {m} {theme}]: saved 시총순 → cap order, no bands, labels inside, nothing past the edge, map top {g} (= {top})',
+                  st['secs'] == 0 and st['inv'] == 0 and st['read'][:10] == st['byCap'][:10] and not st['overflow'] and not ov and g == top, (st['secs'], st['inv'], st['overflow'], ov, g))
+            if theme in ('base', 'glass-light'):
+                pg.screenshot(path=str(ROOT / f'qa/shots/std_template/cap_{w}_{m}_{theme}.png'))
+            if w == 390 and theme == 'base':
+                tb = pg.evaluate("(() => { const t = document.querySelector('#map .tile'); const r = t.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2, KH.stock(t.dataset.c).n]; })()")
+                pg.touchscreen.tap(tb[0], tb[1]); pg.wait_for_timeout(800)
+                sh = pg.evaluate("() => { const s = document.getElementById('sheet'); return { open: s.classList.contains('open'), txt: s.textContent.slice(0, 80) }; }")
+                check(f'cap [390]: tapping the first tile ({tb[2]}) opens the quick view', sh['open'] and tb[2] in sh['txt'], sh)
+                pg.keyboard.press('Escape'); pg.wait_for_timeout(500)
+            # 테마 · 관심 keep their own maps
+            if w == 390 and theme == 'base':
+                pg.evaluate("document.querySelector('.tabs button[data-mkt=\"THEME\"]').click()"); pg.wait_for_timeout(800)
+                th = pg.evaluate("() => document.getElementById('map').getAttribute('aria-label')")
+                check('cap [390]: 테마 keeps its theme map with 시총순 saved', th == '테마별 트리맵', th)
+            ctx.close()
+    # ── 줄이기: the switch lands at once ──
+    ctx, pg = open_page(br, 1440, 900, market='K', motion='reduced')
+    pg.click('#moreBtn'); pg.wait_for_timeout(300)
+    pg.click('.ctl[data-ctl="groupBy"] button[data-v="cap"]'); pg.wait_for_timeout(60)
+    an = pg.evaluate("() => [...document.querySelectorAll('#map .tile')].filter(t => t.getAnimations().length).length")
+    check('cap [1440 줄이기]: 시총순 lands at once (no tile animation)', an == 0, an)
+    ctx.close()
 
 
 if __name__ == '__main__':
