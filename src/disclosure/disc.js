@@ -5,10 +5,12 @@
    What it draws (all from GET api/disclosures/today, never a body / summary / number pulled out of a filing):
    · tiles: a folded bottom-right corner (KH.marks 'disc') on stocks with a filing of the kinds chosen in 표시 설정 (기본 실적 · 주요),
      a bigger corner when one of them is new (first seen within 30 min and after the server started watching: s > since);
-   · the map-header chip "공시 26" (#stage-tools): on → only those stocks stay bright (KH.marks.only), not remembered;
    · the legend item "공시 26종목 · 큰 귀퉁이 = 30분 안"; the tooltip / quick-view block (KH.cardExtra): up to 3 filings, DART links
      in the quick view + "공시 모두 보기" (the stock page's 뉴스·공시 › 공시);
-   · the "오늘 공시" tab of the news card (KHNews.addTab): kind tabs, 지도 종목만, stock chips (quick view), row hover lights the tile;
+   · the "오늘 공시" tab of the news card (KHNews.addTab): kind tabs, 지도 종목만, the map toggle "지도에서 공시 종목만 밝게 26종목"
+     (on → only those stocks stay bright, KH.marks.only; only while the tab is shown, not remembered — it was the map-header chip
+     "공시 26" in #stage-tools until 사용자 2026-11-14 08:10 "아래에 뉴스 공시칸으로 옮기든", moved 2026-11-15), stock chips (quick view), row hover
+     lights the tile;
    · two settings (공시 보기 · 지도에 표시할 종류) and the footer credit.
    Data: while the setting is on, the page is visible and a stock map is shown — every 60 s on weekdays 07:00–19:00 KST, else 5 min;
    failures back off 1 → 2 → 4 → 5 min, "오래됨" after 5 min of failures. The Worker's weak ETag goes back as If-None-Match: a 304
@@ -59,7 +61,7 @@ const S = {
   view: [], byCode: new Map(), marks: new Map(), markSig: '', fresh: new Set(), seen: '', rp: null, rpKey: '',
   mapSet: new Set(), mapKey: '',
   kt: 'main', only: true, open: false, L: { measure: false, base: 5, two: false, phone: narrowMQ.matches, rowsMax: MAX_ROWS },
-  shown: 0, pending: false, ptr: false, hov: '', chipOn: false, lgKey: '', tabbed: false, names: null, namesBusy: false,
+  shown: 0, pending: false, ptr: false, hov: '', litOn: false, lgKey: '', tabbed: false, names: null, namesBusy: false,
 };
 const today = () => kstOf(nowMs()).date;
 const isToday = () => !!S.data && S.data.date === today();
@@ -108,7 +110,7 @@ function timeEl(x) {
   return h('time', { class: 'dc-tm', datetime: S.data ? S.data.date + (x.s ? 'T' + x.s : '') : null }, x.isNew ? dot() : null, t);
 }
 
-/* ───────── snapshot: the tab says where to see it; no chip, no corners, no rows in the build ───────── */
+/* ───────── snapshot: the tab says where to see it; no map toggle, no corners, no rows in the build ───────── */
 if (!LIVE) {
   const pane = h('div', { class: 'dc-pane' }, h('ol', { class: 'nw-list is-msg' }, h('li', { class: 'nw-msg' },
     h('b', { text: '공시는 실시간 버전에서 볼 수 있어요' }),
@@ -120,44 +122,63 @@ if (!LIVE) {
   return;
 }
 
-/* ───────── the map-header chip: [corner] 공시 26 — on → only those stocks stay bright ───────── */
-const chip = h('button', { type: 'button', class: 'dc-hchip', 'aria-pressed': 'false' });
-chip.addEventListener('click', () => {
-  if (chip.getAttribute('aria-disabled') === 'true') return;
-  setChip(!S.chipOn, true);
+/* ───────── the map toggle in the 오늘 공시 tab: [✓][corner] 지도에서 공시 종목만 밝게 26종목 — on → only those stocks stay bright ─────────
+   It sat in the map header (#stage-tools) until 2026-11-15 — 사용자 2026-11-14 08:10 "사진의 공시 버튼 차라리 아래에 뉴스 공시칸으로 옮기든 하는게
+   나을거같아". Now it lives in the tab's own row (after 공시 종류 · 지도 종목만) and only works while that tab is on screen: leaving the tab,
+   a hidden card, 해외 · 지표, 공시 보기 off or nothing to light turns the map back to normal (a dimmed map with no visible way back is worse
+   than one more press). Not remembered across reloads. */
+const lit = h('button', { type: 'button', class: 'nw-only dc-lit', 'aria-pressed': 'false' });
+// its box keeps the width of the pressed key (the check's 20 px): pressing never moves 지도 종목만 or wraps the row — the key grows left
+const litBox = h('span', { class: 'dc-litw' }, lit);
+lit.addEventListener('click', () => {
+  if (lit.getAttribute('aria-disabled') === 'true') {        // off look: say why (a bubble under the key + the live region; mouse users also get the title)
+    const why = lit.dataset.why || '';
+    if (why && typeof UI.bubble === 'function') UI.bubble(lit, why); else if (why) live(why);
+    return;
+  }
+  setLit(!S.litOn, true);
 });
-function setChip(on, say) {
-  S.chipOn = !!on;
-  chip.setAttribute('aria-pressed', String(S.chipOn));
-  if (typeof KH.marks === 'object' && KH.marks) KH.marks.only(S.chipOn ? 'disc' : null);
-  if (say) live(S.chipOn ? `공시 있는 ${mapCount()}종목만 밝게 보여요.` : '모든 종목을 다시 보여요.');
+function setLit(on, say) {
+  S.litOn = !!on;
+  lit.setAttribute('aria-pressed', String(S.litOn));
+  if (typeof KH.marks === 'object' && KH.marks) KH.marks.only(S.litOn ? 'disc' : null);
+  if (say) live(S.litOn ? `공시 있는 ${mapCount()}종목만 밝게 보여요.` : '모든 종목을 다시 보여요.');
 }
 const mapCount = () => { let n = 0; for (const c of S.marks.keys()) if (S.mapSet.has(c)) n++; return n; };
-// shown: live, setting on, a stock map (not 해외 · 지표, not the theme overview), not replaying another day
-const chipWanted = () => S.on && !S.gone && !worldTab() && S.mapSet.size > 0 && !(S.rp && S.rp.kind === 'other');
+const newsCard = () => document.getElementById('news');
+const tabShown = () => S.tabbed && !!window.KHNews && typeof window.KHNews.tab === 'function' && window.KHNews.tab() === 'disc';
+const cardShown = () => { const n = newsCard(); return !!n && !n.hidden && !(n.parentElement && n.parentElement.hidden); };
+// there is something to light: live, setting on, a stock map (not 해외 · 지표, not the theme overview), not replaying another day
+const litUsable = () => S.on && !S.gone && !worldTab() && S.mapSet.size > 0 && !(S.rp && S.rp.kind === 'other');
+// …and its key is on screen (the 오늘 공시 tab of a shown card) — otherwise the map goes back to normal
+const litWanted = () => litUsable() && tabShown() && cardShown();
 const staleNow = () => !!S.data && ((S.tries > 0 && Date.now() - S.okAt > STALE_MS) || (S.data.stale && nowMs() - isoMs(S.data.asOf) > STALE_MS));
-function renderChip() {
-  const slot = document.getElementById('stage-tools');
-  if (!chipWanted()) { if (S.chipOn) setChip(false); if (chip.isConnected) chip.remove(); return; }
-  if (slot && chip.parentNode !== slot) slot.append(chip);
-  const sw = h('i', { class: 'dmsw', 'aria-hidden': 'true' }), ck = h('i', { class: 'ck', 'aria-hidden': 'true' });
-  chip.removeAttribute('title');
+function litOff(why) { lit.setAttribute('aria-disabled', 'true'); lit.dataset.why = why; lit.title = why; }
+function renderLit() {
+  if (!litWanted() && S.litOn) setLit(false);
+  litBox.hidden = !litUsable();                              // theme overview · replay of another day: no key (the tab has its own note)
+  if (litBox.hidden) return;
+  const sw = h('i', { class: 'dmsw', 'aria-hidden': 'true' }), ck = h('i', { class: 'nw-ck', 'aria-hidden': 'true' });
+  const word = [h('span', { class: 'dc-lw' }, '지도에서 ', h('span', { class: 'dc-lx', text: '공시 종목만 ' }), '밝게')];
+  lit.removeAttribute('title'); delete lit.dataset.why;
   if (!S.data && S.loading) {
-    put(chip, ck, icon('spin'), h('span', { text: '공시' }));
-    chip.setAttribute('aria-disabled', 'true'); chip.setAttribute('aria-label', '공시 불러오는 중');
+    put(lit, ck, icon('spin'), word);
+    litOff('공시를 불러오는 중이에요'); lit.setAttribute('aria-label', '지도에서 공시 종목만 밝게 — 공시를 불러오는 중이에요');
   } else if (!S.data) {
-    put(chip, ck, sw, h('span', { text: '공시' }), h('b', { class: 'dc-bad', 'aria-hidden': 'true', text: '!' }));
-    chip.setAttribute('aria-disabled', 'true'); chip.title = '공시를 불러오지 못했어요'; chip.setAttribute('aria-label', '공시를 불러오지 못했어요');
+    put(lit, ck, sw, word, h('b', { class: 'dc-bad', 'aria-hidden': 'true', text: '!' }));
+    litOff('공시를 불러오지 못했어요'); lit.setAttribute('aria-label', '지도에서 공시 종목만 밝게 — 공시를 불러오지 못했어요');
   } else {
     const n = mapCount(), stale = staleNow(), rp = S.rp && S.rp.kind === 'same';
-    put(chip, ck, sw, h('span', { text: '공시' }), h('span', { class: 'dc-n', text: String(n) }), stale ? h('b', { class: 'dc-bad', 'aria-hidden': 'true', text: '!' }) : null);
-    if (n) chip.removeAttribute('aria-disabled'); else chip.setAttribute('aria-disabled', 'true');
-    chip.setAttribute('aria-label', `${isToday() ? '' : dayWord() + ' '}공시 있는 종목만 밝게, ${n}종목${stale ? ' · 몇 분째 새 공시를 받지 못했어요' : ''}${rp ? ` · ${S.rp.hm}까지` : ''}`);
-    if (rp) chip.title = `다시 보기 — ${S.rp.hm}까지 들어온 공시`;
-    else if (!isToday()) chip.title = `${dayLong(S.data.date)} 공시`;
-    if (!n && S.chipOn) setChip(false);
+    put(lit, ck, sw, word, h('span', { class: 'nw-n', text: `${n}종목` }), stale ? h('b', { class: 'dc-bad', 'aria-hidden': 'true', text: '!' }) : null);
+    const pre = isToday() ? '' : dayWord() + ' ', tail = `${stale ? ' · 몇 분째 새 공시를 받지 못했어요' : ''}${rp ? ` · ${S.rp.hm}까지` : ''}`;
+    if (n) {
+      lit.removeAttribute('aria-disabled');
+      if (rp) lit.title = `다시 보기 — ${S.rp.hm}까지 들어온 공시`;
+      else if (!isToday()) lit.title = `${dayLong(S.data.date)} 공시`;
+    } else litOff(rp ? `${S.rp.hm}까지 들어온 ${kindLabel()} 공시가 지도 종목에 없어요` : `지도 종목에 ${kindLabel()} 공시가 ${isToday() ? '아직 ' : ''}없어요`);
+    lit.setAttribute('aria-label', `${pre}공시 있는 종목만 지도에서 밝게, ${n}종목${tail}${n ? '' : ' — ' + lit.dataset.why}`);
   }
-  if (S.chipOn && chip.getAttribute('aria-disabled') === 'true') setChip(false);
+  if (S.litOn && lit.getAttribute('aria-disabled') === 'true') setLit(false);
 }
 
 /* ───────── the legend item: [corner] 공시 26종목 · [big corner] 큰 귀퉁이 = 30분 안 ───────── */
@@ -223,7 +244,8 @@ const more = typeof UI.akey === 'function' ? UI.akey('nw-kbtn nw-more', { idle: 
   : h('button', { type: 'button', class: 'nw-kbtn nw-more', text: '더보기' });
 more.setAttribute('aria-expanded', 'false');
 const credit = h('small', { text: '공시: 금융감독원 DART (OpenDART) — 제목 · 종류만 보여 드려요. 시각은 판세가 처음 본 때예요. 원문은 DART에서 새 탭으로 열려요.' });
-const pane = h('div', { class: 'dc-pane', id: 'news-p-disc' }, h('div', { class: 'nw-sub dc-sub' }, ktabs, onlyBtn), list, h('div', { class: 'nw-ft' }, more, credit));
+// the tab's own row: list filters (공시 종류 · 지도 종목만) first, then the map toggle (wraps to its own line when the card is narrow)
+const pane = h('div', { class: 'dc-pane', id: 'news-p-disc' }, h('div', { class: 'nw-sub dc-sub' }, ktabs, onlyBtn, litBox), list, h('div', { class: 'nw-ft' }, more, credit));
 if (typeof UI.seg === 'function') UI.seg(ktabs);
 
 function listFor(kt = S.kt, only = S.only) {
@@ -331,7 +353,10 @@ const tabSpec = {
   label: () => (!S.data || isToday() ? '오늘 공시' : `${dayLong(S.data.date)} 공시`),
   count: () => (S.data ? String(listFor('mark', true).length) : ''),
   at: atKids,
-  render(L) { S.L = L; renderPanel({ force: true }); },
+  render(L) { S.L = L; renderPanel({ force: true }); renderLit(); },
+  onShow: () => renderLit(),
+  // leaving the tab (시장 뉴스, the card hidden, the tab removed): the map back to normal — its key is no longer on screen
+  onHide() { if (S.litOn) setLit(false); },
 };
 function addTab() {
   if (S.tabbed || !window.KHNews || typeof window.KHNews.addTab !== 'function') return;
@@ -345,6 +370,11 @@ function removeTab() {
 }
 const newsUpdate = () => { if (S.tabbed && window.KHNews && typeof window.KHNews.update === 'function') window.KHNews.update(); };
 const newsRelayout = () => { if (S.tabbed && window.KHNews && typeof window.KHNews.relayout === 'function') window.KHNews.relayout(); };
+// the tab's own row wraps (a narrow card, longer counts): the PC fill measures its rows again so the card keeps its height
+if ('ResizeObserver' in window) {
+  let subH = -1;
+  new ResizeObserver(() => { const hh = pane.firstChild.offsetHeight; if (hh && subH >= 0 && hh !== subH) newsRelayout(); subH = hh; }).observe(pane.firstChild);
+}
 
 ktabs.addEventListener('click', e => {
   const b = e.target.closest('button');
@@ -392,7 +422,7 @@ pane.addEventListener('pointerenter', () => { S.ptr = true; });
 pane.addEventListener('pointerleave', () => { S.ptr = false; flush(); });
 pane.addEventListener('focusout', () => setTimeout(flush, 0));
 
-/* ───────── derive: the rows of the moment (a replay of today: those seen by its time) → corners, chip, legend, lists ───────── */
+/* ───────── derive: the rows of the moment (a replay of today: those seen by its time) → corners, map toggle, legend, lists ───────── */
 function replayState() {
   const rp = typeof KH.replay === 'function' ? KH.replay() : null;
   if (!rp) return null;
@@ -424,11 +454,11 @@ function derive() {
   S.marks = marks;
   if ((sig !== S.markSig || S.fresh.size) && typeof KH.marks === 'object' && KH.marks) { S.markSig = sig; KH.marks.set('disc', marks.size ? marks : null); }
   S.fresh = new Set();
-  if (!show && S.chipOn) setChip(false);
+  if (!show && S.litOn) setLit(false);
   refreshAll();
 }
 function refreshAll() {
-  renderChip(); renderLegend(); renderPanel(); newsUpdate(); renderFoot(); settingCounts();
+  renderLit(); renderLegend(); renderPanel(); newsUpdate(); renderFoot(); settingCounts();
   if (typeof KH.cardExtra === 'object' && KH.cardExtra) KH.cardExtra.refresh();
 }
 function settingCounts() {
@@ -499,7 +529,7 @@ function load(o = {}) {
     let d = null, status = 0, same = null;
     try { const j = await getJSON(); if (j && j.same) same = j; else { d = accept(j); if (d) S.etag = j.__etag || ''; } } catch (e) { status = (e && e.status) || -1; }
     S.loading = false; S.busy = null;
-    // 404 = a Worker without the route (the page went out first): no tab, no chip, no corners — until a reload
+    // 404 = a Worker without the route (the page went out first): no tab, no map toggle, no corners — until a reload
     if (status === 404 && !S.data) { gone(); return false; }
     if (same) {                                            // 304: the same list — only its time moves on (and 새 may have run out)
       S.tries = 0; S.okAt = Date.now(); S.err = false;
@@ -508,7 +538,7 @@ function load(o = {}) {
       return true;
     }
     if (d) { S.tries = 0; S.okAt = Date.now(); S.err = false; setData(d); }
-    else { S.tries++; S.err = !S.data; if (!o.silent) refreshAll(); else { renderChip(); renderLegend(); } }
+    else { S.tries++; S.err = !S.data; if (!o.silent) refreshAll(); else { renderLit(); renderLegend(); } }
     schedule();
     return !!d;
   })();
@@ -528,7 +558,7 @@ function schedule() {
 function gone() {
   S.gone = true; S.data = null;
   clearTimeout(S.timer); S.timer = 0;
-  if (S.chipOn) setChip(false);
+  if (S.litOn) setLit(false);
   if (typeof KH.marks === 'object' && KH.marks) KH.marks.set('disc', null);
   S.markSig = '';
   removeTab();
@@ -545,7 +575,7 @@ function onToggle() {
     schedule();
   } else {
     clearTimeout(S.timer); S.timer = 0;
-    if (S.chipOn) setChip(false);
+    if (S.litOn) setLit(false);
     if (typeof KH.marks === 'object' && KH.marks) KH.marks.set('disc', null);
     S.markSig = '';
     removeTab();
@@ -554,7 +584,7 @@ function onToggle() {
 }
 if (typeof KH.addSetting === 'function') {
   KH.addSetting({ key: 'disc', label: '공시 보기', default: true,
-    hint: 'DART 전자공시를 1분마다 확인해서 지도 타일 귀퉁이 · 공시 칩 · 목록으로 보여 줘요. 끄면 모두 사라지고 받지도 않아요.',
+    hint: 'DART 전자공시를 1분마다 확인해서 지도 타일 귀퉁이 · 툴팁 · 오늘 공시 목록으로 보여 줘요. 끄면 모두 사라지고 받지도 않아요.',
     onChange: v => { S.on = !!v; onToggle(); } });
   KH.addSetting({ key: 'discKinds', label: '지도에 표시할 종류', multi: true, min: 1, default: ['실적', '주요'],
     options: KINDS.map(k => ({ v: k, label: k })),
@@ -568,13 +598,13 @@ if (typeof KH.cardExtra === 'object' && KH.cardExtra) KH.cardExtra.add('disc', b
 document.addEventListener('kh:render', () => {
   const moved = syncMap(), rp = replayState(), rk = rp ? rp.kind + (rp.hm || '') : '';
   if (rk !== S.rpKey) { derive(); schedule(); return; }
-  if (moved) { renderChip(); renderLegend(); renderPanel(); newsUpdate(); settingCounts(); }
-  else renderChip();
+  if (moved) { renderLit(); renderLegend(); renderPanel(); newsUpdate(); settingCounts(); }
+  else renderLit();
   renderFoot();
   schedule();
 });
 document.addEventListener('kh:data', () => {
-  if (syncMap()) { renderChip(); renderLegend(); renderPanel(); newsUpdate(); settingCounts(); return; }
+  if (syncMap()) { renderLit(); renderLegend(); renderPanel(); newsUpdate(); settingCounts(); return; }
   // the chips' % follow the map
   for (const b of list.querySelectorAll('.dc-chip[data-c]')) {
     const q = quoteOf(b.dataset.c), v = b.querySelector('b');
@@ -587,7 +617,7 @@ document.addEventListener('kh:refresh', () => { if (polling()) load(); });
 document.addEventListener('visibilitychange', () => { if (document.hidden) { clearTimeout(S.timer); S.timer = 0; } else schedule(); });
 narrowMQ.addEventListener('change', () => renderLegend());
 // 새 lasts 30 minutes: the corners and dots follow the clock between answers too (once a minute, while visible)
-setInterval(() => { if (S.data && S.on && !document.hidden) { const before = S.markSig; derive(); if (before === S.markSig) renderChip(); } }, 60e3);
+setInterval(() => { if (S.data && S.on && !document.hidden) { const before = S.markSig; derive(); if (before === S.markSig) renderLit(); } }, 60e3);
 
 /* ───────── API ───────── */
 const info = r => { r = String(r || ''); const x = S.data && S.data.rows.find(y => y.r === r); return x ? { s: x.s, isNew: isNew(x), date: S.data.date } : null; };

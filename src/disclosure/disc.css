@@ -1,7 +1,7 @@
 /* 공시 배지 (src/disclosure/disc.js · docs/standards/disclosure.md — C안). drafts/disclosure.html의 C 모양 그대로, 새 공시 표시만 사용자
    2026-11-14 결정대로 "새" 글자 대신 시각 앞의 작은 점(--new-dot). 타일 귀퉁이 · 견본(.dmsw)은 템플릿에 있어요(표 보기도 써서).
    색은 모두 역할 토큰(themes.md §4) + 템플릿의 ✚ --dm-flap · --dm-crease · --dm-cut · --new-dot. 빨강 · 초록은 등락률 숫자에만, 앰버는
-   컨트롤(켜짐 · 포커스 · 실패 표시)에만. */
+   컨트롤(켜짐 · 포커스 · 실패 표시)에만. 지도 머리줄 공시 칩(.dc-hchip)은 오늘 공시 탭의 지도 토글(.dc-lit)로 옮겼어요(사용자 2026-11-14 08:10 요청, 11-15 진행). */
 :root{--dc-badge-r:6px}
 html[data-theme="paper"]{--dc-badge-r:2px}
 html[data-theme^="glass"]{--dc-badge-r:999px}
@@ -14,22 +14,25 @@ html[data-theme^="glass"]{--dc-badge-r:999px}
 .dc-kb{display:inline-block;flex:none;font-size:11px;font-weight:500;line-height:18px;padding:0 6px;border-radius:var(--dc-badge-r);color:var(--fg2);box-shadow:inset 0 0 0 1px var(--line2);white-space:nowrap;letter-spacing:-.01em}
 .dc-kb.fix{color:var(--fg2);box-shadow:none;outline:1px dashed var(--line2);outline-offset:-1px}
 
-/* ── 머리줄 공시 칩 (controls §5-7 켜고 끄기 칩: 채움 + 테 + 체크 0 → 14px) ── */
-.dc-hchip{position:relative;display:inline-flex;align-items:center;gap:0;height:28px;padding:0 11px;border-radius:var(--r-chip);background:var(--chip-bg);box-shadow:var(--key-sh);font-size:12.5px;font-weight:600;color:var(--key-fg);white-space:nowrap;flex:none;
-  transition:background var(--c-fast) var(--c-out),box-shadow var(--c-fast) var(--c-out),transform var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out)}
-.dc-hchip .ck{display:inline-block;width:0;height:14px;opacity:0;transform:scale(.6);background:currentColor;-webkit-mask:var(--ck-mask) center/14px no-repeat;mask:var(--ck-mask) center/14px no-repeat;
-  transition:width var(--c-fast) var(--c-out),opacity var(--c-fast) var(--c-out),transform var(--c-fast) var(--c-out),margin var(--c-fast) var(--c-out)}
-.dc-hchip[aria-pressed="true"]{background:var(--chip-on);box-shadow:inset 0 0 0 1.5px var(--chip-ring),var(--key-sh)}
-.dc-hchip[aria-pressed="true"] .ck{width:14px;opacity:1;transform:none;margin-right:6px}
-.dc-hchip .dmsw,.dc-hchip .kspn{margin-right:7px}
-.dc-hchip .kspn{width:13px;height:13px}
-.dc-hchip .dc-n{margin-left:6px;color:var(--fg2);font-variant-numeric:tabular-nums}
-.dc-hchip .dc-bad{margin-left:5px;color:var(--acc);font-weight:700}
-.dc-hchip:not([aria-disabled="true"]):is(:active,.is-press){transform:translateY(1px);box-shadow:var(--key-dn);filter:var(--press-f);transition-duration:0s}
-.dc-hchip[aria-disabled="true"]{opacity:.45;cursor:not-allowed}
-.dc-hchip[title][aria-disabled="true"]{cursor:help}
-@media (pointer:coarse){ .dc-hchip::before{content:"";position:absolute;left:50%;top:50%;width:max(100%,44px);height:44px;transform:translate(-50%,-50%)} }
-@media (max-width:760px){ .dc-hchip{height:32px;padding:0 10px;font-size:13px} }
+/* ── 오늘 공시 탭의 지도 토글 "지도에서 공시 종목만 밝게 26종목" (사용자 2026-11-14 08:10: 지도 머리줄 공시 칩을 "아래에 뉴스 공시칸으로") ──
+   모양은 옆의 "지도 종목만"과 같은 켜고 끄기 칩(news.css .nw-only — 채움 + 앰버 테 + 체크 0 → 14px, 누르면 1px, 휴대폰 32px · 누르는 곳
+   44px)에 지도 귀퉁이 견본(.dmsw)만 더했어요. 줄이 좁으면 다음 줄로 내려가요(종류 탭이 잘리지 않게). */
+.news .dc-sub{flex-wrap:wrap;row-gap:6px}
+/* 상자(.dc-litw)는 켜진 칩 폭을 늘 차지해요(체크 14 + 6px만큼 왼쪽 여백) — 누르면 칩이 그 여백 쪽으로 자라서 옆 칩도 줄바꿈도 그대로.
+   오른쪽 끝에 붙어요(PC는 줄 끝, 휴대폰은 둘째 줄 오른쪽, 좁아서 내려간 줄도 오른쪽). */
+.news .dc-litw{display:flex;justify-content:flex-end;flex:none;order:7;margin-left:auto;padding-left:20px;min-width:0}
+.news .dc-litw[hidden]{display:none}
+.news .dc-lit{transition:background var(--c-fast) var(--c-out),box-shadow var(--c-fast) var(--c-out),transform var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out),margin var(--c-fast) var(--c-out)}
+.news .dc-lit[aria-pressed="true"]{margin-left:-20px}
+.news .dc-lit .dmsw,.news .dc-lit .kspn{margin-right:7px}
+.news .dc-lit .kspn{width:13px;height:13px}
+.news .dc-lit .dc-bad{margin-left:5px;color:var(--acc);font-weight:700}
+.news .dc-lit[aria-disabled="true"]{opacity:.45;cursor:not-allowed}
+.news .dc-lit[aria-disabled="true"][title]{cursor:help}
+.news .dc-lit[aria-disabled="true"]:active{filter:none}
+/* 좁은 카드(휴대폰 · 980px 근처 PC): "지도에서 밝게 26종목" — 화면 읽기용 이름은 언제나 전체 */
+.news .dc-pane{container:dcpane / inline-size}
+@container dcpane (max-width:820px){ .news .dc-lit .dc-lx{display:none} }
 
 /* ── 범례 항목 ── */
 .legend .dc-lg b{font-variant-numeric:tabular-nums}
