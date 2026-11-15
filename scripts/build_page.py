@@ -75,7 +75,7 @@ def stock_module() -> str:
     # 공시 배지 (docs/standards/disclosure.md §13 ⑧): after news (it adds the 오늘 공시 tab to the news card); the snapshot: a note only
     # 실시간 갱신 (docs/standards/realtime.md §7-1): last — the WebSocket to the hub; it does nothing in the snapshot (KH.MODE)
     return (module("stock", "stock") + module("extras", "extras") + module("world", "world") + module("news", "match") + module("news", "news")
-            + module("disclosure", "disc") + module("live", "live"))
+            + module("disclosure", "disc") + module("live", "live") + module("calendar", "calendar"))   # 일정 tab (AGENTS §3-33): last
 
 
 DATA_FILES = ("themes", "periods", "flows", "market")   # market: /api/market after the close (index spark for the §3-20 header line)

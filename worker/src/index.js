@@ -35,6 +35,7 @@
 // The Worker has no build-generated modules: page and stock universe come from ASSET_BASE.
 
 import { MarketHub, liveRoute, configureLive, configureRelay, relayNews } from './live.js';
+import { calendarRoute } from './calendar.js';   // 증시 캘린더 /api/calendar (AGENTS §3-33, docs/standards/calendar.md)
 export { MarketHub };                // the Durable Object class (wrangler.toml [exports.MarketHub]) must be exported by the main module
 // the hub polls the same rows as /api/quotes (quotesCore is a hoisted function declaration below)
 configureLive((env, ms) => quotesCore(env, null, false, ms));
@@ -119,6 +120,7 @@ export default {
         return await edgeCached(request, ctx, `replay1-${d || 'latest'}-${from}-${to}`, past ? 3600 : 60, () => getReplayMinutes(env, d, from, to));
       }
       if (path === '/api/news') return await getNewsRoute(request, env, ctx);   // 시장 뉴스 RSS (docs/standards/news.md §2-2)
+      if (path === '/api/calendar') return await calendarRoute(request, env, ctx, url);   // 증시 캘린더 (calendar.js)
       if (ASSETS[path]) return await getAsset(request, env, ctx, path);
       m = path.match(/^\/api\/chart\/([^/]+)$/);
       if (m) {

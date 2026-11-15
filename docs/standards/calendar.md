@@ -1,6 +1,7 @@
-# 증시 캘린더 — 설계 시안
+# 증시 캘린더 — 설계와 구현
 
-> **상태: 시안 — 사용자 선택 대기.** 요청: 로드맵 4번(AGENTS §3-23b) "증시 캘린더" — 한국 지표 = 한국은행 ECOS, 미국 지표 = FRED 발표 일정, 금통위 · FOMC = 1년치 직접 입력, 기업 일정 = OpenDART, 중요도 별 = 자체 기준, **Cloudflare $5 말고 추가 요금 0**. 2026-11-15 17:21 추가(§3-32): 금융위원회 **주식발행정보(의무보호예수 반환)** · **주식배당정보**도 캘린더 원천으로.
+> **상태: 결정됨(사용자 2026-11-15 17:52, AGENTS §3-33) · 1단계 구현 `feat/calendar`(§9).** 아래 §0~§8은 결정 전 시안 기록이고, 실제 구현과 다른 곳은 §9가 우선이에요.
+> 처음 요청: 로드맵 4번(AGENTS §3-23b) "증시 캘린더" — 한국 지표 = 한국은행 ECOS, 미국 지표 = FRED 발표 일정, 금통위 · FOMC = 1년치 직접 입력, 기업 일정 = OpenDART, 중요도 별 = 자체 기준, **Cloudflare $5 말고 추가 요금 0**. 2026-11-15 17:21 추가(§3-32): 금융위원회 **주식발행정보(의무보호예수 반환)** · **주식배당정보**도 캘린더 원천으로.
 > 시제품: [`prototypes/calendar/`](../../prototypes/calendar/) — 빌드 밖, 예시 데이터만(`fixture.js`), `?v=a|b|c`. 스크린샷 `qa/shots/calendar/`(§5-5).
 > 위에 있는 규칙: [`design.md`](design.md)(승인). 같이 보는 문서: [`disclosure.md`](disclosure.md)(OpenDART 예산), `datago.md`(공공데이터포털 구현 메모, 다른 에이전트가 작성 예정).
 > 이 문서의 사실은 모두 2026-11-15 KST에 원천을 직접 열어 확인했어요. 대괄호 번호 `[S1]`은 맨 아래 §8 출처 목록이에요. **확인하지 못한 것은 "확인 필요"라고 적었어요.**
@@ -172,7 +173,7 @@
 
 출처 줄(페이지 아래, "투자 판단의 근거로 쓰지 마세요." 위 — §3-30): `일정: 한국은행 경제통계 공표일정 · 미국 지표 FRED®(고지 문구) · 금통위 · FOMC · 휴장은 한국은행 · 연준 · 한국거래소 공지를 보고 직접 넣어요 · 회사 일정: 금융감독원 DART, 금융위원회(한국예탁결제원 자료, 다음 영업일 반영)` + `시각은 모두 한국 시간이에요. 발표 일정은 원천 사정으로 바뀔 수 있어요.`
 
-## 3. 서버 설계 (Worker — 이번엔 설계만)
+## 3. 서버 설계 (시안 당시 — 실제 구현은 §9)
 
 ### 3-1. 경로
 
@@ -311,7 +312,9 @@ Cloudflare(가족 · 지인 규모, 화면 요청 하루 ≤ 2,000번 가정): W
   - `b-390.png` · `b-1440.png` · `c-390.png` · `c-1440.png` · 점검 결과 `check.json`
 - 점검(9장 모두): 가로 넘침 0 · 콘솔 오류 0 · 11px 미만 글자 0 · 휴대폰 44px 미만 누름 영역 0.
 
-## 6. 사용자가 정할 것
+## 6. 사용자가 정할 것 → 결정 (2026-11-15 17:52: "1 추천 2 추천 3 추천 4 추천 5 숨기기 이유? 6 신청할게 7 추천")
+
+결정: 1 = A 일정 탭 · 2 = 넣기 · 3 = "예정"으로 먼저 · 4 = 원문 읽기는 2단계 · 5 = 기본 숨김(17:54 다시 확인) · 6 = 사용자가 신청함(승인 확인 전엔 꺼 둠) · 7 = 값 넣기(색 없이).
 
 1. 화면: **A 일정 탭(추천)** · B 뉴스 카드 탭 · C 시트.
 2. 국가데이터처 지표(소비자물가 · 고용 · 산업활동)도 넣을까요? ECOS · 한국은행 일정표엔 없어요. 넣으면 국가데이터처 공표일정 페이지를 하루 한 번 읽어요.
@@ -370,3 +373,49 @@ Cloudflare(가족 · 지인 규모, 화면 요청 하루 ≤ 2,000번 가정): W
 - [S37] Cloudflare Workers 요금 `https://developers.cloudflare.com/workers/platform/pricing/`
 - [S38] Cloudflare Workers KV 요금 `https://developers.cloudflare.com/kv/platform/pricing/`
 - 저장소의 실제 OpenDART 응답(제목 실례): `qa/stock/fixtures/raw/005930/dart.json` · `qa/stock/fixtures/raw/196170/dart.json`
+
+## 9. 구현 (1단계, `feat/calendar`, 2026-11-15)
+
+### 9-1. 서버 — `worker/src/calendar.js` (+ `index.js` import 한 줄 · 경로 한 줄)
+
+- `GET /api/calendar?from&to[&kinds=kr,us,cb,mkt,corp]` — 모양은 §3-1과 같고 다른 점: `codes` 파라미터 없음(관심종목은 기기에서만), 묶음은 `groups` 배열이 아니라 **이벤트 한 줄**(`id: grp:<종류>:<날짜>`, `grp`, `n`, `codes`), `sources.<id> = {name, ok, at, off?, err?}`(`err`는 짧은 코드만: `timeout` · `network` · `http 503` · `cool` · `cap` …), `manual: '2026-11-15'`(직접 입력 표의 날짜), 발표가 끝난 지표는 `value: {text, src:'ecos'|'fred', p}`. 오류 400(형식 · 순서 · 42일 · ±400일 · kinds), 502는 만들기 실패. ETag는 아직 없어요.
+- 캐시: 엣지 `public, max-age=60, s-maxage=300, stale-while-revalidate=300`(키 `https://panse-cal.internal/v1?from&to&k`).
+- **직접 입력 표는 `web/calendar.json`이 아니라 `calendar.js` 안 상수**(`BOK_MEETINGS` · `FOMC` · `KRX_DAYS` · `FRED_REL`(발표 시각 · 별 · 값 시리즈) · `KR_RULES`(제목 → 별 · ECOS 이름)) — 고치면 Worker 배포(푸시)로 끝나요. 2027 금통위는 `tentative: '보도 기준 — 한국은행 공지 전'`, 2027 FOMC는 "연준: 직전 회의에서 확정", 2026-12-31 연말 휴장 · 2027-01-04 첫 거래일 10:00은 예정.
+- 규칙 계산: 코스피200 옵션 월물 만기(둘째 목요일, 휴장이면 앞당김; 3 · 6 · 9 · 12월은 동시만기 ★3), 위클리(월 · 목, 둘째 목요일과 겹치면 빼고 휴장이면 월은 뒤로 · 목은 앞으로, `weekly:true` — **화면 기본 숨김**), 금통위 의사록(2주 지난 뒤 첫 화요일), FOMC 의사록(+21일 14:00 ET). 미국 시각은 `Intl`(America/New_York)로 서머타임까지 바꿔요.
+- 원천 조각(KV `REPLAY`, `list` 안 씀): `cal:bok` · `cal:kostat` · `cal:fred` · `cal:vals` · `cal:dart` · `cal:fsc` = `{at, ok, data, tried, err}`, 실패해도 `data`는 지난 값 그대로(`stale:true`). 다시 받기는 요청 때만(cron 없음): 처음 한 번은 기다리고(최대 9초), 그 뒤는 `ctx.waitUntil`. colo끼리는 `cal:lock:<id>`(60초), isolate 안은 진행 중 약속 하나.
+
+| 원천 | 주기 | 하루 호출 | 비고 |
+|---|---|---|---|
+| 한국은행 통계공표일정 페이지 | 20시간(실패 30분 뒤) | 1 (11 · 12월은 다음 해 1월 쪽까지 2) | 정직한 UA, robots 허용, 1년치 표 |
+| 국가데이터처 보도계획 `mods.go.kr/newsPln.es` | 20시간 | 2 (이번 달 · 다음 달; 12월은 1 — 페이지가 그해만 줘요) | 소비자물가 · 고용 · 산업활동동향만 |
+| FRED `release/dates` | 20시간 | 13 | `include_release_dates_with_no_data=true` · 시각은 `FRED_REL` 표, 산업생산 · 미시간대는 날짜만("시각 확인 중") |
+| 발표값 ECOS `KeyStatisticList` | 30분(필요할 때만) | ≤ 48 | 한국 지표 · 금통위가 끝난 뒤 20일 안에만, 기간이 맞는 값만 |
+| 발표값 FRED `series/observations` | 30분(필요할 때만) | 보통 0~10 | 발표 60분 뒤부터 7일 안, 그 발표의 값이 들어올 때까지만 · 한 번에 ≤ 8 |
+| OpenDART 무상 · 유상증자 | 평일 07~20시 30분 · 그 밖 3시간 | 오늘 `list.json` B001 · C001 × 코스피 · 코스닥 ≈ 120 + 상세 ≤ 30/회 · **상한 400/일**(`cal:dart:calls:<YYYYMMDD>`) | 공시 배지의 `dart:cool`을 같이 따라요, 지난 60일은 한 번에 평일 6일씩 채워요 |
+| 금융위 배당 · 보호예수 · 권리일정 | 3시간 | **0 (꺼 둠)** | 아래 9-2 |
+
+- 키는 `env`에서만 읽고 요청 URL에만 넣어요 — 응답 · KV · 로그 · 오류 코드에 남지 않아요(점검이 가짜 키로 확인).
+
+### 9-2. 꺼 둔 것 — 금융위(공공데이터포털)
+
+- `GetStocDiviInfoService_V2/getDiviInfo_V2`(배당 기준일 · 지급일) · `GetStocIssuInfoService_V3/getLockUpRetuInfo_V3`(+ `getStocIssuStat_V3`로 상장주식 대비 % → 10 % 이상 ★3 · 3 % 이상 ★2) · **`GetStocRighScheService_V2/getRighExerReasSche_V2`**(권리락 · 명부폐쇄 · 권리행사, 사용자가 2026-11-15 신청) 코드는 들어 있지만 **`env.CAL_FSC === 'on'`이고 공공데이터포털 도우미가 연결됐을 때만** 돌아요. 도우미(`datago.js`, 다른 브랜치)가 아직 병합 전이라 `configureCalendar({fsc: {list(apiId, op, params), codeOfCrno(env, crno)}})`로 끼우게 해 뒀어요.
+- 권리일정은 법인등록번호 → 종목코드(`crnoOf`)로 잇고, 같은 종목의 DART 무상증자 기준일 · 금융위 배당 기준일과 ±3일 안에서 겹치면 빼요.
+- 켜기: datago 병합 → `index.js`에서 `configureCalendar` 연결 → **실제 호출로 권리일정 개발계정 승인 확인** → Worker 변수 `CAL_FSC=on`.
+
+### 9-3. 화면 — `src/calendar/calendar.js · calendar.css` (빌드: 다른 모듈 다음)
+
+- 탭 `일정`(`data-mkt="CAL"`, `state.market 'CAL'`, `#cal`)은 시장 탭 끝. 템플릿은 해외 · 지표처럼 다뤄요(`isWorld()`) — 지도 · 사이드를 숨기고 `<div id="calendar">`에 `KHCal.show()`, 다른 탭이면 `hide()`. 출처 줄 `<p id="foot-cal">`은 면책 줄 위.
+- 휴대폰: 주 띠(세그먼트, ←/→) + 칩(한국 지표 · 미국 지표 · 금리 · 시장 · 기업 | ★★ 이상만 · 위클리 만기) + 고른 날부터 7일 목록 + "다음 7일 보기". 1280px 이상: 월 달력(6주, 칸마다 3줄 + "+N") + "고른 날부터 7일". 누르면 자세히(휴대폰 아래 시트 · 넓으면 떠 있는 판, `<dialog>`, Esc · 바깥 · ×, 포커스는 누른 줄로).
+- 14일 묶음(2024-01-01 월요일 기준)으로 받아 기억, 보이는 동안 30분마다 다시. 저장 `khm.cal = {kinds, hi, weekly}`. 관심종목이면 "관심" 배지 + 별 하나 더(기기에서만).
+- 실패 · 옛 Worker(404) · 빈 날 · 원천 하나 실패(`!` + 문구) · 스냅샷("증시 일정은 실시간 버전에서 볼 수 있어요" + `#cal` 링크)을 각각 문구로.
+
+### 9-4. 점검
+
+- `node qa/worker/test_calendar.mjs` — 21개(가짜 fetch · KV, 네트워크 · 키 없이): 파싱(한국은행 · 국가데이터처 실제 페이지 일부 `qa/calendar/fixtures/`), 서머타임, 만기 규칙, DART 예산 · 쉬기 · 상한, 값 창, 지난 값 유지, 키가 응답 · KV · 로그에 없음, 금융위 켬(가짜 도우미).
+- `python3 qa/calendar/test_calendar.py` — 46개(목 `qa/calendar/mock_cal.py`, `CAL_QA_PORT` 기본 8995): 탭 · 해시 · 지도 숨김, 주 띠 · 목록, 칩 · 저장, 위클리 기본 숨김, 관심 배지, 자세히 · Esc · 포커스, 묶음 15종목, 주 넘기기 · 키보드, 월 달력 · 칸 고르기, 실패 · 404 · 빈 · 느림 · `stale`, 스냅샷, 360 · 390 · 1440 넘침 0 · 11px · 44px · 빨강 · 초록 0 · 콘솔 오류 0.
+
+### 9-5. 배포 뒤 실제로 확인할 것
+
+1. 금융위 권리일정 개발계정 승인(실제 호출 한 번) — 되면 9-2 순서대로 켜기. 그때 배당 · 보호예수가 **앞으로의 날짜**를 주는지도.
+2. `GET /api/calendar` 첫 응답의 `sources`: 한국은행 · 국가데이터처 페이지가 Worker에서 읽히는지(HTML 모양), FRED 앞날 날짜, ECOS 키 값, DART 하루 호출 수(`cal:dart:calls:<날>`).
+3. 산업생산 · 미시간대 발표 시각(지금 날짜만), 2027 금통위 · 한국은행 2027 공표일정 · 거래소 2027 휴장 공지가 올라오면 표 고치기.
