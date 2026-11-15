@@ -97,7 +97,11 @@
 ### 6-3. 구현
 
 - **CSS**: `scripts/springs.mjs`가 위 표를 `linear()` 곡선(12점 안팎, 오차 < 0.5 %) + 길이로 만들어 `:root`에 `--sp-<이름>`, `--sp-<이름>-dur`로 넣어요. 보통 전환은 `transition: transform var(--sp-lead-dur) var(--sp-lead)`.
-- **JS**: 끌기 · 중간에 다시 누름 · 놓을 때 속도처럼 CSS가 못 하는 것은 공용 `KH.spring(el, prop, name)` 하나(닫힌 해, 공용 rAF 하나, 다 서면 rAF 해제, 숨은 탭이면 끝값). 모듈마다 따로 만들지 않아요(숫자 굴림 · 고리도 공용 하나로).
+- **JS**: 끌기 · 중간에 다시 누름 · 놓을 때 속도처럼 CSS가 못 하는 것은 공용 **`KH.spring`** 하나(`src/ui/spring.js`, API 전체는 AGENTS §3-7). 모듈마다 따로 만들지 않아요(숫자 굴림 · 고리도 이걸로 옮겨요).
+  - **값 하나**: `const h = KH.spring.animate({from, to, name: 'value', onUpdate: v => …})` — 목표가 바뀌면 `h.retarget(새 목표)`(지금 속도 그대로 이어받아 멈칫하지 않아요). 데이터(넘침 0)는 `value` · `roll` · `roll-w`, 화려하게에서만 움직일 것은 `fancy: true`.
+  - **표시(세그먼트 · 탭 · 밑줄)**: 고를 때마다 `KH.spring.edges(표시, {left, width})` — 가는 쪽 가장자리 `lead`, 뒤 `trail`로 늘었다 줄며 도착. 첫 호출은 자리만 잡고, 키보드로 연달아 옮길 때는 `.set(box)`(§8).
+  - **스위치**: `KH.spring.knob(손잡이, x, {width})` — 앞 `follow` · 뒤 `settle`, 3px 안에서 늘어남. 끌기 중엔 `.set(x)`, 놓을 때 `KH.spring.release(손잡이, 속도px/ms, {points: [0, 끝], maxOvershoot: 1})`(0.11px/ms 넘으면 던짐, §8). 시트 · 티커 튕김도 같은 `release`.
+  - 엔진이 맡는 것: 이름 붙은 스프링은 `--sp-<이름>-kc`에서(§6-2 표와 같은 값), 질량 1 닫힌 해, 공용 rAF 하나(다 서면 해제), 한 프레임 ≤ 0.1초, 줄이기 · 숨은 탭이면 끝값, `will-change`는 helper가 움직이는 동안만(§6-5). 모듈은 `onUpdate`에서 **쓰기만** 하고 레이아웃을 읽지 않아요(위치는 미리 잰 숫자로).
 - **효과 단계**: 줄이기 = 끝 상태만(모든 길이 0) · 기본 = 누름 · 표시 이동 · 글자 바꿈 · 열림/닫힘 · 화려하게 = + 숫자 굴림 · 섬 · 완료 pop · 첫 진입. 줄이기 장치는 `html[data-motion]` 하나.
 
 ### 6-4. 모양 안에서 글자 바꾸기
