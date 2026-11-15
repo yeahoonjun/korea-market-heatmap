@@ -115,7 +115,7 @@ export function overBudget(g, lim, ms) {
 /* ── delta rules: the page's applyPatch must stay identical (realtime.md §5-3) ──
    patch = {c, …only the keys that changed}; null = key removed; nx is merged key by key (null = NXT gone, a new nx comes whole).
    FAST keys every tick, SLOW keys every SLOW_EVERY-th tick. The hub keeps rows exactly as the pages hold them. */
-const FAST = ['p', 'd', 'r', 'lim', 'op', 'hi', 'lo'];
+const FAST = ['p', 'd', 'r', 'lim', 'op', 'hi', 'lo', 'hx'];   // hx = 거래정지 (§3-37 ⓐ): 1 while halted, null when lifted
 const SLOW = ['cap', 'tv', 'v'];
 const NX_FAST = ['p', 'd', 'r', 's', 'o', 'op', 'hi', 'lo'];
 const NX_SLOW = ['v', 'tv', 't'];

@@ -91,11 +91,12 @@ const row = i => {
   const r = { c: String(100000 + i).slice(-6), n: '종목' + i, m: i % 2 ? 'K' : 'Q', s: '섹터', i: '업종', cap: 1000 + i, p, d, r: Math.round(d / (p - d) * 10000) / 100, tv: Math.round(rnd() * 5000), v: Math.round(rnd() * 1e7) };
   if (rnd() < 0.9) { r.op = p - 100; r.hi = p + 200; r.lo = p - 300; }
   if (rnd() < 0.02) r.lim = 1;
+  if (rnd() < 0.02) r.hx = 1;                    // 거래정지 (AGENTS §3-37 ⓐ)
   if (rnd() < 0.8) r.nx = { p, d, r: r.r, s: 'reg', o: 1, t: '2026-11-16T10:00:00+09:00', v: 100, tv: 1, op: p, hi: p, lo: p };
   return r;
 };
 const rows = Array.from({ length: 600 }, (_, i) => row(i));
-const FAST = ['p', 'd', 'r', 'lim', 'op', 'hi', 'lo'], SLOW = ['cap', 'tv', 'v'], NXF = ['p', 'd', 'r', 's', 'o', 'op', 'hi', 'lo'], NXS = ['v', 'tv', 't'];
+const FAST = ['p', 'd', 'r', 'lim', 'op', 'hi', 'lo', 'hx'], SLOW = ['cap', 'tv', 'v'], NXF = ['p', 'd', 'r', 's', 'o', 'op', 'hi', 'lo'], NXS = ['v', 'tv', 't'];
 function mutate(o) {
   const n = cloneRow(o);
   for (const k of [...FAST, ...SLOW]) if (rnd() < 0.3) { if (rnd() < 0.1) delete n[k]; else n[k] = Math.round((n[k] || 1000) * (1 + (rnd() - 0.5) / 50)); }
@@ -124,6 +125,15 @@ t('fast tick: FAST keys from new, SLOW keys from old (12,000 pairs)', () => {
 });
 t('no change → no patch', () => { for (const o of rows.slice(0, 50)) assert.equal(diffRow(o, cloneRow(o), true), null); });
 t('a price tick is a small patch {c, p, d, r}', () => { const o = rows[0], n = cloneRow(o); n.p += 100; n.d += 100; n.r += 0.05; delete n.nx; const o2 = cloneRow(o); delete o2.nx; assert.deepEqual(Object.keys(diffRow(o2, n, false)).sort(), ['c', 'd', 'p', 'r']); });
+t('hx (거래정지) is a fast key: halt → {c, hx:1} on a fast tick, lifted → {c, hx:null}, and the page row follows', () => {
+  const o = cloneRow(rows[0]); delete o.hx; const n = cloneRow(o); n.hx = 1;
+  assert.deepEqual(diffRow(o, n, false), { c: o.c, hx: 1 });
+  const back = cloneRow(n); delete back.hx;
+  assert.deepEqual(diffRow(n, back, false), { c: o.c, hx: null });
+  const page = applyPatch(cloneRow(n), diffRow(n, back, false));
+  assert.ok(!('hx' in page));
+  assert.equal(applyPatch(cloneRow(o), diffRow(o, n, false)).hx, 1);
+});
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
