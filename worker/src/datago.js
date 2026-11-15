@@ -39,6 +39,7 @@ export const DG_APIS = {
   issu: { id: 'issu', path: '/1160100/GetStocIssuInfoService_V3', name: '금융위원회_주식발행정보', cap: 1000 },
   divi: { id: 'divi', path: '/1160100/GetStocDiviInfoService_V2', name: '금융위원회_주식배당정보', cap: 1000 },
   corp: { id: 'corp', path: '/1160100/service/GetCorpBasicInfoService_V2', name: '금융위원회_기업기본정보', cap: 1000 },
+  rights: { id: 'rights', path: '/1160100/GetStocRighScheService_V2', name: '금융위원회_주식권리일정정보', cap: 200 },   // 증시 캘린더 (calendar.js, AGENTS §3-33)
 };
 
 /* ── errors ─────────────────────────────── */

@@ -78,7 +78,8 @@ def stock_module() -> str:
     # 정책 자료 (docs/standards/policy-feeds.md §5): after disclosure — the third tab of the news card; the snapshot: a note only
     # 실시간 갱신 (docs/standards/realtime.md §7-1): last — the WebSocket to the hub; it does nothing in the snapshot (KH.MODE)
     return (module("ui", "spring") + module("stock", "stock") + module("extras", "extras") + module("world", "world") + module("news", "match") + module("news", "news")
-            + module("disclosure", "disc") + module("policy", "policy") + module("live", "live"))
+            + module("disclosure", "disc") + module("policy", "policy") + module("live", "live")
+            + module("calendar", "calendar"))   # 일정 tab (AGENTS §3-33): last
 
 
 DATA_FILES = ("themes", "periods", "flows", "market")   # market: /api/market after the close (index spark for the §3-20 header line)

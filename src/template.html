@@ -677,6 +677,8 @@ html[data-tone="light"] .tile.flash-dn::after{box-shadow:inset 0 0 0 2px var(--d
 .no-d3 .side,.no-d3 .legend,.no-d3 .tools,.no-d3 .stagebar,.no-d3 .tabs{display:none}
 /* 해외 / 원자재 tabs: src/world fills #world; the map, table, side cards and stock-only tools step aside */
 main.layout[hidden],#world[hidden]{display:none}
+/* 일정 tab (src/calendar): no map tools there — only search and the 화면 settings stay */
+.is-cal .ctls .ctl:not(.more),.is-cal #extras-tools{display:none}
 .is-world .ctl[data-ctl="sizeBy"],.is-world .ctl[data-ctl="flowWin"],.is-world .ctl[data-ctl="colorBy"],.is-world .ctl[data-ctl="topN"]{display:none}
 .world-missing{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-height:320px;padding:24px;text-align:center;color:var(--muted);font-size:14px;line-height:1.6;background:var(--panel);border:1px solid var(--line);border-radius:10px}
 .world-missing b{color:var(--fg);font-size:16px}
@@ -1261,6 +1263,7 @@ html[data-theme="paper"] .ss-list > button[aria-selected="true"]{background:var(
     <button data-mkt="WORLD" aria-label="해외 지수">해외</button>
     <button data-mkt="CMDTY">지표</button>
     <button data-mkt="WATCH" aria-label="관심종목"><span class="tn"><span class="st" aria-hidden="true">★</span>관심</span><span class="tp" aria-hidden="true"></span></button>
+    <button data-mkt="CAL" aria-label="증시 일정">일정</button>
   </div>
   <div class="idx" id="idx"></div>
   <div class="status" id="status"><span class="dot"></span><span id="live-mark" hidden></span><span class="txt"></span><span class="tshort"></span>
@@ -1335,6 +1338,7 @@ html[data-theme="paper"] .ss-list > button[aria-selected="true"]{background:var(
   <section class="card news" id="news" hidden></section><!-- 시장 뉴스 (src/news, docs/standards/news.md §4): PC = 지도 열 두 번째 줄 -->
 </main>
 <div id="world" hidden></div>
+<div id="calendar" hidden></div><!-- 일정 tab (src/calendar, AGENTS §3-33) -->
 
 <footer id="foot"></footer>
 
@@ -1447,13 +1451,13 @@ if (typeof d3 === 'undefined' || !d3 || typeof d3.treemap !== 'function') {
 const MODE = document.documentElement.dataset.mode === 'live' ? 'live' : 'snapshot';
 const LIVE_URL = 'https://panse.pages.dev/';
 const SNAP = JSON.parse(document.getElementById('snapshot').textContent);
-const MKT_NAME = { K: '코스피', Q: '코스닥', ALL: '전체', THEME: '테마', WORLD: '해외', CMDTY: '지표', WATCH: '관심종목' };
+const MKT_NAME = { K: '코스피', Q: '코스닥', ALL: '전체', THEME: '테마', WORLD: '해외', CMDTY: '지표', WATCH: '관심종목', CAL: '일정' };
 // 지표 = 원자재 · 환율 · 금리 (AGENTS §3-28, user 2026-11-13 23:20). MKT_NAME.CMDTY is the one place for its name: the button, src/world and extras read it
 { const b = document.querySelector('.tabs button[data-mkt="CMDTY"]'); if (b) { b.textContent = MKT_NAME.CMDTY; b.setAttribute('aria-label', MKT_NAME.CMDTY + ': 원자재 · 환율 · 금리'); } }
-const HASH_TO = { kospi: 'K', kosdaq: 'Q', all: 'ALL', theme: 'THEME', world: 'WORLD', cmdty: 'CMDTY', watch: 'WATCH' };
-const TO_HASH = { K: 'kospi', Q: 'kosdaq', ALL: 'all', THEME: 'theme', WORLD: 'world', CMDTY: 'cmdty', WATCH: 'watch' };
+const HASH_TO = { kospi: 'K', kosdaq: 'Q', all: 'ALL', theme: 'THEME', world: 'WORLD', cmdty: 'CMDTY', watch: 'WATCH', cal: 'CAL' };
+const TO_HASH = { K: 'kospi', Q: 'kosdaq', ALL: 'all', THEME: 'theme', WORLD: 'world', CMDTY: 'cmdty', WATCH: 'watch', CAL: 'cal' };
 // 해외 / 원자재 tabs: src/world draws them (window.KHWorld) in <div id="world">; the map, table, side cards and stock tools step aside
-const WORLD_KIND = { WORLD: 'index', CMDTY: 'commodity' };
+const WORLD_KIND = { WORLD: 'index', CMDTY: 'commodity', CAL: 'calendar' };   // 'calendar' = src/calendar (window.KHCal) in <div id="calendar">
 function parseHash(hsh) {
   const m = /^theme-(\d{1,7})$/.exec(hsh);
   if (m) return { m: 'THEME', theme: +m[1] };
@@ -1824,7 +1828,7 @@ if (![1, 5, 20].includes(state.flowWin)) state.flowWin = 5;
 if (!COLOR_METRICS[state.colorBy]) state.colorBy = 'r';
 if (!MKT_NAME[state.market]) state.market = 'Q';
 if (state.market !== 'THEME') state.theme = null;
-const isWorld = () => state.market === 'WORLD' || state.market === 'CMDTY';
+const isWorld = () => state.market === 'WORLD' || state.market === 'CMDTY' || state.market === 'CAL';   // CAL (일정) steps the map aside the same way
 // tile marks (KH.marks, disclosure.md §13 ②): name → Map(code → {size, label, title, fresh}); MARK_ONLY = the name whose marks light the map
 const MARKS = new Map(), NO_MARKS = new Map();
 let MARK_ONLY = null;
@@ -4974,7 +4978,8 @@ function disclaimP() { return h('p', { class: 'disclaim', text: '투자 판단�
 function renderFooter() {
   const asOf = DATA.asOf ? kstFmt.format(new Date(DATA.asOf)) : '';
   if (isWorld()) {
-    $('#foot').replaceChildren(h('p', {}, '데이터: 네이버 증권 (finance.naver.com).'), creditLine(), disclaimP());
+    const C = window.KHCal, calP = state.market === 'CAL' ? h('p', { id: 'foot-cal', text: C && C.footText ? C.footText() : '' }) : null;   // 일정: its sources
+    $('#foot').replaceChildren(calP || h('p', {}, '데이터: 네이버 증권 (finance.naver.com).'), creditLine(), disclaimP());
     return;
   }
   const k = kind();
@@ -5087,17 +5092,20 @@ let worldShown = null;     // the kind KHWorld is showing
 // opening …/#world lands on the element with that id, so the browser's fragment scroll would hide the header: undo it once loaded
 if (/^#(world|cmdty)$/.test(location.hash)) addEventListener('load', () => setTimeout(() => { if (scrollY) scrollTo(0, 0); }, 0), { once: true });
 function syncWorld(boot) {
-  const want = isWorld() ? WORLD_KIND[state.market] : null;
-  const box = $('#world');
+  const want = isWorld() ? WORLD_KIND[state.market] : null, isCal = want === 'calendar';
+  const box = $(isCal ? '#calendar' : '#world');
   document.documentElement.classList.toggle('is-world', !!want);
-  box.hidden = !want;
-  $('main.layout').hidden = !!want;          // the map, table and side cards step aside; #world (a sibling) takes their place
-  const W = window.KHWorld;
-  if (!want) {
-    if (worldShown && W && typeof W.hide === 'function') { try { W.hide(); } catch (e) { /* the module cleans up itself */ } }
+  document.documentElement.classList.toggle('is-cal', isCal);
+  $('#world').hidden = !want || isCal; $('#calendar').hidden = !isCal;
+  $('main.layout').hidden = !!want;          // the map, table and side cards step aside; #world / #calendar (siblings) take their place
+  // leaving the module that is showing (해외 ↔ 지표 stay with KHWorld.show(kind))
+  if (worldShown && (!want || (worldShown === 'calendar') !== isCal)) {
+    const P = worldShown === 'calendar' ? window.KHCal : window.KHWorld;
+    if (P && typeof P.hide === 'function') { try { P.hide(); } catch (e) { /* the module cleans up itself */ } }
     worldShown = null;
-    return;
   }
+  if (!want) return;
+  const W = isCal ? window.KHCal : window.KHWorld;
   if (worldShown === want) return;
   if (W && typeof W.show === 'function') {
     try { W.show(want); worldShown = want; return; } catch (e) { /* fall through to the message */ }
@@ -6028,7 +6036,7 @@ window.KH = {
   // (reference rows such as VIX left out) before drawing them; when the 자동 step moves the scale is rebuilt and 'kh:palette' fires
   rangeInfo: () => ({ value: curRange(), auto: rangeAuto(), pick: rangePick(), p95: AUTO.p.has(autoScope()) ? AUTO.p.get(autoScope()) : null, scope: autoScope() }),
   feedRange,
-  market: () => ({ THEME: 'theme', WATCH: 'watch', WORLD: 'world', CMDTY: 'cmdty' })[state.market] || state.market,
+  market: () => ({ THEME: 'theme', WATCH: 'watch', WORLD: 'world', CMDTY: 'cmdty', CAL: 'cal' })[state.market] || state.market,
   basis: basisId,
   ui: KHUI,
   // themes.md: 'base' | 'paper' | 'glass-dark' | 'glass-light' (<html data-theme>, data-tone 'dark' | 'light'); 'kh:theme' {theme} on change
@@ -6484,7 +6492,7 @@ function dkWant() {
   if (openWins() || kbdOpen()) return false;
   const lim = innerHeight - DOCK_OUT;
   if (isWorld()) {
-    const w = $('#world'), geo = w.querySelector('.kw-geo:not([hidden])'), bar = w.querySelector('.kw-bar');
+    const w = $(state.market === 'CAL' ? '#calendar' : '#world'), geo = w.querySelector('.kw-geo:not([hidden])'), bar = w.querySelector('.kw-bar');
     if (geo && geo.offsetHeight) return geo.getBoundingClientRect().bottom <= lim;
     return w.offsetHeight > 0 && (bar || w).getBoundingClientRect().bottom <= stuckBottom();
   }
