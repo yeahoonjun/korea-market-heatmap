@@ -414,7 +414,7 @@ def run(br):
     pg.evaluate("scrollTo(0, document.documentElement.scrollHeight)"); pg.wait_for_timeout(700)
     if SHOTS:
         pg.screenshot(path='/tmp/news_390_expanded.png')
-    end = pg.evaluate("""() => { const f = document.querySelector('#foot .credit').getBoundingClientRect(), dock = document.querySelector('.dock, #dock, [class*="dock"]');
+    end = pg.evaluate("""() => { const f = document.querySelector('#foot > :last-child').getBoundingClientRect(), dock = document.querySelector('.dock, #dock, [class*="dock"]');
       const d = dock && getComputedStyle(dock).display !== 'none' ? dock.getBoundingClientRect() : null; return { foot: f.bottom, dockTop: d ? d.top : null, vh: innerHeight }; }""")
     check('phone 더보기 → 30 rows; at the very end the last line clears the dock', n30 == 30 and (end['dockTop'] is None or end['foot'] <= end['dockTop']), end)
     pg.evaluate("scrollTo(0, document.documentElement.scrollHeight)"); pg.wait_for_timeout(300)

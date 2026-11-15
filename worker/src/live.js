@@ -12,7 +12,13 @@
 // read of the kill-switch key `live:off`.
 //
 // No `import … from 'cloudflare:workers'`: a plain class keeps index.js importable by the Node test harnesses (qa/worker/*).
-import { LIVE_POLL_MS, GATE_TTL, RING, SLOW_EVERY, HB_MS, UNIT, IDLE_RESET_MS, HOLIDAY_LATCH_MS, limitsFrom, kst, openAt, sessionState, isHoliday, validBody, newGuard, roll, charge, overBudget, diffRow, applyPatch, cloneRow, sameJson } from './live_core.js';
+//
+// The same class also answers one internal route for the 시장 뉴스 relay (docs/standards/news.md §2-6): a SEPARATE instance
+// `idFromName('news-relay')`, created with locationHint 'enam', does one RSS fetch for an allow-listed outlet so the request
+// leaves from eastern North America instead of the reader's (Korean) data centre. That instance never accepts sockets, never
+// sets an alarm, never polls and never touches the hub's budget counters (`guard`): its own day cap lives under its own
+// storage key `relay`. The 'top' hub is not involved at all.
+import { LIVE_POLL_MS, GATE_TTL, RING, SLOW_EVERY, HB_MS, UNIT, IDLE_RESET_MS, HOLIDAY_LATCH_MS, limitsFrom, kst, nextKstMidnight, openAt, sessionState, isHoliday, validBody, newGuard, roll, charge, overBudget, diffRow, applyPatch, cloneRow, sameJson } from './live_core.js';
 
 const PROTO = 1;
 const ORIGINS = ['https://panse.pages.dev', 'https://korea-market-heatmap.ssslot.workers.dev'];
@@ -107,6 +113,50 @@ async function stateRoute(request, env, ctx, url) {
   return res;
 }
 
+/* ── 시장 뉴스 relay (docs/standards/news.md §2-6) ─────────────────────────────── */
+// Worker side: relayNews(env, src, waitMs, base) → the outlet's answer as the relay saw it {ok, status?, items?, error?, egress?},
+// or {ok:false, infra:true, error:'relay …'} when the relay itself could not answer (then the caller fetches directly).
+// DO side: MarketHub.fetch → relay() for RELAY_PATH only. Budget: RELAY_DAY_MAX requests per KST day, counted by the relay
+// instance in its own storage; over it the relay answers 503 'relay budget' and the Worker remembers that per data centre in
+// the Cache API until the next KST midnight, so a tripped relay costs no further Durable Object requests there.
+export const RELAY_NAME = 'news-relay', RELAY_HINT = 'enam', RELAY_PATH = '/__relay/news';
+export const RELAY_DAY_MAX = 1500;            // DO requests per KST day (normal use 100–300; one data centre at most 480)
+export const RELAY_MEMO_MS = 60e3;            // a good answer is reused for this long by the relay (several data centres at once)
+let RELAY = null;                             // {has(src) → bool, fetch(src) → Promise<result>}: the news code of index.js
+export function configureRelay(r) { RELAY = r; }
+const relayRes = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' } });
+const relayGateKey = base => new Request(new URL('/__cache/news-relay-gate', base).toString());
+
+export async function relayNews(env, src, waitMs, base) {
+  if (!env || !env.MARKET) return { ok: false, infra: true, error: 'relay off' };
+  const cache = typeof caches !== 'undefined' && base ? caches.default : null;
+  if (cache) {
+    try { const hit = await cache.match(relayGateKey(base)); if (hit) { const j = await hit.json(); if (j && j.retryAt > Date.now()) return { ok: false, infra: true, error: 'relay budget', gate: true }; } }
+    catch (e) { /* the gate is an optimisation: the relay still counts and refuses */ }
+  }
+  let timer;
+  const late = new Promise(res => { timer = setTimeout(() => res(null), waitMs); });
+  try {
+    const stub = env.MARKET.get(env.MARKET.idFromName(RELAY_NAME), { locationHint: RELAY_HINT });
+    const r = await Promise.race([stub.fetch(new Request(`https://news-relay.internal${RELAY_PATH}?src=${encodeURIComponent(src)}`)), late]);
+    if (!r) return { ok: false, infra: true, error: 'relay timeout' };
+    let j = null;
+    try { j = await r.json(); } catch (e) { /* not JSON */ }
+    if (r.status === 503 && j && j.error === 'relay budget') {
+      const retryAt = Number(j.retryAt) || Date.now() + 600e3;
+      if (cache) {
+        const ttl = Math.max(60, Math.min(86400, Math.ceil((retryAt - Date.now()) / 1000)));
+        try { await cache.put(relayGateKey(base), new Response(JSON.stringify({ retryAt }), { headers: { 'content-type': 'application/json', 'cache-control': `public, max-age=${ttl}` } })); } catch (e) { /* see above */ }
+      }
+      return { ok: false, infra: true, error: 'relay budget' };
+    }
+    if (r.status !== 200 || !j || typeof j !== 'object') return { ok: false, infra: true, error: 'relay http ' + r.status };
+    return j;
+  } catch (e) {
+    return { ok: false, infra: true, error: 'relay unreachable' };
+  } finally { clearTimeout(timer); }
+}
+
 /* ── the hub ─────────────────────────────── */
 export class MarketHub {
   constructor(state, env) {
@@ -176,6 +226,10 @@ export class MarketHub {
 
   async fetch(request) {
     const url = new URL(request.url);
+    // the news relay: answered before anything of the hub runs (no begin/finish → no guard charge, no storage write of
+    // `guard`, no socket, no alarm). Only the Worker can reach this path — public /api/live requests reach the 'top' hub
+    // with their own pathname.
+    if (url.pathname === RELAY_PATH) return this.relay(request, url);
     const t0 = this.begin(UNIT);
     try {
       if (isLocal(url.hostname) && !this.devHost) { this.devHost = true; try { await this.state.storage.put('devHost', true); } catch (e) { } }
@@ -263,6 +317,27 @@ export class MarketHub {
       if (closed) { this.shutdown('closed', closed); return; }
       await this.state.storage.setAlarm(Math.max(t0 + (ok ? LIVE_POLL_MS : this.backoff), Date.now() + 250));
     } finally { this.polling = false; await this.finish(t0); }
+  }
+
+  // one RSS fetch for an allow-listed outlet key (never a URL) → {ok, status?, items?, error?, egress?}
+  async relay(request, url) {
+    if (request.method !== 'GET') return relayRes({ ok: false, error: 'GET만 받아요' }, 405);
+    const name = this.state && this.state.id && this.state.id.name;            // where the runtime tells us, only the relay instance answers
+    if (typeof name === 'string' && name !== RELAY_NAME) return relayRes({ ok: false, error: 'not the relay instance' }, 404);
+    const src = url.searchParams.get('src') || '';
+    if (!RELAY || !/^[a-z]{1,16}$/.test(src) || !RELAY.has(src)) return relayRes({ ok: false, error: 'unknown outlet' }, 400);
+    const now = Date.now(), day = kst(now).day;
+    if (!this.rc) { try { this.rc = await this.state.storage.get('relay'); } catch (e) { this.rc = null; } }
+    if (!this.rc || this.rc.day !== day) this.rc = { day, n: 0 };
+    if (this.rc.n >= RELAY_DAY_MAX) return relayRes({ ok: false, error: 'relay budget', retryAt: nextKstMidnight(now) }, 503);
+    this.rc.n++;
+    try { await this.state.storage.put('relay', this.rc); } catch (e) { /* counted in memory; the Worker's edge cache still spaces the calls */ }
+    const memo = this.relayMemo && this.relayMemo[src];
+    if (memo && now - memo.at < RELAY_MEMO_MS) return relayRes(memo.res);
+    let res;
+    try { res = await RELAY.fetch(src); } catch (e) { res = { ok: false, error: 'network' }; }
+    if (res && res.ok) (this.relayMemo || (this.relayMemo = {}))[src] = { at: now, res };
+    return relayRes(res || { ok: false, error: 'network' });
   }
 
   dropRows() { this.rows = null; this.ring = []; this.snap = null; this.ver = 0; this.epoch = newEpoch(); }
