@@ -473,6 +473,65 @@ a.sp-rp:visited .sp-rp-t { color: var(--fg2); }
 .sp-rp-m .br { color: var(--fg2); }
 .sp-ci-src { margin: 0; padding: 4px 0 6px; }
 
+/* ── 종목 정보: 공공데이터포털 — 대차잔고 · 배당 내역 · 기업 정보 (AGENTS §3-32, design.md 토큰) ── */
+.sp-ci-src + .sp-ci { border-top: 1px solid var(--line); padding-top: 14px; }
+.sp-sdg-src { margin: var(--space-4) 0 0; font-size: var(--fs-xs); line-height: var(--lh-ui, 1.25); color: var(--muted); }
+.sp-sdg-src .st { color: var(--fg2); }
+.sp-sdg-wait { gap: var(--space-3); }
+/* 대차잔고: 큰 숫자 + 중립색 증감(가격이 아니라 빨강·초록 없음) + 60영업일 선(계열색) */
+.sp-lb-hd { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: var(--space-4) var(--space-6); }
+.sp-lb-v { display: flex; flex-direction: column; gap: var(--space-1); margin: 0; min-width: 0; }
+.sp-lb-v b { font-size: var(--fs-2xl); line-height: var(--lh-num, 1.1); font-weight: 700; letter-spacing: -.01em; }
+.sp-lb-v .chg { font-size: var(--fs-sm); line-height: var(--lh-ui, 1.25); color: var(--fg2); }
+.sp-lb-kv { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-6); margin: 0; }
+.sp-lb-kv > div { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; }
+.sp-lb-kv dt { font-size: var(--fs-xs); color: var(--muted); }
+.sp-lb-kv dd { margin: 0; font-size: var(--fs-md); font-weight: 600; color: var(--fg); white-space: nowrap; }
+.sp-lb-fig { margin: var(--space-5) 0 0; }
+.sp-lb-fig .plot { position: relative; height: 64px; }
+.sp-lb-fig svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.sp-lb-fig .ln { fill: none; stroke: var(--s1); stroke-width: 1.75; vector-effect: non-scaling-stroke; stroke-linejoin: round; stroke-linecap: round; }
+.sp-lb-fig .area { fill: color-mix(in srgb, var(--s1) 12%, transparent); stroke: none; }
+.sp-lb-fig .pt { position: absolute; width: 8px; height: 8px; margin: -4px 0 0 -4px; border-radius: 50%; background: var(--page); box-shadow: inset 0 0 0 2px var(--s1); }
+.sp-lb-x { display: flex; justify-content: space-between; gap: var(--space-3); margin-top: var(--space-2); font-size: var(--fs-xs); line-height: var(--lh-ui, 1.25); color: var(--muted); white-space: nowrap; }
+.sp-lb-x .mid { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+/* 배당 내역 (배당 칸 아래) */
+.sp-dvx { margin-top: var(--space-6); }
+.sp-dvx[hidden] { display: none; }
+.sp-dvx-h { display: flex; align-items: baseline; gap: var(--space-3); margin: 0 0 var(--space-2); font-size: var(--fs-lg); font-weight: 700; }
+.sp-dvx-h small { font-size: var(--fs-xs); font-weight: 500; color: var(--muted); }
+.sp-dvx-t { margin-top: 0; }
+.sp-dvx-t th { position: static; background: none; font-size: var(--fs-xs); }
+.sp-dvx-t td { font-size: var(--fs-md); }
+.sp-dvx-t td small { display: block; font-size: var(--fs-xs); color: var(--muted); }
+.sp-dvx-empty { padding: var(--space-3) 0; font-size: var(--fs-md); color: var(--fg2); }
+.sp-dvx .sp-retry { margin-top: var(--space-2); }
+/* 기업 정보: 짧은 키 · 값 칸 + 계열회사 · 종속기업 목록(판만 자라는 "모두 보기", design.md §7) */
+.sp-cp-kv { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 var(--space-6); margin: 0; }
+.sp-cp-kv > div { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; padding: var(--space-4) 0; border-bottom: 1px solid var(--sp-hair); }
+.sp-cp-kv > div.wide { grid-column: 1 / -1; }
+.sp-cp-kv dt { font-size: var(--fs-xs); line-height: var(--lh-ui, 1.25); color: var(--muted); }
+.sp-cp-kv dd { margin: 0; font-size: var(--fs-md); line-height: var(--lh-text, 1.45); color: var(--fg); word-break: keep-all; overflow-wrap: anywhere; }
+.sp-cp-kv > div.num dd { font-variant-numeric: tabular-nums; }
+@container (min-width: 470px) { .sp-cp-kv { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.sp-cp-link { display: inline-flex; align-items: center; min-height: 40px; color: var(--fg); text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--muted); overflow-wrap: anywhere; word-break: break-all; }
+.sp-cp-sec { margin-top: var(--space-6); }
+.sp-cp-h { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-1) var(--space-3); margin: 0 0 var(--space-3); font-size: var(--fs-lg); font-weight: 700; }
+.sp-cp-h small { font-size: var(--fs-xs); font-weight: 500; color: var(--muted); }
+.sp-cp-grow { position: relative; z-index: 0; padding: var(--space-4) var(--space-5); }
+.sp-cp-skin { position: absolute; inset: 0; z-index: -1; border-radius: var(--r-row); background: var(--fill-1); box-shadow: inset 0 0 0 1px var(--sp-hair); pointer-events: none; }
+.sp-cp-anim .sp-cp-skin { bottom: auto; }
+.sp-cp-names { display: flex; flex-wrap: wrap; gap: var(--space-3) var(--space-5); margin: 0; padding: 0; list-style: none; font-size: var(--fs-md); line-height: var(--lh-row, 1.3); color: var(--fg); }
+.sp-cp-names li { display: inline-flex; align-items: center; gap: var(--space-2); min-width: 0; overflow-wrap: anywhere; }
+.sp-cp-names .sp-tag { flex: none; }
+/* the extra names come in once the plate is a quarter open (§6-4: from 4px below, blur 2px → 0) and leave first, together, when it closes */
+.sp-cp-anim .sp-cp-names li.x { opacity: 0; transform: translateY(4px); filter: blur(2px); }
+.sp-cp-fadein .sp-cp-names li.x { opacity: 1; transform: none; filter: none; transition: opacity var(--sp-fade-dur) var(--sp-fade), transform var(--sp-fade-dur) var(--sp-fade), filter var(--sp-fade-dur) var(--sp-fade); }
+.sp-cp-out .sp-cp-names li.x { opacity: 0; transform: translateY(-4px); filter: blur(2px); transition: opacity 100ms linear, transform 100ms linear, filter 100ms linear; }
+html[data-motion="reduced"] .sp-cp-names li.x { transition: none; }
+.sp-cp-more { width: 100%; margin-top: var(--space-4); }
+@media (max-width: 760px) { .sp-cp-link { min-height: 44px; } .sp-cp-kv { gap: 0 var(--space-5); } }
+
 /* ── 뉴스·공시 ───────────────────────── */
 .sp-nwseg { display: flex; flex-wrap: wrap; gap: 6px; }
 /* 뉴스 · 공시 = choice chips (§5-7): picked = fill + 1.5px amber ring + amber count, no check (the width never changes); 1px press */
@@ -620,7 +679,7 @@ a.sp-nw-a:visited .sp-nw-t { color: var(--fg2); }
   .sp-ob-grid { flex: 1 1 auto; max-height: 560px; background: var(--sp-nest); box-shadow: none; grid-template-rows: repeat(10, minmax(34px, 1fr)); }
   .sp-cum, .sp-today, .sp-m { background: var(--sp-nest); box-shadow: none; }   /* wells inside the side card: no second ink rule / rim */
   .sp-m { box-shadow: inset 0 0 0 1px var(--row-bd, transparent); }
-  .sp-ln .pt { background: var(--sp-solid); }
+  .sp-ln .pt, .sp-lb-fig .pt { background: var(--sp-solid); }
   .sp-foot { margin-top: 10px; }
   .sp-foot p { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 }

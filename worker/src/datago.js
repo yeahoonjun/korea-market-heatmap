@@ -35,10 +35,12 @@ const ORIGIN = 'https://panse.pages.dev';
 export const DG_APIS = {
   kofia: { id: 'kofia', path: '/1160100/service/GetKofiaStatisticsInfoService', name: '금융위원회_금융투자협회종합통계정보', cap: 300 },
   krx: { id: 'krx', path: '/1160100/GetKrxListedInfoService_V2', name: '금융위원회_KRX상장종목정보', cap: 100 },
-  lend: { id: 'lend', path: '/1160100/GetStocLendBorrInfoService_V2', name: '금융위원회_주식대차정보', cap: 1000 },
+  // 종목 페이지 (stock_datago.js): 대차 = one shared table, ≈ 1~2 calls a day (+ a one-time backfill of ≈ 65); 기업기본 = 3~5 calls per
+  // company per day → 600 ≈ 120~200 companies a day; 배당 = 1~2 per company per day, shared with the calendar (≈ 5~15 a day)
+  lend: { id: 'lend', path: '/1160100/GetStocLendBorrInfoService_V2', name: '금융위원회_주식대차정보', cap: 200 },
   issu: { id: 'issu', path: '/1160100/GetStocIssuInfoService_V3', name: '금융위원회_주식발행정보', cap: 1000 },
   divi: { id: 'divi', path: '/1160100/GetStocDiviInfoService_V2', name: '금융위원회_주식배당정보', cap: 1000 },
-  corp: { id: 'corp', path: '/1160100/service/GetCorpBasicInfoService_V2', name: '금융위원회_기업기본정보', cap: 1000 },
+  corp: { id: 'corp', path: '/1160100/service/GetCorpBasicInfoService_V2', name: '금융위원회_기업기본정보', cap: 600 },
   rights: { id: 'rights', path: '/1160100/GetStocRighScheService_V2', name: '금융위원회_주식권리일정정보', cap: 200 },   // 증시 캘린더 (calendar.js, AGENTS §3-33)
 };
 
@@ -369,6 +371,13 @@ export async function dgNote(env, api, err, now = Date.now()) {
 // build() returns the new snapshot body ({basDt, …}; `at` is added here); it throws DgErr to keep the previous copy, or
 // returns {…, partial:[ops]} after calling run.errors.push(err) for the parts that failed (the rest is new).
 const MEM_SNAP = new Map(), INFLIGHT = new Map();
+// per-stock snapshots (stock_datago.js) would grow this map with every stock viewed: keep the most recent ones only
+const MEM_SNAP_MAX = 400;
+function memSet(key, v) {
+  MEM_SNAP.delete(key);
+  MEM_SNAP.set(key, v);
+  if (MEM_SNAP.size > MEM_SNAP_MAX) MEM_SNAP.delete(MEM_SNAP.keys().next().value);
+}
 export async function dgSnapshot(env, ctx, spec) {
   env = env || {};
   const now = Date.now();
@@ -377,7 +386,7 @@ export async function dgSnapshot(env, ctx, spec) {
   if (!snap) {
     snap = await kvGet(env, spec.key, 'json');
     if (snap && typeof snap !== 'object') snap = null;
-    MEM_SNAP.set(spec.key, { snap, readAt: now });
+    memSet(spec.key, { snap, readAt: now });
   }
   if (snap && !spec.due(snap, now)) return { snap, stale: false };
   if (!dgKey(env)) return { snap, stale: !!snap, error: 'nokey' };
@@ -395,7 +404,7 @@ function dgRefresh(env, spec, prev) {
       const body = await spec.build(prev, run, Date.now());
       const snap = { ...body, at: Date.now() };
       await kvPut(env, spec.key, JSON.stringify(snap), spec.ttlS || 10 * 86400);
-      MEM_SNAP.set(spec.key, { snap, readAt: Date.now() });
+      memSet(spec.key, { snap, readAt: Date.now() });
       if (run.errors.length) await dgNoteSoft(env, spec.api, run.errors[0]);
       return { snap, stale: false, ...(body.partial && body.partial.length ? { partial: body.partial } : {}) };
     } catch (e) {

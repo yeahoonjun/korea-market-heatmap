@@ -24,6 +24,7 @@
 //   GET /api/replay/status             → the recorder's last outcome (KV replay:status) + server time, recent frames (no-store; AGENTS §3-15)
 //   GET /api/stock/:code/finance?period=annual|quarter → financial statements (cols oldest→newest)
 //   GET /api/stock/:code/research      → broker reports (target / opinion parsed from the preview) + consensus
+//   GET /api/stock/:code/lending|corp|dividend → 대차잔고 · 기업 기본 · 배당 내역 (금융위원회, 하루 한 번 — stock_datago.js)
 //   GET /data/{themes,periods,flows,names,close}.json, PWA files → static from ASSET_BASE (whitelist)
 //   scheduled()                        → cron (every minute): appends a replay frame on weekdays 09:00 → session end (stockExchangeType.endTime) KST;
 //                                        never throws — each outcome goes to console + KV replay:status (cron weekdays must be MON-FRI: 1 = Sunday on Cloudflare)
@@ -40,6 +41,7 @@ import { policyRoute } from './policy.js';   // 정책 자료: KDI RSS + 관보 
 import { datagoRoute } from './datago_routes.js';   // 공공데이터포털: /api/funds*, /api/datago/status (AGENTS §3-32, docs/standards/datago.md)
 import { calendarRoute } from './calendar.js';   // 증시 캘린더 /api/calendar (AGENTS §3-33, docs/standards/calendar.md)
 import { koreaeximRoute } from './koreaexim.js';   // 수출입은행 확인용 /api/koreaexim/probe (AGENTS §3-27 끝)
+import { stockDatagoRoute } from './stock_datago.js';   // 종목 페이지 대차 · 기업 · 배당 /api/stock/{code}/lending|corp|dividend (AGENTS §3 · §3-32)
 export { MarketHub };                // the Durable Object class (wrangler.toml [exports.MarketHub]) must be exported by the main module
 // the hub polls the same rows as /api/quotes (quotesCore is a hoisted function declaration below)
 configureLive((env, ms) => quotesCore(env, null, false, ms));
@@ -134,6 +136,8 @@ export default {
         if (!CODE_RE.test(m[1])) return fail(400, '종목 코드가 올바르지 않아요');
         return await edgeCached(request, ctx, 'chart-' + m[1], CHART_TTL, () => getChart(m[1]));
       }
+      m = path.match(/^\/api\/stock\/([^/]+)\/(lending|corp|dividend)$/);   // 공공데이터포털 (stock_datago.js)
+      if (m) return await stockDatagoRoute(request, env, ctx, m[1], m[2]);
       m = path.match(/^\/api\/stock\/([^/]+)\/(summary|chart|orderbook|investors|daily|news|disclosures|finance|research)$/);
       if (m) {
         const code = m[1], kind = m[2];
