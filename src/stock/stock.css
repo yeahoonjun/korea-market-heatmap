@@ -50,7 +50,7 @@ html[data-motion="reduced"] .sp { --tx-out: 0ms; --tx-gap: 0ms; --tx-in: 0ms; }
 html[data-theme="paper"] .sp-head, html[data-theme^="glass"] .sp-head { background: var(--bar-bg, color-mix(in srgb, var(--page, #131418) 94%, transparent)); box-shadow: var(--bar-sh, none); border-bottom-color: transparent; -webkit-backdrop-filter: var(--blur-bar, none); backdrop-filter: var(--blur-bar, none); }
 /* phones: the back key's icon lines up with the page edge (--edge), the key itself runs to the screen edge */
 .sp-head-in { display: flex; align-items: center; gap: var(--space-2); max-width: 1760px; margin: 0 auto; padding: var(--space-4) var(--edge) var(--space-4) 0; }
-.sp-back { flex: none; display: inline-flex; align-items: center; justify-content: center; gap: var(--space-1); width: var(--h-row); height: var(--h-row); border-radius: var(--r-key); color: var(--fg); touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+.sp-back { position: relative; flex: none; display: inline-flex; align-items: center; justify-content: center; gap: var(--space-1); width: var(--h-row); height: var(--h-row); border-radius: var(--r-key); color: var(--fg); touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
 .sp-back svg { width: 20px; height: 20px; flex: none; }
 .sp-back-t { display: none; font-size: var(--fs-lg); font-weight: 600; }
 /* phones: the name has line 1 to itself; code · market · 섹터 › 업종 share line 2 (ellipsis at the end) */

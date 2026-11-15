@@ -108,8 +108,10 @@ TAP_JS = r"""() => {
     if (el.closest('[hidden]') || el.closest('.sp-chart') || el.closest('.sp-foot p')) continue;
     const r = el.getBoundingClientRect();
     if (!r.width) continue;
+    // the layout box (offsetWidth / offsetHeight): a panel fading in on a transform reads 39.99 for a 40 px key (ux/std-stock)
+    const rw = Math.max(r.width, el.offsetWidth), rh = Math.max(r.height, el.offsetHeight);
     const a = getComputedStyle(el, '::after'), ext = a.content !== 'none' && a.position === 'absolute' ? Math.max(0, -parseFloat(a.top) || 0) + Math.max(0, -parseFloat(a.bottom) || 0) : 0;
-    if (r.height + ext < 40 || r.width < 40) small.push(`${el.className || el.tagName}:${el.textContent.trim().slice(0, 10)} ${Math.round(r.width)}x${Math.round(r.height)}`);
+    if (rh + ext < 40 || rw < 40) small.push(`${el.className || el.tagName}:${el.textContent.trim().slice(0, 10)} ${Math.round(rw)}x${Math.round(rh)}`);
   }
   return small;
 }"""
