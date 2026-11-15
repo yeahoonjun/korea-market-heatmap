@@ -18712,20 +18712,30 @@ sync();
 .kc-stars.s3 i.on{color:var(--fg)}
 .kc-watch{flex:none;display:inline-flex;align-items:center;height:18px;padding:0 var(--space-3);border-radius:var(--r-badge);font-size:var(--fs-xs);font-weight:600;color:var(--fg2);box-shadow:inset 0 0 0 1px var(--line2)}
 .kc-empty{margin:0;padding:var(--space-5) 0 var(--space-4) var(--space-3);color:var(--muted);border-top:1px solid var(--line)}
+.kc-empty + .kc-hid{border-top:0;padding-top:0}
+.kc-hid + .kc-dmore{border-top:0}
 .kc-more{display:flex;justify-content:center;margin-top:var(--space-5)}
 .kc-msg{display:flex;flex-direction:column;align-items:flex-start;gap:var(--space-4);padding:var(--space-7) var(--space-3);color:var(--fg2)}
 .kc-msg b{color:var(--fg);font-size:var(--fs-xl)}
 .kc-note{display:flex;align-items:center;gap:var(--space-3);margin:var(--space-6) 0 0;color:var(--muted);font-size:var(--fs-xs);line-height:var(--lh-text)}
 .kc-note .bang{display:inline-grid;place-items:center;width:16px;height:16px;border-radius:50%;box-shadow:inset 0 0 0 1.5px var(--fg2);color:var(--fg2);font-weight:700;font-size:var(--fs-xs);flex:none}
 
-/* detail sheet: phone = from below (open spring), wider = a floating panel */
+/* detail sheet: phone = from below, wider = a floating panel (design.md §5 · §7). Opens with `open`, closes with `close` (shorter); the
+   exit is real — after close() the box and its backdrop stay in the top layer until the transition ends (display · overlay
+   allow-discrete), the page is usable meanwhile (pointer-events none on the leaving box). .drag = the finger (or the settle spring
+   after it) owns the transform. 줄이기: every --sp-*-dur is 0. */
 .kc-dlg{position:fixed;inset:auto 0 0 0;margin:0;width:100%;max-width:none;max-height:86vh;overflow:auto;overscroll-behavior:contain;padding:0 var(--edge) calc(var(--space-7) + env(safe-area-inset-bottom));border:0;border-top:1px solid var(--sheet-bd);border-radius:var(--sheet-r) var(--sheet-r) 0 0;background:var(--sheet-bg);color:var(--fg);box-shadow:var(--sheet-sh);
-  transform:translateY(104%);transition:transform var(--sp-close-dur) var(--sp-close)}
-.kc-dlg[open].on{transform:none;transition:transform var(--sp-open-dur) var(--sp-open)}
-.kc-dlg::backdrop{background:rgba(0,0,0,.5);opacity:0;transition:opacity var(--sp-close-dur) var(--sp-close)}
-.kc-dlg.on::backdrop{opacity:1;transition:opacity var(--sp-fade-dur) var(--sp-fade)}
-.kc-dlg .kc-grab{display:block;width:36px;height:4px;border-radius:2px;background:var(--line2);margin:var(--space-4) auto var(--space-2)}
-.kc-sh{display:flex;align-items:flex-start;gap:var(--space-4);padding:var(--space-4) 0 var(--space-5)}
+  transform:translateY(104%);
+  transition:transform var(--sp-close-dur) var(--sp-close),display var(--sp-close-dur) allow-discrete,overlay var(--sp-close-dur) allow-discrete}
+.kc-dlg:not([open]){pointer-events:none}
+.kc-dlg[open].on{transform:none;transition:transform var(--sp-open-dur) var(--sp-open),display var(--sp-open-dur) allow-discrete,overlay var(--sp-open-dur) allow-discrete}
+.kc-dlg.drag,.kc-dlg[open].on.drag{transition:none}
+.kc-dlg::backdrop{background:rgba(0,0,0,.5);opacity:0;transition:opacity var(--sp-close-dur) var(--sp-close),display var(--sp-close-dur) allow-discrete,overlay var(--sp-close-dur) allow-discrete}
+.kc-dlg[open].on::backdrop{opacity:1;transition:opacity var(--sp-fade-dur) var(--sp-fade),display var(--sp-fade-dur) allow-discrete,overlay var(--sp-fade-dur) allow-discrete}
+.kc-dlg .kc-grab{position:relative;display:block;height:var(--space-6);margin:0 calc(-1 * var(--edge));touch-action:none;cursor:grab}
+.kc-dlg .kc-grab::before{content:"";position:absolute;left:50%;top:var(--space-4);width:36px;height:4px;margin-left:-18px;border-radius:2px;background:var(--line2)}
+.kc-sh{display:flex;align-items:flex-start;gap:var(--space-4);padding:var(--space-2) 0 var(--space-5)}
+@media (max-width:760px){ .kc-dlg .kc-sh{touch-action:none} }   /* the grip and the title row drag the sheet down; the rest scrolls */
 .kc-sh h3{flex:1;margin:0;font-size:var(--fs-2xl);line-height:var(--lh-num);font-weight:700;letter-spacing:-.01em;word-break:keep-all}
 .kc-sh h3 .co{display:block;font-size:var(--fs-md);font-weight:600;color:var(--fg2);margin-bottom:var(--space-2);letter-spacing:0}
 .kc-x{position:relative;flex:none;display:grid;place-items:center;width:44px;height:44px;margin:-6px -10px 0 0;border-radius:var(--r-key);color:var(--muted)}
@@ -18744,8 +18754,8 @@ sync();
 .kc-dlg .foot{margin:var(--space-6) 0 0;font-size:var(--fs-xs);color:var(--muted);line-height:var(--lh-text)}
 @media (min-width:761px){
   .kc-dlg{inset:50% auto auto 50%;width:460px;max-height:80vh;border:1px solid var(--sheet-bd);border-radius:var(--r-float);padding:0 var(--space-6) var(--space-6);opacity:0;
-    transform:translate(-50%,-48%);transition:transform var(--sp-close-dur) var(--sp-close),opacity var(--sp-close-dur) var(--sp-close)}
-  .kc-dlg[open].on{transform:translate(-50%,-50%);opacity:1;transition:transform var(--sp-open-dur) var(--sp-open),opacity var(--sp-fade-dur) var(--sp-fade)}
+    transform:translate(-50%,-48%);transition:transform var(--sp-close-dur) var(--sp-close),opacity var(--sp-close-dur) var(--sp-close),display var(--sp-close-dur) allow-discrete,overlay var(--sp-close-dur) allow-discrete}
+  .kc-dlg[open].on{transform:translate(-50%,-50%);opacity:1;transition:transform var(--sp-open-dur) var(--sp-open),opacity var(--sp-fade-dur) var(--sp-fade),display var(--sp-open-dur) allow-discrete,overlay var(--sp-open-dur) allow-discrete}
   .kc-dlg .kc-grab{display:none}
   .kc-sh{padding-top:var(--space-6)}
 }
@@ -18831,6 +18841,7 @@ sync();
     kinds: new Set(Array.isArray(saved.kinds) && saved.kinds.length ? saved.kinds.filter(k => KINDS[k]) : Object.keys(KINDS)),
     hi: !!saved.hi, weekly: !!saved.weekly, detail: !!saved.detail,
     open: new Set(),         // days whose company details are opened in the list (this visit only)
+    all: new Set(),          // days whose hidden rows were asked for from the empty-day line (this visit only)
     blocks: new Map(),       // blockStart → {at, body} | {at, err}
     pending: new Map(), timer: null, error: null, map: new Set(),
   };
@@ -18892,7 +18903,18 @@ sync();
   const sortEv = (a, b) => (a.t || '00:00').localeCompare(b.t || '00:00') || starOf(b) - starOf(a);   // all-day first, as before
   const mainOn = d => eventsOn(d).filter(e => inFilter(e) && !isMinor(e)).sort(sortEv);
   const detailOn = d => eventsOn(d).filter(e => isMinor(e) && passBase(e) && passHi(e)).sort(sortEv);
-  const hiddenCount = d => eventsOn(d).filter(e => (!e.weekly || st.weekly) && !isMinor(e)).length - mainOn(d).length;
+  // why a row is hidden — the chip that hides it, in the chip row's order (the empty-day line names them, user 2026-11-15 19:51)
+  function whyHidden(list) {
+    const why = new Set();
+    for (const e of list) {
+      if (!st.kinds.has(e.k)) why.add('k:' + e.k);
+      if (e.weekly && !st.weekly) why.add('weekly');
+      if (st.hi && starOf(e) < 2) why.add('hi');
+      if (isMinor(e) && !st.detail) why.add('detail');
+    }
+    return [...Object.keys(KINDS).filter(k => why.has('k:' + k)).map(k => `${KINDS[k]} 꺼짐`),
+      why.has('hi') ? '★★ 이상만' : null, why.has('weekly') ? '위클리 만기' : null, why.has('detail') ? '기업 세부 일정' : null].filter(Boolean);
+  }
   const loaded = (from, to) => bodiesIn(from, to).some(v => v.body);
   const failed = (from, to) => bodiesIn(from, to).find(v => v.err);
 
@@ -18930,24 +18952,41 @@ sync();
     return h('button', { type: 'button', class: 'kc-dmore', 'data-more': d, 'aria-expanded': open ? 'true' : 'false', 'aria-controls': detId(d), onclick: ev => toggleDay(d, ev.currentTarget) },
       h('span', { class: 'lab' }, h('span', { class: 'sw-n', text: open ? '기업 세부 일정 접기' : `기업 세부 일정 ${n}개 더 보기` })), svg(open ? IC.up : IC.down));
   }
+  // a day: 미국 group → 한국 group (details at its end). st.all: a day whose hidden rows were asked for ("이 날 숨긴 일정 보기") shows
+  // everything, whatever the chips say, until "이 날 다시 숨기기" (this visit only)
   function dayBlock(d) {
-    const main = mainOn(d), det = detailOn(d), info = dayInfo(d);
+    const all = st.all.has(d), evs = eventsOn(d), info = dayInfo(d);
+    const main = all ? evs.filter(e => !isMinor(e)).sort(sortEv) : mainOn(d), det = all ? evs.filter(isMinor).sort(sortEv) : detailOn(d);
     const sec = h('section', { class: 'kc-day', 'data-day': d, 'aria-label': `${label(d)} ${WD[wday(d)]}요일` }, dayHead(d));
+    const showDet = det.length > 0 && (all || st.detail || main.length > 0);   // a day with nothing important: the line below offers it all
     for (const [rg, name] of RG) {
-      const rows = main.filter(e => regionOf(e) === rg), extra = rg === 'kr' && det.length;
+      const rows = main.filter(e => regionOf(e) === rg), extra = rg === 'kr' && showDet;
       if (!rows.length && !extra) continue;
       const grp = h('div', { class: 'kc-grp', 'data-rg': rg, role: 'group', 'aria-label': `${name} 일정` }, h('div', { class: 'kc-rg', 'aria-hidden': 'true', text: name }), rows.map(evRow));
       if (extra) {
-        if (st.detail) grp.append(h('div', { class: 'kc-subh', text: `기업 세부 일정 ${det.length}개` }), detBox(d, det));
+        if (st.detail || all) grp.append(h('div', { class: 'kc-subh', text: `기업 세부 일정 ${det.length}개` }), detBox(d, det));
         else { grp.append(detToggle(d, det.length, st.open.has(d))); if (st.open.has(d)) grp.append(detBox(d, det)); }
       }
       sec.append(grp);
     }
-    if (!main.length && !det.length) {
-      const hid = hiddenCount(d);
-      sec.append(h('p', { class: 'kc-empty', text: info && info.kind === 'closed' ? '장이 쉬어요.' : hid ? `고른 조건에 맞는 일정이 없어요 · 숨긴 일정 ${hid}개` : '일정이 없어요.' }));
+    if (all && evs.length) sec.append(revealKey(d, evs.length, true));
+    else if (!main.length && !showDet) {
+      // nothing to show: say how many are hidden and by which chips, and offer them for this day (the chips stay as they are)
+      const why = whyHidden(evs), closed = info && info.kind === 'closed';
+      if (closed || !evs.length) sec.append(h('p', { class: 'kc-empty', text: closed ? '장이 쉬어요.' : '일정이 없어요.' }));
+      if (evs.length) sec.append(h('p', { class: 'kc-empty kc-hid', text: `숨긴 일정 ${evs.length}개${why.length ? ` (${why.join(' · ')})` : ''}` }), revealKey(d, evs.length, false));
     }
     return sec;
+  }
+  function revealKey(d, n, open) {
+    return h('button', { type: 'button', class: 'kc-dmore', 'data-reveal': d, 'aria-expanded': open ? 'true' : 'false', 'aria-label': `${label(d)} ${open ? '숨긴 일정 다시 숨기기' : `숨긴 일정 ${n}개 보기`}`,
+      onclick: () => revealDay(d) }, h('span', { class: 'lab', text: open ? '이 날 다시 숨기기' : '이 날 숨긴 일정 보기' }), svg(open ? IC.up : IC.down));
+  }
+  function revealDay(d) {
+    if (st.all.has(d)) st.all.delete(d); else st.all.add(d);
+    const box = root(); if (!box) return;
+    for (const old of box.querySelectorAll(`.kc-day[data-day="${d}"]`)) { const fresh = dayBlock(d); old.replaceWith(fresh); fadeIn(fresh); }
+    const b = box.querySelector(`[data-reveal="${d}"]`); if (b) b.focus({ preventScroll: true });
   }
   function toggleDay(d, btn) {
     const open = !st.open.has(d);
@@ -19126,6 +19165,7 @@ sync();
     if (ds.d) b = box.querySelector(`[data-d="${ds.d}"][aria-pressed="true"]`) || box.querySelector(`[data-d="${ds.d}"]`);
     else if (ds.id) b = box.querySelector(`[data-id="${CSS.escape(ds.id)}"]`);
     else if (ds.more) b = box.querySelector(`[data-more="${ds.more}"]`);
+    else if (ds.reveal) b = box.querySelector(`[data-reveal="${ds.reveal}"]`);
     else if (ds.chip) b = box.querySelector(`[data-chip="${ds.chip}"]`);
     else if (ds.next) b = box.querySelector('[data-next]');
     else if (ds.key) b = box.querySelector(`[data-key="${CSS.escape(ds.key)}"]`);
@@ -19172,8 +19212,15 @@ sync();
     ensure(f, t);
   }
 
-  // ── detail (a <dialog>: phone = bottom sheet, wider = floating panel)
-  let dlg = null, opener = null, closeT = 0;
+  // ── detail (a <dialog>: phone = bottom sheet, wider = floating panel) — design.md §5 · §7 시트 · §8, user 2026-11-15 19:49 (떠 있는 창에
+  // 움직임이 없다): opens with `open` from its closed pose, closes with `close` — a real exit: close() runs at once (the page is usable again,
+  // focus goes back to the row) while CSS keeps the sheet and its backdrop in the top layer until the exit ends (transition-behavior:
+  // allow-discrete on display · overlay); opening again mid-exit turns it around from where it is. Phone: drag the grip or the title
+  // down to dismiss (6px to start, axis lock 6px, release speed from the last 100ms, past 35% of its height or a throw > 0.11px/ms,
+  // rubber band .55 upward; the hand-off rides `settle` with the finger's speed — KH.spring). 줄이기: every length is 0.
+  let dlg = null, opener = null, openerId = null, closeT = 0, leaving = false, drag = null, dragH = null;
+  const DISCRETE = !!(window.CSS && CSS.supports && CSS.supports('transition-behavior', 'allow-discrete'));
+  const sheetMode = () => !matchMedia('(min-width: 761px)').matches;
   const fmtPeriod = p => !p ? '' : /^\d{4}-\d{2}-\d{2}$/.test(p) ? (p.endsWith('-01') ? `${p.slice(0, 4)}년 ${+p.slice(5, 7)}월` : `${p.slice(0, 4)}년 ${+p.slice(5, 7)}월 ${+p.slice(8)}일`)
     : /^\d{6}$/.test(p) ? `${p.slice(0, 4)}년 ${+p.slice(4)}월` : /^\d{4}Q\d$/.test(p) ? `${p.slice(0, 4)}년 ${p.slice(5)}분기` : /^\d{8}$/.test(p) ? `${+p.slice(4, 6)}월 ${+p.slice(6)}일 기준` : p;
   function why(e, s) {
@@ -19204,15 +19251,67 @@ sync();
     const [hh, mm] = e.orig.t.split(':').map(Number);
     return `미국 동부 ${m}월 ${d}일 ${hh >= 12 ? '오후' : '오전'} ${((hh + 11) % 12) + 1}:${String(mm).padStart(2, '0')} 발표 → 한국 시간으로 바꿨어요`;
   }
+  function makeDialog() {
+    dlg = h('dialog', { class: 'kc-dlg', 'aria-labelledby': 'kc-dt' });
+    dlg.addEventListener('cancel', ev => { ev.preventDefault(); closeDetail(); });
+    dlg.addEventListener('click', ev => {             // the backdrop (a click on the dialog box itself but outside its rectangle)
+      if (ev.target !== dlg || drag) return;
+      const r = dlg.getBoundingClientRect();
+      if (ev.clientX < r.left || ev.clientX > r.right || ev.clientY < r.top || ev.clientY > r.bottom) closeDetail();
+    });
+    dlg.addEventListener('transitionend', ev => { if (ev.target === dlg && ev.propertyName === 'transform' && !dlg.open) leaving = false; });
+    // drag to dismiss (phone sheet only; the grip and the title row — touch-action:none there, the rest scrolls)
+    dlg.addEventListener('pointerdown', ev => {
+      if (!dlg.open || !dlg.classList.contains('on') || !sheetMode() || ev.button > 0) return;
+      const zone = ev.target.closest('.kc-grab, .kc-sh'); if (!zone) return;
+      if (dragH) { dragH.stop(); dragH = null; }
+      drag = { id: ev.pointerId, zone, x0: ev.clientX, y0: ev.clientY, on: false, y: 0, h: dlg.offsetHeight, s: [] };
+    });
+    dlg.addEventListener('pointermove', ev => {
+      const g = drag; if (!g || ev.pointerId !== g.id) return;
+      const dx = ev.clientX - g.x0, dy = ev.clientY - g.y0;
+      if (!g.on) {
+        if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return;
+        if (Math.abs(dx) > Math.abs(dy)) { drag = null; return; }          // sideways: not a dismiss
+        g.on = true; dlg.classList.add('drag');
+        try { g.zone.setPointerCapture(ev.pointerId); } catch (e) { /* the pointer is gone */ }
+      }
+      g.y = dy >= 0 ? dy : dy * 0.55;                                       // upward past the open pose: rubber band
+      dlg.style.transform = `translateY(${g.y}px)`;
+      g.s.push({ t: ev.timeStamp, y: g.y });
+      while (g.s.length > 2 && ev.timeStamp - g.s[0].t > 100) g.s.shift();
+    });
+    const end = ev => {
+      const g = drag; if (!g || ev.pointerId !== g.id) return;
+      drag = null;
+      if (!g.on) return;
+      const win = g.s.filter(x => ev.timeStamp - x.t <= 100), a = win[0], b = win[win.length - 1];          // the last 100ms only:
+      const v = win.length > 1 && b.t > a.t ? (b.y - a.y) / (b.t - a.t) : 0;                               // a finger that stopped → 0 (px/ms)
+      const go = ev.type !== 'pointercancel' && (g.y > 0.35 * g.h || v > ((KH.spring && KH.spring.THROW) || 0.11));
+      settleSheet(g.y, go ? g.h + 24 : 0, v, go);                          // (the lift is captured by the grip row: no button under it fires)
+    };
+    dlg.addEventListener('pointerup', end);
+    dlg.addEventListener('pointercancel', end);
+    document.body.append(dlg);
+  }
+  // after a drag: back to the open pose, or away (then closed) — `settle` with the finger's speed
+  function settleSheet(from, to, vPxMs, away) {
+    if (away) dlg.classList.remove('on');                                   // the backdrop fades with `close` meanwhile
+    const done = () => {
+      dragH = null;
+      if (away) { closeDetail(false, true); dlg.style.transform = ''; dlg.classList.remove('drag'); }
+      else { dlg.style.transform = ''; dlg.classList.remove('drag'); }
+    };
+    if (!KH.spring || typeof KH.spring.animate !== 'function' || reduced()) { dlg.style.transform = `translateY(${to}px)`; done(); return; }
+    dragH = KH.spring.animate({ from, to, name: 'settle', velocity: vPxMs * 1000, onUpdate: y => { dlg.style.transform = `translateY(${y}px)`; }, onRest: done });
+  }
   function openDetail(e, from) {
     opener = from || document.activeElement;
+    openerId = opener && opener.dataset ? opener.dataset.id || null : null;
     clearTimeout(closeT);
-    if (!dlg) {
-      dlg = h('dialog', { class: 'kc-dlg', 'aria-labelledby': 'kc-dt' });
-      dlg.addEventListener('cancel', ev => { ev.preventDefault(); closeDetail(); });
-      dlg.addEventListener('click', ev => { if (ev.target === dlg) closeDetail(); });
-      document.body.append(dlg);
-    }
+    if (!dlg) makeDialog();
+    if (dragH) { dragH.stop(); dragH = null; }
+    drag = null; dlg.classList.remove('drag'); dlg.style.transform = '';
     const s = starOf(e), past = isPast(e);
     const when = e.t ? `${label(e.d)} (${WD[wday(e.d)]}) ${e.t}` : `${label(e.d)} (${WD[wday(e.d)]}) · 종일`;
     const names = e.grp && e.codes ? e.codes.map(c => { const r = KH.stock(c); return { c, n: (r && r.n) || c }; }) : null;
@@ -19224,7 +19323,7 @@ sync();
         h('dt', { text: '언제' }), h('dd', { class: 'num' }, when, origLong(e) ? h('small', { text: origLong(e) }) : null),
         e.value ? [h('dt', { text: '발표값' }), h('dd', {}, e.value.text, e.value.p ? h('small', { text: `${fmtPeriod(e.value.p)} · ${e.value.src === 'ecos' ? '한국은행 ECOS' : 'FRED'}` }) : null)] : null,
         h('dt', { text: '중요도' }), h('dd', {}, stars(s), ' ', ['', '참고', '중요', '매우 중요'][s]),
-        h('dt', { text: '분류' }), h('dd', {}, `${regionOf(e) === 'us' ? '미국' : '한국'} · ${KINDS[e.k] || ''}${isMinor(e) ? ' · 세부 일정' : ''}`, e.sub ? h('small', { text: e.sub }) : null),
+        h('dt', { text: '분류' }), h('dd', {}, `${e.k === 'us' || e.k === 'kr' ? '' : regionOf(e) === 'us' ? '미국 · ' : '한국 · '}${KINDS[e.k] || ''}${isMinor(e) ? ' · 세부 일정' : ''}`, e.sub ? h('small', { text: e.sub }) : null),
         h('dt', { text: '출처' }), h('dd', {}, SRC[e.src] || e.src, h('small', { text: srcNote(e) })),
         h('dt', { text: '상태' }), h('dd', { text: e.tentative ? `예정 — ${e.tentative}` : past ? '지났어요' : '예정' })),
       names ? h('div', { class: 'kc-codes', role: 'list', 'aria-label': '종목' }, names.map(x => h('button', { type: 'button', role: 'listitem', onclick: () => { closeDetail(true); if (KH.openStock) KH.openStock(x.c, {}); }, text: x.n }))) : null,
@@ -19233,19 +19332,35 @@ sync();
         e.url ? h('a', { href: e.url, target: '_blank', rel: 'noopener' }, svg(IC.ext), e.src === 'dart' ? 'DART 원문' : '원천 보기') : null,
         e.c && !e.grp && typeof KH.openStock === 'function' ? h('button', { type: 'button', onclick: () => { closeDetail(true); KH.openStock(e.c, {}); }, text: '종목 페이지' }) : null),
       h('p', { class: 'foot', text: '시각은 한국 시간이에요. 원천이 일정을 바꾸면 다음 갱신 때 바뀌어요.' })));
+    const midExit = leaving && !dlg.open;                          // still on screen, on its way out: turn it around from where it is
     if (!dlg.open) dlg.showModal();
+    leaving = false;
     document.dispatchEvent(new CustomEvent('kh:worlddetail'));      // the phone dock hides while a sheet is open (template openWins)
-    if (reduced()) dlg.classList.add('on');
-    else requestAnimationFrame(() => requestAnimationFrame(() => dlg.classList.add('on')));   // open spring from the closed pose
+    if (reduced() || midExit || dlg.classList.contains('on')) dlg.classList.add('on');
+    else requestAnimationFrame(() => requestAnimationFrame(() => { if (dlg.open) dlg.classList.add('on'); }));   // open spring from the closed pose
     dlg.querySelector('.kc-x').focus();
   }
-  function closeDetail(noFocus) {
+  function closeDetail(noFocus, dragged) {
     if (!dlg || !dlg.open) return;
+    if (dragH && !dragged) { dragH.stop(); dragH = null; }
+    drag = null;
+    if (!dragged) { dlg.classList.remove('drag'); dlg.style.transform = ''; }
     dlg.classList.remove('on');                                   // close spring (shorter than open, design.md §6-2)
-    const done = () => { if (!dlg.classList.contains('on') && dlg.open) dlg.close(); document.dispatchEvent(new CustomEvent('kh:worlddetail')); };
     clearTimeout(closeT);
-    if (reduced()) done(); else closeT = setTimeout(done, cssMs('--sp-close-dur') + 30);
-    if (!noFocus && opener && opener.isConnected) opener.focus({ preventScroll: true });
+    const shut = () => {
+      if (dlg.classList.contains('on') || !dlg.open) return;
+      dlg.close();
+      document.dispatchEvent(new CustomEvent('kh:worlddetail'));
+      if (!noFocus) {                                             // back to the row that opened it (found again if the list was redrawn)
+        const el = opener && opener.isConnected ? opener : openerId && root() ? root().querySelector(`[data-id="${CSS.escape(openerId)}"]`) : null;
+        if (el) el.focus({ preventScroll: true });
+      }
+    };
+    if (DISCRETE || reduced() || dragged) {                        // CSS keeps it drawn through the exit; the page is usable at once
+      leaving = !reduced() && !dragged;
+      if (leaving) closeT = setTimeout(() => { leaving = false; }, cssMs('--sp-close-dur') + 60);
+      shut();
+    } else closeT = setTimeout(shut, cssMs('--sp-close-dur') + 30);   // older engines: stay modal until the exit ends
   }
 
   // ── footer line (above the disclaimer, §3-30): the template's renderFooter() puts <p id="foot-cal"> with footText() on the 일정 tab

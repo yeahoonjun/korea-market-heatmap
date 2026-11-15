@@ -152,6 +152,23 @@ def details(pg):
     pg.get_by_role('button', name='★★ 이상만').click(); pg.wait_for_timeout(200)
     pg.get_by_role('button', name='기업 세부 일정', exact=True).click(); pg.wait_for_timeout(250)
     check('390: chip off → hidden again', not any('가나상사' in r for r in day_rows(td)) and pg.locator('.kc-dmore').count() >= 1)
+    # a day with nothing important: the line says how many are hidden and by which chips, and offers them for that day
+    sat = pg.evaluate("() => { const p = document.querySelector('.kc-phone .kc-hid'); return p && { d: p.closest('.kc-day').dataset.day, t: p.textContent } }")
+    check('390: empty day says "숨긴 일정 1개 (기업 세부 일정)" + a key for that day', bool(sat) and sat['t'] == '숨긴 일정 1개 (기업 세부 일정)'
+          and pg.locator(f'.kc-day[data-day="{sat["d"]}"] [data-reveal]').count() == 1, sat)
+    pg.get_by_role('button', name='★★ 이상만').click(); pg.wait_for_timeout(250)
+    t2 = pg.evaluate(f"() => (document.querySelector('.kc-day[data-day=\"{sat['d']}\"] .kc-hid') || {{}}).textContent")
+    check('390: the line names every chip that hides them (★★ 이상만 · 기업 세부 일정)', t2 == '숨긴 일정 1개 (★★ 이상만 · 기업 세부 일정)', t2)
+    rv = pg.locator(f'.kc-day[data-day="{sat["d"]}"] [data-reveal]')
+    rv.focus(); pg.keyboard.press('Enter'); pg.wait_for_timeout(350)
+    st = pg.evaluate(f"""() => {{ const sec = document.querySelector('.kc-day[data-day="{sat['d']}"]'), b = sec.querySelector('[data-reveal]');
+      return {{ rows: [...sec.querySelectorAll('.kc-ev')].map(r => r.textContent), exp: b && b.getAttribute('aria-expanded'), text: b && b.textContent, focus: document.activeElement === b,
+        chips: JSON.parse(localStorage.getItem('khm.cal') || '{{}}') }} }}""")
+    check('390: "이 날 숨긴 일정 보기" shows that day\'s rows (chips untouched), focus kept', any('자차홀딩스' in r for r in st['rows']) and st['exp'] == 'true' and '다시 숨기기' in st['text']
+          and st['focus'] and st['chips'].get('hi') is True and not st['chips'].get('detail'), st)
+    pg.keyboard.press('Enter'); pg.wait_for_timeout(300)
+    check('390: "이 날 다시 숨기기" folds it back', pg.locator(f'.kc-day[data-day="{sat["d"]}"] .kc-hid').count() == 1 and pg.evaluate("() => document.activeElement.dataset.reveal") == sat['d'])
+    pg.get_by_role('button', name='★★ 이상만').click(); pg.wait_for_timeout(250)
 
 
 def phone(br, w, h):
@@ -301,16 +318,21 @@ IND_JS = r"""async () => {
   return { want, now, mid, end: ind.style.transform, w: Math.abs(parseFloat(ind.style.width) - to.offsetWidth) };
 }"""
 DLG_JS = r"""async () => {
-  document.querySelector('#calendar .kc-ev').click();
-  await new Promise(r => setTimeout(r, 60));
-  const g = document.querySelector('dialog.kc-dlg'), opening = g.getAnimations().length;
-  await new Promise(r => setTimeout(r, 600));
-  g.querySelector('.kc-x').click();
-  await new Promise(r => setTimeout(r, 40));
-  const closing = g.getAnimations().length, stillOpen = g.open;
-  await new Promise(r => setTimeout(r, 500));
-  return { opening, closing, stillOpen, closed: !g.open };
+  const sl = ms => new Promise(r => setTimeout(r, ms)), rows = document.querySelectorAll('#calendar .kc-ev');
+  rows[0].click(); await sl(60);
+  const g = document.querySelector('dialog.kc-dlg'), an = () => g.getAnimations({ subtree: true }).map(a => (a.effect.pseudoElement || '') + a.transitionProperty);
+  const opening = an();
+  await sl(600);
+  g.querySelector('.kc-x').click(); await sl(40);
+  const exit = { open: g.open, drawn: getComputedStyle(g).display !== 'none', anims: an(), focus: !!document.activeElement.closest('#calendar') };
+  rows[1].click(); await sl(40);
+  const back = { open: g.open, on: g.classList.contains('on'), title: g.querySelector('h3').textContent };
+  await sl(600);
+  const settled = getComputedStyle(g).transform;
+  g.querySelector('.kc-x').click(); await sl(600);
+  return { opening, exit, back, settled, closed: !g.open && getComputedStyle(g).display === 'none' };
 }"""
+DRAG = 'dialog.kc-dlg .kc-sh h3'
 
 
 def motion(br):
@@ -332,11 +354,38 @@ def motion(br):
             check('reduced: week marker jumps to the new day', i['now'] == i['want'] and i['end'] == i['want'], i)
         d = pg.evaluate(DLG_JS)
         if mo == 'fancy':
-            check('fancy: detail sheet opens and closes with a transition', d['opening'] > 0 and d['closing'] > 0 and d['stillOpen'] and d['closed'], d)
+            check('fancy: sheet opens with a transition and a backdrop fade', 'transform' in d['opening'] and '::backdropopacity' in d['opening'], d['opening'])
+            check('fancy: a real exit — closed at once (page usable, focus back on the row) but still drawn, moving out', not d['exit']['open'] and d['exit']['drawn']
+                  and 'transform' in d['exit']['anims'] and '::backdropopacity' in d['exit']['anims'] and d['exit']['focus'], d['exit'])
+            check('fancy: opening another row mid-exit turns the sheet around', d['back']['open'] and d['back']['on'] and d['settled'] == 'none' and d['closed'], (d['back'], d['settled']))
         else:
-            check('reduced: detail sheet opens and closes at once', d['opening'] == 0 and not d['stillOpen'] and d['closed'], d)
+            check('reduced: sheet opens and closes at once (no transition, gone at once)', not d['opening'] and not d['exit']['drawn'] and not d['exit']['anims'] and d['closed'], d)
         check(f'{mo}: console errors 0', not E, E[:3])
         ctx.close()
+    # drag to dismiss (design.md §7 시트 · §8): a slow short pull springs back, a throw closes and focus returns to the row
+    E = []
+    br2 = br.new_context(viewport={'width': 390, 'height': 844}, device_scale_factor=1)
+    br2.add_init_script("localStorage.setItem('khm.motion', '\"fancy\"');localStorage.setItem('khm.tickerPaused','true');")
+    pg = br2.new_page(); pg.on('console', lambda m: E.append(m.text[:160]) if m.type == 'error' else None)
+    pg.goto(LIVE + '#cal'); ready(pg)
+    rid = pg.locator('#calendar .kc-ev').first.get_attribute('data-id')
+    pg.locator('#calendar .kc-ev').first.click(); pg.wait_for_timeout(600)
+    bb = pg.locator(DRAG).bounding_box(); x, y = bb['x'] + 20, bb['y'] + 8
+    pg.mouse.move(x, y); pg.mouse.down()
+    for i in range(1, 6):
+        pg.mouse.move(x, y + i * 10); pg.wait_for_timeout(30)
+    follow = pg.evaluate("getComputedStyle(document.querySelector('dialog.kc-dlg')).transform")
+    pg.wait_for_timeout(200); pg.mouse.up(); pg.wait_for_timeout(1200)
+    s1 = pg.evaluate("() => { const g = document.querySelector('dialog.kc-dlg'); return { open: g.open, drag: g.classList.contains('drag'), tf: getComputedStyle(g).transform } }")
+    check('drag: the sheet follows the finger, a slow 50px pull springs back', follow.replace(' ', '') == 'matrix(1,0,0,1,0,50)' and s1['open'] and not s1['drag'] and s1['tf'] == 'none', (follow, s1))
+    pg.mouse.move(x, y); pg.mouse.down()
+    for i in range(1, 8):
+        pg.mouse.move(x, y + i * 30); pg.wait_for_timeout(12)
+    pg.mouse.up(); pg.wait_for_timeout(900)
+    s2 = pg.evaluate("() => ({ open: document.querySelector('dialog.kc-dlg').open, back: document.activeElement.dataset.id })")
+    check('drag: a throw down closes it, focus back on the row', not s2['open'] and s2['back'] == rid, s2)
+    check('drag: console errors 0', not E, E[:3])
+    br2.close()
     # press: 1px down at once (desktop mouse)
     E = []
     ctx, pg = open_page(br, LIVE + '#cal', 1440, 900, E, motion='fancy')

@@ -103,20 +103,30 @@
 .kc-stars.s3 i.on{color:var(--fg)}
 .kc-watch{flex:none;display:inline-flex;align-items:center;height:18px;padding:0 var(--space-3);border-radius:var(--r-badge);font-size:var(--fs-xs);font-weight:600;color:var(--fg2);box-shadow:inset 0 0 0 1px var(--line2)}
 .kc-empty{margin:0;padding:var(--space-5) 0 var(--space-4) var(--space-3);color:var(--muted);border-top:1px solid var(--line)}
+.kc-empty + .kc-hid{border-top:0;padding-top:0}
+.kc-hid + .kc-dmore{border-top:0}
 .kc-more{display:flex;justify-content:center;margin-top:var(--space-5)}
 .kc-msg{display:flex;flex-direction:column;align-items:flex-start;gap:var(--space-4);padding:var(--space-7) var(--space-3);color:var(--fg2)}
 .kc-msg b{color:var(--fg);font-size:var(--fs-xl)}
 .kc-note{display:flex;align-items:center;gap:var(--space-3);margin:var(--space-6) 0 0;color:var(--muted);font-size:var(--fs-xs);line-height:var(--lh-text)}
 .kc-note .bang{display:inline-grid;place-items:center;width:16px;height:16px;border-radius:50%;box-shadow:inset 0 0 0 1.5px var(--fg2);color:var(--fg2);font-weight:700;font-size:var(--fs-xs);flex:none}
 
-/* detail sheet: phone = from below (open spring), wider = a floating panel */
+/* detail sheet: phone = from below, wider = a floating panel (design.md §5 · §7). Opens with `open`, closes with `close` (shorter); the
+   exit is real — after close() the box and its backdrop stay in the top layer until the transition ends (display · overlay
+   allow-discrete), the page is usable meanwhile (pointer-events none on the leaving box). .drag = the finger (or the settle spring
+   after it) owns the transform. 줄이기: every --sp-*-dur is 0. */
 .kc-dlg{position:fixed;inset:auto 0 0 0;margin:0;width:100%;max-width:none;max-height:86vh;overflow:auto;overscroll-behavior:contain;padding:0 var(--edge) calc(var(--space-7) + env(safe-area-inset-bottom));border:0;border-top:1px solid var(--sheet-bd);border-radius:var(--sheet-r) var(--sheet-r) 0 0;background:var(--sheet-bg);color:var(--fg);box-shadow:var(--sheet-sh);
-  transform:translateY(104%);transition:transform var(--sp-close-dur) var(--sp-close)}
-.kc-dlg[open].on{transform:none;transition:transform var(--sp-open-dur) var(--sp-open)}
-.kc-dlg::backdrop{background:rgba(0,0,0,.5);opacity:0;transition:opacity var(--sp-close-dur) var(--sp-close)}
-.kc-dlg.on::backdrop{opacity:1;transition:opacity var(--sp-fade-dur) var(--sp-fade)}
-.kc-dlg .kc-grab{display:block;width:36px;height:4px;border-radius:2px;background:var(--line2);margin:var(--space-4) auto var(--space-2)}
-.kc-sh{display:flex;align-items:flex-start;gap:var(--space-4);padding:var(--space-4) 0 var(--space-5)}
+  transform:translateY(104%);
+  transition:transform var(--sp-close-dur) var(--sp-close),display var(--sp-close-dur) allow-discrete,overlay var(--sp-close-dur) allow-discrete}
+.kc-dlg:not([open]){pointer-events:none}
+.kc-dlg[open].on{transform:none;transition:transform var(--sp-open-dur) var(--sp-open),display var(--sp-open-dur) allow-discrete,overlay var(--sp-open-dur) allow-discrete}
+.kc-dlg.drag,.kc-dlg[open].on.drag{transition:none}
+.kc-dlg::backdrop{background:rgba(0,0,0,.5);opacity:0;transition:opacity var(--sp-close-dur) var(--sp-close),display var(--sp-close-dur) allow-discrete,overlay var(--sp-close-dur) allow-discrete}
+.kc-dlg[open].on::backdrop{opacity:1;transition:opacity var(--sp-fade-dur) var(--sp-fade),display var(--sp-fade-dur) allow-discrete,overlay var(--sp-fade-dur) allow-discrete}
+.kc-dlg .kc-grab{position:relative;display:block;height:var(--space-6);margin:0 calc(-1 * var(--edge));touch-action:none;cursor:grab}
+.kc-dlg .kc-grab::before{content:"";position:absolute;left:50%;top:var(--space-4);width:36px;height:4px;margin-left:-18px;border-radius:2px;background:var(--line2)}
+.kc-sh{display:flex;align-items:flex-start;gap:var(--space-4);padding:var(--space-2) 0 var(--space-5)}
+@media (max-width:760px){ .kc-dlg .kc-sh{touch-action:none} }   /* the grip and the title row drag the sheet down; the rest scrolls */
 .kc-sh h3{flex:1;margin:0;font-size:var(--fs-2xl);line-height:var(--lh-num);font-weight:700;letter-spacing:-.01em;word-break:keep-all}
 .kc-sh h3 .co{display:block;font-size:var(--fs-md);font-weight:600;color:var(--fg2);margin-bottom:var(--space-2);letter-spacing:0}
 .kc-x{position:relative;flex:none;display:grid;place-items:center;width:44px;height:44px;margin:-6px -10px 0 0;border-radius:var(--r-key);color:var(--muted)}
@@ -135,8 +145,8 @@
 .kc-dlg .foot{margin:var(--space-6) 0 0;font-size:var(--fs-xs);color:var(--muted);line-height:var(--lh-text)}
 @media (min-width:761px){
   .kc-dlg{inset:50% auto auto 50%;width:460px;max-height:80vh;border:1px solid var(--sheet-bd);border-radius:var(--r-float);padding:0 var(--space-6) var(--space-6);opacity:0;
-    transform:translate(-50%,-48%);transition:transform var(--sp-close-dur) var(--sp-close),opacity var(--sp-close-dur) var(--sp-close)}
-  .kc-dlg[open].on{transform:translate(-50%,-50%);opacity:1;transition:transform var(--sp-open-dur) var(--sp-open),opacity var(--sp-fade-dur) var(--sp-fade)}
+    transform:translate(-50%,-48%);transition:transform var(--sp-close-dur) var(--sp-close),opacity var(--sp-close-dur) var(--sp-close),display var(--sp-close-dur) allow-discrete,overlay var(--sp-close-dur) allow-discrete}
+  .kc-dlg[open].on{transform:translate(-50%,-50%);opacity:1;transition:transform var(--sp-open-dur) var(--sp-open),opacity var(--sp-fade-dur) var(--sp-fade),display var(--sp-open-dur) allow-discrete,overlay var(--sp-open-dur) allow-discrete}
   .kc-dlg .kc-grab{display:none}
   .kc-sh{padding-top:var(--space-6)}
 }

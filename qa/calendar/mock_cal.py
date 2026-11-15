@@ -7,8 +7,8 @@
 always has a week to draw: 한국 지표 (with a released value on a past day), 미국 지표 (22:30 KST / 08:30 ET), 금리 (★3), 시장
 (2nd-Thursday expiry + weekly expiries flagged weekly), 기업 (DART 무상증자 · a lock-up with %, 005930 for the 관심 badge, a group
 row of 15 dividend record dates), one closed day and one special day. Corp rows carry the Worker's `cls` / `minor` (§9-6): today has
-three 주식권리일정 details (minor), a 주총 of a stock on the map (000660, shown) and one off the map (900222, a detail); the day after
-tomorrow has details only. 미국 rows carry rg:'us' (FRED · FOMC).
+three 주식권리일정 details (minor), a 주총 of a stock on the map (000660, shown) and one off the map (900222, a detail); the first
+Saturday has one detail only (the empty-day line "숨긴 일정 1개 (기업 세부 일정)"). 미국 rows carry rg:'us' (FRED · FOMC).
 Test controls: /__mode?cal=ok|fail|none|empty|slow|stale   fail: 502 {error}; none: 404 (an older Worker); empty: no events;
 slow: 2.5 s; stale: sources.fred ok:false + stale:true.   /__stats · /__reset as in mock_api.py.
 """
@@ -88,7 +88,7 @@ def events_for(frm, to, mode):
         if off == 2:
             out.append({'id': f'cb:fomc:{s}', 'd': s, 't': '04:00', 'k': 'cb', 'rg': 'us', 'star': 3, 'src': 'manual', 'title': 'FOMC 금리 결정', 'sub': '경제전망(SEP) 함께',
                         'orig': {'d': d2s(d - timedelta(days=1)), 't': '14:00', 'tz': 'America/New_York'}, 'tentative': None})
-        if off == 6:
+        if wd == 5 and 0 <= off <= 6:          # the Saturday of the first 7 days: a details-only day (the empty-day line)
             out.append({'id': f'fsc:rights:900444:{s}:x', 'd': s, 't': None, 'k': 'corp', 'star': 1, 'src': 'fsc', 'api': 'getRighExerReasSche_V2', 'c': '900444', 'n': '자차홀딩스',
                         'title': '기타 명세접수시한', 'why': '기타', 'cls': 'etc', 'minor': True})
         if off == 5 and wd < 5:
