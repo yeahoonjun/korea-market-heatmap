@@ -22,7 +22,7 @@ HERE = pathlib.Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
 sys.path.insert(0, str(ROOT / 'qa/live'))
 from ws_mock import answer_live   # GET /api/live: {t:'off', reason:'closed'} like the real Worker outside the session
-WEB = ROOT / 'web'
+WEB = pathlib.Path(__import__('os').environ.get('EXTRAS_WEB') or ROOT / 'web')   # EXTRAS_WEB: another build's web/ (before / after shots)
 FIX = HERE / 'fixtures'
 if not (FIX / 'replay.json').exists():
     subprocess.run([sys.executable, str(HERE / 'make_fixtures.py'), '--offline'], check=True)
