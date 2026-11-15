@@ -32,7 +32,7 @@ from playwright.sync_api import sync_playwright
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 PORT = int(os.environ.get('FLOAT_QA_PORT', 8970))
-assert 8970 <= PORT <= 8979 or 9020 <= PORT <= 9029, 'ports 8970–8979 (9020–9029: ux/std-template runs)'
+assert 8970 <= PORT <= 8979 or 9010 <= PORT <= 9029, 'ports 8970–8979 (or 9010–9029: the design-standard agents)'
 URL = f'http://127.0.0.1:{PORT}/'
 SHOTS = pathlib.Path(os.environ.get('FLOAT_QA_SHOTS', ROOT / 'qa/shots/float_motion'))
 NOPROXY = urllib.request.build_opener(urllib.request.ProxyHandler({}))
@@ -460,7 +460,7 @@ def shapes(br):
     if pg.evaluate("!!document.querySelector('#clock button')"):
         pg.evaluate("document.querySelector('#clock button').dispatchEvent(new MouseEvent('contextmenu', {bubbles: true, cancelable: true, clientX: 60, clientY: 30}))")
         pg.wait_for_timeout(900)
-        shape_check(pg, '세계 시각 [glass-dark 1440]', '#xwc', exp=24)   # extras' glass panels (dialogs · 리플레이 · 세계 시각) are 24px
+        shape_check(pg, '세계 시각 [glass-dark 1440]', '#xwc')   # the popover token since extras moved to design.md (was its own 24px)
     ctx.close()
     groups = {'v': 1, 'groups': [{'id': 'g1', 'name': '기본', 'codes': ['005930', '000660']}, {'id': 'g2', 'name': '반도체', 'codes': ['000660']}], 'active': 'g2'}
     ctx, pg = open_page(br, 1440, 900, market='WATCH', theme='glass-dark', extra={'watchGroups': groups})
@@ -642,7 +642,7 @@ def overflow_net(br):
     check('no element drawn past the screen sides (360 · 390 · 768 · 1280 × 코스피 · 테마 · 해외 · 지표 · 일정 · 관심)', not found, found)
     # 일정 with real rows (qa/calendar/mock_cal.py: a released value on a past day, long titles): every day of the week strip
     cport = PORT + 1
-    assert 8970 <= cport <= 8979 or 9020 <= cport <= 9029
+    assert 8970 <= cport <= 8979 or 9010 <= cport <= 9029
     subprocess.run(['fuser', '-k', f'{cport}/tcp'], capture_output=True)
     srv = subprocess.Popen([sys.executable, str(ROOT / 'qa/calendar/mock_cal.py'), str(cport)], env=dict(os.environ, MOCK_WEB=os.environ.get('FLOAT_WEB', str(ROOT / 'web'))),
                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
