@@ -32,7 +32,7 @@ from playwright.sync_api import sync_playwright
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 PORT = int(os.environ.get('FLOAT_QA_PORT', 8970))
-assert 8970 <= PORT <= 8979, 'ports 8970–8979'
+assert 8970 <= PORT <= 8979 or 9020 <= PORT <= 9029, 'ports 8970–8979 (9020–9029: ux/std-template runs)'
 URL = f'http://127.0.0.1:{PORT}/'
 SHOTS = pathlib.Path(os.environ.get('FLOAT_QA_SHOTS', ROOT / 'qa/shots/float_motion'))
 NOPROXY = urllib.request.build_opener(urllib.request.ProxyHandler({}))

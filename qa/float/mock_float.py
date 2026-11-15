@@ -40,5 +40,5 @@ class H(W.H):
 
 if __name__ == '__main__':
     port = int(sys.argv[1]) if len(sys.argv) > 1 else 8970
-    assert 8970 <= port <= 8979, 'ports 8970–8979'
+    assert 8970 <= port <= 8979 or 9020 <= port <= 9029, 'ports 8970–8979 (9020–9029: ux/std-template runs)'
     ThreadingHTTPServer(('127.0.0.1', port), H).serve_forever()
