@@ -3,8 +3,8 @@
 
   python3 scripts/build_page.py && python3 qa/disclosure/test_disclosure.py [--shots]
 
-Starts qa/news/mock_api.py on DISC_QA_PORT (default 8902; serves web/ + /api/news + /api/disclosures/today built from the snapshot at
-request time — modes in its docstring) and, for the "no filings → the map as before" check, a second one on DISC_QA_BASE_PORT (8903)
+Starts qa/news/mock_api.py on DISC_QA_PORT (default 9051; serves web/ + /api/news + /api/disclosures/today built from the snapshot at
+request time — modes in its docstring) and, for the "no filings → the map as before" check, a second one on DISC_QA_BASE_PORT (9052)
 serving the web/ of git rev DISC_QA_BASE (default: main) with no disclosure route. --shots writes qa/shots/disc_toggle/*.png. Exit 1 on a fail.
 
 The map switch (오늘 공시 tab, ux/disc-toggle 2026-11-15) is checked as role=switch + aria-checked; its count is .dc-ln "· N종목".
@@ -28,8 +28,8 @@ from playwright.sync_api import sync_playwright
 HERE = pathlib.Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
 MOCK = ROOT / 'qa/news/mock_api.py'
-PORT = int(os.environ.get('DISC_QA_PORT', 8902))
-BPORT = int(os.environ.get('DISC_QA_BASE_PORT', 8903))
+PORT = int(os.environ.get('DISC_QA_PORT', 9051))            # ux/std-news range 9050–9059
+BPORT = int(os.environ.get('DISC_QA_BASE_PORT', 9052))
 BASE_REV = os.environ.get('DISC_QA_BASE', 'main')
 LIVE = f'http://127.0.0.1:{PORT}/'
 BASE = f'http://127.0.0.1:{BPORT}/'
@@ -38,6 +38,7 @@ SIZES = [(360, 740), (390, 844), (768, 1024), (1280, 800), (1920, 1080)]
 THEMES = ['base', 'paper', 'glass-dark', 'glass-light']
 NOPROXY = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 SHOTS = '--shots' in sys.argv
+ONLY = next((a.split('=', 1)[1] for a in sys.argv if a.startswith('--only=')), '')   # --only=design: the design-standard section alone
 results = []
 
 
@@ -128,7 +129,7 @@ CONTRAST_JS = r"""(sel) => {
   }
   return res;
 }"""
-TEXT_SEL = ['#news .nw-tt button', '#news .nw-tt .nw-tn', '#news .nw-at span', '#news .dc-ktabs > button', '#news .dc-ktabs small', '#news .dc-only',
+TEXT_SEL = ['#news .nw-ftabs > button', '#news .nw-ftabs .nw-tn', '#news .nw-at span', '#news .dc-ktabs > button', '#news .dc-ktabs small', '#news .dc-only',
             '#news .dc-only .nw-n', '#news .dc-row .dc-tm', '#news .dc-kb', '#news .dc-chip', '#news .dc-chip b', '#news .dc-chipx', '#news .dc-chipx small',
             '#news .dc-tt a', '#news .dc-x', '#news-p-disc .nw-ft small', '#news-p-disc .nw-msg b', '#news-p-disc .nw-msg small', '#news .dc-lit .dc-lw',
             '#news .dc-lit .dc-ln', '#legend .dc-lg', '#legend .dc-lg b', '#legend .dc-lg2', '#foot-disc']
@@ -578,9 +579,9 @@ def run(br):
     mode('stale')
     ctx, pg = open_page(br, LIVE, 1280, 800)
     disc_tab(pg)
-    so = pg.evaluate("() => ({ cls: document.querySelector('#news .nw-at').className, at: document.querySelector('#news .nw-at').textContent, key: !!document.querySelector('#news .nw-at .kasync'), bang: !!document.querySelector('.dc-lit .dc-bad'), blab: document.querySelector('.dc-lit').getAttribute('aria-label'), bdis: document.querySelector('.dc-lit').getAttribute('aria-disabled'), rows: document.querySelectorAll('#news .dc-row').length })")
-    check('stale (server stale, asOf 20 min old): list stays, amber ! "HH:MM 기준 · N분째 못 받았어요" + 다시 시도, map switch "!" (still usable, label says so)',
-          'stale' in so['cls'] and re.search(r'\d\d:\d\d 기준 · 2\d분째 못 받았어요', so['at']) and so['key'] and so['bang'] and so['bdis'] is None and so['blab'].endswith('· 몇 분째 새 공시를 받지 못했어요') and so['rows'] > 0, so)
+    so = pg.evaluate("() => ({ cls: document.querySelector('#news .nw-at').className, at: document.querySelector('#news .nw-at').textContent, key: !!document.querySelector('#news .nw-at .kasync'), bang: !!document.querySelector('.dc-lit .dc-bad'), blab: document.querySelector('.dc-lit').getAttribute('aria-label'), bdis: document.querySelector('.dc-lit').getAttribute('aria-disabled'), rows: document.querySelectorAll('#news .dc-row').length, ic: getComputedStyle(document.querySelector('#news .nw-at .kwn')).color, bc: getComputedStyle(document.querySelector('.dc-lit .dc-bad')).color, fd: (() => { const i = document.createElement('i'); i.style.color = 'var(--fail-dot)'; document.body.append(i); const c = getComputedStyle(i).color; i.remove(); return c; })() })")
+    check('stale (server stale, asOf 20 min old): list stays, ! (--fail-dot) "HH:MM 기준 · N분째 못 받았어요" + 다시 시도, map switch "!" (still usable, label says so)',
+          so['ic'] == so['fd'] and so['bc'] == so['fd'] and 'stale' in so['cls'] and re.search(r'\d\d:\d\d 기준 · 2\d분째 못 받았어요', so['at']) and so['key'] and so['bang'] and so['bdis'] is None and so['blab'].endswith('· 몇 분째 새 공시를 받지 못했어요') and so['rows'] > 0, so)
     ctx.close()
 
     # ── 8 · ETag: the browser revalidates, a 304 keeps the list and takes the time from x-as-of ──
@@ -707,12 +708,12 @@ def run(br):
     ph = pg.evaluate("""() => { const n = document.getElementById('news'), rows = [...n.querySelectorAll('.dc-row')], chip = n.querySelector('.dc-chip'), tab = n.querySelector('.dc-ktabs button'), tt = rows[0].querySelector('.dc-tt'), cs = getComputedStyle(tt);
       const b = n.querySelector('.dc-lit'), o = n.querySelector('.dc-only'), R = e => e.getBoundingClientRect(), sub = n.querySelector('#news-p-disc .dc-sub');
       return { rows: rows.length, clamp: cs.webkitLineClamp, fs: cs.fontSize, chipH: chip.getBoundingClientRect().height, chipHit: getComputedStyle(chip, '::before').height, tabH: tab.getBoundingClientRect().height,
-        title: n.querySelector('.nw-tt button').getBoundingClientRect().height, more: n.querySelector('#news-p-disc .nw-more').getBoundingClientRect().height,
+        title: n.querySelector('.nw-ftabs > button').getBoundingClientRect().height, more: n.querySelector('#news-p-disc .nw-more').getBoundingClientRect().height,
         litH: R(b).height, litHit: getComputedStyle(b, '::before').height, top: Math.round(R(b).top - R(sub).top), above: R(b).bottom <= R(n.querySelector('.dc-ktabs')).top, right: Math.round(R(sub).right - R(b.querySelector('.dc-trk')).right),
         lines: Math.round(R(b.querySelector('.dc-ll')).height), lfs: getComputedStyle(b).fontSize, text: b.innerText.replace(/\\s+/g, ' ') }; }""")
-    check('phone: no chip in the map header (one row, nothing past its edge), corners drawn; card 5 rows, titles 15 px two lines, chips 32 (hit 44), kind tabs 40, title tabs 40, 더보기 42',
-          ph0['st'] == 0 and ph0['chip'] == 0 and ph0['sb'] <= 46 and ph0['sbOver'] == 0 and ph0['dm'] > 0 and ph['rows'] == 5 and ph['clamp'] == '2' and ph['fs'] == '15px' and round(ph['chipH']) == 32
-          and ph['chipHit'] == '44px' and ph['tabH'] >= 40 and ph['title'] >= 40 and ph['more'] >= 42, f'{ph0} {ph}')
+    check('phone: no chip in the map header (one row, nothing past its edge), corners drawn; card 5 rows, titles 14 px (--fs-lg) two lines, chips 32 (hit 44), kind tabs 40, title tabs 40, 더보기 44',
+          ph0['st'] == 0 and ph0['chip'] == 0 and ph0['sb'] <= 46 and ph0['sbOver'] == 0 and ph0['dm'] > 0 and ph['rows'] == 5 and ph['clamp'] == '2' and ph['fs'] == '14px' and round(ph['chipH']) == 32
+          and ph['chipHit'] == '44px' and ph['tabH'] >= 40 and ph['title'] >= 40 and ph['more'] >= 44, f'{ph0} {ph}')
     check('phone: the map switch is the first line of the tab (40 px, hit 44, 14 px), the whole label "지도에서 공시 종목만 밝게 · N종목" on one line, track at the right end',
           round(ph['litH']) == 40 and ph['litHit'] == '44px' and ph['top'] == 0 and ph['above'] and ph['right'] == 0 and ph['lfs'] == '14px' and ph['lines'] <= 20
           and re.match(r'^지도에서 공시 종목만 밝게 · \d+종목$', ph['text'].strip()), ph)
@@ -730,7 +731,7 @@ def run(br):
     pg.tap('#news-t-disc'); pg.wait_for_timeout(300)
     pg.tap('#news .dc-row .dc-chip'); pg.wait_for_timeout(500)
     qs = pg.evaluate("() => ({ open: document.getElementById('sheet').classList.contains('open'), rows: [...document.querySelectorAll('#sheet .dsc a.dr')].map(a => Math.round(a.getBoundingClientRect().height)), all: Math.round(document.querySelector('#sheet .dc-all').getBoundingClientRect().height), hl: document.querySelectorAll('#map .tile.nhl').length })")
-    check('phone chip → bottom sheet with the 공시 block: rows ≥ 54 px, 공시 모두 보기 44 px, no map highlight', qs['open'] and qs['rows'] and all(x >= 54 for x in qs['rows']) and qs['all'] >= 44 and qs['hl'] == 0, qs)
+    check('phone chip → bottom sheet with the 공시 block: rows ≥ 52 px (--h-row + 8), 공시 모두 보기 44 px, no map highlight', qs['open'] and qs['rows'] and all(x >= 52 for x in qs['rows']) and qs['all'] >= 44 and qs['hl'] == 0, qs)
     check('no console errors (phone)', not E.items, E.items[:3])
     ctx.close()
 
@@ -739,7 +740,7 @@ def run(br):
     ctx, pg = open_page(br, LIVE, 1280, 800, motion='reduced')
     disc_tab(pg)
     pg.evaluate("KHDisc.refresh()"); pg.wait_for_timeout(600)
-    rm = pg.evaluate("() => ({ anim: [...document.querySelectorAll('#map .dm, #news .dc-row')].filter(x => getComputedStyle(x).animationName !== 'none').length, ind: getComputedStyle(document.querySelector('#news .dc-ktabs'), '::before').transitionDuration, bar: getComputedStyle(document.querySelector('#news .nw-tt button'), '::after').transitionDuration, lit: getComputedStyle(document.querySelector('#news .dc-lit')).transitionDuration, ck: getComputedStyle(document.querySelector('#news .dc-lit .dc-knob')).transitionDuration + ',' + getComputedStyle(document.querySelector('#news .dc-lit .dc-trk'), '::before').transitionDuration + ',' + getComputedStyle(document.querySelector('#news .dc-lit .dc-knob'), '::before').transitionDuration })")
+    rm = pg.evaluate("() => ({ anim: [...document.querySelectorAll('#map .dm, #news .dc-row')].filter(x => getComputedStyle(x).animationName !== 'none').length, ind: getComputedStyle(document.querySelector('#news .dc-ktabs'), '::before').transitionDuration, bar: getComputedStyle(document.querySelector('#news .nw-ftabs'), '::before').transitionDuration, lit: getComputedStyle(document.querySelector('#news .dc-lit')).transitionDuration, ck: getComputedStyle(document.querySelector('#news .dc-lit .dc-knob')).transitionDuration + ',' + getComputedStyle(document.querySelector('#news .dc-lit .dc-trk'), '::before').transitionDuration + ',' + getComputedStyle(document.querySelector('#news .dc-lit .dc-knob'), '::before').transitionDuration })")
     zero = lambda v: set(v.replace(' ', '').split(',')) <= {'0s'}
     check('reduced motion: no corner / row animation; kind indicator, title bar, map switch (knob edges, fill, knob shadow) 0s', rm['anim'] == 0 and zero(rm['ind']) and zero(rm['bar']) and zero(rm['lit']) and zero(rm['ck']), rm)
     ctx.close()
@@ -793,6 +794,79 @@ def run(br):
     t0 = time.time(); pg.evaluate("KHDisc.refresh()"); pg.wait_for_timeout(50)
     check(f'busy day: {pf["rows"]} rows, {pf["marks"]} marked stocks, {pf["tiles"]} tiles — repainting every corner {pf["ms"]} ms (< 60)', pf['ms'] < 60 and pf['tiles'] > 2000 and pf['rows'] > 1000, pf)
     ctx.close()
+
+
+DESIGN_JS = r"""() => {
+  const n = document.getElementById('news-p-disc'), R = e => e.getBoundingClientRect(), cs = (e, p) => getComputedStyle(e, p || null);
+  const probe = document.createElement('i'); document.body.append(probe);
+  const col = v => { probe.style.color = ''; probe.style.color = `var(${v})`; return getComputedStyle(probe).color; };
+  const row = n.querySelector('.dc-row:not(.skel)'), kb = n.querySelector('.dc-row .dc-kb:not(.fix)'), kt = n.querySelector('.dc-ktabs'), sel = kt.querySelector('button[aria-pressed="true"]');
+  const sizes = new Set(); for (const e of n.querySelectorAll('*')) if (e.offsetWidth && [...e.childNodes].some(c => c.nodeType === 3 && c.textContent.trim())) sizes.add(Math.round(parseFloat(cs(e).fontSize) * 10) / 10);
+  const res = { row: Math.round(R(row).height), badge: [Math.round(R(kb).height), cs(kb).borderTopLeftRadius, cs(kb).fontSize, cs(kb).fontWeight],
+    kind: [Math.round(R(sel).height), cs(sel).fontSize], only: Math.round(R(n.querySelector('.dc-only')).height), chip: Math.round(R(n.querySelector('.dc-chip')).height),
+    sizes: [...sizes].sort((x, y) => x - y), ind: kt.dataset.ind != null, ul: [cs(kt, '::before').height, cs(kt, '::before').backgroundColor], accLine: col('--acc-line'),
+    ulX: R(kt).left + parseFloat(cs(kt, '::before').left) - kt.scrollLeft, ulW: parseFloat(cs(kt, '::before').width), selX: R(sel).left, selW: R(sel).width,
+    dot: cs(document.querySelector('#news .dc-dot')).backgroundColor, newDot: col('--new-dot') };
+  probe.remove();
+  return res;
+}"""
+
+
+def design(br):
+    """design.md (ux/std-news): token sizes · the kind underline · the 더보기 fold through KHNews.fold · counts that swap with new data (and
+    not on a map change) · the tooltip's 공시 block on the glass plate (the plate keeps its sheen, edge and blur)"""
+    E = Errors()
+    mode('ok')
+    ctx, pg = open_page(br, LIVE, 1440, 900, errors=E)
+    disc_tab(pg); pg.mouse.move(3, 3); pg.wait_for_timeout(400)
+    d = pg.evaluate(DESIGN_JS)
+    check('design: row = --h-row (36), kind badge = the recipe (18 · 4px · 11px/600), kind tabs 32 · 13px, 지도 종목만 24, stock chip 24',
+          d['row'] == 36 and d['badge'] == [18, '4px', '11px', '600'] and d['kind'] == [32, '13px'] and d['only'] == 24 and d['chip'] == 24, d)
+    check('design: every font size in the tab is one of the seven steps (≥ 11px); the new dot = --new-dot', set(d['sizes']) <= {11, 12, 13, 14, 16, 20, 26} and d['dot'] == d['newDot'], d)
+    check('design: 공시 종류 = one 2px --acc-line underline under the picked kind (KH.ui.seg)', d['ind'] and d['ul'] == ['2px', d['accLine']] and abs(d['ulX'] - d['selX']) <= 1 and abs(d['ulW'] - d['selW']) <= 1, d)
+    pg.click('#news .dc-ktabs button[data-k="정기"]'); pg.wait_for_timeout(30)
+    mv = pg.evaluate("() => { const t = document.querySelector('#news .dc-ktabs'), c = getComputedStyle(t, '::before'); return { dir: t.dataset.dir, fn: c.transitionTimingFunction.split('linear(').length - 1, prop: c.transitionProperty }; }")
+    check('design: picking 정기 moves the underline right on lead (front) / trail (back)', mv['dir'] == 'r' and mv['fn'] >= 2 and 'left' in mv['prop'], mv)
+    pg.click('#news .dc-ktabs button[data-k="all"]'); pg.wait_for_timeout(700)
+    # the fold (KHNews.fold): the list box opens on `open`, the rows past the first count come in at a quarter; closing — out first
+    pg.evaluate("""() => { window.__f = []; const t0 = performance.now(), l = document.querySelector('#news-p-disc .nw-list');
+      const step = () => { const x = l.querySelector('.nw-x'); window.__f.push({ clip: l.style.clipPath, cls: l.className, rows: l.children.length, xo: x ? +getComputedStyle(x).opacity : -1,
+        foot: Math.round(document.getElementById('foot').getBoundingClientRect().top + scrollY) }); if (performance.now() - t0 < 1000) requestAnimationFrame(step); };
+      requestAnimationFrame(step); }""")
+    pg.click('#news-p-disc .nw-more'); pg.wait_for_timeout(1200)
+    fo = pg.evaluate("window.__f")
+    op = [f for f in fo if f['rows'] == 30]
+    check('design: 더보기 = the card\'s fold — page footer moves once at the press, the list clips open, the new rows wait hidden then come in, nothing left over',
+          op and len({f['foot'] for f in op}) == 1 and any(f['clip'] for f in op) and any('nw-fold-anim' in f['cls'] and f['xo'] == 0 for f in op)
+          and not op[-1]['clip'] and 'nw-fold' not in op[-1]['cls'] and op[-1]['xo'] == 1, [(f['rows'], f['cls'][-24:], f['xo']) for f in fo[:3]])
+    pg.click('#news-p-disc .nw-more'); pg.wait_for_timeout(1000)
+    check('design: 접기 → back to the first rows, no clip left', pg.evaluate("() => { const l = document.querySelector('#news-p-disc .nw-list'); return !l.style.clipPath && !l.style.height && !/nw-fold/.test(l.className) && l.children.length < 30; }"))
+    check('design 1440: no console errors', not E.items, E.items[:3])
+    ctx.close()
+    # counts: a new answer → the counts that moved swap in place (§6-4); a map change (코스피 → 코스닥) → written at once (P4)
+    mode('drift')
+    ctx, pg = open_page(br, LIVE, 1280, 800)
+    disc_tab(pg); pg.mouse.move(3, 3); pg.wait_for_timeout(500)
+    pg.evaluate("""() => { window.__sw = 0; new MutationObserver(ms => { for (const m of ms) if (m.target.classList && m.target.classList.contains('sw-go')) window.__sw++; })
+      .observe(document.getElementById('news'), { subtree: true, attributes: true, attributeFilter: ['class'] }); }""")
+    pg.evaluate("KHDisc.refresh()"); pg.wait_for_timeout(700)
+    n1 = pg.evaluate("window.__sw")
+    pg.evaluate("window.__sw = 0"); pg.click('.tabs button[data-mkt="Q"]'); pg.wait_for_timeout(900)
+    n2 = pg.evaluate("window.__sw")
+    check('design: a new answer swaps the counts that moved in place (KH.ui.swap); switching 코스피 → 코스닥 writes them at once', n1 >= 1 and n2 == 0, f'new answer {n1} swaps, map change {n2}')
+    ctx.close()
+    # glass: the tooltip with the 공시 block keeps the plate's material
+    mode('ok')
+    for th in ('glass-dark', 'glass-light'):
+        ctx, pg = open_page(br, LIVE, 1440, 900, th)
+        r = pg.evaluate("(() => { const r = document.querySelector('#map .tile[data-c=\"005930\"]').getBoundingClientRect(); return [r.x + Math.min(r.width / 2, 30), r.y + Math.min(r.height / 2, 20)]; })()")
+        pg.mouse.move(r[0], r[1]); pg.wait_for_timeout(600)
+        g = pg.evaluate("""() => { const t = document.getElementById('tip'), b = t.querySelector('.dsc'), c = getComputedStyle(t), a = getComputedStyle(t, '::after');
+          return { dsc: !!b, blur: c.backdropFilter, sheen: c.backgroundImage.includes('linear-gradient'), edge: a.content !== 'none' && a.content !== '', inset: /inset/.test(c.boxShadow),
+            plate: b ? [getComputedStyle(b).backgroundColor, getComputedStyle(b).backdropFilter] : null }; }""")
+        check(f'glass {th}: the tooltip with the 공시 block keeps its material — sheen, 1px edge ::after, inset edge light, blur; the block paints no plate',
+              g['dsc'] and 'blur(' in g['blur'] and g['sheen'] and g['edge'] and g['inset'] and g['plate'] == ['rgba(0, 0, 0, 0)', 'none'], g)
+        ctx.close()
 
 
 def baseline(br):
@@ -893,8 +967,11 @@ def main():
                 time.sleep(0.1)
         with sync_playwright() as p:
             br = p.chromium.launch(executable_path='/usr/bin/google-chrome', args=['--no-sandbox'])
-            run(br)
-            baseline(br)
+            if ONLY != 'design':
+                run(br)
+            design(br)
+            if ONLY != 'design':
+                baseline(br)
             if SHOTS:
                 shots(br)
             br.close()
