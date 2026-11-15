@@ -275,6 +275,8 @@ class H(SimpleHTTPRequestHandler):
             return self.send_json({'m': q.get('m'), 'part': 1, 'parts': 1, 'asOf': None, 'rows': []})
         if path == '/api/world':
             return self.send_json({'asOf': None, 'kind': q.get('kind'), 'groups': []})
+        if path == '/api/funds':                      # 증시 자금 (AGENTS §3-32): no items = the 지표 group stays absent, the console quiet
+            return self.send_json({'asOf': None, 'basDt': None, 'source': '금융투자협회', 'items': []})
         if path.startswith('/data/'):
             f = WEB / path[len('/data/'):]
             if f.suffix == '.json' and f.exists():

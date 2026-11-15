@@ -1,0 +1,84 @@
+{
+ "asOf": "2026-11-16T14:03:12+09:00",
+ "basDt": "2026-11-13",
+ "source": "금융투자협회",
+ "items": [
+  {
+   "key": "deposit",
+   "name": "투자자예탁금",
+   "value": 785123.45,
+   "change": 1234.56,
+   "ratio": 0.16,
+   "unit": "억원",
+   "basDt": "2026-11-13",
+   "prev": 783888.89,
+   "prevDt": "2026-11-12"
+  },
+  {
+   "key": "credit",
+   "name": "신용융자 전체",
+   "value": 263412.07,
+   "change": -512.3,
+   "ratio": -0.19,
+   "unit": "억원",
+   "basDt": "2026-11-13",
+   "prev": 263924.37,
+   "prevDt": "2026-11-12"
+  },
+  {
+   "key": "creditKospi",
+   "name": "신용융자 코스피",
+   "value": 171203.55,
+   "change": -402.1,
+   "ratio": -0.23,
+   "unit": "억원",
+   "basDt": "2026-11-13",
+   "prev": 171605.65,
+   "prevDt": "2026-11-12"
+  },
+  {
+   "key": "creditKosdaq",
+   "name": "신용융자 코스닥",
+   "value": 92208.52,
+   "change": -110.2,
+   "ratio": -0.12,
+   "unit": "억원",
+   "basDt": "2026-11-13",
+   "prev": 92318.72,
+   "prevDt": "2026-11-12"
+  },
+  {
+   "key": "unpaid",
+   "name": "위탁매매 미수금",
+   "value": 9303.01,
+   "change": 312.4,
+   "ratio": 3.47,
+   "unit": "억원",
+   "basDt": "2026-11-13",
+   "prev": 8990.61,
+   "prevDt": "2026-11-12"
+  },
+  {
+   "key": "forced",
+   "name": "반대매매",
+   "value": 47.97,
+   "change": -12.4,
+   "ratio": -20.54,
+   "unit": "억원",
+   "basDt": "2026-11-13",
+   "prev": 60.37,
+   "prevDt": "2026-11-12"
+  },
+  {
+   "key": "forcedRatio",
+   "name": "반대매매 비중",
+   "value": 0.5,
+   "change": -0.2,
+   "ratio": -28.57,
+   "unit": "%",
+   "basDt": "2026-11-13",
+   "prev": 0.7,
+   "prevDt": "2026-11-12"
+  }
+ ]
+}

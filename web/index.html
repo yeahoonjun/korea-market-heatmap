@@ -6702,6 +6702,371 @@ if (MODE === 'live') { poll(); syncPollers(); loadClose(); }
 stickMeasure(); scrollFrame();
 })();
 </script>
+<script>
+/* KH.spring — the one shared spring engine (docs/standards/design.md §6-3 "JS", AGENTS §3-7 "KH.spring").
+ *
+ * For what CSS transitions can't do: retargeting mid-flight keeps the current velocity, drags hand over their release velocity,
+ * a segmented / tab indicator rides two springs (leading edge `lead`, trailing edge `trail`), a switch knob stretches. Plain
+ * transitions keep using `transition: … var(--sp-<name>-dur) var(--sp-<name>)` (scripts/design_tokens.mjs).
+ *
+ *   KH.spring.animate({from, to, name | k, c, velocity?, onUpdate(v, vel), onRest(v)?, fancy?, scale?, restDelta?})
+ *       → handle {retarget(to, {velocity?, name? | k?, c?}), stop(), set(v), value(), velocity(), target(), running()}
+ *     mass 1, closed-form damped spring (under / critical / over). velocity is in units per second (px/s for px).
+ *     named springs come from CSS `--sp-<name>-kc` ("k c") on :root, else the FALLBACK table (= scripts/design_tokens.mjs APPROVED).
+ *     One requestAnimationFrame loop for every spring, off when nothing moves; dt clamped to ≤ 0.1 s; rest when
+ *     |x − to| < 1e-3·scale and |vel| < 1e-3·scale·ω0 (scale = |to − from|, or |vel|/ω0 if larger) → onUpdate(to, 0), onRest(to).
+ *     KH.motion() 'reduced' or a hidden tab → the end value at once (onUpdate now, onRest a microtask later); `fancy: true` also
+ *     ends at once unless KH.motion() is 'fancy'. kh:motion / visibilitychange finish whatever is moving then.
+ *   KH.spring.edges(el, {left, width}, {lead, trail, write, willChange, instant, onRest}) → indicator controller (one per element;
+ *     the first call places it, later calls animate) {to(box, {instant}), set(box), value(), moving(), stop(), destroy()}
+ *   KH.spring.knob(el, x, {width, stretch, front, back, write, willChange, instant, onRest}) → switch knob controller (same;
+ *     handle-like: to(x), set(x), retarget(x, {velocity, name}), value(), velocity(), target(), running(), box(), stop(), destroy())
+ *   KH.spring.release(handle, velocityPxPerMs, {points?, to?, name?, maxOvershoot?}) → {to, thrown, velocity, carried}
+ *     (settle spring with the release speed, §8 throw > 0.11 px/ms; maxOvershoot px caps the carried speed for hard ends)
+ *   KH.spring.params(name) → {k, c, zeta, w0, source} · solve(k, c, from, to, v0) → {x(t), v(t), at(t), regime, zeta, w0}
+ *   KH.spring.names() · FALLBACK · THROW · stats() → {active, scheduled}
+ *
+ * will-change (§6-5): the helpers add `will-change: transform` only while they move and only when they write a transform to an
+ * element with no text; it goes back to its earlier inline value on rest. animate() itself never touches the DOM.
+ */
+(function () {
+  'use strict';
+  const KH = window.KH;
+  if (!KH || KH.spring) return;
+
+  // = scripts/design_tokens.mjs APPROVED (qa/ui/test_spring.mjs checks the two tables match)
+  const FALLBACK = Object.freeze(Object.fromEntries(Object.entries({
+    lead: [620, 40], trail: [190, 23], follow: [900, 50], settle: [280, 27], fade: [420, 37], open: [360, 31], close: [900, 57],
+    hl: [620, 40], 'island-w': [380, 32], 'island-h': [300, 28], roll: [320, 36], 'roll-w': [380, 39], value: [420, 41], pop: [520, 34],
+  }).map(([n, kc]) => [n, Object.freeze(kc)])));
+  const DT_MAX = 0.1;        // s — a long frame (tab stall, GC) advances at most this much
+  const REST = 1e-3;         // rest band, relative to the move's scale
+  const THROW = 0.11;        // px/ms — design.md §8: a release faster than this is a throw
+  const FRAME = 1 / 60;      // s — the first step of a move from rest
+
+  const report = e => { try { if (typeof window.reportError === 'function') window.reportError(e); else console.error(e); } catch (_) { /* never let reporting break the loop */ } };
+  const call = (fn, a, b) => { if (typeof fn === 'function') { try { fn(a, b); } catch (e) { report(e); } } };
+  const now = () => (window.performance && performance.now ? performance.now() : Date.now());
+  const fin = (v, what) => { const n = +v; if (!Number.isFinite(n)) throw new TypeError(`KH.spring: ${what} must be a finite number`); return n; };
+  const motion = () => { try { return typeof KH.motion === 'function' ? KH.motion() : document.documentElement.dataset.motion; } catch (e) { return 'standard'; } };
+  const hidden = () => document.hidden === true || document.visibilityState === 'hidden';
+
+  /* ───────── closed form: x'' + c·x' + k·(x − to) = 0, x(0) = from, x'(0) = v0 (mass 1, seconds) ───────── */
+  function solve(k, c, from, to, v0) {
+    k = +k; c = +c; from = +from; to = +to; v0 = +v0 || 0;
+    if (!(k > 0) || !(c >= 0) || !Number.isFinite(k) || !Number.isFinite(c)) throw new RangeError('KH.spring: k > 0, c ≥ 0');
+    const w0 = Math.sqrt(k), zeta = c / (2 * w0), y0 = from - to;
+    let at, regime;
+    if (zeta < 1 - 1e-9) {
+      // y = e^{−a t}(A cos ωd t + B sin ωd t)
+      const a = zeta * w0, wd = w0 * Math.sqrt(1 - zeta * zeta), A = y0, B = (v0 + a * y0) / wd;
+      regime = 'under';
+      at = t => { const e = Math.exp(-a * t), co = Math.cos(wd * t), si = Math.sin(wd * t);
+        return [to + e * (A * co + B * si), e * ((B * wd - a * A) * co - (A * wd + a * B) * si)]; };
+    } else if (zeta <= 1 + 1e-9) {
+      // y = (A + B t) e^{−ω0 t}
+      const A = y0, B = v0 + w0 * y0;
+      regime = 'critical';
+      at = t => { const e = Math.exp(-w0 * t); return [to + (A + B * t) * e, (B - w0 * (A + B * t)) * e]; };
+    } else {
+      // y = C1 e^{r1 t} + C2 e^{r2 t}
+      const s = Math.sqrt(zeta * zeta - 1), r1 = -w0 * (zeta - s), r2 = -w0 * (zeta + s);
+      const C1 = (v0 - r2 * y0) / (r1 - r2), C2 = y0 - C1;
+      regime = 'over';
+      at = t => { const e1 = Math.exp(r1 * t), e2 = Math.exp(r2 * t); return [to + C1 * e1 + C2 * e2, C1 * r1 * e1 + C2 * r2 * e2]; };
+    }
+    return { k, c, w0, zeta, regime, at, x: t => at(t)[0], v: t => at(t)[1] };
+  }
+
+  /* ───────── named springs: CSS --sp-<name>-kc on :root, else FALLBACK; cleared on kh:theme ───────── */
+  const KC = new Map();
+  function params(name) {
+    name = String(name);
+    let p = KC.get(name);
+    if (p) return p;
+    let k, c, source = null;
+    try {
+      const raw = getComputedStyle(document.documentElement).getPropertyValue('--sp-' + name + '-kc');
+      const m = /^\s*["']?\s*([\d.]+)\s+([\d.]+)\s*["']?\s*$/.exec(raw || '');
+      if (m && +m[1] > 0 && +m[2] >= 0) { k = +m[1]; c = +m[2]; source = 'css'; }
+    } catch (e) { /* no styles (detached document): the table */ }
+    if (!source && Object.prototype.hasOwnProperty.call(FALLBACK, name)) { [k, c] = FALLBACK[name]; source = 'fallback'; }
+    if (!source) throw new RangeError(`KH.spring: no spring named "${name}"`);
+    p = Object.freeze({ name, k, c, w0: Math.sqrt(k), zeta: c / (2 * Math.sqrt(k)), source });
+    KC.set(name, p);
+    return p;
+  }
+  function pick(o, s) {
+    if (o.k != null || o.c != null) {
+      const k = fin(o.k, 'k'), c = fin(o.c, 'c');
+      if (!(k > 0) || !(c >= 0)) throw new RangeError('KH.spring: k > 0, c ≥ 0');
+      return { name: null, k, c };
+    }
+    if (o.name != null) { const p = params(o.name); return { name: p.name, k: p.k, c: p.c }; }
+    if (s) return { name: s.name, k: s.k, c: s.c };
+    throw new TypeError('KH.spring: give a spring name or {k, c}');
+  }
+
+  /* ───────── the shared loop ───────── */
+  const active = new Set();     // springs that move
+  let rafId = 0, inTick = false;
+  const dirty = new Set();      // helper draws queued during a tick: each runs once per frame, after every spring stepped
+  function schedule() {
+    if (rafId || !active.size) return;
+    rafId = window.requestAnimationFrame(tick);
+  }
+  function unschedule() {
+    if (rafId && !active.size) { try { window.cancelAnimationFrame(rafId); } catch (e) { } rafId = 0; }
+  }
+  function tick(ts) {
+    rafId = 0;
+    if (!Number.isFinite(ts)) ts = now();
+    inTick = true;
+    try { for (const s of [...active]) if (active.has(s)) step(s, ts); }
+    finally { inTick = false; }
+    flush();
+    schedule();
+  }
+  function flush() {
+    if (!dirty.size) return;
+    const list = [...dirty]; dirty.clear();
+    for (const fn of list) { try { fn(); } catch (e) { report(e); } }
+  }
+  function step(s, ts) {
+    let dt = (ts - s.last) / 1000;
+    // the first frame of a move from rest: an input handler's now() can be later than this frame's timestamp, so advance at
+    // least one frame (what shows at the next vsync) instead of drawing the start value again
+    if (s.first) { s.first = false; dt = Math.max(dt, FRAME); }
+    dt = Math.min(DT_MAX, Math.max(0, dt));
+    s.last = ts;
+    s.t += dt;
+    const xv = s.sol.at(s.t);
+    s.x = xv[0]; s.v = xv[1];
+    if (Math.abs(s.x - s.to) < s.restDelta && Math.abs(s.v) < s.restSpeed) { rest(s, false); return; }
+    call(s.onUpdate, s.x, s.v);
+  }
+  // at the end: snap to the target, the last onUpdate, then onRest (a microtask later when it happens inside animate / retarget)
+  function rest(s, defer) {
+    active.delete(s); s.running = false;
+    s.x = s.to; s.v = 0;
+    const g = s.gen;
+    call(s.onUpdate, s.to, 0);
+    if (!defer) { if (s.gen === g && !s.running) call(s.onRest, s.to); }
+    else queueMicrotask(() => { if (s.gen === g && !s.running) call(s.onRest, s.to); });
+    unschedule();
+  }
+  const instantFor = s => hidden() || motion() === 'reduced' || (s.fancy && motion() !== 'fancy');
+
+  function start(s, to, from, v) {
+    s.gen++;
+    s.to = to; s.x = from; s.v = v; s.t = 0;
+    s.sol = solve(s.k, s.c, from, to, v);
+    const w0 = Math.sqrt(s.k), scale = s.scaleOpt > 0 ? s.scaleOpt : Math.max(Math.abs(to - from), Math.abs(v) / w0);
+    s.restDelta = s.restOpt > 0 ? s.restOpt : REST * scale;
+    s.restSpeed = s.restDelta * w0;
+    if (!(scale > 0) || instantFor(s)) { rest(s, true); return; }
+    if (!s.running) { s.running = true; s.last = now(); s.first = true; active.add(s); }   // a running spring keeps its clock: no lost or doubled time
+    schedule();
+  }
+
+  function animate(o) {
+    o = o || {};
+    const sp = pick(o, null);
+    const s = {
+      name: sp.name, k: sp.k, c: sp.c, onUpdate: o.onUpdate, onRest: o.onRest, fancy: !!o.fancy,
+      scaleOpt: +o.scale || 0, restOpt: +o.restDelta || 0, running: false, first: false, gen: 0, x: 0, v: 0, to: 0, t: 0, last: 0, sol: null,
+    };
+    const h = {
+      retarget(to, opt) {
+        opt = opt || {};
+        if (opt.name != null || opt.k != null || opt.c != null) { const p = pick(opt, s); s.name = p.name; s.k = p.k; s.c = p.c; }
+        const v = opt.velocity != null ? fin(opt.velocity, 'velocity') : s.v;
+        start(s, fin(to, 'to'), s.x, v);
+        return h;
+      },
+      stop() { active.delete(s); s.running = false; s.v = 0; s.gen++; unschedule(); return h; },
+      set(value) { active.delete(s); s.running = false; s.gen++; s.x = s.to = fin(value, 'value'); s.v = 0; unschedule(); call(s.onUpdate, s.x, 0); return h; },
+      value: () => s.x,
+      velocity: () => s.v,
+      target: () => s.to,
+      running: () => s.running,
+      spring: () => ({ name: s.name, k: s.k, c: s.c }),
+    };
+    start(s, fin(o.to, 'to'), fin(o.from, 'from'), o.velocity != null ? fin(o.velocity, 'velocity') : 0);
+    return h;
+  }
+
+  function finishWhere(test) { for (const s of [...active]) if (test(s)) rest(s, false); }
+  document.addEventListener('kh:motion', e => {
+    const m = (e && e.detail && e.detail.motion) || motion();
+    if (m === 'reduced') finishWhere(() => true);
+    else if (m !== 'fancy') finishWhere(s => s.fancy);
+  });
+  document.addEventListener('visibilitychange', () => { if (hidden()) finishWhere(() => true); });
+  document.addEventListener('kh:theme', () => KC.clear());
+
+  /* ───────── helpers: draw once per frame, will-change only while moving ───────── */
+  const px = v => (Math.round(v * 100) / 100) + 'px';
+  function painter(el, o, draw) {
+    // o.write 'transform' (translateX + width, default) | 'left' (left + width)
+    const write = o.write === 'left' ? 'left' : 'transform';
+    const wcAllowed = write === 'transform' && o.willChange !== false && !(o.willChange !== true && /\S/.test(el.textContent || ''));
+    let wcOn = false, wcPrev = '';
+    const put = (left, width) => {
+      if (write === 'left') el.style.left = px(left); else el.style.transform = `translateX(${px(left)})`;
+      el.style.width = px(Math.max(0, width));
+    };
+    const paint = () => draw(put);
+    return {
+      update() { if (inTick) dirty.add(paint); else { dirty.delete(paint); paint(); } },
+      moving(on) {
+        if (!wcAllowed || on === wcOn) return;
+        if (on) { wcPrev = el.style.willChange || ''; el.style.willChange = 'transform'; } else el.style.willChange = wcPrev;
+        wcOn = on;
+      },
+    };
+  }
+
+  const EDGES = new WeakMap();
+  /* edges(el, {left, width}, {lead:'lead', trail:'trail', write, willChange, instant, onRest}) — a segmented / tab / underline
+     indicator: its leading edge (the side it moves toward) rides `lead`, the other edge `trail`, so it stretches and catches up
+     (design.md §6-2, §7). The first call places it; later calls (same element) animate. Reads no layout: pass numbers you have. */
+  function edges(el, box, o) {
+    let ctl = EDGES.get(el);
+    if (ctl) { if (o) ctl.configure(o); return box ? ctl.to(box, o) : ctl; }
+    ctl = makeEdges(el, o || {});
+    EDGES.set(el, ctl);
+    if (box) ctl.set(box);
+    return ctl;
+  }
+  function makeEdges(el, o) {
+    const cfg = { lead: o.lead || 'lead', trail: o.trail || 'trail', onRest: o.onRest };
+    let L = null, R = null, moving = false;   // moving: a to() whose onRest is still owed (once, when both edges rest)
+    const pt = painter(el, o, put => put(L.value(), R.value() - L.value()));
+    const done = () => { if (!L || !R || !moving || L.running() || R.running()) return; moving = false; pt.moving(false); call(cfg.onRest, ctl.value()); };
+    const mk = v => animate({ from: v, to: v, name: cfg.lead, onUpdate: () => { if (L && R) pt.update(); }, onRest: done });
+    const ctl = {
+      configure(n) { if (n.lead) cfg.lead = n.lead; if (n.trail) cfg.trail = n.trail; if ('onRest' in n) cfg.onRest = n.onRest; return ctl; },
+      to(b, opt) {
+        const l = fin(b.left, 'left'), r = l + fin(b.width, 'width');
+        if (!L) { L = mk(l); R = mk(r); }
+        if (opt && opt.instant) return ctl.set(b);
+        const dir = (l + r) - (L.value() + R.value());   // moving right → the right edge leads
+        const eps = 1e-6 * (1 + Math.abs(r - l));
+        moving = true;
+        L.retarget(l, { name: dir < -eps ? cfg.lead : dir > eps ? cfg.trail : cfg.lead });
+        R.retarget(r, { name: dir > eps ? cfg.lead : dir < -eps ? cfg.trail : cfg.lead });
+        if (L.running() || R.running()) pt.moving(true);
+        return ctl;
+      },
+      set(b) {
+        const l = fin(b.left, 'left'), r = l + fin(b.width, 'width');
+        if (!L) { L = mk(l); R = mk(r); }
+        moving = false; L.set(l); R.set(r); pt.moving(false);
+        return ctl;
+      },
+      value: () => (L ? { left: L.value(), width: R.value() - L.value() } : null),
+      moving: () => !!(L && (L.running() || R.running())),
+      stop() { moving = false; if (L) { L.stop(); R.stop(); } pt.moving(false); return ctl; },
+      destroy() { ctl.stop(); EDGES.delete(el); },
+    };
+    return ctl;
+  }
+
+  const KNOBS = new WeakMap();
+  /* knob(el, x, {width, stretch:3, front:'follow', back:'settle', write, willChange, instant, onRest}) — a switch knob of width
+     `width` going to translateX(x): the front edge rides `front`, the back edge `back`, the gap soft-capped at `stretch` px
+     (design.md §7, §10-8: ~3px). Handle-like (value / velocity / target / retarget / set) so KH.spring.release() takes it. */
+  function knob(el, x, o) {
+    let ctl = KNOBS.get(el);
+    if (ctl) { if (o) ctl.configure(o); return x != null ? ctl.to(x, o) : ctl; }
+    ctl = makeKnob(el, o || {});
+    KNOBS.set(el, ctl);
+    if (x != null) ctl.set(x);
+    return ctl;
+  }
+  function makeKnob(el, o) {
+    const cfg = { width: fin(o.width, 'width'), stretch: o.stretch != null ? Math.max(0, fin(o.stretch, 'stretch')) : 3,
+      front: o.front || 'follow', back: o.back || 'settle', onRest: o.onRest };
+    let F = null, B = null, moving = false;
+    const pt = painter(el, o, put => {
+      const f = F.value(), d = f - B.value(), S = cfg.stretch;
+      const s = S > 0 ? S * Math.tanh(Math.abs(d) / S) : 0;     // the back edge lags by ≤ `stretch` px
+      put(d > 0 ? f - s : f, cfg.width + s);
+    });
+    const done = () => { if (!F || !B || !moving || F.running() || B.running()) return; moving = false; pt.moving(false); call(cfg.onRest, F.value()); };
+    const upd = () => { if (F && B) pt.update(); };
+    const ensure = v => { if (!F) { F = animate({ from: v, to: v, name: cfg.front, onUpdate: upd, onRest: done }); B = animate({ from: v, to: v, name: cfg.back, onUpdate: upd, onRest: done }); } };
+    const ctl = {
+      configure(n) { if (n.width != null) cfg.width = fin(n.width, 'width'); if (n.stretch != null) cfg.stretch = Math.max(0, fin(n.stretch, 'stretch'));
+        if (n.front) cfg.front = n.front; if (n.back) cfg.back = n.back; if ('onRest' in n) cfg.onRest = n.onRest; return ctl; },
+      to(x, opt) { x = fin(x, 'x'); ensure(x); if (opt && opt.instant) return ctl.set(x); return ctl.retarget(x); },
+      // release(): name 'settle' + the finger's velocity on both edges
+      retarget(x, opt) {
+        opt = opt || {}; x = fin(x, 'x'); ensure(x);
+        const v = opt.velocity;
+        moving = true;
+        F.retarget(x, { velocity: v, name: opt.name || cfg.front, k: opt.k, c: opt.c });
+        B.retarget(x, { velocity: v, name: opt.name ? opt.name : cfg.back, k: opt.k, c: opt.c });
+        if (F.running() || B.running()) pt.moving(true);
+        return ctl;
+      },
+      set(x) { x = fin(x, 'x'); ensure(x); moving = false; F.set(x); B.set(x); pt.moving(false); return ctl; },
+      value: () => (F ? F.value() : null),
+      velocity: () => (F ? F.velocity() : 0),
+      target: () => (F ? F.target() : null),
+      running: () => !!(F && (F.running() || B.running())),
+      box() { if (!F) return null; const f = F.value(), d = f - B.value(), S = cfg.stretch, s = S > 0 ? S * Math.tanh(Math.abs(d) / S) : 0; return { left: d > 0 ? f - s : f, width: cfg.width + s }; },
+      stop() { moving = false; if (F) { F.stop(); B.stop(); } pt.moving(false); return ctl; },
+      destroy() { ctl.stop(); KNOBS.delete(el); },
+    };
+    return ctl;
+  }
+
+  /* release(handle, velocityPxPerMs, {points?, to?, name:'settle', maxOvershoot?}) — a drag let go: the handle keeps the finger's
+     velocity (px/ms → px/s) on the settle spring (design.md §6-1). |v| > 0.11 px/ms is a throw (§8): with `points` it goes to the
+     next point in the throw's direction, otherwise to the nearest point; with neither, to `to` or the handle's target. A hard
+     throw close to the target overshoots by physics; `maxOvershoot` (px, e.g. 1 for a switch knob in its track) keeps only as
+     much of the speed as stays within it. */
+  function release(h, vPxPerMs, o) {
+    o = o || {};
+    if (!h || typeof h.retarget !== 'function' || typeof h.value !== 'function') throw new TypeError('KH.spring.release: a spring handle');
+    const v = Number.isFinite(+vPxPerMs) ? +vPxPerMs : 0, thrown = Math.abs(v) > THROW, x = h.value();
+    let to = o.to != null ? fin(o.to, 'to') : null;
+    if (to == null && Array.isArray(o.points)) {
+      const pts = o.points.map(Number).filter(Number.isFinite);
+      if (pts.length) {
+        const nearest = pts.reduce((a, p) => (Math.abs(p - x) < Math.abs(a - x) ? p : a));
+        const ahead = thrown ? pts.filter(p => (v > 0 ? p > x : p < x)).sort((a, b) => (v > 0 ? a - b : b - a)) : [];
+        to = ahead.length ? ahead[0] : nearest;
+      }
+    }
+    if (to == null) to = h.target();
+    const name = o.name || 'settle';
+    let vs = v * 1000;
+    if (o.maxOvershoot != null && vs !== 0) { const p = params(name); vs = capSpeed(p.k, p.c, x, to, vs, Math.max(0, fin(o.maxOvershoot, 'maxOvershoot'))); }
+    h.retarget(to, { velocity: vs, name });
+    return { to, thrown, velocity: v, carried: vs / 1000 };
+  }
+  // the largest share of the release speed whose peak past `to` stays ≤ maxOS (a switch track has hard ends)
+  function capSpeed(k, c, x, to, vs, maxOS) {
+    const dir = Math.sign(to - x) || Math.sign(vs), T = 8 / Math.sqrt(k);
+    const peak = f => { const sol = solve(k, c, x, to, vs * f); let m = 0; for (let i = 1; i <= 400; i++) m = Math.max(m, (sol.x(T * i / 400) - to) * dir); return m; };
+    if (peak(1) <= maxOS) return vs;
+    let lo = 0, hi = 1;
+    for (let i = 0; i < 24; i++) { const mid = (lo + hi) / 2; if (peak(mid) <= maxOS) lo = mid; else hi = mid; }
+    return vs * lo;
+  }
+
+  KH.spring = Object.freeze({
+    animate, edges, knob, release, params, solve,
+    names: () => Object.keys(FALLBACK),
+    stats: () => ({ active: active.size, scheduled: rafId !== 0 }),
+    FALLBACK, THROW, DT_MAX, REST,
+  });
+})();
+
+</script>
 <style>
 /* 종목 페이지 (src/stock/stock.js). 클래스는 모두 sp- 로 시작해요. 색·글꼴 변수는 template.html의 :root를 써요. */
 html.sp-on, html.sp-on body { overflow: hidden; }
@@ -13180,6 +13545,11 @@ html[data-theme="glass-light"] #world{--nodata:#e6e9ee}
 .kw-sec[data-g=fx] .kw-sh .t,.kw-sec[data-g=rates] .kw-sh .t{flex:none}
 .kw-sh .a.note{flex:0 1 auto;min-width:0;overflow:hidden}
 .kw-sh .a.note small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* 증시 자금 (AGENTS §3-32, docs/standards/datago.md §6): a day-old statistic — the state column is its business day (no 장중 / 마감
+   dot), the head says which day, and a source line closes the section. Tokens only (design.md §3–4). */
+.kw-sd[hidden]{display:none}
+.kw-sec[data-g=funds] .kw-sh .t{flex:none}
+.kw-fsrc{margin:0;padding:var(--space-3) var(--space-3) var(--space-1);font-size:var(--fs-xs);line-height:var(--lh-ui,1.25);color:var(--faint)}
 .kw-sum .kw-sumk{font-weight:600;color:var(--fg)}
 .kw-rows{display:flex;flex-direction:column}
 .kw-lr{display:grid;grid-template-columns:minmax(0,1fr) 64px var(--kw-vw,76px) var(--kw-cw,62px) 66px 48px;grid-template-areas:"n s v c p b";align-items:center;column-gap:8px;width:100%;min-height:36px;padding:0 6px;border-radius:6px;text-align:left;font-size:13.5px;line-height:1.25;color:var(--fg);box-shadow:inset 0 -1px 0 var(--row-bd,transparent)}
@@ -13495,6 +13865,8 @@ html[data-theme="paper"] .kw-sheet{box-shadow:inset 0 1px 0 var(--rule,#211a15),
    The template shows <div id="world"> (in place of the map + side cards) and calls show(); another tab calls hide().
    Data (live only): GET api/world?kind=…  every 30 s while shown and the browser tab is visible (지표 = kind=commodity&with=fx,rates);
                      GET api/world/chart/{key}?tf=3m|1y for the detail sheet (daily closes; no intraday source exists).
+                     지표 also: GET api/funds (증시 자금, 금융투자협회 — once a day upstream, asked here at most every 10 min) and
+                     api/funds/chart/{key}?tf=3m|1y; an older Worker without the route → the group is simply absent (AGENTS §3-32).
    Uses window.KH (§3): MODE, LIVE_URL, colorOf, palette, fmt, h, market; listens to kh:palette. */
 (() => {
 'use strict';
@@ -13537,7 +13909,7 @@ const KINDS = {
     title: CM_NAME, hash: 'cmdty', noun: CM_NAME,
     fail: `${CM_NAME} 탭의 시세를 불러오지 못했어요`, empty: '지금 보여 줄 원자재·환율·금리 시세가 없어요',
     snapTitle: `${CM_NAME} 탭은 실시간 버전에서 볼 수 있어요`,
-    snapBody: '원유·금·곡물 같은 원자재 선물과 환율·국채 금리를 30초마다 새로 받아 와요. 이 미리보기는 네트워크가 막혀 있어서 시세를 받을 수 없어요.',
+    snapBody: '원유·금·곡물 같은 원자재 선물과 환율·국채 금리를 30초마다, 증시 자금(금융투자협회)은 하루 한 번 새로 받아 와요. 이 미리보기는 네트워크가 막혀 있어서 시세를 받을 수 없어요.',
   },
 };
 // what each tab asks the Worker for: the 지표 tab adds 환율 · 금리 (an older Worker ignores `with` and the groups are simply absent)
@@ -13564,7 +13936,7 @@ const SHORT = {
   US2YT: '미 국채 2년', US10YT: '미 국채 10년', US30YT: '미 국채 30년', JP10YT: '일 국채 10년',
 };
 /* 환율 · 금리 (AGENTS §3-28): the groups the Worker adds with `with=fx,rates` */
-const MACRO_NOTE = { fx: '오르면 원화 약세', rates: '변화는 bp(0.01%p)' };              // beside the section title
+const MACRO_NOTE = { fx: '오르면 원화 약세', rates: '변화는 bp(0.01%p)', funds: '색은 늘고 준 것만' };   // beside the section title
 const FX_SUB = { DXY: '오르면 달러 강세', USDJPY: '오르면 엔화 약세' };                    // rows the section note does not cover
 const FX_UNIT = {
   FX_USDKRW: '원 (1달러당)', FX_JPYKRW: '원 (100엔당)', FX_EURKRW: '원 (1유로당)', FX_CNYKRW: '원 (1위안당)',
@@ -13576,6 +13948,24 @@ const FX_NOTE = {
 };
 const KRW_NOTE = '오르면 원화 약세예요. 같은 외화를 사는 데 원화가 더 든다는 뜻이고, 빨강·초록은 숫자의 오르내림만 나타내요.';
 const RATE_NOTE = '값은 연 수익률(%)이고 변화는 bp(1bp = 0.01%p)로 보여 줘요. 빨강·초록은 금리의 오르내림이에요.';
+/* 증시 자금 (AGENTS §3-32 ①, docs/standards/datago.md §6): 금융투자협회 daily statistics from GET api/funds, merged into the 지표 tab
+   as one more group after 환율 · 금리 (row keys 'fd:<key>'). Values come in 억원 (or % for the share) and are shown as 조원 / 억원;
+   the change is against the previous business day. Red / green = the number went up / down, nothing more — a rising 신용융자
+   is not "good" or "bad" here, exactly like a yield. */
+const FUNDS_URL = 'api/funds', FUNDS_POLL_MS = 10 * 60e3, FUNDS_RETRY_MS = 2 * 60e3, FUND_PFX = 'fd:';
+const FUNDS = { data: null, tried: 0, gone: false, busy: null, chartGone: false };
+const FUND_SRC = '금융투자협회 · 하루 한 번(전 영업일 기준)';
+const FUND_SUB = { forced: '하루 금액', forcedRatio: '미수금 대비' };
+const FUND_NOTE = {
+  deposit: '증권 계좌에 맡겨 둔 돈이에요(장내파생상품 거래예수금은 빼요). 흔히 고객예탁금이라고 불러요.',
+  credit: '증권사가 주식을 살 돈으로 빌려준 신용거래융자의 잔고예요. 코스피와 코스닥을 더한 값이에요.',
+  creditKospi: '신용거래융자 잔고 가운데 유가증권시장(코스피) 몫이에요.',
+  creditKosdaq: '신용거래융자 잔고 가운데 코스닥 몫이에요.',
+  unpaid: '주식을 사고 결제일까지 내지 않은 돈(위탁매매 미수금)이에요.',
+  forced: '미수금을 갚지 못해 증권사가 주식을 처분한 반대매매 금액이에요. 그날 하루의 금액이에요.',
+  forcedRatio: '위탁매매 미수금 가운데 실제로 반대매매된 금액의 비중이에요.',
+};
+const FUND_COLOR_NOTE = ' 빨강·초록은 전 영업일보다 늘었는지 줄었는지만 나타내요. 늘었다고 좋거나 나쁘다는 뜻은 아니에요.';
 /* Naver unit codes → [long, short] */
 const UNITS = {
   'USD/BBL': ['달러/배럴', '$/배럴'], 'USD/MMBTU': ['달러/MMBtu', '$/MMBtu'], 'USD/U GAL': ['달러/갤런', '$/갤런'], 'USD/GAL': ['달러/갤런', '$/갤런'],
@@ -13584,7 +13974,8 @@ const UNITS = {
   KRW: ['원', '원'], JPY: ['엔', '엔'],
 };
 // rates carry their unit in the value ("3.756%")
-const unitOf = it => { if (!it.unit || isRate(it)) return null; const u = UNITS[String(it.unit).toUpperCase()]; return u || [String(it.unit), String(it.unit)]; };
+const unitOf = it => { if (!it.unit || isRate(it) || isFund(it)) return null;   // 증시 자금 carries 조원 / 억원 in its value text
+  const u = UNITS[String(it.unit).toUpperCase()]; return u || [String(it.unit), String(it.unit)]; };
 /* exchange time zones → a place name for "지금 열린 시장" */
 const CET = '유럽 중부';
 const TZ_CITY = {
@@ -13614,13 +14005,33 @@ function dpOf(it) {
   if (d > was) DP.set(it.key, d);
   return Math.max(d, was);
 }
-const isFx = it => it.gkey === 'fx', isRate = it => it.gkey === 'rates', isMacro = it => isFx(it) || isRate(it);
+const isFx = it => it.gkey === 'fx', isRate = it => it.gkey === 'rates', isFund = it => it.gkey === 'funds';
+const isMacro = it => isFx(it) || isRate(it) || isFund(it);
+const isFundPct = it => isFund(it) && it.unit === '%';
+// 억원 → "99.81조원" · "9,303억원" · "47.9억원"; signed: "+1,234억원" (a change that rounds to zero has no sign)
+function eokText(v, signed) {
+  if (v == null || !isFinite(v)) return '—';
+  const a = Math.abs(v);
+  const [txt, zero] = a >= 10000 ? [fixed(a / 10000, 2) + '조원', Math.round(a / 100) === 0] : a >= 100 ? [Math.round(a).toLocaleString('ko-KR') + '억원', false] : [fixed(a, 1) + '억원', Math.round(a * 10) === 0];
+  return (signed ? (zero ? '' : sgn(v)) : v < 0 ? MINUS : '') + txt;
+}
+// a share in %: as many decimals as the source sends (1, sometimes 2); its change in %p
+const fundDp = it => { const dec = v => { if (v == null || !isFinite(v)) return 0; const s = String(Math.abs(v)); const i = s.indexOf('.'); return i < 0 ? 0 : s.length - i - 1; }; return Math.max(1, Math.min(2, Math.max(dec(it.value), dec(it.change)))); };
+const pctpText = (v, dp) => { if (v == null || !isFinite(v)) return '—'; const r = +v.toFixed(dp); return (r ? sgn(r) : '') + fixed(r, dp) + '%p'; };
+const fundVal = it => isFundPct(it) ? fixed(it.value, fundDp(it)) + '%' : eokText(it.value);
+const fundChg = it => isFundPct(it) ? pctpText(it.change, fundDp(it)) : eokText(it.change, true);
+// "11월 13일" from 'YYYY-MM-DD'; with the weekday: "11월 13일 (금)"
+const mdText = (iso, wd) => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso || '')); if (!m) return ''; const t = `${+m[2]}월 ${+m[3]}일`; return wd ? `${t} (${WD[new Date(Date.UTC(+m[1], +m[2] - 1, +m[3])).getUTCDay()]})` : t; };
+const mdShort = iso => { const m = /^\d{4}-(\d{2})-(\d{2})$/.exec(String(iso || '')); return m ? `${m[1]}.${m[2]}` : ''; };
 // bp = 0.01%p, one decimal ("+2.3bp"); a change that rounds to 0.0 has no sign
 const bpOf = it => it.bp != null && isFinite(it.bp) ? it.bp : it.change != null && isFinite(it.change) ? Math.round(it.change * 10000) / 100 : null;
 const bpText = v => { if (v == null || !isFinite(v)) return '—'; const r = Math.round(v * 10) / 10; return sgn(r) + Math.abs(r).toFixed(1) + 'bp'; };
-const valText = it => fixed(it.value, dpOf(it)) + (isRate(it) ? '%' : '');
-const chgText = it => isRate(it) ? bpText(bpOf(it)) : it.change == null || !isFinite(it.change) ? '—' : sgn(it.change) + fixed(it.change, dpOf(it));
-const chipText = it => isRate(it) ? bpText(bpOf(it)) : pct(it.ratio);   // the coloured chip: % change, or bp for a yield
+const valText = it => isFund(it) ? fundVal(it) : fixed(it.value, dpOf(it)) + (isRate(it) ? '%' : '');
+const chgText = it => isFund(it) ? fundChg(it) : isRate(it) ? bpText(bpOf(it)) : it.change == null || !isFinite(it.change) ? '—' : sgn(it.change) + fixed(it.change, dpOf(it));
+// the coloured chip: % change, or bp for a yield, or %p for a share (증시 자금 반대매매 비중)
+const chipText = it => isRate(it) ? bpText(bpOf(it)) : isFundPct(it) ? fundChg(it) : pct(it.ratio);
+// rows whose chip already carries the change: the change column stays empty (the same number twice says nothing)
+const chipIsChange = it => isRate(it) || isFundPct(it);
 const isRef = it => !!it.ref;
 const isFut = it => it.gkey === 'usf';                 // 미국 선물: listed under 미국, never part of its average
 const colorOf = it => isRef(it) ? tok().ref : (it.ratio == null || !isFinite(it.ratio)) ? tok().nodata : KH.colorOf(it.ratio);
@@ -13774,6 +14185,64 @@ function normalise(j, kind) {
   return { asOf: j.asOf || null, kind, groups, all, byKey: new Map(all.map(it => [it.key, it])), charts: j.charts !== false };
 }
 
+/* 증시 자금: /api/funds → items shaped like the others (gkey 'funds'), or null when there is nothing to show */
+const numOr = v => v == null || v === '' || !isFinite(+v) ? null : +v;
+function fundItems(j) {
+  if (!j || !Array.isArray(j.items)) return null;
+  const items = [], seen = new Set();
+  for (const x of j.items) {
+    if (!x || typeof x.key !== 'string' || !/^[A-Za-z]{1,24}$/.test(x.key) || seen.has(x.key) || numOr(x.value) == null) continue;
+    seen.add(x.key);
+    items.push({
+      key: FUND_PFX + x.key, fkey: x.key, name: String(x.name || x.key), value: +x.value, change: numOr(x.change), ratio: numOr(x.ratio),
+      unit: x.unit === '%' ? '%' : '억원', basDt: /^\d{4}-\d{2}-\d{2}$/.test(x.basDt) ? x.basDt : null,
+      prev: numOr(x.prev), prevDt: /^\d{4}-\d{2}-\d{2}$/.test(x.prevDt) ? x.prevDt : null,
+      status: 'CLOSE', tradedAt: null, delayed: 0, tz: null, ref: false, group: '증시 자금', gkey: 'funds', bp: null, eod: false, calc: false, via: '금융투자협회',
+    });
+  }
+  if (!items.length) return null;
+  const basDt = /^\d{4}-\d{2}-\d{2}$/.test(j.basDt) ? j.basDt : items.map(it => it.basDt).filter(Boolean).sort().pop() || null;
+  return { asOf: j.asOf || null, basDt, stale: !!j.stale, items };
+}
+// put the 증시 자금 group at the end of the 지표 data (after 환율 · 금리), or take it away; d is changed in place
+function withFunds(d) {
+  if (!d || d.kind !== 'commodity') return d;
+  d.groups = d.groups.filter(g => g.key !== 'funds');
+  const F = FUNDS.data;
+  if (F) {
+    let ix = d.groups.reduce((m, g) => Math.max(m, ...g.items.map(it => it.ix)), -1);
+    const items = F.items.map(it => Object.assign({}, it, { ix: ++ix }));
+    d.groups.push({ key: 'funds', name: '증시 자금', items, list: items, basDt: F.basDt });
+  }
+  d.all = d.groups.flatMap(g => g.items);
+  d.byKey = new Map(d.all.map(it => [it.key, it]));
+  return d;
+}
+// at most every 10 min while the 지표 tab is shown (the Worker caches an hour; the source changes once a day). 404 = a Worker
+// without the route: stop asking for this page. Other failures keep the last good values.
+function loadFunds(force) {
+  if (!LIVE || FUNDS.gone || FUNDS.busy) return FUNDS.busy;
+  const now = Date.now();
+  if (!force && now - FUNDS.tried < (FUNDS.data ? FUNDS_POLL_MS : FUNDS_RETRY_MS)) return null;
+  FUNDS.tried = now;
+  FUNDS.busy = (async () => {
+    try {
+      FUNDS.data = fundItems(await getJSON(FUNDS_URL));
+      FUNDS.err = null;
+    } catch (e) {
+      if (e.status === 404) { FUNDS.gone = true; FUNDS.data = null; }
+      FUNDS.err = e;
+    } finally { FUNDS.busy = null; }
+    const d = S.data.commodity;
+    if (d) {
+      const had = d.groups.some(g => g.key === 'funds');
+      withFunds(d);
+      if ((had || FUNDS.data) && S.shown && S.kind === 'commodity' && els && !els.snap) render();
+    }
+  })();
+  return FUNDS.busy;
+}
+
 /* ───────── DOM scaffold ───────── */
 function scaffold() {
   root = document.getElementById('world');
@@ -13913,7 +14382,8 @@ function render() {
     return;
   }
   // §3-27 색 범위 자동: hand the template what this tab draws (VIX is a reference, never coloured) before anything takes a colour
-  if (typeof KH.feedRange === 'function') { try { KH.feedRange(S.kind, d.all.filter(it => !isRef(it)).map(it => it.ratio)); } catch (e) { /* fixed range */ } }
+  // 증시 자금 is a day-old statistic, not today's move: it takes colours from the range but does not set it
+  if (typeof KH.feedRange === 'function') { try { KH.feedRange(S.kind, d.all.filter(it => !isRef(it) && !isFund(it)).map(it => it.ratio)); } catch (e) { /* fixed range */ } }
   renderBar(d, err);
   if (mode === 'geoload') {
     els.tiles.clear(); els.heads.clear(); els.boxes = null;
@@ -14130,6 +14600,12 @@ function placeTile(el, t) {
   if (L.lv >= 2) el.__sub = T.pc;
 }
 function ariaOf(it) {
+  if (isFund(it)) {
+    const pctU = isFundPct(it), up = it.change > 0, dn = it.change < 0;
+    const mv = it.change == null ? '' : `, 전 영업일보다 ${up || dn ? fundChg(it).replace(/^[+−]/, '') + (pctU ? (up ? ' 올랐어요' : ' 내렸어요') : (up ? ' 늘었어요' : ' 줄었어요')) : '그대로예요'}`
+      + (!pctU && it.ratio != null && (up || dn) ? ` (${pct(it.ratio)})` : '');
+    return `증시 자금, ${it.name} ${valText(it)}${mv}, ${mdText(it.basDt, true) || '날짜 모름'} 기준, 금융투자협회`;
+  }
   const u = unitOf(it);
   const chg = isRate(it) ? `${chgText(it)}` : `${chgText(it)} (${pct(it.ratio)})`;
   return `${it.group ? it.group + ', ' : ''}${it.name} ${valText(it)}${u ? ' ' + u[0] : ''}, 전일 대비 ${chg}, ` +
@@ -14281,6 +14757,7 @@ const NAME_MIN = 118, FIXED_W = 64 + 66 + 48 + 5 * 8 + 12 + 14, MIN_COL_C = 300,
 const ROW_H = 36, ROW_HC = 52, HEAD_H = 42, SEC_PAD = 12;
 const placeOf = it => PLACE[it.key] || cityOf(it, null) || '';
 function listSub(it, flat) {
+  if (isFund(it)) return FUND_SUB[it.fkey] || '';
   if (isMacro(it)) return FX_SUB[it.key] || '';                 // the section note covers 원/○; 계산값 sits in the state column
   const u = S.kind === 'commodity' ? unitOf(it) : null;
   if (!flat && isFut(it)) return '선물';
@@ -14339,7 +14816,7 @@ function listGeom(W, minWide) {
 // sections → columns with heights as even as possible. Contiguous runs keep the reading order; when that leaves one
 // column much taller, the biggest sections are spread first (each column still lists its sections in the original order).
 function distribute(secs, n, rowH) {
-  const hs = secs.map(s => (s.head ? HEAD_H : 6) + s.items.length * rowH + SEC_PAD);
+  const hs = secs.map(s => (s.head ? HEAD_H : 6) + s.items.length * rowH + SEC_PAD + (s.key === 'funds' ? 24 : 0));
   const colH = idx => idx.reduce((a, i) => a + hs[i], 0) + Math.max(0, idx.length - 1) * COL_GAP;
   n = Math.min(n, secs.length);
   if (n <= 1) return [secs];
@@ -14440,12 +14917,13 @@ function fillRow(el, it, sub, rank, R) {
   sb.hidden = !subText;
   sb.className = 'sub' + (ref || (isFut(it) && !rank) ? ' tag' : '');
   ls.children[0].className = 'kw-sd ' + (open ? 'open' : 'close');
+  ls.children[0].hidden = isFund(it);                    // 증시 자금 does not trade: its state column is the business day it is for
   // 달러/엔 = a cross of two 하나은행 rates (§3-28): "계산값" where the others say 실시간 (the dot still says 장중 / 마감)
-  ls.children[1].textContent = it.calc ? '계산값' : open ? (it.delayed ? dlText(it.delayed) : '실시간') : '마감';
+  ls.children[1].textContent = isFund(it) ? mdShort(it.basDt) : it.calc ? '계산값' : open ? (it.delayed ? dlText(it.delayed) : '실시간') : '마감';
   ls.children[1].className = 'st' + (open && it.delayed ? ' dl' : '');
   ls.children[2].textContent = ref ? '' : sub || '';
-  // a yield: the chip carries its change in bp, the change column stays empty (the same number twice says nothing)
-  const v = valText(it), c = isRate(it) ? '' : chgText(it), p = chipText(it);
+  // a yield: the chip carries its change in bp, the change column stays empty (the same number twice says nothing); same for a share in %
+  const v = valText(it), c = chipIsChange(it) ? '' : chgText(it), p = chipText(it);
   const was = el.__vals;
   lv.textContent = v;
   lc.textContent = c;
@@ -14479,8 +14957,14 @@ function fillHead(sec, hd) {
   a.classList.toggle('note', !!MACRO_NOTE[sec.key]);
   if (sec.flat && !sec.ref) { s.replaceChildren(); a.replaceChildren(); return; }
   const cash = sec.cash || sec.items;                    // 미국: only the cash indices speak for the section
-  const st = stateOf(cash);
-  s.replaceChildren(h('i', { class: 'kw-sd ' + (st.open ? 'open' : 'close'), 'aria-hidden': 'true' }), st.text);
+  if (sec.key === 'funds') {
+    // a day-old statistic: the business day it is for, instead of 장중 / 마감
+    const dt = sec.items.map(it => it.basDt).filter(Boolean).sort().pop();
+    s.replaceChildren(dt ? `${mdText(dt, true)} 기준` : '');
+  } else {
+    const st = stateOf(cash);
+    s.replaceChildren(h('i', { class: 'kw-sd ' + (st.open ? 'open' : 'close'), 'aria-hidden': 'true' }), st.text);
+  }
   if (sec.ref) { a.replaceChildren(h('small', { text: '색칠하지 않는 지표' })); return; }
   // 환율 · 금리: an average of unlike things says nothing — the section says how to read it instead (§3-28)
   if (MACRO_NOTE[sec.key]) { a.replaceChildren(h('small', { class: 'kw-shn', text: MACRO_NOTE[sec.key] })); return; }
@@ -14494,7 +14978,7 @@ function renderList(d) {
   els.listW = W;
   // value / change columns: as wide as the widest text, so numbers line up across sections and columns
   let vw = 0, cw = 0;
-  for (const it of d.all) { vw = Math.max(vw, tw(valText(it), 500)); if (!isRate(it)) cw = Math.max(cw, tw(chgText(it), 500)); }   // a yield's change column is empty
+  for (const it of d.all) { vw = Math.max(vw, tw(valText(it), 500)); if (!chipIsChange(it)) cw = Math.max(cw, tw(chgText(it), 500)); }   // a yield's change column is empty
   const geo = listGeom(W, NAME_MIN + FIXED_W + Math.ceil(vw * 13.5 + 4) + Math.ceil(cw * 12.5 + 4));
   const blocks = buildColumns(d, geo);
   const cols = blocks.flatMap(b => b.cols);
@@ -14529,7 +15013,8 @@ function renderList(d) {
         const id = `kw-sh-${S.kind}-${sec.key}`;
         const hd = h(b.title ? 'h4' : 'h3', { class: 'kw-sh', id }, h('span', { class: 't' }), h('span', { class: 's' }), h('span', { class: 'a' }));
         const el = h('section', { class: 'kw-sec' + (sec.ref ? ' ref' : ''), 'data-g': sec.key, 'aria-labelledby': id }, hd,
-          h('div', { class: 'kw-rows' }, sec.items.map(rowEl)));
+          h('div', { class: 'kw-rows' }, sec.items.map(rowEl)),
+          sec.key === 'funds' ? h('p', { class: 'kw-fsrc', text: FUND_SRC }) : null);
         el.__sec = sec;
         return el;
       })))]).filter(Boolean));
@@ -15076,6 +15561,7 @@ function renderOpen(d) {
   const byCity = new Map();
   let closed = 0;
   for (const g of d.groups) for (const it of g.items) {
+    if (isFund(it)) continue;                            // 증시 자금 is not a market that opens
     if (it.status !== 'OPEN') { closed++; continue; }
     const c = cityOf(it, g);
     const e = byCity.get(c) || byCity.set(c, { city: c, its: [], it }).get(c);
@@ -15096,22 +15582,25 @@ function renderOpen(d) {
     h('p', { class: 'kw-omf' }, `한국 ${kst} · `, closed ? `마감 ${closed}개는 마지막 값이에요` : '모두 장중이에요'));
 }
 function renderSource(d) {
-  const kids = [h('span', {}, S.kind === 'commodity' && d && d.all.some(isMacro) ? '출처: 네이버 증권 · 거래소·기관마다 시세가 늦게 올 수 있어요.'
+  const fxr = it => isFx(it) || isRate(it);
+  const kids = [h('span', {}, S.kind === 'commodity' && d && d.all.some(fxr) ? '출처: 네이버 증권 · 거래소·기관마다 시세가 늦게 올 수 있어요.'
     : '출처: 네이버 증권 · 해외 지수와 원자재는 거래소별로 최대 20분 지연될 수 있어요.')];
   if (d && d.all.length) {
     const cnt = new Map();
-    for (const it of d.all) { const k = it.eod ? -1 : it.delayed || 0; cnt.set(k, (cnt.get(k) || 0) + 1); }
+    for (const it of d.all) { if (isFund(it)) continue; const k = it.eod ? -1 : it.delayed || 0; cnt.set(k, (cnt.get(k) || 0) + 1); }
     const parts = [...cnt].sort((a, b) => (a[0] < 0) - (b[0] < 0) || a[0] - b[0]).map(([k, n]) => `${k < 0 ? '하루 한 번 종가' : k ? dlText(k) : '실시간'} ${n}개`);
     kids.push(h('span', {}, ` 지금 목록: ${parts.join(' · ')}.`));
     const at = d.asOf ? new Date(d.asOf) : null;
     if (at && !isNaN(at)) kids.push(h('span', {}, ` ${fmtKstS.format(at)}(한국 시각)에 받은 값이고, 30초마다 새로 받아요.`));
   }
   if (S.kind === 'commodity') kids.push(h('span', {}, ' 원자재는 근월물 선물 가격이에요.'));
-  if (S.kind === 'commodity' && d && d.all.some(isMacro)) {
+  if (S.kind === 'commodity' && d && d.all.some(fxr)) {
     const fxs = d.all.filter(isFx), eod = fxs.find(it => it.eod), calc = fxs.find(it => it.calc);
     kids.push(h('span', {}, ' 원/달러·원/엔·원/유로·원/위안은 하나은행 고시 환율, 금리는 레피니티브 기준이에요.'
       + (eod ? ' 달러/엔은 하루 한 번 바뀌는 종가예요.' : '') + (calc ? ' 달러/엔은 원/달러와 원/엔으로 계산한 값이에요.' : '')));
   }
+  const fg = S.kind === 'commodity' && d && d.groups.find(g => g.key === 'funds');
+  if (fg) kids.push(h('span', { class: 'kw-src-fd' }, ` 증시 자금은 금융투자협회 통계(금융위원회 공공데이터포털)로 하루 한 번, 전 영업일 값으로 바뀌어요${fg.basDt ? ` — 지금 ${mdText(fg.basDt, true)} 자료` : ''}.`));
   els.src.replaceChildren(...kids);
 }
 
@@ -15242,7 +15731,7 @@ function fillDetail(full) {
     : fx ? (FX_NOTE[it.key] || KRW_NOTE) + (it.eod ? ' 레피니티브 종가라 하루에 한 번 바뀌어요.' : '')
       + (it.calc ? ' 원/달러를 1엔당 원화로 나눈 계산값이고, 차트는 레피니티브 일봉 종가예요.' : '')
     : D.kind === 'commodity' ? '근월물 선물 가격이에요. 거래소 시각 기준으로 하루가 바뀌어요.' : null;
-  const head = h('div', { class: 'kw-dh' },
+  const head = isFund(it) ? fundHead(it) : h('div', { class: 'kw-dh' },
     h('div', { class: 'kw-path', text: [it.group, city && city !== it.group ? city : null].filter(Boolean).join(' · ') }),
     h('div', { class: 'kw-nmrow' }, h('i', { class: 'kw-sw', style: `background:${colorOf(it)}` }), h('b', { id: 'kw-dt', text: it.name }),
       h('span', { class: 'kw-st ' + (it.status === 'OPEN' ? 'open' : 'close'), text: it.status === 'OPEN' ? '장중' : '마감' })),
@@ -15278,8 +15767,26 @@ function fillDetail(full) {
   }
 }
 
+// 증시 자금 in the sheet: the business day it is for, the one before, units, where it comes from; no 장중 / 마감
+function fundHead(it) {
+  const pctU = isFundPct(it);
+  const chgLine = pctU ? fundChg(it) : `${fundChg(it)}${it.ratio != null ? ` (${pct(it.ratio)})` : ''}`;
+  return h('div', { class: 'kw-dh' },
+    h('div', { class: 'kw-path', text: '증시 자금 · 금융투자협회' }),
+    h('div', { class: 'kw-nmrow' }, h('i', { class: 'kw-sw', style: `background:${colorOf(it)}` }), h('b', { id: 'kw-dt', text: it.name }),
+      h('span', { class: 'kw-st close', text: '하루 한 번' })),
+    h('div', { class: 'kw-px' }, h('b', { text: valText(it) }), h('span', { class: it.change == null ? 'flat' : cls(it.change), text: chgLine })),
+    h('dl', { class: 'kw-meta' },
+      h('dt', { text: '기준일' }), h('dd', { text: mdText(it.basDt, true) || '—' }),
+      it.prev != null ? [h('dt', { text: '전 영업일' }), h('dd', {}, valText(Object.assign({}, it, { value: it.prev })), it.prevDt ? h('small', { text: ` ${mdText(it.prevDt, true)}` }) : null)] : null,
+      h('dt', { text: '단위' }), h('dd', { text: pctU ? '% (미수금 대비)' : '조원 · 억원 (원 단위 자료를 줄여 보여 줘요)' }),
+      h('dt', { text: '갱신' }), h('dd', { text: '하루 한 번 · 보통 다음 영업일 오후에 올라와요' }),
+      h('dt', { text: '기준' }), h('dd', { text: '금융투자협회 (금융위원회 공공데이터)' })),
+    h('p', { class: 'kw-note', text: (FUND_NOTE[it.fkey] || '') + FUND_COLOR_NOTE }));
+}
 // the chart of a computed 달러/엔 comes from another source than its headline value: say so
-const srcLine = it => `출처: 네이버 증권${it.via ? ` (${it.via})` : ''} · ${delayText(it)}${it.eod ? '' : ' 시세'}${it.calc ? ' · 차트는 레피니티브 종가' : ''}`;
+const srcLine = it => isFund(it) ? `출처: 금융투자협회 · 금융위원회 공공데이터포털 · ${FUND_SRC.split(' · ')[1]}`
+  : `출처: 네이버 증권${it.via ? ` (${it.via})` : ''} · ${delayText(it)}${it.eod ? '' : ' 시세'}${it.calc ? ' · 차트는 레피니티브 종가' : ''}`;
 // 코스피 / 코스닥 opened from the ticker: today's intraday line ({pts:[[unix s, value]], base}) above the daily chart
 function todayBox(T, it) {
   if (!T || !Array.isArray(T.pts) || T.pts.length < 2) return null;
@@ -15307,7 +15814,8 @@ async function loadChart() {
   if (!D) return;
   const box = $('.kw-chart', sheet);
   const d = S.data[D.kind];
-  if (!S.chartRoute || (d && d.charts === false)) { box.replaceChildren(); box.hidden = true; return; }
+  const fund = D.key.startsWith(FUND_PFX);
+  if ((fund ? FUNDS.chartGone : !S.chartRoute) || (d && d.charts === false && !fund)) { box.replaceChildren(); box.hidden = true; return; }
   box.hidden = false;
   const k = D.key + '|' + D.tf;
   const c = CH.get(k);
@@ -15317,18 +15825,20 @@ async function loadChart() {
   drawChart();
   const res = await fetchChart(D.key, D.tf);
   if (!S.detail || S.detail.key !== D.key || S.detail.tf !== D.tf) return;
-  if (!S.chartRoute) { box.replaceChildren(); box.hidden = true; return; }
+  if (fund ? FUNDS.chartGone : !S.chartRoute) { box.replaceChildren(); box.hidden = true; return; }
   S.detail.chart = res;
   drawChart();
 }
 async function fetchChart(key, tf) {
   let res;
   try {
-    const j = await getJSON(`api/world/chart/${encodeURIComponent(key)}?tf=${tf}`);
+    const fund = key.startsWith(FUND_PFX);
+    const j = await getJSON(fund ? `api/funds/chart/${encodeURIComponent(key.slice(FUND_PFX.length))}?tf=${tf}` : `api/world/chart/${encodeURIComponent(key)}?tf=${tf}`);
     const bars = (j && Array.isArray(j.bars) ? j.bars : []).filter(b => b && b.t != null && isFinite(+b.c)).map(b => ({ t: String(b.t), c: +b.c }));
     res = { at: Date.now(), bars };
   } catch (e) {
-    if (e.status === 404 && !e.json) S.chartRoute = false;          // the Worker has no chart route at all
+    if (e.status === 404 && key.startsWith(FUND_PFX)) FUNDS.chartGone = true;   // 증시 자금 without its chart route
+    else if (e.status === 404 && !e.json) S.chartRoute = false;      // the Worker has no chart route at all
     res = { at: Date.now(), err: e, gone: e.status === 404 || e.status === 400 };
   }
   CH.set(key + '|' + tf, res);
@@ -15341,7 +15851,7 @@ function chartRetry(D) {
     CH.delete(k + '|' + tf);
     const res = await fetchChart(k, tf);
     if (!same()) return null;
-    if (!S.chartRoute) { const box = $('.kw-chart', sheet); if (box) { box.replaceChildren(); box.hidden = true; } return null; }
+    if (k.startsWith(FUND_PFX) ? FUNDS.chartGone : !S.chartRoute) { const box = $('.kw-chart', sheet); if (box) { box.replaceChildren(); box.hidden = true; } return null; }
     S.detail.chart = res;
     return !res.err;
   }, () => drawChart(), 'sm', same);
@@ -15375,7 +15885,8 @@ function drawChart() {
   // the segment moves into the new top row: a focused period button keeps the focus
   const keep = seg.contains(document.activeElement) ? document.activeElement : null;
   const put2 = (...kids) => { box.replaceChildren(...kids); if (keep && !keep.isConnected) return; if (keep && document.activeElement !== keep) keep.focus({ preventScroll: true }); };
-  const top = h('div', { class: 'kw-ctop' }, seg, h('span', { class: 'kw-cnote', text: it && it.calc ? '레피니티브 일봉 종가 · 마지막 점은 계산값' : '일봉 종가 · 마지막 점은 현재 값' }));
+  const fund = !!it && isFund(it);
+  const top = h('div', { class: 'kw-ctop' }, seg, h('span', { class: 'kw-cnote', text: fund ? '영업일마다 · 금융투자협회' : it && it.calc ? '레피니티브 일봉 종가 · 마지막 점은 계산값' : '일봉 종가 · 마지막 점은 현재 값' }));
   if (!C || C.loading) { put2(top, h('div', { class: 'kw-cmsg', text: '차트를 불러오는 중이에요…' })); return; }
   if (C.err) {
     put2(top, h('div', { class: 'kw-cmsg' }, C.gone ? '이 항목은 차트 자료가 없어요.' : '차트를 불러오지 못했어요. ', C.gone ? null : chartRetry(D)));
@@ -15384,26 +15895,28 @@ function drawChart() {
   const bars = C.bars.slice();
   // the last point follows the live value: today's bar (or a new one when the daily source lags behind)
   const L = it && parseLocal(it.tradedAt);
-  if (L && bars.length) {
-    const day = `${L.y}-${pad(L.mo)}-${pad(L.d)}`, lastB = bars[bars.length - 1];
+  const day = L ? `${L.y}-${pad(L.mo)}-${pad(L.d)}` : fund ? it.basDt : null;     // 증시 자금: the list's business day
+  if (day && bars.length) {
+    const lastB = bars[bars.length - 1];
     if (lastB.t === day) { if (lastB.c !== it.value) bars[bars.length - 1] = { t: day, c: it.value }; }
     else if (lastB.t < day) bars.push({ t: day, c: it.value });
   }
   if (bars.length < 2) { put2(top, h('div', { class: 'kw-cmsg', text: '차트 자료가 아직 없어요.' })); return; }
-  const W = Math.max(220, Math.round(box.clientWidth || 300)), H = 150, padL = 2, padR = 58, padT = 10, padB = 20;
+  const W = Math.max(220, Math.round(box.clientWidth || 300)), H = 150, padL = 2, padR = fund && !isFundPct(it) ? 74 : 58, padT = 10, padB = 20;
   const cs = bars.map(b => b.c);
   const lo = Math.min(...cs), hi = Math.max(...cs), first = cs[0], last = cs[cs.length - 1];
   const x = i => padL + (i / (bars.length - 1)) * (W - padL - padR);
   const y = v => hi === lo ? padT + (H - padT - padB) / 2 : padT + (1 - (v - lo) / (hi - lo)) * (H - padT - padB);
   const line = bars.map((b, i) => (i ? 'L' : 'M') + x(i).toFixed(1) + ' ' + y(b.c).toFixed(1)).join('');
   const area = line + `L${x(bars.length - 1).toFixed(1)} ${H - padB}L${x(0).toFixed(1)} ${H - padB}Z`;
-  const chg = (last / first - 1) * 100;
+  // a yield (§3-28): levels in %, moves in bp — "기간 동안 +32.0bp", not a % of a %; 증시 자금's share (%) moves in %p
+  const rate = !!it && isRate(it), share = !!it && isFundPct(it);
+  const chg = share ? last - first : first ? (last / first - 1) * 100 : 0;
   const dirc = isRef(it || {}) ? 'flat' : cls(chg);
   const dp = it ? dpOf(it) : 2;
-  // a yield (§3-28): levels in %, moves in bp — "기간 동안 +32.0bp", not a % of a %
-  const rate = !!it && isRate(it);
-  const fv = v => fixed(v, dp) + (rate ? '%' : '');
-  const mv = (a, b) => rate ? bpText((b - a) * 100) : pct((b / a - 1) * 100);
+  const fv = v => fund ? valText(Object.assign({}, it, { value: v })) : fixed(v, dp) + (rate ? '%' : '');
+  // 증시 자금: money moves in % of the start, a share in %p
+  const mv = (a, b) => rate ? bpText((b - a) * 100) : share ? pctpText(b - a, fundDp(it)) : !a ? '—' : pct((b / a - 1) * 100);
   const s = svg('svg', { class: 'kw-svg ' + dirc, viewBox: `0 0 ${W} ${H}`, width: W, height: H, role: 'img',
     'aria-label': `${TFS.find(t => t[0] === D.tf)[1]} 차트: ${shortDate(bars[0].t)} ${fv(first)}에서 ${shortDate(bars[bars.length - 1].t)} ${fv(last)}, ${mv(first, last)}. 최고 ${fv(hi)}, 최저 ${fv(lo)}` });
   s.append(
@@ -15419,7 +15932,7 @@ function drawChart() {
   s.append(cross, dot);
   const read = h('div', { class: 'kw-read' });
   const showAt = i => {
-    const b = bars[i], r = (b.c / first - 1) * 100;
+    const b = bars[i], r = share ? b.c - first : first ? (b.c / first - 1) * 100 : 0;
     read.replaceChildren(h('span', { text: D.tf === '1y' ? shortDateY(b.t) : shortDate(b.t) }), h('b', { text: fv(b.c) }),
       h('span', { class: isRef(it || {}) ? 'flat' : cls(r), text: i ? `${mv(first, b.c)} (기간 시작 대비)` : '기간 시작' }));
     dot.setAttribute('cx', x(i)); dot.setAttribute('cy', y(b.c));
@@ -15462,7 +15975,8 @@ async function load(kind, quiet) {
   try {
     const j = await getJSON(worldUrl(kind), ac.signal);
     if (seq !== S.seq) return null;
-    S.data[kind] = normalise(j, kind);
+    S.data[kind] = withFunds(normalise(j, kind));
+    if (kind === 'commodity') loadFunds();
     S.at[kind] = Date.now();
     S.err[kind] = null;
     failedW.delete('data:' + kind);
@@ -15538,7 +16052,7 @@ function show(kind) {
   render();
   if (was && sameKind && (S.timer || S.busy === kind)) return;   // already polling / loading this kind
   const age = Date.now() - (S.at[kind] || 0);
-  if (!S.data[kind] || age >= POLL_MS) load(kind); else schedule(POLL_MS - age);
+  if (!S.data[kind] || age >= POLL_MS) load(kind); else { schedule(POLL_MS - age); if (kind === 'commodity') loadFunds(); }
 }
 function hide() {
   S.shown = false;
@@ -15590,7 +16104,7 @@ async function openDetailKey(key, opts) {
   if (!kind && LIVE) {
     await Promise.all(['index', 'commodity'].map(async k => {
       if (S.data[k]) return;
-      try { S.data[k] = normalise(await getJSON(worldUrl(k)), k); S.at[k] = Date.now(); } catch (e) { /* the other kind may still have it */ }
+      try { S.data[k] = withFunds(normalise(await getJSON(worldUrl(k)), k)); S.at[k] = Date.now(); } catch (e) { /* the other kind may still have it */ }
     }));
     kind = find();
   }
@@ -15849,7 +16363,8 @@ html[data-motion="reduced"] .news *{animation:none!important}
    Feed tabs (disclosure.md §6, C안): another module may add a tab to this card — KHNews.addTab({key, label, count?, pane, list, at?,
    render(L), onShow?, onHide?}) → the card head becomes a title tablist (시장 뉴스 · 오늘 공시, ←/→, remembered in khm.feedTab), the
    news controls move to a second row like the other tab's, and the card keeps one height: the PC fill (whole rows, min 5, two columns
-   from 1200 px) is measured on the tab shown and handed to it as L = {measure, base, two, phone}. Only the tab shown polls its data. */
+   from 1200 px) is measured on the tab shown and handed to it as L = {measure, base, two, phone}. Only the tab shown polls its data.
+   onHide() runs when its tab stops being shown: another tab picked, the tab removed, or the card hidden (KHNews.hide). */
 (() => {
 'use strict';
 const KH = window.KH, M = window.KHNewsMatch;
@@ -16347,6 +16862,8 @@ function hide() {
   root.hidden = true; S.visible = false;
   clearTimeout(S.timer); S.timer = 0;
   setHover(null);
+  const ext = curExt();                                  // the tab shown goes off screen with the card (오늘 공시: its map toggle turns off)
+  if (ext && typeof ext.onHide === 'function') ext.onHide();
 }
 // a Worker without /api/news (404): no 시장 뉴스 — the card stays only when another tab has something to show
 function goneNews() {
@@ -16377,7 +16894,7 @@ show();
 /* 공시 배지 (src/disclosure/disc.js · docs/standards/disclosure.md — C안). drafts/disclosure.html의 C 모양 그대로, 새 공시 표시만 사용자
    2026-11-14 결정대로 "새" 글자 대신 시각 앞의 작은 점(--new-dot). 타일 귀퉁이 · 견본(.dmsw)은 템플릿에 있어요(표 보기도 써서).
    색은 모두 역할 토큰(themes.md §4) + 템플릿의 ✚ --dm-flap · --dm-crease · --dm-cut · --new-dot. 빨강 · 초록은 등락률 숫자에만, 앰버는
-   컨트롤(켜짐 · 포커스 · 실패 표시)에만. */
+   컨트롤(켜짐 · 포커스 · 실패 표시)에만. 지도 머리줄 공시 칩(.dc-hchip)은 오늘 공시 탭의 지도 스위치(.dc-lit)로 옮겼어요(사용자 2026-11-14 08:10 요청, 11-15 진행). */
 :root{--dc-badge-r:6px}
 html[data-theme="paper"]{--dc-badge-r:2px}
 html[data-theme^="glass"]{--dc-badge-r:999px}
@@ -16390,22 +16907,61 @@ html[data-theme^="glass"]{--dc-badge-r:999px}
 .dc-kb{display:inline-block;flex:none;font-size:11px;font-weight:500;line-height:18px;padding:0 6px;border-radius:var(--dc-badge-r);color:var(--fg2);box-shadow:inset 0 0 0 1px var(--line2);white-space:nowrap;letter-spacing:-.01em}
 .dc-kb.fix{color:var(--fg2);box-shadow:none;outline:1px dashed var(--line2);outline-offset:-1px}
 
-/* ── 머리줄 공시 칩 (controls §5-7 켜고 끄기 칩: 채움 + 테 + 체크 0 → 14px) ── */
-.dc-hchip{position:relative;display:inline-flex;align-items:center;gap:0;height:28px;padding:0 11px;border-radius:var(--r-chip);background:var(--chip-bg);box-shadow:var(--key-sh);font-size:12.5px;font-weight:600;color:var(--key-fg);white-space:nowrap;flex:none;
-  transition:background var(--c-fast) var(--c-out),box-shadow var(--c-fast) var(--c-out),transform var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out)}
-.dc-hchip .ck{display:inline-block;width:0;height:14px;opacity:0;transform:scale(.6);background:currentColor;-webkit-mask:var(--ck-mask) center/14px no-repeat;mask:var(--ck-mask) center/14px no-repeat;
-  transition:width var(--c-fast) var(--c-out),opacity var(--c-fast) var(--c-out),transform var(--c-fast) var(--c-out),margin var(--c-fast) var(--c-out)}
-.dc-hchip[aria-pressed="true"]{background:var(--chip-on);box-shadow:inset 0 0 0 1.5px var(--chip-ring),var(--key-sh)}
-.dc-hchip[aria-pressed="true"] .ck{width:14px;opacity:1;transform:none;margin-right:6px}
-.dc-hchip .dmsw,.dc-hchip .kspn{margin-right:7px}
-.dc-hchip .kspn{width:13px;height:13px}
-.dc-hchip .dc-n{margin-left:6px;color:var(--fg2);font-variant-numeric:tabular-nums}
-.dc-hchip .dc-bad{margin-left:5px;color:var(--acc);font-weight:700}
-.dc-hchip:not([aria-disabled="true"]):is(:active,.is-press){transform:translateY(1px);box-shadow:var(--key-dn);filter:var(--press-f);transition-duration:0s}
-.dc-hchip[aria-disabled="true"]{opacity:.45;cursor:not-allowed}
-.dc-hchip[title][aria-disabled="true"]{cursor:help}
-@media (pointer:coarse){ .dc-hchip::before{content:"";position:absolute;left:50%;top:50%;width:max(100%,44px);height:44px;transform:translate(-50%,-50%)} }
-@media (max-width:760px){ .dc-hchip{height:32px;padding:0 10px;font-size:13px} }
+/* ── 오늘 공시 탭의 지도 스위치 "[귀퉁이] 지도에서 공시 종목만 밝게 · 26종목 [트랙]" (사용자 2026-11-14 08:10: 지도 머리줄 공시 칩을
+   "아래에 뉴스 공시칸으로") — design.md §7 스위치: 파인 트랙 + 솟은 손잡이, 손잡이 두 가장자리가 앞 `follow` · 뒤 `settle`로 따로 움직여
+   가는 동안 늘었다 돌아와요(끈 → 켬: 오른쪽이 앞). 채움(앰버 = 켜짐)은 `fade`. 크기 · 글자 · 간격 · 모서리는 토큰만, 줄이기는 토큰이 0. ──
+   넓은 카드: 공시 종류 · 지도 종목만 줄의 오른쪽 끝. 좁은 카드(820px 이하 — 휴대폰 · 1024 PC): 탭 맨 위에 한 줄(글자 왼쪽 · 트랙 오른쪽). */
+.news .dc-sub{flex-wrap:wrap;row-gap:var(--space-3)}
+.news .dc-litw{display:flex;justify-content:flex-end;flex:none;order:7;margin-left:auto;min-width:0}
+.news .dc-litw[hidden]{display:none}
+.news .dc-lit{
+  --trk-w:calc(var(--space-8) + var(--space-5)); --trk-h:calc(var(--space-7) + var(--space-1)); --trk-in:var(--space-1);
+  --trav:calc(var(--trk-w) - var(--trk-h));
+  position:relative;display:inline-flex;align-items:center;gap:var(--space-5);min-width:0;min-height:var(--h-key);padding:0 var(--space-2) 0 var(--space-3);
+  border-radius:var(--r-row);font-size:var(--fs-md);line-height:var(--lh-ui);font-weight:600;color:var(--fg);text-align:left;
+  touch-action:pan-y;-webkit-tap-highlight-color:transparent;transition:background-color var(--c-fast) var(--c-out)}
+.news .dc-ll{display:inline-flex;align-items:center;flex-wrap:wrap;gap:0 var(--space-2);min-width:0;word-break:keep-all}
+.news .dc-ll .dmsw{flex:none;margin-right:var(--space-1)}
+.news .dc-lw{min-width:0}
+/* 수 "· 26종목": 바뀔 때 design.md §6-4 — 나감 100ms(흐림 2px · 위로 4px) → 60ms 뒤 들어옴 180ms(아래에서 4px). 두 글자가 한 칸에 겹쳐요 */
+.news .dc-lc{display:inline-grid;align-items:center;justify-items:start;font-weight:500;color:var(--fg2);white-space:nowrap;font-variant-numeric:tabular-nums}
+.news .dc-lv{grid-area:1/1;display:inline-flex;align-items:center;gap:var(--space-2)}
+.news .dc-lv.out{animation:dcTxOut var(--dc-tx-out) var(--c-in) forwards;pointer-events:none}
+.news .dc-lv.in{animation:dcTxIn var(--dc-tx-in) var(--sp-fade) calc(var(--dc-tx-out) + var(--dc-tx-gap)) both}
+.news .dc-lit{--dc-tx-out:100ms;--dc-tx-gap:60ms;--dc-tx-in:180ms}
+html[data-motion="reduced"] .news .dc-lit{--dc-tx-out:0ms;--dc-tx-gap:0ms;--dc-tx-in:0ms}
+@keyframes dcTxOut{to{opacity:0;filter:blur(2px);transform:translateY(calc(var(--space-2) * -1))}}
+@keyframes dcTxIn{from{opacity:0;filter:blur(2px);transform:translateY(var(--space-2))}}
+.news .dc-lc .kspn{width:var(--fs-md);height:var(--fs-md);color:var(--fg2)}
+.news .dc-lit .dc-bad{color:var(--fail-dot);font-weight:700}
+/* 트랙 · 채움 · 손잡이 (--t: 0 꺼짐 · 1 켜짐 — 끄는 동안은 KH.ui.sw가 손가락 자리로) */
+.news .dc-trk{--t:0;position:relative;flex:none;width:var(--trk-w);height:var(--trk-h);border-radius:var(--r-pill);background:var(--trk);box-shadow:var(--tray-sh)}
+.news .dc-trk::before{content:"";position:absolute;inset:0;border-radius:inherit;background:var(--sw-on);box-shadow:inset 0 1px 2px color-mix(in srgb,var(--shc) 28%,transparent);opacity:var(--t);
+  transition:opacity var(--sp-fade-dur) var(--sp-fade)}
+/* .dc-knob = the two edges (left / right on their own springs); its ::before = the raised knob you see, at most 3px longer than round
+   (design.md §7 "3px 늘었다 돌아와요" — the follow / settle pair alone opens ≈ 6px over an 18px travel), held to the front edge */
+.news .dc-knob{position:absolute;top:var(--trk-in);bottom:var(--trk-in);left:calc(var(--trk-in) + var(--t) * var(--trav));right:calc(var(--trk-in) + (1 - var(--t)) * var(--trav));
+  display:flex;justify-content:flex-start;
+  transition:left var(--sp-follow-dur) var(--sp-follow),right var(--sp-settle-dur) var(--sp-settle)}
+.news .dc-knob::before{content:"";flex:none;width:100%;max-width:calc(var(--trk-h) - 2 * var(--trk-in) + var(--space-1) * 1.5);border-radius:var(--r-pill);background:var(--knob);box-shadow:var(--knob-sh);
+  transition:box-shadow var(--c-fast) var(--c-out)}
+.news .dc-lit[aria-checked="true"] .dc-trk{--t:1}
+.news .dc-lit[aria-checked="true"] .dc-knob{justify-content:flex-end;transition:right var(--sp-follow-dur) var(--sp-follow),left var(--sp-settle-dur) var(--sp-settle)}
+.news .dc-lit:is(:active,.is-press,.drag):not([aria-disabled="true"]) .dc-knob::before{box-shadow:var(--knob-dn)}
+.news .dc-lit.drag .dc-knob{transition:none}
+.news .dc-lit.drag .dc-trk::before{transition:none}
+.news .dc-lit[aria-disabled="true"]{opacity:.45;cursor:not-allowed}
+.news .dc-lit[aria-disabled="true"][title]{cursor:help}
+.news .dc-lit[aria-disabled="true"] .dc-trk{pointer-events:none}
+@media (hover:hover) and (pointer:fine){ .news .dc-lit:not([aria-disabled="true"]):hover{background:var(--fill-1)} }
+@media (pointer:coarse){ .news .dc-lit::before{content:"";position:absolute;left:0;right:0;top:50%;height:max(100%,44px);transform:translateY(-50%)} }
+/* 좁은 카드: 탭 맨 위 한 줄 — 글자 왼쪽, 트랙 오른쪽 끝 */
+.news .dc-pane{container:dcpane / inline-size}
+@container dcpane (max-width:820px){
+  .news .dc-litw{order:-1;flex:1 1 100%;margin-left:0}
+  .news .dc-lit{width:100%;justify-content:space-between;padding:0 0 0 var(--space-1)}
+}
+@media (max-width:760px){ .news .dc-lit{font-size:var(--fs-lg)} }
 
 /* ── 범례 항목 ── */
 .legend .dc-lg b{font-variant-numeric:tabular-nums}
@@ -16506,10 +17062,12 @@ html[data-motion="reduced"] .news .dc-row{animation:none!important}
    What it draws (all from GET api/disclosures/today, never a body / summary / number pulled out of a filing):
    · tiles: a folded bottom-right corner (KH.marks 'disc') on stocks with a filing of the kinds chosen in 표시 설정 (기본 실적 · 주요),
      a bigger corner when one of them is new (first seen within 30 min and after the server started watching: s > since);
-   · the map-header chip "공시 26" (#stage-tools): on → only those stocks stay bright (KH.marks.only), not remembered;
    · the legend item "공시 26종목 · 큰 귀퉁이 = 30분 안"; the tooltip / quick-view block (KH.cardExtra): up to 3 filings, DART links
      in the quick view + "공시 모두 보기" (the stock page's 뉴스·공시 › 공시);
-   · the "오늘 공시" tab of the news card (KHNews.addTab): kind tabs, 지도 종목만, stock chips (quick view), row hover lights the tile;
+   · the "오늘 공시" tab of the news card (KHNews.addTab): kind tabs, 지도 종목만, the map switch "지도에서 공시 종목만 밝게 · 26종목"
+     (role=switch; on → only those stocks stay bright, KH.marks.only; only while the tab is shown, not remembered — it was the map-header chip
+     "공시 26" in #stage-tools until 사용자 2026-11-14 08:10 "아래에 뉴스 공시칸으로 옮기든", moved 2026-11-15), stock chips (quick view), row hover
+     lights the tile;
    · two settings (공시 보기 · 지도에 표시할 종류) and the footer credit.
    Data: while the setting is on, the page is visible and a stock map is shown — every 60 s on weekdays 07:00–19:00 KST, else 5 min;
    failures back off 1 → 2 → 4 → 5 min, "오래됨" after 5 min of failures. The Worker's weak ETag goes back as If-None-Match: a 304
@@ -16560,7 +17118,7 @@ const S = {
   view: [], byCode: new Map(), marks: new Map(), markSig: '', fresh: new Set(), seen: '', rp: null, rpKey: '',
   mapSet: new Set(), mapKey: '',
   kt: 'main', only: true, open: false, L: { measure: false, base: 5, two: false, phone: narrowMQ.matches, rowsMax: MAX_ROWS },
-  shown: 0, pending: false, ptr: false, hov: '', chipOn: false, lgKey: '', tabbed: false, names: null, namesBusy: false,
+  shown: 0, pending: false, ptr: false, hov: '', litOn: false, lgKey: '', tabbed: false, names: null, namesBusy: false,
 };
 const today = () => kstOf(nowMs()).date;
 const isToday = () => !!S.data && S.data.date === today();
@@ -16609,7 +17167,7 @@ function timeEl(x) {
   return h('time', { class: 'dc-tm', datetime: S.data ? S.data.date + (x.s ? 'T' + x.s : '') : null }, x.isNew ? dot() : null, t);
 }
 
-/* ───────── snapshot: the tab says where to see it; no chip, no corners, no rows in the build ───────── */
+/* ───────── snapshot: the tab says where to see it; no map switch, no corners, no rows in the build ───────── */
 if (!LIVE) {
   const pane = h('div', { class: 'dc-pane' }, h('ol', { class: 'nw-list is-msg' }, h('li', { class: 'nw-msg' },
     h('b', { text: '공시는 실시간 버전에서 볼 수 있어요' }),
@@ -16621,44 +17179,85 @@ if (!LIVE) {
   return;
 }
 
-/* ───────── the map-header chip: [corner] 공시 26 — on → only those stocks stay bright ───────── */
-const chip = h('button', { type: 'button', class: 'dc-hchip', 'aria-pressed': 'false' });
-chip.addEventListener('click', () => {
-  if (chip.getAttribute('aria-disabled') === 'true') return;
-  setChip(!S.chipOn, true);
+/* ───────── the map switch in the 오늘 공시 tab: [corner] 지도에서 공시 종목만 밝게 · 26종목 [track] — on → only those stocks stay bright ─────────
+   It sat in the map header (#stage-tools) as the chip "공시 26" until 2026-11-15 — 사용자 2026-11-14 08:10 "사진의 공시 버튼 차라리 아래에 뉴스
+   공시칸으로 옮기든 하는게 나을거같아". Now it is a switch (design.md §7: sunken track, raised knob whose two edges move on their own springs —
+   the front one `follow`, the back one `settle` — so it stretches a little on the way) in the tab's own row: at the end of the 공시 종류 ·
+   지도 종목만 line on a wide card, a line of its own at the top of the tab on a narrow one (phones · 1024 PC). It only works while that tab
+   is on screen: leaving the tab, a hidden card, 해외 · 지표, 공시 보기 off or nothing to light turns the map back to normal (a dimmed map with
+   no visible way back is worse than one more press). Not remembered across reloads. The knob can be dragged (KH.ui.sw, from 4 px). */
+const litCount = h('span', { class: 'dc-lc' });                // "· 26종목" (+ "!"), the ring while loading — changes swap in place (§6-4)
+const lit = h('button', { type: 'button', class: 'dc-lit', role: 'switch', 'aria-checked': 'false' },
+  h('span', { class: 'dc-ll' }, h('i', { class: 'dmsw', 'aria-hidden': 'true' }), h('span', { class: 'dc-lw', text: '지도에서 공시 종목만 밝게' }), litCount),
+  h('span', { class: 'dc-trk swt', 'aria-hidden': 'true' }, h('i', { class: 'dc-knob' })));
+const litBox = h('span', { class: 'dc-litw' }, lit);
+if (typeof UI.sw === 'function') UI.sw(lit);
+lit.addEventListener('click', () => {
+  if (lit.getAttribute('aria-disabled') === 'true') {        // off look: say why (a bubble under the key + the live region; mouse users also get the title)
+    const why = lit.dataset.why || '';
+    if (why && typeof UI.bubble === 'function') UI.bubble(lit, why); else if (why) live(why);
+    return;
+  }
+  setLit(!S.litOn, true);
 });
-function setChip(on, say) {
-  S.chipOn = !!on;
-  chip.setAttribute('aria-pressed', String(S.chipOn));
-  if (typeof KH.marks === 'object' && KH.marks) KH.marks.only(S.chipOn ? 'disc' : null);
-  if (say) live(S.chipOn ? `공시 있는 ${mapCount()}종목만 밝게 보여요.` : '모든 종목을 다시 보여요.');
+function setLit(on, say) {
+  S.litOn = !!on;
+  lit.setAttribute('aria-checked', String(S.litOn));
+  if (typeof KH.marks === 'object' && KH.marks) KH.marks.only(S.litOn ? 'disc' : null);
+  if (say) live(S.litOn ? `공시 있는 ${mapCount()}종목만 밝게 보여요.` : '모든 종목을 다시 보여요.');
+}
+/* design.md §6-4: the old count leaves (100 ms: opacity → 0, blur 2px, 4px up), the new one comes in 60 ms later (180 ms, from 4px below);
+   both sit in one grid cell while they cross. 줄이기, a hidden page or the first draw: the end state at once. */
+function swapCount(sig, kids) {
+  if (litCount.dataset.sig === sig) return;
+  const first = litCount.dataset.sig === undefined;
+  litCount.dataset.sig = sig;
+  const nu = h('span', { class: 'dc-lv' }, kids);
+  const still = first || document.documentElement.dataset.motion === 'reduced' || document.hidden || !lit.offsetWidth;
+  for (const x of litCount.querySelectorAll('.dc-lv.out')) x.remove();
+  const old = litCount.querySelector('.dc-lv');
+  if (still || !old) { put(litCount, nu); return; }
+  old.classList.remove('in'); old.classList.add('out');
+  nu.classList.add('in');
+  litCount.append(nu);
+  const drop = () => { if (old.isConnected) old.remove(); };
+  old.addEventListener('animationend', drop, { once: true });
+  setTimeout(drop, 400);                                      // in case the animation never runs (a display:none ancestor)
 }
 const mapCount = () => { let n = 0; for (const c of S.marks.keys()) if (S.mapSet.has(c)) n++; return n; };
-// shown: live, setting on, a stock map (not 해외 · 지표, not the theme overview), not replaying another day
-const chipWanted = () => S.on && !S.gone && !worldTab() && S.mapSet.size > 0 && !(S.rp && S.rp.kind === 'other');
+const newsCard = () => document.getElementById('news');
+const tabShown = () => S.tabbed && !!window.KHNews && typeof window.KHNews.tab === 'function' && window.KHNews.tab() === 'disc';
+const cardShown = () => { const n = newsCard(); return !!n && !n.hidden && !(n.parentElement && n.parentElement.hidden); };
+// there is something to light: live, setting on, a stock map (not 해외 · 지표, not the theme overview), not replaying another day
+const litUsable = () => S.on && !S.gone && !worldTab() && S.mapSet.size > 0 && !(S.rp && S.rp.kind === 'other');
+// …and its switch is on screen (the 오늘 공시 tab of a shown card) — otherwise the map goes back to normal
+const litWanted = () => litUsable() && tabShown() && cardShown();
 const staleNow = () => !!S.data && ((S.tries > 0 && Date.now() - S.okAt > STALE_MS) || (S.data.stale && nowMs() - isoMs(S.data.asOf) > STALE_MS));
-function renderChip() {
-  const slot = document.getElementById('stage-tools');
-  if (!chipWanted()) { if (S.chipOn) setChip(false); if (chip.isConnected) chip.remove(); return; }
-  if (slot && chip.parentNode !== slot) slot.append(chip);
-  const sw = h('i', { class: 'dmsw', 'aria-hidden': 'true' }), ck = h('i', { class: 'ck', 'aria-hidden': 'true' });
-  chip.removeAttribute('title');
+function litOff(why) { lit.setAttribute('aria-disabled', 'true'); lit.dataset.why = why; lit.title = why; }
+const bad = () => h('b', { class: 'dc-bad', 'aria-hidden': 'true', text: '!' });
+function renderLit() {
+  if (!litWanted() && S.litOn) setLit(false);
+  litBox.hidden = !litUsable();                              // theme overview · replay of another day: no switch (the tab has its own note)
+  if (litBox.hidden) return;
+  lit.removeAttribute('title'); delete lit.dataset.why;
   if (!S.data && S.loading) {
-    put(chip, ck, icon('spin'), h('span', { text: '공시' }));
-    chip.setAttribute('aria-disabled', 'true'); chip.setAttribute('aria-label', '공시 불러오는 중');
+    swapCount('load', [icon('spin')]);
+    litOff('공시를 불러오는 중이에요'); lit.setAttribute('aria-label', '지도에서 공시 종목만 밝게 — 공시를 불러오는 중이에요');
   } else if (!S.data) {
-    put(chip, ck, sw, h('span', { text: '공시' }), h('b', { class: 'dc-bad', 'aria-hidden': 'true', text: '!' }));
-    chip.setAttribute('aria-disabled', 'true'); chip.title = '공시를 불러오지 못했어요'; chip.setAttribute('aria-label', '공시를 불러오지 못했어요');
+    swapCount('err', [bad()]);
+    litOff('공시를 불러오지 못했어요'); lit.setAttribute('aria-label', '지도에서 공시 종목만 밝게 — 공시를 불러오지 못했어요');
   } else {
     const n = mapCount(), stale = staleNow(), rp = S.rp && S.rp.kind === 'same';
-    put(chip, ck, sw, h('span', { text: '공시' }), h('span', { class: 'dc-n', text: String(n) }), stale ? h('b', { class: 'dc-bad', 'aria-hidden': 'true', text: '!' }) : null);
-    if (n) chip.removeAttribute('aria-disabled'); else chip.setAttribute('aria-disabled', 'true');
-    chip.setAttribute('aria-label', `${isToday() ? '' : dayWord() + ' '}공시 있는 종목만 밝게, ${n}종목${stale ? ' · 몇 분째 새 공시를 받지 못했어요' : ''}${rp ? ` · ${S.rp.hm}까지` : ''}`);
-    if (rp) chip.title = `다시 보기 — ${S.rp.hm}까지 들어온 공시`;
-    else if (!isToday()) chip.title = `${dayLong(S.data.date)} 공시`;
-    if (!n && S.chipOn) setChip(false);
+    swapCount(`${n}|${stale ? 1 : 0}`, [h('span', { class: 'dc-ln', text: `· ${n}종목` }), stale ? bad() : null]);
+    const pre = isToday() ? '' : dayWord() + ' ', tail = `${stale ? ' · 몇 분째 새 공시를 받지 못했어요' : ''}${rp ? ` · ${S.rp.hm}까지` : ''}`;
+    if (n) {
+      lit.removeAttribute('aria-disabled');
+      if (rp) lit.title = `다시 보기 — ${S.rp.hm}까지 들어온 공시`;
+      else if (!isToday()) lit.title = `${dayLong(S.data.date)} 공시`;
+    } else litOff(rp ? `${S.rp.hm}까지 들어온 ${kindLabel()} 공시가 지도 종목에 없어요` : `지도 종목에 ${kindLabel()} 공시가 ${isToday() ? '아직 ' : ''}없어요`);
+    lit.setAttribute('aria-label', `${pre}공시 있는 종목만 지도에서 밝게, ${n}종목${tail}${n ? '' : ' — ' + lit.dataset.why}`);
   }
-  if (S.chipOn && chip.getAttribute('aria-disabled') === 'true') setChip(false);
+  if (S.litOn && lit.getAttribute('aria-disabled') === 'true') setLit(false);
 }
 
 /* ───────── the legend item: [corner] 공시 26종목 · [big corner] 큰 귀퉁이 = 30분 안 ───────── */
@@ -16724,7 +17323,8 @@ const more = typeof UI.akey === 'function' ? UI.akey('nw-kbtn nw-more', { idle: 
   : h('button', { type: 'button', class: 'nw-kbtn nw-more', text: '더보기' });
 more.setAttribute('aria-expanded', 'false');
 const credit = h('small', { text: '공시: 금융감독원 DART (OpenDART) — 제목 · 종류만 보여 드려요. 시각은 판세가 처음 본 때예요. 원문은 DART에서 새 탭으로 열려요.' });
-const pane = h('div', { class: 'dc-pane', id: 'news-p-disc' }, h('div', { class: 'nw-sub dc-sub' }, ktabs, onlyBtn), list, h('div', { class: 'nw-ft' }, more, credit));
+// the tab's own row: list filters (공시 종류 · 지도 종목만), then the map switch (a narrow card puts it on a line of its own above them — disc.css)
+const pane = h('div', { class: 'dc-pane', id: 'news-p-disc' }, h('div', { class: 'nw-sub dc-sub' }, ktabs, onlyBtn, litBox), list, h('div', { class: 'nw-ft' }, more, credit));
 if (typeof UI.seg === 'function') UI.seg(ktabs);
 
 function listFor(kt = S.kt, only = S.only) {
@@ -16832,7 +17432,10 @@ const tabSpec = {
   label: () => (!S.data || isToday() ? '오늘 공시' : `${dayLong(S.data.date)} 공시`),
   count: () => (S.data ? String(listFor('mark', true).length) : ''),
   at: atKids,
-  render(L) { S.L = L; renderPanel({ force: true }); },
+  render(L) { S.L = L; renderPanel({ force: true }); renderLit(); },
+  onShow: () => renderLit(),
+  // leaving the tab (시장 뉴스, the card hidden, the tab removed): the map back to normal — its key is no longer on screen
+  onHide() { if (S.litOn) setLit(false); },
 };
 function addTab() {
   if (S.tabbed || !window.KHNews || typeof window.KHNews.addTab !== 'function') return;
@@ -16846,6 +17449,11 @@ function removeTab() {
 }
 const newsUpdate = () => { if (S.tabbed && window.KHNews && typeof window.KHNews.update === 'function') window.KHNews.update(); };
 const newsRelayout = () => { if (S.tabbed && window.KHNews && typeof window.KHNews.relayout === 'function') window.KHNews.relayout(); };
+// the tab's own row wraps (a narrow card, longer counts): the PC fill measures its rows again so the card keeps its height
+if ('ResizeObserver' in window) {
+  let subH = -1;
+  new ResizeObserver(() => { const hh = pane.firstChild.offsetHeight; if (hh && subH >= 0 && hh !== subH) newsRelayout(); subH = hh; }).observe(pane.firstChild);
+}
 
 ktabs.addEventListener('click', e => {
   const b = e.target.closest('button');
@@ -16893,7 +17501,7 @@ pane.addEventListener('pointerenter', () => { S.ptr = true; });
 pane.addEventListener('pointerleave', () => { S.ptr = false; flush(); });
 pane.addEventListener('focusout', () => setTimeout(flush, 0));
 
-/* ───────── derive: the rows of the moment (a replay of today: those seen by its time) → corners, chip, legend, lists ───────── */
+/* ───────── derive: the rows of the moment (a replay of today: those seen by its time) → corners, map switch, legend, lists ───────── */
 function replayState() {
   const rp = typeof KH.replay === 'function' ? KH.replay() : null;
   if (!rp) return null;
@@ -16925,11 +17533,11 @@ function derive() {
   S.marks = marks;
   if ((sig !== S.markSig || S.fresh.size) && typeof KH.marks === 'object' && KH.marks) { S.markSig = sig; KH.marks.set('disc', marks.size ? marks : null); }
   S.fresh = new Set();
-  if (!show && S.chipOn) setChip(false);
+  if (!show && S.litOn) setLit(false);
   refreshAll();
 }
 function refreshAll() {
-  renderChip(); renderLegend(); renderPanel(); newsUpdate(); renderFoot(); settingCounts();
+  renderLit(); renderLegend(); renderPanel(); newsUpdate(); renderFoot(); settingCounts();
   if (typeof KH.cardExtra === 'object' && KH.cardExtra) KH.cardExtra.refresh();
 }
 function settingCounts() {
@@ -17000,7 +17608,7 @@ function load(o = {}) {
     let d = null, status = 0, same = null;
     try { const j = await getJSON(); if (j && j.same) same = j; else { d = accept(j); if (d) S.etag = j.__etag || ''; } } catch (e) { status = (e && e.status) || -1; }
     S.loading = false; S.busy = null;
-    // 404 = a Worker without the route (the page went out first): no tab, no chip, no corners — until a reload
+    // 404 = a Worker without the route (the page went out first): no tab, no map switch, no corners — until a reload
     if (status === 404 && !S.data) { gone(); return false; }
     if (same) {                                            // 304: the same list — only its time moves on (and 새 may have run out)
       S.tries = 0; S.okAt = Date.now(); S.err = false;
@@ -17009,7 +17617,7 @@ function load(o = {}) {
       return true;
     }
     if (d) { S.tries = 0; S.okAt = Date.now(); S.err = false; setData(d); }
-    else { S.tries++; S.err = !S.data; if (!o.silent) refreshAll(); else { renderChip(); renderLegend(); } }
+    else { S.tries++; S.err = !S.data; if (!o.silent) refreshAll(); else { renderLit(); renderLegend(); } }
     schedule();
     return !!d;
   })();
@@ -17029,7 +17637,7 @@ function schedule() {
 function gone() {
   S.gone = true; S.data = null;
   clearTimeout(S.timer); S.timer = 0;
-  if (S.chipOn) setChip(false);
+  if (S.litOn) setLit(false);
   if (typeof KH.marks === 'object' && KH.marks) KH.marks.set('disc', null);
   S.markSig = '';
   removeTab();
@@ -17046,7 +17654,7 @@ function onToggle() {
     schedule();
   } else {
     clearTimeout(S.timer); S.timer = 0;
-    if (S.chipOn) setChip(false);
+    if (S.litOn) setLit(false);
     if (typeof KH.marks === 'object' && KH.marks) KH.marks.set('disc', null);
     S.markSig = '';
     removeTab();
@@ -17055,7 +17663,7 @@ function onToggle() {
 }
 if (typeof KH.addSetting === 'function') {
   KH.addSetting({ key: 'disc', label: '공시 보기', default: true,
-    hint: 'DART 전자공시를 1분마다 확인해서 지도 타일 귀퉁이 · 공시 칩 · 목록으로 보여 줘요. 끄면 모두 사라지고 받지도 않아요.',
+    hint: 'DART 전자공시를 1분마다 확인해서 지도 타일 귀퉁이 · 툴팁 · 오늘 공시 목록으로 보여 줘요. 끄면 모두 사라지고 받지도 않아요.',
     onChange: v => { S.on = !!v; onToggle(); } });
   KH.addSetting({ key: 'discKinds', label: '지도에 표시할 종류', multi: true, min: 1, default: ['실적', '주요'],
     options: KINDS.map(k => ({ v: k, label: k })),
@@ -17069,13 +17677,13 @@ if (typeof KH.cardExtra === 'object' && KH.cardExtra) KH.cardExtra.add('disc', b
 document.addEventListener('kh:render', () => {
   const moved = syncMap(), rp = replayState(), rk = rp ? rp.kind + (rp.hm || '') : '';
   if (rk !== S.rpKey) { derive(); schedule(); return; }
-  if (moved) { renderChip(); renderLegend(); renderPanel(); newsUpdate(); settingCounts(); }
-  else renderChip();
+  if (moved) { renderLit(); renderLegend(); renderPanel(); newsUpdate(); settingCounts(); }
+  else renderLit();
   renderFoot();
   schedule();
 });
 document.addEventListener('kh:data', () => {
-  if (syncMap()) { renderChip(); renderLegend(); renderPanel(); newsUpdate(); settingCounts(); return; }
+  if (syncMap()) { renderLit(); renderLegend(); renderPanel(); newsUpdate(); settingCounts(); return; }
   // the chips' % follow the map
   for (const b of list.querySelectorAll('.dc-chip[data-c]')) {
     const q = quoteOf(b.dataset.c), v = b.querySelector('b');
@@ -17088,7 +17696,7 @@ document.addEventListener('kh:refresh', () => { if (polling()) load(); });
 document.addEventListener('visibilitychange', () => { if (document.hidden) { clearTimeout(S.timer); S.timer = 0; } else schedule(); });
 narrowMQ.addEventListener('change', () => renderLegend());
 // 새 lasts 30 minutes: the corners and dots follow the clock between answers too (once a minute, while visible)
-setInterval(() => { if (S.data && S.on && !document.hidden) { const before = S.markSig; derive(); if (before === S.markSig) renderChip(); } }, 60e3);
+setInterval(() => { if (S.data && S.on && !document.hidden) { const before = S.markSig; derive(); if (before === S.markSig) renderLit(); } }, 60e3);
 
 /* ───────── API ───────── */
 const info = r => { r = String(r || ''); const x = S.data && S.data.rows.find(y => y.r === r); return x ? { s: x.s, isNew: isNew(x), date: S.data.date } : null; };
@@ -17104,6 +17712,426 @@ syncMap();
 if (S.on) addTab();
 refreshAll();
 schedule();
+})();
+
+</script>
+<style>
+/* 정책 자료 탭 (src/policy/policy.js · docs/standards/policy-feeds.md §5) — 뉴스 카드(#news) 안의 세 번째 제목 탭.
+   design.md(승인) 기준으로 새로 만든 첫 모듈: 글자 --fs-* · 간격 --space-* · 모서리 --r-* · 높이 --h-* 토큰만, 움직임은 --sp-* 스프링.
+   줄 높이는 카드가 채우기에 쓰는 --nw-rh(뉴스와 같은 줄 수 · 같은 카드 높이). 빨강 · 초록 없음(등락 데이터가 아니에요), 앰버는 고른
+   칩(--chip-on · --chip-ring)과 포커스에만, 실패 표시 !는 --fail-dot. */
+
+/* 두 번째 줄: 출처 필터 칩 전체 · KDI · 관보 (알약 칩은 필터에만 — design.md §7) */
+.news .pl-sub{display:flex;align-items:center;gap:var(--space-4) var(--space-5);min-height:var(--h-key);margin:0 0 var(--space-3);min-width:0}
+.news .pl-chips{display:flex;flex-wrap:wrap;gap:var(--space-3);min-width:0}
+.news .pl-chip{position:relative;display:inline-flex;align-items:center;height:var(--h-chip);padding:0 var(--space-5);border-radius:var(--r-pill);background:var(--chip-bg);box-shadow:var(--key-sh);
+  font-size:var(--fs-sm);line-height:var(--lh-ui);font-weight:600;color:var(--key-fg);white-space:nowrap;touch-action:manipulation;-webkit-tap-highlight-color:transparent;
+  transition:background var(--sp-lead-dur) var(--sp-lead),box-shadow var(--sp-lead-dur) var(--sp-lead),transform var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out)}
+.news .pl-chip .pl-ck{display:inline-block;width:0;height:14px;opacity:0;transform:scale(.6);background:currentColor;-webkit-mask:var(--ck-mask) center/14px no-repeat;mask:var(--ck-mask) center/14px no-repeat;
+  transition:width var(--sp-lead-dur) var(--sp-lead),opacity var(--sp-fade-dur) var(--sp-fade),transform var(--sp-lead-dur) var(--sp-lead),margin var(--sp-lead-dur) var(--sp-lead)}
+.news .pl-chip[aria-pressed="true"]{background:var(--chip-on);box-shadow:inset 0 0 0 1.5px var(--chip-ring),var(--key-sh)}
+.news .pl-chip[aria-pressed="true"] .pl-ck{width:14px;opacity:1;transform:none;margin-right:var(--space-3)}
+.news .pl-chip .pl-n{margin-left:var(--space-3);color:var(--fg2);font-weight:500;font-variant-numeric:tabular-nums}
+.news .pl-chip .pl-n:empty{display:none}
+.news .pl-chip:not([aria-disabled="true"]):is(:active,.is-press){transform:translateY(1px);box-shadow:var(--key-dn);filter:var(--press-f);transition-duration:0s}
+.news .pl-chip[aria-disabled="true"]{opacity:.45;cursor:not-allowed}
+@media (hover:hover) and (pointer:fine){ .news .pl-chip:not([aria-disabled="true"]):hover{filter:brightness(1.08)} }
+
+/* 한 곳이 실패했을 때 한 줄 */
+.news .pl-note{display:flex;align-items:center;gap:var(--space-4);min-height:var(--h-key);margin:calc(-1 * var(--space-2)) 0 var(--space-2);font-size:var(--fs-sm);line-height:var(--lh-ui);color:var(--fg2);min-width:0}
+.news .pl-note[hidden]{display:none}
+.news .pl-note > span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.news .pl-note .kasync{margin-left:auto}
+.news .pl-warn{flex:none;width:15px;height:15px;color:var(--fail-dot)}
+
+/* 목록: 줄은 늘 통째로(반 줄 없음), 줄 높이 --nw-rh, 1200px 넘는 카드는 두 단 */
+.news .pl-list{flex:1 1 auto;min-height:0;list-style:none;margin:0;padding:0;display:grid;grid-auto-rows:var(--nw-rh);align-content:start}
+.news .pl-list.c2{grid-auto-flow:column;grid-template-columns:minmax(0,1fr) minmax(0,1fr);column-gap:var(--space-7);grid-template-rows:repeat(var(--nw-r,5),var(--nw-rh))}
+.news .pl-row{position:relative;display:grid;grid-template-columns:calc(var(--space-8) + var(--space-4)) auto minmax(0,1fr) auto;grid-template-areas:"t s tt o";align-items:center;column-gap:var(--space-5);
+  height:var(--nw-rh);padding:0 var(--space-3);margin:0 calc(-1 * var(--space-3));border-radius:var(--r-row);box-shadow:inset 0 -1px 0 var(--row-bd);min-width:0}
+@media (hover:hover) and (pointer:fine){ .news .pl-row:not(.skel):hover{background:var(--row-hov)} }
+.news .pl-tm{grid-area:t;font-size:var(--fs-sm);line-height:var(--lh-ui);color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+/* 출처 = 배지 한 조리법(design.md §5: 11px/600 · 높이 18 · --r-badge · 1px 안쪽 테), 중립색 */
+.news .pl-src{grid-area:s;display:inline-block;font-size:var(--fs-xs);font-weight:600;line-height:18px;padding:0 var(--space-3);border-radius:var(--r-badge);color:var(--fg2);box-shadow:inset 0 0 0 1px var(--line2);white-space:nowrap}
+.news .pl-tt{grid-area:tt;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:var(--fs-md);line-height:var(--lh-row);color:var(--fg);word-break:keep-all}
+.news .pl-tt a{color:var(--fg);text-decoration:none}
+/* 줄 전체가 제목 링크의 누르는 곳(줄 안에 다른 컨트롤이 없어요) — 휴대폰에서 44px 이상 */
+.news .pl-tt a::after{content:"";position:absolute;inset:0;border-radius:inherit}
+.news .pl-tt a:visited{color:var(--fg2)}
+.news .pl-tt a:focus-visible{outline:none}
+.news .pl-tt a:focus-visible::after{outline:var(--focus-w) solid var(--focus);outline-offset:calc(-1 * var(--focus-w))}
+@media (hover:hover) and (pointer:fine){ .news .pl-row:hover .pl-tt a{text-decoration:underline;text-decoration-color:var(--muted);text-underline-offset:3px} }
+.news .pl-org{grid-area:o;min-width:0;max-width:16em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--fs-sm);line-height:var(--lh-ui);color:var(--muted)}
+.news .pl-org:empty{display:none}
+/* 출처 하나만 볼 때는 출처 배지를 숨겨 제목 폭을 넓혀요 */
+.news .pl-pane:not([data-f="all"]) .pl-src{display:none}
+.news .pl-pane:not([data-f="all"]) .pl-row{grid-template-areas:"t tt tt o";grid-template-columns:calc(var(--space-8) + var(--space-4)) 0 minmax(0,1fr) auto}
+
+/* 줄 아래: 더보기(글자 상자 = 가장 긴 글자 폭) · 출처 */
+.news .pl-ft{display:flex;align-items:center;gap:var(--space-4) var(--space-6);margin-top:var(--space-4);min-height:var(--h-key)}
+.news .pl-ft small{margin-left:auto;font-size:var(--fs-xs);line-height:var(--lh-text);color:var(--faint);text-align:right;min-width:0}
+.news .pl-kbtn{position:relative;display:inline-flex;align-items:center;justify-content:center;gap:var(--space-3);height:var(--h-key);padding:0 var(--space-6);border-radius:var(--r-key);background:var(--key-bg);box-shadow:var(--key-sh);
+  font-size:var(--fs-sm);line-height:var(--lh-ui);font-weight:600;color:var(--key-fg);white-space:nowrap;flex:none;touch-action:manipulation;-webkit-tap-highlight-color:transparent;
+  transition:transform var(--c-fast) var(--c-out),box-shadow var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out),background var(--sp-fade-dur) var(--sp-fade)}
+@media (hover:hover) and (pointer:fine){ .news .pl-kbtn:hover{background:var(--key-hover)} }
+.news .pl-kbtn:is(:active,.is-press){transform:translateY(1px);box-shadow:var(--key-dn);filter:var(--press-f);transition-duration:0s}
+.news .pl-kbtn.sm{height:var(--h-chip);padding:0 var(--space-5)}
+.news .pl-kbtn[hidden]{display:inline-flex;visibility:hidden}
+.news .pl-more::after{content:"";width:6px;height:6px;margin-top:-3px;border:solid var(--key-ic);border-width:0 1.75px 1.75px 0;transform:rotate(45deg);transition:transform var(--sp-lead-dur) var(--sp-lead),margin var(--sp-lead-dur) var(--sp-lead)}
+.news .pl-more[aria-expanded="true"]::after{margin-top:3px;transform:rotate(225deg)}
+@media (pointer:coarse){ .news :is(.pl-chip,.pl-kbtn.sm)::before{content:"";position:absolute;left:50%;top:50%;width:max(100%,44px);height:44px;transform:translate(-50%,-50%)} }
+
+/* 빈 · 오류 · 불러오는 중: 목록 자리를 그대로 차지해요 — 상태가 바뀌어도 카드 높이 그대로 */
+.news .pl-list.is-msg{display:flex;flex-direction:column}
+.news .pl-msg{flex:1 1 auto;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:var(--space-5);text-align:center;padding:var(--space-4);font-size:var(--fs-md);line-height:var(--lh-text);color:var(--fg2);word-break:keep-all}
+.news .pl-msg b{font-weight:600;color:var(--fg)}
+.news .pl-msg small{font-size:var(--fs-sm);color:var(--muted)}
+.news .pl-msg a{color:var(--fg);font-weight:600;text-underline-offset:3px}
+.news .pl-sk{display:block;height:10px;border-radius:var(--r-pill);background:var(--line);opacity:.8}
+html:not([data-motion="reduced"]) .news .pl-row.skel .pl-sk{animation:plSk 1.4s var(--c-inout) infinite alternate}
+@keyframes plSk{to{opacity:.35}}
+/* 화려하게: 더보기로 펼친 줄이 아래에서 나타나요(40ms 간격, 8줄까지) */
+html[data-motion="fancy"] .news .pl-row.in{animation:plIn var(--sp-fade-dur) var(--sp-fade) both;animation-delay:var(--d,0ms)}
+@keyframes plIn{from{opacity:0;transform:translateY(var(--space-2))}}
+
+/* 휴대폰 (≤ 760): 1줄 날짜 · 출처 · 기관 / 2줄 제목 두 줄 — 5개 + 더보기, 줄 44px 이상 */
+@media (max-width:760px){
+  .news .pl-sub{flex-wrap:wrap;margin-bottom:var(--space-2)}
+  .news .pl-chip{font-size:var(--fs-md)}
+  .news .pl-list{grid-auto-rows:auto}
+  .news .pl-row,.news .pl-pane:not([data-f="all"]) .pl-row{grid-template-columns:auto auto minmax(0,1fr);grid-template-areas:"t s o" "tt tt tt";row-gap:var(--space-2);align-items:center;
+    height:auto;min-height:var(--h-row);padding:var(--space-5) 0;margin:0;border-radius:0}
+  .news .pl-pane:not([data-f="all"]) .pl-row{grid-template-columns:auto 0 minmax(0,1fr)}
+  .news .pl-org{justify-self:end;max-width:100%;text-align:right}
+  .news .pl-tt{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;font-size:var(--fs-lg);line-height:var(--lh-text);font-weight:500}
+  .news .pl-note{flex-wrap:wrap;margin:0 0 var(--space-2)}
+  .news .pl-note > span{white-space:normal}
+  .news .pl-wide{display:none}
+  .news .pl-ft{flex-direction:column;align-items:stretch;gap:var(--space-5)}
+  .news .pl-ft .pl-kbtn:not(.sm){height:var(--h-row);width:100%}
+  .news .pl-ft small{margin-left:0;text-align:left}
+  .news .pl-msg{min-height:300px}
+  .news .pl-pane.is-snap .pl-msg{min-height:0;padding:var(--space-6) var(--space-4)}
+}
+html[data-motion="reduced"] .news .pl-row{animation:none!important}
+
+</style>
+<script>
+/* 정책 자료 (docs/standards/policy-feeds.md · AGENTS §3-27) — 사용자 2026-11-15 16:25 "Kdi만 가져와야겠다" + 관보 API 승인:
+   KDI 경제정보센터 경제정책자료 RSS · 행정안전부 관보 목록(공공데이터포털)의 제목 · 날짜 · 기관만, 누르면 원문이 새 탭.
+   Where: a third title tab "정책 자료" of the news card (KHNews.addTab, after 시장 뉴스 · 오늘 공시); its own row = source filter chips
+   전체 · KDI · 관보 (pill chips: filters only — design.md §7), rows = date · source badge · headline (one link) · agency (· 편집구분),
+   the news card's fill (L: rows to the side column's end, two columns from 1200 px, phone 5 + 더보기 30).
+   Data (live): GET api/policy while this tab is shown, the card is on screen (400 px) and the page is visible — every 10 min, after
+   failures 2 → 4 → 8 → 10 min, at once on kh:refresh; "오래됨" after 30 min of failures. A list that arrives while the pointer / focus
+   is in the pane waits until it leaves. A Worker without the route (404): no tab. Snapshot (dist/): the tab says
+   "정책 자료는 실시간 버전에서 볼 수 있어요".
+   Footer: <p id="foot-policy"> right after the 공시 line (above ©, the disclaimer stays last — AGENTS §3-30), kept there across the
+   template's footer redraws by watching #foot (the template is not changed).
+   Design (design.md, approved): --fs-* / --space-* / --r-* / --h-* tokens only, no red / green (no price data here), amber only for the
+   chosen chip and focus; the failure mark is --fail-dot. */
+(() => {
+'use strict';
+const KH = window.KH;
+if (!KH || typeof KH.h !== 'function') return;
+const News = window.KHNews;
+if (!News || typeof News.addTab !== 'function') return;
+const h = KH.h, UI = KH.ui || {};
+const LIVE = KH.MODE === 'live';
+const SRC = { kdi: 'KDI', gwanbo: '관보' };
+const SRC_LONG = { kdi: 'KDI 경제정보센터', gwanbo: '행정안전부 관보' };
+const SRC_ORDER = ['kdi', 'gwanbo'];
+const FILTERS = [['all', '전체'], ['kdi', 'KDI'], ['gwanbo', '관보']];
+const MAX_ROWS = 30, POLL_MS = 10 * 60e3, MAX_WAIT = 10 * 60e3, STALE_MS = 30 * 60e3, TIMEOUT_MS = 15e3;
+const narrowMQ = matchMedia('(max-width: 760px)');
+const put = (el, ...kids) => el.replaceChildren(...kids.flat(Infinity).filter(k => k != null && k !== false));
+const icon = name => (typeof UI.icon === 'function' ? UI.icon(name) : null);
+const nowMs = () => (typeof KH.now === 'function' ? KH.now() : Date.now());
+const pad = n => String(n).padStart(2, '0');
+const kstDay = ms => { const k = new Date(ms + 9 * 3600e3); return `${k.getUTCFullYear()}-${pad(k.getUTCMonth() + 1)}-${pad(k.getUTCDate())}`; };
+const md = ymd => `${+ymd.slice(5, 7)}/${+ymd.slice(8, 10)}`;
+const dateText = ymd => (ymd === kstDay(nowMs()) ? '오늘' : md(ymd));
+function asOfText(iso) {
+  const m = /^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})/.exec(iso || '');
+  if (!m) return '';
+  return m[1] === kstDay(nowMs()) ? m[2] : `${md(m[1])} ${m[2]}`;
+}
+const motion = () => (typeof KH.motion === 'function' ? KH.motion() : document.documentElement.dataset.motion || 'standard');
+const card = document.getElementById('news');
+const msgLi = (title, sub, extra) => h('li', { class: 'pl-msg' }, h('b', { text: title }), sub ? h('small', { text: sub }) : null, extra || null);
+
+/* ───────── snapshot: the tab says where to see it (nothing baked into the build) ───────── */
+if (!LIVE) {
+  const pane = h('div', { class: 'pl-pane is-snap' }, h('ol', { class: 'pl-list is-msg' }, msgLi('정책 자료는 실시간 버전에서 볼 수 있어요',
+    'KDI 경제정보센터 · 행정안전부 관보의 새 자료 제목을 10분마다 받아 와요. 이 미리보기는 네트워크가 막혀 있어요.',
+    h('a', { href: KH.LIVE_URL, target: '_blank', rel: 'noopener', text: '실시간 버전 열기' }))));
+  News.addTab({ key: 'policy', label: '정책 자료', pane, list: pane.firstChild, render() {} });
+  return;
+}
+
+/* ───────── state ───────── */
+const S = {
+  data: null, okAt: 0, lastTry: 0, tries: 0, loading: true, busy: null, timer: 0, gone: false,
+  f: 'all', open: false, shown: 0, pending: false, ptr: false, near: !('IntersectionObserver' in window), tabbed: false,
+  L: { measure: false, base: 5, two: false, phone: narrowMQ.matches, rowsMax: MAX_ROWS },
+};
+
+/* ───────── DOM ───────── */
+const chips = h('div', { class: 'pl-chips', role: 'group', 'aria-label': '출처' },
+  FILTERS.map(([k, t]) => h('button', { type: 'button', class: 'pl-chip', 'data-k': k, 'aria-pressed': String(k === S.f) },
+    h('i', { class: 'pl-ck', 'aria-hidden': 'true' }), h('span', { text: t }), h('span', { class: 'pl-n' }))));
+const note = h('div', { class: 'pl-note', hidden: true });
+const list = h('ol', { class: 'pl-list', 'aria-labelledby': 'news-t-policy' });
+const more = typeof UI.akey === 'function' ? UI.akey('pl-kbtn pl-more', { idle: '더보기 (30개)', less: '접기' }, 'idle')
+  : h('button', { type: 'button', class: 'pl-kbtn pl-more', text: '더보기' });
+more.setAttribute('aria-expanded', 'false');
+const credit = h('small', { text: 'KDI 경제정보센터 경제정책자료 RSS · 행정안전부 관보(공공데이터포털) — 제목 · 날짜 · 기관만 보여 드려요. 원문은 새 탭으로 열려요.' });
+const pane = h('div', { class: 'pl-pane', id: 'news-p-policy', 'data-f': S.f }, h('div', { class: 'pl-sub' }, chips), note, list, h('div', { class: 'pl-ft' }, more, credit));
+
+/* ───────── helpers ───────── */
+const has = k => !!S.data && S.data.items.some(x => x.src === k);
+const listFor = (f = S.f) => (!S.data ? [] : f === 'all' ? S.data.items : S.data.items.filter(x => x.src === f));
+const staleNow = () => !!S.data && S.tries > 0 && Date.now() - S.okAt > STALE_MS;   // failing, and the last answer is 30 min old
+const reading = () => S.ptr || pane.contains(document.activeElement);
+function retryKey(sm) {
+  if (typeof UI.retry !== 'function') return null;
+  return UI.retry({ cls: 'pl-kbtn' + (sm ? ' sm' : ''), run: () => load({ silent: true }), render: () => renderPanel({ force: true }) });
+}
+const warn = () => { const i = icon('warn'); if (i && i.classList) i.classList.add('pl-warn'); return i; };
+
+/* ───────── rows ───────── */
+function row(x, k, grow) {
+  const anim = grow && k >= S.shown;
+  const side = [x.org, x.kind].filter(Boolean).join(' · ');
+  return h('li', { class: 'pl-row' + (anim ? ' in' : ''), style: anim ? `--d:${Math.min(8, k - S.shown) * 40}ms` : null, 'data-src': x.src },
+    h('time', { class: 'pl-tm', datetime: x.t, text: dateText(x.t) }),
+    h('span', { class: 'pl-src', text: SRC[x.src] }),
+    h('span', { class: 'pl-tt', title: x.title + (side ? ` — ${side}` : '') },
+      h('a', { href: x.url, target: '_blank', rel: 'noopener', 'aria-label': `${x.title} — ${SRC_LONG[x.src]}${side ? ', ' + side : ''}, 새 탭에서 열려요` }, x.title)),
+    h('span', { class: 'pl-org', text: side }));
+}
+const skel = n => Array.from({ length: n }, (_, k) => h('li', { class: 'pl-row skel', 'aria-hidden': 'true' },
+  h('time', { class: 'pl-tm' }, h('i', { class: 'pl-sk', style: 'width:32px' })), h('span', {}, h('i', { class: 'pl-sk', style: 'width:28px' })),
+  h('span', { class: 'pl-tt' }, h('i', { class: 'pl-sk', style: `width:${55 + (k * 37) % 30}%` })), h('span', {})));
+function emptyMsg() {
+  const src = S.data.sources;
+  if (S.f === 'gwanbo' && !src.gwanbo.ok) return msgLi('관보를 불러오지 못했어요', '공공데이터포털이 답하지 않았어요. 잠시 뒤 다시 눌러 주세요.', retryKey(false));
+  if (S.f === 'kdi' && !src.kdi.ok) return msgLi('KDI 자료를 불러오지 못했어요', 'KDI 경제정보센터가 답하지 않았어요. 잠시 뒤 다시 눌러 주세요.', retryKey(false));
+  if (S.f === 'gwanbo') return msgLi('최근 관보에 경제 부처 고시 · 공고가 없어요', '재정경제부 · 금융위원회 · 한국은행 · 산업통상부 같은 시장과 관련된 기관 것만 골라 보여 드려요.');
+  if (S.f === 'kdi') return msgLi('KDI 새 자료가 아직 없어요', '10분마다 다시 확인해요.');
+  return msgLi('아직 정책 자료가 없어요', '10분마다 다시 확인해요.');
+}
+
+/* ───────── render ───────── */
+function renderChips(none) {
+  for (const b of chips.children) {
+    const k = b.dataset.k, n = !S.data ? '' : String(listFor(k).length);
+    b.setAttribute('aria-pressed', String(k === S.f));
+    const off = none || (k !== 'all' && !has(k));
+    if (off) b.setAttribute('aria-disabled', 'true'); else b.removeAttribute('aria-disabled');
+    const nEl = b.querySelector('.pl-n');
+    if (nEl.textContent !== n) nEl.textContent = n;
+  }
+}
+function renderNote() {
+  const d = S.data;
+  const bad = d ? SRC_ORDER.filter(k => !d.sources[k].ok && (S.f === 'all' || S.f === k)) : [];
+  // a source shown from its last good list · one that has nothing (with 전체 only — its own filter says it in the list)
+  const stale = bad.filter(k => d.sources[k].stale && has(k)), lost = bad.filter(k => !has(k) && S.f === 'all');
+  note.hidden = !(stale.length || lost.length);
+  if (note.hidden) { put(note); return; }
+  const ats = stale.map(k => d.sources[k].at).filter(Boolean).sort();
+  const parts = [];
+  if (stale.length) parts.push(`${stale.map(k => SRC[k]).join(' · ')} 새 자료를 받지 못했어요`);
+  if (lost.length) parts.push(`${lost.map(k => SRC[k]).join(' · ')}를 불러오지 못했어요`);
+  put(note, warn(), h('span', {}, parts.join(' · '), stale.length && ats.length ? h('span', { class: 'pl-wide', text: ` · ${asOfText(ats[0])}에 받은 목록이에요` }) : null),
+    staleNow() ? null : retryKey(true));
+}
+function renderPanel(o = {}) {
+  if (!S.tabbed) return;
+  const L = S.L, d = S.data;
+  if (!o.force && reading() && list.querySelector('.pl-row:not(.skel)')) { S.pending = true; return; }
+  S.pending = false;
+  pane.dataset.f = S.f;
+  const none = !d || !d.items.length;
+  renderChips(none);
+  renderNote();
+  const all = listFor(), base = L.base;
+  const shown = L.measure ? 0 : S.open ? Math.min(MAX_ROWS, all.length) : base;
+  const perCol = n => (L.two ? Math.ceil(n / 2) : n);
+  list.classList.toggle('c2', !!L.two);
+  list.style.setProperty('--nw-r', String(perCol(Math.max(shown, base))));
+  list.style.minHeight = L.phone ? '' : L.measure ? '0px' : `calc(var(--nw-rh) * ${perCol(base)})`;
+  let kids;
+  if (L.measure) kids = [];
+  else if (!d && S.loading) kids = skel(base);
+  else if (!d) kids = [msgLi('정책 자료를 불러오지 못했어요', 'KDI 경제정보센터 · 공공데이터포털 모두 답하지 않았어요. 잠시 뒤 다시 눌러 주세요.', retryKey(false))];
+  else if (!all.length) kids = [emptyMsg()];
+  else kids = all.slice(0, shown).map((x, k) => row(x, k, o.grow));
+  put(list, kids);
+  list.classList.toggle('is-msg', kids.length === 1 && kids[0].classList.contains('pl-msg'));
+  if (!L.measure) S.shown = d ? Math.min(shown, all.length) : 0;
+  const total = Math.min(MAX_ROWS, all.length);
+  const lab = more.querySelector('.kl[data-l="idle"]');
+  if (lab) lab.textContent = `더보기 (${total}개)`;
+  if (more.dataset.st !== 'less') more.setAttribute('aria-label', `더보기 (${total}개)`);
+  more.hidden = !(d && (total > base || S.open));
+  renderFoot();
+}
+// the card head while this tab is shown: "17:39 기준" · 불러오는 중 · 받은 목록 없음 · 오래됨
+function atKids() {
+  const d = S.data;
+  if (!d && S.loading) return [icon('spin'), h('span', { text: '불러오는 중' })];
+  if (!d) return h('span', { text: '받은 목록 없음' });
+  if (staleNow()) {
+    const m = Math.max(30, Math.round((Date.now() - S.okAt) / 60000));
+    return [warn(), h('span', { text: `${asOfText(d.asOf)} 기준 · ${m}분째 못 받았어요` }), retryKey(true)];
+  }
+  return h('span', { text: `${asOfText(d.asOf)} 기준` });
+}
+
+/* ───────── the footer credit line (right after 공시, above ©) ───────── */
+const footP = h('p', { id: 'foot-policy', hidden: true });
+function footText() {
+  if (S.gone || !S.tabbed) return '';
+  const outs = S.data ? SRC_ORDER.filter(has) : SRC_ORDER;
+  if (!outs.length) return '';
+  return `정책 자료: ${outs.map(k => (k === 'kdi' ? 'KDI 경제정보센터 RSS' : '행정안전부 관보')).join(' · ')} (제목 · 링크만)`;
+}
+function placeFoot() {
+  const foot = document.getElementById('foot'), disc = document.getElementById('foot-disc');
+  if (!foot) return;
+  if (!disc || disc.parentNode !== foot) { if (footP.parentNode) footP.remove(); return; }   // 해외 · 지표 tabs: no feed lines there
+  if (disc.nextElementSibling !== footP) disc.after(footP);
+}
+function renderFoot() {
+  const t = footText();
+  if (footP.textContent !== t) footP.textContent = t;
+  footP.hidden = !t;
+  placeFoot();
+}
+const footEl = document.getElementById('foot');
+if (footEl) new MutationObserver(() => placeFoot()).observe(footEl, { childList: true });
+
+/* ───────── the tab ───────── */
+const tabSpec = {
+  key: 'policy', pane, list, label: '정책 자료',
+  at: atKids,
+  // also when this tab became the shown one without a select() (시장 뉴스 gone on an old Worker → the next tab takes over)
+  render(L) { S.L = L; renderPanel({ force: true }); if (!S.data && !S.busy && News.tab() === 'policy') schedule(); },
+  onShow() { schedule(); },
+  onHide() { clearTimeout(S.timer); S.timer = 0; },
+};
+function addTab() {
+  if (S.tabbed || S.gone) return;
+  S.tabbed = true;
+  News.addTab(tabSpec);
+  renderFoot();
+}
+function gone() {
+  S.gone = true; S.data = null;
+  clearTimeout(S.timer); S.timer = 0;
+  if (S.tabbed && typeof News.removeTab === 'function') News.removeTab('policy');
+  S.tabbed = false;
+  renderFoot();
+}
+const newsUpdate = () => { if (S.tabbed && typeof News.update === 'function') News.update(); };
+const newsRelayout = () => { if (S.tabbed && typeof News.relayout === 'function') News.relayout(); };
+
+/* ───────── data ───────── */
+const D_RE = /^\d{4}-\d{2}-\d{2}$/, T_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?\+09:00$/;
+const str = (v, max) => (typeof v === 'string' && v.trim() ? v.trim().slice(0, max) : null);
+function accept(j) {
+  if (!j || typeof j !== 'object' || !Array.isArray(j.items) || typeof j.asOf !== 'string' || !T_RE.test(j.asOf)) return null;
+  const items = [];
+  for (const x of j.items) {
+    if (!x || !SRC[x.src] || !str(x.title, 300) || typeof x.url !== 'string' || !/^https:\/\//.test(x.url) || !D_RE.test(x.t || '')) continue;
+    const it = { src: x.src, title: str(x.title, 300), url: x.url, t: x.t };
+    const org = str(x.org, 40), kind = str(x.kind, 16);
+    if (org) it.org = org;
+    if (kind) it.kind = kind;
+    items.push(it);
+  }
+  const sources = {};
+  for (const k of SRC_ORDER) {
+    const s = j.sources && j.sources[k];
+    sources[k] = s && typeof s === 'object' ? { ok: !!s.ok, n: +s.n || 0, at: typeof s.at === 'string' ? s.at : null, stale: !!s.stale } : { ok: false, n: 0, at: null, stale: false };
+  }
+  return { asOf: j.asOf, items, sources };
+}
+async function getJSON() {
+  const ac = new AbortController(), timer = setTimeout(() => ac.abort(), TIMEOUT_MS);
+  try {
+    const res = await fetch('api/policy', { cache: 'no-store', signal: ac.signal });
+    if (!res.ok) { const e = new Error('HTTP ' + res.status); e.status = res.status; throw e; }
+    return await res.json();
+  } finally { clearTimeout(timer); }
+}
+function load(o = {}) {
+  if (S.busy) return S.busy;
+  clearTimeout(S.timer); S.timer = 0;
+  S.lastTry = Date.now();
+  S.busy = (async () => {
+    let d = null, status = 0;
+    try { d = accept(await getJSON()); } catch (e) { status = (e && e.status) || -1; }
+    S.loading = false; S.busy = null;
+    // 404 = a Worker without /api/policy (the page went out first): no tab until a reload
+    if (status === 404 && !S.data) { gone(); return false; }
+    if (d) {
+      S.tries = 0; S.okAt = Date.now(); S.data = d;     // a filter whose source came back empty stays: its message says why
+      if (!o.silent) { renderPanel(); newsUpdate(); }
+    } else {
+      S.tries++;
+      if (!o.silent) { renderPanel({ force: !S.data }); newsUpdate(); }
+    }
+    schedule();
+    return !!d;
+  })();
+  return S.busy;
+}
+const active = () => S.tabbed && !S.gone && !document.hidden && S.near && card && !card.hidden && News.tab() === 'policy';
+function schedule() {
+  clearTimeout(S.timer); S.timer = 0;
+  if (!active() || S.busy) return;
+  const wait = S.tries ? Math.min(MAX_WAIT, 120e3 * 2 ** (S.tries - 1)) : POLL_MS;   // 2 → 4 → 8 → 10 분
+  const due = S.lastTry ? S.lastTry + wait - Date.now() : 0;
+  if (due <= 0) { load(); return; }
+  S.timer = setTimeout(() => load(), due);
+}
+
+/* ───────── events ───────── */
+chips.addEventListener('click', e => {
+  const b = e.target.closest('button');
+  if (!b || b.getAttribute('aria-disabled') === 'true' || b.dataset.k === S.f) return;
+  S.f = b.dataset.k;
+  renderPanel({ force: true });
+});
+more.addEventListener('click', () => {
+  S.open = !S.open;
+  if (typeof UI.state === 'function') UI.state(more, S.open ? 'less' : 'idle');
+  more.setAttribute('aria-expanded', String(S.open));
+  renderPanel({ force: true, grow: S.open });
+  if (!S.open && narrowMQ.matches && card) {                 // 휴대폰: 접으면 카드 머리로 (§3-14와 같아요)
+    const top = card.getBoundingClientRect().top, stuck = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--stuck-h')) || 0;
+    if (top < stuck) scrollBy({ top: top - stuck - 8, behavior: motion() === 'reduced' ? 'auto' : 'smooth' });
+  }
+  more.focus({ preventScroll: true });
+});
+const flush = () => { if (S.pending && !reading()) renderPanel(); };
+pane.addEventListener('pointerenter', () => { S.ptr = true; });
+pane.addEventListener('pointerleave', () => { S.ptr = false; flush(); });
+pane.addEventListener('focusout', () => setTimeout(flush, 0));
+narrowMQ.addEventListener('change', () => newsRelayout());
+document.addEventListener('kh:refresh', () => { if (active()) load(); });
+document.addEventListener('visibilitychange', () => { if (document.hidden) { clearTimeout(S.timer); S.timer = 0; } else schedule(); });
+if ('IntersectionObserver' in window && card) {
+  new IntersectionObserver(es => { for (const e of es) S.near = e.isIntersecting; schedule(); }, { rootMargin: '400px 0px' }).observe(card);
+}
+// "N분째" counts on while the head shows it
+setInterval(() => { if (S.tabbed && !document.hidden && staleNow() && News.tab() === 'policy') newsUpdate(); }, 30e3);
+
+window.KHPolicy = { refresh: () => load(), state: () => (S.gone ? 'gone' : !S.data ? (S.loading ? 'loading' : 'error') : staleNow() ? 'stale' : 'ok') };
+addTab();
 })();
 
 </script>
