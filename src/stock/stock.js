@@ -70,16 +70,13 @@ const PHASE = {
 };
 const POLL_PHASES = new Set(['open', 'after', 'pre', 'unknown']);
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
-/* New effects (AGENTS.md §3-5) run only when KH.motion() === 'fancy'; a heatmap without KH.motion counts as 'standard'.
- * Durations and curves come from the motion tokens in docs/motion-brief.md (--m-roll, --m-quint, --m-out, …) when the heatmap defines them. */
+/* Effect levels (AGENTS.md §3-5, design.md §6-3): 줄이기 = end states only · 기본 = press, indicator moves, text swaps, open / close ·
+ * 화려하게 = + digit rolls, the 호가 ring, the tab fade. A heatmap without KH.motion counts as 'standard'. Every length and curve is a spring
+ * token of the template's :root (--sp-<name>, --sp-<name>-dur — spring() below) or a --c-* press token; none is written here. */
 const motion = () => { try { const m = KH.motion && KH.motion(); return m === 'fancy' || m === 'reduced' ? m : 'standard'; } catch (e) { return 'standard'; } };
 // the level comes from KH.motion() only; the OS media query is a fallback for a heatmap that has none
 const reducedNow = () => (typeof KH.motion === 'function' ? motion() === 'reduced' : reduceMotion.matches);
 const fancy = () => motion() === 'fancy' && document.visibilityState === 'visible';
-const tok = (name, dflt) => (root && getComputedStyle(root).getPropertyValue(name).trim()) || dflt;
-const msTok = (name, dflt) => { const v = tok(name, ''), x = parseFloat(v); return x > 0 ? (/ms\s*$/.test(v) ? x : /s\s*$/.test(v) ? x * 1000 : x) : dflt; };
-const curve = (name, dflt) => tok(name, dflt);   // docs/motion-brief.md §2-0 tokens, with the brief's values as fallbacks
-const M_OUT = 'cubic-bezier(.2,.7,.2,1)', M_QUINT = 'cubic-bezier(.22,1,.36,1)';
 
 /* ───────────────── helpers ───────────────── */
 const h = KH.h, F = KH.fmt;
@@ -174,8 +171,9 @@ function chartColors() {
   };
 }
 const chc = () => CH || (CH = chartColors());
-const chevron = () => svg('svg', { viewBox: '0 0 24 24', 'aria-hidden': 'true', fill: 'none', stroke: 'currentColor', 'stroke-width': '2.2', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, svg('path', { d: 'M15 5l-7 7 7 7' }));
-const caret = () => svg('svg', { class: 'cr', viewBox: '0 0 10 10', 'aria-hidden': 'true', fill: 'none', stroke: 'currentColor', 'stroke-width': '1.5', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, svg('path', { d: 'M2.5 4l2.5 2.5L7.5 4' }));
+// icons (design.md §4 · §12 ④): the hand-drawn set, one stroke on screen — 1.75 px, non-scaling (stock.css .sp-ic), round ends, currentColor
+const chevron = () => svg('svg', { class: 'sp-ic', viewBox: '0 0 24 24', 'aria-hidden': 'true' }, svg('path', { d: 'M15 5l-7 7 7 7' }));
+const caret = () => svg('svg', { class: 'cr sp-ic', viewBox: '0 0 10 10', 'aria-hidden': 'true' }, svg('path', { d: 'M2.5 4l2.5 2.5L7.5 4' }));
 function skel(w, hgt) { return h('span', { class: 'sp-skel', style: `width:${w};height:${hgt || '1em'}` }); }
 // retry: a key from retryKey() (or a plain function: a plain 다시 시도 key)
 function msgBox(title, sub, retry) {
@@ -190,6 +188,38 @@ const uiIcon = n => (UI && typeof UI.icon === 'function' ? UI.icon(n) : null);
 const uiSeg = el => { if (UI && typeof UI.seg === 'function') UI.seg(el); };
 const cMs = (name, d) => (UI && typeof UI.ms === 'function' ? UI.ms(name) : d);          // '줄이기' sets --c-fast/base/switch to 0
 const say = t => { if (UI && typeof UI.live === 'function') UI.live(t); };
+/* 고르기 표시 (design.md §6-3 · §7 · §8): one indicator element per segment / tab row / underline row (.sp-ind), moved by KH.spring.edges —
+   the edge on the side it travels to rides `lead`, the other `trail`, so it stretches a little on the way and settles. The first placement,
+   a resize, held arrow keys (§8) and 줄이기 put it there at once; a pick on another line of a wrapped row fades it in there (P5). Without
+   KH.spring the template's ::before indicator does it (KH.ui.seg). line: the underline row (a 2px bar along the bottom). */
+const SEGS = new Map();   // row → {ind, line, top, quick}
+const segButtons = row => [...row.children].filter(b => b.tagName === 'BUTTON');
+function spSeg(row, line) {
+  if (!(KH.spring && typeof KH.spring.edges === 'function')) { uiSeg(row); return; }
+  const ind = h('i', { class: 'sp-ind', 'aria-hidden': 'true' });
+  row.prepend(ind);
+  row.classList.add('sp-ix');
+  if (line) row.classList.add('sp-ix-line');
+  SEGS.set(row, { ind, line: !!line, top: null, quick: false });
+  new MutationObserver(() => segPlace(row)).observe(row, { subtree: true, attributes: true, attributeFilter: ['aria-pressed', 'aria-selected', 'hidden'] });
+  if ('ResizeObserver' in window) { const ro = new ResizeObserver(() => segPlace(row, true)); ro.observe(row); for (const b of segButtons(row)) ro.observe(b); }
+  segPlace(row, true);
+}
+function segPlace(row, now) {
+  const st = SEGS.get(row);
+  if (!st) return;
+  const b = segButtons(row).find(x => !x.hidden && (x.getAttribute('aria-pressed') === 'true' || x.getAttribute('aria-selected') === 'true'));
+  if (!b || !b.offsetWidth) { delete row.dataset.on; st.top = null; return; }   // nothing picked, or not laid out (a hidden panel): placed when it shows
+  const box = { left: b.offsetLeft, width: b.offsetWidth }, top = b.offsetTop, ctl = KH.spring.edges(st.ind);
+  const shown = row.dataset.on != null && st.top != null, moved = shown && Math.abs(top - st.top) > 1;
+  if (!st.line) { st.ind.style.top = top + 'px'; st.ind.style.height = b.offsetHeight + 'px'; }
+  if (!shown || moved || now || st.quick || !motionOk() || !ctl.value()) ctl.set(box); else ctl.to(box);
+  if (moved) { const f = spring('fade', 270); if (f.dur) st.ind.animate([{ opacity: 0 }, { opacity: 1 }], { duration: f.dur, easing: f.easing }); }
+  st.quick = false; st.top = top;
+  row.dataset.on = '';
+}
+// held arrow keys (design.md §8): the next placement of that row is at once
+const segQuick = row => { const st = SEGS.get(row); if (st) st.quick = true; };
 function setState(el, st) {
   if (!el) return;
   if (UI) { UI.state(el, st); return; }
@@ -292,7 +322,7 @@ function build() {
   R.lim = h('span', { class: 'sp-lim', hidden: true });
   R.nxt = h('div', { class: 'sp-nxt num', hidden: true }, h('span', { class: 'k' }), ' ', h('span', { class: 'pv' }), ' ', h('span', { class: 'pr' }), h('span', { class: 't' }));
   R.star = h('button', { class: 'sp-star', type: 'button', 'aria-label': '관심종목', 'aria-pressed': 'false', hidden: true, onclick: toggleWatch },
-    svg('svg', { viewBox: '0 0 24 24', 'aria-hidden': 'true' }, svg('path', { d: 'M12 3.4l2.6 5.5 6 .8-4.4 4.2 1.1 6-5.3-2.9-5.3 2.9 1.1-6-4.4-4.2 6-.8z' })));
+    svg('svg', { class: 'sp-ic', viewBox: '0 0 24 24', 'aria-hidden': 'true' }, svg('path', { d: 'M12 3.4l2.6 5.5 6 .8-4.4 4.2 1.1 6-5.3-2.9-5.3 2.9 1.1-6-4.4-4.2 6-.8z' })));
   R.head = h('header', { class: 'sp-head' }, h('div', { class: 'sp-head-in' }, R.back,
     h('div', { class: 'sp-id' }, R.name, h('div', { class: 'sp-sub' }, R.code, R.mkt, R.path)),
     h('div', { class: 'sp-quote', 'aria-live': 'polite' }, R.price, R.chg, R.lim, R.nxt),
@@ -317,13 +347,13 @@ function buildLive() {
       ? (R.minBtn = h('button', { type: 'button', class: 'sp-tfmin', 'data-tf': k, 'aria-pressed': 'false', 'aria-haspopup': 'menu', 'aria-expanded': 'false', 'aria-controls': 'sp-ivm',
           onclick: () => ivMenu(IVM.st !== 'open'), onkeydown: ivBtnKey }, h('span', { class: 't' }, h('span', { class: 'tn', text: label })), caret()))
       : h('button', { type: 'button', 'data-tf': k, 'aria-pressed': 'false', onclick: () => setTf(k), text: label })));
-  uiSeg(R.tfs);
+  spSeg(R.tfs);
   // 분's picker (design.md §7 팝오버): a menu of radio items that grows out of the tab. It lives in .sp-tfbar, outside the segment's tray,
   // so nothing clips it: the box (.sp-ivm) changes size, the items sit in a fixed-width layer (.sp-ivm-in) with the highlight plate
   R.ivmHl = h('i', { class: 'sp-ivm-hl', 'aria-hidden': 'true' });
   R.ivmIn = h('div', { class: 'sp-ivm-in', role: 'none' }, R.ivmHl,
     ...MINS.map(([k, label]) => h('button', { type: 'button', role: 'menuitemradio', 'data-iv': k, 'aria-checked': 'false', tabindex: '-1', onclick: () => pickMin(k) },
-      h('span', { class: 't', text: label }), svg('svg', { class: 'ck', viewBox: '0 0 16 16', 'aria-hidden': 'true' }, svg('path', { d: 'M3.5 8.5l3 3 6-6.5' })))));
+      h('span', { class: 't', text: label }), svg('svg', { class: 'ck sp-ic', viewBox: '0 0 16 16', 'aria-hidden': 'true' }, svg('path', { d: 'M3.5 8.5l3 3 6-6.5' })))));
   R.ivm = h('div', { class: 'sp-ivm', id: 'sp-ivm', role: 'menu', 'aria-label': '분봉 간격', hidden: true, onkeydown: ivMenuKey }, R.ivmIn);
   ivWire();
   R.period = h('div', { class: 'sp-period num' });
@@ -366,9 +396,10 @@ function buildLive() {
     else if (e.key === 'End') i = keys.length - 1;
     else return;
     e.preventDefault();
+    if (e.repeat) segQuick(R.tabs);
     setTab(keys[i], true);
   });
-  uiSeg(R.tabs);
+  spSeg(R.tabs);
   for (const t of TABS) if (t.build) t.build(R.panels[t.key]);
   R.body.append(chartcol, h('section', { class: 'sp-side', 'aria-label': TABS.map(t => t.label).join('·') }, h('div', { class: 'sp-tabwrap' }, R.tabs), ...Object.values(R.panels)));
   R.foot.append(h('p', {}, '데이터: 네이버 증권(비공식). 차트: ',
@@ -389,36 +420,50 @@ function measureHead() {
 }
 
 /* ───────────────── header ───────────────── */
-// Odometer: set `text` on el. In fancy mode a change from the previous text rolls the differing characters (right-aligned, so
-// thousands separators and unchanged digits stay put); dir > 0 slides up (the value rose), dir < 0 slides down. The element's
-// textContent is always the new text (the old glyph lives in a CSS ::before/::after), and the roll is swapped for plain text after.
-const rollTimers = new WeakMap();
-function settleRoll(el) { const t = rollTimers.get(el); if (t) { clearTimeout(t); rollTimers.delete(el); if (el.dataset.v != null) el.textContent = el.dataset.v; } }
-function setRoll(el, text, dir) {
-  if (el.dataset.v === text) return;
-  const old = el.dataset.v;
-  settleRoll(el);
+/* 머리 숫자 (design.md §3 ③ · §6-2 P10 · §6-4 P9): the price, the change and the NXT line's numbers are two parts each — the integer
+   part (.hn-i) and the decimals (.hn-d, ".23%"), which the header's big numbers set one type step smaller (stock.css). 화려하게 rolls the
+   changed digits on the template's drum (KH.ui.roll: the short way round, the rightmost first 40 ms apart, the `roll` spring, a 14 % mask)
+   — the decimals first, the integer part as many 40 ms steps later as the decimals had changed digits, so the whole number still goes
+   right to left; 기본 swaps the text the way the value went (KH.ui.swap: up from below, down from above). A change of length (9,990 →
+   10,010) swaps in 화려하게 too. 줄이기, a hidden tab, the first paint of a stock and an unchanged value write at once (P4). The element's
+   text is the value at every moment (dataset.v as well). */
+const ROLL_GAP = 40;
+const numSplit = t => { const i = t.lastIndexOf('.'); return i < 0 ? [t, ''] : [t.slice(0, i), t.slice(i)]; };
+function numParts(el) {
+  let I = el.querySelector(':scope > .hn-i'), D = el.querySelector(':scope > .hn-d');
+  if (!I || !D) { I = h('span', { class: 'hn-i' }); D = h('span', { class: 'hn-d' }); el.replaceChildren(I, D); }
+  return [I, D];
+}
+// a part written at once: whatever rolls or swaps in it stops where it should end
+function numWrite(el, t) {
+  for (const a of el.getAnimations({ subtree: true })) { try { a.cancel(); } catch (e) { /* gone */ } }
+  el.classList.remove('sw-go'); delete el.dataset.was;
+  if (el.textContent !== t || el.childElementCount) el.textContent = t;
+}
+const rollDigits = (a, b) => { let n = 0; for (let i = 0; i < b.length; i++) if (a[i] !== b[i] && /\d/.test(a[i] || '') && /\d/.test(b[i])) n++; return n; };
+function numSettle(el) {
+  if (!el) return;
+  clearTimeout(el._hnT);
+  const [I, D] = numParts(el), [ti, td] = numSplit(el.dataset.v || I.textContent + D.textContent);
+  numWrite(I, ti); numWrite(D, td);
+}
+function headNum(el, text, dir) {
+  const [I, D] = numParts(el), [ti, td] = numSplit(text);
+  const was = el.dataset.v;
+  if (was === text && I.textContent === ti && D.textContent === td) return;   // the same value again: a running roll goes on
+  clearTimeout(el._hnT);
   el.dataset.v = text;
-  if (old == null || !fancy() || !dir || !el.isConnected || el.getClientRects().length === 0) { el.textContent = text; return; }
-  const a = Array.from(old), b = Array.from(text), n = Math.max(a.length, b.length), kids = [];
-  const d = msTok('--m-roll', 420), ease = curve('--m-quint', M_QUINT), step = Math.min(30, 120 / Math.max(1, n - 1)), maxDelay = step * (n - 1);
-  if (a.length !== b.length) {   // digits or sign appeared/vanished (9,990 → 10,010): no rolling, a short cross-fade
-    el.textContent = text;
-    el.animate([{ opacity: .35 }, { opacity: 1 }], { duration: msTok('--m-1', 120), easing: curve('--m-exit', 'cubic-bezier(.4,0,.2,1)') });
+  D.hidden = !td;
+  const wi = I.textContent, wd = D.textContent, m = motion();
+  if (was == null || !dir || m === 'reduced' || document.hidden || !el.isConnected || !el.getClientRects().length || !UI) { numWrite(I, ti); numWrite(D, td); return; }
+  if (m === 'fancy' && typeof UI.roll === 'function' && wi.length === ti.length && wd.length === td.length) {
+    UI.roll(D, td, dir);
+    const lag = rollDigits(wd, td) * ROLL_GAP;
+    if (lag && wi !== ti) { el._hnT = setTimeout(() => { el._hnT = 0; if (el.dataset.v === text) UI.roll(I, ti, dir); }, lag); } else UI.roll(I, ti, dir);
     return;
   }
-  for (let i = 0; i < n; i++) {
-    const o = a[a.length - n + i] || '', c = b[b.length - n + i] || '';   // right-aligned
-    if (o === c) { kids.push(c); continue; }
-    const col = h('span', { class: 'od-c' }), strip = h('span', { class: 'od-s ' + (dir > 0 ? 'up' : 'dn'), text: c });
-    strip.dataset.o = o;
-    col.append(strip);
-    kids.push(col);
-    strip.animate(dir > 0 ? [{ transform: 'translateY(0)' }, { transform: 'translateY(calc(var(--od-lh, 1.2) * -1em))' }] : [{ transform: 'translateY(calc(var(--od-lh, 1.2) * -1em))' }, { transform: 'translateY(0)' }],
-      { duration: d, delay: (n - 1 - i) * step, easing: ease, fill: 'both' });
-  }
-  el.replaceChildren(...kids);
-  rollTimers.set(el, setTimeout(() => { rollTimers.delete(el); if (el.dataset.v === text) el.textContent = text; }, d + maxDelay + 60));
+  if (typeof UI.swap === 'function') { UI.swap(I, ti, wi, dir); UI.swap(D, td, wd, dir); return; }
+  numWrite(I, ti); numWrite(D, td);
 }
 let headPrev = null;   // {code, price} of the last quote drawn, to tell which way it moved
 const headQuote = () => { try { const q = LIVE && typeof KH.quote === 'function' ? KH.quote(S.code) : null; return q && isNum(q.p) && q.p > 0 ? q : null; } catch (e) { return null; } };
@@ -449,7 +494,7 @@ function renderHead() {
   else if (s && isNum(s.price)) { price = +s.price; chg = +s.change; ratio = +s.ratio; }
   else if (st) { price = st.p; chg = st.d; ratio = st.r; }
   if (price == null) {
-    settleRoll(R.price); settleRoll(R.chg); delete R.price.dataset.v; delete R.chg.dataset.v; headPrev = null;
+    clearTimeout(R.price._hnT); clearTimeout(R.chg._hnT); delete R.price.dataset.v; delete R.chg.dataset.v; headPrev = null;
     R.price.replaceChildren(S.sumErr ? '—' : skel('5.2em', '0.85em'));
     R.chg.replaceChildren(S.sumErr ? '' : skel('6.5em', '0.8em'));
     R.chg.className = 'sp-chg num';
@@ -458,12 +503,8 @@ function renderHead() {
     const dir = headPrev && headPrev.code === S.code && isNum(headPrev.price) ? Math.sign(price - headPrev.price) : 0;
     headPrev = { code: S.code, price };
     R.chg.className = 'sp-chg num ' + cls(chg);
-    if (dir && fancy()) { setRoll(R.price, int(price), dir); setRoll(R.chg, `${arrow}${isNum(chg) ? int(Math.abs(chg)) : ''}  ${pct(ratio)}`, dir); }
-    else {
-      const pt = int(price), ct = `${arrow}${isNum(chg) ? int(Math.abs(chg)) : ''}  ${pct(ratio)}`;
-      if (R.price.dataset.v !== pt) { settleRoll(R.price); R.price.textContent = pt; R.price.dataset.v = pt; }   // an unchanged value must not cut a roll short
-      if (R.chg.dataset.v !== ct) { settleRoll(R.chg); R.chg.textContent = ct; R.chg.dataset.v = ct; }
-    }
+    headNum(R.price, int(price), dir);
+    headNum(R.chg, `${arrow}${isNum(chg) ? int(Math.abs(chg)) : ''}  ${pct(ratio)}`, dir);
     R.chg.setAttribute('aria-label', `전일 대비 ${signed(chg)}원, ${pct(ratio)}`);
   }
   renderLim();
@@ -508,8 +549,7 @@ function renderNxt() {
   const dir = nxtPrev && nxtPrev.code === S.code ? Math.sign(+x.p - nxtPrev.p) : 0;
   nxtPrev = { code: S.code, p: +x.p };
   const pv = int(x.p), pr = pct(x.r);
-  if (fancy() && dir) { setRoll(PV, pv, dir); setRoll(PR, pr, dir); }
-  else for (const [el, t] of [[PV, pv], [PR, pr]]) if (el.dataset.v !== t) { settleRoll(el); el.textContent = t; el.dataset.v = t; }
+  headNum(PV, pv, dir); headNum(PR, pr, dir);
   T.textContent = tm ? ` · ${tm}` : '';
   if (tm) n.title += ` · ${tm}`;                       // phones ≤ 430 px hide the time on the line
   n.setAttribute('aria-label', `${krx ? 'KRX' : n.title} ${pv}원 ${pr}${tm ? ' ' + tm : ''}`);
@@ -710,7 +750,7 @@ function renderOffline() {
   const st = KH.stock(S.code);
   const href = KH.LIVE_URL + '#s-' + S.code;
   R.offline.replaceChildren(
-    svg('svg', { class: 'sp-off-ic', viewBox: '0 0 48 48', 'aria-hidden': 'true', fill: 'none', stroke: 'currentColor', 'stroke-width': '2', 'stroke-linecap': 'round' },
+    svg('svg', { class: 'sp-off-ic sp-ic', viewBox: '0 0 48 48', 'aria-hidden': 'true' },
       svg('path', { d: 'M6 40h36' }), svg('path', { d: 'M12 30v-8M12 34v-2M20 26V12M20 30v-2M28 32V20M28 36v-2M36 22v-12M36 26v-2' })),
     h('h2', { text: st ? '차트·호가·투자자 정보는 실시간 버전에서 볼 수 있어요' : '이 종목은 스냅샷에 없어요' }),
     h('p', { text: st ? `이 화면은 ${asOfLabel(KH.asOf())} 기준 스냅샷이라 새 시세를 받아 오지 않아요. 종목 정보(재무·애널리스트 의견), 일별 시세, 뉴스·공시도 실시간 버전에 있어요.` : `코드 ${S.code}의 시세는 실시간 버전에서 확인해 주세요.` }),
@@ -1311,7 +1351,7 @@ function setTf(k) {
 function syncTf() {
   if (!R.tfs) return;
   const min = isMin(S.tf);
-  for (const b of R.tfs.children) b.setAttribute('aria-pressed', String(b.dataset.tf === (min ? 'min' : S.tf)));
+  for (const b of segButtons(R.tfs)) b.setAttribute('aria-pressed', String(b.dataset.tf === (min ? 'min' : S.tf)));
   // 분 reads the minute interval that is on ("5분") + a small caret, else "분" + caret; the label changes in place (design.md §6-4)
   swapText(R.minBtn.firstChild, min ? TF_NAME[S.tf] : '분');
   R.minBtn.setAttribute('aria-label', `${min ? IV_BARS[S.tf] : '분봉'}, 간격 고르기`);
@@ -1516,13 +1556,55 @@ function pickMin(k) {
   setTf(k);
 }
 
+/* 펼치는 목록 (design.md §7 · §12 ①: 리포트 더 보기 · 재무 표로 보기): only the list's box grows (`open`) — a clip that opens over the new
+ * rows — and the content below moves once: at the start when opening, after the box has shrunk (`close`) when closing. The new rows come
+ * in once the box is a quarter open (§6-4 in) and leave first, together, when it closes (§6-4 out). Rows that come and go carry
+ * .sp-fold-x; apply(want) draws the list in its new state (closing: at the end, so nothing jumps under the reader). 줄이기 / no
+ * KH.spring / not laid out: at once. (기업 정보's lists have their own plate, corpToggle — the same rule with a visible plate.) */
+const FOLDS = new WeakMap();
+function foldMove(box, want, apply, onEnd) {
+  const prev = FOLDS.get(box);
+  if (prev) prev.finish();
+  const ok = KH.spring && typeof KH.spring.animate === 'function' && motionOk() && box.isConnected && box.getClientRects().length > 0;
+  if (!ok) { apply(want); if (onEnd) onEnd(); return; }
+  const me = { done: false, h: null, t: 0, end: () => {} };
+  const finish = () => { if (me.done) return; me.done = true; clearTimeout(me.t); if (me.h) me.h.stop(); FOLDS.delete(box); me.end(); if (onEnd) onEnd(); };
+  me.finish = finish; FOLDS.set(box, me);
+  const run = (name, frame) => { me.h = KH.spring.animate({ from: 0, to: 1, name, onUpdate: p => { if (!me.done) frame(p); }, onRest: finish }); };
+  if (want) {
+    const H0 = box.offsetHeight;
+    apply(true);                                       // the layout takes its new height here, once
+    const D = box.offsetHeight - H0;
+    me.end = () => { box.classList.remove('sp-fold-anim', 'sp-fold-fadein'); box.style.clipPath = ''; };
+    if (!(D > 0)) { finish(); return; }
+    box.classList.add('sp-fold-anim');
+    let shown = false;
+    const frame = p => { box.style.clipPath = `inset(0 0 ${Math.max(0, (1 - p) * D).toFixed(1)}px 0)`; if (!shown && p >= 0.25) { shown = true; box.classList.add('sp-fold-fadein'); } };
+    frame(0);
+    run('open', frame);
+    return;
+  }
+  const H1 = box.offsetHeight, x = box.querySelector('.sp-fold-x'), D = H1 - (x ? Math.max(0, x.offsetTop) : 0);
+  box.style.height = H1 + 'px';                        // held until the box has shrunk; then the layout comes up once
+  box.classList.add('sp-fold-out');
+  me.end = () => { box.classList.remove('sp-fold-out'); box.style.clipPath = ''; box.style.height = ''; apply(false); };
+  if (!(D > 0)) { finish(); return; }
+  me.t = setTimeout(() => { if (!me.done) run('close', p => { box.style.clipPath = `inset(0 0 ${(p * D).toFixed(1)}px 0)`; }); }, TX.out);
+}
+// after a list folded away, its key may sit under the sticky header: bring it back to the middle
+function keepInView(el) {
+  if (!el || !el.isConnected) return;
+  const r = el.getBoundingClientRect();
+  if (r.top < (parseFloat(getComputedStyle(root).getPropertyValue('--sp-hh')) || 0) + 50) el.scrollIntoView({ block: 'center' });
+}
+
 /* ───────────────── tabs ───────────────── */
 /* The 시세 정보 tabs are a real tablist (aria-selected); KH.ui.seg reads aria-selected too and moves the raised indicator (build()). */
 function setTab(k, focus) {
   if (!TAB[k]) k = TABS[0].key;
   const from = S.tab, slide = fancy() && S.open && from !== k && R.panels[from] && !R.panels[from].hidden;
   S.tab = k; store.set('stockTab', k);
-  for (const b of R.tabs.children) {
+  for (const b of segButtons(R.tabs)) {
     const on = b.dataset.tab === k;
     b.setAttribute('aria-selected', String(on));
     b.tabIndex = on ? 0 : -1;
@@ -1533,7 +1615,8 @@ function setTab(k, focus) {
     if (t.key !== k && t.hide) t.hide();
   }
   TAB[k].show(R.panels[k]);
-  if (slide) R.panels[k].animate([{ opacity: 0, transform: 'translateY(8px)' }, { opacity: 1, transform: 'none' }], { duration: msTok('--m-2', 240), easing: curve('--m-out', M_OUT) });
+  // 화려하게: the new tab's content comes in on `fade` from 4 px below (all of it at once — no stagger on a frequent switch, design.md §6-2)
+  if (slide) { const f = spring('fade', 270); if (f.dur) R.panels[k].animate([{ opacity: 0, transform: 'translateY(4px)' }, { opacity: 1, transform: 'none' }], { duration: f.dur, easing: f.easing }); }
 }
 
 /* ── 호가 ── */
@@ -1602,13 +1685,12 @@ function buildOb(panel) {
   panel.append(R.ob.msg, grid, R.ob.note);
 }
 function obInfo(label, value, c, sub) { return h('div', {}, h('span', { text: label }), h('b', { class: 'num ' + (c || ''), text: value }), sub ? h('small', { text: sub }) : null); }
-// a short tint on a cell whose value changed: dir 1 = rose (--up-text), −1 = fell (--dn-text), 0 = neutral (a new price level)
+// a cell whose value changed: a flat ring in the tick's colour that fades (stock.css [data-fl]::before — no wash, no glow, the map's
+// tick flash): dir 1 = rose (--up-text), −1 = fell (--dn-text), 0 = neutral (a new price level). The ring's animation ends it.
 function flash(el, dir) {
-  const c = dir > 0 ? 'var(--up-text)' : dir < 0 ? 'var(--dn-text)' : 'var(--fg2)';
-  const amt = dir ? 22 : 12;
+  if (!el.__flEnd) { el.__flEnd = e => { if (e.animationName === 'spFl') delete el.dataset.fl; }; el.addEventListener('animationend', el.__flEnd); el.addEventListener('animationcancel', el.__flEnd); }
+  delete el.dataset.fl; void el.offsetWidth;   // the same cell again: the ring starts over
   el.dataset.fl = dir > 0 ? 'up' : dir < 0 ? 'dn' : 'new';
-  const a = el.animate([{ backgroundColor: `color-mix(in srgb, ${c} ${amt}%, transparent)` }, { backgroundColor: 'transparent' }], { duration: msTok('--m-flash', 700), easing: curve('--m-out', M_OUT) });
-  a.onfinish = a.oncancel = () => { if (!el.getAnimations().length) delete el.dataset.fl; };
 }
 function renderOb() {
   const o = S.ob, ob = R.ob;
@@ -1644,7 +1726,9 @@ function renderOb() {
     else if (cur < Math.min(...prices)) outside = '보이는 호가보다 낮아요';
     else { markIdx = ladder.findIndex(l => l && +l.price < cur); markPos = 'top'; }
   }
-  const pv = fancy() && ob.prev && ob.prev.code === S.code ? ob.prev.cells : null;   // first draw of a stock never flashes
+  const first = !(ob.prev && ob.prev.code === S.code);   // the first draw of a stock: no flash, and the 잔량 bars are set, not grown (P4)
+  const pv = fancy() && !first ? ob.prev.cells : null;
+  if (first) { ob.grid.classList.add('now'); requestAnimationFrame(() => requestAnimationFrame(() => ob.grid.classList.remove('now'))); }
   ob.prev = { code: S.code, cells: ladder.map(l => (l ? { price: +l.price, qty: +l.qty || 0 } : null)) };
   ladder.forEach((l, i) => {
     const { q, p } = ob.rows[i];
@@ -1680,23 +1764,8 @@ function renderOb() {
   ob.note.textContent = notes.join(' ');
 }
 
-/* 막대 첫 진입: the first time a tab's bars are drawn in a session (fancy only) they grow from zero. */
-function growBars(panel, tab, sel, axis) {
-  if (!fancy()) return;
-  let seen = false;
-  try { seen = sessionStorage.getItem('khm.stock.grown.' + tab) === '1'; } catch (e) { /* ignore */ }
-  const els = Array.from(panel.querySelectorAll(sel));
-  if (seen || !els.length) return;
-  try { sessionStorage.setItem('khm.stock.grown.' + tab, '1'); } catch (e) { /* ignore */ }
-  const d = msTok('--m-3', 480), ease = curve('--m-out', M_OUT), st = msTok('--m-stagger', 40);
-  els.forEach((el, i) => {
-    const y = axis === 'y';
-    el.style.transformOrigin = y ? (el.classList.contains('neg') ? 'center top' : 'center bottom') : el.style.right ? 'right center' : 'left center';
-    el.dataset.grow = '1';
-    const a = el.animate(y ? [{ transform: 'scaleY(0)' }, { transform: 'scaleY(1)' }] : [{ transform: 'scaleX(0)' }, { transform: 'scaleX(1)' }], { duration: d, delay: Math.min(i, 8) * st, easing: ease, fill: 'backwards' });
-    a.onfinish = a.oncancel = () => { delete el.dataset.grow; };
-  });
-}
+/* (막대 첫 진입 — bars growing from zero the first time a tab drew them — went with design.md §6-2 P4 · P17c: data does not move on its first
+   paint, and a period switch cross-fades instead of regrowing; ux/std-stock) */
 
 /* ── 투자자 ── */
 function invReset() { S.inv = null; S.invErr = null; S.invLoading = false; }
@@ -1773,7 +1842,6 @@ function renderInv() {
     netCell(r.individual), netCell(r.foreign), netCell(r.institution),
     h('td', { class: 'num', text: fixed(r.foreignHoldRatio, 2, '%') }))));
   P.replaceChildren(todayCard(rows[0], isToday ? '오늘' : `${lp[1]}월 ${lp[2]}일`), card, note, h('table', { class: 'sp-tbl sp-inv-t' }, h('caption', { text: '날짜별 순매수 (단위: 주, 만 = 1만 주)' }), thead, tbody));
-  growBars(P, 'inv', '.sp-today .bar i', 'x');
 }
 
 /* ── 일별 시세 ── */
@@ -1947,7 +2015,7 @@ const bareName = v => String(v || '').replace(/\(주\)|㈜|주식회사|\s/g, ''
 
 function buildNews(panel) {
   R.nw = {
-    seg: h('div', { class: 'sp-nwseg', role: 'group', 'aria-label': '뉴스·공시 고르기' },
+    seg: h('div', { class: 'sp-nwseg sp-seg seg', role: 'group', 'aria-label': '뉴스·공시 고르기' },
       NEWS_KINDS.map(k => h('button', { type: 'button', 'data-kind': k.key, 'aria-pressed': 'false', onclick: () => setNewsKind(k.key) },
         h('span', { text: k.label }), h('small', { class: 'num' })))),
     // 공시 종류: an underline row (§5-6) — the template's segment indicator drawn as a 2px amber bar that slides
@@ -1965,7 +2033,7 @@ function buildNews(panel) {
   if (UI && typeof UI.sw === 'function') UI.sw(R.nw.equity);
   R.nw.src.append(R.nw.srcText, R.nw.equity);
   panel.append(R.nw.seg, R.nw.filters, R.nw.src, R.nw.body, R.nw.note);
-  uiSeg(R.nw.filters);
+  spSeg(R.nw.seg); spSeg(R.nw.filters, true);
 }
 function tag(text, cls) { return h('span', { class: 'sp-nw-tag' + (cls ? ' ' + cls : ''), text }); }
 function newsRow(r, kind, now) {
@@ -1999,7 +2067,7 @@ function discRows(hit) {
 function renderNews() {
   if (!R.nw) return;
   const kind = newsKind, meta = NEWS_KIND[kind], now = new Date();
-  for (const b of R.nw.seg.children) {
+  for (const b of segButtons(R.nw.seg)) {
     const k = b.dataset.kind, hk = newsCache.get(S.code + '|' + k);
     b.setAttribute('aria-pressed', String(k === kind));
     b.lastChild.textContent = hk ? String(k === 'disc' ? discRows(hk).length : hk.rows.length) : '';
@@ -2016,7 +2084,7 @@ function renderNews() {
   }
   if (dart) {
     if (!discEquity && discFilter === '지분') discFilter = '전체';
-    for (const b of R.nw.filters.children) {
+    for (const b of segButtons(R.nw.filters)) {
       const f = b.dataset.f, n = f === '전체' ? hit.rows.filter(r => discEquity || r.kind !== '지분').length : hit.rows.filter(r => r.kind === f).length;
       b.hidden = f === '지분' && !discEquity;
       b.setAttribute('aria-pressed', String(f === discFilter));
@@ -2157,7 +2225,7 @@ function buildInfo(panel) {
     return { el, body, sig: null };
   };
   const periodSeg = () => { const g = h('div', { class: 'sp-mseg seg', role: 'group', 'aria-label': '재무 기간' },
-    [['quarter', '분기'], ['annual', '연간']].map(([k, l]) => h('button', { type: 'button', 'data-p': k, 'aria-pressed': 'false', onclick: () => setFinPeriod(k), text: l }))); uiSeg(g); return g; };
+    [['quarter', '분기'], ['annual', '연간']].map(([k, l]) => h('button', { type: 'button', 'data-p': k, 'aria-pressed': 'false', onclick: () => setFinPeriod(k), text: l }))); spSeg(g); return g; };
   R.ci = {
     met: sec('met', '투자 지표'),
     fin: sec('fin', '재무', periodSeg()),
@@ -2167,7 +2235,7 @@ function buildInfo(panel) {
   };
   R.ci.stabSeg = h('div', { class: 'sp-seg sp-stabseg seg', role: 'group', 'aria-label': '안정성 지표' },
     Object.keys(STAB).map(k => h('button', { type: 'button', 'data-k': k, 'aria-pressed': 'false', onclick: () => setStab(k), text: k })));
-  uiSeg(R.ci.stabSeg);
+  spSeg(R.ci.stabSeg);
   R.ci.stabBody = h('div');
   R.ci.stab.body.append(R.ci.stabSeg, R.ci.stabBody);
   R.ci.stab.body = R.ci.stabBody;
@@ -2186,11 +2254,6 @@ function setStab(k) { stabKey = k; store.set('stockStab', k); renderStab(); }
 function renderInfo() {
   if (!R.ci) return;
   renderMetrics(); renderFin(); renderStab(); renderDiv(); renderAna(); sdgRenderAll();
-  const P = R.panels.info;
-  if (!P || P.hidden) return;
-  growBars(P, 'info-fin', '.sp-fin-col .b', 'y');
-  growBars(P, 'info-div', '.sp-dbars .well i', 'y');
-  growBars(P, 'info-ana', '.sp-op .well i', 'y');
 }
 const ciSkel = (n, hgt) => h('div', { class: 'sp-skel-rows', role: 'status', 'aria-label': '불러오는 중' }, Array.from({ length: n }, () => skel('100%', hgt)));
 
@@ -2218,7 +2281,7 @@ function renderMetrics() {
 /* 재무: grouped bars per period, estimates hatched, zero line with losses below */
 function syncSegs() {
   for (const b of R.panels.info.querySelectorAll('.sp-mseg [data-p]')) b.setAttribute('aria-pressed', String(b.dataset.p === finPeriod));
-  for (const b of R.ci.stabSeg.children) b.setAttribute('aria-pressed', String(b.dataset.k === stabKey));
+  for (const b of segButtons(R.ci.stabSeg)) b.setAttribute('aria-pressed', String(b.dataset.k === stabKey));
 }
 function finView(fin) {
   const ser = FIN_SERIES.map(x => finRow(fin, ...x.titles) || []);
@@ -2270,9 +2333,12 @@ function renderFin() {
     hasEst ? h('span', {}, h('i', { class: 'dot hatch' }), '예상') : null);
   F0.vals = h('div', { class: 'sp-fin-sel', 'aria-live': 'polite' });
   F0.list = list; F0.cols = cols; F0.xs = xs; F0.period = period;
+  // 표로 보기 (§7 펼치는 목록): the summary drives it, so the table's box can grow and shrink (foldMove) instead of jumping
+  const tblBox = h('div', { class: 'sp-fold-box' });
   const tbl = h('details', { class: 'sp-fin-tbl', open: S.finTbl, ontoggle: e => { S.finTbl = e.currentTarget.open; } },
-    h('summary', { text: '표로 보기' }),
-    h('table', { class: 'sp-tbl sp-fin-t' },
+    h('summary', { text: '표로 보기', onclick: e => { e.preventDefault(); const want = !S.finTbl; S.finTbl = want; foldMove(tblBox, want, w => { tbl.open = w; }); } }),
+    tblBox);
+  tblBox.append(h('table', { class: 'sp-tbl sp-fin-t sp-fold-x' },
       h('caption', { text: `${unitName} 실적 (금액: 조·억원, 이익률: %)` }),
       h('thead', {}, h('tr', {}, ['기간', '매출', '영업이익', '순이익', '영업이익률'].map(t => h('th', { scope: 'col', text: t })))),
       h('tbody', {}, list.slice().reverse().map(x => h('tr', {},
@@ -2437,29 +2503,30 @@ function renderAna() {
       om != null ? h('div', {}, h('dt', {}, '평균 투자의견', h('small', { text: '1 적극매도 ~ 5 적극매수' })),
         h('dd', {}, h('span', { class: 'num', text: `${om.toFixed(2)}점` }), h('span', { class: 'sp-tag', text: OPINIONS[Math.max(0, Math.min(4, Math.round(om) - 1))] }))) : null));
   }
-  // reports
+  // reports — 더 보기 ↔ 접기 (design.md §7 펼치는 목록): the list's box grows / shrinks (foldMove); the key stays, its label swaps in place
+  // (§6-4) and its chevron turns (stock.css .sp-fold)
   if (rows.length) {
-    const shown = S.resAll ? rows : rows.slice(0, RES_SHOW);
-    kids.push(h('h4', { class: 'sp-rp-h' }, '리포트', h('small', { class: 'num', text: String(rows.length) })),
-      h('ul', { class: 'sp-rp-list' }, shown.map(r => {
-        const url = safeUrl(r.url), b = opinionBucket(r.opinion);
-        const meta = [h('time', { datetime: String(r.date || ''), text: shortDate(r.date) }), r.broker ? h('span', { class: 'br', text: String(r.broker) }) : null,
-          isNum(r.target) && +r.target > 0 ? h('span', { class: 'num', text: `목표가 ${int(r.target)}원` }) : null,
-          r.opinion ? h('span', { class: 'sp-tag', text: b >= 0 ? OPINIONS[b] : String(r.opinion) }) : null];
-        const kidsA = [h('span', { class: 'sp-rp-t', text: String(r.title) }), h('span', { class: 'sp-rp-m' }, meta)];
-        return h('li', {}, url ? h('a', { class: 'sp-rp', href: url, target: '_blank', rel: 'noopener' }, kidsA, h('span', { class: 'sp-vh', text: ' (새 탭)' })) : h('div', { class: 'sp-rp' }, kidsA));
-      })),
-      // 더 보기 ↔ 접기 (§5-10): the label swaps in place and the chevron turns (the list is drawn again, so both are replayed on the new key)
-      rows.length > RES_SHOW ? h('button', { type: 'button', class: 'sp-btn sp-more sp-fold more', 'aria-expanded': String(S.resAll),
+    const reportRow = (r, extra) => {
+      const url = safeUrl(r.url), b = opinionBucket(r.opinion);
+      const meta = [h('time', { datetime: String(r.date || ''), text: shortDate(r.date) }), r.broker ? h('span', { class: 'br', text: String(r.broker) }) : null,
+        isNum(r.target) && +r.target > 0 ? h('span', { class: 'num', text: `목표가 ${int(r.target)}원` }) : null,
+        r.opinion ? h('span', { class: 'sp-tag', text: b >= 0 ? OPINIONS[b] : String(r.opinion) }) : null];
+      const kidsA = [h('span', { class: 'sp-rp-t', text: String(r.title) }), h('span', { class: 'sp-rp-m' }, meta)];
+      return h('li', { class: extra ? 'sp-fold-x' : null }, url ? h('a', { class: 'sp-rp', href: url, target: '_blank', rel: 'noopener' }, kidsA, h('span', { class: 'sp-vh', text: ' (새 탭)' })) : h('div', { class: 'sp-rp' }, kidsA));
+    };
+    const list = h('ul', { class: 'sp-rp-list', id: 'sp-rp-list' }), box = h('div', { class: 'sp-fold-box' }, list);
+    const fill = all => list.replaceChildren(...(all ? rows : rows.slice(0, RES_SHOW)).map((r, i) => reportRow(r, i >= RES_SHOW)));
+    const label = () => (S.resAll ? '접기' : `리포트 ${rows.length - RES_SHOW}건 더 보기`);
+    fill(S.resAll);
+    kids.push(h('h4', { class: 'sp-rp-h' }, '리포트', h('small', { class: 'num', text: String(rows.length) })), box,
+      rows.length > RES_SHOW ? h('button', { type: 'button', class: 'sp-btn sp-more sp-fold', 'aria-expanded': String(S.resAll), 'aria-controls': 'sp-rp-list',
         onclick: e => {
-          const was = e.currentTarget.textContent;
-          S.resAll = !S.resAll; renderAna();
-          const m = R.ci.ana.body.querySelector('.sp-more');
-          if (!m) return;
-          m.focus();
-          if (UI && typeof UI.swap === 'function') UI.swap(m.firstElementChild, m.textContent, was);
-          if (!reducedNow()) { m.dataset.flip = ''; m.addEventListener('animationend', function f(ev) { if (ev.animationName.startsWith('chevFlip')) { delete m.dataset.flip; m.removeEventListener('animationend', f); } }); }
-        } }, h('span', { class: 'mt', text: S.resAll ? '접기' : `리포트 ${rows.length - RES_SHOW}건 더 보기` })) : null,
+          const btn = e.currentTarget, t = btn.querySelector('.mt'), was = t.textContent;
+          S.resAll = !S.resAll; A.sig = ciSig('res') + '|' + S.resAll;
+          btn.setAttribute('aria-expanded', String(S.resAll));
+          if (UI && typeof UI.swap === 'function') UI.swap(t, label(), was); else t.textContent = label();
+          foldMove(box, S.resAll, fill, S.resAll ? null : () => keepInView(btn));
+        } }, h('span', { class: 'mt', text: label() })) : null,
       h('p', { class: 'sp-note', text: '리포트 본문은 증권사 원문에서 볼 수 있어요. 누르면 새 탭에서 열려요.' }));
   } else kids.push(h('p', { class: 'sp-ana-empty', text: '최근 리포트 목록이 없어요.' }));
   A.body.replaceChildren(...kids);
@@ -2931,7 +2998,8 @@ document.addEventListener('kh:palette', recolour);
 document.addEventListener('kh:theme', recolour);
 document.addEventListener('kh:data', () => { if (S.open) { renderPeers(); renderHead(); if (LIVE) renderMeta(); } });
 document.addEventListener('kh:basis', () => { if (S.open) renderHead(); });   // the headline is the row in the chosen basis   // 업종 path / provisional price arrive with the quotes
-document.addEventListener('kh:motion', () => { if (!fancy() && R.price) { settleRoll(R.price); settleRoll(R.chg); } });
+// a change of effect level ends whatever rolls or swaps in the header at its end value (design.md §6-3)
+document.addEventListener('kh:motion', () => { if (R.price) for (const el of [R.price, R.chg, R.nxt.querySelector('.pv'), R.nxt.querySelector('.pr')]) numSettle(el); });
 document.addEventListener('kh:watch', () => { if (S.open) renderStar(); });   // the picker keeps its own ticks and counts in step
 
 window.KHStock = { open, close, isOpen: () => S.open };
