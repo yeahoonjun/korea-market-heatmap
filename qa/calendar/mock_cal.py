@@ -54,7 +54,7 @@ def events_for(frm, to, mode):
         if wd < 5:
             ev = {'id': f'bok:{s}:a', 'd': s, 't': '08:00', 'k': 'kr', 'star': 2 if wd in (1, 3) else 1, 'src': 'bok', 'title': f'{d.month}월 소비자동향조사 결과' if wd == 1 else '통화 및 유동성'}
             if off < 0 and wd == 1:
-                ev['value'] = {'text': '소비자심리지수 105.4', 'src': 'ecos', 'p': d.strftime('%Y%m')}
+                ev['value'] = {'text': '수출물가지수 184.15 (2020=100) · 수입물가지수 156.86 (2020=100)', 'src': 'ecos', 'p': d.strftime('%Y%m')}   # 가장 긴 실제 발표값(2026-11-13) — 가로 넘침 점검용
             out.append(ev)
             out.append({'id': f'fred:10:{s}', 'd': s, 't': '22:30', 'k': 'us', 'rg': 'us', 'star': 3 if wd == 3 else 1, 'src': 'fred', 'rid': 10,
                         'title': '미국 소비자물가(CPI)' if wd == 3 else '미국 주간 신규 실업수당 청구', 'orig': {'d': s, 't': '08:30', 'tz': 'America/New_York'}})

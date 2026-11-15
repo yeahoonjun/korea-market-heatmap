@@ -18991,9 +18991,9 @@ sync();
 .kc-ev .t1{display:flex;align-items:center;gap:var(--space-3);font-size:var(--fs-lg);font-weight:600;word-break:keep-all;min-width:0}
 .kc-ev .t1 .ttl{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
 .kc-ev .co{flex:none;font-weight:700}
-.kc-ev .t2{display:flex;align-items:center;gap:var(--space-3);margin-top:3px;font-size:var(--fs-sm);color:var(--muted);min-width:0}
+.kc-ev .t2{display:flex;flex-wrap:wrap;align-items:center;gap:2px var(--space-3);margin-top:3px;font-size:var(--fs-sm);color:var(--muted);min-width:0}
 .kc-ev .t2 .sub{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
-.kc-ev .t2 .val{flex:none;color:var(--fg2);font-weight:600}
+.kc-ev .t2 .val{flex:0 1 auto;min-width:0;max-width:100%;overflow-wrap:anywhere;color:var(--fg2);font-weight:600}   /* 긴 발표값(수출·수입물가지수 두 값)도 줄을 넘겨 카드 안에 — 사용자 2026-11-15 21:34 "이렇게 튀어나가는거 없게해줘" */
 .kc-ev .chev{width:16px;height:16px;stroke:var(--faint);fill:none;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round}
 .kc-ev.past .t1,.kc-ev.past .tm{color:var(--muted)}
 .kc-stars{flex:none;display:inline-flex;font-size:var(--fs-sm);line-height:1;letter-spacing:-1px}
