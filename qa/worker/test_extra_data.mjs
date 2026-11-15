@@ -5,8 +5,10 @@
 // Each scenario imports a fresh copy of the module (?i=N) so module memory (universe cache) starts empty.
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { pathToFileURL } from 'node:url';
 
-const SRC = new URL('../../worker/src/index.js', import.meta.url).href;
+//   WORKER_MODULE=worker/dist/worker.js node qa/worker/test_extra_data.mjs   — the same checks on the bundle
+const SRC = process.env.WORKER_MODULE ? pathToFileURL(process.env.WORKER_MODULE).href : new URL('../../worker/src/index.js', import.meta.url).href;
 const ROOT = new URL('../../', import.meta.url);
 const UNIVERSE = readFileSync(new URL('web/universe.json', ROOT), 'utf8');
 const U = JSON.parse(UNIVERSE);
