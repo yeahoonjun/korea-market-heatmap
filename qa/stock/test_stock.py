@@ -108,8 +108,10 @@ TAP_JS = r"""() => {
     if (el.closest('[hidden]') || el.closest('.sp-chart') || el.closest('.sp-foot p')) continue;
     const r = el.getBoundingClientRect();
     if (!r.width) continue;
+    // the layout box (offsetWidth / offsetHeight): a panel fading in on a transform reads 39.99 for a 40 px key (ux/std-stock)
+    const rw = Math.max(r.width, el.offsetWidth), rh = Math.max(r.height, el.offsetHeight);
     const a = getComputedStyle(el, '::after'), ext = a.content !== 'none' && a.position === 'absolute' ? Math.max(0, -parseFloat(a.top) || 0) + Math.max(0, -parseFloat(a.bottom) || 0) : 0;
-    if (r.height + ext < 40 || r.width < 40) small.push(`${el.className || el.tagName}:${el.textContent.trim().slice(0, 10)} ${Math.round(r.width)}x${Math.round(r.height)}`);
+    if (rh + ext < 40 || rw < 40) small.push(`${el.className || el.tagName}:${el.textContent.trim().slice(0, 10)} ${Math.round(rw)}x${Math.round(rh)}`);
   }
   return small;
 }"""
@@ -190,11 +192,19 @@ def run_iv_ma(b):
     P.wait_chart()
     tabs = P.ev("() => [...document.querySelectorAll('.sp-tfs > button')].map(b => [b.dataset.tf, b.textContent.trim()])")
     check('iv_tabs_are_min_day_week_month_year', tabs == [['min', '분'], ['day', '일'], ['week', '주'], ['month', '월'], ['year', '년']], tabs)
-    seg = P.ev("""() => { const s = document.querySelector('.sp-tfs'); s.dataset.dir = 'r'; const t = getComputedStyle(s, '::before').transition; s.dataset.dir = 'l'; const u = getComputedStyle(s, '::before').transition; delete s.dataset.dir;
-      return { r: t, l: u, h: document.querySelector('.sp-tfs [data-tf="day"]').getBoundingClientRect().height, caret: !!document.querySelector('.sp-tfmin svg.cr') }; }""")
-    lead = lambda tr, edge: re.search(edge + r' (0\.342s|342ms) linear\(', tr) is not None
-    trail = lambda tr, edge: re.search(edge + r' (0\.632s|632ms) linear\(', tr) is not None
-    check('iv_segment_indicator_lead_trail_edges', lead(seg['r'], 'right') and trail(seg['r'], 'left') and lead(seg['l'], 'left') and trail(seg['l'], 'right') and seg['h'] == 40 and seg['caret'], seg)
+    # design.md §6-3 · §7 (ux/std-stock): the raised indicator is one element moved by KH.spring.edges — going right, its right edge
+    # (`lead`) gets there ahead of its left edge (`trail`), then both rest on the picked tab; going back left, the left edge leads
+    seg = P.ev("""() => new Promise(res => {
+      const s = document.querySelector('.sp-tfs'), ind = s.querySelector(':scope > .sp-ind'), at = k => s.querySelector(`[data-tf="${k}"]`);
+      const g = () => { const m = /translateX\\(([-\\d.]+)px\\)/.exec(ind.style.transform || ''); const l = m ? +m[1] : NaN; return [l, l + parseFloat(ind.style.width)]; };
+      const out = { h: at('day').getBoundingClientRect().height, caret: !!document.querySelector('.sp-tfmin svg.cr'), on: s.dataset.on != null, before: getComputedStyle(s, '::before').content };
+      const run = (k, done) => { const a = g(); at(k).click(); const t0 = performance.now(), fr = [];
+        (function f() { fr.push(g()); if (performance.now() - t0 < 750) requestAnimationFrame(f); else done(a, fr, [at(k).offsetLeft, at(k).offsetLeft + at(k).offsetWidth]); })(); };
+      run('year', (a, fr, t) => { out.r = { a, t, end: fr[fr.length - 1], lead: fr.some(([l, r]) => (r - a[1]) / (t[1] - a[1]) - (l - a[0]) / (t[0] - a[0]) > 0.15) };
+        run('day', (a2, fr2, t2) => { out.l = { a: a2, t: t2, end: fr2[fr2.length - 1], lead: fr2.some(([l, r]) => (l - a2[0]) / (t2[0] - a2[0]) - (r - a2[1]) / (t2[1] - a2[1]) > 0.15) }; res(out); }); }); })""")
+    rest = lambda x: abs(x['end'][0] - x['t'][0]) < 1 and abs(x['end'][1] - x['t'][1]) < 1
+    check('iv_segment_indicator_lead_trail_edges', seg['r']['lead'] and seg['l']['lead'] and rest(seg['r']) and rest(seg['l']) and seg['on'] and seg['before'] == 'none' and seg['h'] == 40 and seg['caret'], seg)
+    wait_iv(P, 'day')
     st = P.ev(PICK_STATE)
     check('iv_min_tab_is_menu_button', st['expanded'] == 'false' and not st['open'] and st['hidden'] and st['pressed'] == 'false' and '분봉' in st['aria']
           and st['roles'] == 'menu,menuitemradio,menuitemradio,menuitemradio,menuitemradio,menuitemradio', st)
@@ -1398,7 +1408,9 @@ def run_motion(b):
         return P
 
     REFRESH = "() => document.dispatchEvent(new Event('visibilitychange'))"
-    HEAD = "() => { const r = e => { const b = document.querySelector(e).getBoundingClientRect(); return [b.width, b.height]; }; return { price: document.querySelector('.sp-price').textContent, chg: document.querySelector('.sp-chg').textContent, cols: document.querySelectorAll('.sp-price .od-c, .sp-chg .od-c').length, sepCols: [...document.querySelectorAll('.od-c')].filter(c => /[,.%▲▼+−\\s]/.test(c.textContent)).length, dirs: [...new Set([...document.querySelectorAll('.od-s')].map(s => s.className.replace('od-s ', '')))], pw: r('.sp-price'), cw: r('.sp-chg') }; }"
+    # (ux/std-stock) 화려하게 rolls on the template's drum (KH.ui.roll: .rc columns, the short way round — .rs[data-b] goes up, [data-a]
+    # down); 기본 swaps the text the way the value went (KH.ui.swap: .sw-go); 줄이기 writes at once
+    HEAD = "() => { const r = e => { const b = document.querySelector(e).getBoundingClientRect(); return [b.width, b.height]; }; return { price: document.querySelector('.sp-price').textContent, chg: document.querySelector('.sp-chg').textContent, cols: document.querySelectorAll('.sp-price .rc, .sp-chg .rc').length, sepCols: [...document.querySelectorAll('.sp-quote .rc')].filter(c => /[,.%▲▼+−\\s]/.test(c.textContent)).length, ways: [...new Set([...document.querySelectorAll('.sp-quote .rs')].map(s => s.dataset.b != null ? 'up' : 'down'))], swaps: document.querySelectorAll('.sp-quote .sw-go').length, decFs: (() => { const d = document.querySelector('.sp-chg .hn-d'), i = document.querySelector('.sp-chg .hn-i'); return d && i ? [parseFloat(getComputedStyle(i).fontSize), parseFloat(getComputedStyle(d).fontSize)] : null; })(), pw: r('.sp-price'), cw: r('.sp-chg') }; }"
 
     NOISE = lambda P: [m for m in P.console if 'Failed to load resource' not in m]   # heatmap-side 404s (close.json, breadth) are not the stock page's
 
@@ -1433,11 +1445,13 @@ def run_motion(b):
     want = lambda d: f"{base['price'] + d:,}"
     for mode in ('standard', 'reduced'):
         r = res[mode]
-        check(f'motion_{mode}_no_roll', r['mid']['cols'] == 0 and r['mid2']['cols'] == 0 and r['mid']['price'] == want(700) and r['end2']['price'] == want(-900 + 700 + 0) or (r['mid']['cols'] == 0 and r['mid2']['cols'] == 0 and r['mid']['price'] != r['h0']['price']), {k: r[k]['cols'] for k in ('mid', 'mid2')})
+        swapped = r['mid']['swaps'] > 0 and r['mid2']['swaps'] > 0 if mode == 'standard' else r['mid']['swaps'] == 0 and r['mid2']['swaps'] == 0
+        check(f'motion_{mode}_no_roll', r['mid']['cols'] == 0 and r['mid2']['cols'] == 0 and r['mid']['price'] != r['h0']['price'] and swapped, {k: [r[k]['cols'], r[k]['swaps']] for k in ('mid', 'mid2')})
     f = res['fancy']
-    up_ok = f['mid']['cols'] > 0 and f['mid']['dirs'] == ['up'] and f['end']['cols'] == 0
-    dn_ok = f['mid2']['cols'] > 0 and f['mid2']['dirs'] == ['dn'] and f['end2']['cols'] == 0
-    check('motion_fancy_odometer_up_down', up_ok and dn_ok, {'mid': f['mid']['dirs'], 'mid2': f['mid2']['dirs'], 'cols': [f['mid']['cols'], f['mid2']['cols']]})
+    up_ok = f['mid']['cols'] > 0 and f['mid']['ways'] and f['end']['cols'] == 0
+    dn_ok = f['mid2']['cols'] > 0 and f['mid2']['ways'] and f['end2']['cols'] == 0
+    dec = f['end']['decFs']
+    check('motion_fancy_odometer_up_down', up_ok and dn_ok and dec and dec[1] < dec[0], {'mid': f['mid']['ways'], 'mid2': f['mid2']['ways'], 'cols': [f['mid']['cols'], f['mid2']['cols']], 'dec': dec})
     check('motion_fancy_text_is_final_text_and_separators_stay', f['mid']['price'] == f['end']['price'] and f['mid']['chg'] == f['end']['chg'] and f['mid']['sepCols'] == 0 and f['mid2']['sepCols'] == 0, {'mid': f['mid']['price'], 'end': f['end']['price']})
     dw = max(abs(f['mid']['pw'][0] - f['end']['pw'][0]), abs(f['mid']['cw'][0] - f['end']['cw'][0]), abs(f['mid2']['pw'][0] - f['end2']['pw'][0]), abs(f['mid2']['cw'][0] - f['end2']['cw'][0]))
     dh = max(abs(f['mid']['pw'][1] - f['end']['pw'][1]), abs(f['mid']['cw'][1] - f['end']['cw'][1]))
@@ -1486,7 +1500,8 @@ def run_motion(b):
         gi = P.ev("() => document.querySelectorAll('#sp-p-info [data-grow]').length")
         r3[mode] = dict(fade=fade, grow1=grow1, done=done, grow2=grow2, info=gi, err=NOISE(P))
         P.close()
-    check('motion_bars_grow_first_time_fancy', r3['fancy']['grow1'] > 0 and r3['fancy']['done'] == 0 and r3['fancy']['grow2'] == 0 and r3['fancy']['info'] > 0, r3['fancy'])
+    # design.md §6-2 P4 · P17c (ux/std-stock): data does not move on its first paint — bars never grow in, in any effect level
+    check('motion_bars_static_first_paint_fancy', r3['fancy']['grow1'] == 0 and r3['fancy']['done'] == 0 and r3['fancy']['grow2'] == 0 and r3['fancy']['info'] == 0, r3['fancy'])
     check('motion_bars_static_in_standard', r3['standard']['grow1'] == 0 and r3['standard']['info'] == 0, r3['standard'])
     check('motion_tab_fade_fancy_only', r3['fancy']['fade'] > 0 and r3['standard']['fade'] == 0, {m: r3[m]['fade'] for m in r3})
     check('motion_no_console_errors_bars', not r3['fancy']['err'] and not r3['standard']['err'], r3)
@@ -1496,8 +1511,8 @@ def run_motion(b):
     for w in (360, 390, 768, 1280, 1440):
         mock('/__config?bump=')
         P = opened(w, 'fancy')
-        pv = P.ev("() => document.querySelector('.sp-price').dataset.v"); mock('/__config?bump=2300'); P.ev(REFRESH); P.pg.wait_for_selector('.sp-price .od-c', state='attached', timeout=5000)
-        roll = P.ev("() => document.querySelectorAll('.od-c').length"); o = P.ev(OVERFLOW_JS)
+        pv = P.ev("() => document.querySelector('.sp-price').dataset.v"); mock('/__config?bump=2300'); P.ev(REFRESH); P.pg.wait_for_selector('.sp-price .rc', state='attached', timeout=5000)
+        roll = P.ev("() => document.querySelectorAll('.sp-quote .rc').length"); o = P.ev(OVERFLOW_JS)
         ov[w] = {'doc': o['doc'], 'root': o['root'], 'n': o['n'], 'roll': roll, 'err': NOISE(P)}
         P.close()
     check('motion_overflow_zero_during_roll', all(v['doc'] <= 0 and v['root'] <= 0 and v['n'] == 0 and v['roll'] > 0 and not v['err'] for v in ov.values()), ov)
@@ -1537,7 +1552,7 @@ def run_nxt(b):
     for m in ('standard', 'fancy'):
         P = go(1280, 'nxt=pre', m); mock(f'/__config?nxtp={int(prev * 1.08)}'); P.ev(REFRESH)
         try:
-            P.pg.wait_for_selector('.sp-nxt .od-c', state='attached', timeout=1500 if m == 'fancy' else 800); roll[m] = True
+            P.pg.wait_for_selector('.sp-nxt .rc', state='attached', timeout=1500 if m == 'fancy' else 800); roll[m] = True
         except Exception:
             roll[m] = False
         P.close()
