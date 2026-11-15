@@ -1317,9 +1317,12 @@ function makeDialog(cls, label, opener, kids) {
   const close = () => dlg.close();
   dlg.append(h('button', { type: 'button', class: 'xd-x', 'aria-label': '닫기', onclick: close }, icon(ICON.close)), ...kids);
   dlg.addEventListener('click', e => { if (e.target === dlg) close(); });        // click on the backdrop
-  dlg.addEventListener('close', () => { dlg.remove(); if (opener && opener.isConnected) opener.focus(); });
+  // close() is at once (focus back, the page usable); CSS keeps it drawn while it leaves (display · overlay allow-discrete), then it goes
+  dlg.addEventListener('close', () => { setTimeout(() => dlg.remove(), tokMs('--sp-close-dur', 254) + 60); if (opener && opener.isConnected) opener.focus(); });
   document.body.append(dlg);
   if (typeof dlg.showModal === 'function') dlg.showModal(); else dlg.setAttribute('open', '');
+  // 티커 항목 on phones is a bottom sheet: its title drags it down (KH.ui.sheetDrag, design.md §8)
+  if (KH.ui && typeof KH.ui.sheetDrag === 'function') KH.ui.sheetDrag(dlg, { zone: '.xd-h', on: () => dlg.open && dlg.classList.contains('xk') && matchMedia('(max-width: 600px)').matches, close: () => dlg.close() });
   return dlg;
 }
 function showImageDialog(src, name, pw, ph, opener) {
@@ -2283,7 +2286,9 @@ function sbPlace() {
   if (!mid) { root.style.removeProperty('--sb-mt'); root.style.removeProperty('--sb-top'); return; }
   const cs = getComputedStyle(root), sbh = parseFloat(cs.getPropertyValue('--sbh')) || 6;
   const rowGap = parseFloat(getComputedStyle(hd).rowGap) || 0;
-  const above = 5, below = 7;                                    // gaps; the 20px icon may reach into them but not onto the text
+  // gaps; the 20px icon may reach into them but not onto the text. below 10 (was 7): the 18px pill at the bar's end (휴장 · 정규장 64%)
+  // keeps 4px off the tab row (사용자 2026-11-15 19:52: it ran 1px into the row and met the selected tab)
+  const above = 5, below = 10;
   root.style.setProperty('--sb-mt', Math.max(0, Math.round(above + sbh + below - rowGap)) + 'px');
   root.style.setProperty('--sb-top', (tabs.offsetTop - below) + 'px');
 }
@@ -2405,6 +2410,7 @@ function wcBuild() {
   // Tab out closes it (focus moving back to the clock does not: the press that follows decides)
   wc.el.addEventListener('focusout', e => { const t = e.relatedTarget; if (t && !wc.el.contains(t) && t !== ck.btn) wcClose(false); });
   document.body.append(wc.el);
+  if (KH.ui && typeof KH.ui.sheetDrag === 'function') KH.ui.sheetDrag(wc.el, { zone: '.xwc-hd', on: () => wc.open && narrowMQ.matches, close: () => wcClose(true) });
 }
 function wcOpen() {
   if (!ck.btn || !ck.btn.isConnected) return;
@@ -2415,16 +2421,9 @@ function wcOpen() {
   ck.btn.dataset.world = '';
   wcRender();
   wcPlace();
+  // desktop: it grows out of the clock (KH.ui.popIn, `open`); phones: the card comes up from the bottom edge (CSS) — design.md §7
+  if (!narrowMQ.matches && KH.ui && typeof KH.ui.popIn === 'function') KH.ui.popIn(wc.el, ck.btn);
   wc.el.focus({ preventScroll: true });
-  const lvl = motion();
-  if (lvl !== 'reduced') {
-    try {
-      const sheet = narrowMQ.matches;
-      const k = lvl === 'fancy' ? (sheet ? [{ transform: 'translateY(100%)' }, { transform: 'none' }] : [{ opacity: 0, transform: 'translateY(8px) scale(.985)' }, { opacity: 1, transform: 'none' }])
-        : [{ opacity: 0 }, { opacity: 1 }];
-      wc.el.animate(k, { duration: lvl === 'fancy' ? (sheet ? 480 : 240) : 120, easing: 'cubic-bezier(.2,.7,.2,1)' });
-    } catch (e) { /* static is fine */ }
-  }
   if (LIVE && Date.now() - wc.at > 30000) wcFetch();
 }
 function wcPlace() {

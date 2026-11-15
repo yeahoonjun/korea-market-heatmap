@@ -1761,6 +1761,8 @@ function ensureSheet() {
   sheet = h('div', { class: 'kw-sheet', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'kw-dt', tabindex: '-1', hidden: true });
   document.body.append(scrim, sheet);
   scrim.addEventListener('click', () => closeDetail(true));
+  // phones: drag the grip or the head down to dismiss (the template's KH.ui.sheetDrag, design.md §8)
+  if (KH.ui && typeof KH.ui.sheetDrag === 'function') KH.ui.sheetDrag(sheet, { zone: '.kw-grab, .kw-dh', on: () => !!S.detail && narrowMQ.matches, close: () => closeDetail(true), scrim: () => scrim });
   sheet.addEventListener('keydown', e => {
     if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeDetail(true); return; }
     if (e.key === 'Tab') {

@@ -677,9 +677,16 @@ html[data-tone="light"] .tile.flash-dn::after{box-shadow:inset 0 0 0 2px var(--d
 .no-d3 .side,.no-d3 .legend,.no-d3 .tools,.no-d3 .stagebar,.no-d3 .tabs{display:none}
 /* 해외 / 원자재 tabs: src/world fills #world; the map, table, side cards and stock-only tools step aside */
 main.layout[hidden],#world[hidden]{display:none}
-/* 일정 tab (src/calendar): no map tools there — only search and the 화면 settings stay */
-.is-cal .ctls .ctl:not(.more),.is-cal #extras-tools{display:none}
+/* 일정 tab (src/calendar): no map tools there — only search and the 화면 settings stay. Only the map rows of 표시 설정 (its direct
+   .ctl children: 크기 · 색 기준 · 종목 수 · 색 범위 · 색상) step aside; 화면 (테마 · 효과 · 시계 · 실시간 갱신 · 티커 …) and 아래 막대
+   keep every row (사용자 2026-11-15 19:51 "일정에 표시설정은 왜이래?" — a descendant selector had emptied both sections). */
+.is-cal .ctls > .ctl:not(.more),.is-cal #extras-tools{display:none}
 .is-world .ctl[data-ctl="sizeBy"],.is-world .ctl[data-ctl="flowWin"],.is-world .ctl[data-ctl="colorBy"],.is-world .ctl[data-ctl="topN"]{display:none}
+/* 해외 · 지표 · 일정: the 공시 rows only change the map's corners and the 오늘 공시 list, neither of which is on these tabs */
+.is-world .morep .ctl:is([data-set="disc"],[data-set="discKinds"]){display:none}
+/* a section whose rows are all hidden goes with its heading and hints (syncSetSections) — never an empty heading */
+.set-empty{display:none!important}
+.is-cal .ctls .morep{border-top:0;padding-top:0}
 .world-missing{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-height:320px;padding:24px;text-align:center;color:var(--muted);font-size:14px;line-height:1.6;background:var(--panel);border:1px solid var(--line);border-radius:10px}
 .world-missing b{color:var(--fg);font-size:16px}
 
@@ -839,8 +846,9 @@ footer .credit .dc-wrap{display:inline-flex;text-decoration:none}
 footer .credit .dc{width:1.15em;height:1.15em;flex:none}
 
 /* ── Tooltip & detail ───────────────────────────── */
-.tip{position:fixed;z-index:80;pointer-events:none;width:300px;background:var(--tip-bg);border:1px solid var(--tip-bd);border-radius:var(--tip-r);box-shadow:var(--tip-sh);font-size:13px;opacity:0;transform:translateY(4px);transition:opacity .12s,transform .12s;-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur)}
-.tip.show{opacity:1;transform:none}
+.tip{position:fixed;z-index:80;pointer-events:none;width:300px;background:var(--tip-bg);border:1px solid var(--tip-bd);border-radius:var(--tip-r);box-shadow:var(--tip-sh);font-size:13px;opacity:0;-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);transition:opacity var(--sp-close-dur) var(--sp-close)}
+/* design.md §7 툴팁: it only fades in (`fade`, no growth, no travel on its first appearance) and out (`close`); where it goes is KH.spring `follow` (tipGo) */
+.tip.show{opacity:1;transition:opacity var(--sp-fade-dur) var(--sp-fade)}
 .card-head{padding:11px 13px 10px;border-bottom:1px solid var(--line)}
 .card-head .path{font-size:11.5px;color:var(--muted);margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .card-head .nmrow{display:flex;align-items:baseline;gap:7px;flex-wrap:wrap}
@@ -872,9 +880,8 @@ footer .credit .dc{width:1.15em;height:1.15em;flex:none}
 .tiphint{padding:6px 13px 9px;font-size:11.5px;color:var(--faint);border-top:1px solid var(--line)}
 
 .sheet{position:fixed;z-index:90;right:18px;bottom:18px;width:340px;max-height:min(640px,calc(100vh - 36px));overflow:auto;background:var(--sheet-bg);border:1px solid var(--sheet-bd);border-radius:max(2px,calc(var(--sheet-r) - 4px));box-shadow:var(--sheet-fl-sh);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);display:none;font-size:13px}
-.sheet.open{display:block;animation:sheetIn .2s ease-out}
+.sheet.open{display:block}
 .sheet:focus{outline:none}
-@keyframes sheetIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
 .sheet .grab{display:none}
 .sheet .x{position:absolute;right:8px;top:8px;width:30px;height:30px;border-radius:var(--r-in);display:grid;place-items:center;color:var(--muted);font-size:18px;transition:filter var(--c-fast) var(--c-out),transform var(--c-fast) var(--c-out)}
 .sheet .x:hover{background:color-mix(in srgb,var(--ov) 7%,transparent);color:var(--fg)}
@@ -905,7 +912,10 @@ footer .credit .dc{width:1.15em;height:1.15em;flex:none}
   .tabs{order:4;width:100%}
   .tabs{overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:none}
   .tabs::-webkit-scrollbar{display:none}
-  .tabs button{flex:1 0 auto;min-width:40px;padding:4px 7px;font-size:13.5px}
+  /* every selected pill the same capsule (사용자 2026-11-15 19:53: 일정's one-line pill was a 40 × 40 circle touching the 휴장 pill above
+     and the header's bottom edge): 52px wide at least, 2px in from the row's top and bottom (36px tall, the 40px tap area unchanged) */
+  .tabs button{flex:1 0 auto;min-width:52px;padding:4px 7px;font-size:13.5px}
+  .tabs{--ind-iy:2px}
   .tabs .tn{line-height:15px}
   .tabs .tsep{display:none}
   .tools{padding:0 12px 8px;gap:8px}
@@ -915,7 +925,8 @@ footer .credit .dc{width:1.15em;height:1.15em;flex:none}
   .ctls{position:fixed;left:0;right:0;bottom:0;z-index:91;max-height:82svh;overflow:auto;background:var(--sheet-bg);border:0;border-top:1px solid var(--sheet-bd);border-radius:var(--sheet-r) var(--sheet-r) 0 0;box-shadow:var(--sheet-sh);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);padding:8px 16px calc(18px + env(safe-area-inset-bottom))}
   .ctls-hd{min-height:44px}
   .ctls-hd .x{width:40px;height:40px}
-  .scrim2.open{display:block;position:fixed;inset:0;z-index:89;background:var(--scrim)}
+  .scrim2{position:fixed;inset:0;z-index:89;background:var(--scrim)}
+  .scrim2.open{display:block}
   .layout{padding:0 12px 12px;gap:12px}
   /* 휴대폰: 시장 뉴스는 지도 바로 아래, 등락 분포(사이드 카드들) 위 — 사용자 2026-11-14 02:00 "모바일에서 시장 뉴스를 히트맵과 등락분포 사이에" */
   .layout > .news{order:1}
@@ -934,7 +945,8 @@ footer .credit .dc{width:1.15em;height:1.15em;flex:none}
   .tstar{display:none}
   .sheet{left:0;right:0;bottom:0;width:auto;border-radius:var(--sheet-r) var(--sheet-r) 0 0;box-shadow:var(--sheet-sh);max-height:78svh;padding-bottom:env(safe-area-inset-bottom)}
   .sheet .grab{display:block;width:38px;height:4px;border-radius:2px;background:var(--line2);margin:8px auto 0}
-  .scrim.open{display:block;position:fixed;inset:0;z-index:85;background:var(--scrim)}
+  .scrim{position:fixed;inset:0;z-index:85;background:var(--scrim)}
+  .scrim.open{display:block}
   footer{padding:4px 12px 24px}
   .tabs button,.seg button,.movers-tabs button,.crumbs button.c,.crumbs .back{min-height:40px;display:inline-flex;align-items:center;justify-content:center}
   .crumbs .back{padding:3px 12px}
@@ -952,7 +964,9 @@ footer .credit .dc{width:1.15em;height:1.15em;flex:none}
   .list .nmt{min-width:0;overflow:hidden;text-overflow:ellipsis}
   .wbtn{width:32px;height:40px;margin:-10px -4px -10px -4px}
   /* compact phone header: one tools row (search · 표시 설정 · extras icons), 지도/표 on the breadcrumb line */
-  .top{padding:4px 12px 4px;gap:6px 12px;min-height:44px}
+  /* 8px over the clock row (사용자 2026-11-15 19:52 "모바일에서는 시계가 위 테두리랑 너무 붙어보여": the analog face sat 1.5px under the
+     glass panel's top edge); PC unchanged */
+  .top{padding:var(--space-4) 12px 4px;gap:6px 12px;min-height:44px}
   .tabs{padding:0 0 4px;margin-bottom:-4px;background:none;box-shadow:none;border-radius:0}
   .tabs button:focus-visible{outline-offset:calc(var(--focus-w) * -1)}
   .basis{padding:0}
@@ -1031,8 +1045,6 @@ html[data-motion="fancy"] .status.live .dot.beat{animation:pulse 1.2s var(--m-ou
 html[data-motion="reduced"] .map.anim .node,html[data-motion="reduced"] .map.anim .tile{transition:none}
 html[data-motion="reduced"] .status.live .dot{animation:none}
 html[data-motion="reduced"] .tile.flash-up::after,html[data-motion="reduced"] .tile.flash-dn::after{animation:none}
-html[data-motion="reduced"] .sheet.open{animation:none}
-html[data-motion="reduced"] .tip{transition:none}
 /* ───────────────── living controls (docs/standards/controls.md, V1 입체): shared parts ─────────────────
    KH.ui.seg moves one raised indicator per segment / tab row (leading edge --c-fast, trailing --c-base); press = 1px down, shorter
    shadow, darker (0 ms down, --c-fast up); labels swap in place; 44 px hit areas on touch screens. Other modules may reuse these. */
@@ -1247,6 +1259,99 @@ html[data-theme="paper"] .ss-list > button[aria-selected="true"]{background:var(
 .ss-list .meta{color:var(--muted);font-size:12px}
 .ss-list .empty{padding:12px 10px;color:var(--muted);font-size:13px;line-height:1.5}
 .ss-list .empty small{display:block;font-size:12px;color:var(--faint);margin-top:2px}
+
+/* ───────────────── floating windows: open · close (design.md §5 four kinds · §6-2 · §7 · §8; 사용자 2026-11-15 19:49 "표시 설정처럼
+   이런 플로팅되는 창들은 모션 없어?") ─────────────────
+   One exit technique everywhere — the same as the 일정 detail sheet (src/calendar): the window's state flips at once (focus, Esc and
+   outside presses treat it as closed) and CSS keeps it drawn while it leaves — `display` (and `overlay` for a <dialog>) ride the
+   transition with transition-behavior: allow-discrete, pointer-events: none on the leaving box. Opening again mid-exit turns it around
+   from where it is (a transition, never a keyframe restart). Lengths are the spring tokens: 줄이기 (every --sp-*-dur = 0) lands at once.
+   · popover (화면 · 색 기준 · 순매수 기간 · 표시 설정 on tablets · 관심 그룹 · 검색 제안 · 세계 시각): the box grows out of its trigger —
+     a clip that starts as the trigger's own shape on the box's nearest edge (KH.ui.popIn sets --kp-t/r/b/l/rr) and opens to the
+     whole box and its shadow (--kp-bleed) with `open`; the fill fades in with `fade`. Closing shrinks it back with `close` (shorter).
+     The text never scales (§6-5).
+   · sheet (phones): up from the bottom edge with `open`, down with `close`; its scrim fades (`fade` / `close`); a skirt under its
+     bottom edge (--sheet-skirt) hides the ≤ 1.2 % overshoot and the drag's rubber band. Drag the grip / head down: KH.ui.sheetDrag.
+   · floating sheet (desktop 빠른 보기 · 해외 상세) and dialog (extras): rise 12px with `open` as they fade in with `fade`; leave with `close`.
+   · tooltip: fades only and follows with `follow` (tipGo). */
+:root{
+  --kp-open:clip-path var(--sp-open-dur) var(--sp-open),opacity calc(var(--sp-fade-dur) * .6) var(--sp-fade),display var(--sp-open-dur) allow-discrete;
+  --kp-close:clip-path var(--sp-close-dur) var(--sp-close),opacity var(--sp-close-dur) var(--sp-close),display var(--sp-close-dur) allow-discrete;
+  --kp-bleed:inset(-48px -48px -72px round 0px);
+  --sh-open:translate var(--sp-open-dur) var(--sp-open),display var(--sp-open-dur) allow-discrete;
+  --sh-close:translate var(--sp-close-dur) var(--sp-close),display var(--sp-close-dur) allow-discrete;
+  --fl-open:translate var(--sp-open-dur) var(--sp-open),opacity var(--sp-fade-dur) var(--sp-fade),display var(--sp-open-dur) allow-discrete;
+  --fl-close:translate var(--sp-close-dur) var(--sp-close),opacity var(--sp-close-dur) var(--sp-close),display var(--sp-close-dur) allow-discrete;
+  --sc-open:opacity var(--sp-fade-dur) var(--sp-fade),display var(--sp-fade-dur) allow-discrete;
+  --sc-close:opacity var(--sp-close-dur) var(--sp-close),display var(--sp-close-dur) allow-discrete;
+  --sheet-skirt:#18191e;
+}
+html[data-theme="paper"]{--sheet-skirt:#fbf1e6}
+html[data-theme="glass-dark"]{--sheet-skirt:#16181e}
+html[data-theme="glass-light"]{--sheet-skirt:#f3f5f8}
+/* KH.ui.popIn: one frame at the trigger's shape before it grows (not on a box still leaving) */
+.kpop-at0{transition:none!important;opacity:0!important;clip-path:inset(var(--kp-t,0px) var(--kp-r,0px) var(--kp-b,calc(100% - 12px)) var(--kp-l,0px) round var(--kp-rr,12px))!important}
+/* KH.ui.sheetDrag: the finger owns the sheet (and its scrim) */
+.kdrag{transition:none!important}
+
+/* popovers on every width: 검색 제안 */
+.sugg{clip-path:var(--kp-bleed);opacity:1;transition:var(--kp-open)}
+.sugg:not(.open){clip-path:inset(var(--kp-t,0px) var(--kp-r,0px) var(--kp-b,calc(100% - 12px)) var(--kp-l,0px) round var(--kp-rr,12px));opacity:0;pointer-events:none;transition:var(--kp-close)}
+/* ≥ 1280: 화면 · 색 기준 · 순매수 기간 (below, the same rows sit in the 표시 설정 sheet and do not move) */
+@media (min-width:1280px){
+  :is(.ctl.more .morep,.ctl.dd > .seg){clip-path:var(--kp-bleed);opacity:1;transition:var(--kp-open)}
+  :is(.ctl.more:not(.open) .morep,.ctl.dd:not(.open) > .seg){clip-path:inset(var(--kp-t,0px) var(--kp-r,0px) var(--kp-b,calc(100% - 12px)) var(--kp-l,0px) round var(--kp-rr,12px));opacity:0;pointer-events:none;transition:var(--kp-close)}
+}
+/* tablets: 표시 설정 is a popover from its key */
+@media (min-width:761px) and (max-width:1279px){
+  .ctls{clip-path:var(--kp-bleed);opacity:1;transition:var(--kp-open)}
+  .ctls:not(.open){clip-path:inset(var(--kp-t,0px) var(--kp-r,0px) var(--kp-b,calc(100% - 12px)) var(--kp-l,0px) round var(--kp-rr,12px));opacity:0;pointer-events:none;transition:var(--kp-close)}
+}
+/* ≥ 761: 관심 그룹 is a popover from its chip / ☆ */
+@media (min-width:761px){
+  .wgpop{clip-path:var(--kp-bleed);opacity:1;transition:var(--kp-open)}
+  .wgpop[hidden]{clip-path:inset(var(--kp-t,0px) var(--kp-r,0px) var(--kp-b,calc(100% - 12px)) var(--kp-l,0px) round var(--kp-rr,12px));opacity:0;pointer-events:none;transition:var(--kp-close)}
+}
+
+/* 빠른 보기 (#sheet): desktop = a floating sheet */
+.sheet{opacity:0;translate:0 12px;pointer-events:none;transition:var(--fl-close)}
+.sheet.open{opacity:1;translate:none;pointer-events:auto;transition:var(--fl-open)}
+@starting-style{.sheet.open{opacity:0;translate:0 12px}}
+
+/* phones: every sheet comes up from the bottom edge over a fading scrim */
+@media (max-width:760px){
+  .sheet{opacity:1;translate:0 104%;transition:var(--sh-close)}
+  .sheet.open{translate:none;transition:var(--sh-open)}
+  @starting-style{.sheet.open{translate:0 104%}}
+  .ctls{translate:none;transition:var(--sh-open)}
+  .ctls:not(.open){translate:0 104%;pointer-events:none;transition:var(--sh-close)}
+  @starting-style{.ctls.open{translate:0 104%}}
+  /* 관심 그룹: the floating card 8px over the bottom edge */
+  .wgpop{translate:none;transition:var(--sh-open)}
+  .wgpop[hidden]{translate:0 calc(100% + 24px);pointer-events:none;transition:var(--sh-close)}
+  @starting-style{.wgpop:not([hidden]){translate:0 calc(100% + 24px)}}
+  :is(.scrim,.scrim2){opacity:0;pointer-events:none;transition:var(--sc-close)}
+  :is(.scrim,.scrim2).open{opacity:1;pointer-events:auto;transition:var(--sc-open)}
+  @starting-style{:is(.scrim,.scrim2).open{opacity:0}}
+  :is(.sheet,.ctls,.bm-in,.ssheet){box-shadow:var(--sheet-sh),0 64px 0 var(--sheet-skirt)}
+  html[data-theme="paper"] :is(.sheet,.ctls,.bm-in,.ssheet){box-shadow:inset 0 2px 0 var(--pop-solid),inset 0 3px 0 var(--rule),var(--sheet-sh),0 64px 0 var(--sheet-skirt)}
+  /* the grip and the head take the drag (KH.ui.sheetDrag); everything else scrolls as before */
+  :is(.sheet .grab,.sheet .card-head,.ctls-hd,.bm-in,.ssheet .grab,.ss-top,.ss-hint){touch-action:none}
+}
+/* 가격 기준 menu (phones): the sheet slides, the scrim behind it fades */
+.bmenu{transition:background-color var(--sp-fade-dur) var(--sp-fade),display var(--sp-open-dur) allow-discrete}
+.bmenu[hidden]{background-color:transparent;pointer-events:none;transition:background-color var(--sp-close-dur) var(--sp-close),display var(--sp-close-dur) allow-discrete}
+@starting-style{.bmenu:not([hidden]){background-color:transparent}}
+.bm-in{transition:translate var(--sp-open-dur) var(--sp-open)}
+.bmenu[hidden] .bm-in{translate:0 104%;transition:translate var(--sp-close-dur) var(--sp-close)}
+@starting-style{.bmenu:not([hidden]) .bm-in{translate:0 104%}}
+/* 🔍 search sheet (phones) */
+.ss-scrim{opacity:1;transition:var(--sc-open)}
+.ss-scrim[hidden]{opacity:0;pointer-events:none;transition:var(--sc-close)}
+@starting-style{.ss-scrim:not([hidden]){opacity:0}}
+.ssheet{translate:none;transition:var(--sh-open)}
+.ssheet[hidden]{translate:0 104%;pointer-events:none;transition:var(--sh-close)}
+@starting-style{.ssheet:not([hidden]){translate:0 104%}}
 </style>
 </head>
 <body>
@@ -1262,8 +1367,8 @@ html[data-theme="paper"] .ss-list > button[aria-selected="true"]{background:var(
     <button data-mkt="THEME">테마</button>
     <button data-mkt="WORLD" aria-label="해외 지수">해외</button>
     <button data-mkt="CMDTY">지표</button>
-    <button data-mkt="WATCH" aria-label="관심종목"><span class="tn"><span class="st" aria-hidden="true">★</span>관심</span><span class="tp" aria-hidden="true"></span></button>
     <button data-mkt="CAL" aria-label="증시 일정">일정</button>
+    <button data-mkt="WATCH" aria-label="관심종목"><span class="tn"><span class="st" aria-hidden="true">★</span>관심</span><span class="tp" aria-hidden="true"></span></button>
   </div>
   <div class="idx" id="idx"></div>
   <div class="status" id="status"><span class="dot"></span><span id="live-mark" hidden></span><span class="txt"></span><span class="tshort"></span>
@@ -1593,8 +1698,8 @@ function uiSegPlace(seg, snap) {
   const bs = [...seg.children].filter(x => x.tagName === 'BUTTON');
   const i = bs.findIndex(b => (b.getAttribute('aria-pressed') === 'true' || b.getAttribute('aria-selected') === 'true') && !b.hidden), b = bs[i];
   if (!b || !b.offsetWidth || !seg.clientWidth) { st.i = i; st.v = ''; delete seg.dataset.ind; return; }
-  const inset = parseFloat(getComputedStyle(seg).getPropertyValue('--ind-in')) || 0;
-  const v = [b.offsetLeft + inset, seg.clientWidth - b.offsetLeft - b.offsetWidth + inset, b.offsetTop + inset, seg.clientHeight - b.offsetTop - b.offsetHeight + inset]
+  const cs = getComputedStyle(seg), inset = parseFloat(cs.getPropertyValue('--ind-in')) || 0, iy = inset + (parseFloat(cs.getPropertyValue('--ind-iy')) || 0);
+  const v = [b.offsetLeft + inset, seg.clientWidth - b.offsetLeft - b.offsetWidth + inset, b.offsetTop + iy, seg.clientHeight - b.offsetTop - b.offsetHeight + iy]
     .map(x => Math.round(x * 2) / 2 + 'px');
   const moved = !snap && st.i >= 0 && i !== st.i && seg.dataset.ind != null;
   if (!moved && v.join() === st.v) { st.i = i; return; }          // a redraw that changed nothing: a running move goes on
@@ -1754,7 +1859,103 @@ function uiSwitch(btn) {
 document.addEventListener('keydown', e => { if ((e.key === ' ' || e.key === 'Enter') && !e.repeat && e.target instanceof HTMLElement && e.target.matches('button, a[href]')) e.target.classList.add('is-press'); });
 for (const t of ['keyup', 'blur', 'pointerdown']) document.addEventListener(t, e => { const el = e.target; if (el instanceof HTMLElement && el.classList.contains('is-press')) el.classList.remove('is-press'); }, true);
 document.addEventListener('touchstart', () => {}, { passive: true });     // Android Chrome: :active follows the finger at once
-const KHUI = { seg: uiSeg, swap: uiSwap, roll: uiRoll, busy: uiBusy, state: uiState, bubble: uiBubble, sw: uiSwitch, live: uiLive, icon: uiIcon, ms: uiMs, akey: uiAkey, retry: uiRetry };
+/* ── floating windows (design.md §5 · §7 · §8; CSS "floating windows" — the same exit technique as the 일정 detail sheet) ──
+   popIn(el, opener): call right after a popover was shown and placed. It grows out of `opener`: the clip starts as the trigger's own
+   shape (width, height, corner) moved onto the box's nearest edge and kept inside it (--kp-t/r/b/l/rr on the box, kept for the way
+   back) and opens with `open`. A box still on its way out turns around from where it is (no restart). Phones' sheet mode: don't call.
+   sheetDrag(el, {zone, on, close, scrim?}): phones — drag a bottom sheet down to dismiss (§8 P7, the numbers the 일정 sheet uses): from
+   `zone` only (the grip, the head — CSS gives them touch-action:none, the rest scrolls), 6px to start, axis lock 6px (sideways → not
+   a dismiss), release speed from the last 100ms, past 35% of its height or a throw > KH.spring.THROW → away, else back; KH.spring
+   `settle` carries the finger's speed; upward past the open pose a rubber band .55. Trusted input only; the click that ends a drag is
+   eaten. The finger owns `translate` (inline; .kdrag = no transition) and the scrim's opacity; away → close() (the module's own:
+   state, focus, cleanup) as soon as it is off screen. on() → whether it is a sheet and open now. prop: 'translate' (default) or
+   'transform' — the property the sheet's own closed pose uses (the 일정 sheet's is a transform), so the hand-off to it never jumps. */
+const springApi = () => (window.KH && window.KH.spring) || null;
+const clampN = (v, a, b) => Math.max(a, Math.min(b, v));
+function uiPopIn(el, opener) {
+  if (!el || !el.isConnected) return;
+  const mid = typeof el.getAnimations === 'function' && el.getAnimations().some(a => a.transitionProperty === 'clip-path');   // (flushes style)
+  const er = el.getBoundingClientRect(), tr = opener && opener.isConnected && opener.getBoundingClientRect ? opener.getBoundingClientRect() : null;
+  const W = er.width, H = er.height;
+  if (tr && W > 0 && H > 0 && tr.width > 0 && tr.height > 0) {
+    const w = Math.min(tr.width, W), hh = Math.min(tr.height, H), px = v => Math.round(v * 10) / 10 + 'px';
+    const l = clampN(tr.left - er.left, 0, W - w);
+    const t = tr.top >= er.bottom - 2 ? H - hh : tr.bottom <= er.top + 2 ? 0 : clampN(tr.top - er.top, 0, H - hh);
+    const rr = Math.min(parseFloat(getComputedStyle(opener).borderTopLeftRadius) || 8, hh / 2, w / 2);
+    el.style.setProperty('--kp-t', px(t)); el.style.setProperty('--kp-r', px(W - l - w));
+    el.style.setProperty('--kp-b', px(H - t - hh)); el.style.setProperty('--kp-l', px(l)); el.style.setProperty('--kp-rr', px(rr));
+  }
+  if (mid || MOTION === 'reduced') return;
+  el.classList.add('kpop-at0'); void el.offsetWidth; el.classList.remove('kpop-at0');      // from the trigger's shape, not from nothing
+}
+function uiSheetDrag(el, o) {
+  if (!el || el.__kdrag || !o || typeof o.close !== 'function') return;
+  el.__kdrag = true;
+  let g = null, hnd = null, H = 0, eat = 0;
+  const scrimEl = () => (typeof o.scrim === 'function' ? o.scrim() : null);
+  const on = () => (typeof o.on === 'function' ? !!o.on() : true);
+  const tf = o.prop === 'transform';
+  const write = y => {
+    const v = Math.round(y * 10) / 10;
+    if (tf) el.style.transform = `translateY(${v}px)`; else el.style.translate = `0 ${v}px`;
+    const s = scrimEl(); if (s && s.classList.contains('kdrag')) s.style.opacity = String(clampN(1 - y / Math.max(1, H), 0, 1));
+  };
+  const clear = () => {
+    el.classList.remove('kdrag'); if (tf) el.style.transform = ''; else el.style.translate = '';
+    const s = scrimEl(); if (s) { s.classList.remove('kdrag'); s.style.opacity = ''; s.style.transition = ''; }
+  };
+  el.addEventListener('pointerdown', e => {
+    if (!e.isTrusted || e.button > 0 || !on()) return;
+    const z = e.target && e.target.closest ? e.target.closest(o.zone) : null;
+    // a field takes a mouse drag (it selects text); a finger that sets out down from it moves the sheet (Chrome's touch adjustment
+    // also hands a press on a thin grip to the field next to it)
+    if (!z || !el.contains(z) || e.target.closest('[data-nodrag]') || (e.pointerType === 'mouse' && e.target.closest('input, textarea, select'))) return;
+    if (hnd) { hnd.stop(); hnd = null; }
+    g = { id: e.pointerId, z, x0: e.clientX, y0: e.clientY, on: false, y: 0, s: [] };
+    H = el.offsetHeight;
+  });
+  el.addEventListener('pointermove', e => {
+    const d = g; if (!d || e.pointerId !== d.id || !e.isTrusted) return;
+    const dx = e.clientX - d.x0, dy = e.clientY - d.y0;
+    if (!d.on) {
+      if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return;
+      if (Math.abs(dx) > Math.abs(dy) || !on()) { g = null; return; }   // sideways: not a dismiss
+      d.on = true; el.classList.add('kdrag');
+      const s = scrimEl(); if (s) s.classList.add('kdrag');
+      try { d.z.setPointerCapture(e.pointerId); } catch (err) { /* the pointer is gone */ }
+    }
+    d.y = dy >= 0 ? dy : dy * 0.55;                                     // upward past the open pose: rubber band
+    write(d.y);
+    d.s.push({ t: e.timeStamp, y: d.y });
+    while (d.s.length > 2 && e.timeStamp - d.s[0].t > 100) d.s.shift();
+  });
+  const end = e => {
+    const d = g; if (!d || e.pointerId !== d.id) return;
+    g = null;
+    if (!d.on) return;
+    eat = performance.now() + 400;
+    const win = d.s.filter(x => e.timeStamp - x.t <= 100), a = win[0], b = win[win.length - 1];   // the last 100ms only:
+    const v = win.length > 1 && b.t > a.t ? (b.y - a.y) / (b.t - a.t) : 0;                         // a finger that stopped → 0 (px/ms)
+    const S = springApi(), away = e.type !== 'pointercancel' && on() && (d.y > 0.35 * H || v > ((S && S.THROW) || 0.11));
+    settle(d.y, away ? H + 24 : 0, v, away);
+  };
+  el.addEventListener('pointerup', end);
+  el.addEventListener('pointercancel', end);
+  el.addEventListener('click', e => { if (performance.now() < eat) { e.preventDefault(); e.stopPropagation(); } }, true);
+  function settle(from, to, v, away) {
+    let done = false;
+    const finish = () => { if (done) return; done = true; if (hnd) { hnd.stop(); hnd = null; } if (away && on()) o.close(); clear(); };
+    if (away) {                                                         // the scrim fades with `close` meanwhile
+      const s = scrimEl(); if (s) { s.classList.remove('kdrag'); s.style.transition = 'opacity var(--sp-close-dur) var(--sp-close)'; s.style.opacity = '0'; }
+    }
+    const S = springApi();
+    if (!S || typeof S.animate !== 'function' || MOTION === 'reduced') { write(to); finish(); return; }
+    hnd = S.animate({ from, to, name: 'settle', velocity: v * 1000,
+      onUpdate: y => { if (done) return; write(y); if (away && y >= H + 8) Promise.resolve().then(finish); },   // off screen: closed now
+      onRest: finish });
+  }
+}
+const KHUI = { seg: uiSeg, swap: uiSwap, roll: uiRoll, busy: uiBusy, state: uiState, bubble: uiBubble, sw: uiSwitch, live: uiLive, icon: uiIcon, ms: uiMs, akey: uiAkey, retry: uiRetry, popIn: uiPopIn, sheetDrag: uiSheetDrag };
 // cached formatters: toLocaleString builds one per call (≈20 µs), and a 300-row table or 600 candle labels call it thousands of times
 const NF0 = new Intl.NumberFormat('ko-KR'), NF1 = new Intl.NumberFormat('ko-KR', { maximumFractionDigits: 1 });
 const fmtInt = v => NF0.format(Math.round(v));
@@ -3291,7 +3492,7 @@ function render({ animate = false } = {}) {
   syncRoving();
   applyHighlights();
   // the hovered tile left the map: drop its tooltip (a theme tile is 'H|id' under the hover key '#id' — it used to vanish on every poll)
-  if (state.hover && !nodes.has(String(state.hover).startsWith('#') ? 'H|' + String(state.hover).slice(1) : 'T|' + state.hover)) { setHover(null); tip.classList.remove('show'); }
+  if (state.hover && !nodes.has(String(state.hover).startsWith('#') ? 'H|' + String(state.hover).slice(1) : 'T|' + state.hover)) { setHover(null); tipHide(0); }
   syncHoverStar();
   emitRender();
 }
@@ -3618,14 +3819,36 @@ function fillThemeTip(t) {
     h('div', { class: 'tiphint', text: '누르면 이 테마의 종목 지도가 열려요' }));
 }
 let tipW = 300, tipH = 0;
-function placeTip(x, y) {
+// jump: the tooltip was not showing — it appears where it is going (design.md §7: no travel on its first appearance)
+function placeTip(x, y, jump) {
   tipH = tip.offsetHeight; tipW = tip.offsetWidth;
   const pad = 14, vw = innerWidth, vh = innerHeight;
   let left = x + 18, top = y + 18;
   if (left + tipW > vw - pad) left = x - tipW - 18;
   if (left < pad) left = pad;
   if (top + tipH > vh - pad) top = Math.max(pad, vh - tipH - pad);
-  tip.style.left = left + 'px'; tip.style.top = top + 'px';
+  tipGo(left, top, jump);
+}
+/* the map's tooltip (design.md §7 툴팁): fades in where it first appears, then follows with `follow` (KH.spring, retargeted on every
+   move, its speed kept); it hides 130ms after the pointer leaves the tiles — a quick hop across a gap keeps it — and fades with `close` */
+let tipHideT = 0;
+const tipXY = { x: null, y: null, hx: null, hy: null };
+function tipShow() { clearTimeout(tipHideT); tipHideT = 0; tip.classList.add('show'); }
+function tipHide(after) {
+  clearTimeout(tipHideT); tipHideT = 0;
+  if (after > 0 && tip.classList.contains('show')) { tipHideT = setTimeout(() => { tipHideT = 0; tip.classList.remove('show'); }, after); return; }
+  tip.classList.remove('show');
+}
+function tipGo(left, top, jump) {
+  const S = springApi();
+  if (jump || !S || MOTION === 'reduced' || tipXY.x == null) {
+    if (tipXY.hx) { tipXY.hx.stop(); tipXY.hy.stop(); tipXY.hx = tipXY.hy = null; }
+    tipXY.x = left; tipXY.y = top; tip.style.left = left + 'px'; tip.style.top = top + 'px';
+    return;
+  }
+  if (tipXY.hx && tipXY.hx.running()) { tipXY.hx.retarget(left); tipXY.hy.retarget(top); return; }
+  tipXY.hx = S.animate({ from: tipXY.x, to: left, name: 'follow', onUpdate: v => { tipXY.x = v; tip.style.left = Math.round(v * 10) / 10 + 'px'; } });
+  tipXY.hy = S.animate({ from: tipXY.y, to: top, name: 'follow', onUpdate: v => { tipXY.y = v; tip.style.top = Math.round(v * 10) / 10 + 'px'; } });
 }
 const tilesOf = code => mapEl.querySelectorAll(`.tile[data-c="${code}"]`);
 let hoverEl = null;          // the tile under the pointer (a stock can have several tiles on the grouped ★관심 map)
@@ -3670,7 +3893,7 @@ mapEl.addEventListener('pointermove', e => {
   if (e.pointerType !== 'mouse') return;
   if (e.target.closest('.tstar')) return;           // keep the tile's hover while the pointer is on its star
   const t = e.target.closest('.tile');
-  if (!t || t.classList.contains('leaving')) { setHover(null); syncHoverStar(); tip.classList.remove('show'); return; }
+  if (!t || t.classList.contains('leaving')) { setHover(null); syncHoverStar(); tipHide(130); return; }
   if (t.dataset.t) {
     const key = '#' + t.dataset.t;
     if (state.hover !== key) {
@@ -3681,10 +3904,11 @@ mapEl.addEventListener('pointermove', e => {
     const code = t.dataset.c;
     if (state.hover !== code || hoverEl !== t) { const same = state.hover === code; setHover(code, t); syncHoverStar(); const st = get(code); if (st && !same) fillTip(st); }
   }
-  tip.classList.add('show');
-  placeTip(e.clientX, e.clientY);
+  const was = tip.classList.contains('show');
+  tipShow();
+  placeTip(e.clientX, e.clientY, !was);
 });
-mapEl.addEventListener('pointerleave', () => { if (state.hover && String(state.hover).startsWith('#')) { const el = nodes.get('H|' + state.hover.slice(1)); if (el) el.classList.remove('hov'); state.hover = null; } setHover(null); syncHoverStar(); tip.classList.remove('show'); });
+mapEl.addEventListener('pointerleave', () => { if (state.hover && String(state.hover).startsWith('#')) { const el = nodes.get('H|' + state.hover.slice(1)); if (el) el.classList.remove('hov'); state.hover = null; } setHover(null); syncHoverStar(); tipHide(130); });
 
 mapEl.addEventListener('click', e => {
   if (e.target.closest('.tstar')) return;
@@ -3700,7 +3924,7 @@ mapEl.addEventListener('click', e => {
   if (!t || t.classList.contains('leaving')) return;
   if (t.dataset.t) { openTheme(+t.dataset.t); return; }
   // desktop (hover-capable pointer): straight to the stock page when it exists; touch keeps the quick-view sheet
-  if (hoverMQ.matches && stockApi()) { tip.classList.remove('show'); stockApi().open(t.dataset.c, { opener: t }); return; }
+  if (hoverMQ.matches && stockApi()) { tipHide(0); stockApi().open(t.dataset.c, { opener: t }); return; }
   select(t.dataset.c, t);
 });
 /* keyboard: one tile is tabbable (roving tabindex); arrows move to the nearest tile in that direction; Enter / Space open it
@@ -3753,9 +3977,10 @@ function showKbdTip(t) {
   if (!hoverMQ.matches) return;
   if (t.dataset.t) { const row = themeRow(+t.dataset.t); if (!row) return; fillThemeTip(row); }
   else { const st = get(t.dataset.c); if (!st) return; fillTip(st); }
-  tip.classList.add('show'); kbdTip = true;
+  const was = tip.classList.contains('show');
+  tipShow(); kbdTip = true;
   const r = t.getBoundingClientRect();
-  placeTip(r.right - 6, r.top + Math.min(r.height, 60) / 2 - 18);
+  placeTip(r.right - 6, r.top + Math.min(r.height, 60) / 2 - 18, !was);
 }
 const ARROWS = { ArrowRight: 'right', ArrowLeft: 'left', ArrowUp: 'up', ArrowDown: 'down' };
 mapEl.addEventListener('keydown', e => {
@@ -3770,7 +3995,7 @@ mapEl.addEventListener('keydown', e => {
   }
   if (e.key !== 'Enter' && e.key !== ' ') return;
   e.preventDefault();
-  tip.classList.remove('show'); kbdTip = false;
+  tipHide(0); kbdTip = false;
   if (t.dataset.t) openTheme(+t.dataset.t, { focusAfter: true });
   else openStock(t.dataset.c, t);
 });
@@ -3781,7 +4006,7 @@ mapEl.addEventListener('focusin', e => {
   if (t.matches(':focus-visible')) showKbdTip(t);
 });
 mapEl.addEventListener('focusout', e => {
-  if (kbdTip && e.target.classList && e.target.classList.contains('tile')) { kbdTip = false; tip.classList.remove('show'); }
+  if (kbdTip && e.target.classList && e.target.classList.contains('tile')) { kbdTip = false; tipHide(0); }
 });
 
 let sparkReq = 0, sheetOpener = null, sheetCode = null;
@@ -3821,11 +4046,13 @@ function closeSheet({ restore = true } = {}) {
   if (target && target.focus) target.focus({ preventScroll: true });
 }
 scrim.addEventListener('click', () => closeSheet());
+// phones: drag the grip or the head down to dismiss (KH.ui.sheetDrag)
+uiSheetDrag(sheet, { zone: '.grab, .card-head', on: () => narrowMQ.matches && sheet.classList.contains('open'), close: () => closeSheet(), scrim: () => scrim });
 function select(code, opener) {
   const st = get(code);
   if (!st) return;
   state.selected = code;
-  tip.classList.remove('show');
+  tipHide(0);
   applyHighlights();
   openSheet(st, opener);
 }
@@ -3833,7 +4060,7 @@ function select(code, opener) {
 function openStock(code, opener) {
   const k = stockApi();
   if (!k) { select(code, opener); return; }
-  tip.classList.remove('show');
+  tipHide(0);
   k.open(code, { opener: opener || null });
 }
 function openStockFromSheet(code) {
@@ -3898,7 +4125,7 @@ function setHash(h) {
 function zoomTo(f) {
   state.focus = f && f.s ? f : null;
   state.hoverSector = null;
-  setHover(null); tip.classList.remove('show');
+  setHover(null); tipHide(0);
   render({ animate: true });
   renderCrumbs(); renderSide(); renderLegend();
 }
@@ -3919,7 +4146,7 @@ function openTheme(id, { writeHash = true, focusAfter = false } = {}) {
   if (wasWorld) { rebuildColor(); syncWorld(); renderStatus(); requestAnimationFrame(fitMapHeight); }
   state.theme = id == null ? null : +id;
   state.focus = null; state.bucket = null; state.selected = null; state.hoverSector = null;
-  setHover(null); tip.classList.remove('show');
+  setHover(null); tipHide(0);
   closeSheet({ restore: false });
   need('themes');
   if (writeHash) setHash(state.theme == null ? 'theme' : 'theme-' + state.theme);
@@ -5094,11 +5321,21 @@ function keepTabInView() {
 let worldShown = null;     // the kind KHWorld is showing
 // opening …/#world lands on the element with that id, so the browser's fragment scroll would hide the header: undo it once loaded
 if (/^#(world|cmdty)$/.test(location.hash)) addEventListener('load', () => setTimeout(() => { if (scrollY) scrollTo(0, 0); }, 0), { once: true });
+// 표시 설정: a section (화면 · 아래 막대) whose rows are all hidden here goes with its heading and hints — never an empty heading
+function syncSetSections() {
+  for (const sec of [morePanel, document.querySelector('.dkset')]) {
+    if (!sec) continue;
+    sec.classList.remove('set-empty');
+    const any = [...sec.querySelectorAll(':scope > .ctl')].some(r => !r.hidden && getComputedStyle(r).display !== 'none');
+    sec.classList.toggle('set-empty', !any);
+  }
+}
 function syncWorld(boot) {
   const want = isWorld() ? WORLD_KIND[state.market] : null, isCal = want === 'calendar';
   const box = $(isCal ? '#calendar' : '#world');
   document.documentElement.classList.toggle('is-world', !!want);
   document.documentElement.classList.toggle('is-cal', isCal);
+  syncSetSections();
   $('#world').hidden = !want || isCal; $('#calendar').hidden = !isCal;
   $('main.layout').hidden = !!want;          // the map, table and side cards step aside; #world / #calendar (siblings) take their place
   // leaving the module that is showing (해외 ↔ 지표 stay with KHWorld.show(kind))
@@ -5166,6 +5403,7 @@ for (const d of document.querySelectorAll('.ctl.dd')) {
     closeDD(false);
     if (was || d.classList.contains('off')) return;
     d.classList.add('open'); b.setAttribute('aria-expanded', 'true');
+    uiPopIn(d.querySelector('.seg'), b);                         // grows out of its key
     const cur = d.querySelector('.seg button[aria-pressed="true"]') || d.querySelector('.seg button');
     if (cur) cur.focus({ preventScroll: true });
   });
@@ -5188,8 +5426,8 @@ const ctlsOpen = () => ctlsEl.classList.contains('open');
 function openCtls() {
   if (!collapsedMQ.matches) return;
   ctlsEl.classList.add('open'); setBtn.setAttribute('aria-expanded', 'true');
-  if (!narrowMQ.matches) ctlsEl.style.left = Math.max(18, Math.min(setBtn.offsetLeft, innerWidth - ctlsEl.offsetWidth - 18)) + 'px';
-  else { ctlsEl.style.left = ''; scrim2.classList.add('open'); }
+  if (!narrowMQ.matches) { ctlsEl.style.left = Math.max(18, Math.min(setBtn.offsetLeft, innerWidth - ctlsEl.offsetWidth - 18)) + 'px'; uiPopIn(ctlsEl, setBtn); }
+  else { ctlsEl.style.left = ''; scrim2.classList.add('open'); }      // phones: a sheet from the bottom edge (CSS)
   const first = ctlsEl.querySelector('.seg button[aria-pressed="true"]') || ctlsEl.querySelector('button');
   if (first) first.focus({ preventScroll: true });
 }
@@ -5201,6 +5439,7 @@ function closeCtls(restore = true) {
 setBtn.addEventListener('click', () => ctlsOpen() ? closeCtls() : openCtls());
 $('#ctlsX').addEventListener('click', () => closeCtls());
 scrim2.addEventListener('click', () => closeCtls());
+uiSheetDrag(ctlsEl, { zone: '.ctls-hd', on: () => narrowMQ.matches && ctlsOpen(), close: () => closeCtls(), scrim: () => scrim2 });
 document.addEventListener('pointerdown', e => { if (ctlsOpen() && !narrowMQ.matches && !ctlsEl.contains(e.target) && !setBtn.contains(e.target)) closeCtls(false); });
 collapsedMQ.addEventListener('change', () => closeCtls(false));
 ctlsEl.addEventListener('keydown', e => {
@@ -5221,6 +5460,7 @@ function openMore() {
   if (collapsedMQ.matches) return;
   closeDD(false);
   moreEl.classList.add('open'); moreBtn.setAttribute('aria-expanded', 'true');
+  uiPopIn(morePanel, moreBtn);
   const f = morePanel.querySelector('button[aria-pressed="true"]:not([hidden])') || morePanel.querySelector('button:not([hidden])');
   if (f) f.focus({ preventScroll: true });
 }
@@ -5333,6 +5573,7 @@ function addSetting(spec) {
   const old = SETTINGS.get(key);
   if (old && old.el && old.el.isConnected) old.el.replaceWith(o.el); else morePanel.append(o.el);
   SETTINGS.set(key, o);
+  syncSetSections();
   callSetting(o);
   return o.value;
 }
@@ -5364,7 +5605,7 @@ function setView(v) {
   state.view = v;
   $('#map').hidden = v !== 'map';
   $('#tablewrap').hidden = v !== 'table';
-  tip.classList.remove('show');
+  tipHide(0);
   tstar.hidden = true;
   syncControls();
   render(); renderCrumbs(); renderSide(); renderFooter(); renderLegend();
@@ -5412,6 +5653,7 @@ for (const t of ['pointerup', 'pointercancel', 'pointerleave']) $('#wgchips').ad
 $('#wgchips').addEventListener('scroll', () => clearTimeout(wgLongT), { passive: true });
 
 function wgOpen(opener, sel, label, kids) {
+  clearTimeout(wgPop.__out);                                     // opened again while the last one was leaving
   if (wgOpener && wgOpener.el && wgOpener.el !== opener && wgOpener.el.hasAttribute('aria-haspopup')) wgOpener.el.setAttribute('aria-expanded', 'false');
   wgOpener = { el: opener, sel };
   // opened from a modal dialog drawn above the popover's own layer (the stock page, z 200, sets the rest of the page inert) the
@@ -5434,15 +5676,22 @@ function wgOpen(opener, sel, label, kids) {
     if (top + ph > innerHeight - 8) top = Math.max(8, r.top - ph - 6);
     wgPop.style.left = Math.round(Math.min(Math.max(8, r.left), innerWidth - pw - 8)) + 'px';
     wgPop.style.top = Math.round(top) + 'px';
+    uiPopIn(wgPop, opener);
   }
   const f = wgPop.querySelector('input[type="text"],input:checked,input,button:not([disabled])');
   if (f) f.focus({ preventScroll: true });
 }
 function wgClose(restore = true) {
   if (wgPop.hidden) return;
-  wgPop.hidden = true; wgPop.replaceChildren();
-  wgTag(); wgPick = null;
-  if (wgPop.parentElement !== document.body) { wgPop.classList.remove('in-dlg'); document.body.append(wgPop); }
+  // it leaves where it is (CSS keeps it drawn through `close`); its rows and its place go once it is gone
+  wgPop.hidden = true; wgPop.inert = true;
+  wgPick = null;
+  clearTimeout(wgPop.__out);
+  wgPop.__out = setTimeout(() => {
+    if (!wgPop.hidden) return;
+    wgPop.replaceChildren(); wgTag();
+    if (wgPop.parentElement !== document.body) { wgPop.classList.remove('in-dlg'); document.body.append(wgPop); }
+  }, uiMs('--sp-close-dur') + 60);
   const o = wgOpener; wgOpener = null;
   if (o && o.el && o.el.hasAttribute('aria-haspopup')) o.el.setAttribute('aria-expanded', 'false');
   if (!restore || !o) return;
@@ -5615,7 +5864,9 @@ function renderSugg() {
     MODE === 'live' && namesSt.st === 'fail' && where === '종목이' ? h('small', { text: '전체 종목 목록을 불러오지 못해 실시간 대상(시장별 시총 상위 300종목) 안에서만 찾았어요' } ) : null));
   else if (loadingNames && suggList.length < 8) opts.push(h('div', { class: 'empty' }, h('small', { text: '다른 종목도 찾는 중…' })));
   sugg.replaceChildren(...opts);
+  const was = sugg.classList.contains('open');
   sugg.classList.add('open'); qEl.setAttribute('aria-expanded', 'true');
+  if (!was) uiPopIn(sugg, qEl);                                 // grows out of the box once; typing redraws it in place
   if (suggList.length) qEl.setAttribute('aria-activedescendant', 'sg-' + suggIdx); else qEl.removeAttribute('aria-activedescendant');
 }
 // one search result's parts (the box's list and the dock's search sheet draw the same row)
@@ -5642,7 +5893,7 @@ function pick(s, opener) {
     applyHighlights();
     if (onMap && !isWorld()) { openStock(s.c, opener || onMap); return; }
     const k = stockApi();
-    if (k) { tip.classList.remove('show'); k.open(s.c, { opener: opener || qEl }); }
+    if (k) { tipHide(0); k.open(s.c, { opener: opener || qEl }); }
     else if (get(s.c)) select(s.c, opener || qEl);
     else window.open(`https://m.stock.naver.com/domestic/stock/${encodeURIComponent(s.c)}`, '_blank', 'noopener');
     return;
@@ -6076,7 +6327,7 @@ window.KH = {
       if (!o.opener || sheet.contains(o.opener)) o.opener = sheetOpener && sheetOpener.isConnected ? sheetOpener : (nodes.get('T|' + code) || null);
       closeSheet({ restore: false });
     }
-    tip.classList.remove('show');
+    tipHide(0);
     k.open(String(code), o);
     return true;
   },
@@ -6122,6 +6373,7 @@ bmenu.addEventListener('keydown', e => {
   its[(to + its.length) % its.length].focus();
 });
 narrowMQ.addEventListener('change', () => bmClose(false));
+uiSheetDrag(bmenu.firstElementChild, { zone: '.bm-in', on: () => !bmenu.hidden, close: () => bmClose() });
 
 /* KRX · NXT · 통합 (§3-8, §3-10): the pick lasts while the session phase lasts (khm.basis) */
 $('#basis').addEventListener('click', e => {
@@ -6601,6 +6853,7 @@ function ssBuild() {
   SS.el = h('div', { class: 'ssheet', role: 'dialog', 'aria-modal': 'true', 'aria-label': '종목 검색', hidden: true }, h('div', { class: 'grab', 'aria-hidden': 'true' }), h('div', { class: 'ss-top' }, lab, x), SS.hint, SS.list);
   SS.scrim = h('div', { class: 'ss-scrim', hidden: true, onclick: () => ssClose(true) });
   document.body.append(SS.scrim, SS.el);
+  uiSheetDrag(SS.el, { zone: '.grab, .ss-top, .ss-hint', on: () => SS.open, close: () => ssClose(true), scrim: () => SS.scrim });
   SS.inp.addEventListener('input', () => { SS.idx = 0; ssRender(); });
   SS.el.addEventListener('keydown', e => {
     if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); ssClose(true); return; }
@@ -10458,8 +10711,8 @@ html[data-tone="light"]{
 @media (pointer:coarse){.xt-btn::before{content:"";position:absolute;left:50%;top:50%;width:max(100%,44px);height:max(100%,44px);transform:translate(-50%,-50%)}}
 @media (hover:none){.xt-btn:hover{background:var(--key-bg)}.xt-async[data-st="done"]:hover{background:var(--done-bg)}.xt-async[data-st="fail"]:hover{background:var(--fail-bg)}}
 
-.xt-toast{position:fixed;left:50%;bottom:calc(18px + var(--rp-h, 0px));z-index:130;max-width:min(420px,calc(100% - 24px));transform:translate(-50%,8px);padding:9px 14px;border-radius:var(--tip-r,9px);border:1px solid var(--tip-bd,var(--line2));background:var(--tip-bg,#26282f);color:var(--fg);font-size:13px;line-height:1.45;box-shadow:var(--tip-sh,0 12px 30px rgba(0,0,0,.5));-webkit-backdrop-filter:var(--blur,none);backdrop-filter:var(--blur,none);opacity:0;pointer-events:none;transition:opacity .18s,transform .18s}
-.xt-toast.show{opacity:1;transform:translate(-50%,0)}
+.xt-toast{position:fixed;left:50%;bottom:calc(18px + var(--rp-h, 0px));z-index:130;max-width:min(420px,calc(100% - 24px));transform:translate(-50%,8px);padding:9px 14px;border-radius:var(--tip-r,9px);border:1px solid var(--tip-bd,var(--line2));background:var(--tip-bg,#26282f);color:var(--fg);font-size:13px;line-height:1.45;box-shadow:var(--tip-sh,0 12px 30px rgba(0,0,0,.5));-webkit-backdrop-filter:var(--blur,none);backdrop-filter:var(--blur,none);opacity:0;pointer-events:none;transition:opacity var(--sp-close-dur) var(--sp-close),transform var(--sp-close-dur) var(--sp-close)}
+.xt-toast.show{opacity:1;transform:translate(-50%,0);transition:opacity var(--sp-fade-dur) var(--sp-fade),transform var(--sp-open-dur) var(--sp-open)}
 
 /* dialogs (image preview in the snapshot, iOS install steps) */
 dialog.xd{position:fixed;width:min(1100px,calc(100% - 24px));max-width:none;max-height:calc(100% - 24px);margin:auto;padding:18px 18px 16px;border:1px solid var(--sheet-bd,var(--line2));border-radius:14px;background:var(--sheet-bg,var(--panel));color:var(--fg);font-family:var(--sans,inherit);box-shadow:var(--tip-sh,0 30px 80px rgba(0,0,0,.6));-webkit-backdrop-filter:var(--blur,none);backdrop-filter:var(--blur,none);overflow:auto}
@@ -10482,10 +10735,9 @@ dialog.xp{width:min(400px,calc(100% - 24px))}
 /* replay player (fixed at the bottom). Scoped to .rp-player so a stray .rp elsewhere can't become a fixed box.
    JS keeps --rp-h on <html> = the player's height + its bottom offset (the space it takes from the viewport). */
 .rp-open body{padding-bottom:var(--rp-h, 0px)}
-section.rp-player{position:fixed;z-index:75;left:50%;bottom:14px;width:min(1000px,calc(100% - 28px));transform:translateX(-50%);padding:10px 14px 8px;border:1px solid var(--sheet-bd,var(--line2));border-radius:14px;background:var(--sheet-bg,rgba(25,26,31,.97));box-shadow:var(--tip-sh,0 24px 70px rgba(0,0,0,.6));-webkit-backdrop-filter:var(--blur,blur(8px));backdrop-filter:var(--blur,blur(8px));animation:rpIn .2s ease-out}
-section.rp-player[hidden]{display:none}
-@keyframes rpIn{from{opacity:0;transform:translate(-50%,12px)}to{opacity:1;transform:translate(-50%,0)}}
-@keyframes rpUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+section.rp-player{position:fixed;z-index:75;left:50%;bottom:14px;width:min(1000px,calc(100% - 28px));transform:translateX(-50%);padding:10px 14px 8px;border:1px solid var(--sheet-bd,var(--line2));border-radius:14px;background:var(--sheet-bg,rgba(25,26,31,.97));box-shadow:var(--tip-sh,0 24px 70px rgba(0,0,0,.6));-webkit-backdrop-filter:var(--blur,blur(8px));backdrop-filter:var(--blur,blur(8px));opacity:1;translate:none;transition:var(--fl-open)}
+section.rp-player[hidden]{display:none;opacity:0;translate:0 12px;pointer-events:none;transition:var(--fl-close)}
+@starting-style{section.rp-player:not([hidden]){opacity:0;translate:0 12px}}
 .rp-player .rp-x{position:absolute;right:6px;top:6px;width:40px;height:40px;border-radius:8px;display:grid;place-items:center;color:var(--muted);z-index:1}
 .rp-player .rp-hd{display:flex;align-items:center;gap:7px;font-size:12.5px;font-weight:600;color:var(--fg2)}
 .rp-player .rp-badge{font-size:11px;font-weight:500;color:var(--acc,var(--amber));border:1px solid var(--acc-bd,rgba(255,181,71,.4));background:var(--acc-soft,var(--amber-soft));border-radius:5px;padding:0 6px;line-height:17px}
@@ -10533,7 +10785,9 @@ section.rp-player[hidden]{display:none}
 .rp-player .rp-note:empty{display:none}
 /* tablets and phones: one row (play · time · slider · settings) + one line of indexes; date and speed sit behind the settings toggle */
 @media (max-width:900px){
-  section.rp-player{left:0;right:0;bottom:0;width:auto;transform:none;border-radius:14px 14px 0 0;border-bottom:0;padding:6px 8px calc(6px + env(safe-area-inset-bottom)) 12px;animation-name:rpUp}
+  section.rp-player{left:0;right:0;bottom:0;width:auto;transform:none;border-radius:14px 14px 0 0;border-bottom:0;padding:6px 8px calc(6px + env(safe-area-inset-bottom)) 12px;transition:var(--sh-open)}
+  section.rp-player[hidden]{opacity:1;translate:0 104%;transition:var(--sh-close)}
+  @starting-style{section.rp-player:not([hidden]){opacity:1;translate:0 104%}}
   .rp-player .rp-main{display:grid;grid-template-columns:40px auto minmax(0,1fr) 40px;align-items:center;gap:2px 10px;padding-right:40px}
   .rp-player .rp-play{order:0;grid-column:1;grid-row:1}
   .rp-player .rp-when{order:0;grid-column:2;grid-row:1}
@@ -10569,7 +10823,6 @@ section.rp-player[hidden]{display:none}
   .rp-player .rp-ticks .o{display:none}
 }
 /* 줄이기 (the template's html[data-motion], which also follows the device setting until the viewer picks one) */
-html[data-motion="reduced"] section.rp-player{animation:none}
 /* the player's keys (controls.md §5-1): raised ones (▶, ⋯, 다시 시도) sink 1px with a shorter shadow, × only sinks and darkens */
 .rp-player :is(.rp-play,.rp-more,.rp-retry,.rp-x){transition:transform var(--c-fast) var(--c-out),box-shadow var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out),background-color var(--c-base) var(--c-out),color var(--c-base) var(--c-out)}
 .rp-player :is(.rp-play,.rp-more,.rp-retry):is(:active,.is-press){transform:translateY(1px);box-shadow:var(--key-dn);filter:var(--press-f);transition-duration:0s,0s,0s,var(--c-base),var(--c-base)}
@@ -10721,11 +10974,12 @@ html.sb-mid .sb{height:calc(var(--sbh) + 2px)}
 @keyframes sbPulse{50%{opacity:.45}}
 @keyframes sbGlow{50%{filter:drop-shadow(0 0 1px var(--xe-halo)) drop-shadow(0 0 1px var(--xe-halo)) drop-shadow(0 0 7px var(--xe-sunglow2))}}
 /* the bar's note: the bubble's look and motion (in --c-fast, out --c-fast; 줄이기 = at once), no layout */
-.sb-tip{--tip-dy:4px;position:absolute;bottom:calc(var(--sbh) + 22px);padding:6px 10px;border-radius:var(--tip-r,9px);border:0;background:var(--tip-bg,#26282f);box-shadow:inset 0 0 0 1px var(--tip-bd,var(--line2)),var(--tip-sh,0 8px 24px rgba(0,0,0,.5));-webkit-backdrop-filter:var(--blur,none);backdrop-filter:var(--blur,none);color:var(--fg);font-size:12.5px;line-height:1.3;white-space:nowrap;opacity:0;transform:translateY(var(--tip-dy));pointer-events:none;transition:opacity var(--c-fast) var(--c-in),transform var(--c-fast) var(--c-in)}
-.sb-tip.on{opacity:1;transform:none;transition-timing-function:var(--c-out)}
+.sb-tip{position:absolute;bottom:calc(var(--sbh) + 22px);padding:6px 10px;border-radius:var(--tip-r,9px);border:0;background:var(--tip-bg,#26282f);box-shadow:inset 0 0 0 1px var(--tip-bd,var(--line2)),var(--tip-sh,0 8px 24px rgba(0,0,0,.5));-webkit-backdrop-filter:var(--blur,none);backdrop-filter:var(--blur,none);color:var(--fg);font-size:12.5px;line-height:1.3;white-space:nowrap;opacity:0;pointer-events:none;transition:opacity var(--sp-close-dur) var(--sp-close)}
+/* a tooltip (design.md §7): it only fades — `fade` in, `close` out — where it is */
+.sb-tip.on{opacity:1;transition:opacity var(--sp-fade-dur) var(--sp-fade)}
 @media (max-width:760px){html.has-clock{--sbh:4px;--sbgap:5px;--ico:20px}.sb{left:8px;right:8px}}
 @media (prefers-reduced-motion:reduce){.sb-fancy,.sb-fancy .sb-rays{animation:none}}
-html.sb-mid .sb-tip{--tip-dy:-4px;bottom:auto;top:calc(100% + 8px)}
+html.sb-mid .sb-tip{bottom:auto;top:calc(100% + 8px)}
 
 .xc-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 
@@ -10820,6 +11074,8 @@ dialog.xk{width:min(560px,calc(100% - 24px));max-height:min(760px,calc(100% - 24
 @keyframes sbLive{50%{transform:scale(1.18);opacity:.75}}
 @keyframes sbRing{0%,60%,100%{transform:rotate(0)}10%{transform:rotate(14deg)}20%{transform:rotate(-12deg)}30%{transform:rotate(9deg)}40%{transform:rotate(-6deg)}}
 @media (max-width:760px){.sb-pill{font-size:10.5px;gap:3px;padding-right:6px}}
+/* between the clock row and the tab row: the desktop's 18px pill, so it clears both rows */
+html.sb-mid .sb-pill{--ph:18px}
 @media (prefers-reduced-motion:reduce){.sb-pill.sb-live .sb-pi,.sb-pill.sb-ring .sb-bell{animation:none}}
 @media (min-width:761px){html:not(.sb-mid) .sb-pill{--ph:18px;bottom:calc((var(--sbh) - var(--ph)) / 2 + 2px);font-size:10.5px}}
 
@@ -10838,6 +11094,31 @@ html[data-theme="paper"] .xt-toast{border-radius:var(--tip-r,2px)}
 }
 html[data-tone="light"] .rp-player .rp-date{color-scheme:light}
 html[data-tone="light"] .sb-pp{color:var(--fg)}
+
+/* ── floating windows: open · close (design.md §5 · §7; the template's "floating windows" tokens — the 일정 sheet's exit technique) ──
+   dialogs (티커 항목 · 정보 · 이미지 · 설치 안내): rise 12px with `open` as they fade in with `fade`, leave with `close` while the
+   backdrop fades; close() keeps them in the top layer through the exit (display · overlay allow-discrete) and makeDialog removes the
+   node after it. 티커 항목 on phones (≤ 600px) is a bottom sheet: up from the bottom edge, drag its title down (KH.ui.sheetDrag).
+   세계 시각: desktop = a popover that grows out of the clock (KH.ui.popIn), phones = the floating card slides up from the bottom edge. */
+dialog.xd{opacity:1;translate:none;transition:var(--fl-open),overlay var(--sp-open-dur) allow-discrete}
+dialog.xd:not([open]){opacity:0;translate:0 12px;pointer-events:none;transition:var(--fl-close),overlay var(--sp-close-dur) allow-discrete}
+@starting-style{dialog.xd[open]{opacity:0;translate:0 12px}}
+dialog.xd::backdrop{opacity:1;transition:opacity var(--sp-fade-dur) var(--sp-fade),display var(--sp-open-dur) allow-discrete,overlay var(--sp-open-dur) allow-discrete}
+dialog.xd:not([open])::backdrop{opacity:0;transition:opacity var(--sp-close-dur) var(--sp-close),display var(--sp-close-dur) allow-discrete,overlay var(--sp-close-dur) allow-discrete}
+@starting-style{dialog.xd[open]::backdrop{opacity:0}}
+@media (max-width:600px){
+  dialog.xk{transition:var(--sh-open),overlay var(--sp-open-dur) allow-discrete}
+  dialog.xk:not([open]){opacity:1;translate:0 104%;transition:var(--sh-close),overlay var(--sp-close-dur) allow-discrete}
+  @starting-style{dialog.xk[open]{opacity:1;translate:0 104%}}
+  dialog.xk{box-shadow:var(--sheet-sh,var(--tip-sh,0 30px 80px rgba(0,0,0,.6))),0 64px 0 var(--sheet-skirt,var(--panel))}
+  dialog.xk .xd-h{touch-action:none}
+}
+.xwc{clip-path:var(--kp-bleed);opacity:1;transition:var(--kp-open)}
+.xwc[hidden]{clip-path:inset(var(--kp-t,0px) var(--kp-r,0px) var(--kp-b,calc(100% - 12px)) var(--kp-l,0px) round var(--kp-rr,12px));opacity:0;pointer-events:none;transition:var(--kp-close)}
+.xwc.xwc-sheet{clip-path:none;opacity:1;translate:none;transition:var(--sh-open)}
+.xwc.xwc-sheet[hidden]{clip-path:none;opacity:1;translate:0 calc(100% + 24px);transition:var(--sh-close)}
+@starting-style{.xwc.xwc-sheet:not([hidden]){translate:0 calc(100% + 24px)}}
+.xwc.xwc-sheet .xwc-hd{touch-action:none}
 
 </style>
 <script>
@@ -12160,9 +12441,12 @@ function makeDialog(cls, label, opener, kids) {
   const close = () => dlg.close();
   dlg.append(h('button', { type: 'button', class: 'xd-x', 'aria-label': '닫기', onclick: close }, icon(ICON.close)), ...kids);
   dlg.addEventListener('click', e => { if (e.target === dlg) close(); });        // click on the backdrop
-  dlg.addEventListener('close', () => { dlg.remove(); if (opener && opener.isConnected) opener.focus(); });
+  // close() is at once (focus back, the page usable); CSS keeps it drawn while it leaves (display · overlay allow-discrete), then it goes
+  dlg.addEventListener('close', () => { setTimeout(() => dlg.remove(), tokMs('--sp-close-dur', 254) + 60); if (opener && opener.isConnected) opener.focus(); });
   document.body.append(dlg);
   if (typeof dlg.showModal === 'function') dlg.showModal(); else dlg.setAttribute('open', '');
+  // 티커 항목 on phones is a bottom sheet: its title drags it down (KH.ui.sheetDrag, design.md §8)
+  if (KH.ui && typeof KH.ui.sheetDrag === 'function') KH.ui.sheetDrag(dlg, { zone: '.xd-h', on: () => dlg.open && dlg.classList.contains('xk') && matchMedia('(max-width: 600px)').matches, close: () => dlg.close() });
   return dlg;
 }
 function showImageDialog(src, name, pw, ph, opener) {
@@ -13126,7 +13410,9 @@ function sbPlace() {
   if (!mid) { root.style.removeProperty('--sb-mt'); root.style.removeProperty('--sb-top'); return; }
   const cs = getComputedStyle(root), sbh = parseFloat(cs.getPropertyValue('--sbh')) || 6;
   const rowGap = parseFloat(getComputedStyle(hd).rowGap) || 0;
-  const above = 5, below = 7;                                    // gaps; the 20px icon may reach into them but not onto the text
+  // gaps; the 20px icon may reach into them but not onto the text. below 10 (was 7): the 18px pill at the bar's end (휴장 · 정규장 64%)
+  // keeps 4px off the tab row (사용자 2026-11-15 19:52: it ran 1px into the row and met the selected tab)
+  const above = 5, below = 10;
   root.style.setProperty('--sb-mt', Math.max(0, Math.round(above + sbh + below - rowGap)) + 'px');
   root.style.setProperty('--sb-top', (tabs.offsetTop - below) + 'px');
 }
@@ -13248,6 +13534,7 @@ function wcBuild() {
   // Tab out closes it (focus moving back to the clock does not: the press that follows decides)
   wc.el.addEventListener('focusout', e => { const t = e.relatedTarget; if (t && !wc.el.contains(t) && t !== ck.btn) wcClose(false); });
   document.body.append(wc.el);
+  if (KH.ui && typeof KH.ui.sheetDrag === 'function') KH.ui.sheetDrag(wc.el, { zone: '.xwc-hd', on: () => wc.open && narrowMQ.matches, close: () => wcClose(true) });
 }
 function wcOpen() {
   if (!ck.btn || !ck.btn.isConnected) return;
@@ -13258,16 +13545,9 @@ function wcOpen() {
   ck.btn.dataset.world = '';
   wcRender();
   wcPlace();
+  // desktop: it grows out of the clock (KH.ui.popIn, `open`); phones: the card comes up from the bottom edge (CSS) — design.md §7
+  if (!narrowMQ.matches && KH.ui && typeof KH.ui.popIn === 'function') KH.ui.popIn(wc.el, ck.btn);
   wc.el.focus({ preventScroll: true });
-  const lvl = motion();
-  if (lvl !== 'reduced') {
-    try {
-      const sheet = narrowMQ.matches;
-      const k = lvl === 'fancy' ? (sheet ? [{ transform: 'translateY(100%)' }, { transform: 'none' }] : [{ opacity: 0, transform: 'translateY(8px) scale(.985)' }, { opacity: 1, transform: 'none' }])
-        : [{ opacity: 0 }, { opacity: 1 }];
-      wc.el.animate(k, { duration: lvl === 'fancy' ? (sheet ? 480 : 240) : 120, easing: 'cubic-bezier(.2,.7,.2,1)' });
-    } catch (e) { /* static is fine */ }
-  }
   if (LIVE && Date.now() - wc.at > 30000) wcFetch();
 }
 function wcPlace() {
@@ -13753,11 +14033,14 @@ html[data-theme="glass-light"] #world{--nodata:#e6e9ee}
 
 /* detail sheet */
 .kw-scrim{display:none}
-.kw-sheet{position:fixed;z-index:92;right:18px;bottom:18px;width:360px;max-height:min(680px,calc(100vh - 36px));overflow:auto;background:var(--sheet-bg,#18191e);border:1px solid var(--sheet-bd,var(--line2));border-radius:var(--kw-sheet-r-d);box-shadow:var(--sheet-sh,0 24px 70px rgba(0,0,0,.6));-webkit-backdrop-filter:var(--blur,none);backdrop-filter:var(--blur,none);font-size:13px;color:var(--fg);animation:kwIn .2s ease-out;overscroll-behavior:contain}
-.kw-sheet[hidden]{display:none}
+.kw-sheet{position:fixed;z-index:92;right:18px;bottom:18px;width:360px;max-height:min(680px,calc(100vh - 36px));overflow:auto;background:var(--sheet-bg,#18191e);border:1px solid var(--sheet-bd,var(--line2));border-radius:var(--kw-sheet-r-d);box-shadow:var(--sheet-sh,0 24px 70px rgba(0,0,0,.6));-webkit-backdrop-filter:var(--blur,none);backdrop-filter:var(--blur,none);font-size:13px;color:var(--fg);overscroll-behavior:contain;
+  opacity:1;translate:none;transition:var(--fl-open)}
+/* open · close (design.md §5 · §7, the template's floating-window tokens — the 일정 sheet's exit technique): desktop = a floating sheet
+   that rises 12px with `open` as it fades in (`fade`) and leaves with `close`; phones = up from the bottom edge, the scrim fading, the
+   grip / head drag it down (KH.ui.sheetDrag). It stays drawn while it leaves (display allow-discrete); 줄이기 = at once. */
+.kw-sheet[hidden]{display:none;opacity:0;translate:0 12px;pointer-events:none;transition:var(--fl-close)}
+@starting-style{.kw-sheet:not([hidden]){opacity:0;translate:0 12px}}
 .kw-sheet:focus{outline:none}
-.kw-sheet.kw-noanim{animation:none}
-@keyframes kwIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
 .kw-grab{display:none}
 /* × = a key without a surface (controls.md §5-2): 1px + darker under the finger, 44px to press on touch screens */
 .kw-x{position:absolute;right:8px;top:8px;width:32px;height:32px;border-radius:var(--r-in);display:grid;place-items:center;color:var(--muted);font-size:19px;line-height:1;transition:transform var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out),color var(--c-fast) var(--c-out)}
@@ -13820,7 +14103,13 @@ html[data-theme="glass-light"] #world{--nodata:#e6e9ee}
   .kw-x{width:40px;height:40px;right:6px;top:6px}
   .kw-sheet{left:0;right:0;bottom:0;width:auto;max-height:82svh;border-radius:var(--sheet-r,16px 16px 0 0);padding-bottom:env(safe-area-inset-bottom)}
   .kw-grab{display:block;width:38px;height:4px;border-radius:2px;background:var(--line2);margin:8px auto 0}
-  .kw-scrim.open{display:block;position:fixed;inset:0;z-index:91;background:var(--scrim,rgba(0,0,0,.45))}
+  .kw-scrim{position:fixed;inset:0;z-index:91;background:var(--scrim,rgba(0,0,0,.45));opacity:0;pointer-events:none;transition:var(--sc-close)}
+  .kw-scrim.open{display:block;opacity:1;pointer-events:auto;transition:var(--sc-open)}
+  @starting-style{.kw-scrim.open{opacity:0}}
+  .kw-sheet{transition:var(--sh-open);box-shadow:var(--sheet-sh,0 -18px 60px rgba(0,0,0,.6)),0 64px 0 var(--sheet-skirt,var(--panel))}
+  .kw-sheet[hidden]{opacity:1;translate:0 104%;transition:var(--sh-close)}
+  @starting-style{.kw-sheet:not([hidden]){opacity:1;translate:0 104%}}
+  .kw-sheet :is(.kw-grab,.kw-dh){touch-action:none}
   .kw-tf button{min-width:64px}
   /* phones: a tidy two-column grid — name left, % right, every chip the same width and height (사용자 13:56 "줄맞춤이 이상해") */
   .kw-peers{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;padding-right:14px}   /* the × sits beside the country name row, not the chips */
@@ -13849,7 +14138,6 @@ html[data-theme="glass-light"] #world{--nodata:#e6e9ee}
 @media (prefers-reduced-motion: reduce){
   html:not([data-motion]) .kw-fl,html:not([data-motion]) .kw-pchip.kw-fl{animation:none}
   html:not([data-motion]) .kw-tile,html:not([data-motion]) .kw-cp.has{transition:none}
-  html:not([data-motion]) .kw-sheet{animation:none}
 }
 /* 효과: 줄이기 (KH.motion() 'reduced') — the same, whatever the OS says */
 .kw-rm .kw-fl,.kw-rm .kw-pchip.kw-fl,.kw-rm .kw-gin *{animation:none!important}
@@ -15634,6 +15922,8 @@ function ensureSheet() {
   sheet = h('div', { class: 'kw-sheet', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'kw-dt', tabindex: '-1', hidden: true });
   document.body.append(scrim, sheet);
   scrim.addEventListener('click', () => closeDetail(true));
+  // phones: drag the grip or the head down to dismiss (the template's KH.ui.sheetDrag, design.md §8)
+  if (KH.ui && typeof KH.ui.sheetDrag === 'function') KH.ui.sheetDrag(sheet, { zone: '.kw-grab, .kw-dh', on: () => !!S.detail && narrowMQ.matches, close: () => closeDetail(true), scrim: () => scrim });
   sheet.addEventListener('keydown', e => {
     if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeDetail(true); return; }
     if (e.key === 'Tab') {
