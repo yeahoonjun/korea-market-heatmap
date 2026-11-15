@@ -1,7 +1,10 @@
 // Worker /api/news unit checks (docs/standards/news.md §2-2 · §2-3) — no network: the outlets are stubbed with the
 // sanitized fixtures in qa/news/fixtures (title · link · pubDate only, as the outlets wrote them on 2026-11-13).
 //   node qa/news/worker_test.mjs            exit 1 on any failure
+// §7 (relay, news.md §2-6): a fake MARKET binding hands the Worker's stub calls to REAL MarketHub instances (fake DO state);
+// an AsyncLocalStorage tag tells the fetch stub whether a call was made inside the relay instance or by the Worker itself.
 import { readFileSync } from 'node:fs';
+import { AsyncLocalStorage } from 'node:async_hooks';
 
 const HERE = new URL('.', import.meta.url);
 const FIX = k => readFileSync(new URL(`fixtures/${k}.xml`, HERE), 'utf8');
@@ -26,32 +29,40 @@ function makeKV() {
   };
 }
 let behave = {}, calls = [];
+const als = new AsyncLocalStorage();                 // 'relay' inside the relay instance, undefined for the Worker's own fetches
 const realFetch = globalThis.fetch;
 globalThis.fetch = async (input, init = {}) => {
   const url = typeof input === 'string' ? input : input.url;
   const key = Object.keys(URLS).find(k => URLS[k] === url);
   if (!key) throw new Error('unexpected upstream ' + url);
   const hd = new Headers(init.headers || {});
-  calls.push({ key, ua: hd.get('user-agent'), accept: hd.get('accept') });
-  const b = behave[key] || 'ok';
+  const where = als.getStore() || 'direct';
+  calls.push({ key, ua: hd.get('user-agent'), accept: hd.get('accept'), where });
+  const b = behave[key + '@' + where] ?? behave[key] ?? 'ok';
+  // 매일경제 sits behind Cloudflare: its cf-ray names the data centre the request came through (relay IAD, Worker ICN)
+  const h = t => ({ 'content-type': t, ...(key === 'mk' ? { 'cf-ray': '8e0f1a2b3c4d5e6f-' + (where === 'relay' ? 'IAD' : 'ICN') } : {}) });
   if (typeof b === 'function') return b(init);
-  if (b === 'ok') return new Response(FIX(key), { status: 200, headers: { 'content-type': 'application/xml' } });
+  if (b === 'ok') return new Response(FIX(key), { status: 200, headers: h('application/xml') });
   if (b === 'net') throw new TypeError('fetch failed');
   if (b === 'hang') return new Promise((_, rej) => init.signal.addEventListener('abort', () => rej(Object.assign(new Error('aborted'), { name: 'AbortError' }))));
-  if (b === 'html') return new Response('<!doctype html><title>blocked</title>', { status: 200, headers: { 'content-type': 'text/html' } });
-  if (typeof b === 'number') return new Response('no', { status: b });
-  if (typeof b === 'string') return new Response(b, { status: 200, headers: { 'content-type': 'application/xml' } });
+  if (b === 'html') return new Response('<!doctype html><title>blocked</title>', { status: 200, headers: h('text/html') });
+  if (typeof b === 'number') return new Response('no', { status: b, headers: h('text/plain') });
+  if (typeof b === 'string') return new Response(b, { status: 200, headers: h('application/xml') });
   throw new Error('bad behaviour');
 };
 
 const worker = (await import('../../worker/src/index.js')).default;
+const { MarketHub, RELAY_DAY_MAX, RELAY_NAME } = await import('../../worker/src/live.js');
+const { LIMITS } = await import('../../worker/src/live_core.js');
 let env = { REPLAY: makeKV() };
 const waits = [];
 const ctx = { waitUntil: p => waits.push(p) };
-async function hit(fresh = true) {
+async function hit(fresh = true, colo = null) {
   if (fresh) cacheStore = new Map();
   calls = [];
-  const r = await worker.fetch(new Request('https://panse.pages.dev/api/news'), env, ctx);
+  const req = new Request('https://panse.pages.dev/api/news');
+  if (colo) Object.defineProperty(req, 'cf', { value: { colo } });
+  const r = await worker.fetch(req, env, ctx);
   await Promise.all(waits.splice(0));
   const body = await r.json();
   return { r, body };
@@ -210,6 +221,196 @@ const INVIS = /[﻿​-‍⁠]/;
 {
   const r = await worker.fetch(new Request('https://panse.pages.dev/api/health'), {}, ctx);
   check('/api/health still answers', r.status === 200);
+}
+
+// 7 · 매일경제 through the relay (news.md §2-6): a separate MarketHub instance 'news-relay' (locationHint enam)
+function fakeState(name) {
+  const store = new Map(), log = [];
+  const st = { id: { name }, log, store, sockets: [],
+    storage: {
+      async get(k) { log.push(['get', k]); return store.has(k) ? JSON.parse(JSON.stringify(store.get(k))) : undefined; },
+      async put(k, v) { log.push(['put', k]); store.set(k, JSON.parse(JSON.stringify(v))); },
+      async getAlarm() { log.push(['getAlarm']); return null; }, async setAlarm() { log.push(['setAlarm']); }, async deleteAlarm() { log.push(['deleteAlarm']); },
+    },
+    acceptWebSocket(ws) { log.push(['acceptWebSocket']); st.sockets.push(ws); }, getWebSockets() { return st.sockets; },
+    setWebSocketAutoResponse() { }, blockConcurrencyWhile(fn) { st.ready = fn(); return st.ready; },
+  };
+  return st;
+}
+function fakeMarket() {
+  const M = { hubs: {}, gets: [], doCalls: [], mode: 'ok',
+    async inst(name) { if (!M.hubs[name]) { M.hubs[name] = new MarketHub(fakeState(name), {}); } await M.hubs[name].state.ready; return M.hubs[name]; },
+    idFromName(name) { return { name }; },
+    get(id, opts) {
+      M.gets.push({ name: id.name, hint: opts && opts.locationHint });
+      return { async fetch(req) {
+        const u = new URL(req.url); M.doCalls.push({ name: id.name, path: u.pathname + u.search });
+        if (M.mode === 'throw') throw new Error('Durable Object unavailable');
+        if (M.mode === 'hang') return new Promise(() => { });
+        const h = await M.inst(id.name);
+        return als.run('relay', () => h.fetch(req));
+      } };
+    },
+  };
+  return M;
+}
+const mkCalls = () => calls.filter(c => c.key === 'mk');
+const kvPuts = (kv, k) => kv.log.filter(l => l[0] === 'put' && l[1] === k);
+const errRec = (kv, k) => { const e = kv._m.get('news:err:' + k); return e ? JSON.parse(e.v) : null; };
+const ageKey = (kv, k, ms) => { const e = kv._m.get(k); const j = JSON.parse(e.v); j.at = new Date(Date.parse(j.at) - ms + 9 * 3600e3).toISOString().slice(0, 19) + '+09:00'; e.v = JSON.stringify(j); };
+const gateUrl = 'https://panse.pages.dev/__cache/news-relay-gate';
+const dropNewsCache = () => cacheStore.delete('https://panse.pages.dev/__cache/news-v1');
+{
+  const M = fakeMarket();
+  const top = await M.inst('top');                                    // the realtime hub, as it exists on the account
+  const topLog0 = top.state.log.length, topG0 = JSON.stringify(top.g), topStats0 = JSON.stringify({ ...top.stats, startedAt: 0 });
+  env = { REPLAY: makeKV(), MARKET: M };
+  behave = {};
+  // a · relay path
+  const a = await hit(true, 'ICN');
+  const relay = M.hubs[RELAY_NAME];
+  check('relay outlet: the Worker asks the DO stub "news-relay" with locationHint enam (never "top")', M.gets.length === 1 && M.gets[0].name === 'news-relay' && M.gets[0].hint === 'enam' && !M.gets.some(g => g.name === 'top'), JSON.stringify(M.gets));
+  check('one internal call: GET /__relay/news?src=mk (an outlet key, not a URL)', M.doCalls.length === 1 && M.doCalls[0].path === '/__relay/news?src=mk', JSON.stringify(M.doCalls));
+  check('매일경제 fetched once, from inside the relay, with the honest UA / accept', mkCalls().length === 1 && mkCalls()[0].where === 'relay' && mkCalls()[0].ua === 'PanseNewsBot/1.0 (+https://panse.pages.dev)' && mkCalls()[0].accept === 'application/rss+xml, application/xml;q=0.9, */*;q=0.5', JSON.stringify(mkCalls()));
+  check('non-relay outlets untouched: fetched directly by the Worker, once each', ['einfomax', 'hankyung'].every(k => calls.filter(c => c.key === k).length === 1 && calls.find(c => c.key === k).where === 'direct'));
+  check('relay answer → 200, sources.mk {ok, n:30, via:"relay"}, others without via', a.r.status === 200 && a.body.sources.mk.ok && a.body.sources.mk.n === 30 && a.body.sources.mk.via === 'relay' && !('via' in a.body.sources.einfomax) && !('via' in a.body.sources.hankyung), JSON.stringify(a.body.sources));
+  check('relay items keep the public shape (src · title · url · t only)', a.body.items.filter(x => x.src === 'mk').length === 30 && a.body.items.every(x => Object.keys(x).sort().join() === 'src,t,title,url'));
+  const lastMk = JSON.parse(env.REPLAY._m.get('news:last:mk').v);
+  check('last good copy says how it came: via relay, egress IAD (the outlet CDN saw eastern US)', lastMk.via === 'relay' && lastMk.egress === 'IAD', JSON.stringify({ via: lastMk.via, egress: lastMk.egress }));
+  check('a good relay fetch leaves no news:err record', !env.REPLAY.log.some(l => l[0] === 'put' && l[1].startsWith('news:err:')));
+  check('relay instance: own counter key "relay" only — no guard write, no alarm, no socket', relay.state.store.has('relay') && relay.state.store.get('relay').n === 1 && !relay.state.log.some(l => (l[0] === 'put' && l[1] === 'guard') || /Alarm|acceptWebSocket/.test(l[0])) && relay.state.sockets.length === 0, JSON.stringify(relay.state.log));
+  check('relay instance budget guard not charged (dU 0, dConn 0)', relay.g.dU === 0 && relay.g.dConn === 0 && relay.g.dAwake === 0);
+  // b · a copy younger than the edge-cache TTL is served without a DO call
+  const b = await hit(true, 'NRT');
+  check('fresh last copy (< 180 s): no DO call, no upstream fetch for 매일경제', M.doCalls.length === 1 && mkCalls().length === 0, `doCalls ${M.doCalls.length}, mk ${mkCalls().length}`);
+  check('… and it is served as ok via relay with its own time', b.body.sources.mk.ok && b.body.sources.mk.via === 'relay' && b.body.sources.mk.n === 30 && b.body.sources.mk.at === lastMk.at);
+  // c · older copy → DO again; the relay reuses its answer for 60 s (several data centres at once)
+  ageKey(env.REPLAY, 'news:last:mk', 200e3);
+  const c = await hit(true, 'ICN');
+  check('copy older than 180 s → relay called again', M.doCalls.length === 2 && c.body.sources.mk.ok && c.body.sources.mk.via === 'relay', M.doCalls.length);
+  check('relay memo (60 s): the second call reaches the outlet 0 times', mkCalls().length === 0 && relay.state.store.get('relay').n === 2, `mk ${mkCalls().length}`);
+  // the hub stays exactly as it was
+  check('realtime hub "top" untouched: no storage op, same guard, same stats', top.state.log.length === topLog0 && JSON.stringify(top.g) === topG0 && JSON.stringify({ ...top.stats, startedAt: 0 }) === topStats0 && top.state.sockets.length === 0, `log ${topLog0} → ${top.state.log.length}`);
+  check('hub budget counters still zero (DO requests today 0)', top.g.dU === 0 && top.g.mU === 0 && top.status(Date.now()).guard.doRequests.today === 0);
+}
+{
+  // d · the relay itself fails → direct from this data centre; diagnostics note it
+  const M = fakeMarket(); M.mode = 'throw';
+  env = { REPLAY: makeKV(), MARKET: M };
+  behave = {};
+  const d = await hit(true, 'ICN');
+  check('relay unreachable → 매일경제 fetched directly once, still ok (no via)', mkCalls().length === 1 && mkCalls()[0].where === 'direct' && d.body.sources.mk.ok && !('via' in d.body.sources.mk), JSON.stringify(d.body.sources.mk));
+  const e1 = errRec(env.REPLAY, 'mk');
+  check('news:err:mk {at, colo ICN, path relay, error "relay unreachable", fallback "direct ok"}, 3-day TTL', e1 && ISO.test(e1.at) && e1.colo === 'ICN' && e1.path === 'relay' && e1.error === 'relay unreachable' && e1.fallback === 'direct ok' && kvPuts(env.REPLAY, 'news:err:mk')[0][2] === 259200, JSON.stringify(e1));
+  const lastD = JSON.parse(env.REPLAY._m.get('news:last:mk').v);
+  check('last copy from the fallback says via direct, egress ICN', lastD.via === 'direct' && lastD.egress === 'ICN');
+  // e · the outlet fails AT the relay (5xx) → direct
+  const M2 = fakeMarket();
+  env = { REPLAY: makeKV(), MARKET: M2 };
+  behave = { 'mk@relay': 500 };
+  const e = await hit(true, 'ICN');
+  check('relay saw http 500 → then one direct fetch (relay first)', mkCalls().map(c => c.where).join() === 'relay,direct' && e.body.sources.mk.ok, mkCalls().map(c => c.where).join());
+  const e2 = errRec(env.REPLAY, 'mk');
+  check('… noted with status 500 and the relay egress IAD', e2 && e2.path === 'relay' && e2.error === 'http 500' && e2.status === 500 && e2.egress === 'IAD' && e2.fallback === 'direct ok', JSON.stringify(e2));
+  check('a 500 at the relay starts no cool-down', !env.REPLAY.log.some(l => l[0] === 'put' && l[1] === 'news:cool:mk'));
+  // f · relay and direct both fail → the last good copy
+  behave = {};
+  await hit(true, 'ICN');                                             // a good copy exists now (via relay, memo aside)
+  ageKey(env.REPLAY, 'news:last:mk', 200e3);
+  M2.hubs[RELAY_NAME].relayMemo = null;
+  const kvF = env.REPLAY;
+  kvF._m.delete('news:err:mk');
+  behave = { 'mk@relay': 'net', 'mk@direct': 503 };
+  const f = await hit(true, 'ICN');
+  check('fallback order relay → direct → last copy', mkCalls().map(c => c.where).join() === 'relay,direct' && f.body.sources.mk.ok === false && f.body.sources.mk.stale === true && f.body.sources.mk.n === 30 && f.body.sources.mk.error === 'http 503' && !('via' in f.body.sources.mk), JSON.stringify(f.body.sources.mk));
+  const e3 = errRec(kvF, 'mk');
+  check('both failed: news:err:mk path direct (http 503) + relay {error network}', e3 && e3.path === 'direct' && e3.error === 'http 503' && e3.status === 503 && e3.relay && e3.relay.error === 'network' && e3.colo === 'ICN', JSON.stringify(e3));
+}
+{
+  // g · 403 at the relay: the outlet rests 15 min, and is NOT tried from the local data centre (no working around a block)
+  const M = fakeMarket();
+  env = { REPLAY: makeKV(), MARKET: M };
+  behave = { 'mk@relay': 403 };
+  const g = await hit(true, 'ICN');
+  check('relay saw 403 → no direct try, news:cool:mk 15 min', mkCalls().map(c => c.where).join() === 'relay' && kvPuts(env.REPLAY, 'news:cool:mk').length === 1 && kvPuts(env.REPLAY, 'news:cool:mk')[0][2] === 900 && g.body.sources.mk.error === 'http 403', mkCalls().map(c => c.where).join());
+  const g1 = errRec(env.REPLAY, 'mk');
+  check('… noted: path relay, status 403, egress IAD', g1 && g1.path === 'relay' && g1.status === 403 && g1.egress === 'IAD' && !g1.fallback, JSON.stringify(g1));
+  behave = {};
+  const n0 = M.doCalls.length;
+  await hit(true, 'ICN');
+  check('while it rests: no DO call, no fetch from anywhere', M.doCalls.length === n0 && mkCalls().length === 0);
+}
+{
+  // h · news:err:<src> is written at most once per 30 min per outlet (read before write)
+  const M = fakeMarket(); M.mode = 'throw';
+  env = { REPLAY: makeKV(), MARKET: M };
+  behave = { 'mk@direct': 500, einfomax: 500 };
+  await hit(true, 'ICN');
+  const kv = env.REPLAY;
+  check('first failure → one news:err:mk and one news:err:einfomax (non-relay outlets get a record too)', kvPuts(kv, 'news:err:mk').length === 1 && kvPuts(kv, 'news:err:einfomax').length === 1 && errRec(kv, 'einfomax').path === 'direct' && errRec(kv, 'einfomax').status === 500 && !errRec(kv, 'einfomax').relay);
+  await hit(true, 'ICN'); await hit(true, 'ICN');
+  check('two more failures within 30 min → no more writes', kvPuts(kv, 'news:err:mk').length === 1 && kvPuts(kv, 'news:err:einfomax').length === 1, `${kvPuts(kv, 'news:err:mk').length}/${kvPuts(kv, 'news:err:einfomax').length}`);
+  ageKey(kv, 'news:err:mk', 31 * 60e3);
+  await hit(true, 'ICN');
+  check('31 min later → written again (once)', kvPuts(kv, 'news:err:mk').length === 2 && kvPuts(kv, 'news:err:einfomax').length === 1);
+  check('the public answer carries nothing new (no colo, path, egress)', !/"colo"|"path"|"egress"|"fallback"/.test(JSON.stringify((await hit(true, 'ICN')).body)));
+}
+{
+  // i · the DO hangs: the Worker waits 7 s, then fetches directly; the whole answer stays inside the page's 12 s
+  const M = fakeMarket(); M.mode = 'hang';
+  env = { REPLAY: makeKV(), MARKET: M };
+  behave = {};
+  const t0 = Date.now();
+  const i = await hit(true, 'ICN');
+  const dt = Date.now() - t0;
+  check('hung relay → direct after ~7 s, answer < 11 s', i.body.sources.mk.ok && mkCalls().map(c => c.where).join() === 'direct' && dt >= 6900 && dt < 11000 && errRec(env.REPLAY, 'mk').error === 'relay timeout', dt + ' ms');
+}
+{
+  // j · the relay's day cap: 503 'relay budget' → remembered per data centre (Cache API) → no more DO calls there
+  const M = fakeMarket();
+  env = { REPLAY: makeKV(), MARKET: M };
+  behave = {};
+  const relay = await M.inst(RELAY_NAME);
+  const day = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10).replace(/-/g, '');
+  relay.rc = { day, n: RELAY_DAY_MAX };
+  const j1 = await hit(true, 'ICN');
+  check(`relay at its day cap (${RELAY_DAY_MAX}) → 매일경제 direct, ok`, M.doCalls.length === 1 && mkCalls().map(c => c.where).join() === 'direct' && j1.body.sources.mk.ok && errRec(env.REPLAY, 'mk').error === 'relay budget');
+  const gate = cacheStore.get(gateUrl);
+  check('the refusal is remembered in the Cache API until the next KST midnight', !!gate && gate.exp > Date.now() + 50e3 && gate.exp <= Date.now() + 86400e3 + 1000);
+  check('a refused request does not write the counter', relay.state.log.filter(l => l[0] === 'put').length === 0 && relay.rc.n === RELAY_DAY_MAX);
+  ageKey(env.REPLAY, 'news:last:mk', 200e3);
+  dropNewsCache();
+  await hit(false, 'ICN');
+  check('next miss in that data centre: no DO call at all (gate), direct again', M.doCalls.length === 1 && mkCalls().map(c => c.where).join() === 'direct', `doCalls ${M.doCalls.length}`);
+}
+{
+  // k · the relay route itself: only allow-listed outlet keys, GET only, only on the relay instance
+  const M = fakeMarket();
+  const relay = await M.inst(RELAY_NAME), top = await M.inst('top');
+  calls = [];
+  const ask = (h, q, init) => als.run('relay', () => h.fetch(new Request('https://news-relay.internal/__relay/news' + q, init)));
+  const bad = [];
+  for (const q of ['?src=einfomax', '?src=hankyung', '?src=evil', '?src=https%3A%2F%2Fevil.example%2F', '?src=MK', '?src=mk%2F..', '']) {
+    const r = await ask(relay, q); bad.push(r.status);
+  }
+  check('unknown / non-relay outlet keys and URLs → 400', bad.every(s => s === 400), bad.join());
+  const p = await ask(relay, '?src=mk', { method: 'POST' });
+  check('POST → 405', p.status === 405);
+  const t = await ask(top, '?src=mk');
+  check('the relay path on the "top" instance → 404 (and the hub counts nothing)', t.status === 404 && top.g.dU === 0 && !top.state.log.some(l => l[0] === 'put'));
+  check('none of these reached an outlet or the counter', calls.length === 0 && !relay.state.store.has('relay'));
+  const okr = await ask(relay, '?src=mk');
+  const oj = await okr.json();
+  check('allow-listed key → {ok, status 200, items, egress}', okr.status === 200 && oj.ok === true && oj.status === 200 && Array.isArray(oj.items) && oj.items.length === 30 && oj.egress === 'IAD');
+}
+{
+  // l · the relay's cap keeps the account inside the $5 plan together with the hub's caps (realtime.md §12)
+  // hub: 31 days at its day cap + its refusal re-checks after a trip (realtime.md §12-2: +90,000); relay: 31 days at its cap +
+  // one gate re-check per data centre per day (10 data centres)
+  const doMonth = LIMITS.dayDoReq * 31 + 90000 + RELAY_DAY_MAX * 31 + 10 * 31;
+  const gbs = LIMITS.monthAwakeMs / 1000 * 0.125 + RELAY_DAY_MAX * 31 * 7 * 0.125;   // worst: every relay call awake the full 7 s wait
+  check(`DO requests at both caps ≤ 80 % of 1,000,000 (${(doMonth / 1e4).toFixed(1)} %)`, doMonth <= 800000);
+  check(`DO GB-s at both caps ≤ 65 % of 400,000 (${(gbs / 4000).toFixed(1)} %)`, gbs <= 260000);
 }
 
 globalThis.fetch = realFetch;
