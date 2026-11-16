@@ -1041,18 +1041,34 @@ function readChrome(world) {
     const st = document.querySelector('#crumbs .stat'), b = st && st.querySelector('b');
     if (st && b && st.firstChild) out.stat = { n: String(st.firstChild.textContent).trim(), pct: b.textContent.trim(), color: rgbOf(b) };
     // the row as shown, piece by piece (a market root reads "코스피 지수 +3.70%" or "코스피 +x · 코스닥 +y", desktop "300종목 · 시총 …"):
-    // text and labels muted, the coloured numbers bold; pieces the screen hides (시총 on phones) left out, screen-reader labels kept
+    // text and labels muted, the coloured numbers bold; pieces the screen hides (시총 on phones) left out, screen-reader labels kept.
+    // Nested pieces too — 전체's "코스피 +x · 코스닥 +y" sits in .ixh / .ixr2 spans, and read only one level deep its <b>s came out grey
+    // (사용자 2026-11-16 11:41 "전체에서 사진 저장시 오른쪽 상단에 코스피 코스닥 등락률에도 색깔이 들어가야지"). A <b> is read whole:
+    // its text is the value even mid-swap (KH.ui.swap keeps the old text in data-was, the new one in the .sw-n child — never read alone)
     if (st) {
       const parts = [];
-      for (const nd of st.childNodes) {
-        if (nd.nodeType === 3) { if (nd.textContent.trim()) parts.push({ t: nd.textContent.replace(/\s+/g, ' ') }); continue; }
-        if (nd.nodeType !== 1 || (!nd.classList.contains('sr') && getComputedStyle(nd).display === 'none')) continue;
-        const t = nd.textContent.replace(/\s+/g, ' ');
-        if (t.trim()) parts.push(nd.tagName === 'B' ? { t, c: rgbOf(nd), b: true } : { t });
-      }
+      const walk = node => {
+        for (const nd of node.childNodes) {
+          if (nd.nodeType === 3) { if (nd.textContent.trim()) parts.push({ t: nd.textContent.replace(/\s+/g, ' ') }); continue; }
+          if (nd.nodeType !== 1 || (!nd.classList.contains('sr') && getComputedStyle(nd).display === 'none')) continue;
+          const t = nd.textContent.replace(/\s+/g, ' ');
+          if (nd.tagName === 'B') { if (t.trim()) parts.push({ t, c: rgbOf(nd), b: true, dir: nd.classList.contains('up') ? 1 : nd.classList.contains('dn') ? -1 : nd.classList.contains('flat') ? 0 : null }); }
+          else if (nd.classList.contains('sr') || !nd.children.length) { if (t.trim()) parts.push({ t }); }
+          else walk(nd);
+        }
+      };
+      walk(st);
       if (parts.length) out.stat = Object.assign(out.stat || {}, { parts });
     }
     out.ix = readIxLine();
+    // the index row (B) under the title says the index value · % in colour, so a market root's title row does not say it again
+    // (사용자 11:42 "아님 아래에 있으니까 빼도되고"): there it reads the map's own "N종목 · 시총 …" (what the desktop row shows) instead
+    const mk = currentMarket();
+    if (out.ix && (mk === 'K' || mk === 'Q' || mk === 'ALL') && !document.querySelector('#crumbs .back')) {
+      let ms = null;
+      try { ms = has('mapStat') ? KH.mapStat() : null; } catch (e) { ms = null; }
+      out.stat = ms && ms.n ? { parts: [{ t: ms.text }] } : null;
+    }
   }
   out.legend = readLegend(document.querySelector(world ? '.kw-legend' : '#legend'));
   return out;
@@ -1189,6 +1205,145 @@ function layoutLegend(ctx, fam, groups, W, pad) {
   return { h, draw };
 }
 
+/* ── 오늘 숫자 줄 (사용자 2026-11-16 11:31 "사진 저장시 오늘의 상승종목 하락종목 보합종목 상한가 종목 하한가 종목 숫자 … 상승업종 하락업종
+   하나씩도"): under the index row, above the map. Only what the screen already counts — the 등락 분포 card (KH.breadthInfo: same pool, scope,
+   상 · 하한가 rule §3-26) and the map's industry headers (KH.indRank: the highest · lowest industry, or theme on the theme overview).
+   Today's change only: under a period / net-buying colour the card counts that measure, so the row stays out; 해외 · 지표 have none. ── */
+const nfKo = n => Number(n).toLocaleString('ko-KR');
+// the card's scope when it counts more than the map — the whole market (or its NXT stocks) — without the market name the title already
+// says ("코스닥 전 종목 1,782" → "전 종목 1,782"); when the card counts the map itself (지도 N종목 · a zoomed group · a theme · 관심 · the
+// theme overview) the title row already says how many (N종목 · 265개 테마), so the row starts with the bar
+function statsScope(B) {
+  const m = currentMarket(), mk = KH.MKT_NAME && KH.MKT_NAME[m];
+  let s = String(B.scope || '').replace(/\s+/g, ' ').trim();
+  if (!/전 종목|NXT/.test(s)) return '';
+  if (mk && (m === 'K' || m === 'Q' || m === 'ALL') && s.startsWith(mk + ' ')) s = s.slice(mk.length + 1);
+  return s;
+}
+function readStats(world) {
+  if (world || !has('breadthInfo')) return null;
+  let B = null, R = null;
+  try { B = KH.breadthInfo(); R = has('indRank') ? KH.indRank() : null; } catch (e) { return null; }
+  if (!B || B.kind !== 'day' || !(B.n > 0)) return null;
+  const rows = R && R.kind === 'day' && Array.isArray(R.rows) ? R.rows : [];
+  const hi = rows.length && rows[0].r > 0 ? rows[0] : null, lo = rows.length && rows[rows.length - 1].r < 0 ? rows[rows.length - 1] : null;
+  const words = Array.isArray(B.words) && B.words.length === 3 ? B.words : ['상승', '보합', '하락'];
+  return { scope: statsScope(B), words, up: B.up, flat: B.flat, dn: B.dn, n: B.n, lim: B.lim || null, themes: !!(R && R.label === '테마'),
+    grp: hi || lo ? { label: R.label || '업종', hi, lo } : null };
+}
+// three groups — counts (scope · bar · 상승 · 보합 · 하락), 상한가 · 하한가 (the legend's swatches), the highest · lowest group — packed like the
+// legend; on a phone (picture ≈ 366 px) they fold into two lines: the counts, then the limits ("상한" · "하한" like the dock when short) and
+// the groups with their names shortened first, a third line only when even a few letters of each name do not fit
+function layoutStats(ctx, fam, st, W, pad, C) {
+  if (!st) return { h: 0, rows: 0, widths: [], avail: 0, draw() {} };
+  const FS = W < 520 ? 12 : 13, RH = FS + 6, GX = W < 600 ? 14 : 18, avail = W - 2 * pad;
+  const BW = W < 520 ? 40 : 56, MIN_NAME = 2;
+  const T = (t, w, c, gap, fit) => ({ t, w, c, gap: gap || 0, fit: fit || 0 });
+  const sepd = (atoms, a) => { if (atoms.length) atoms.push(T('·', 500, C.muted, 5)); a.gap = atoms.length ? 5 : a.gap; atoms.push(a); };
+  const num = (n, dir) => (n ? (dir > 0 ? C.up : C.dn) : C.muted);   // 0 stays neutral (the card's .flat)
+  // counts
+  const A = st.scope ? [T(st.scope, 500, C.muted, 0, 2)] : [];
+  A.push({ bar: true, gap: A.length ? 8 : 0, bw: BW });
+  const cnt = [];
+  sepd(cnt, T(`${st.words[0]} ${nfKo(st.up)}`, 600, num(st.up, 1)));
+  sepd(cnt, T(`${st.words[1]} ${nfKo(st.flat)}`, 500, C.muted));
+  sepd(cnt, T(`${st.words[2]} ${nfKo(st.dn)}`, 600, num(st.dn, -1)));
+  cnt[0].gap = 8; A.push(...cnt);
+  // 상한가 · 하한가: the legend's swatch (a tile with the bar on top / at the bottom), the label neutral, the count in 상승 · 하락 colour
+  const limG = short => {
+    if (!st.lim) return null;
+    const g = [];
+    for (const [dir, word, n] of [[1, short ? '상한' : '상한가', st.lim.lu], [-1, short ? '하한' : '하한가', st.lim.ld]]) {
+      if (g.length) g.push(T('·', 500, C.muted, 6));
+      g.push({ sw: dir, gap: g.length ? 6 : 0 }, T(word, 500, C.muted, 4), T(nfKo(n), 700, num(n, dir), 4));
+    }
+    return g;
+  };
+  // 업종 (or 테마): the highest and the lowest, name in --fg, value in its direction's colour; names shorten first
+  const grpG = () => {
+    const G = st.grp;
+    if (!G) return null;
+    const g = [T(G.label, 500, C.muted)];
+    for (const x of [G.hi, G.lo].filter(Boolean)) {
+      if (g.length > 1) g.push(T('·', 500, C.muted, 6));
+      g.push(T(x.name, 500, C.fg, 6, 1), T(x.text, 600, x.r > 0 ? C.up : x.r < 0 ? C.dn : C.muted, 4));
+    }
+    return g;
+  };
+  const meas = a => { if (a.bar) return a.bw; if (a.sw) return 12; ctx.font = `${a.w} ${FS}px ${fam}`; const full = ctx.measureText(a.t).width; return a.mw != null ? Math.min(full, a.mw) : full; };
+  const gw = g => g.reduce((n, a) => n + a.gap + meas(a), 0);
+  const minOf = a => { ctx.font = `${a.w} ${FS}px ${fam}`; const ch = [...a.t]; return ch.length <= MIN_NAME + 1 ? ctx.measureText(a.t).width : ctx.measureText(ch.slice(0, MIN_NAME).join('') + '…').width; };
+  // shorten a group's fit atoms (fit 1 first — names, fit 2 last — the scope) so the group is at most maxW wide; false when it cannot
+  const shrink = (g, maxW) => {
+    for (const lvl of [1, 2]) {
+      const fits = g.filter(a => a.fit === lvl);
+      if (!fits.length) continue;
+      let over = gw(g) - maxW;
+      if (over <= 0) return true;
+      // take the room off the longest names first, never under a couple of letters
+      for (let k = 0; k < 40 && over > 0.5; k++) {
+        const cand = fits.map(a => ({ a, w: meas(a), min: minOf(a) })).filter(x => x.w - x.min > 0.5).sort((x, y) => y.w - x.w);
+        if (!cand.length) break;
+        const top = cand[0], next = cand[1] ? cand[1].w : top.min;
+        const cut = Math.min(over, Math.max(0.5, top.w - Math.max(next, top.min)));
+        top.a.mw = top.w - cut; over -= cut;
+      }
+    }
+    return gw(g) <= maxW + 0.5;
+  };
+  const pack = groups => {
+    const rows = []; let cur = null;
+    for (const g of groups) { const w = gw(g); if (!cur || cur.w + GX + w > avail) { cur = { items: [], w: 0 }; rows.push(cur); } cur.items.push(g); cur.w += (cur.items.length > 1 ? GX : 0) + w; }
+    return rows;
+  };
+  let L = limG(false), G = grpG();
+  let rows = pack([A, L, G].filter(Boolean));
+  if (rows.length > 2 || rows.some(r => r.w > avail + 0.5)) {
+    // phone: the counts on line 1, the limits (short words) and the groups on line 2 with the names shortened to share it
+    L = limG(true); G = grpG();
+    if (gw(A) > avail) shrink(A, avail);
+    const two = [L, G].filter(Boolean);
+    if (two.length === 2 && shrink(G, avail - gw(L) - GX)) rows = [{ items: [A] }, { items: two }];
+    else { for (const g of two) if (gw(g) > avail) shrink(g, avail); rows = pack([A]).concat(pack(two)); }
+  }
+  const h = rows.length ? 8 + rows.length * RH + (rows.length - 1) * 2 + 6 : 0;
+  const draw = (c, y0) => {
+    c.save();
+    c.textAlign = 'left'; c.textBaseline = 'middle';
+    rows.forEach((r, ri) => {
+      const cy = y0 + 8 + ri * (RH + 2) + RH / 2;
+      let x = pad;
+      r.items.forEach((g, gi) => {
+        if (gi) x += GX;
+        for (const a of g) {
+          x += a.gap;
+          if (a.bar) {
+            // the 등락 분포 card's bar: 상승 · 보합 · 하락 shares in the palette's ends and middle, 2px apart (.breadth)
+            const n = (st.up + st.flat + st.dn) || 1, parts = [[st.up, C.barUp], [st.flat, C.barFl], [st.dn, C.barDn]].filter(p => p[0] > 0);
+            const gapW = 2, room = a.bw - gapW * (parts.length - 1);
+            c.save(); c.beginPath(); c.roundRect(x, cy - 3, a.bw, 6, C.barR); c.clip();
+            let bx = x;
+            parts.forEach(([v, col], i) => { const w = i === parts.length - 1 ? x + a.bw - bx : room * v / n; c.fillStyle = col; c.fillRect(bx, cy - 3, w, 6); bx += w + gapW; });
+            c.restore();
+            x += a.bw;
+          } else if (a.sw) {
+            c.fillStyle = C.limsw; c.beginPath(); c.roundRect(x, cy - 5, 12, 10, 1); c.fill();
+            c.fillStyle = C.limBar; c.fillRect(x, a.sw > 0 ? cy - 5 : cy + 2, 12, 3);
+            x += 12;
+          } else {
+            c.font = `${a.w} ${FS}px ${fam}`; c.fillStyle = a.c;
+            const t = a.mw != null ? ellipsize(c, a.t, a.mw + 0.5) : a.t;
+            c.fillText(t, x, cy + .5);
+            x += c.measureText(t).width;          // a shortened name: its "…" sits right before its value
+          }
+        }
+      });
+    });
+    c.restore();
+  };
+  return { h, rows: rows.length, widths: rows.map(r => Math.round(r.items.reduce((n, g, i) => n + (i ? GX : 0) + gw(g), 0))), avail, draw };
+}
+
 // the screen's colours at the moment of saving (docs/standards/themes.md §15-2): a light theme gives a light image
 let IMG = null;
 function imgTheme() {
@@ -1201,7 +1356,7 @@ function imgTheme() {
     sec: g('--sec-bg', '#000'), secFg: g('--sec-fg', '#f2f3f5'), ihd: g('--ihd-bg', '#0d0e11'), ihdFg: g('--ihd-fg', '#a6abb5'),
     rule: /^(|transparent|rgba\(0,\s*0,\s*0,\s*0\))$/.test(rule) ? '' : rule,
     acc: g('--acc', '#ffb547'), accBd: g('--acc-bd', 'rgba(255,181,71,.45)'), accSoft: g('--acc-soft', 'rgba(255,181,71,.12)'),
-    limBar: g('--lim-bar', '#fff'), dmFlap: g('--dm-flap', '#eef0f3'),
+    limBar: g('--lim-bar', '#fff'), limsw: g('--limsw', '#5a5e69'), dmFlap: g('--dm-flap', '#eef0f3'),
     ink28: light ? withAlpha(fg, .28) : 'rgba(255,255,255,.28)', ink30: light ? withAlpha(fg, .3) : 'rgba(255,255,255,.3)',
   };
 }
@@ -1222,7 +1377,25 @@ function drawMap(nodes, wt) {
   const tSize = W < 520 ? 20 : 24, TH = Math.round(tSize * 2.4);
   ctx.font = `500 12px ${fam}`;
   const lg = layoutLegend(ctx, fam, chrome.legend, W, pad);
-  const FH = 24, XH = ixRowHeight(chrome.ix), HT = TH + XH;
+  // 오늘 숫자 줄: the 등락 분포 card's colours — the palette's ends and middle for the bar, --limsw · --lim-bar for the swatches
+  const brEl = document.querySelector('#breadth'), brR = brEl ? parseFloat(getComputedStyle(brEl).borderTopLeftRadius) : 3;
+  const SC = { fg: IMG.fg, muted: IMG.muted, up: upC, dn: dnC, limsw: IMG.limsw, limBar: IMG.limBar, barR: Math.min(3, isFinite(brR) ? brR : 3),
+    barUp: (pal.stops && pal.stops[6]) || upC, barFl: (pal.stops && pal.stops[3]) || IMG.nodata, barDn: (pal.stops && pal.stops[0]) || dnC };
+  const stats = readStats(wt), sl = layoutStats(ctx, fam, stats, W, pad, SC);
+  // the theme overview's title row says "265개 테마 · 오름 95 · 내림 154" — the 오늘 숫자 줄 below says 상승 · 보합 · 하락 of the same
+  // themes, so the title row keeps the count only (사용자 11:42: nothing said twice)
+  if (stats && stats.themes && chrome.stat && chrome.stat.parts) {
+    const k = chrome.stat.parts.findIndex(p => p.b);
+    if (k >= 0) {
+      const keep = chrome.stat.parts.slice(0, k).map(p => Object.assign({}, p));
+      if (keep.length) keep[keep.length - 1].t = keep[keep.length - 1].t.replace(/\s*·\s*$/, '');
+      chrome.stat = keep.some(p => p.t.trim()) ? { parts: keep } : null;
+    }
+  }
+  // what the picture says, for QA (the PNG cannot be read back): the 오늘 숫자 줄 and the title row
+  window.__imgStats = stats ? Object.assign({ rows: sl.rows, widths: sl.widths, avail: sl.avail, W }, stats) : null;
+  window.__imgTitle = { title: chrome.title, ix: !!chrome.ix, stat: chrome.stat && chrome.stat.parts ? chrome.stat.parts.map(p => ({ t: p.t, dir: p.dir == null ? null : p.dir, b: !!p.b })) : null };
+  const FH = 24, XH = ixRowHeight(chrome.ix), SH = sl.h, HT = TH + XH + SH;
   const H = HT + MH + lg.h + FH;
   let s = Math.min(3, Math.max(2, window.devicePixelRatio || 1));
   while (W * H * s * s > 16e6 && s > 1) s -= 0.25;                     // stay under the canvas area limit (iOS ≈ 16.7M px)
@@ -1232,6 +1405,7 @@ function drawMap(nodes, wt) {
   ctx.fillStyle = IMG.map; ctx.fillRect(0, HT, W, MH);
   ctx.textBaseline = 'middle';
   if (chrome.ix) drawIxRow(ctx, chrome.ix, fam, W, TH, pad);
+  if (SH) sl.draw(ctx, TH + XH);
   {
     const cy = TH / 2;
     let right = W - pad;
@@ -1240,7 +1414,8 @@ function drawMap(nodes, wt) {
       const fs = W < 520 ? 12 : 13;
       for (const p of chrome.stat.parts.slice().reverse()) {
         ctx.font = `${p.b ? 600 : 500} ${fs}px ${fam}`;
-        ctx.fillStyle = p.c || IMG.muted; ctx.fillText(p.t, right, cy);
+        // a % in its direction's colour (the palette's up / down text, 0 neutral) — the same as the index row and the 오늘 숫자 줄
+        ctx.fillStyle = p.dir > 0 ? upC : p.dir < 0 ? dnC : p.dir === 0 ? IMG.muted : p.c || IMG.muted; ctx.fillText(p.t, right, cy);
         right -= ctx.measureText(p.t).width;
       }
       right -= 12;

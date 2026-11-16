@@ -1671,6 +1671,10 @@ html[data-theme="glass-light"]{--sheet-skirt:#f6f7f9}
         items before 크기. addSetting({multi: true, options, default: [..], min}) → chips, value = array (stored 'a,b'); settingState(key,
         {disabled, counts:{v: n}, hint}). mapCodes() → the current map's stock codes (tab · 종목 수; [] on world / theme overview).
         replay() → {t, date} | null. openStock(code, {opener, tab, newsKind}) → the stock page (the quick view closes first).
+        breadthInfo() → the 등락 분포 card's counts {kind 'day'|'period'|'flow', scope, unit '종목'|'개', words, up, flat, dn, n, nd,
+        lim {lu, ld} | null, replay} | null (해외 · 지표 · 일정); indRank() → {label '업종'|'테마', kind, rows [{name, r, text, n}] by r,
+        high first} | null — the map's industries (2+ stocks, no 기타, 3조+ on a whole market) or the theme overview's themes (이미지 저장).
+        mapStat() → {n, cap, text 'N종목 · 시총 …'} | null — the map header's count (the picture's title row under a market root).
         Mount <span id="stage-tools"> in the map-header row before 지도 · 표; footer line <p id="foot-disc">.
    §3-23b 실시간 갱신 (docs/standards/realtime.md §7): feed(body) → bool — an /api/quotes-shaped body drawn the poll's way (refused in the
         snapshot, under 전체, when empty); pausePoll(on) — the 10 s quotes timer off while the hub is live, back within one interval;
@@ -5073,6 +5077,36 @@ function distSummary() {
       bigLab: (k === 'flow' ? `${flowShort()} 순매수 합계` : k === 'day' ? '시가총액 가중' :   /* 사용자 2026-11-13 23:50: "시가총액 가중이라고만" */ `시가총액 가중 ${COLOR_METRICS[state.colorBy].long}`) + capNote, unit: '종목' } };
   }
 }
+/* the picture's 오늘 숫자 줄 (src/extras 이미지로 저장, 사용자 2026-11-16 11:31 "사진 저장시 오늘의 상승종목 하락종목 보합종목 상한가 종목
+   하한가 종목 숫자 … 상승업종 하락업종 하나씩도", AGENTS §3-2): read-only views of what the screen already counts — nothing new is fetched.
+   breadthInfo(): the 등락 분포 card's own numbers (DIST — same pool, scope words, 상 · 하한가 rule §3-26) for the view on screen. */
+function breadthInfo() {
+  if (!DATA || isWorld() || !DIST) return null;
+  const D = DIST;
+  return { kind: kind(), scope: D.scope, unit: D.unit, words: D.words.slice(), up: D.up, flat: D.fl, dn: D.dn, n: D.n, nd: D.nd,
+    lim: D.lim ? { lu: D.lim.lu, ld: D.lim.ld } : null, replay: !!REPLAY };
+}
+// indRank(): the map's groups ranked by the value its headers / tiles show (groupVal · vText 1 decimal) — industries of the stocks drawn
+// (tab · 종목 수 · zoom · basis · replay), grouped as the map groups them, 2+ stocks, '기타' left out, and on a whole 코스피 · 코스닥 · 전체
+// map 3조 market cap or more (the 시장 요약 카드 rule, src/summary groupBy); the theme overview: its themes (= tiles · 테마 순위 card)
+function indRank() {
+  if (!DATA || isWorld()) return null;
+  const k = kind();
+  if (state.market === 'THEME' && state.theme == null) {
+    const rows = themeRows().filter(t => t.v != null).map(t => ({ name: t.name, r: t.v, text: vText(t.v, 1), n: t.codes.length }));
+    return { label: '테마', kind: k, rows: rows.sort((a, b) => b.r - a.r) };
+  }
+  const whole = ['K', 'Q', 'ALL'].includes(state.market) && !state.focus;
+  const rows = [];
+  for (const [i, arr] of d3.group(universe().filter(inFocus), s => s.i || '기타')) {
+    if (i === '기타' || arr.length < 2) continue;
+    const cap = arr.reduce((t, s) => t + (s.cap || 0), 0);
+    if (whole && cap < 30000) continue;
+    const v = groupVal(arr);
+    if (v != null) rows.push({ name: i, r: v, text: vText(v, 1), n: arr.length });
+  }
+  return { label: '업종', kind: k, rows: rows.sort((a, b) => b.r - a.r) };
+}
 function rankButton(label, sub, v, text, frac, onclick, cur) {
   return h('button', { class: cur ? 'cur' : '', onclick },
     h('span', { class: 'nm' }, label, sub != null ? h('small', { text: sub }) : null),
@@ -6658,6 +6692,11 @@ window.KH = {
   settingState,
   mapCodes: () => (!DATA || isWorld() || (state.market === 'THEME' && state.theme == null)) ? [] : universe().map(s => s.c),
   replay: () => (REPLAY ? { t: REPLAY.t, date: REPLAY.date } : null),
+  // 이미지 저장의 오늘 숫자 줄 (AGENTS §3-2): breadthInfo() = the 등락 분포 card's counts, indRank() = the map's groups by value
+  breadthInfo,
+  indRank,
+  // the map header's own count (renderCrumbs: N종목 · 시총, zoom included) — the picture's title row says it where the index row has the %
+  mapStat: () => { if (!DATA || isWorld()) return null; const list = universe().filter(inFocus), cap = list.reduce((a, s) => a + s.cap, 0); return { n: list.length, cap, text: `${fmtInt(list.length)}종목 · 시총 ${fmtEok(cap)}` }; },
   // 실시간 갱신 (docs/standards/realtime.md §7-1, src/live): feed(body) → true when drawn (an /api/quotes-shaped body through the poll's
   // own road: store, views, flashes, 'kh:data'); pausePoll(on) stops / restarts the 10 s quotes timer; scope() → 'top' (the 600 stream)
   // | 'all' (전체, polled); polling() → {paused, ok, last (ms | null), wait (ms)}; the status mount is <span id="live-mark" hidden> in #status
