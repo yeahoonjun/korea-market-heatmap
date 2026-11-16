@@ -669,14 +669,14 @@ def run(br):
     kb = pg.evaluate("() => [document.activeElement.id, document.getElementById('news').dataset.feed, localStorage.getItem('khm.feedTab')]")
     pg.keyboard.press('ArrowRight'); pg.wait_for_timeout(150)
     seq = []
-    for _ in range(11):
+    for _ in range(12):
         seq.append(pg.evaluate("""() => { const a = document.activeElement, cs = getComputedStyle(a);
-          const k = a.getAttribute('role') === 'tab' ? 'title' : a.closest('.dc-ktabs') ? 'kind' : a.classList.contains('dc-only') ? 'only' : a.classList.contains('dc-lit') ? 'lit' : a.closest('.dc-tt') ? 'link' : a.classList.contains('dc-chip') ? 'chip' : a.classList.contains('nw-more') ? 'more' : a.tagName;
+          const k = a.getAttribute('role') === 'tab' ? 'title' : a.classList.contains('nw-rk') ? 'rk' : a.closest('.dc-ktabs') ? 'kind' : a.classList.contains('dc-only') ? 'only' : a.classList.contains('dc-lit') ? 'lit' : a.closest('.dc-tt') ? 'link' : a.classList.contains('dc-chip') ? 'chip' : a.classList.contains('nw-more') ? 'more' : a.tagName;
           return [k, cs.outlineStyle !== 'none' ? parseFloat(cs.outlineWidth) : 0]; }"""))
         pg.keyboard.press('Tab')
     kinds = [s[0] for s in seq]
-    check('title tabs ←/→ (remembered in khm.feedTab); Tab: title → kinds ×5 → 지도 종목만 → 지도에서 밝게 → chip → link …; ring 3px',
-          kb == ['news-t-news', 'news', '"news"'] and kinds[:10] == ['title', 'kind', 'kind', 'kind', 'kind', 'kind', 'only', 'lit', 'chip', 'link'] and all(s[1] == 3 for s in seq), f'{kb} {kinds}')
+    check('title tabs ←/→ (remembered in khm.feedTab); Tab: title → ↻ 새로 받기 → kinds ×5 → 지도 종목만 → 지도에서 밝게 → chip → link …; ring 3px',
+          kb == ['news-t-news', 'news', '"news"'] and kinds[:11] == ['title', 'rk', 'kind', 'kind', 'kind', 'kind', 'kind', 'only', 'lit', 'chip', 'link'] and all(s[1] == 3 for s in seq), f'{kb} {kinds}')
     pg.focus('#news .dc-row:first-child .dc-tt a'); pg.wait_for_timeout(150)
     lit = pg.evaluate("() => ({ row: document.querySelector('#news .dc-row').dataset.c, on: [...document.querySelectorAll('#map .tile.nhl')].map(t => t.dataset.c) })")
     check('focus on a row lights exactly its tile', lit['on'] == [lit['row']], lit)
