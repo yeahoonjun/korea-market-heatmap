@@ -20751,6 +20751,8 @@ sync();
       return;
     }
     draw();
+    // ← on a Monday / → on a Sunday (or a month edge) redraws the strip: the old button is gone, so keep the keyboard on the new day
+    if (kb) { const b = root() && root().querySelector(`[data-d="${d}"]`); if (b) b.focus({ preventScroll: true }); }
     if (how === 'next') {                    // the list starts again from its top: bring the week back into view, keep the key focused
       const hd = box && box.querySelector('.kc-hd'), pad = parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop) || 0;
       if (hd && hd.getBoundingClientRect().top < pad) hd.scrollIntoView({ block: 'start' });   // html scroll-padding keeps it under the stuck header
