@@ -21,7 +21,9 @@ CSS, JS = read('src/summary/summary.css'), read('src/summary/summary.js')
 A = Audit()
 css, R, D, KF = parse(CSS)
 common(A, 'summary.css', css, R, D, KF,
-       amber_ok=lambda s: bool(re.search(r'\[data-st="done"\]|aria-expanded="true"|:focus', s)))
+       amber_ok=lambda s: bool(re.search(r'\[data-st="done"\]|aria-expanded="true"|:focus', s)),
+       # the 상 · 하한가 swatch = the map legend's mark (12 × 10 tile with a 3px bar, template .legend .limsw) — a mark, not a control
+       height_ok={'.msum .sm-lsw': 'mark: the map legend\'s 상 · 하한가 swatch (12 × 10)'})
 A.check('summary.css: the copy key — done ✓ amber (완료), fail ! --fail-dot (design.md §2)',
         '.sm-copy[data-st="done"] .sm-i-done{color:var(--acc)}' in CSS and '.sm-copy[data-st="fail"] .sm-i-fail{color:var(--fail-dot)}' in CSS)
 A.check('summary.css: the 장중 dot is --live', re.search(r'\.sm-ph-open::before\{[^}]*background:var\(--live\)', CSS))

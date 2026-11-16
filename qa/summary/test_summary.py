@@ -362,7 +362,7 @@ def main():
             ctx, pg, errs = open_page(br, 1440, 900)
             pg.click('#summary .sm-tog'); pg.wait_for_timeout(900)
             t = pg.evaluate("document.getElementById('summary').innerText")
-            lim = re.search(r'상한가 · 하한가\s*([\d,]+) · ([\d,]+)', t)
+            lim = re.search(r'상한가 · 하한가\s*([\d,]+)\s*·\s*([\d,]+)', t)   # 11:16: swatch + coloured count each, the dot between
             check('상한가 · 하한가 = 9 · 0 (close.json lim — the old ±29.5 % guess counted 1 하한가)', bool(lim) and lim.groups() == ('9', '0'), lim and lim.groups())
             check('외국인 · 기관 = the 11/13 file with its date', re.search(r'외국인 · 기관\s*11/13', t) is not None and '11/13 · 코스피 · 코스닥 합' in t)
             check('"거래대금 상위", never "급증"', '거래대금 상위' in t and '급증' not in t)
