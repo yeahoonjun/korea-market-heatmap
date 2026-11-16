@@ -284,12 +284,13 @@ def t_drag(br):
           st[0] == 'true' and len(flying) >= 3 and ts and ts[0] < 0.95 and not st[2] and not st[3] and st[1] == '', {'st': st, 'trace': tr[:6]})
     # back off: click (CSS, lead)
     pg.evaluate("document.querySelector('#news .dc-lit').click()"); pg.wait_for_timeout(700)
-    # a short fast flick from off: 7px in ~20ms → a throw (> 0.11 px/ms) though the knob is below half
-    pg.mouse.move(x, y); pg.mouse.down()
+    # a short fast flick from off: 7px in ~30ms → a throw (> 0.11 px/ms) though the knob is below half. The pointer events are sent in
+    # the page 10ms apart (a busy wait), so a loaded machine cannot slow the finger down below the throw speed
     pg.evaluate(watch)
-    for i in (2, 5, 7):
-        pg.mouse.move(x + i, y); pg.wait_for_timeout(8)
-    pg.mouse.up()
+    pg.evaluate("""() => { const tr = document.querySelector('#news .dc-lit .swt'), r = tr.getBoundingClientRect(), x = r.x + 13, y = r.y + r.height / 2;
+      const ev = (type, dx) => tr.dispatchEvent(new PointerEvent(type, { bubbles: true, cancelable: true, pointerId: 7, isPrimary: true, pointerType: 'mouse', button: 0, buttons: type === 'pointerup' ? 0 : 1, clientX: x + dx, clientY: y }));
+      const spin = ms => { const t = performance.now(); while (performance.now() - t < ms) { /* wait */ } };
+      ev('pointerdown', 0); spin(10); ev('pointermove', 2); spin(10); ev('pointermove', 5); spin(10); ev('pointermove', 7); spin(4); ev('pointerup', 7); }""")
     pg.wait_for_timeout(1100)
     tr = pg.evaluate("window.__sw")
     st = pg.evaluate("(() => { const b = document.querySelector('#news .dc-lit'); return [b.getAttribute('aria-checked'), b.querySelector('.swt').style.getPropertyValue('--t'), b.classList.contains('sw-fly')]; })()")
