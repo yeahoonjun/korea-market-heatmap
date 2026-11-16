@@ -124,19 +124,25 @@ html[data-theme="paper"] .sp-head, html[data-theme^="glass"] .sp-head { backgrou
 .sp-rng { grid-column: 1 / -1; }
 .sp-rng dt { display: flex; align-items: baseline; gap: var(--space-4); }
 .sp-rng dt > span { flex: none; }
-.sp-rng dt small { margin-left: auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-xs); color: var(--muted); }
+.sp-rng dt small { margin-left: auto; min-width: 0; overflow: hidden; display: inline-flex; align-items: center; gap: var(--space-5); white-space: nowrap; font-size: var(--fs-xs); color: var(--muted); }   /* keys side by side, the gap is the separator (the " · " is for screen readers only, .sr) */
+.sp-rng dt small > .k-open, .sp-rng dt small > .k-prev { display: inline-flex; align-items: center; gap: var(--space-2); min-width: 0; }
 .sp-rng dd { display: flex; align-items: center; gap: var(--space-4); overflow: visible; margin-top: var(--space-2); }
 .sp-rng .lo, .sp-rng .hi { flex: none; font-size: var(--fs-md); }
 .sp-rng .track { position: relative; flex: 1; min-width: 40px; height: 6px; border-radius: var(--r-mark); background: var(--line2); }
 .sp-rng .track .dot { position: absolute; z-index: 2; top: 50%; width: 12px; height: 12px; transform: translate(-50%, -50%); border-radius: 50%; background: var(--fg); box-shadow: 0 0 0 2px var(--panel); }   /* the ring is a cut-out in the cell's colour */
+.sp-rng .track .dot.up { background: var(--up-text); }
+.sp-rng .track .dot.dn { background: var(--dn-text); }   /* the day's move from 전일 종가 (10:46 "색상이 들어가야지"); flat stays --fg */
+.sp-rng .lo.up, .sp-rng .hi.up, .sp-rng .k-open b.up { color: var(--up-text); }
+.sp-rng .lo.dn, .sp-rng .hi.dn, .sp-rng .k-open b.dn { color: var(--dn-text); }
+.sp-rng .k-open b { font-weight: inherit; }
 .sp-rng .track .fill { position: absolute; top: 0; bottom: 0; border-radius: var(--r-mark); }
 .sp-rng .track .fill.up { background: color-mix(in srgb, var(--up-text) 60%, transparent); }
 .sp-rng .track .fill.dn { background: color-mix(in srgb, var(--dn-text) 60%, transparent); }
 .sp-rng .tk { position: absolute; z-index: 1; }
 .sp-rng .tk.prev { top: -4px; bottom: -4px; width: 2px; margin-left: -1px; border-radius: var(--r-mark); background: var(--fg2); }   /* 전일 종가: a line through the bar */
-.sp-rng .tk.open { top: -9px; width: 0; height: 0; transform: translateX(-50%); border: 4px solid transparent; border-top: 5px solid var(--muted); border-bottom: 0; }   /* 시가: a notch above */
-.sp-rng .k-open::before { content: ""; display: inline-block; margin-right: var(--space-2); vertical-align: 1px; border: 4px solid transparent; border-top: 5px solid var(--muted); border-bottom: 0; }
-.sp-rng .k-prev::before { content: ""; display: inline-block; width: 2px; height: 9px; margin-right: var(--space-2); vertical-align: -1px; border-radius: var(--r-mark); background: var(--fg2); }
+.sp-rng .tk.open { top: -7px; width: 0; height: 0; transform: translateX(-50%); border: 4px solid transparent; border-top: 5px solid var(--muted); border-bottom: 0; }   /* 시가: a notch above */
+.sp-rng .k-open::before { content: ""; flex: none; border: 4px solid transparent; border-top: 5px solid var(--muted); border-bottom: 0; }
+.sp-rng .k-prev::before { content: ""; flex: none; width: 2px; height: 10px; border-radius: var(--r-mark); background: var(--fg2); }
 
 /* ── body ───────────────────────── */
 .sp-body { display: flex; flex-direction: column; gap: var(--space-6); margin-top: var(--space-5); }
@@ -408,7 +414,7 @@ html[data-motion="reduced"] .sp-fold-x { transition: none; }
 .sp-m dt { font-size: var(--fs-xs); line-height: var(--lh-ui); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .sp-m dd { margin: var(--space-1) 0 0; font-size: var(--fs-lg); line-height: var(--lh-row); font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .sp-m dd.sub { margin-top: 1px; font-size: var(--fs-xs); font-weight: 500; color: var(--muted); }
-@container (min-width: 470px) { .sp-mgrid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+/* nine figures since 주당배당금 joined (2026-11-16): three columns at every width — three full rows, 배당수익률 · 주당배당금 side by side */
 /* 재무 */
 .sp-fin-lg { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-5); margin-bottom: var(--space-2); font-size: var(--fs-sm); color: var(--fg2); }
 .sp-fin-lg span { display: inline-flex; align-items: center; gap: var(--space-2); }
