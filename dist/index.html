@@ -5569,7 +5569,7 @@ function renderFooter() {
 /* ───────────────── controls ───────────────── */
 /* 색상 changes the side of the tab shown (palSide): 국내 tabs → khm.palette2, 해외 · 지표 → khm.paletteW, where a first key
    "국내와 같게" (the default) follows the 국내 choice. The row's name says which side it changes ("색상" · "해외 · 지표 색"; the
-   group's name and the keys' titles say 국내 / 해외 · 지표 in words). Rebuilt only when the side, the theme or (for 국내와 같게's
+   group's name and the keys' titles say 국내 / 해외 · 지표 in words; below 1280 the 국내 row reads "국내 색상"). Rebuilt only when the side, the theme or (for 국내와 같게's
    swatch) the 국내 palette changes; the raised indicator then jumps to its key instead of sliding over from another side's list. */
 let palSegKey = '';
 const PAL_SIDE_NAME = { kr: '국내', world: '해외 · 지표' };
@@ -5588,7 +5588,8 @@ function buildPaletteSeg(force) {
   seg.replaceChildren(...keys);
   seg.setAttribute('aria-label', side === 'world' ? '해외 · 지표 탭 색상' : '국내 탭 색상 (해외 · 지표 탭은 따로 골라요)');
   const lbl = seg.closest('.ctl').querySelector(':scope > span');
-  if (lbl) lbl.textContent = side === 'world' ? '해외 · 지표 색' : '색상';
+  // 국내: "국내 색상" in the 표시 설정 sheet / popover, "색상" in the one-row toolbar from 1280 (no room there: its width stays as it was)
+  if (lbl) lbl.replaceChildren(...(side === 'world' ? ['해외 · 지표 색'] : [h('span', { class: 'wide-hide', text: '국내 ' }), '색상']));
   const st = UI_SEG.get(seg); if (st) st.i = -1;       // a new list: the indicator is placed, not moved
 }
 let rangeSegKey = '';
