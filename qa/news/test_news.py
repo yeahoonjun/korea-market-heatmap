@@ -6,7 +6,7 @@
 Starts qa/news/mock_api.py on NEWS_QA_PORT (default 9050 — the ux/std-news range 9050–9059; serves web/ + /api/news from the sanitized
 fixtures) and stops it at the end (fuser -k). Section 13 checks the design standard in the browser (design.md, ux/std-news): sizes from the
 tokens, the title underline on KH.ui.seg, the 더보기 fold (the list box grows, what is below moves once), a chip's % swapping in place,
-! = --fail-dot, and the glass card material kept.
+! = --fail-dot, and the glass card material kept. Section 14 checks the ↻ 새로 받기 key of the card head (size, states, 10 s guard).
 --shots also writes /tmp/news_*.png (1280 · 1920 base + glass, 390 card + expanded). Exit 1 if any check fails.
 """
 import json
@@ -29,7 +29,7 @@ SIZES = [(360, 740), (390, 844), (768, 1024), (1280, 800), (1920, 1080)]
 THEMES = ['base', 'paper', 'glass-dark', 'glass-light']
 NOPROXY = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 SHOTS = '--shots' in sys.argv
-ONLY = next((a.split('=', 1)[1] for a in sys.argv if a.startswith('--only=')), '')   # --only=design: section 13 alone
+ONLY = next((a.split('=', 1)[1] for a in sys.argv if a.startswith('--only=')), '')   # --only=design | refresh: section 13 | 14 alone
 results = []
 
 
@@ -562,6 +562,116 @@ DESIGN_JS = r"""() => {
 }"""
 
 
+RK_GEO = r"""() => {
+  const n = document.getElementById('news'), hd = n.querySelector('.nw-hd'), k = n.querySelector('.nw-rk'), at = n.querySelector('.nw-at');
+  const R = e => e.getBoundingClientRect(), r = R(k), h = R(hd), tabs = n.querySelector('.nw-ftabs') || n.querySelector('.nw-hd h2'), t = R(tabs);
+  const cs = getComputedStyle(k), b = getComputedStyle(k, '::before'), ic = k.querySelector('.nw-rki');
+  const tok = v => parseFloat(getComputedStyle(document.documentElement).getPropertyValue(v));
+  return { w: r.width, h: r.height, hk: tok('--h-key'), right: h.right - r.right, mid: Math.abs((r.top + r.bottom) / 2 - (t.top + t.bottom) / 2),
+    gapAt: r.left - R(at).right, tabsEnd: t.right, atLeft: R(at).left, hit: b.content !== 'none' ? [parseFloat(b.width), parseFloat(b.height)] : [r.width, r.height],
+    stroke: ic ? getComputedStyle(ic.querySelector('path')).strokeWidth + '|' + ic.querySelector('path').getAttribute('vector-effect') : '', icon: ic ? R(ic).width : 0,
+    radius: cs.borderTopLeftRadius, rkey: getComputedStyle(document.documentElement).getPropertyValue('--r-key').trim(),
+    pageOver: document.documentElement.scrollWidth - document.documentElement.clientWidth, cardOver: n.scrollWidth - n.clientWidth,
+    at: at.textContent, atw: at.querySelector('.nw-atw') ? R(at.querySelector('.nw-atw')).width : -1, label: k.getAttribute('aria-label'), st: k.dataset.st, hidden: k.hidden };
+}"""
+RK_ST = "(() => { const k = document.querySelector('#news .nw-rk'), i = k.querySelector('.nw-rki'), cs = getComputedStyle(i); return { st: k.dataset.st, busy: k.getAttribute('aria-busy'), anim: cs.animationName, op: parseFloat(cs.opacity), bub: [...document.querySelectorAll('.kbub')].map(b => b.textContent), hidden: k.hidden }; })()"
+FAIL_DOT = "(() => { const i = document.createElement('i'); i.style.color = 'var(--fail-dot)'; document.body.append(i); const c = getComputedStyle(i).color; i.remove(); return c; })()"
+
+
+def refresh_key(br):
+    # ── 14 · ↻ 새로 받기 (사용자 2026-11-16 09:24): one icon key at the head's right end, for the tab shown — size from --h-key, 1.75px icon,
+    #        44 px hit on touch, hover only on a fine pointer; ↻ → turns while it works (줄이기: still, .45) → ✓ / ! (--fail-dot); no second
+    #        press while it works; under 10 s since the last answer → no request, "방금 받았어요"; the list it brings is drawn at once ──
+    E = Errors()
+    mode('ok')
+    for w, h in SIZES:
+        for th in THEMES:
+            ctx, pg = open_page(br, LIVE, w, h, th, errors=E)
+            to_news(pg, 500)
+            g = pg.evaluate(RK_GEO)
+            phone = w <= 760
+            ok = (abs(g['w'] - g['hk']) < .5 and abs(g['h'] - g['hk']) < .5 and abs(g['right']) <= 1 and g['mid'] <= 2 and g['atLeft'] >= g['tabsEnd'] - .5
+                  and g['pageOver'] == 0 and g['cardOver'] == 0 and g['stroke'].startswith('1.75') and 'non-scaling-stroke' in g['stroke'] and 15.5 <= g['icon'] <= 16.5
+                  and g['radius'] == g['rkey'] and (min(g['hit']) >= 44 if phone else True) and not g['hidden'] and g['label'] == '시장 뉴스 새로 받기'
+                  and g['at'].endswith('기준') and ((0 <= g['atw'] <= 1) if phone else g['atw'] > 10))
+            check(f'↻ key {w}×{h} {th}: --h-key square at the head end, same row as the tabs, icon 16 · 1.75px, hit ≥ 44 on touch, no overflow; phone time "HH:MM" (기준 for readers)', ok,
+                  {k: (round(v, 1) if isinstance(v, float) else v) for k, v in g.items() if k in ('w', 'h', 'right', 'mid', 'hit', 'pageOver', 'cardOver', 'atw', 'stroke', 'icon', 'radius')})
+            ctx.close()
+    # hover: a fine pointer lights the key; a phone's tap leaves no hover colour behind
+    ctx, pg = open_page(br, LIVE, 1280, 800)
+    to_news(pg, 400)
+    bg0 = pg.evaluate("getComputedStyle(document.querySelector('#news .nw-rk')).backgroundColor")
+    pg.hover('#news .nw-rk'); pg.wait_for_timeout(400)
+    bg1 = pg.evaluate("getComputedStyle(document.querySelector('#news .nw-rk')).backgroundColor")
+    ctx.close()
+    ctx, pg = open_page(br, LIVE, 390, 844)
+    to_news(pg, 400)
+    pb0 = pg.evaluate("getComputedStyle(document.querySelector('#news .nw-rk')).backgroundColor")
+    pg.hover('#news .nw-rk'); pg.wait_for_timeout(400)
+    pb1 = pg.evaluate("getComputedStyle(document.querySelector('#news .nw-rk')).backgroundColor")
+    ctx.close()
+    check('hover: fine pointer → --key-hover; touch → none', bg0 != bg1 and pb0 == pb1, f'{bg0}→{bg1} · phone {pb0}→{pb1}')
+
+    for motion in ('standard', 'reduced'):
+        mode('ok')
+        ctx, pg = open_page(br, LIVE, 1280, 800, motion=motion, errors=E, clock=True)
+        to_news(pg, 600)
+        n0 = mock('/__stats').get('/api/news', 0)
+        pg.click('#news .nw-rk'); pg.wait_for_timeout(300)
+        s = pg.evaluate(RK_ST)
+        check(f'{motion}: press under 10 s since the last answer → no request, idle, "방금 받았어요" bubble', mock('/__stats').get('/api/news', 0) == n0 and s['st'] == 'idle' and '방금 받았어요' in s['bub'], s)
+        pg.clock.run_for(11000); pg.wait_for_timeout(1900)                  # (the bubble goes)
+        mock('/__mode?news=slow')
+        n0 = mock('/__stats').get('/api/news', 0)
+        pg.click('#news .nw-rk'); pg.wait_for_timeout(250)
+        s = pg.evaluate(RK_ST)
+        pg.click('#news .nw-rk', force=True); pg.wait_for_timeout(100)
+        turn = (s['anim'] == 'kspn' and s['op'] == 1) if motion == 'standard' else (s['anim'] == 'none' and abs(s['op'] - .45) < .01)
+        check(f'{motion}: working — data-st work, aria-busy, ↻ {"turns" if motion == "standard" else "still, dimmed .45"}; a second press asks nothing', s['st'] == 'work' and s['busy'] == 'true' and turn, s)
+        pg.wait_for_timeout(2900)
+        s = pg.evaluate(RK_ST)
+        check(f'{motion}: done → ✓ "새로 받았어요" (bubble + live region), one request', s['st'] == 'done' and '새로 받았어요' in s['bub'] and mock('/__stats').get('/api/news', 0) - n0 == 1, (s, mock('/__stats').get('/api/news', 0) - n0))
+        pg.clock.run_for(1300); pg.wait_for_timeout(200)
+        check(f'{motion}: ✓ held ~1.1 s, then ↻ again', pg.evaluate(RK_ST)['st'] == 'idle')
+        mock('/__mode?news=fail')
+        pg.clock.run_for(11000); pg.wait_for_timeout(100)
+        pg.click('#news .nw-rk'); pg.wait_for_timeout(700)
+        s = pg.evaluate(RK_ST)
+        col = pg.evaluate("getComputedStyle(document.querySelector('#news .nw-rk .kwn')).color")
+        check(f'{motion}: failed → ! in --fail-dot + "못 받았어요" bubble; the list stays', s['st'] == 'fail' and col == pg.evaluate(FAIL_DOT) and any('못 받았어요' in b for b in s['bub'])
+              and pg.locator('#news .nw-row:not(.skel)').count() > 0, (s, col))
+        pg.clock.run_for(5000); pg.wait_for_timeout(100)
+        st_hold = pg.evaluate(RK_ST)['st']
+        pg.evaluate("KHNews.select('disc')"); pg.wait_for_timeout(200)
+        st_tab = pg.evaluate(RK_ST)
+        check(f'{motion}: ! stays until the next press; another tab → ↻ for that tab', st_hold == 'fail' and st_tab['st'] == 'idle'
+              and pg.evaluate("document.querySelector('#news .nw-rk').getAttribute('aria-label')") == '오늘 공시 새로 받기', (st_hold, st_tab))
+        ctx.close()
+
+    # the list it brings is drawn at once — even with the pointer in the card (the reader asked) — and the head's time follows the answer
+    mode('ok')
+    ctx, pg = open_page(br, LIVE, 1280, 800, errors=E, clock=True)
+    to_news(pg, 600)
+    first = "document.querySelector('#news .nw-row .nw-tt a').textContent"
+    f0 = pg.evaluate(first)
+    pg.route('**/api/news', lambda route: route.fulfill(json=dict(_j := json.loads(route.fetch().text()), asOf=_j['asOf'][:11] + '23:58:00+09:00')))
+    mock('/__mode?news=drift')
+    pg.clock.run_for(11000); pg.wait_for_timeout(100)
+    pg.hover('#news .nw-row:nth-child(2)'); pg.hover('#news .nw-rk'); pg.click('#news .nw-rk'); pg.wait_for_timeout(700)
+    f1, at1 = pg.evaluate(first), pg.evaluate("document.querySelector('#news .nw-at').textContent")
+    check('↻ with the pointer in the card: the new headline is drawn at once; the head says the answer\'s time', f1 != f0 and '새 기사' in f1 and at1 == '23:58 기준', (f0[:20], f1[:20], at1))
+    pg.unroute('**/api/news')
+    # the head carries its own 다시 시도 (오래됨) → the ↻ key steps aside (one key per job)
+    mock('/__mode?news=fail')
+    pg.evaluate("KHNews.refresh()"); pg.clock.run_for(16 * 60000); pg.wait_for_timeout(300)
+    pg.evaluate("KHNews.refresh()"); pg.wait_for_timeout(400)
+    sv = pg.evaluate("({ stale: document.querySelector('#news .nw-at').classList.contains('stale'), retry: !!document.querySelector('#news .nw-at .kasync'), rk: document.querySelector('#news .nw-rk').hidden })")
+    check('오래됨: the head\'s own 다시 시도, the ↻ key hidden', sv['stale'] and sv['retry'] and sv['rk'], sv)
+    ctx.close()
+    errs = [e for e in E.items if 'Failed to load resource' not in e]     # (the 502s of the fail mode are the network panel's, not the page's)
+    check('↻: no console errors', not errs, errs[:3])
+
+
 def shots(br):
     mode('ok')
     for w, h, th in [(1280, 800, 'base'), (1280, 800, 'glass-dark'), (1920, 1080, 'base'), (1920, 1080, 'glass-light')]:
@@ -587,9 +697,12 @@ def main():
                 time.sleep(0.1)
         with sync_playwright() as p:
             br = p.chromium.launch(executable_path='/usr/bin/google-chrome', args=['--no-sandbox'])
-            if ONLY != 'design':
+            if ONLY not in ('design', 'refresh'):
                 run(br)
-            design(br)
+            if ONLY != 'refresh':
+                design(br)
+            if ONLY in ('', 'refresh'):
+                refresh_key(br)
             if SHOTS:
                 shots(br)
             br.close()

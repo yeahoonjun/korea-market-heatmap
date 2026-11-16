@@ -17534,6 +17534,20 @@ html[data-motion="reduced"] .news{--nw-tx-out:0ms;--nw-tx-gap:0ms;--nw-tx-in:0ms
 @media (hover:hover) and (pointer:fine){ .news .nw-ftabs > button:hover{color:var(--fg)} }
 .news .nw-at{margin-left:auto;display:inline-flex;align-items:center;gap:var(--space-4);font-size:var(--fs-sm);line-height:var(--lh-ui);color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums;min-width:0}
 .news .nw-at > span{overflow:hidden;text-overflow:ellipsis;min-width:0}
+/* ↻ 새로 받기(news.js rk — 보고 있는 탭만): 머리 줄 오른쪽 끝의 아이콘 키 = 키 표면(--key-bg · --key-sh), --h-key 정사각(데스크톱 32 ·
+   휴대폰 40, 터치는 가상 44), 아이콘 16px · 선 1.75px. 비동기 키(controls.md §5-3): 하는 중엔 ↻가 그 자리에서 돌고(--c-spin) 줄이기에선
+   멈춘 채 .45로 흐려져요, 됐어요 ✓ · 안 돼요 !는 템플릿 .kasync 표면(! = --fail-dot). 머리 시각과의 사이는 --space-4 */
+.news .nw-rk{position:relative;display:inline-grid;place-items:center;flex:none;width:var(--h-key);height:var(--h-key);margin-left:calc(-1 * var(--space-2));padding:0;border-radius:var(--r-key);
+  background:var(--key-bg);box-shadow:var(--key-sh);color:var(--key-ic);touch-action:manipulation;-webkit-tap-highlight-color:transparent;
+  transition:transform var(--c-fast) var(--c-out),box-shadow var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out),background var(--sp-fade-dur) var(--sp-fade),color var(--sp-fade-dur) var(--sp-fade)}
+.news .nw-rk[hidden]{display:none}
+.news .nw-rk.nw-rk-wait{visibility:hidden}
+.news .nw-rk svg{width:16px;height:16px}
+.news .nw-rk[data-st="work"] .nw-rki{animation:kspn var(--c-spin) linear infinite}
+html[data-motion="reduced"] .news .nw-rk[data-st="work"] .nw-rki{opacity:.45}
+@media (hover:hover) and (pointer:fine){ .news .nw-rk[data-st="idle"]:hover{background:var(--key-hover);color:var(--key-fg)} }
+.news .nw-rk:not([data-st="work"]):is(:active,.is-press){transform:translateY(1px);box-shadow:var(--key-dn);filter:var(--press-f);transition-duration:0s}
+@media (pointer:coarse){ .news .nw-rk::before{content:"";position:absolute;left:50%;top:50%;width:44px;height:44px;transform:translate(-50%,-50%)} }
 /* 오래됨 = 실패 표시: ! (--fail-dot) + 글자 — 앰버 아님(design.md §2) */
 .news .nw-at.stale{color:var(--fg2);font-weight:600}
 .news .nw-at svg{width:15px;height:15px;flex:none}
@@ -17639,6 +17653,8 @@ html:not([data-motion="reduced"]) .news :is(.nw-row,.dc-row).skel .nw-sk{animati
   .news .nw-tabs{order:5;width:100%}
   .news .nw-tabs > button{padding:0 var(--space-3);font-size:var(--fs-md)}
   .news .nw-at{margin-left:0}
+  /* 머리 시각은 "09:26"만 보여요 — "기준"은 화면 읽기에만(↻ 키 자리, 360px에서 제목 탭 · 시각 · 키가 한 줄) */
+  .news .nw-at .nw-atw{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
   .news .nw-only{order:6;font-size:var(--fs-md)}
   .news .nw-list{grid-auto-rows:auto}
   .news .nw-row{grid-template-columns:auto minmax(0,1fr);grid-template-areas:"t s" "tt tt" "k k";row-gap:var(--space-2);align-items:center;justify-items:start;
@@ -17682,6 +17698,9 @@ html[data-motion="reduced"] .news *{animation:none!important}
    news controls move to a second row like the other tab's, and the card keeps one height: the PC fill (whole rows, min 5, two columns
    from 1200 px) is measured on the tab shown and handed to it as L = {measure, base, two, phone}. Only the tab shown polls its data.
    onHide() runs when its tab stops being shown: another tab picked, the tab removed, or the card hidden (KHNews.hide).
+   ↻ 새로 받기: the head's icon key asks the tab shown again — spec.refresh() → Promise<true (arrived) · false (failed) · null (gone)>
+   and spec.freshAt() → Date.now() of its last good answer (under 10 s: not asked again, "방금 받았어요"). KHNews.atTime(text) = the
+   head's "HH:MM 기준" span.
    Design standard (docs/standards/design.md, ux/std-news 2026-11-16): the title tabs are an underline row (KH.ui.seg, lead / trail), the
    outlet tabs the template's segment; 더보기 · 접기 is a fold (only the list's box grows on `open`, what is below moves once — KHNews.fold
    for the other tabs); a number that moves with new data (a chip's %, a count) changes in place the way it went (KH.ui.swap, §6-4 · P9),
@@ -17737,6 +17756,7 @@ const h2 = h('h2', { id: 'news-h', text: '시장 뉴스' });
 const ttl = h('div', { class: 'seg nw-ftabs', role: 'tablist', id: 'news-h', 'aria-label': '지도 아래 패널' });
 const at = h('span', { class: 'nw-at' });
 const hd = h('div', { class: 'nw-hd' });
+let rk = null;                                           // the ↻ key at the head's right end (live only — made below)
 const newsPane = h('div', { class: 'nw-pane', id: 'news-p-news' });
 const newsSub = h('div', { class: 'nw-sub' });
 function renderTT(o) {
@@ -17760,8 +17780,8 @@ function arrange() {
   const multi = FT.list.length > 1, hasNews = !!FT.list.length && FT.list[0].key === 'news';
   root.classList.toggle('multi', multi || !hasNews);          // a lone other tab (no 시장 뉴스 on this Worker) keeps its own row too
   root.setAttribute('aria-labelledby', 'news-h');
-  if (multi) { put(hd, ttl, at); renderTT(); if (typeof UI.seg === 'function') UI.seg(ttl); }
-  else { h2.textContent = FT.list.length ? labelOf(FT.list[0]) : '시장 뉴스'; put(hd, h2, at); }
+  if (multi) { put(hd, ttl, at, rk); renderTT(); if (typeof UI.seg === 'function') UI.seg(ttl); }
+  else { h2.textContent = FT.list.length ? labelOf(FT.list[0]) : '시장 뉴스'; put(hd, h2, at, rk); }
   if (hasNews) arrangeNews(multi);
   for (const t of FT.list) {
     const on = t.key === FT.cur, pane = t.key === 'news' ? newsPane : t.pane;
@@ -17886,6 +17906,68 @@ const more = typeof UI.akey === 'function' ? UI.akey('nw-kbtn nw-more', { idle: 
 more.setAttribute('aria-expanded', 'false');
 const credit = h('small');
 const newsFt = h('div', { class: 'nw-ft' }, more, credit);
+/* ↻ 새로 받기 (사용자 2026-11-16 09:24 "시장 뉴스, 오늘 공시, 정책 자료 새로고침 버튼이 있어야할듯") — one icon key at the head's right end
+   (the title tab row's end on every width), for the tab shown: 시장 뉴스 load() here, another tab's spec.refresh() (오늘 공시 KHDisc,
+   정책 자료 KHPolicy). An async icon key (controls.md §5-3): ↻ → it turns while it works (줄이기: still, dimmed; aria-busy, no second
+   press) → ✓ held 1120 ms / ! (--fail-dot) until the next press, the tab changes or that tab's data comes in; the words go to a bubble
+   under the key + the polite live region. The source is spared: a tab whose last good answer is under 10 s old is not asked again —
+   the bubble says "방금 받았어요", nothing else moves. A list that comes in this way is drawn at once even with the pointer in the card
+   (the reader asked for it); its rules are the tab's own (새 공시 점, counts that swap, P4). Hidden while the head carries its own
+   다시 시도 (오래됨 — one key per job) and kept in place, invisible, while the first list loads. */
+const RK_GAP = 10e3, RK_HOLD = 1120;
+const RK_SVG = '<svg class="nw-rki" viewBox="0 0 20 20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">'
+  + '<path d="M15.8 11.55A6 6 0 1 1 15.2 7" vector-effect="non-scaling-stroke"/><path d="M16 4.1L15.2 7L12.3 6.2" vector-effect="non-scaling-stroke"/></svg>';
+const rkIcon = () => { const t = document.createElement('template'); t.innerHTML = RK_SVG; return t.content.firstElementChild; };
+rk = h('button', { type: 'button', class: 'kasync nw-rk', 'data-st': 'idle', 'data-busy': 'work', 'data-keep-label': '' },
+  h('span', { class: 'klb' },
+    h('span', { class: 'kl on', 'data-l': 'idle work' }, rkIcon()),
+    h('span', { class: 'kl', 'data-l': 'done' }, icon('check')),
+    h('span', { class: 'kl', 'data-l': 'fail' }, icon('warn'))));
+const RK = { seq: 0, failAt: 0, holdT: 0 };
+// the tab shown: its name, how to ask again, when its last good answer came (Date.now)
+function rkApi() {
+  const t = FT.list.find(x => x.key === FT.cur);
+  if (!t) return null;
+  if (t.key === 'news') return { key: 'news', name: '시장 뉴스', refresh: newsRefresh, freshAt: () => S.okAt };
+  if (typeof t.refresh !== 'function') return null;
+  return { key: t.key, name: labelOf(t), refresh: t.refresh, freshAt: typeof t.freshAt === 'function' ? t.freshAt : () => 0 };
+}
+function rkSet(st) {
+  clearTimeout(RK.holdT);
+  if (typeof UI.state === 'function') UI.state(rk, st);
+  else { rk.dataset.st = st; rk.setAttribute('aria-busy', String(st === 'work')); }
+}
+// the head was drawn again (a tab change, new data, a state): label, place, and a ! that the tab's own data has since answered
+function rkSync() {
+  const api = rkApi();
+  rk.hidden = !api || !!at.querySelector('.kasync');
+  rk.classList.toggle('nw-rk-wait', !!api && !rk.hidden && !!at.querySelector('.kspn') && rk.dataset.st !== 'work');
+  if (api) rk.setAttribute('aria-label', `${api.name} 새로 받기`);
+  if (api && rk.dataset.st === 'fail' && (api.freshAt() || 0) > RK.failAt) rkSet('idle');
+}
+function rkReset() { RK.seq++; if (rk.dataset.st !== 'idle') rkSet('idle'); rkSync(); }
+const rkBubble = (text, kind) => { if (typeof UI.bubble === 'function') UI.bubble(rk, text, kind); };
+rk.addEventListener('click', async () => {
+  if (rk.dataset.st === 'work' || rk.hidden || rk.classList.contains('nw-rk-wait')) return;
+  const api = rkApi();
+  if (!api) return;
+  const fresh = api.freshAt() || 0;
+  if (fresh && Date.now() - fresh < RK_GAP) { rkBubble('방금 받았어요'); return; }      // quiet: no request, no icon change
+  const seq = ++RK.seq;
+  rkSet('work');
+  let r = false;
+  try { r = await api.refresh(); } catch (e) { r = false; }
+  if (seq !== RK.seq || !rk.isConnected) return;         // the tab changed meanwhile: the key went back to idle with it
+  if (r == null) { rkSet('idle'); rkSync(); return; }
+  if (r) {
+    rkSet('done'); rkBubble('새로 받았어요', 'done');
+    RK.holdT = setTimeout(() => { if (seq === RK.seq && rk.dataset.st === 'done') { rkSet('idle'); rkSync(); } }, RK_HOLD);
+  } else {
+    RK.failAt = Date.now();
+    rkSet('fail'); rkBubble('못 받았어요 · 잠시 뒤 다시 눌러 주세요', 'fail');
+  }
+  rkSync();
+});
 // one tab: the outlet tabs and the chip sit in the head row (as before); several: in this tab's own row under the title tabs
 arrangeNews = multi => {
   if (multi) { put(newsSub, tabs, onlyBtn); put(newsPane, newsSub, note, list, newsFt); }
@@ -17913,7 +17995,10 @@ const reading = () => S.ptr || root.contains(document.activeElement);
 /* ───────── head: "HH:MM 기준" · 불러오는 중 · 받은 목록 없음 · 오래됨 ───────── */
 let staleSpan = null;
 function staleText() { const m = Math.max(15, Math.round((Date.now() - S.okAt) / 60000)); return `${timeText(S.data.asOf)} 기준 · ${m}분째 못 받았어요`; }
-function renderHead() {
+function renderHead() { headKids(); if (rk) rkSync(); }
+// "HH:MM 기준": on a phone the word 기준 is for screen readers only (the ↻ key needs its room — news.css .nw-atw)
+const atTime = t => h('span', {}, t, h('span', { class: 'nw-atw', text: ' 기준' }));
+function headKids() {
   const ext = curExt();
   if (ext) { staleSpan = null; at.classList.remove('stale'); put(at, typeof ext.at === 'function' ? ext.at(at) : null); return; }
   if (S.loading && !S.data) { at.classList.remove('stale'); staleSpan = null; put(at, icon('spin'), h('span', { text: '불러오는 중' })); return; }
@@ -17926,7 +18011,7 @@ function renderHead() {
     return;
   }
   at.classList.remove('stale'); staleSpan = null;
-  put(at, h('span', { text: `${timeText(S.data.asOf)} 기준` }));
+  put(at, atTime(timeText(S.data.asOf)));
 }
 
 /* ───────── tabs: 전체 + the outlets that have items (fresh or the last good copy) ───────── */
@@ -18160,7 +18245,7 @@ function load(o = {}) {
     if (data) {
       S.tries = 0; S.okAt = Date.now();
       if (o.silent) { S.data = data; S.next = null; ensureIdx(); }   // 다시 시도: its ✓ shows first, then its render() draws
-      else if (S.data && reading()) S.next = data;                    // rows never move under the reader
+      else if (S.data && reading() && !o.now) S.next = data;          // rows never move under the reader (unless they asked: ↻)
       else apply(data);
     } else {
       S.tries++;
@@ -18171,6 +18256,8 @@ function load(o = {}) {
   })();
   return S.busy;
 }
+// ↻: at once, even with the pointer in the card; a list an earlier (polling) load left waiting comes in too. null = no news here (404)
+async function newsRefresh() { const ok = await load({ now: true }); if (S.gone) return null; if (S.next) apply(S.next); return ok; }
 const active = () => S.visible && S.near && !document.hidden && !root.hidden && !S.gone && FT.cur === 'news';
 function schedule() {
   clearTimeout(S.timer); S.timer = 0;
@@ -18272,6 +18359,7 @@ function goneNews() {
   arrange(); onSelect(curExt());
 }
 onSelect = t => {
+  rkReset();
   if (!t || t.key === 'news') { render(); refit(true); schedule(); return; }
   clearTimeout(S.timer); S.timer = 0;
   setHover(null);
@@ -18279,6 +18367,8 @@ onSelect = t => {
 };
 window.KHNews = { show, hide, refresh: () => load(),
   addTab, removeTab, select: k => select(k, false), tab: () => FT.cur,
+  // a tab's head time "HH:MM 기준" (the word is for screen readers only on a phone, where the ↻ key needs the room)
+  atTime,
   // a tab's label / count / head line changed (no list redraw)
   update(o) { renderTT(o); if (curExt()) renderHead(); },
   // 더보기 of another tab: the same fold (its list box grows on `open`, its .nw-x rows come in at a quarter)
@@ -18532,7 +18622,7 @@ const S = {
   view: [], byCode: new Map(), marks: new Map(), markSig: '', fresh: new Set(), seen: '', rp: null, rpKey: '',
   mapSet: new Set(), mapKey: '',
   kt: 'main', only: true, open: false, L: { measure: false, base: 5, two: false, phone: narrowMQ.matches, rowsMax: MAX_ROWS },
-  pending: false, ptr: false, hov: '', litOn: false, lgKey: '', tabbed: false, names: null, namesBusy: false, swap: false,
+  pending: false, now: false, ptr: false, hov: '', litOn: false, lgKey: '', tabbed: false, names: null, namesBusy: false, swap: false,
 };
 const today = () => kstOf(nowMs()).date;
 const isToday = () => !!S.data && S.data.date === today();
@@ -18788,7 +18878,7 @@ function emptyMsg() {
 function renderPanel(o = {}) {
   if (!S.tabbed) return;
   const L = S.L, d = S.data, none = !d || !S.view.length;
-  if (!o.force && reading() && list.querySelector('.dc-row:not(.skel)')) { S.pending = true; return; }
+  if (!o.force && !S.now && reading() && list.querySelector('.dc-row:not(.skel)')) { S.pending = true; return; }
   S.pending = false;
   pane.dataset.k1 = ['정기', '지분', '기타'].includes(S.kt) ? '1' : '0';
   for (const b of ktabs.children) {
@@ -18839,13 +18929,24 @@ function atKids(atEl) {
     const since = S.tries > 0 ? S.okAt : isoMs(d.asOf), m = Math.max(5, Math.round((Date.now() - since) / 60000));
     return [icon('warn'), h('span', { text: `${asOfText(d.asOf)} 기준 · ${m}분째 못 받았어요` }), retryKey(true)];
   }
-  return h('span', { text: `${asOfText(d.asOf)} 기준` });
+  return atTime(asOfText(d.asOf));
+}
+const atTime = t => (window.KHNews && typeof window.KHNews.atTime === 'function' ? window.KHNews.atTime(t) : h('span', { text: `${t} 기준` }));
+// ↻ (the news card head's key): at once, drawn even with the pointer in the pane (the reader asked); a list an earlier (polling)
+// answer left waiting comes in too. null = the route is gone (404) — the tab is no longer there
+async function userLoad() {
+  const ok = await load({ now: true });
+  if (S.gone) return null;
+  if (S.pending) renderPanel({ force: true });
+  return ok;
 }
 const tabSpec = {
   key: 'disc', pane, list,
   label: () => (!S.data || isToday() ? '오늘 공시' : `${dayLong(S.data.date)} 공시`),
   count: () => (S.data ? String(listFor('mark', true).length) : ''),
   at: atKids,
+  refresh: () => userLoad(),
+  freshAt: () => S.okAt,
   render(L) { S.L = L; renderPanel({ force: true }); renderLit(); },
   onShow: () => renderLit(),
   // leaving the tab (시장 뉴스, the card hidden, the tab removed): the map back to normal — its key is no longer on screen
@@ -19037,7 +19138,7 @@ function load(o = {}) {
       derive(); schedule();
       return true;
     }
-    if (d) { S.tries = 0; S.okAt = Date.now(); S.err = false; setData(d); }
+    if (d) { S.tries = 0; S.okAt = Date.now(); S.err = false; S.now = !!o.now; setData(d); S.now = false; }
     else { S.tries++; S.err = !S.data; if (!o.silent) refreshAll(); else { renderLit(); renderLegend(); } }
     schedule();
     return !!d;
@@ -19278,6 +19379,19 @@ function asOfText(iso) {
   return m[1] === kstDay(nowMs()) ? m[2] : `${md(m[1])} ${m[2]}`;
 }
 const motion = () => (typeof KH.motion === 'function' ? KH.motion() : document.documentElement.dataset.motion || 'standard');
+// a count that moved with a new answer changes in place, the way it went (design.md §6-4 · P9 — KH.ui.swap); the first draw and a
+// filter change write it at once (P4)
+const numOf = t => { const m = /[+−-]?\d[\d,]*\.?\d*/.exec(String(t || '').replace(/−/g, '-')); return m ? parseFloat(m[0].replace(/,/g, '')) : NaN; };
+function swapNum(el, text, quiet) {
+  if (!el) return;
+  text = String(text);
+  const was = el.textContent;
+  if (was === text) return;
+  const sw = typeof UI.swap === 'function';
+  if (quiet || !was || !text || !sw) { if (sw && el.childElementCount) UI.swap(el, text, text); el.textContent = text; return; }
+  const a = numOf(was), b = numOf(text);
+  UI.swap(el, text, was, isFinite(a) && isFinite(b) ? Math.sign(b - a) : 0);
+}
 const card = document.getElementById('news');
 const msgLi = (title, sub, extra) => h('li', { class: 'pl-msg' }, h('b', { text: title }), sub ? h('small', { text: sub }) : null, extra || null);
 
@@ -19293,7 +19407,7 @@ if (!LIVE) {
 /* ───────── state ───────── */
 const S = {
   data: null, okAt: 0, lastTry: 0, tries: 0, loading: true, busy: null, timer: 0, gone: false,
-  f: 'all', open: false, shown: 0, pending: false, ptr: false, near: !('IntersectionObserver' in window), tabbed: false,
+  f: 'all', open: false, shown: 0, pending: false, swapLater: false, ptr: false, near: !('IntersectionObserver' in window), tabbed: false,
   L: { measure: false, base: 5, two: false, phone: narrowMQ.matches, rowsMax: MAX_ROWS },
 };
 
@@ -19344,14 +19458,13 @@ function emptyMsg() {
 }
 
 /* ───────── render ───────── */
-function renderChips(none) {
+function renderChips(none, swap) {
   for (const b of chips.children) {
     const k = b.dataset.k, n = !S.data ? '' : String(listFor(k).length);
     b.setAttribute('aria-pressed', String(k === S.f));
     const off = none || (k !== 'all' && !has(k));
     if (off) b.setAttribute('aria-disabled', 'true'); else b.removeAttribute('aria-disabled');
-    const nEl = b.querySelector('.pl-n');
-    if (nEl.textContent !== n) nEl.textContent = n;
+    swapNum(b.querySelector('.pl-n'), n, !swap);
   }
 }
 function renderNote() {
@@ -19371,11 +19484,12 @@ function renderNote() {
 function renderPanel(o = {}) {
   if (!S.tabbed) return;
   const L = S.L, d = S.data;
-  if (!o.force && reading() && list.querySelector('.pl-row:not(.skel)')) { S.pending = true; return; }
-  S.pending = false;
+  if (!o.force && reading() && list.querySelector('.pl-row:not(.skel)')) { S.pending = true; S.swapLater = S.swapLater || !!o.swap; return; }
+  const swap = !!o.swap || S.swapLater;
+  S.pending = false; S.swapLater = false;
   pane.dataset.f = S.f;
   const none = !d || !d.items.length;
-  renderChips(none);
+  renderChips(none, swap);
   renderNote();
   const all = listFor(), base = L.base;
   const shown = L.measure ? 0 : S.open ? Math.min(MAX_ROWS, all.length) : base;
@@ -19408,8 +19522,9 @@ function atKids() {
     const m = Math.max(30, Math.round((Date.now() - S.okAt) / 60000));
     return [warn(), h('span', { text: `${asOfText(d.asOf)} 기준 · ${m}분째 못 받았어요` }), retryKey(true)];
   }
-  return h('span', { text: `${asOfText(d.asOf)} 기준` });
+  return atTime(asOfText(d.asOf));
 }
+const atTime = t => (typeof News.atTime === 'function' ? News.atTime(t) : h('span', { text: `${t} 기준` }));
 
 /* ───────── the footer credit line (right after 공시, above ©) ───────── */
 const footP = h('p', { id: 'foot-policy', hidden: true });
@@ -19438,6 +19553,9 @@ if (footEl) new MutationObserver(() => placeFoot()).observe(footEl, { childList:
 const tabSpec = {
   key: 'policy', pane, list, label: '정책 자료',
   at: atKids,
+  // ↻ (the news card head's key): at once, drawn even with the pointer in the pane (the reader asked). null = the route is gone (404)
+  async refresh() { const ok = await load({ now: true }); if (S.gone) return null; if (S.pending) renderPanel({ force: true }); return ok; },
+  freshAt: () => S.okAt,
   // also when this tab became the shown one without a select() (시장 뉴스 gone on an old Worker → the next tab takes over)
   render(L) { S.L = L; renderPanel({ force: true }); if (!S.data && !S.busy && News.tab() === 'policy') schedule(); },
   onShow() { schedule(); },
@@ -19500,7 +19618,7 @@ function load(o = {}) {
     if (status === 404 && !S.data) { gone(); return false; }
     if (d) {
       S.tries = 0; S.okAt = Date.now(); S.data = d;     // a filter whose source came back empty stays: its message says why
-      if (!o.silent) { renderPanel(); newsUpdate(); }
+      if (!o.silent) { renderPanel({ swap: true, force: !!o.now }); newsUpdate(); }
     } else {
       S.tries++;
       if (!o.silent) { renderPanel({ force: !S.data }); newsUpdate(); }

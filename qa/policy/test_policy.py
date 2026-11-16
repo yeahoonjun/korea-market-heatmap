@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """QA for the 정책 자료 tab of the news card (src/policy, docs/standards/policy-feeds.md §5) on the built pages.
 
-  python3 scripts/build_page.py && python3 qa/policy/test_policy.py
+  python3 scripts/build_page.py && python3 qa/policy/test_policy.py [--only=refresh]
 
 Starts qa/policy/mock_api.py on POLICY_QA_PORT (default 8970) and stops it at the end; screenshots → qa/shots/policy/
 (390×844 · 1440×900 × 기본 · 글라스 밝게, + a few states). Exit 1 if any check fails.
@@ -54,7 +54,7 @@ class Errors:
         page.on('pageerror', lambda e: self.items.append(f'pageerror: {e}'))
 
 
-def open_page(br, url, w, h, theme='base', motion='standard', errors=None, feed=None):
+def open_page(br, url, w, h, theme='base', motion='standard', errors=None, feed=None, clock=False):
     mobile = w <= 760
     ctx = br.new_context(viewport={'width': w, 'height': h}, is_mobile=mobile, has_touch=mobile, device_scale_factor=1)
     init = "try{localStorage.setItem('khm.theme', %s);localStorage.setItem('khm.motion', %s);localStorage.setItem('khm.tickerPaused','true')" % (
@@ -63,6 +63,8 @@ def open_page(br, url, w, h, theme='base', motion='standard', errors=None, feed=
         init += ";localStorage.setItem('khm.feedTab', %s)" % json.dumps(json.dumps(feed))
     ctx.add_init_script(init + "}catch(e){}")
     pg = ctx.new_page()
+    if clock:
+        pg.clock.install()
     if errors is not None:
         errors.attach(pg)
     pg.goto(url)
@@ -289,6 +291,48 @@ def run(br):
     ctx.close()
 
 
+def refresh_key(br):
+    # 7 · ↻ 새로 받기 on the 정책 자료 tab (the news card head's key, 사용자 2026-11-16 09:24): this tab only; under 10 s since its last
+    #     answer → no request ("방금 받았어요"); a press brings the new item at once (pointer in the pane), the chip counts swap (§6-4), the
+    #     head's time is the answer's; a failure → ! (--fail-dot) and the list stays
+    err = Errors()
+    mode('ok')
+    ctx, pg = open_page(br, LIVE, 1440, 900, errors=err, clock=True)
+    pick_policy(pg)
+    k = pg.evaluate("({ label: document.querySelector('#news .nw-rk').getAttribute('aria-label'), hidden: document.querySelector('#news .nw-rk').hidden })")
+    check('↻ on 정책 자료: "정책 자료 새로 받기", shown', k['label'] == '정책 자료 새로 받기' and not k['hidden'], k)
+    n0 = mock('/__stats').get('/api/policy', 0)
+    pg.click('#news .nw-rk'); pg.wait_for_timeout(300)
+    b = pg.evaluate("[...document.querySelectorAll('.kbub')].map(b => b.textContent)")
+    check('↻ under 10 s since the last answer → no request, "방금 받았어요"', mock('/__stats').get('/api/policy', 0) == n0 and '방금 받았어요' in b, (mock('/__stats').get('/api/policy', 0) - n0, b))
+
+    def more(route):
+        j = json.loads(route.fetch().text())
+        j['items'].insert(0, {'src': 'kdi', 'title': '[시험] 새 정책 자료', 'url': 'https://eiec.kdi.re.kr/policy/materialView.do?num=1', 't': j['asOf'][:10], 'org': '재정경제부'})
+        j['asOf'] = j['asOf'][:11] + '23:58:00+09:00'
+        route.fulfill(json=j)
+    pg.route('**/api/policy', more)
+    pg.clock.run_for(11000); pg.wait_for_timeout(100)
+    n0, nn = mock('/__stats').get('/api/policy', 0), mock('/__stats').get('/api/news', 0)
+    pg.evaluate("window.__sw = []; const o = KH.ui.swap; KH.ui.swap = (el, t, f, d) => { __sw.push([el.closest('.pl-chip') ? el.closest('.pl-chip').dataset.k : el.className, String(f), String(t)]); return o(el, t, f, d); }; 0")
+    pg.hover('#news-p-policy .pl-row:nth-child(2)'); pg.hover('#news .nw-rk'); pg.click('#news .nw-rk'); pg.wait_for_timeout(800)
+    r = pg.evaluate("({ top: document.querySelector('#news-p-policy .pl-row .pl-tt a').textContent, at: document.querySelector('#news .nw-at').textContent, st: document.querySelector('#news .nw-rk').dataset.st, sw: __sw })")
+    check('↻: one request for this tab only', mock('/__stats').get('/api/policy', 0) - n0 == 1 and mock('/__stats').get('/api/news', 0) == nn, (mock('/__stats').get('/api/policy', 0) - n0, mock('/__stats').get('/api/news', 0) - nn))
+    check('↻ with the pointer in the pane: the new item on top at once; head = the answer\'s time; ✓', r['top'] == '[시험] 새 정책 자료' and r['at'] == '23:58 기준' and r['st'] == 'done', r)
+    check('↻: chip counts (전체 · KDI) moved with the answer and swapped in place (§6-4)', any(x[0] == 'all' and x[1] == str(N_ALL) and x[2] == str(N_ALL + 1) for x in r['sw'])
+          and any(x[0] == 'kdi' and x[2] == str(N_KDI + 1) for x in r['sw']), r['sw'])
+    pg.unroute('**/api/policy')
+    mode('fail', reset=False)
+    pg.clock.run_for(11000); pg.wait_for_timeout(100)
+    pg.click('#news .nw-rk'); pg.wait_for_timeout(700)
+    f = pg.evaluate("({ st: document.querySelector('#news .nw-rk').dataset.st, rows: document.querySelectorAll('#news-p-policy .pl-row:not(.skel)').length, bub: [...document.querySelectorAll('.kbub')].map(b => b.textContent), col: getComputedStyle(document.querySelector('#news .nw-rk .kwn')).color, fd: (() => { const i = document.createElement('i'); i.style.color = 'var(--fail-dot)'; document.body.append(i); const c = getComputedStyle(i).color; i.remove(); return c; })() })")
+    check('↻ fails → ! (--fail-dot) + "못 받았어요"; the list stays', f['st'] == 'fail' and f['rows'] > 0 and f['col'] == f['fd'] and any('못 받았어요' in x for x in f['bub']), f)
+    ctx.close()
+    errs = [e for e in err.items if 'Failed to load resource' not in e]
+    check('↻ (정책 자료): no console errors', not errs, errs[:3])
+    mode('ok')
+
+
 def main():
     subprocess.run(['fuser', '-k', f'{PORT}/tcp'], capture_output=True)
     srv = subprocess.Popen([sys.executable, str(HERE / 'mock_api.py'), str(PORT)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -300,7 +344,9 @@ def main():
                 time.sleep(0.1)
         with sync_playwright() as p:
             br = p.chromium.launch(executable_path='/usr/bin/google-chrome', args=['--no-sandbox'])
-            run(br)
+            if '--only=refresh' not in sys.argv:
+                run(br)
+            refresh_key(br)
             br.close()
     finally:
         srv.terminate()

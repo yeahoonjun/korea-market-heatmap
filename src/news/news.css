@@ -42,6 +42,20 @@ html[data-motion="reduced"] .news{--nw-tx-out:0ms;--nw-tx-gap:0ms;--nw-tx-in:0ms
 @media (hover:hover) and (pointer:fine){ .news .nw-ftabs > button:hover{color:var(--fg)} }
 .news .nw-at{margin-left:auto;display:inline-flex;align-items:center;gap:var(--space-4);font-size:var(--fs-sm);line-height:var(--lh-ui);color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums;min-width:0}
 .news .nw-at > span{overflow:hidden;text-overflow:ellipsis;min-width:0}
+/* ↻ 새로 받기(news.js rk — 보고 있는 탭만): 머리 줄 오른쪽 끝의 아이콘 키 = 키 표면(--key-bg · --key-sh), --h-key 정사각(데스크톱 32 ·
+   휴대폰 40, 터치는 가상 44), 아이콘 16px · 선 1.75px. 비동기 키(controls.md §5-3): 하는 중엔 ↻가 그 자리에서 돌고(--c-spin) 줄이기에선
+   멈춘 채 .45로 흐려져요, 됐어요 ✓ · 안 돼요 !는 템플릿 .kasync 표면(! = --fail-dot). 머리 시각과의 사이는 --space-4 */
+.news .nw-rk{position:relative;display:inline-grid;place-items:center;flex:none;width:var(--h-key);height:var(--h-key);margin-left:calc(-1 * var(--space-2));padding:0;border-radius:var(--r-key);
+  background:var(--key-bg);box-shadow:var(--key-sh);color:var(--key-ic);touch-action:manipulation;-webkit-tap-highlight-color:transparent;
+  transition:transform var(--c-fast) var(--c-out),box-shadow var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out),background var(--sp-fade-dur) var(--sp-fade),color var(--sp-fade-dur) var(--sp-fade)}
+.news .nw-rk[hidden]{display:none}
+.news .nw-rk.nw-rk-wait{visibility:hidden}
+.news .nw-rk svg{width:16px;height:16px}
+.news .nw-rk[data-st="work"] .nw-rki{animation:kspn var(--c-spin) linear infinite}
+html[data-motion="reduced"] .news .nw-rk[data-st="work"] .nw-rki{opacity:.45}
+@media (hover:hover) and (pointer:fine){ .news .nw-rk[data-st="idle"]:hover{background:var(--key-hover);color:var(--key-fg)} }
+.news .nw-rk:not([data-st="work"]):is(:active,.is-press){transform:translateY(1px);box-shadow:var(--key-dn);filter:var(--press-f);transition-duration:0s}
+@media (pointer:coarse){ .news .nw-rk::before{content:"";position:absolute;left:50%;top:50%;width:44px;height:44px;transform:translate(-50%,-50%)} }
 /* 오래됨 = 실패 표시: ! (--fail-dot) + 글자 — 앰버 아님(design.md §2) */
 .news .nw-at.stale{color:var(--fg2);font-weight:600}
 .news .nw-at svg{width:15px;height:15px;flex:none}
@@ -147,6 +161,8 @@ html:not([data-motion="reduced"]) .news :is(.nw-row,.dc-row).skel .nw-sk{animati
   .news .nw-tabs{order:5;width:100%}
   .news .nw-tabs > button{padding:0 var(--space-3);font-size:var(--fs-md)}
   .news .nw-at{margin-left:0}
+  /* 머리 시각은 "09:26"만 보여요 — "기준"은 화면 읽기에만(↻ 키 자리, 360px에서 제목 탭 · 시각 · 키가 한 줄) */
+  .news .nw-at .nw-atw{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
   .news .nw-only{order:6;font-size:var(--fs-md)}
   .news .nw-list{grid-auto-rows:auto}
   .news .nw-row{grid-template-columns:auto minmax(0,1fr);grid-template-areas:"t s" "tt tt" "k k";row-gap:var(--space-2);align-items:center;justify-items:start;

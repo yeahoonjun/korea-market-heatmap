@@ -38,6 +38,19 @@ function asOfText(iso) {
   return m[1] === kstDay(nowMs()) ? m[2] : `${md(m[1])} ${m[2]}`;
 }
 const motion = () => (typeof KH.motion === 'function' ? KH.motion() : document.documentElement.dataset.motion || 'standard');
+// a count that moved with a new answer changes in place, the way it went (design.md §6-4 · P9 — KH.ui.swap); the first draw and a
+// filter change write it at once (P4)
+const numOf = t => { const m = /[+−-]?\d[\d,]*\.?\d*/.exec(String(t || '').replace(/−/g, '-')); return m ? parseFloat(m[0].replace(/,/g, '')) : NaN; };
+function swapNum(el, text, quiet) {
+  if (!el) return;
+  text = String(text);
+  const was = el.textContent;
+  if (was === text) return;
+  const sw = typeof UI.swap === 'function';
+  if (quiet || !was || !text || !sw) { if (sw && el.childElementCount) UI.swap(el, text, text); el.textContent = text; return; }
+  const a = numOf(was), b = numOf(text);
+  UI.swap(el, text, was, isFinite(a) && isFinite(b) ? Math.sign(b - a) : 0);
+}
 const card = document.getElementById('news');
 const msgLi = (title, sub, extra) => h('li', { class: 'pl-msg' }, h('b', { text: title }), sub ? h('small', { text: sub }) : null, extra || null);
 
@@ -53,7 +66,7 @@ if (!LIVE) {
 /* ───────── state ───────── */
 const S = {
   data: null, okAt: 0, lastTry: 0, tries: 0, loading: true, busy: null, timer: 0, gone: false,
-  f: 'all', open: false, shown: 0, pending: false, ptr: false, near: !('IntersectionObserver' in window), tabbed: false,
+  f: 'all', open: false, shown: 0, pending: false, swapLater: false, ptr: false, near: !('IntersectionObserver' in window), tabbed: false,
   L: { measure: false, base: 5, two: false, phone: narrowMQ.matches, rowsMax: MAX_ROWS },
 };
 
@@ -104,14 +117,13 @@ function emptyMsg() {
 }
 
 /* ───────── render ───────── */
-function renderChips(none) {
+function renderChips(none, swap) {
   for (const b of chips.children) {
     const k = b.dataset.k, n = !S.data ? '' : String(listFor(k).length);
     b.setAttribute('aria-pressed', String(k === S.f));
     const off = none || (k !== 'all' && !has(k));
     if (off) b.setAttribute('aria-disabled', 'true'); else b.removeAttribute('aria-disabled');
-    const nEl = b.querySelector('.pl-n');
-    if (nEl.textContent !== n) nEl.textContent = n;
+    swapNum(b.querySelector('.pl-n'), n, !swap);
   }
 }
 function renderNote() {
@@ -131,11 +143,12 @@ function renderNote() {
 function renderPanel(o = {}) {
   if (!S.tabbed) return;
   const L = S.L, d = S.data;
-  if (!o.force && reading() && list.querySelector('.pl-row:not(.skel)')) { S.pending = true; return; }
-  S.pending = false;
+  if (!o.force && reading() && list.querySelector('.pl-row:not(.skel)')) { S.pending = true; S.swapLater = S.swapLater || !!o.swap; return; }
+  const swap = !!o.swap || S.swapLater;
+  S.pending = false; S.swapLater = false;
   pane.dataset.f = S.f;
   const none = !d || !d.items.length;
-  renderChips(none);
+  renderChips(none, swap);
   renderNote();
   const all = listFor(), base = L.base;
   const shown = L.measure ? 0 : S.open ? Math.min(MAX_ROWS, all.length) : base;
@@ -168,8 +181,9 @@ function atKids() {
     const m = Math.max(30, Math.round((Date.now() - S.okAt) / 60000));
     return [warn(), h('span', { text: `${asOfText(d.asOf)} 기준 · ${m}분째 못 받았어요` }), retryKey(true)];
   }
-  return h('span', { text: `${asOfText(d.asOf)} 기준` });
+  return atTime(asOfText(d.asOf));
 }
+const atTime = t => (typeof News.atTime === 'function' ? News.atTime(t) : h('span', { text: `${t} 기준` }));
 
 /* ───────── the footer credit line (right after 공시, above ©) ───────── */
 const footP = h('p', { id: 'foot-policy', hidden: true });
@@ -198,6 +212,9 @@ if (footEl) new MutationObserver(() => placeFoot()).observe(footEl, { childList:
 const tabSpec = {
   key: 'policy', pane, list, label: '정책 자료',
   at: atKids,
+  // ↻ (the news card head's key): at once, drawn even with the pointer in the pane (the reader asked). null = the route is gone (404)
+  async refresh() { const ok = await load({ now: true }); if (S.gone) return null; if (S.pending) renderPanel({ force: true }); return ok; },
+  freshAt: () => S.okAt,
   // also when this tab became the shown one without a select() (시장 뉴스 gone on an old Worker → the next tab takes over)
   render(L) { S.L = L; renderPanel({ force: true }); if (!S.data && !S.busy && News.tab() === 'policy') schedule(); },
   onShow() { schedule(); },
@@ -260,7 +277,7 @@ function load(o = {}) {
     if (status === 404 && !S.data) { gone(); return false; }
     if (d) {
       S.tries = 0; S.okAt = Date.now(); S.data = d;     // a filter whose source came back empty stays: its message says why
-      if (!o.silent) { renderPanel(); newsUpdate(); }
+      if (!o.silent) { renderPanel({ swap: true, force: !!o.now }); newsUpdate(); }
     } else {
       S.tries++;
       if (!o.silent) { renderPanel({ force: !S.data }); newsUpdate(); }
