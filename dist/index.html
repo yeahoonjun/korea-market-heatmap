@@ -291,7 +291,7 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 .tabs{display:flex;gap:var(--space-1);background:var(--tray-bg);box-shadow:var(--tray-sh);border-radius:var(--r-tray);padding:var(--space-2)}
 .tabs button{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;min-height:var(--h-key);padding:var(--space-1) 14px;border-radius:var(--r-in);font-size:var(--fs-lg);font-weight:600;color:var(--muted);transition:color var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out);white-space:nowrap}
 .tabs button[aria-pressed="true"]{color:var(--fg)}
-.tabs button:hover{color:var(--fg)}
+@media (hover:hover) and (pointer:fine){ .tabs button:hover{color:var(--fg)} }
 .tabs .tn{line-height:16px}
 .tabs .st{color:var(--acc);margin-right:var(--space-1);font-size:.9em;line-height:1}
 /* three groups (사용자 2026-11-15 21:38~21:40, A + "칸을 나누든 아님 묶여있는 느낌"): 코스피 · 코스닥 · 전체 | 테마 · 해외 · 지표 · 일정 |
@@ -341,10 +341,11 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 .sugg{position:absolute;left:0;right:0;top:40px;z-index:60;background:var(--pop-bg);border:1px solid var(--tip-bd);border-radius:var(--tip-r);padding:var(--space-2);box-shadow:var(--pop-sh);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);display:none;max-height:340px;overflow:auto}
 .sugg.open{display:block}
 .sugg button{display:grid;grid-template-columns:10px 1fr auto auto;align-items:center;gap:var(--space-4);width:100%;text-align:left;padding:var(--space-4) var(--space-4);border-radius:var(--r-row);font-size:var(--fs-lg)}
-.sugg button[aria-selected="true"],.sugg button:hover{background:color-mix(in srgb,var(--ov) 6%,transparent)}
+.sugg button[aria-selected="true"]{background:color-mix(in srgb,var(--ov) 6%,transparent)}
+@media (hover:hover) and (pointer:fine){ .sugg button:hover{background:color-mix(in srgb,var(--ov) 6%,transparent)} }
 .sugg .sw{width:10px;height:10px;border-radius:var(--r-mark)}
 .sugg .meta{color:var(--muted);font-size:var(--fs-sm)}
-.sugg .empty{padding:var(--space-4);color:var(--muted);font-size:var(--fs-md);line-height:1.5}
+.sugg .empty{padding:var(--space-4);color:var(--muted);font-size:var(--fs-md);line-height:var(--lh-text)}
 .sugg .empty small{display:block;font-size:var(--fs-sm);color:var(--faint);margin-top:var(--space-1)}
 .ctl{display:flex;align-items:center;gap:var(--space-3)}
 .ctl[hidden]{display:none}
@@ -355,14 +356,14 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 .seg{display:flex;background:var(--tray-bg);box-shadow:var(--tray-sh);border-radius:var(--r-tray);padding:3px}
 .seg button{padding:5px var(--space-4);border-radius:var(--r-in);font-size:var(--fs-md);color:var(--muted);white-space:nowrap;transition:color var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out)}
 .seg button[hidden]{display:none!important}
-.seg button:hover{color:var(--fg)}
+@media (hover:hover) and (pointer:fine){ .seg button:hover{color:var(--fg)} }
 .seg button[aria-pressed="true"]{color:var(--fg)}
 .seg .pal{display:inline-flex;gap:1px;margin-right:var(--space-3);vertical-align:-1px}
 .seg .pal b{width:6px;height:11px;display:block}
 .seg .pal b:first-child{border-radius:var(--r-mark) 0 0 var(--r-mark)} .seg .pal b:last-child{border-radius:0 var(--r-mark) var(--r-mark) 0}
 .setbtn{display:none;align-items:center;gap:var(--space-3);height:34px;padding:0 var(--space-5);border-radius:var(--r-key);background:var(--key-bg);box-shadow:var(--key-sh);color:var(--key-fg);font-size:var(--fs-md);font-weight:600;white-space:nowrap}
 .setbtn svg{width:16px;height:16px;color:var(--key-ic);flex:none}
-.setbtn:hover{background:var(--key-hover)}
+@media (hover:hover) and (pointer:fine){ .setbtn:hover{background:var(--key-hover)} }
 .setbtn[aria-expanded="true"]{color:var(--acc);box-shadow:var(--key-on)}
 .setbtn[aria-expanded="true"] svg{color:var(--acc)}
 .ctls-hd{display:none}
@@ -375,12 +376,12 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 .morehd{font-size:var(--fs-md);font-weight:700;color:var(--fg)}
 .morep .ctl{flex-direction:column;align-items:stretch;gap:var(--space-3)}
 .morep .seg button{flex:1 1 auto}
-.morep .hint{font-size:var(--fs-sm);color:var(--muted);line-height:1.45}
+.morep .hint{font-size:var(--fs-sm);color:var(--muted);line-height:var(--lh-text)}
 .morep .hint[hidden]{display:none}
 .morep .seg.wrap{flex-wrap:wrap}
 .morep .seg.wrap button{max-width:100%;overflow:hidden;text-overflow:ellipsis}
 .swbtn{display:flex;align-items:center;justify-content:space-between;gap:var(--space-5);width:100%;min-height:var(--h-row);padding:var(--space-2) var(--space-4) var(--space-2) var(--space-5);border-radius:var(--r-key);background:var(--key-bg);box-shadow:var(--key-sh);font-size:var(--fs-md);color:var(--fg);text-align:left;touch-action:pan-y;transition:filter var(--c-fast) var(--c-out)}
-.swbtn:hover{background:var(--key-hover)}
+@media (hover:hover) and (pointer:fine){ .swbtn:hover{background:var(--key-hover)} }
 .swbtn:active,.swbtn.is-press{filter:var(--press-f);transition-duration:0s}
 /* KH.addSetting({multi:true}): on / off chips (controls §5-7: fill + ring + a check that grows 0 → 14 px), at least `min` stay on */
 .kchips{display:flex;flex-wrap:wrap;gap:var(--space-3)}
@@ -414,7 +415,7 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
   .ctl.dd{position:relative}
   .ddbtn{display:inline-flex;align-items:center;gap:var(--space-3);height:var(--h-key);padding:0 var(--space-4) 0 var(--space-5);border-radius:var(--r-key);background:var(--key-bg);box-shadow:var(--key-sh);color:var(--key-fg);font-size:var(--fs-md);white-space:nowrap}
   .ddbtn svg{width:12px;height:12px;color:var(--key-ic);flex:none;transition:transform var(--c-base) var(--c-inout)}
-  .ddbtn:hover{background:var(--key-hover)}
+  @media (hover:hover) and (pointer:fine){ .ddbtn:hover{background:var(--key-hover)} }
   .ddbtn[aria-expanded="true"]{box-shadow:var(--key-on)}
   .ddbtn[aria-expanded="true"] svg{transform:rotate(180deg);color:var(--acc)}
   .ctl.dd > .seg{display:none;position:absolute;top:calc(100% + 6px);left:0;z-index:75;flex-direction:column;min-width:128px;padding:var(--space-2);background:var(--pop-bg);border-radius:calc(var(--tip-r) + 2px);box-shadow:inset 0 0 0 1px var(--tip-bd),var(--pop-sh);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur)}
@@ -424,7 +425,7 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
   .ctl.more{position:relative}
   .morebtn{display:inline-flex;align-items:center;justify-content:center;gap:var(--space-3);height:var(--h-key);padding:0 var(--space-5);border-radius:var(--r-key);background:var(--key-bg);box-shadow:var(--key-sh);color:var(--key-fg);font-size:var(--fs-md);white-space:nowrap}
   .morebtn svg{width:16px;height:16px;color:var(--key-ic);flex:none}
-  .morebtn:hover{background:var(--key-hover)}
+  @media (hover:hover) and (pointer:fine){ .morebtn:hover{background:var(--key-hover)} }
   .morebtn[aria-expanded="true"]{color:var(--acc);box-shadow:var(--key-on)}
   .morebtn[aria-expanded="true"] svg{color:var(--acc)}
   .morep{display:none;position:absolute;top:calc(100% + 6px);right:0;z-index:75;width:300px;padding:var(--space-5) var(--space-5) var(--space-5);background:var(--pop-bg);border:1px solid var(--tip-bd);border-radius:calc(var(--tip-r) + 2px);box-shadow:var(--tip-sh);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur)}
@@ -450,7 +451,7 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
   .ctls.open{display:flex}
   .ctls-hd{display:flex;align-items:center;justify-content:space-between;font-size:var(--fs-lg);font-weight:700}
   .ctls-hd .x{position:relative;width:var(--h-key);height:var(--h-key);border-radius:var(--r-key);display:grid;place-items:center;color:var(--muted);font-size:var(--fs-2xl);margin-right:-6px}
-  .ctls-hd .x:hover{background:color-mix(in srgb,var(--ov) 7%,transparent);color:var(--fg)}
+  @media (hover:hover) and (pointer:fine){ .ctls-hd .x:hover{background:color-mix(in srgb,var(--ov) 7%,transparent);color:var(--fg)} }
   .ctls .ctl{flex-direction:column;align-items:stretch;gap:var(--space-3)}
   .ctls .seg{flex-wrap:wrap}
   .ctls .seg button{flex:1 1 auto}
@@ -474,7 +475,7 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 .crumbs{display:flex;align-items:center;gap:var(--space-3);min-height:30px;font-size:var(--fs-lg);flex-wrap:wrap;flex:1;min-width:0}
 .viewseg button{padding:3px var(--space-4);font-size:var(--fs-sm)}
 .crumbs button.c{color:var(--fg2);padding:3px var(--space-3);border-radius:var(--r-badge)}
-.crumbs button.c:hover{background:var(--panel2);color:var(--fg)}
+@media (hover:hover) and (pointer:fine){ .crumbs button.c:hover{background:var(--panel2);color:var(--fg)} }
 .crumbs button.c.cur{color:var(--fg);font-weight:600;cursor:default;background:none}
 .crumbs .sep{color:var(--faint)}
 .crumbs .ci{display:inline-flex;align-items:center;gap:var(--space-3);white-space:nowrap;min-width:0;max-width:100%}
@@ -508,7 +509,7 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 .ixl .ixv .k2 i{opacity:.75}
 .ixl .ixt{text-align:right;align-items:flex-end}
 .ixl .ixt b{color:var(--fg2);font-weight:600;font-size:var(--fs-sm)}
-.ixl .ixtip{position:absolute;bottom:calc(100% + 4px);transform:translateX(-50%);z-index:5;background:var(--tip-bg);border:1px solid var(--tip-bd);border-radius:6px;padding:var(--space-2) var(--space-4);font-size:var(--fs-sm);color:var(--fg);pointer-events:none;box-shadow:0 6px 18px color-mix(in srgb,var(--shc) 50%,transparent);line-height:1.35}
+.ixl .ixtip{position:absolute;bottom:calc(100% + 4px);transform:translateX(-50%);z-index:5;background:var(--tip-bg);border:1px solid var(--tip-bd);border-radius:var(--r-row);padding:var(--space-2) var(--space-4);font-size:var(--fs-sm);color:var(--fg);pointer-events:none;box-shadow:0 6px 18px color-mix(in srgb,var(--shc) 50%,transparent);line-height:1.35}
 .ixl .ixtip[hidden]{display:none}
 .ixl .ixtip span{display:block}
 .ixl .ixx{position:absolute;top:0;bottom:0;width:1px;background:var(--fg2);opacity:.45;pointer-events:none}
@@ -557,20 +558,21 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 .wgi{display:inline-flex;flex:none;padding:1px;border-radius:var(--r-chip);background:var(--chip-bg);box-shadow:var(--key-sh);transition:background-color var(--c-fast) var(--c-out),box-shadow var(--c-fast) var(--c-out)}
 .wgi[data-on]{background:var(--chip-on);box-shadow:inset 0 0 0 1.5px var(--chip-ring)}
 .wgc{display:inline-flex;align-items:center;gap:var(--space-3);height:30px;padding:0 var(--space-5);border-radius:var(--r-chip);font-size:var(--fs-md);font-weight:600;color:var(--fg2);white-space:nowrap;transition:color var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out)}
-.wgc:hover,.wgi[data-on] .wgc{color:var(--fg)}
+.wgi[data-on] .wgc{color:var(--fg)}
+@media (hover:hover) and (pointer:fine){ .wgc:hover{color:var(--fg)} }
 .wgc .n{font-size:var(--fs-sm);font-weight:500;color:var(--muted);font-variant-numeric:tabular-nums;transition:color var(--c-fast) var(--c-out)}
 .wgi[data-on] .wgc .n{color:var(--acc)}
 .wgm{position:relative;width:28px;height:30px;margin-left:-6px;border-radius:var(--r-chip);color:var(--fg2);font-size:var(--fs-xl);line-height:1}
-.wgm:hover{color:var(--fg);background:color-mix(in srgb,var(--ov) 6%,transparent)}
-.wgadd{position:relative;flex:none;width:34px;height:32px;border-radius:var(--r-chip);background:var(--key-bg);box-shadow:var(--key-sh);color:var(--fg2);font-size:var(--fs-xl)}
-.wgadd:hover{color:var(--fg);background:var(--key-hover)}
+@media (hover:hover) and (pointer:fine){ .wgm:hover{color:var(--fg);background:color-mix(in srgb,var(--ov) 6%,transparent)} }
+.wgadd{position:relative;flex:none;width:34px;height:var(--h-key);border-radius:var(--r-chip);background:var(--key-bg);box-shadow:var(--key-sh);color:var(--fg2);font-size:var(--fs-xl)}
+@media (hover:hover) and (pointer:fine){ .wgadd:hover{color:var(--fg);background:var(--key-hover)} }
 .wgpop{position:fixed;z-index:95;width:max-content;min-width:220px;max-width:min(320px,calc(100vw - 16px));padding:var(--space-4);border-radius:calc(var(--tip-r) + 2px);background:var(--pop-bg);border:1px solid var(--tip-bd);box-shadow:var(--tip-sh);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);font-size:var(--fs-lg);color:var(--fg)}
 .wgpop[hidden]{display:none}
 .wgpop.in-dlg{z-index:210}   /* KH.watch.pick from a dialog (the stock page, z 200): it moves into it, above its own layers */
 .wgpop h3{margin:var(--space-1) var(--space-3) var(--space-4);font-size:var(--fs-md);font-weight:600;color:var(--fg2);overflow-wrap:anywhere}
 .wgpop .row{display:flex;align-items:center;gap:var(--space-4);width:100%;min-height:var(--h-row);padding:0 var(--space-4);border-radius:var(--r-in);text-align:left;color:var(--fg);cursor:pointer;transition:filter var(--c-fast) var(--c-out)}
 .wgpop .row:active{filter:var(--press-f);transition-duration:0s}
-.wgpop .row:hover{background:color-mix(in srgb,var(--ov) 6%,transparent)}
+@media (hover:hover) and (pointer:fine){ .wgpop .row:hover{background:color-mix(in srgb,var(--ov) 6%,transparent)} }
 .wgpop .row[disabled]{opacity:.4;cursor:default;background:none}
 .wgpop label.row input{-webkit-appearance:none;appearance:none;width:18px;height:18px;margin:0;flex:none;border-radius:var(--r-badge);background:var(--tray-bg) no-repeat center/0 0;box-shadow:var(--tray-sh);cursor:pointer;transition:background-color var(--c-fast) var(--c-out),background-size var(--c-base) var(--c-out),box-shadow var(--c-fast) var(--c-out)}
 .wgpop label.row input:checked{background-color:var(--acc-fill);background-size:14px 14px;box-shadow:inset 0 1px 0 color-mix(in srgb,white 30%,transparent);background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M4.5 10.5l3.6 3.6 7.4-8' fill='none' stroke='%231b1404' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")}
@@ -580,14 +582,14 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 .wgpop .row .ck{margin-left:auto;padding-left:var(--space-5);color:var(--acc);font-weight:700}
 .wgpop input[type="text"]{width:100%;height:38px;border-radius:var(--r-key);border:0;background:var(--tray-bg);box-shadow:var(--tray-sh);color:var(--fg);font:inherit;padding:0 var(--space-5);outline:none}
 .wgpop input[type="text"]:focus{box-shadow:var(--tray-sh),0 0 0 var(--focus-off) var(--pop-solid),0 0 0 calc(var(--focus-off) + var(--focus-w)) var(--focus)}
-.wgpop .msg{min-height:18px;margin:var(--space-3) var(--space-3) 0;font-size:var(--fs-sm);color:var(--fg2);line-height:1.45}
+.wgpop .msg{min-height:18px;margin:var(--space-3) var(--space-3) 0;font-size:var(--fs-sm);color:var(--fg2);line-height:var(--lh-text)}
 .wgpop .acts{display:flex;gap:var(--space-4);justify-content:flex-end;margin-top:var(--space-4)}
 .wgpop .acts button{height:34px;padding:0 var(--space-6);border-radius:var(--r-key);background:var(--key-bg);box-shadow:var(--key-sh);color:var(--key-fg);font-weight:600}
 .wgpop .acts .pri{background:var(--pri-bg);color:var(--pri-fg);box-shadow:var(--pri-sh)}
 .wgpop .acts .pri[disabled]{opacity:.45;cursor:default;box-shadow:none}
 .wgpop .sep{height:1px;background:var(--line);margin:var(--space-3) 0}
 @media (max-width:760px){
-  .wgc{height:40px} .wgm{height:40px;width:38px} .wgadd{height:42px;width:44px}
+  .wgc{height:var(--h-key)} .wgm{height:var(--h-key);width:38px} .wgadd{height:42px;width:44px}
   .wgpop{left:8px!important;right:8px;top:auto!important;bottom:calc(8px + env(safe-area-inset-bottom));width:auto;max-width:none;background:var(--sheet-bg);border-color:var(--sheet-bd);border-radius:max(4px,calc(var(--sheet-r) - 4px));box-shadow:var(--sheet-fl-sh)}   /* phones: a floating sheet, in the theme's sheet material */
   .wgpop .row{min-height:var(--h-row)} .wgpop .acts button{height:var(--h-row)}
 }
@@ -612,10 +614,10 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 .sec .hd .t,.ind .hd .t{overflow:hidden;text-overflow:ellipsis;min-width:0}
 .sec .hd .v,.ind .hd .v{font-variant-numeric:tabular-nums;flex:none;font-weight:600}
 .sec .hd .v:empty,.ind .hd .v:empty{display:none}  /* no value: no 6px gap taken from a narrow band's name */
-.sec .hd:hover,.ind .hd:hover{color:var(--sec-hov)}
-.sec .hd:hover .t,.ind .hd:hover .t{text-decoration:underline;text-underline-offset:2px;text-decoration-color:var(--acc)}
+@media (hover:hover) and (pointer:fine){ .sec .hd:hover,.ind .hd:hover{color:var(--sec-hov)} }
+@media (hover:hover) and (pointer:fine){ .sec .hd:hover .t,.ind .hd:hover .t{text-decoration:underline;text-underline-offset:2px;text-decoration-color:var(--acc)} }
 .focus-leaf .ind .hd,.focus-leaf .sec .hd{cursor:default}
-.focus-leaf .sec .hd:hover .t,.focus-leaf .ind .hd:hover .t{text-decoration:none}
+@media (hover:hover) and (pointer:fine){ .focus-leaf .sec .hd:hover .t,.focus-leaf .ind .hd:hover .t{text-decoration:none} }
 .sec.hot{box-shadow:inset 0 0 0 2px var(--sel-1);z-index:4;pointer-events:none}
 .tile{z-index:3;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--tile-fg);text-align:center}
 .tile.nod{background-image:repeating-linear-gradient(135deg,var(--hatch) 0 3px,transparent 3px 8px)}
@@ -642,7 +644,8 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 .tile .pc[hidden],.tile .px[hidden],.tile .mc[hidden]{display:none}
 .tile .lim{position:absolute;z-index:2;left:2px;top:5px;font-size:var(--fs-xs);font-weight:700;line-height:14px;padding:0 var(--space-2);border-radius:var(--r-mark);background:var(--badge-bg);color:var(--badge-fg);box-shadow:0 0 0 1px var(--badge-ring)}
 .tile .lim[hidden]{display:none}
-.tile:hover,.tile.hov{box-shadow:inset 0 0 0 2px var(--tile-hov);z-index:5}
+.tile.hov{box-shadow:inset 0 0 0 2px var(--tile-hov);z-index:5}
+@media (hover:hover) and (pointer:fine){ .tile:hover{box-shadow:inset 0 0 0 2px var(--tile-hov);z-index:5} }
 .tile.sel{box-shadow:inset 0 0 0 3px var(--sel-1),0 0 0 1px var(--sel-2);z-index:6}
 .tile.dim{filter:saturate(.25) brightness(.38)}
 /* 뉴스 줄에 올리면 그 종목만 (KH.hover): weaker than the search / 등락 분포 highlight, which win while they are on */
@@ -696,10 +699,10 @@ html[data-tone="light"]{--fl-wu:color-mix(in srgb,var(--shc) 9%,transparent);--f
 @keyframes fx-in{from{opacity:0;transform:scale(.94)}}
 @keyframes fx-fade{from{opacity:0}}
 .tstar{position:absolute;z-index:7;width:var(--h-chip);height:var(--h-chip);display:grid;place-items:center;border-radius:var(--r-row);background:var(--badge-bg);color:var(--badge-fg);font-size:var(--fs-lg);line-height:1;box-shadow:0 0 0 1px var(--badge-ring);transition:transform var(--c-fast) var(--c-out),color var(--c-fast) var(--c-out),background-color var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out)}
-.tstar:hover{background:color-mix(in srgb,var(--shc) 85%,transparent)}
+@media (hover:hover) and (pointer:fine){ .tstar:hover{background:color-mix(in srgb,var(--shc) 85%,transparent)} }
 .tstar[aria-pressed="true"]{color:var(--acc-fill)}
 .tstar[hidden]{display:none}
-.map-empty{position:absolute;inset:0;display:grid;place-items:center;color:var(--muted);font-size:var(--fs-lg);padding:var(--space-6);text-align:center;line-height:1.6}
+.map-empty{position:absolute;inset:0;display:grid;place-items:center;color:var(--muted);font-size:var(--fs-lg);padding:var(--space-6);text-align:center;line-height:var(--lh-text)}
 .map-empty .we{display:flex;flex-direction:column;align-items:center;gap:var(--space-3);max-width:340px}
 .map-empty .we .big{font-size:var(--fs-num);color:var(--fg2);line-height:1}
 .map-empty .we b{font-size:var(--fs-xl);color:var(--fg);font-weight:700}
@@ -717,7 +720,7 @@ main.layout[hidden],#world[hidden]{display:none}
 /* a section whose rows are all hidden goes with its heading and hints (syncSetSections) — never an empty heading */
 .set-empty{display:none!important}
 .is-cal .ctls .morep{border-top:0;padding-top:0}
-.world-missing{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:var(--space-3);min-height:320px;padding:var(--space-7);text-align:center;color:var(--muted);font-size:var(--fs-lg);line-height:1.6;background:var(--panel);border:1px solid var(--line);border-radius:var(--r-card)}
+.world-missing{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:var(--space-3);min-height:320px;padding:var(--space-7);text-align:center;color:var(--muted);font-size:var(--fs-lg);line-height:var(--lh-text);background:var(--panel);border:1px solid var(--line);border-radius:var(--r-card)}
 .world-missing b{color:var(--fg);font-size:var(--fs-xl)}
 
 /* legend under the map */
@@ -746,14 +749,14 @@ main.layout[hidden],#world[hidden]{display:none}
 table.list{width:100%;border-collapse:collapse;font-size:var(--fs-md)}
 .list th{position:sticky;top:0;z-index:1;background:var(--th-bg);color:var(--muted);font-weight:500;font-size:var(--fs-sm);text-align:right;padding:0;border-bottom:1px solid var(--line);white-space:nowrap;user-select:none}
 .list th button{display:block;width:100%;padding:var(--space-4) var(--space-5);font-size:inherit;font-weight:inherit;color:inherit;text-align:inherit;white-space:nowrap}
-.list th button:hover{color:var(--fg)}
+@media (hover:hover) and (pointer:fine){ .list th button:hover{color:var(--fg)} }
 .list th button:focus-visible,.list tbody tr:focus-visible{outline-offset:calc(var(--focus-w) * -1)}
 .list th:first-child,.list td:first-child,.list th:nth-child(2),.list td:nth-child(2){text-align:left}
 .list th[aria-sort]{color:var(--fg)}
 .list th[aria-sort="descending"] button::after{content:" ▾"} .list th[aria-sort="ascending"] button::after{content:" ▴"}
 .list td{padding:var(--space-4) var(--space-5);border-bottom:1px solid color-mix(in srgb,var(--ov) 4%,transparent);text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
 .list tbody tr{cursor:pointer}
-.list tbody tr:hover{background:color-mix(in srgb,var(--ov) 3.5%,transparent)}
+@media (hover:hover) and (pointer:fine){ .list tbody tr:hover{background:color-mix(in srgb,var(--ov) 3.5%,transparent)} }
 .list tbody tr.sel{background:var(--amber-soft)}
 .list .nmcell{display:flex;align-items:center;gap:var(--space-4);font-weight:600}
 .list .nmcell i{width:10px;height:10px;border-radius:var(--r-mark);flex:none}
@@ -766,7 +769,7 @@ table.list{width:100%;border-collapse:collapse;font-size:var(--fs-md)}
 @media (max-width:1023px){ .list .k-i,.list.x7 .k-vol{display:none} }
 .list .nd{color:var(--faint)}
 .wbtn{position:relative;flex:none;display:inline-grid;place-items:center;width:var(--h-chip);height:var(--h-chip);margin:-4px -4px -4px -6px;border-radius:var(--r-row);font-size:var(--fs-xl);line-height:1;color:var(--faint);transition:color var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out)}
-.wbtn:hover{color:var(--fg);background:color-mix(in srgb,var(--ov) 6%,transparent)}
+@media (hover:hover) and (pointer:fine){ .wbtn:hover{color:var(--fg);background:color-mix(in srgb,var(--ov) 6%,transparent)} }
 .wbtn[aria-pressed="true"]{color:var(--acc)}
 .list tr.nonx .nmt{color:var(--fg2);font-weight:500}
 .nxtag{display:inline-block;flex:none;font-size:var(--fs-xs);font-weight:600;line-height:16px;padding:0 var(--space-2);border-radius:var(--r-badge);color:var(--muted);border:1px solid var(--line2);white-space:nowrap}
@@ -804,14 +807,14 @@ table.list{width:100%;border-collapse:collapse;font-size:var(--fs-md)}
 .hist button .cnt{font-size:var(--fs-xs);color:var(--fg2);text-align:center;margin-bottom:var(--space-2);font-variant-numeric:tabular-nums}
 .hist.has-sel button:not([aria-pressed="true"]) .bar{opacity:.28}
 .hist button[aria-pressed="true"] .cnt{color:var(--acc);font-weight:600}
-.hist button:hover .bar{opacity:1!important;filter:brightness(1.15)}
+@media (hover:hover) and (pointer:fine){ .hist button:hover .bar{opacity:1!important;filter:brightness(1.15)} }
 .hist-axis{display:grid;grid-template-columns:repeat(9,1fr);gap:var(--space-2);font-size:var(--fs-xs);color:var(--muted);margin-top:var(--space-2);text-align:center;font-variant-numeric:tabular-nums}
 .hist-axis span{white-space:nowrap;overflow:visible}
 .hist-note{font-size:var(--fs-sm);color:var(--faint);margin-top:var(--space-4)}
 .secs{display:flex;flex-direction:column;gap:1px}
 .secs button{display:grid;grid-template-columns:minmax(0,1fr) 92px 58px;align-items:center;gap:var(--space-4);padding:var(--space-3) var(--space-3);margin:0 -6px;border-radius:var(--r-row);font-size:var(--fs-md);text-align:left}
 .secs.wide button{grid-template-columns:minmax(0,1fr) 70px 70px}
-.secs button:hover{background:color-mix(in srgb,var(--ov) 4.5%,transparent)}
+@media (hover:hover) and (pointer:fine){ .secs button:hover{background:color-mix(in srgb,var(--ov) 4.5%,transparent)} }
 .secs button.cur{background:var(--amber-soft)}
 .secs .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .secs .nm small{color:var(--faint);font-size:var(--fs-xs);margin-left:var(--space-2)}
@@ -833,8 +836,8 @@ span.cdb.cdb > i{position:absolute;top:50%;width:auto;height:1px;margin-top:-.5p
 .cdb b{position:absolute;top:1px;bottom:1px;background:currentColor;border-radius:var(--r-mark)}
 .cdb em{position:absolute;top:50%;transform:translateY(-50%);font-style:normal;font-size:var(--fs-xs);line-height:1;color:currentColor}
 .cdb .ovr{right:0} .cdb .ovl{left:0}
-.cdhint{font-size:var(--fs-xs);color:var(--muted);padding:var(--space-2) var(--space-3) 0;line-height:1.4}
-.card-head .ohlc{display:flex;align-items:center;gap:var(--space-4);margin-top:var(--space-2);font-size:var(--fs-sm);line-height:1.35;color:var(--fg2);font-variant-numeric:tabular-nums}
+.cdhint{font-size:var(--fs-xs);color:var(--muted);padding:var(--space-2) var(--space-3) 0;line-height:var(--lh-text)}
+.card-head .ohlc{display:flex;align-items:center;gap:var(--space-4);margin-top:var(--space-2);font-size:var(--fs-sm);line-height:var(--lh-row);color:var(--fg2);font-variant-numeric:tabular-nums}
 .card-head .ohlc .cdb{width:64px;height:12px;flex:none}
 .card-head .ohlc .cdb::before{top:-3px;bottom:-3px;background:var(--muted)}
 .card-head .ohlc .ot{min-width:0;display:flex;flex-wrap:wrap;column-gap:var(--space-5);row-gap:1px}
@@ -850,7 +853,7 @@ span.cdb.cdb > i{position:absolute;top:50%;width:auto;height:1px;margin-top:-.5p
 .movers{display:flex;flex-direction:column;gap:1px}
 .movers button{display:grid;grid-template-columns:10px minmax(0,1fr) auto 66px;gap:var(--space-4);align-items:center;padding:var(--space-3);margin:0 -6px;border-radius:var(--r-row);font-size:var(--fs-md);text-align:left}
 .movers.amt button{grid-template-columns:10px minmax(0,1fr) auto 76px}
-.movers button:hover{background:color-mix(in srgb,var(--ov) 4.5%,transparent)}
+@media (hover:hover) and (pointer:fine){ .movers button:hover{background:color-mix(in srgb,var(--ov) 4.5%,transparent)} }
 .movers i{width:10px;height:10px;border-radius:var(--r-mark)}
 .movers .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500}
 .movers .px{color:var(--muted);font-size:var(--fs-sm);font-variant-numeric:tabular-nums}
@@ -858,7 +861,7 @@ span.cdb.cdb > i{position:absolute;top:50%;width:auto;height:1px;margin-top:-.5p
 .movers .none{font-size:var(--fs-sm);color:var(--faint);padding:var(--space-2) 0}
 /* §3-14 더보기 / 접기 under a list; the 거래대금 number of a sector */
 .movers .more,.secs .more{position:relative;display:flex;align-items:center;justify-content:center;gap:var(--space-3);width:100%;margin:var(--space-4) 0 0;padding:var(--space-4) 0;border-radius:var(--r-key);background:var(--key-bg);box-shadow:var(--key-sh);font-size:var(--fs-sm);font-weight:600;color:var(--key-fg);text-align:center}
-.movers .more:hover,.secs .more:hover{background:var(--key-hover)}
+@media (hover:hover) and (pointer:fine){ .movers .more:hover,.secs .more:hover{background:var(--key-hover)} }
 .movers .more::after,.secs .more::after{content:"";width:6px;height:6px;margin-top:-3px;border:solid var(--key-ic);border-width:0 1.6px 1.6px 0;transform:rotate(45deg)}
 .movers .more[aria-expanded="true"]::after,.secs .more[aria-expanded="true"]::after{margin-top:var(--space-2);transform:rotate(225deg)}
 .more[data-flip]::after{animation:chevFlip var(--c-base) var(--c-inout)}
@@ -869,13 +872,14 @@ span.cdb.cdb > i{position:absolute;top:50%;width:auto;height:1px;margin-top:-.5p
 @media (max-width:760px){ .movers .more,.secs .more{min-height:42px} }
 .movers-tabs button[hidden]{display:none}
 
-footer{padding:var(--space-2) var(--edge) var(--space-6);font-size:var(--fs-sm);color:var(--faint);line-height:1.6}
+footer{padding:var(--space-2) var(--edge) var(--space-6);font-size:var(--fs-sm);color:var(--faint);line-height:var(--lh-text)}
 footer p{margin:0;max-width:92ch}
 footer a{color:var(--muted)}
 footer .credit{margin-top:var(--space-3);color:var(--muted)}
 footer .disclaim{margin-top:var(--space-2);color:var(--muted)}   /* 사용자 2026-11-14 11:59: 투자 유의 문구는 항상 맨 아래 줄 */   /* 사용자 2026-11-13 23:04: SSSlot처럼 맨 아래 저작권 한 줄 */
 footer .credit button{font:inherit;color:var(--fg2);background:none;border:0;padding:var(--space-4) 0;margin:-10px 0;cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px}
-footer .credit button:hover,footer .credit button:focus-visible{color:#5865f2;transition:color var(--c-fast,180ms) var(--c-out,ease)}   /* 마우스를 올리면 디스코드 색 */
+footer .credit button:focus-visible{color:#5865f2;transition:color var(--c-fast,180ms) var(--c-out,ease)}   /* 마우스를 올리면 디스코드 색 */
+@media (hover:hover) and (pointer:fine){ footer .credit button:hover{color:#5865f2;transition:color var(--c-fast,180ms) var(--c-out,ease)} }
 footer .credit button:focus-visible{outline:3px solid var(--focus,var(--amber));outline-offset:2px;border-radius:var(--r-mark)}
 footer .credit button{display:inline-flex;align-items:center;gap:var(--space-2)}
 footer .credit .dc-wrap{display:inline-flex;text-decoration:none}
@@ -901,7 +905,7 @@ footer .credit .dc{width:1.15em;height:1.15em;flex:none}
 .card-head .meta{display:flex;gap:var(--space-5);margin-top:var(--space-3);font-size:var(--fs-sm);color:var(--muted);font-variant-numeric:tabular-nums;flex-wrap:wrap}
 .card-head .meta em{font-style:normal;color:var(--fg2)}
 .wstar{position:relative;display:inline-grid;place-items:center;align-self:center;width:30px;height:30px;margin:-6px 0 -6px 0;border-radius:var(--r-in);color:var(--muted);font-size:var(--fs-2xl);line-height:1;transition:color var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out),transform var(--c-fast) var(--c-out)}
-.wstar:hover{color:var(--fg);background:color-mix(in srgb,var(--ov) 6%,transparent)}
+@media (hover:hover) and (pointer:fine){ .wstar:hover{color:var(--fg);background:color-mix(in srgb,var(--ov) 6%,transparent)} }
 .wstar[aria-pressed="true"]{color:var(--acc)}
 .peers{padding:var(--space-3) var(--space-3) var(--space-4)}
 .peers .ttl{font-size:var(--fs-xs);color:var(--muted);padding:var(--space-1) var(--space-3) var(--space-2)}
@@ -920,12 +924,12 @@ footer .credit .dc{width:1.15em;height:1.15em;flex:none}
 .sheet:focus{outline:none}
 .sheet .grab{display:none}
 .sheet .x{position:absolute;right:8px;top:8px;width:30px;height:30px;border-radius:var(--r-in);display:grid;place-items:center;color:var(--muted);font-size:var(--fs-2xl);transition:filter var(--c-fast) var(--c-out),transform var(--c-fast) var(--c-out)}
-.sheet .x:hover{background:color-mix(in srgb,var(--ov) 7%,transparent);color:var(--fg)}
+@media (hover:hover) and (pointer:fine){ .sheet .x:hover{background:color-mix(in srgb,var(--ov) 7%,transparent);color:var(--fg)} }
 .sheet .acts{display:flex;flex-wrap:wrap;gap:var(--space-4);padding:var(--space-4) var(--space-5) var(--space-5);border-top:1px solid var(--line)}
 .sheet .acts button,.sheet .acts a{flex:1;display:inline-flex;justify-content:center;align-items:center;height:var(--h-row);border-radius:var(--r-key);font-size:var(--fs-md);font-weight:600;text-decoration:none}
 .sheet .acts .pri{background:var(--pri-bg);color:var(--pri-fg);box-shadow:var(--pri-sh);flex:1 1 100%}
 .sheet .acts .sec2{background:var(--key-bg);box-shadow:var(--key-sh);color:var(--key-fg)}
-.sheet .acts .sec2:hover{background:var(--key-hover)}
+@media (hover:hover) and (pointer:fine){ .sheet .acts .sec2:hover{background:var(--key-hover)} }
 .spark{padding:var(--space-4) var(--space-5) 0}
 .spark svg{display:block;width:100%;height:70px}
 .spark .note{font-size:var(--fs-xs);color:var(--faint);padding:var(--space-1) 0 var(--space-3)}
@@ -960,8 +964,8 @@ footer .credit .dc{width:1.15em;height:1.15em;flex:none}
   .search{flex:1 1 0;min-width:0}
   .search kbd{display:none}
   .setbtn{height:var(--h-key);padding:0 var(--space-5)}
-  .ctls{position:fixed;left:0;right:0;bottom:0;z-index:91;max-height:82svh;overflow:auto;background:var(--sheet-bg);border:0;border-top:1px solid var(--sheet-bd);border-radius:var(--sheet-r) var(--sheet-r) 0 0;box-shadow:var(--sheet-sh);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);padding:8px 16px calc(18px + env(safe-area-inset-bottom))}
-  .ctls-hd{min-height:44px}
+  .ctls{position:fixed;left:0;right:0;bottom:0;z-index:91;max-height:82svh;overflow:auto;background:var(--sheet-bg);border:0;border-top:1px solid var(--sheet-bd);border-radius:var(--sheet-r) var(--sheet-r) 0 0;box-shadow:var(--sheet-sh);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);padding:var(--space-4) var(--space-6) calc(18px + env(safe-area-inset-bottom))}
+  .ctls-hd{min-height:var(--h-row)}
   .ctls-hd .x{width:var(--h-key);height:var(--h-key)}
   .scrim2{position:fixed;inset:0;z-index:89;background:var(--scrim)}
   .scrim2.open{display:block}
@@ -988,7 +992,7 @@ footer .credit .dc{width:1.15em;height:1.15em;flex:none}
   footer{padding:var(--space-2) var(--space-5) var(--space-7)}
   .tabs button,.seg button,.movers-tabs button,.crumbs button.c,.crumbs .back{min-height:var(--h-key);display:inline-flex;align-items:center;justify-content:center}
   .crumbs .back{padding:3px var(--space-5)}
-  .secs button,.movers button{min-height:40px}
+  .secs button,.movers button{min-height:var(--h-key)}
   .sheet .x{width:var(--h-key);height:var(--h-key);right:6px;top:6px}
   .wstar{width:var(--h-key);height:var(--h-key);margin:-10px -4px -10px -4px}
   .list.th5 th:nth-child(5),.list.th5 td:nth-child(5){display:none}
@@ -1000,11 +1004,11 @@ footer .credit .dc{width:1.15em;height:1.15em;flex:none}
   .list .nmcell small{display:none}
   .list td:first-child{width:100%;max-width:0}
   .list .nmt{min-width:0;overflow:hidden;text-overflow:ellipsis}
-  .wbtn{width:32px;height:40px;margin:-10px -4px -10px -4px}
+  .wbtn{width:32px;height:var(--h-key);margin:-10px -4px -10px -4px}
   /* compact phone header: one tools row (search · 표시 설정 · extras icons), 지도/표 on the breadcrumb line */
   /* 8px over the clock row (사용자 2026-11-15 19:52 "모바일에서는 시계가 위 테두리랑 너무 붙어보여": the analog face sat 1.5px under the
      glass panel's top edge); PC unchanged */
-  .top{padding:var(--space-4) var(--space-5) var(--space-2);gap:var(--space-3) var(--space-5);min-height:44px}
+  .top{padding:var(--space-4) var(--space-5) var(--space-2);gap:var(--space-3) var(--space-5);min-height:var(--h-row)}
   .tabs{padding:0;background:none;box-shadow:none;border-radius:0}
   .tabs-sc{padding:0 1px var(--space-2) 0;margin-bottom:-4px}   /* 1px at the end: 14px names give fractional tab widths, and the scroll range (whole px) left the last tab < 1px past the edge */
   .tabs button:focus-visible{outline-offset:calc(var(--focus-w) * -1)}
@@ -1013,7 +1017,7 @@ footer .credit .dc{width:1.15em;height:1.15em;flex:none}
   .viewseg{padding:0;--ind-in:3px}
   .tools{padding:0 var(--space-5) var(--space-2)}
   .search{flex:1 1 0;min-width:120px}
-  .search input{height:40px;padding-right:var(--space-4)}
+  .search input{height:var(--h-key);padding-right:var(--space-4)}
   .search svg{top:12px}
   #extras-tools{flex:none;margin-left:0}
   .stagebar{padding-bottom:var(--space-2);min-height:0;gap:var(--space-4)}
@@ -1050,7 +1054,7 @@ footer .credit .dc{width:1.15em;height:1.15em;flex:none}
 .bchip[aria-expanded="true"] .bcc{transform:rotate(180deg);color:var(--acc)}
 .bmenu{position:fixed;inset:0;z-index:95;display:flex;align-items:flex-end;justify-content:center;background:var(--scrim)}
 .bmenu[hidden]{display:none}
-.bm-in{width:100%;max-width:520px;background:var(--sheet-bg);border-top:1px solid var(--sheet-bd);border-radius:var(--sheet-r) var(--sheet-r) 0 0;-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);padding:6px 12px calc(14px + env(safe-area-inset-bottom));box-shadow:var(--sheet-sh)}
+.bm-in{width:100%;max-width:520px;background:var(--sheet-bg);border-top:1px solid var(--sheet-bd);border-radius:var(--sheet-r) var(--sheet-r) 0 0;-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);padding:var(--space-3) var(--space-5) calc(14px + env(safe-area-inset-bottom));box-shadow:var(--sheet-sh)}
 .bm-in .bm-t{font-size:var(--fs-sm);color:var(--muted);margin:var(--space-4) var(--space-4) var(--space-3);font-weight:600}
 .bm-it{position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:var(--space-1);width:100%;min-height:54px;padding:var(--space-4) 40px var(--space-4) var(--space-5);border-radius:var(--r-in);text-align:left;transition:filter var(--c-fast) var(--c-out)}
 .bm-it:active{filter:var(--press-f);transition-duration:0s}
@@ -1060,7 +1064,7 @@ footer .credit .dc{width:1.15em;height:1.15em;flex:none}
 .bm-it span{font-size:var(--fs-sm);color:var(--muted);white-space:normal}
 .bm-it[aria-checked="true"]{background:var(--amber-soft)}
 .bm-it[aria-checked="true"] b{color:var(--acc)}
-.bm-it:hover{background:var(--panel2)}
+@media (hover:hover) and (pointer:fine){ .bm-it:hover{background:var(--panel2)} }
 .bm-it:focus-visible{outline:var(--focus-w) solid var(--focus);outline-offset:calc(var(--focus-w) * -1)}
 /* phones: the table keeps a readable name column (two lines): 종목 · 현재가 · 등락률 · 거래대금 (거래량 · 시가총액 dropped; with a 기간 /
    순매수 column, that instead of 거래대금) */
@@ -1069,7 +1073,7 @@ footer .credit .dc{width:1.15em;height:1.15em;flex:none}
   .list td{padding:var(--space-4) var(--space-2)}
   .list th button{padding:0 var(--space-2)}
   .list td:first-child{width:auto;max-width:none;min-width:7.2em;white-space:normal}
-  .list .nmt{min-width:5.6em;white-space:normal;word-break:keep-all;overflow-wrap:anywhere;line-height:1.25;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+  .list .nmt{min-width:5.6em;white-space:normal;word-break:keep-all;overflow-wrap:anywhere;line-height:var(--lh-ui);display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
   .list .limtag{font-size:var(--fs-xs);padding:0 var(--space-2)}
 }
 /* phones and tablets (and a 7-column table below 1440 px): no room for the tag — the hatched chip and the muted name say it (and the
@@ -1170,12 +1174,8 @@ html[data-motion="fancy"] .kl.on .kck{transform:none;transition-delay:var(--c-fa
 @media (pointer:coarse){
   :is(.ctls-hd .x,.sheet .x,.wstar,.wbtn,.wgm,.wgadd,.movers .more,.secs .more)::before{content:"";position:absolute;left:50%;top:50%;width:max(100%,44px);height:max(100%,44px);transform:translate(-50%,-50%)}
 }
-/* touch screens keep no hover look after a tap */
-@media (hover:none){
-  :is(.wstar,.wgm,.sheet .x,.ctls-hd .x,.wbtn):hover{background:none}
-  .wgpop .row:hover{background:none}
-  :is(.setbtn,.swbtn,.wgadd,.movers .more,.secs .more,.sheet .acts .sec2,.ddbtn,.morebtn):hover{background:var(--key-bg)}
-}
+/* touch screens keep no hover look after a tap: every :hover sits in (hover:hover) and (pointer:fine) (design.md §8), so the old
+   (hover:none) resets are gone */
 
 /* ───────────────── the header follows on scroll, in every theme (themes.md §7) ─────────────────
    Desktop: the whole header. Phones (the tab row on its own row under the clock row): the tab row only — top = −(the tab row's
@@ -1227,7 +1227,7 @@ html[data-theme="paper"] :is(.secs > button,.movers > button){border-radius:0;bo
 /* 표시 설정 › 아래 막대: phones only (the dock exists ≤ 760) */
 .dkset{display:flex;flex-direction:column;gap:var(--space-5);border-top:1px solid var(--line);padding-top:var(--space-5)}
 .dkset .dkh{font-size:var(--fs-md);font-weight:700;color:var(--fg)}
-.dkset .hint{font-size:var(--fs-sm);color:var(--muted);line-height:1.45}
+.dkset .hint{font-size:var(--fs-sm);color:var(--muted);line-height:var(--lh-text)}
 @media (min-width:761px){.dkset{display:none!important}}
 @media (max-width:760px){.thm .seg button{min-height:var(--h-key)}}
 
@@ -14920,8 +14920,8 @@ html[data-theme="glass-light"] #world{--nodata:#e6e9ee}
 .kw-gl.chip.end{transform:translate(-100%,-50%)}
 .kw-gl.chip .t{font-weight:600}
 .kw-gl.chip .p{font-weight:650}
-.kw-gl:hover{z-index:2}
 @media (hover:hover) and (pointer:fine){
+  .kw-gl:hover{z-index:2}
   .kw-gl.chip:hover{border-color:var(--kw-gchip-bdh)}
   .kw-gl.in:hover{background:var(--kw-in-hov)}
 }
@@ -19321,8 +19321,9 @@ schedule();
 .news .pl-kbtn:is(:active,.is-press){transform:translateY(1px);box-shadow:var(--key-dn);filter:var(--press-f);transition-duration:0s}
 .news .pl-kbtn.sm{height:var(--h-chip);padding:0 var(--space-5)}
 .news .pl-kbtn[hidden]{display:inline-flex;visibility:hidden}
-.news .pl-more::after{content:"";width:6px;height:6px;margin-top:-3px;border:solid var(--key-ic);border-width:0 1.75px 1.75px 0;transform:rotate(45deg);transition:transform var(--sp-lead-dur) var(--sp-lead),margin var(--sp-lead-dur) var(--sp-lead)}
-.news .pl-more[aria-expanded="true"]::after{margin-top:3px;transform:rotate(225deg)}
+/* 꺾쇠(선 1.75px): 펼칠 때 open, 접을 때 close로 반 바퀴 — 시장 뉴스 · 오늘 공시의 더보기와 같아요 */
+.news .pl-more::after{content:"";flex:none;width:6px;height:6px;border:solid var(--key-ic);border-width:0 1.75px 1.75px 0;transform:translateY(-25%) rotate(45deg);transition:transform var(--sp-close-dur) var(--sp-close)}
+.news .pl-more[aria-expanded="true"]::after{transform:translateY(25%) rotate(225deg);transition-duration:var(--sp-open-dur);transition-timing-function:var(--sp-open)}
 @media (pointer:coarse){ .news :is(.pl-chip,.pl-kbtn.sm)::before{content:"";position:absolute;left:50%;top:50%;width:max(100%,44px);height:44px;transform:translate(-50%,-50%)} }
 
 /* 빈 · 오류 · 불러오는 중: 목록 자리를 그대로 차지해요 — 상태가 바뀌어도 카드 높이 그대로 */
@@ -19331,12 +19332,14 @@ schedule();
 .news .pl-msg b{font-weight:600;color:var(--fg)}
 .news .pl-msg small{font-size:var(--fs-sm);color:var(--muted)}
 .news .pl-msg a{color:var(--fg);font-weight:600;text-underline-offset:3px}
-.news .pl-sk{display:block;height:10px;border-radius:var(--r-pill);background:var(--line);opacity:.8}
-html:not([data-motion="reduced"]) .news .pl-row.skel .pl-sk{animation:plSk 1.4s var(--c-inout) infinite alternate}
-@keyframes plSk{to{opacity:.35}}
-/* 화려하게: 더보기로 펼친 줄이 아래에서 나타나요(40ms 간격, 8줄까지) */
-html[data-motion="fancy"] .news .pl-row.in{animation:plIn var(--sp-fade-dur) var(--sp-fade) both;animation-delay:var(--d,0ms)}
-@keyframes plIn{from{opacity:0;transform:translateY(var(--space-2))}}
+/* 뼈대: 시장 뉴스 · 오늘 공시와 같은 평평한 --fill-2 막대가 투명도로만 숨쉬어요(news.css nwSk) */
+.news .pl-sk{display:block;height:10px;border-radius:var(--r-pill);background:var(--fill-2)}
+html:not([data-motion="reduced"]) .news .pl-row.skel .pl-sk{animation:nwSk var(--nw-skel-t) var(--c-inout) infinite alternate}
+/* 더보기 · 접기 = 카드의 펼치는 목록(KHNews.fold — design.md §7 · §12 ①): 목록 상자만 open으로 자라고 아래 내용은 한 번에, 새 줄(.nw-x)은
+   상자가 25 % 열린 뒤 §6-4로 다 함께(opacity · 흐림 2px · 아래에서 4px), 접을 땐 먼저 다 함께 나가요. 순차 없음(자주 여는 것 — §6-2) */
+.news .pl-list.nw-fold-anim > .nw-x{opacity:0;transform:translateY(var(--space-2));filter:blur(2px)}
+.news .pl-list.nw-fold-in > .nw-x{opacity:1;transform:none;filter:none;transition:opacity var(--nw-tx-in) var(--sp-fade),transform var(--nw-tx-in) var(--sp-fade),filter var(--nw-tx-in) var(--sp-fade)}
+.news .pl-list.nw-fold-out > .nw-x{opacity:0;transform:translateY(calc(-1 * var(--space-2)));filter:blur(2px);transition:opacity var(--nw-tx-out) var(--sp-close),transform var(--nw-tx-out) var(--sp-close),filter var(--nw-tx-out) var(--sp-close)}
 
 /* 휴대폰 (≤ 760): 1줄 날짜 · 출처 · 기관 / 2줄 제목 두 줄 — 5개 + 더보기, 줄 44px 이상 */
 @media (max-width:760px){
@@ -19357,7 +19360,7 @@ html[data-motion="fancy"] .news .pl-row.in{animation:plIn var(--sp-fade-dur) var
   .news .pl-msg{min-height:300px}
   .news .pl-pane.is-snap .pl-msg{min-height:0;padding:var(--space-6) var(--space-4)}
 }
-html[data-motion="reduced"] .news .pl-row{animation:none!important}
+html[data-motion="reduced"] .news .pl-row .pl-sk{animation:none}
 
 </style>
 <script>
@@ -19373,7 +19376,9 @@ html[data-motion="reduced"] .news .pl-row{animation:none!important}
    Footer: <p id="foot-policy"> right after the 공시 line (above ©, the disclaimer stays last — AGENTS §3-30), kept there across the
    template's footer redraws by watching #foot (the template is not changed).
    Design (design.md, approved): --fs-* / --space-* / --r-* / --h-* tokens only, no red / green (no price data here), amber only for the
-   chosen chip and focus; the failure mark is --fail-dot. */
+   chosen chip and focus; the failure mark is --fail-dot. 더보기 · 접기 = the card's fold (KHNews.fold, as 시장 뉴스 · 오늘 공시 — no
+   40 ms stagger any more, ux/std-wrapup); chip counts that move with a new answer swap in place (KH.ui.swap); ↻ in the card head asks
+   this tab again (spec refresh · freshAt). */
 (() => {
 'use strict';
 const KH = window.KH;
@@ -19429,7 +19434,7 @@ if (!LIVE) {
 /* ───────── state ───────── */
 const S = {
   data: null, okAt: 0, lastTry: 0, tries: 0, loading: true, busy: null, timer: 0, gone: false,
-  f: 'all', open: false, shown: 0, pending: false, swapLater: false, ptr: false, near: !('IntersectionObserver' in window), tabbed: false,
+  f: 'all', open: false, pending: false, swapLater: false, ptr: false, near: !('IntersectionObserver' in window), tabbed: false,
   L: { measure: false, base: 5, two: false, phone: narrowMQ.matches, rowsMax: MAX_ROWS },
 };
 
@@ -19457,10 +19462,10 @@ function retryKey(sm) {
 const warn = () => { const i = icon('warn'); if (i && i.classList) i.classList.add('pl-warn'); return i; };
 
 /* ───────── rows ───────── */
-function row(x, k, grow) {
-  const anim = grow && k >= S.shown;
+// rows past the first row count are .nw-x: they come in / leave together with the 더보기 fold (KHNews.fold — policy.css)
+function row(x, k, base) {
   const side = [x.org, x.kind].filter(Boolean).join(' · ');
-  return h('li', { class: 'pl-row' + (anim ? ' in' : ''), style: anim ? `--d:${Math.min(8, k - S.shown) * 40}ms` : null, 'data-src': x.src },
+  return h('li', { class: 'pl-row' + (k >= base ? ' nw-x' : ''), 'data-src': x.src },
     h('time', { class: 'pl-tm', datetime: x.t, text: dateText(x.t) }),
     h('span', { class: 'pl-src', text: SRC[x.src] }),
     h('span', { class: 'pl-tt', title: x.title + (side ? ` — ${side}` : '') },
@@ -19524,10 +19529,9 @@ function renderPanel(o = {}) {
   else if (!d && S.loading) kids = skel(base);
   else if (!d) kids = [msgLi('정책 자료를 불러오지 못했어요', 'KDI 경제정보센터 · 공공데이터포털 모두 답하지 않았어요. 잠시 뒤 다시 눌러 주세요.', retryKey(false))];
   else if (!all.length) kids = [emptyMsg()];
-  else kids = all.slice(0, shown).map((x, k) => row(x, k, o.grow));
+  else kids = all.slice(0, shown).map((x, k) => row(x, k, base));
   put(list, kids);
   list.classList.toggle('is-msg', kids.length === 1 && kids[0].classList.contains('pl-msg'));
-  if (!L.measure) S.shown = d ? Math.min(shown, all.length) : 0;
   const total = Math.min(MAX_ROWS, all.length);
   const lab = more.querySelector('.kl[data-l="idle"]');
   if (lab) lab.textContent = `더보기 (${total}개)`;
@@ -19667,15 +19671,22 @@ chips.addEventListener('click', e => {
   S.f = b.dataset.k;
   renderPanel({ force: true });
 });
+// 휴대폰: 접으면 카드 머리로 (§3-14와 같아요)
+function headBack() {
+  if (!narrowMQ.matches || !card) return;
+  const top = card.getBoundingClientRect().top, stuck = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--stuck-h')) || 0;
+  if (top < stuck) scrollBy({ top: top - stuck - 8, behavior: motion() === 'reduced' ? 'auto' : 'smooth' });
+}
+// 더보기 · 접기 = the card's fold, the same as 시장 뉴스 · 오늘 공시 (design.md §7 · §12 ①, KHNews.fold): only the list's box grows on
+// `open` and what is below moves once; the new rows (.nw-x) come in together a quarter of the way; closing — they leave first, the box
+// closes on `close`, then the page comes up once. No stagger (§6-2: a list one opens often).
 more.addEventListener('click', () => {
-  S.open = !S.open;
-  if (typeof UI.state === 'function') UI.state(more, S.open ? 'less' : 'idle');
-  more.setAttribute('aria-expanded', String(S.open));
-  renderPanel({ force: true, grow: S.open });
-  if (!S.open && narrowMQ.matches && card) {                 // 휴대폰: 접으면 카드 머리로 (§3-14와 같아요)
-    const top = card.getBoundingClientRect().top, stuck = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--stuck-h')) || 0;
-    if (top < stuck) scrollBy({ top: top - stuck - 8, behavior: motion() === 'reduced' ? 'auto' : 'smooth' });
-  }
+  const want = !S.open;
+  if (typeof UI.state === 'function') UI.state(more, want ? 'less' : 'idle');
+  more.setAttribute('aria-expanded', String(want));
+  const apply = w => { S.open = w; renderPanel({ force: true }); };
+  if (typeof News.fold === 'function') News.fold(list, want, apply, { onEnd: want ? null : headBack });
+  else { apply(want); if (!want) headBack(); }
   more.focus({ preventScroll: true });
 });
 const flush = () => { if (S.pending && !reading()) renderPanel(); };
@@ -19698,19 +19709,22 @@ addTab();
 </script>
 <style>
 /* 실시간 갱신 status mark (src/live/live.js, docs/standards/realtime.md §7-4): a dot + a word in the header's status area.
-   Neutral greys only — it reports, it is not a control (amber is for controls, red / green for prices). Its width does not touch the
-   header's height: phones show a short word (실시간 · 연결 중 · 10초 · 지연), the map stays where it was. */
-#live-mark{display:inline-flex;align-items:center;gap:5px;min-height:20px;font-size:12px;line-height:1;font-weight:500;color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums;cursor:default}
+   Design standard (design.md §2 · §3 · §6, ux/std-wrapup 2026-11-16): 실시간 = --live (the colour of 장중 · 실시간 연결 — the same as the
+   template's status dot and 실시간 badge it stands in for), the other states neutral greys; never amber (controls) or red / green
+   (prices). The beat is the template's status-dot beat (an opacity pulse — no spreading ring), the connecting ring turns on --c-spin.
+   Type on the scale (--fs-sm, phones --fs-xs — was 12 / 11.5px), gap --space-2. Off the scale on purpose: min-height 20px (the header's
+   status line — the map box, design.md §11 템플릿) and the 8px dot. Its width does not touch the header's height: phones show a short
+   word (실시간 · 연결 중 · 10초 · 지연), the map stays where it was. */
+#live-mark{display:inline-flex;align-items:center;gap:var(--space-2);min-height:20px;font-size:var(--fs-sm);line-height:1;font-weight:500;color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums;cursor:default}
 #live-mark[hidden]{display:none}
 #live-mark .lm-s{display:none}
 #live-mark .lm-g{position:relative;flex:none;width:8px;height:8px;border-radius:50%;box-sizing:border-box}
-/* 실시간: a filled dot (beats once per update in 화려하게) */
-#live-mark[data-s="live"]{color:var(--fg2)}
-#live-mark[data-s="live"] .lm-g{background:var(--fg2)}
-#live-mark .lm-g.beat{animation:lm-beat 1.2s var(--m-out, ease-out) 1}
-@keyframes lm-beat{0%{box-shadow:0 0 0 0 color-mix(in srgb, var(--fg2) 45%, transparent)}70%{box-shadow:0 0 0 6px transparent}100%{box-shadow:0 0 0 0 transparent}}
+/* 실시간: a filled --live dot (beats once per update in 화려하게 — the template's `pulse`: opacity only) */
+#live-mark[data-s="live"]{color:var(--live)}
+#live-mark[data-s="live"] .lm-g{background:var(--live)}
+#live-mark .lm-g.beat{animation:pulse 1.2s var(--m-out) 1}
 /* 연결하는 중 · 다시 연결하는 중: an open ring that turns (still under 줄이기) */
-#live-mark:is([data-s="connecting"], [data-s="reconnecting"]) .lm-g{border:1.5px solid var(--muted);border-right-color:transparent;animation:lm-spin .9s linear infinite}
+#live-mark:is([data-s="connecting"], [data-s="reconnecting"]) .lm-g{border:1.5px solid var(--muted);border-right-color:transparent;animation:lm-spin var(--c-spin) linear infinite}
 @keyframes lm-spin{to{transform:rotate(360deg)}}
 /* 10초마다 갱신: a hollow dot */
 #live-mark[data-s="polling"] .lm-g{border:1.5px solid var(--muted)}
@@ -19722,7 +19736,7 @@ html[data-motion="reduced"] #live-mark .lm-g{animation:none}
 .status.has-lm > .dot{display:none}
 .status.has-lm.live:not(.has-blab) .badge,.status.has-lm.has-blab.bl-live .badge,.status.has-lm.err .badge{display:none}
 @media (max-width:760px){
-  #live-mark{gap:4px;font-size:11.5px}
+  #live-mark{font-size:var(--fs-xs)}
   #live-mark .lm-l{display:none}
   #live-mark .lm-s{display:inline}
 }
@@ -20182,7 +20196,7 @@ sync();
 .kc-wk button{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:var(--space-1);min-height:58px;border-radius:calc(var(--r-key) - 4px);transition:filter var(--c-fast) var(--c-out)}
 .kc-wk button:is(:active,.is-press){filter:var(--press-f);transition-duration:0s}
 .kc-wk .dw{font-size:var(--fs-xs);color:var(--muted);line-height:1}
-.kc-wk .dnum{font-size:var(--fs-xl);font-weight:600;line-height:1.1}
+.kc-wk .dnum{font-size:var(--fs-xl);font-weight:600;line-height:var(--lh-num)}
 .kc-wk .wkend .dnum{color:var(--fg2)}
 .kc-wk .today .dw{color:var(--fg);font-weight:700}
 .kc-wk .closed .dnum{color:var(--muted);text-decoration:line-through;text-decoration-thickness:1px}
@@ -20195,7 +20209,7 @@ sync();
    1.5px --chip-ring + a check). The check's box is always there, so a chip is as wide on as off and no neighbour moves: off, the label
    sits centred over it (shifted half the check), on, the check fades and grows in (.6 → 1) and the label slides back. Switching on =
    `fade` (fill · check) + `lead` (label · check position); switching off = `close` (shorter). The chip is toggled in place (calendar.js). */
-.kc-chips{display:flex;gap:var(--space-3);overflow-x:auto;padding:var(--space-5) 6px var(--space-3);margin:0 -6px;scrollbar-width:none}
+.kc-chips{display:flex;gap:var(--space-3);overflow-x:auto;padding:var(--space-5) var(--space-3) var(--space-3);margin:0 calc(-1 * var(--space-3));scrollbar-width:none}
 .kc-chips::-webkit-scrollbar{display:none}
 .kc-chip{--ck:14px;--ckg:var(--space-2);position:relative;flex:none;display:inline-flex;align-items:center;height:var(--h-chip);padding:0 var(--space-5);border-radius:var(--r-pill);background:var(--chip-bg);box-shadow:var(--key-sh);
   font-size:var(--fs-sm);line-height:var(--lh-ui);font-weight:600;color:var(--key-fg);white-space:nowrap;
@@ -20209,7 +20223,7 @@ sync();
 .kc-chip[aria-pressed="true"] .kcl{transform:none;transition:transform var(--sp-lead-dur) var(--sp-lead)}
 .kc-chip:is(:active,.is-press){transform:translateY(1px);box-shadow:var(--key-dn);filter:var(--press-f);transition-duration:0s}
 .kc-chip[aria-pressed="true"]:is(:active,.is-press){box-shadow:inset 0 0 0 1.5px var(--chip-ring),var(--key-dn)}
-.kc-chips .kc-sep{flex:none;width:1px;margin:6px var(--space-1);background:var(--line2)}
+.kc-chips .kc-sep{flex:none;width:1px;margin:var(--space-3) var(--space-1);background:var(--line2)}
 
 /* day list */
 .kc-list,.kc-det{transition:opacity var(--sp-fade-dur) var(--sp-fade)}
@@ -20243,7 +20257,7 @@ sync();
 .kc-ev .t1{display:flex;align-items:center;gap:var(--space-3);font-size:var(--fs-lg);font-weight:600;word-break:keep-all;min-width:0}
 .kc-ev .t1 .ttl{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
 .kc-ev .co{flex:none;font-weight:700}
-.kc-ev .t2{display:flex;flex-wrap:wrap;align-items:center;gap:2px var(--space-3);margin-top:3px;font-size:var(--fs-sm);color:var(--muted);min-width:0}
+.kc-ev .t2{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-1) var(--space-3);margin-top:var(--space-1);font-size:var(--fs-sm);color:var(--muted);min-width:0}
 .kc-ev .t2 .sub{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
 .kc-ev .t2 .val{flex:0 1 auto;min-width:0;max-width:100%;overflow-wrap:anywhere;color:var(--fg2);font-weight:600}   /* 긴 발표값(수출·수입물가지수 두 값)도 줄을 넘겨 카드 안에 — 사용자 2026-11-15 21:34 "이렇게 튀어나가는거 없게해줘" */
 .kc-ev .chev{width:16px;height:16px;stroke:var(--faint);fill:none;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round}
@@ -20275,7 +20289,7 @@ sync();
 .kc-dlg::backdrop{background:rgba(0,0,0,.5);opacity:0;transition:opacity var(--sp-close-dur) var(--sp-close),display var(--sp-close-dur) allow-discrete,overlay var(--sp-close-dur) allow-discrete}
 .kc-dlg[open].on::backdrop{opacity:1;transition:opacity var(--sp-fade-dur) var(--sp-fade),display var(--sp-fade-dur) allow-discrete,overlay var(--sp-fade-dur) allow-discrete}
 .kc-dlg .kc-grab{position:relative;display:block;height:var(--space-6);margin:0 calc(-1 * var(--edge));touch-action:none;cursor:grab}
-.kc-dlg .kc-grab::before{content:"";position:absolute;left:50%;top:var(--space-4);width:36px;height:4px;margin-left:-18px;border-radius:2px;background:var(--line2)}
+.kc-dlg .kc-grab::before{content:"";position:absolute;left:50%;top:var(--space-4);width:36px;height:4px;margin-left:-18px;border-radius:var(--r-mark);background:var(--line2)}
 .kc-sh{display:flex;align-items:flex-start;gap:var(--space-4);padding:var(--space-2) 0 var(--space-5)}
 @media (max-width:760px){ .kc-dlg .kc-sh{touch-action:none} }   /* the grip and the title row drag the sheet down; the rest scrolls */
 .kc-sh h3{flex:1;margin:0;font-size:var(--fs-2xl);line-height:var(--lh-num);font-weight:700;letter-spacing:-.01em;word-break:keep-all}
@@ -20285,7 +20299,7 @@ sync();
 .kc-kv{display:grid;grid-template-columns:76px minmax(0,1fr);gap:var(--space-4) var(--space-5);margin:0 0 var(--space-6);font-size:var(--fs-md)}
 .kc-kv dt{color:var(--muted)}
 .kc-kv dd{margin:0;word-break:keep-all}
-.kc-kv dd small{display:block;color:var(--muted);font-size:var(--fs-sm);margin-top:2px}
+.kc-kv dd small{display:block;color:var(--muted);font-size:var(--fs-sm);margin-top:var(--space-1)}
 .kc-why{padding:var(--space-5);border-radius:var(--r-row);background:var(--fill-1);color:var(--fg2);line-height:var(--lh-text);margin:0 0 var(--space-6)}
 .kc-acts{display:flex;gap:var(--space-4);flex-wrap:wrap}
 .kc-acts a,.kc-acts button{position:relative;display:inline-flex;align-items:center;gap:var(--space-3);min-height:44px;padding:0 var(--space-6);border-radius:var(--r-key);background:var(--key-bg);box-shadow:var(--key-sh);font-size:var(--fs-md);font-weight:600;text-decoration:none;color:var(--key-fg);
@@ -20309,23 +20323,23 @@ sync();
   .kc-desk{display:grid;grid-template-columns:minmax(0,1fr) 440px;gap:var(--space-6);align-items:start}
   .kc-bar{grid-column:1/-1;display:flex;align-items:center;gap:var(--space-4);min-width:0}
   .kc-bar h2{margin:0 var(--space-4) 0 0;font-size:var(--fs-2xl);font-weight:700;letter-spacing:-.01em;white-space:nowrap}
-  .kc-bar .kc-chips{padding:6px;margin:-6px -6px -6px calc(var(--space-5) - 6px);min-width:0}   /* room for the focus ring inside the scroller */
+  .kc-bar .kc-chips{padding:var(--space-3);margin:calc(-1 * var(--space-3)) calc(-1 * var(--space-3)) calc(-1 * var(--space-3)) calc(var(--space-5) - var(--space-3));min-width:0}   /* room for the focus ring inside the scroller */
   .kc-card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-card);overflow:hidden}
   .kc-mg{display:grid;grid-template-columns:repeat(7,minmax(0,1fr))}
   .kc-mg .h{padding:var(--space-4);font-size:var(--fs-sm);color:var(--muted);border-right:1px solid var(--line);border-bottom:1px solid var(--line);background:var(--panel2)}
-  .kc-mg .cell{position:relative;display:flex;flex-direction:column;align-items:stretch;gap:2px;min-height:112px;padding:var(--space-3) var(--space-3) var(--space-4);border-right:1px solid var(--line);border-bottom:1px solid var(--line);text-align:left;overflow:hidden;min-width:0}
+  .kc-mg .cell{position:relative;display:flex;flex-direction:column;align-items:stretch;gap:var(--space-1);min-height:112px;padding:var(--space-3) var(--space-3) var(--space-4);border-right:1px solid var(--line);border-bottom:1px solid var(--line);text-align:left;overflow:hidden;min-width:0}
   .kc-mg .h:nth-child(7n),.kc-mg .cell:nth-child(7n){border-right:0}
   @media (hover:hover) and (pointer:fine){.kc-mg .cell:hover{background:var(--fill-1)}}
   .kc-mg .cell.out{background:var(--fill-1)}
   .kc-mg .cell.out .dnum{color:var(--faint)}
   .kc-mg .cell{transition:box-shadow var(--sp-close-dur) var(--sp-close)}
   .kc-mg .cell[aria-pressed="true"]{box-shadow:inset 0 0 0 1.5px var(--acc);transition:box-shadow var(--sp-fade-dur) var(--sp-fade)}
-  .kc-mg .top1{display:flex;align-items:center;gap:var(--space-3);margin-bottom:2px;min-width:0}
-  .kc-mg .dnum{flex:none;display:inline-grid;place-items:center;min-width:24px;height:24px;border-radius:12px;font-size:var(--fs-md);font-weight:600}
+  .kc-mg .top1{display:flex;align-items:center;gap:var(--space-3);margin-bottom:var(--space-1);min-width:0}
+  .kc-mg .dnum{flex:none;display:inline-grid;place-items:center;min-width:24px;height:24px;border-radius:var(--r-pill);font-size:var(--fs-md);font-weight:600}
   .kc-mg .cell.wkend .dnum{color:var(--fg2)}
   .kc-mg .cell.today .dnum,.kc-mg .cell.today.wkend .dnum{background:var(--fg);color:var(--page);font-weight:700}
   .kc-mg .cl{font-size:var(--fs-xs);color:var(--fg2);overflow:hidden;white-space:nowrap;text-overflow:ellipsis;min-width:0}
-  .kc-mg .line{display:flex;align-items:center;gap:var(--space-2);font-size:var(--fs-sm);line-height:1.35;color:var(--fg2);white-space:nowrap;overflow:hidden;min-width:0}
+  .kc-mg .line{display:flex;align-items:center;gap:var(--space-2);font-size:var(--fs-sm);line-height:var(--lh-row);color:var(--fg2);white-space:nowrap;overflow:hidden;min-width:0}
   .kc-mg .line .ttl{overflow:hidden;text-overflow:ellipsis}
   .kc-mg .line.s3{color:var(--fg);font-weight:600}
   .kc-mg .line .kc-stars{font-size:var(--fs-xs)}
@@ -20939,7 +20953,11 @@ sync();
    design.md(승인 2026-11-15)대로: 글자 --fs-* · 간격 --space-* · 모서리 --r-* / 테마 --card-r · 높이 --h-* · 움직임 --sp-* 토큰만,
    빨강 · 초록은 숫자에만(.up · .dn), 앰버는 포커스 · 열린 키(--key-on)만, 장중 점은 --live, 빛 · 그라데이션 없음, 최소 11px. */
 
-.msum{position:relative;font-size:var(--fs-md);line-height:var(--lh-row);color:var(--fg);min-width:0}
+.msum{position:relative;font-size:var(--fs-md);line-height:var(--lh-row);color:var(--fg);min-width:0;
+  /* design.md §6-4 글자 바꿈 길이(나감 100 → 60ms 뒤 들어옴 180), 복사 키 글자 상자의 들어옴 지연 — 줄이기 = 0 (ux/std-wrapup: 손으로 쓴
+     100ms · ease-in(--c-in) 대신 토큰 + 나감은 close 스프링, 뉴스 카드 --nw-tx-*와 같은 값) */
+  --sm-tx-out:100ms;--sm-tx-gap:60ms;--sm-tx-in:180ms;--sm-tx-lab:160ms}
+html[data-motion="reduced"] .msum{--sm-tx-out:0ms;--sm-tx-gap:0ms;--sm-tx-in:0ms;--sm-tx-lab:0ms}
 /* 움직이는 동안만: 카드 자신의 바탕 대신 같은 바탕의 판(.sm-skin)이 자라고 줄어요(design-references-full §7 P8 ⓐ) — 아래 내용은
    한 번에 새 자리로(펼칠 땐 처음, 접을 땐 끝, summary.js setOpen), 판이 지나가는 빈자리는 페이지 바탕이 그대로 보여요 */
 .msum.sm-anim{background:transparent;border-color:transparent;box-shadow:none;isolation:isolate}
@@ -20982,7 +21000,7 @@ html.sm-noanchor{overflow-anchor:none}
 .sm-bar i{display:block;height:100%}
 .msum .sm-in{opacity:0;transform:translateY(var(--space-2))}
 .msum .sm-in.sm-go{opacity:1;transform:none;transition:opacity var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out),transform var(--c-fast) var(--c-out)}
-.msum .sm-out{opacity:0;transform:translateY(calc(var(--space-2) * -1));transition:opacity 100ms var(--c-in),filter 100ms var(--c-in),transform 100ms var(--c-in)}
+.msum .sm-out{opacity:0;transform:translateY(calc(var(--space-2) * -1));transition:opacity var(--sm-tx-out) var(--sp-close),filter var(--sm-tx-out) var(--sp-close),transform var(--sm-tx-out) var(--sp-close)}
 /* 흐림 2px(§6-4)은 짧은 띠에만 — 펼친 표(1,000px 넘음)에 흐림을 걸면 프레임마다 큰 면을 다시 그려서 끊겨요(실측) */
 .msum .sm-band:is(.sm-in:not(.sm-go),.sm-out){filter:blur(2px)}
 /* 처음 펼칠 때 한 번만(P3, 화려하게): 표 덩어리가 하나씩 — 각자 --d 뒤에(40 → 30 → 20ms 간격, 전체 300ms 안). 표 자체는 한 번에 보이고 */
@@ -20993,8 +21011,8 @@ html.sm-noanchor{overflow-anchor:none}
    자리별로 굴리지 않아요(P10) — 띠 숫자는 15초에 한 번 바뀌는 요약이라 한 번에 바꿔요 */
 .msum .sm-sw{display:inline-grid}
 .msum .sm-sw > span{grid-area:1 / 1}
-.msum .sm-sw > .o{animation:smOutUp 100ms var(--c-in) forwards}
-.msum .sm-sw > .n{animation:smInUp var(--c-fast) var(--c-out) 60ms both}
+.msum .sm-sw > .o{animation:smOutUp var(--sm-tx-out) var(--sp-close) forwards}
+.msum .sm-sw > .n{animation:smInUp var(--sm-tx-in) var(--sp-fade) var(--sm-tx-gap) both}
 .msum .sm-sw.sm-swd > .o{animation-name:smOutDn}
 .msum .sm-sw.sm-swd > .n{animation-name:smInDn}
 @keyframes smOutUp{to{opacity:0;transform:translateY(calc(var(--space-2) * -1))}}
@@ -21036,18 +21054,20 @@ html.sm-noanchor{overflow-anchor:none}
 .sm-tog,.sm-copy,.sm-fold{position:relative;display:inline-flex;align-items:center;justify-content:center;gap:var(--space-3);height:var(--h-key);padding:0 var(--space-5);border-radius:var(--r-key);background:var(--key-bg);box-shadow:var(--key-sh);color:var(--key-fg);font-size:var(--fs-md);font-weight:600;white-space:nowrap;touch-action:manipulation;transition:filter var(--c-fast) var(--c-out)}
 .sm-tog{flex:none;width:var(--h-key);padding:0}
 .sm-tog[aria-expanded="true"]{box-shadow:var(--key-on)}
-:is(.sm-tog,.sm-copy,.sm-fold,.sm-stk):active{transform:translateY(1px);box-shadow:var(--key-dn);filter:var(--press-f);transition-duration:0ms}
+:is(.sm-tog,.sm-copy,.sm-fold,.sm-stk):active{transform:translateY(1px);box-shadow:var(--key-dn);filter:var(--press-f);transition-duration:0s}
 .sm-fold{margin-left:auto}
 /* 글로 복사(P11): 키 크기는 그대로 — 아이콘 칸에 세 아이콘(복사 · ✓ · !)이 겹쳐 있고, 글자 칸은 가장 긴 글자 폭(겹친 세 글자).
    바뀔 때: 나가는 아이콘은 100ms에 작아지며 사라지고, 들어오는 아이콘은 살짝 돌며 .5 → 1(`fade` 스프링). 완료 · 실패 아이콘은 앰버(design.md §2) */
 .sm-copy .sm-ci{position:relative;flex:none;width:var(--space-6);height:var(--space-6)}
-.sm-copy .sm-i{position:absolute;left:0;top:0;width:100%;height:100%;color:var(--key-ic);opacity:0;transform:rotate(-20deg) scale(.5);transition:opacity 100ms var(--c-in),transform 100ms var(--c-in)}
+.sm-copy .sm-i{position:absolute;left:0;top:0;width:100%;height:100%;color:var(--key-ic);opacity:0;transform:rotate(-20deg) scale(.5);transition:opacity var(--sm-tx-out) var(--sp-close),transform var(--sm-tx-out) var(--sp-close)}
 .sm-copy[data-st="idle"] .sm-i-copy,.sm-copy[data-st="done"] .sm-i-done,.sm-copy[data-st="fail"] .sm-i-fail{opacity:1;transform:none;transition:opacity var(--sp-fade-dur) var(--sp-fade),transform var(--sp-fade-dur) var(--sp-fade)}
-.sm-copy[data-st="done"] .sm-i-done,.sm-copy[data-st="fail"] .sm-i-fail{color:var(--acc)}
+.sm-copy[data-st="done"] .sm-i-done{color:var(--acc)}
+/* 안 됐어요의 ! = --fail-dot(앰버 아님 — design.md §2: 앰버는 고름 · 포커스 · 열림 · 완료만, ux/std-wrapup) */
+.sm-copy[data-st="fail"] .sm-i-fail{color:var(--fail-dot)}
 .sm-copy .sm-kls{display:inline-grid}
 .sm-copy .sm-kl{grid-area:1 / 1;opacity:0;transform:translateY(var(--space-2))}
-.sm-copy .sm-kl.on{opacity:1;transform:none;transition:opacity var(--c-fast) var(--c-out) 160ms,transform var(--c-fast) var(--c-out) 160ms}
-.sm-copy .sm-kl.out{transform:translateY(calc(var(--space-2) * -1));transition:opacity 100ms var(--c-in),transform 100ms var(--c-in)}
+.sm-copy .sm-kl.on{opacity:1;transform:none;transition:opacity var(--c-fast) var(--c-out) var(--sm-tx-lab),transform var(--c-fast) var(--c-out) var(--sm-tx-lab)}
+.sm-copy .sm-kl.out{transform:translateY(calc(var(--space-2) * -1));transition:opacity var(--sm-tx-out) var(--sp-close),transform var(--sm-tx-out) var(--sp-close)}
 .sm-fold .sm-chev{transform:rotate(180deg)}
 .sm-chev{flex:none;color:var(--key-ic);transition:transform var(--sp-close-dur) var(--sp-close)}
 .sm-tog[aria-expanded="true"] > .sm-chev{transform:rotate(180deg);color:var(--acc);transition:transform var(--sp-open-dur) var(--sp-open)}
