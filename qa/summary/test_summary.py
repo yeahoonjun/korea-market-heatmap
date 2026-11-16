@@ -3,7 +3,7 @@
 
   python3 scripts/build_page.py && python3 qa/summary/test_summary.py [--shots]
 
-Starts qa/summary/mock_summary.py on SUMMARY_QA_PORT (default 8981; ports 8980–8988 only) and, for "the map does not move", a second
+Starts qa/summary/mock_summary.py on SUMMARY_QA_PORT (default 8981; ports 8980–8988, or 9010–9068 for the ux/std-* runs) and, for "the map does not move", a second
 one on SUMMARY_QA_PORT + 1 serving the web/ of git rev SUMMARY_QA_BASE (default main) — the page without the card. Both are stopped with
 fuser -k <port>/tcp at the end. The mock data is the 11/13 (금) close: 상한가 9 · 하한가 0 (snapshot lim), flows of 11/13.
 Static: summary.css uses only design tokens for type, corners, colour, spacing and motion (design.md §2–§6); close.json carries lim.
@@ -34,7 +34,7 @@ from playwright.sync_api import sync_playwright
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 PORT = int(os.environ.get('SUMMARY_QA_PORT', 8981))
-assert 8980 <= PORT <= 8988 or 9020 <= PORT <= 9028   # 9020–9029: ux/std-template runs
+assert 8980 <= PORT <= 8988 or 9010 <= PORT <= 9068   # 9010–9069: the ux/std-* runs (PORT + 1 serves the base build)
 URL = f'http://127.0.0.1:{PORT}/'
 BASE_REV = os.environ.get('SUMMARY_QA_BASE', 'main')
 OUT = ROOT / 'qa/shots/market_summary'

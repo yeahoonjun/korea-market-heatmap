@@ -3,7 +3,10 @@
 
   python3 qa/std_template/test_std_template.py [audit] [page] [cap] [limits]       (no argument = all four)
 
-audit  static, src/template.html's <style>: no radial gradient; a linear gradient only where it draws data or a shape (the legend scale,
+audit  static, src/template.html's <style>: the scale (design.md §3 · §4 — every font size on --fs-*, line heights on --lh-*, padding /
+       margin / gap on --space-*, corners on --r-*, heights on --h-*; what is left is listed below with its reason: the map box
+       (design.md §11 템플릿), the dock (dock.md), icon · mark · data boxes, hit areas, negative margins, and the controls the next
+       step ("컨트롤 움직임 통일", AGENTS §3-38) will size) — and hover only on a fine pointer (design.md §8); no radial gradient; a linear gradient only where it draws data or a shape (the legend scale,
        no-data / no-NXT hatches, the folded 공시 corner, the tab row's overflow mask); no glow (no zero-offset blurred box-shadow, no
        drop-shadow(), text halos only behind map labels / the crumbs over the index line); status rules (live · err · fail · stale) never
        read the amber; --live and --fail-dot are defined for every theme and none of them is amber.
@@ -34,7 +37,7 @@ import urllib.request
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 PORT = int(os.environ.get('STD_QA_PORT', 9020))
-assert 9020 <= PORT <= 9029 or 9060 <= PORT <= 9069, 'ports 9020–9029 (or 9060–9069: ux/std-dock)'
+assert 9020 <= PORT <= 9029 or 9050 <= PORT <= 9069, 'ports 9020–9029 (or 9050–9069: ux/std-wrapup · ux/std-dock)'
 URL = f'http://127.0.0.1:{PORT}/'
 NOPROXY = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 THEMES = ['base', 'paper', 'glass-dark', 'glass-light']
@@ -80,9 +83,92 @@ STATUS_SEL = re.compile(r'\.status\.(live|err)|\.err\b|stale|\[data-st="fail"\]|
 AMBER = re.compile(r'var\(--(acc|acc-fill|acc-line|acc-soft|acc-bd|amber|amber-soft)\)|#ffb547|255,\s*181,\s*71')
 
 
+# ── the scale (design.md §3 · §4), ux/std-wrapup 2026-11-16: whatever is not on a token is listed here with its reason ──
+MAPBOX = 'map box — sets where the map starts / how big it is (design.md §11 템플릿 "척도 밖으로 둔 것"; qa/summary compares the map box with main)'
+NEXT = '남은 것 — a control size the next step ("컨트롤 움직임 통일", AGENTS §3-38) settles with the close key · chips · keys of every module'
+DOCK = 'the phone dock / search sheet shape (dock.md, qa/dock/audit_css.py)'
+FONT_OK = {('.tile .pc', '.74em'): 'map tile label — sized to the tile (design.md §3 예외)', ('.tile .px', '.52em'): 'map tile label (§3 예외)',
+           ('.tile .mc', '.44em'): 'map tile label (§3 예외)', ('.tabs .st', '.9em'): MAPBOX + ' — the % line under a market tab sets the tab row',
+           ('.dk-v', '700 var(--fs-xl)/20px var(--font-head)'): DOCK + ' — the 20px value line'}
+LH_OK = {'.tabs .tn': MAPBOX, '.tabs .tp': MAPBOX, '@media (max-width: 760px) .tabs .tn': MAPBOX, '.ixl .ixv,.ixl .ixt': MAPBOX + ' (the index line, B)',
+         '.ixl .ixtip': MAPBOX + ' (the index line bubble)', '.tile .lab': 'map tile labels (§3 예외)', '.tile .lim': 'map tile 상한가 mark',
+         '.legend .rauto': 'the badge recipe height 18 (design.md §5)', '.nxtag': MAPBOX + ' (header badge)', '.limtag': MAPBOX + ' (header badge)',
+         '.rs': 'the number drum (KH.ui.roll)', '.dk-l1': DOCK, '.dk-n': DOCK, '.list th .thv': 'table header two-line label (data table)'}
+SPACE_OK = {'.top': MAPBOX, '@media (max-width: 760px) .top': MAPBOX, '.tabs button': MAPBOX, '@media (max-width: 760px) .tabs button': MAPBOX,
+            '.tools': MAPBOX, '.search input': MAPBOX + ' (the 35px icon slot)', '.seg': 'tray inset 3px (design.md §4 example: tray 12, gap 3 → 9)',
+            '.seg button': MAPBOX + ' (segment cell 5px)', '@media (min-width:1280px) .seg button': MAPBOX,
+            '@media (min-width:1280px) .seg[data-key="palette"] button': MAPBOX, '@media (min-width:1280px) and (max-width:1439px) .seg[data-key="topN"] button': MAPBOX,
+            '.layout': MAPBOX, '.viewseg button': MAPBOX + ' (map header keys 3px)', '.crumbs button.c': MAPBOX, '@media (max-width: 760px) .crumbs .back': MAPBOX,
+            '.legend': MAPBOX, '.legend .lg': MAPBOX, '@media (max-width: 760px) .legend': MAPBOX, '.side': MAPBOX + ' (side column top = the map)',
+            '.card': 'card inner 14px = the summary · news cards (one inner width)', '.movers-tabs': 'tray inset 3px (§4)',
+            '.tile .pc': 'map tile label pill (tick flash ④)', '.brand i': 'the logo mark', 'span.cdb.cdb > i': 'candle drawing (half-pixel centring)',
+            '.bm-in': 'bottom edge: safe area + the sheet foot', '@media (max-width: 760px) .ctls': 'bottom edge: safe area + the sheet foot',
+            '@media (max-width:760px) footer': DOCK + ' (the 72px end slot under the page)', '.bm-it': 'the check slot of a menu row (icon box 40)'}
+RADIUS_OK = {'.brand i b': 'the logo mark', '.legend .limsw': 'legend mark', '@media (min-width:1280px) .ctl.dd > .seg': 'popover corner = tooltip + 2 (fix/popover, AGENTS §3-35)',
+             '@media (min-width:1280px) .morep': 'popover corner = tooltip + 2', '@media (min-width:761px) and (max-width:1279px) .ctls': 'popover corner = tooltip + 2',
+             '.wgpop': 'popover corner = tooltip + 2', '@media (max-width:760px) .wgpop': 'nested surface: inner = outer − gap (design.md §4)',
+             '.sheet': 'nested surface: inner = outer − gap (§4)', 'html[data-theme^="glass"] header.top::before': 'glass header plate (themes.md §6-2, glass material — design.md §2 예외)',
+             '@media (max-width:760px) html[data-theme^="glass"] header.top::before': 'glass header plate', 'html[data-theme^="glass"] header.top::after': 'glass header edge reflection',
+             '@media (max-width:760px) html[data-theme^="glass"] header.top::after': 'glass header edge reflection',
+             ':is(.thm .seg,.ctls .seg[data-key="palette"])': 'theme / palette swatches: a capped tray corner (glass 999 would be a pill)',
+             ':is(.thm .seg,.ctls .seg[data-key="palette"])::before': 'the capped indicator inside it'}
+HEIGHT_RE = re.compile(r'svg|::before|::after|\b(i|b)\b|\.dot|\.sw\b|\.cd[ib]|\.grad|\.bar\b|\.ck\b|\.kov|\.kck|\.kwn|\.kspn|\.pl\b|\.mbl|\.sep|\.tsep|\.grab|\.dmsw|\.limsw|\.dbar|\.breadth|\.sr\b|\.ttl|label\.row input|\.msg')
+HEIGHT_DATA = {'.map': MAPBOX, '@media (max-width: 760px) .map,.tablewrap': MAPBOX, '.tablewrap': MAPBOX, '.hist': 'data: the 등락 분포 bars', '.spark svg': 'data: the sparkline',
+               '.legend': MAPBOX, '.crumbs': MAPBOX, '.crumbs .ixl': MAPBOX, '.stagebar.ix-row > .ixl': MAPBOX, '.search input': MAPBOX + ' (검색 칸 34)',
+               '.setbtn': MAPBOX + ' (the tools row: 34 = 검색 칸 · 세그먼트)', '.swbtn .swt': 'switch track 44 × 26 (controls.md §5-8)', '.sugg': 'list cap (scrolls)',
+               '.sheet': 'sheet cap (scrolls)', '.world-missing': 'message box keeps the map area', '.dock': DOCK, '.dk-v': DOCK, '.dk-bar': DOCK + ' (the 등락 분포 bar 6px)',
+               '.wgc': NEXT + ' (★관심 group chips, desktop 30)', '.wgm': NEXT, '@media (max-width:760px) .wgadd': NEXT + ' (phone ＋ 42)',
+               '.wgpop input[type="text"]': NEXT + ' (group name field 38)', '.wgpop .acts button': NEXT + ' (popover keys 34)', '.map-empty .we button': NEXT + ' (40 at every width)',
+               '@media (max-width:760px) .movers .more,.secs .more': NEXT + ' (phone 더보기 42)', '.wstar': NEXT + ' (☆ in the quick view, 30)',
+               '.sheet .x': NEXT + ' (quick view × 30 — design.md §5: 32 / phone 44)', '.thm .seg button': NEXT + ' (theme swatches 34)', '.bm-it': NEXT + ' (price-basis menu rows 54)'}
+
+
+def audit_scale(css):
+    sys.path.insert(0, str(ROOT / 'qa/news'))
+    from stdcss import parse, novar
+    bare, R, D, _ = parse(css)
+    D = [(sel, k, v) for sel, k, v in D if not k.startswith('--')]
+    font = [(sel, v) for sel, k, v in D if (k == 'font-size' and novar(v).strip() not in ('T', 'inherit')) or (k == 'font' and re.search(r'\d(px|em)\b', novar(v)))]
+    check('audit scale ④: font sizes on --fs-* (left: tile labels · tab % line · dock value line, with reasons)', all(FONT_OK.get((sel, v)) for sel, v in font), [x for x in font if not FONT_OK.get(x)])
+    lh = [sel for sel, k, v in D if k == 'line-height' and not (v.startswith('var(--lh-') or v in ('1', 'normal', 'inherit'))]
+    check('audit scale ④: line heights on --lh-* (left: map box · tile labels · badges · drum · dock, with reasons)', all(sel in LH_OK for sel in lh), [x for x in lh if x not in LH_OK])
+    SP = ('padding', 'padding-left', 'padding-right', 'padding-top', 'padding-bottom', 'margin', 'margin-left', 'margin-right', 'margin-top', 'margin-bottom', 'gap', 'row-gap', 'column-gap')
+    bad = []
+    for sel, k, v in D:
+        if k not in SP:
+            continue
+        nums = [float(n) for n in re.findall(r'(-?\d*\.?\d+)px', re.sub(r'env\([^)]*\)', 'E', novar(v)))]
+        off = [n for n in nums if n not in (0, 1, -1)]
+        if not off or all(n < 0 for n in off) or sel in SPACE_OK:      # negative margins: hit areas · optical corrections (design.md §11)
+            continue
+        bad.append((sel, k, v))
+    check('audit scale ⑤: padding / margin / gap on --space-* (left: map box · tray insets · safe-area feet · negative margins, with reasons)', not bad, bad)
+    bad = []
+    for sel, k, v in D:
+        if 'radius' not in k:
+            continue
+        vv = re.sub(r'(?<![\d.])0px', '0', novar(v)).strip()
+        if (re.search(r'\d(px|em)\b', vv) or (re.search(r'\d+%', vv) and vv != '50%')) and sel not in RADIUS_OK:
+            bad.append((sel, v))
+    check('audit scale ⑥: corners on --r-* (left: popover = tooltip + 2 · nested surfaces · glass header plate · marks, with reasons)', not bad, bad)
+    bad = []
+    for sel, k, v in D:
+        if k not in ('height', 'min-height', 'max-height') or not re.search(r'\d+px', novar(v)):
+            continue
+        if sel in HEIGHT_DATA or HEIGHT_RE.search(sel) or ('(pointer:coarse)' in sel and '44px' in v):
+            continue
+        bad.append((sel, k, v))
+    check('audit scale ⑦: heights on --h-* (left: icon · mark · data boxes, hit areas, map box, dock, and the controls of the next step — with reasons)', not bad, bad)
+    nxt = sorted({sel for sel in HEIGHT_DATA if HEIGHT_DATA[sel].startswith('남은 것') and any(s2 == sel for s2, k, v in D if k in ('height', 'min-height'))})
+    print(f'      (남은 것, next step: {len(nxt)} control sizes — {", ".join(nxt)})')
+    hov = [sel for sel, _ in R if ':hover' in sel and '(hover:hover)and(pointer:fine)' not in sel.replace(' ', '')]
+    check('audit: hover only inside (hover:hover) and (pointer:fine) — design.md §8 (no (hover:none) resets)', not hov and '(hover:none)' not in bare.replace(' ', ''), hov)
+
+
 def audit():
     src = (ROOT / 'src/template.html').read_text(encoding='utf-8')
     css = src[src.index('<style>') + 7:src.index('</style>')]
+    audit_scale(css)
     rules = css_rules(css)
     check('audit: no radial-gradient in the template CSS', 'radial-gradient' not in css)
     bad = []

@@ -287,7 +287,7 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 .tabs{display:flex;gap:var(--space-1);background:var(--tray-bg);box-shadow:var(--tray-sh);border-radius:var(--r-tray);padding:var(--space-2)}
 .tabs button{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;min-height:var(--h-key);padding:var(--space-1) 14px;border-radius:var(--r-in);font-size:var(--fs-lg);font-weight:600;color:var(--muted);transition:color var(--sp-fade-dur) var(--sp-fade),filter var(--c-fast) var(--c-out);white-space:nowrap}
 .tabs button[aria-pressed="true"]{color:var(--fg)}
-.tabs button:hover{color:var(--fg)}
+@media (hover:hover) and (pointer:fine){ .tabs button:hover{color:var(--fg)} }
 .tabs .tn{line-height:16px}
 .tabs .st{color:var(--acc);margin-right:var(--space-1);font-size:.9em;line-height:1}
 /* three groups (사용자 2026-11-15 21:38~21:40, A + "칸을 나누든 아님 묶여있는 느낌"): 코스피 · 코스닥 · 전체 | 테마 · 해외 · 지표 · 일정 |
@@ -337,10 +337,11 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 .sugg{position:absolute;left:0;right:0;top:40px;z-index:60;background:var(--pop-bg);border:1px solid var(--tip-bd);border-radius:var(--tip-r);padding:var(--space-2);box-shadow:var(--pop-sh);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);display:none;max-height:340px;overflow:auto}
 .sugg.open{display:block}
 .sugg button{display:grid;grid-template-columns:10px 1fr auto auto;align-items:center;gap:var(--space-4);width:100%;text-align:left;padding:var(--space-4) var(--space-4);border-radius:var(--r-row);font-size:var(--fs-lg)}
-.sugg button[aria-selected="true"],.sugg button:hover{background:color-mix(in srgb,var(--ov) 6%,transparent)}
+.sugg button[aria-selected="true"]{background:color-mix(in srgb,var(--ov) 6%,transparent)}
+@media (hover:hover) and (pointer:fine){ .sugg button:hover{background:color-mix(in srgb,var(--ov) 6%,transparent)} }
 .sugg .sw{width:10px;height:10px;border-radius:var(--r-mark)}
 .sugg .meta{color:var(--muted);font-size:var(--fs-sm)}
-.sugg .empty{padding:var(--space-4);color:var(--muted);font-size:var(--fs-md);line-height:1.5}
+.sugg .empty{padding:var(--space-4);color:var(--muted);font-size:var(--fs-md);line-height:var(--lh-text)}
 .sugg .empty small{display:block;font-size:var(--fs-sm);color:var(--faint);margin-top:var(--space-1)}
 .ctl{display:flex;align-items:center;gap:var(--space-3)}
 .ctl[hidden]{display:none}
@@ -351,14 +352,14 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 .seg{display:flex;background:var(--tray-bg);box-shadow:var(--tray-sh);border-radius:var(--r-tray);padding:3px}
 .seg button{padding:5px var(--space-4);border-radius:var(--r-in);font-size:var(--fs-md);color:var(--muted);white-space:nowrap;transition:color var(--sp-fade-dur) var(--sp-fade),filter var(--c-fast) var(--c-out)}
 .seg button[hidden]{display:none!important}
-.seg button:hover{color:var(--fg)}
+@media (hover:hover) and (pointer:fine){ .seg button:hover{color:var(--fg)} }
 .seg button[aria-pressed="true"]{color:var(--fg)}
 .seg .pal{display:inline-flex;gap:1px;margin-right:var(--space-3);vertical-align:-1px}
 .seg .pal b{width:6px;height:11px;display:block}
 .seg .pal b:first-child{border-radius:var(--r-mark) 0 0 var(--r-mark)} .seg .pal b:last-child{border-radius:0 var(--r-mark) var(--r-mark) 0}
 .setbtn{display:none;align-items:center;gap:var(--space-3);height:34px;padding:0 var(--space-5);border-radius:var(--r-key);background:var(--key-bg);box-shadow:var(--key-sh);color:var(--key-fg);font-size:var(--fs-md);font-weight:600;white-space:nowrap}
 .setbtn svg{width:16px;height:16px;color:var(--key-ic);flex:none}
-.setbtn:hover{background:var(--key-hover)}
+@media (hover:hover) and (pointer:fine){ .setbtn:hover{background:var(--key-hover)} }
 .setbtn[aria-expanded="true"]{color:var(--acc);box-shadow:var(--key-on)}
 .setbtn[aria-expanded="true"] svg{color:var(--acc)}
 .ctls-hd{display:none}
@@ -371,12 +372,12 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 .morehd{font-size:var(--fs-md);font-weight:700;color:var(--fg)}
 .morep .ctl{flex-direction:column;align-items:stretch;gap:var(--space-3)}
 .morep .seg button{flex:1 1 auto}
-.morep .hint{font-size:var(--fs-sm);color:var(--muted);line-height:1.45}
+.morep .hint{font-size:var(--fs-sm);color:var(--muted);line-height:var(--lh-text)}
 .morep .hint[hidden]{display:none}
 .morep .seg.wrap{flex-wrap:wrap}
 .morep .seg.wrap button{max-width:100%;overflow:hidden;text-overflow:ellipsis}
 .swbtn{display:flex;align-items:center;justify-content:space-between;gap:var(--space-5);width:100%;min-height:var(--h-row);padding:var(--space-2) var(--space-4) var(--space-2) var(--space-5);border-radius:var(--r-key);background:var(--key-bg);box-shadow:var(--key-sh);font-size:var(--fs-md);color:var(--fg);text-align:left;touch-action:pan-y;transition:filter var(--c-fast) var(--c-out)}
-.swbtn:hover{background:var(--key-hover)}
+@media (hover:hover) and (pointer:fine){ .swbtn:hover{background:var(--key-hover)} }
 .swbtn:active,.swbtn.is-press{filter:var(--press-f);transition-duration:0s}
 /* KH.addSetting({multi:true}): on / off chips (controls §5-7, ② 단단한 이동 — 사용자 2026-11-16 10:02): fill + 1.5px ring + a check. The
    check's 14px place is always there, so a chip is as wide on as off and never pushes its neighbours (the 일정 chips' recipe); the left
@@ -420,7 +421,7 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
   .ctl.dd{position:relative}
   .ddbtn{display:inline-flex;align-items:center;gap:var(--space-3);height:var(--h-key);padding:0 var(--space-4) 0 var(--space-5);border-radius:var(--r-key);background:var(--key-bg);box-shadow:var(--key-sh);color:var(--key-fg);font-size:var(--fs-md);white-space:nowrap}
   .ddbtn svg{width:12px;height:12px;color:var(--key-ic);flex:none;transition:transform var(--c-base) var(--c-inout)}
-  .ddbtn:hover{background:var(--key-hover)}
+  @media (hover:hover) and (pointer:fine){ .ddbtn:hover{background:var(--key-hover)} }
   .ddbtn[aria-expanded="true"]{box-shadow:var(--key-on)}
   .ddbtn[aria-expanded="true"] svg{transform:rotate(180deg);color:var(--acc)}
   .ctl.dd > .seg{display:none;position:absolute;top:calc(100% + 6px);left:0;z-index:75;flex-direction:column;min-width:128px;padding:var(--space-2);background:var(--pop-bg);border-radius:calc(var(--tip-r) + 2px);box-shadow:inset 0 0 0 1px var(--tip-bd),var(--pop-sh);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur)}
@@ -430,7 +431,7 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
   .ctl.more{position:relative}
   .morebtn{display:inline-flex;align-items:center;justify-content:center;gap:var(--space-3);height:var(--h-key);padding:0 var(--space-5);border-radius:var(--r-key);background:var(--key-bg);box-shadow:var(--key-sh);color:var(--key-fg);font-size:var(--fs-md);white-space:nowrap}
   .morebtn svg{width:16px;height:16px;color:var(--key-ic);flex:none}
-  .morebtn:hover{background:var(--key-hover)}
+  @media (hover:hover) and (pointer:fine){ .morebtn:hover{background:var(--key-hover)} }
   .morebtn[aria-expanded="true"]{color:var(--acc);box-shadow:var(--key-on)}
   .morebtn[aria-expanded="true"] svg{color:var(--acc)}
   .morep{display:none;position:absolute;top:calc(100% + 6px);right:0;z-index:75;width:300px;padding:var(--space-5) var(--space-5) var(--space-5);background:var(--pop-bg);border:1px solid var(--tip-bd);border-radius:calc(var(--tip-r) + 2px);box-shadow:var(--tip-sh);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur)}
@@ -456,7 +457,7 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
   .ctls.open{display:flex}
   .ctls-hd{display:flex;align-items:center;justify-content:space-between;font-size:var(--fs-lg);font-weight:700}
   .ctls-hd .x{position:relative;width:var(--h-key);height:var(--h-key);border-radius:var(--r-key);display:grid;place-items:center;color:var(--muted);font-size:var(--fs-2xl);margin-right:-6px}
-  .ctls-hd .x:hover{background:color-mix(in srgb,var(--ov) 7%,transparent);color:var(--fg)}
+  @media (hover:hover) and (pointer:fine){ .ctls-hd .x:hover{background:color-mix(in srgb,var(--ov) 7%,transparent);color:var(--fg)} }
   .ctls .ctl{flex-direction:column;align-items:stretch;gap:var(--space-3)}
   .ctls .seg{flex-wrap:wrap}
   .ctls .seg button{flex:1 1 auto}
@@ -480,7 +481,7 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 .crumbs{display:flex;align-items:center;gap:var(--space-3);min-height:30px;font-size:var(--fs-lg);flex-wrap:wrap;flex:1;min-width:0}
 .viewseg button{padding:3px var(--space-4);font-size:var(--fs-sm)}
 .crumbs button.c{color:var(--fg2);padding:3px var(--space-3);border-radius:var(--r-badge)}
-.crumbs button.c:hover{background:var(--panel2);color:var(--fg)}
+@media (hover:hover) and (pointer:fine){ .crumbs button.c:hover{background:var(--panel2);color:var(--fg)} }
 .crumbs button.c.cur{color:var(--fg);font-weight:600;cursor:default;background:none}
 .crumbs .sep{color:var(--faint)}
 .crumbs .ci{display:inline-flex;align-items:center;gap:var(--space-3);white-space:nowrap;min-width:0;max-width:100%}
@@ -514,7 +515,7 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 .ixl .ixv .k2 i{opacity:.75}
 .ixl .ixt{text-align:right;align-items:flex-end}
 .ixl .ixt b{color:var(--fg2);font-weight:600;font-size:var(--fs-sm)}
-.ixl .ixtip{position:absolute;bottom:calc(100% + 4px);transform:translateX(-50%);z-index:5;background:var(--tip-bg);border:1px solid var(--tip-bd);border-radius:6px;padding:var(--space-2) var(--space-4);font-size:var(--fs-sm);color:var(--fg);pointer-events:none;box-shadow:0 6px 18px color-mix(in srgb,var(--shc) 50%,transparent);line-height:1.35}
+.ixl .ixtip{position:absolute;bottom:calc(100% + 4px);transform:translateX(-50%);z-index:5;background:var(--tip-bg);border:1px solid var(--tip-bd);border-radius:var(--r-row);padding:var(--space-2) var(--space-4);font-size:var(--fs-sm);color:var(--fg);pointer-events:none;box-shadow:0 6px 18px color-mix(in srgb,var(--shc) 50%,transparent);line-height:1.35}
 .ixl .ixtip[hidden]{display:none}
 .ixl .ixtip span{display:block}
 .ixl .ixx{position:absolute;top:0;bottom:0;width:1px;background:var(--fg2);opacity:.45;pointer-events:none}
@@ -563,20 +564,21 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 .wgi{display:inline-flex;flex:none;padding:1px;border-radius:var(--r-chip);background:var(--chip-bg);box-shadow:var(--key-sh);transition:background-color var(--sp-close-dur) var(--sp-close),box-shadow var(--sp-close-dur) var(--sp-close)}
 .wgi[data-on]{background:var(--chip-on);box-shadow:inset 0 0 0 1.5px var(--chip-ring);transition:background-color var(--sp-fade-dur) var(--sp-fade),box-shadow var(--sp-fade-dur) var(--sp-fade)}
 .wgc{display:inline-flex;align-items:center;gap:var(--space-3);height:30px;padding:0 var(--space-5);border-radius:var(--r-chip);font-size:var(--fs-md);font-weight:600;color:var(--fg2);white-space:nowrap;transition:color var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out)}
-.wgc:hover,.wgi[data-on] .wgc{color:var(--fg)}
+.wgi[data-on] .wgc{color:var(--fg)}
+@media (hover:hover) and (pointer:fine){ .wgc:hover{color:var(--fg)} }
 .wgc .n{font-size:var(--fs-sm);font-weight:500;color:var(--muted);font-variant-numeric:tabular-nums;transition:color var(--c-fast) var(--c-out)}
 .wgi[data-on] .wgc .n{color:var(--acc)}
 .wgm{position:relative;width:28px;height:30px;margin-left:-6px;border-radius:var(--r-chip);color:var(--fg2);font-size:var(--fs-xl);line-height:1}
-.wgm:hover{color:var(--fg);background:color-mix(in srgb,var(--ov) 6%,transparent)}
-.wgadd{position:relative;flex:none;width:34px;height:32px;border-radius:var(--r-chip);background:var(--key-bg);box-shadow:var(--key-sh);color:var(--fg2);font-size:var(--fs-xl)}
-.wgadd:hover{color:var(--fg);background:var(--key-hover)}
+@media (hover:hover) and (pointer:fine){ .wgm:hover{color:var(--fg);background:color-mix(in srgb,var(--ov) 6%,transparent)} }
+.wgadd{position:relative;flex:none;width:34px;height:var(--h-key);border-radius:var(--r-chip);background:var(--key-bg);box-shadow:var(--key-sh);color:var(--fg2);font-size:var(--fs-xl)}
+@media (hover:hover) and (pointer:fine){ .wgadd:hover{color:var(--fg);background:var(--key-hover)} }
 .wgpop{position:fixed;z-index:95;width:max-content;min-width:220px;max-width:min(320px,calc(100vw - 16px));padding:var(--space-4);border-radius:calc(var(--tip-r) + 2px);background:var(--pop-bg);border:1px solid var(--tip-bd);box-shadow:var(--tip-sh);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);font-size:var(--fs-lg);color:var(--fg)}
 .wgpop[hidden]{display:none}
 .wgpop.in-dlg{z-index:210}   /* KH.watch.pick from a dialog (the stock page, z 200): it moves into it, above its own layers */
 .wgpop h3{margin:var(--space-1) var(--space-3) var(--space-4);font-size:var(--fs-md);font-weight:600;color:var(--fg2);overflow-wrap:anywhere}
 .wgpop .row{display:flex;align-items:center;gap:var(--space-4);width:100%;min-height:var(--h-row);padding:0 var(--space-4);border-radius:var(--r-in);text-align:left;color:var(--fg);cursor:pointer;transition:filter var(--c-fast) var(--c-out)}
 .wgpop .row:active{filter:var(--press-f);transition-duration:0s}
-.wgpop .row:hover{background:color-mix(in srgb,var(--ov) 6%,transparent)}
+@media (hover:hover) and (pointer:fine){ .wgpop .row:hover{background:color-mix(in srgb,var(--ov) 6%,transparent)} }
 .wgpop .row[disabled]{opacity:.4;cursor:default;background:none}
 .wgpop label.row input{-webkit-appearance:none;appearance:none;width:18px;height:18px;margin:0;flex:none;border-radius:var(--r-badge);background:var(--tray-bg) no-repeat center/0 0;box-shadow:var(--tray-sh);cursor:pointer;transition:background-color var(--c-fast) var(--c-out),background-size var(--c-base) var(--c-out),box-shadow var(--c-fast) var(--c-out)}
 .wgpop label.row input:checked{background-color:var(--acc-fill);background-size:14px 14px;box-shadow:inset 0 1px 0 color-mix(in srgb,white 30%,transparent);background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M4.5 10.5l3.6 3.6 7.4-8' fill='none' stroke='%231b1404' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")}
@@ -586,14 +588,14 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 .wgpop .row .ck{margin-left:auto;padding-left:var(--space-5);color:var(--acc);font-weight:700}
 .wgpop input[type="text"]{width:100%;height:38px;border-radius:var(--r-key);border:0;background:var(--tray-bg);box-shadow:var(--tray-sh);color:var(--fg);font:inherit;padding:0 var(--space-5);outline:none}
 .wgpop input[type="text"]:focus{box-shadow:var(--tray-sh),0 0 0 var(--focus-off) var(--pop-solid),0 0 0 calc(var(--focus-off) + var(--focus-w)) var(--focus)}
-.wgpop .msg{min-height:18px;margin:var(--space-3) var(--space-3) 0;font-size:var(--fs-sm);color:var(--fg2);line-height:1.45}
+.wgpop .msg{min-height:18px;margin:var(--space-3) var(--space-3) 0;font-size:var(--fs-sm);color:var(--fg2);line-height:var(--lh-text)}
 .wgpop .acts{display:flex;gap:var(--space-4);justify-content:flex-end;margin-top:var(--space-4)}
 .wgpop .acts button{height:34px;padding:0 var(--space-6);border-radius:var(--r-key);background:var(--key-bg);box-shadow:var(--key-sh);color:var(--key-fg);font-weight:600}
 .wgpop .acts .pri{background:var(--pri-bg);color:var(--pri-fg);box-shadow:var(--pri-sh)}
 .wgpop .acts .pri[disabled]{opacity:.45;cursor:default;box-shadow:none}
 .wgpop .sep{height:1px;background:var(--line);margin:var(--space-3) 0}
 @media (max-width:760px){
-  .wgc{height:40px} .wgm{height:40px;width:38px} .wgadd{height:42px;width:44px}
+  .wgc{height:var(--h-key)} .wgm{height:var(--h-key);width:38px} .wgadd{height:42px;width:44px}
   .wgpop{left:8px!important;right:8px;top:auto!important;bottom:calc(8px + env(safe-area-inset-bottom));width:auto;max-width:none;background:var(--sheet-bg);border-color:var(--sheet-bd);border-radius:max(4px,calc(var(--sheet-r) - 4px));box-shadow:var(--sheet-fl-sh)}   /* phones: a floating sheet, in the theme's sheet material */
   .wgpop .row{min-height:var(--h-row)} .wgpop .acts button{height:var(--h-row)}
 }
@@ -617,10 +619,11 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 .ind .hd{background:var(--ihd-bg);font-size:var(--fs-xs);font-weight:500;color:var(--ihd-fg)}
 .sec .hd .t,.ind .hd .t{overflow:hidden;text-overflow:ellipsis;min-width:0}
 .sec .hd .v,.ind .hd .v{font-variant-numeric:tabular-nums;flex:none;font-weight:600}
-.sec .hd:hover,.ind .hd:hover{color:var(--sec-hov)}
-.sec .hd:hover .t,.ind .hd:hover .t{text-decoration:underline;text-underline-offset:2px;text-decoration-color:var(--acc)}
+.sec .hd .v:empty,.ind .hd .v:empty{display:none}  /* no value: no 6px gap taken from a narrow band's name */
+@media (hover:hover) and (pointer:fine){ .sec .hd:hover,.ind .hd:hover{color:var(--sec-hov)} }
+@media (hover:hover) and (pointer:fine){ .sec .hd:hover .t,.ind .hd:hover .t{text-decoration:underline;text-underline-offset:2px;text-decoration-color:var(--acc)} }
 .focus-leaf .ind .hd,.focus-leaf .sec .hd{cursor:default}
-.focus-leaf .sec .hd:hover .t,.focus-leaf .ind .hd:hover .t{text-decoration:none}
+@media (hover:hover) and (pointer:fine){ .focus-leaf .sec .hd:hover .t,.focus-leaf .ind .hd:hover .t{text-decoration:none} }
 .sec.hot{box-shadow:inset 0 0 0 2px var(--sel-1);z-index:4;pointer-events:none}
 .tile{z-index:3;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--tile-fg);text-align:center}
 .tile.nod{background-image:repeating-linear-gradient(135deg,var(--hatch) 0 3px,transparent 3px 8px)}
@@ -647,7 +650,8 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 .tile .pc[hidden],.tile .px[hidden],.tile .mc[hidden]{display:none}
 .tile .lim{position:absolute;z-index:2;left:2px;top:5px;font-size:var(--fs-xs);font-weight:700;line-height:14px;padding:0 var(--space-2);border-radius:var(--r-mark);background:var(--badge-bg);color:var(--badge-fg);box-shadow:0 0 0 1px var(--badge-ring)}
 .tile .lim[hidden]{display:none}
-.tile:hover,.tile.hov{box-shadow:inset 0 0 0 2px var(--tile-hov);z-index:5}
+.tile.hov{box-shadow:inset 0 0 0 2px var(--tile-hov);z-index:5}
+@media (hover:hover) and (pointer:fine){ .tile:hover{box-shadow:inset 0 0 0 2px var(--tile-hov);z-index:5} }
 .tile.sel{box-shadow:inset 0 0 0 3px var(--sel-1),0 0 0 1px var(--sel-2);z-index:6}
 .tile.dim{filter:saturate(.25) brightness(.38)}
 /* 뉴스 줄에 올리면 그 종목만 (KH.hover): weaker than the search / 등락 분포 highlight, which win while they are on */
@@ -701,10 +705,10 @@ html[data-tone="light"]{--fl-wu:color-mix(in srgb,var(--shc) 9%,transparent);--f
 @keyframes fx-in{from{opacity:0;transform:scale(.94)}}
 @keyframes fx-fade{from{opacity:0}}
 .tstar{position:absolute;z-index:7;width:var(--h-chip);height:var(--h-chip);display:grid;place-items:center;border-radius:var(--r-row);background:var(--badge-bg);color:var(--badge-fg);font-size:var(--fs-lg);line-height:1;box-shadow:0 0 0 1px var(--badge-ring);transition:transform var(--c-fast) var(--c-out),color var(--c-fast) var(--c-out),background-color var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out)}
-.tstar:hover{background:color-mix(in srgb,var(--shc) 85%,transparent)}
+@media (hover:hover) and (pointer:fine){ .tstar:hover{background:color-mix(in srgb,var(--shc) 85%,transparent)} }
 .tstar[aria-pressed="true"]{color:var(--acc-fill)}
 .tstar[hidden]{display:none}
-.map-empty{position:absolute;inset:0;display:grid;place-items:center;color:var(--muted);font-size:var(--fs-lg);padding:var(--space-6);text-align:center;line-height:1.6}
+.map-empty{position:absolute;inset:0;display:grid;place-items:center;color:var(--muted);font-size:var(--fs-lg);padding:var(--space-6);text-align:center;line-height:var(--lh-text)}
 .map-empty .we{display:flex;flex-direction:column;align-items:center;gap:var(--space-3);max-width:340px}
 .map-empty .we .big{font-size:var(--fs-num);color:var(--fg2);line-height:1}
 .map-empty .we b{font-size:var(--fs-xl);color:var(--fg);font-weight:700}
@@ -722,7 +726,7 @@ main.layout[hidden],#world[hidden]{display:none}
 /* a section whose rows are all hidden goes with its heading and hints (syncSetSections) — never an empty heading */
 .set-empty{display:none!important}
 .is-cal .ctls .morep{border-top:0;padding-top:0}
-.world-missing{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:var(--space-3);min-height:320px;padding:var(--space-7);text-align:center;color:var(--muted);font-size:var(--fs-lg);line-height:1.6;background:var(--panel);border:1px solid var(--line);border-radius:var(--r-card)}
+.world-missing{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:var(--space-3);min-height:320px;padding:var(--space-7);text-align:center;color:var(--muted);font-size:var(--fs-lg);line-height:var(--lh-text);background:var(--panel);border:1px solid var(--line);border-radius:var(--r-card)}
 .world-missing b{color:var(--fg);font-size:var(--fs-xl)}
 
 /* legend under the map */
@@ -751,14 +755,14 @@ main.layout[hidden],#world[hidden]{display:none}
 table.list{width:100%;border-collapse:collapse;font-size:var(--fs-md)}
 .list th{position:sticky;top:0;z-index:1;background:var(--th-bg);color:var(--muted);font-weight:500;font-size:var(--fs-sm);text-align:right;padding:0;border-bottom:1px solid var(--line);white-space:nowrap;user-select:none}
 .list th button{display:block;width:100%;padding:var(--space-4) var(--space-5);font-size:inherit;font-weight:inherit;color:inherit;text-align:inherit;white-space:nowrap}
-.list th button:hover{color:var(--fg)}
+@media (hover:hover) and (pointer:fine){ .list th button:hover{color:var(--fg)} }
 .list th button:focus-visible,.list tbody tr:focus-visible{outline-offset:calc(var(--focus-w) * -1)}
 .list th:first-child,.list td:first-child,.list th:nth-child(2),.list td:nth-child(2){text-align:left}
 .list th[aria-sort]{color:var(--fg)}
 .list th[aria-sort="descending"] button::after{content:" ▾"} .list th[aria-sort="ascending"] button::after{content:" ▴"}
 .list td{padding:var(--space-4) var(--space-5);border-bottom:1px solid color-mix(in srgb,var(--ov) 4%,transparent);text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
 .list tbody tr{cursor:pointer}
-.list tbody tr:hover{background:color-mix(in srgb,var(--ov) 3.5%,transparent)}
+@media (hover:hover) and (pointer:fine){ .list tbody tr:hover{background:color-mix(in srgb,var(--ov) 3.5%,transparent)} }
 .list tbody tr.sel{background:var(--amber-soft)}
 .list .nmcell{display:flex;align-items:center;gap:var(--space-4);font-weight:600}
 .list .nmcell i{width:10px;height:10px;border-radius:var(--r-mark);flex:none}
@@ -771,7 +775,7 @@ table.list{width:100%;border-collapse:collapse;font-size:var(--fs-md)}
 @media (max-width:1023px){ .list .k-i,.list.x7 .k-vol{display:none} }
 .list .nd{color:var(--faint)}
 .wbtn{position:relative;flex:none;display:inline-grid;place-items:center;width:var(--h-chip);height:var(--h-chip);margin:-4px -4px -4px -6px;border-radius:var(--r-row);font-size:var(--fs-xl);line-height:1;color:var(--faint);transition:color var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out)}
-.wbtn:hover{color:var(--fg);background:color-mix(in srgb,var(--ov) 6%,transparent)}
+@media (hover:hover) and (pointer:fine){ .wbtn:hover{color:var(--fg);background:color-mix(in srgb,var(--ov) 6%,transparent)} }
 .wbtn[aria-pressed="true"]{color:var(--acc)}
 .list tr.nonx .nmt{color:var(--fg2);font-weight:500}
 .nxtag{display:inline-block;flex:none;font-size:var(--fs-xs);font-weight:600;line-height:16px;padding:0 var(--space-2);border-radius:var(--r-badge);color:var(--muted);border:1px solid var(--line2);white-space:nowrap}
@@ -809,14 +813,14 @@ table.list{width:100%;border-collapse:collapse;font-size:var(--fs-md)}
 .hist button .cnt{font-size:var(--fs-xs);color:var(--fg2);text-align:center;margin-bottom:var(--space-2);font-variant-numeric:tabular-nums}
 .hist.has-sel button:not([aria-pressed="true"]) .bar{opacity:.28}
 .hist button[aria-pressed="true"] .cnt{color:var(--acc);font-weight:600}
-.hist button:hover .bar{opacity:1!important;filter:brightness(1.15)}
+@media (hover:hover) and (pointer:fine){ .hist button:hover .bar{opacity:1!important;filter:brightness(1.15)} }
 .hist-axis{display:grid;grid-template-columns:repeat(9,1fr);gap:var(--space-2);font-size:var(--fs-xs);color:var(--muted);margin-top:var(--space-2);text-align:center;font-variant-numeric:tabular-nums}
 .hist-axis span{white-space:nowrap;overflow:visible}
 .hist-note{font-size:var(--fs-sm);color:var(--faint);margin-top:var(--space-4)}
 .secs{display:flex;flex-direction:column;gap:1px}
 .secs button{display:grid;grid-template-columns:minmax(0,1fr) 92px 58px;align-items:center;gap:var(--space-4);padding:var(--space-3) var(--space-3);margin:0 -6px;border-radius:var(--r-row);font-size:var(--fs-md);text-align:left}
 .secs.wide button{grid-template-columns:minmax(0,1fr) 70px 70px}
-.secs button:hover{background:color-mix(in srgb,var(--ov) 4.5%,transparent)}
+@media (hover:hover) and (pointer:fine){ .secs button:hover{background:color-mix(in srgb,var(--ov) 4.5%,transparent)} }
 .secs button.cur{background:var(--amber-soft)}
 .secs .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .secs .nm small{color:var(--faint);font-size:var(--fs-xs);margin-left:var(--space-2)}
@@ -838,8 +842,8 @@ span.cdb.cdb > i{position:absolute;top:50%;width:auto;height:1px;margin-top:-.5p
 .cdb b{position:absolute;top:1px;bottom:1px;background:currentColor;border-radius:var(--r-mark)}
 .cdb em{position:absolute;top:50%;transform:translateY(-50%);font-style:normal;font-size:var(--fs-xs);line-height:1;color:currentColor}
 .cdb .ovr{right:0} .cdb .ovl{left:0}
-.cdhint{font-size:var(--fs-xs);color:var(--muted);padding:var(--space-2) var(--space-3) 0;line-height:1.4}
-.card-head .ohlc{display:flex;align-items:center;gap:var(--space-4);margin-top:var(--space-2);font-size:var(--fs-sm);line-height:1.35;color:var(--fg2);font-variant-numeric:tabular-nums}
+.cdhint{font-size:var(--fs-xs);color:var(--muted);padding:var(--space-2) var(--space-3) 0;line-height:var(--lh-text)}
+.card-head .ohlc{display:flex;align-items:center;gap:var(--space-4);margin-top:var(--space-2);font-size:var(--fs-sm);line-height:var(--lh-row);color:var(--fg2);font-variant-numeric:tabular-nums}
 .card-head .ohlc .cdb{width:64px;height:12px;flex:none}
 .card-head .ohlc .cdb::before{top:-3px;bottom:-3px;background:var(--muted)}
 .card-head .ohlc .ot{min-width:0;display:flex;flex-wrap:wrap;column-gap:var(--space-5);row-gap:1px}
@@ -855,7 +859,7 @@ span.cdb.cdb > i{position:absolute;top:50%;width:auto;height:1px;margin-top:-.5p
 .movers{display:flex;flex-direction:column;gap:1px}
 .movers button{display:grid;grid-template-columns:10px minmax(0,1fr) auto 66px;gap:var(--space-4);align-items:center;padding:var(--space-3);margin:0 -6px;border-radius:var(--r-row);font-size:var(--fs-md);text-align:left}
 .movers.amt button{grid-template-columns:10px minmax(0,1fr) auto 76px}
-.movers button:hover{background:color-mix(in srgb,var(--ov) 4.5%,transparent)}
+@media (hover:hover) and (pointer:fine){ .movers button:hover{background:color-mix(in srgb,var(--ov) 4.5%,transparent)} }
 .movers i{width:10px;height:10px;border-radius:var(--r-mark)}
 .movers .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500}
 .movers .px{color:var(--muted);font-size:var(--fs-sm);font-variant-numeric:tabular-nums}
@@ -863,7 +867,7 @@ span.cdb.cdb > i{position:absolute;top:50%;width:auto;height:1px;margin-top:-.5p
 .movers .none{font-size:var(--fs-sm);color:var(--faint);padding:var(--space-2) 0}
 /* §3-14 더보기 / 접기 under a list; the 거래대금 number of a sector */
 .movers .more,.secs .more{position:relative;display:flex;align-items:center;justify-content:center;gap:var(--space-3);width:100%;margin:var(--space-4) 0 0;padding:var(--space-4) 0;border-radius:var(--r-key);background:var(--key-bg);box-shadow:var(--key-sh);font-size:var(--fs-sm);font-weight:600;color:var(--key-fg);text-align:center}
-.movers .more:hover,.secs .more:hover{background:var(--key-hover)}
+@media (hover:hover) and (pointer:fine){ .movers .more:hover,.secs .more:hover{background:var(--key-hover)} }
 .movers .more::after,.secs .more::after{content:"";width:6px;height:6px;margin-top:-3px;border:solid var(--key-ic);border-width:0 1.6px 1.6px 0;transform:rotate(45deg)}
 .movers .more[aria-expanded="true"]::after,.secs .more[aria-expanded="true"]::after{margin-top:var(--space-2);transform:rotate(225deg)}
 .more[data-flip]::after{animation:chevFlip var(--c-base) var(--c-inout)}
@@ -874,13 +878,14 @@ span.cdb.cdb > i{position:absolute;top:50%;width:auto;height:1px;margin-top:-.5p
 @media (max-width:760px){ .movers .more,.secs .more{min-height:42px} }
 .movers-tabs button[hidden]{display:none}
 
-footer{padding:var(--space-2) var(--edge) var(--space-6);font-size:var(--fs-sm);color:var(--faint);line-height:1.6}
+footer{padding:var(--space-2) var(--edge) var(--space-6);font-size:var(--fs-sm);color:var(--faint);line-height:var(--lh-text)}
 footer p{margin:0;max-width:92ch}
 footer a{color:var(--muted)}
 footer .credit{margin-top:var(--space-3);color:var(--muted)}
 footer .disclaim{margin-top:var(--space-2);color:var(--muted)}   /* 사용자 2026-11-14 11:59: 투자 유의 문구는 항상 맨 아래 줄 */   /* 사용자 2026-11-13 23:04: SSSlot처럼 맨 아래 저작권 한 줄 */
 footer .credit button{font:inherit;color:var(--fg2);background:none;border:0;padding:var(--space-4) 0;margin:-10px 0;cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px}
-footer .credit button:hover,footer .credit button:focus-visible{color:#5865f2;transition:color var(--c-fast,180ms) var(--c-out,ease)}   /* 마우스를 올리면 디스코드 색 */
+footer .credit button:focus-visible{color:#5865f2;transition:color var(--c-fast,180ms) var(--c-out,ease)}   /* 마우스를 올리면 디스코드 색 */
+@media (hover:hover) and (pointer:fine){ footer .credit button:hover{color:#5865f2;transition:color var(--c-fast,180ms) var(--c-out,ease)} }
 footer .credit button:focus-visible{outline:3px solid var(--focus,var(--amber));outline-offset:2px;border-radius:var(--r-mark)}
 footer .credit button{display:inline-flex;align-items:center;gap:var(--space-2)}
 footer .credit .dc-wrap{display:inline-flex;text-decoration:none}
@@ -906,7 +911,7 @@ footer .credit .dc{width:1.15em;height:1.15em;flex:none}
 .card-head .meta{display:flex;gap:var(--space-5);margin-top:var(--space-3);font-size:var(--fs-sm);color:var(--muted);font-variant-numeric:tabular-nums;flex-wrap:wrap}
 .card-head .meta em{font-style:normal;color:var(--fg2)}
 .wstar{position:relative;display:inline-grid;place-items:center;align-self:center;width:30px;height:30px;margin:-6px 0 -6px 0;border-radius:var(--r-in);color:var(--muted);font-size:var(--fs-2xl);line-height:1;transition:color var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out),transform var(--c-fast) var(--c-out)}
-.wstar:hover{color:var(--fg);background:color-mix(in srgb,var(--ov) 6%,transparent)}
+@media (hover:hover) and (pointer:fine){ .wstar:hover{color:var(--fg);background:color-mix(in srgb,var(--ov) 6%,transparent)} }
 .wstar[aria-pressed="true"]{color:var(--acc)}
 .peers{padding:var(--space-3) var(--space-3) var(--space-4)}
 .peers .ttl{font-size:var(--fs-xs);color:var(--muted);padding:var(--space-1) var(--space-3) var(--space-2)}
@@ -925,12 +930,12 @@ footer .credit .dc{width:1.15em;height:1.15em;flex:none}
 .sheet:focus{outline:none}
 .sheet .grab{display:none}
 .sheet .x{position:absolute;right:8px;top:8px;width:30px;height:30px;border-radius:var(--r-in);display:grid;place-items:center;color:var(--muted);font-size:var(--fs-2xl);transition:filter var(--c-fast) var(--c-out),transform var(--c-fast) var(--c-out)}
-.sheet .x:hover{background:color-mix(in srgb,var(--ov) 7%,transparent);color:var(--fg)}
+@media (hover:hover) and (pointer:fine){ .sheet .x:hover{background:color-mix(in srgb,var(--ov) 7%,transparent);color:var(--fg)} }
 .sheet .acts{display:flex;flex-wrap:wrap;gap:var(--space-4);padding:var(--space-4) var(--space-5) var(--space-5);border-top:1px solid var(--line)}
 .sheet .acts button,.sheet .acts a{flex:1;display:inline-flex;justify-content:center;align-items:center;height:var(--h-row);border-radius:var(--r-key);font-size:var(--fs-md);font-weight:600;text-decoration:none}
 .sheet .acts .pri{background:var(--pri-bg);color:var(--pri-fg);box-shadow:var(--pri-sh);flex:1 1 100%}
 .sheet .acts .sec2{background:var(--key-bg);box-shadow:var(--key-sh);color:var(--key-fg)}
-.sheet .acts .sec2:hover{background:var(--key-hover)}
+@media (hover:hover) and (pointer:fine){ .sheet .acts .sec2:hover{background:var(--key-hover)} }
 .spark{padding:var(--space-4) var(--space-5) 0}
 .spark svg{display:block;width:100%;height:70px}
 .spark .note{font-size:var(--fs-xs);color:var(--faint);padding:var(--space-1) 0 var(--space-3)}
@@ -965,8 +970,8 @@ footer .credit .dc{width:1.15em;height:1.15em;flex:none}
   .search{flex:1 1 0;min-width:0}
   .search kbd{display:none}
   .setbtn{height:var(--h-key);padding:0 var(--space-5)}
-  .ctls{position:fixed;left:0;right:0;bottom:0;z-index:91;max-height:82svh;overflow:auto;background:var(--sheet-bg);border:0;border-top:1px solid var(--sheet-bd);border-radius:var(--sheet-r) var(--sheet-r) 0 0;box-shadow:var(--sheet-sh);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);padding:8px 16px calc(18px + env(safe-area-inset-bottom))}
-  .ctls-hd{min-height:44px}
+  .ctls{position:fixed;left:0;right:0;bottom:0;z-index:91;max-height:82svh;overflow:auto;background:var(--sheet-bg);border:0;border-top:1px solid var(--sheet-bd);border-radius:var(--sheet-r) var(--sheet-r) 0 0;box-shadow:var(--sheet-sh);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);padding:var(--space-4) var(--space-6) calc(18px + env(safe-area-inset-bottom))}
+  .ctls-hd{min-height:var(--h-row)}
   .ctls-hd .x{width:var(--h-key);height:var(--h-key)}
   .scrim2{position:fixed;inset:0;z-index:89;background:var(--scrim)}
   .scrim2.open{display:block}
@@ -993,7 +998,7 @@ footer .credit .dc{width:1.15em;height:1.15em;flex:none}
   footer{padding:var(--space-2) var(--space-5) var(--space-7)}
   .tabs button,.seg button,.movers-tabs button,.crumbs button.c,.crumbs .back{min-height:var(--h-key);display:inline-flex;align-items:center;justify-content:center}
   .crumbs .back{padding:3px var(--space-5)}
-  .secs button,.movers button{min-height:40px}
+  .secs button,.movers button{min-height:var(--h-key)}
   .sheet .x{width:var(--h-key);height:var(--h-key);right:6px;top:6px}
   .wstar{width:var(--h-key);height:var(--h-key);margin:-10px -4px -10px -4px}
   .list.th5 th:nth-child(5),.list.th5 td:nth-child(5){display:none}
@@ -1005,11 +1010,11 @@ footer .credit .dc{width:1.15em;height:1.15em;flex:none}
   .list .nmcell small{display:none}
   .list td:first-child{width:100%;max-width:0}
   .list .nmt{min-width:0;overflow:hidden;text-overflow:ellipsis}
-  .wbtn{width:32px;height:40px;margin:-10px -4px -10px -4px}
+  .wbtn{width:32px;height:var(--h-key);margin:-10px -4px -10px -4px}
   /* compact phone header: one tools row (search · 표시 설정 · extras icons), 지도/표 on the breadcrumb line */
   /* 8px over the clock row (사용자 2026-11-15 19:52 "모바일에서는 시계가 위 테두리랑 너무 붙어보여": the analog face sat 1.5px under the
      glass panel's top edge); PC unchanged */
-  .top{padding:var(--space-4) var(--space-5) var(--space-2);gap:var(--space-3) var(--space-5);min-height:44px}
+  .top{padding:var(--space-4) var(--space-5) var(--space-2);gap:var(--space-3) var(--space-5);min-height:var(--h-row)}
   .tabs{padding:0;background:none;box-shadow:none;border-radius:0}
   .tabs-sc{padding:0 1px var(--space-2) 0;margin-bottom:-4px}   /* 1px at the end: 14px names give fractional tab widths, and the scroll range (whole px) left the last tab < 1px past the edge */
   .tabs button:focus-visible{outline-offset:calc(var(--focus-w) * -1)}
@@ -1018,7 +1023,7 @@ footer .credit .dc{width:1.15em;height:1.15em;flex:none}
   .viewseg{padding:0;--ind-in:3px}
   .tools{padding:0 var(--space-5) var(--space-2)}
   .search{flex:1 1 0;min-width:120px}
-  .search input{height:40px;padding-right:var(--space-4)}
+  .search input{height:var(--h-key);padding-right:var(--space-4)}
   .search svg{top:12px}
   #extras-tools{flex:none;margin-left:0}
   .stagebar{padding-bottom:var(--space-2);min-height:0;gap:var(--space-4)}
@@ -1055,7 +1060,7 @@ footer .credit .dc{width:1.15em;height:1.15em;flex:none}
 .bchip[aria-expanded="true"] .bcc{transform:rotate(180deg);color:var(--acc)}
 .bmenu{position:fixed;inset:0;z-index:95;display:flex;align-items:flex-end;justify-content:center;background:var(--scrim)}
 .bmenu[hidden]{display:none}
-.bm-in{width:100%;max-width:520px;background:var(--sheet-bg);border-top:1px solid var(--sheet-bd);border-radius:var(--sheet-r) var(--sheet-r) 0 0;-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);padding:6px 12px calc(14px + env(safe-area-inset-bottom));box-shadow:var(--sheet-sh)}
+.bm-in{width:100%;max-width:520px;background:var(--sheet-bg);border-top:1px solid var(--sheet-bd);border-radius:var(--sheet-r) var(--sheet-r) 0 0;-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);padding:var(--space-3) var(--space-5) calc(14px + env(safe-area-inset-bottom));box-shadow:var(--sheet-sh)}
 .bm-in .bm-t{font-size:var(--fs-sm);color:var(--muted);margin:var(--space-4) var(--space-4) var(--space-3);font-weight:600}
 .bm-it{position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:var(--space-1);width:100%;min-height:54px;padding:var(--space-4) 40px var(--space-4) var(--space-5);border-radius:var(--r-in);text-align:left;transition:filter var(--c-fast) var(--c-out)}
 .bm-it:active{filter:var(--press-f);transition-duration:0s}
@@ -1065,7 +1070,7 @@ footer .credit .dc{width:1.15em;height:1.15em;flex:none}
 .bm-it span{font-size:var(--fs-sm);color:var(--muted);white-space:normal}
 .bm-it[aria-checked="true"]{background:var(--amber-soft)}
 .bm-it[aria-checked="true"] b{color:var(--acc)}
-.bm-it:hover{background:var(--panel2)}
+@media (hover:hover) and (pointer:fine){ .bm-it:hover{background:var(--panel2)} }
 .bm-it:focus-visible{outline:var(--focus-w) solid var(--focus);outline-offset:calc(var(--focus-w) * -1)}
 /* phones: the table keeps a readable name column (two lines): 종목 · 현재가 · 등락률 · 거래대금 (거래량 · 시가총액 dropped; with a 기간 /
    순매수 column, that instead of 거래대금) */
@@ -1074,7 +1079,7 @@ footer .credit .dc{width:1.15em;height:1.15em;flex:none}
   .list td{padding:var(--space-4) var(--space-2)}
   .list th button{padding:0 var(--space-2)}
   .list td:first-child{width:auto;max-width:none;min-width:7.2em;white-space:normal}
-  .list .nmt{min-width:5.6em;white-space:normal;word-break:keep-all;overflow-wrap:anywhere;line-height:1.25;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+  .list .nmt{min-width:5.6em;white-space:normal;word-break:keep-all;overflow-wrap:anywhere;line-height:var(--lh-ui);display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
   .list .limtag{font-size:var(--fs-xs);padding:0 var(--space-2)}
 }
 /* phones and tablets (and a 7-column table below 1440 px): no room for the tag — the hatched chip and the muted name say it (and the
@@ -1184,12 +1189,8 @@ html[data-motion="fancy"] .kl.on .kck{transform:none;transition-delay:var(--c-fa
 @media (pointer:coarse){
   :is(.ctls-hd .x,.sheet .x,.wstar,.wbtn,.wgm,.wgadd,.movers .more,.secs .more)::before{content:"";position:absolute;left:50%;top:50%;width:max(100%,44px);height:max(100%,44px);transform:translate(-50%,-50%)}
 }
-/* touch screens keep no hover look after a tap */
-@media (hover:none){
-  :is(.wstar,.wgm,.sheet .x,.ctls-hd .x,.wbtn):hover{background:none}
-  .wgpop .row:hover{background:none}
-  :is(.setbtn,.swbtn,.wgadd,.movers .more,.secs .more,.sheet .acts .sec2,.ddbtn,.morebtn):hover{background:var(--key-bg)}
-}
+/* touch screens keep no hover look after a tap: every :hover sits in (hover:hover) and (pointer:fine) (design.md §8), so the old
+   (hover:none) resets are gone */
 
 /* ───────────────── the header follows on scroll, in every theme (themes.md §7) ─────────────────
    Desktop: the whole header. Phones (the tab row on its own row under the clock row): the tab row only — top = −(the tab row's
@@ -1241,7 +1242,7 @@ html[data-theme="paper"] :is(.secs > button,.movers > button){border-radius:0;bo
 /* 표시 설정 › 아래 막대: phones only (the dock exists ≤ 760) */
 .dkset{display:flex;flex-direction:column;gap:var(--space-5);border-top:1px solid var(--line);padding-top:var(--space-5)}
 .dkset .dkh{font-size:var(--fs-md);font-weight:700;color:var(--fg)}
-.dkset .hint{font-size:var(--fs-sm);color:var(--muted);line-height:1.45}
+.dkset .hint{font-size:var(--fs-sm);color:var(--muted);line-height:var(--lh-text)}
 @media (min-width:761px){.dkset{display:none!important}}
 @media (max-width:760px){.thm .seg button{min-height:var(--h-key)}}
 
@@ -3216,6 +3217,16 @@ function flatRoot(items, themes) {
   const children = themes ? items.map(t => ({ id: 'H|' + t.id, kind: 'theme', t })) : items.map(st => ({ id: 'T|' + st.c, kind: 'tile', st }));
   return d3.hierarchy({ id: 'root', children }).sum(d => d.kind === 'theme' ? Math.max(d.t.cap, 0) : d.kind === 'tile' ? Math.max(sizeV(d.st), 0) : 0).sort((a, b) => b.value - a.value);
 }
+// sector / industry bands: a band shows when its box is tall enough and either wide enough for a cut name (the old width rule) or
+// its whole name fits. The fit is estimated with textUnits — the tile labels' metric, no glyph measuring — so the decision never
+// waits for the web font and never changes when it arrives (Hangul 1.02 em vs Pretendard's ~0.89 em: it errs on the safe side).
+// Type: .sec .hd = --fs-sm, .ind .hd = --fs-xs; padding 0 var(--space-2) on both sides (read once — the tokens are theme-free).
+let bandType = null;
+const bandName = n => n.data.kind === 'group' ? n.data.g.name : n.data.kind === 'sector' ? n.data.s : n.data.i;
+function nameFits(n, w, top) {
+  if (!bandType) bandType = { sec: parseFloat(cssVar('--fs-sm')) || 12, ind: parseFloat(cssVar('--fs-xs')) || 11, pad: 2 * (parseFloat(cssVar('--space-2')) || 4) };
+  return w >= textUnits(bandName(n) || '') * (top ? bandType.sec : bandType.ind) + bandType.pad;
+}
 function layout(root, W, H, type) {
   const narrow = W < 560;
   const SH = narrow ? 18 : 20, IH = narrow ? 14 : 15;
@@ -3227,8 +3238,8 @@ function layout(root, W, H, type) {
     .paddingTop(n => {
       const w = n.x1 - n.x0, hh = n.y1 - n.y0;
       let v = 0;
-      if (n.depth === 1) v = (w > 44 && hh > 34) ? SH : 0;
-      else if (n.depth === 2) v = (zoomedInd || (w > 62 && hh > 48)) ? IH : 0;
+      if (n.depth === 1) v = hh > 34 && (w > 44 || nameFits(n, w, true)) ? SH : 0;
+      else if (n.depth === 2) v = zoomedInd || (hh > 48 && (w > 62 || nameFits(n, w, false))) ? IH : 0;
       n._hd = v;
       return v;
     })(root);
@@ -3412,7 +3423,13 @@ function placeNode(el, n, mdl) {
   el.__hd = H;
   hd.style.height = H + 'px';
   hd.style.display = H ? 'flex' : 'none';
-  if (!H) { el.__vtxt = null; return; }
+  // a hidden band keeps no text: the DOM is this layout's alone, not whatever an earlier one (a load-time size) showed
+  if (!H) {
+    el.__vtxt = null;
+    for (const s of hd.children) if (s.firstChild) s.textContent = '';
+    if (hd.children[1].className !== 'v') hd.children[1].className = 'v';
+    return;
+  }
   const top = n.data.kind === 'sector' || n.data.kind === 'group';
   const name = n.data.kind === 'group' ? n.data.g.name : n.data.kind === 'sector' ? n.data.s : n.data.i;
   // a sector header always shows the whole sector's value, even while zoomed into one of its industries
@@ -3690,6 +3707,9 @@ function render({ animate = false, regroup = false } = {}) {
   if (rangeMoved()) queueMicrotask(() => { if (legendR !== curRange() && !isWorld()) { renderSide(); renderLegend(); } });
   else syncAutoKey();
   if (state.view !== 'map') { if (DATA.stocks.length) introLeft = false; renderTableFor(); emitRender(); return; }
+  // lay out at the height the page has now: the ResizeObserver refit runs a frame after the header / legend change, and a quotes
+  // answer landing in between (the first one on load) drew the whole map at a provisional height — then again a frame later
+  fitMapHeight();
   const W = mapEl.clientWidth, H = mapEl.clientHeight;
   if (!W || !H) { emitRender(); return; }
   const mdl = model();
@@ -6276,13 +6296,15 @@ function fitMapHeight() {
   set(Math.max(rp ? 240 : 520, Math.round(innerHeight - top - 14 - lgH - rp)) + 'px');
 }
 let fh = 0;
-addEventListener('resize', () => { cancelAnimationFrame(fh); fh = requestAnimationFrame(fitMapHeight); });
+const refitMap = () => { cancelAnimationFrame(fh); fh = requestAnimationFrame(fitMapHeight); };
+addEventListener('resize', refitMap);
 narrowMQ.addEventListener('change', fitMapHeight);
-if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitMapHeight);
-// the market strip and the extras buttons arrive after boot and change the header height
-new ResizeObserver(() => { cancelAnimationFrame(fh); fh = requestAnimationFrame(fitMapHeight); }).observe($('.tools'));
-new ResizeObserver(() => { cancelAnimationFrame(fh); fh = requestAnimationFrame(fitMapHeight); }).observe($('#strip'));
-new ResizeObserver(() => { cancelAnimationFrame(fh); fh = requestAnimationFrame(fitMapHeight); }).observe($('header.top'));
+// the web font: Pretendard's dynamic subsets load per glyph range once text needs them, so fonts.ready settles at boot, before any
+// of them starts — each batch that lands ('loadingdone') can move the header / map bar / legend, and only a size change refits
+if (document.fonts) { if (document.fonts.ready) document.fonts.ready.then(refitMap); document.fonts.addEventListener('loadingdone', refitMap); }
+// what sets the map's top and bottom: the header (strip, extras buttons arrive after boot), the map bar above it (crumbs, the index
+// line's own row under 800 px, ★관심 group chips) and the legend under it
+{ const ro = new ResizeObserver(refitMap); for (const s of ['.tools', '#strip', 'header.top', '.stagebar', '#wgbar', '#legend']) { const el = $(s); if (el) ro.observe(el); } }
 // the replay player opening / closing / changing height (it writes --rp-h into <html style>)
 let lastRp = -1;
 new MutationObserver(() => { const v = playerH(); if (v === lastRp) return; lastRp = v; cancelAnimationFrame(fh); fh = requestAnimationFrame(fitMapHeight); })
