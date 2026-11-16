@@ -90,18 +90,18 @@ GROUPS = []          # (key, name, unit, [items with gkey · zk])
 for fx in ('world_macro', 'world_commodity'):
     for g in FIX[fx]['groups']:
         GROUPS.append((g['key'], g['name'], 'bp' if g['key'] == 'rates' else '%', [dict(it, gkey=g['key'], zk=g['key']) for it in g['items']]))
-GROUPS.append(('funds', '증시 자금', '%', [dict(it, gkey='funds', key='fd:' + it['key'], zk='forced' if it['key'] in FORCED else 'funds') for it in FIX['funds']['items']]))
+GROUPS.append(('funds', '증시 자금', '%', [dict(it, gkey='funds', key='fd:' + it['key'], zk='forced' if it['key'] in FORCED else 'unpaid' if it['key'] == 'unpaid' else 'funds') for it in FIX['funds']['items']]))
 ITEMS = {it['key']: it for _, _, _, its in GROUPS for it in its}
 ZNUM = {it['key']: (bp_of(it) if it['gkey'] == 'rates' else it['ratio']) for it in ITEMS.values()}
 ZONES = []           # (zone key, name, unit, group)
 for key, name, unit, its in GROUPS:
     for zk in dict.fromkeys(it['zk'] for it in its):
-        ZONES.append((zk, '반대매매' if zk == 'forced' else name, unit, key))
+        ZONES.append((zk, '반대매매' if zk == 'forced' else '미수금' if zk == 'unpaid' else name, unit, key))
 EXP = {}
 for zk, name, unit, gk in ZONES:
     p = p95([ZNUM[it['key']] for it in ITEMS.values() if it['zk'] == zk and not it.get('ref')])
     EXP[zk] = {'name': name, 'unit': unit, 'p95': p, 'value': step_of(p, BP_STEPS if unit == 'bp' else PCT_STEPS), 'group': gk}
-ORDER = ['fx', 'rates', 'funds', 'forced', 'energy', 'metals', 'agri']      # the list's order (환율 · 금리 · 증시 자금 first)
+ORDER = ['fx', 'rates', 'funds', 'unpaid', 'forced', 'energy', 'metals', 'agri']   # 미수금 apart too (사용자 14:26)      # the list's order (환율 · 금리 · 증시 자금 first)
 SECS = ['fx', 'rates', 'funds', 'energy', 'metals', 'agri']                 # the list's sections (증시 자금 = one group, two zones)
 TAB_P = p95([it['ratio'] for it in ITEMS.values() if it['gkey'] != 'funds' and not it.get('ref') and it.get('ratio') is not None])
 TAB_EXP = step_of(TAB_P, TAB_STEPS)
@@ -210,7 +210,7 @@ def items_payload():
 
 def head_want(k):
     """the tags a section head carries under 자동: its zone's range; 증시 자금 also names 반대매매's"""
-    return [ztxt(EXP['funds']), f"반대매매 {ztxt(EXP['forced'])}"] if k == 'funds' else [ztxt(EXP[k])]
+    return [ztxt(EXP['funds']), f"미수금 {ztxt(EXP['unpaid'])} · 반대매매 {ztxt(EXP['forced'])}"] if k == 'funds' else [ztxt(EXP[k])]
 
 
 def press_range(pg, v):

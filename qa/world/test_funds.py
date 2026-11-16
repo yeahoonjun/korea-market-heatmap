@@ -165,7 +165,7 @@ ROWS_JS = r"""
     if (dot.getBoundingClientRect().width > 0) out.bad.push(`${r.dataset.k} shows a 장중/마감 dot`);
     // 구역마다 (AGENTS §3-27): under 자동 the 지표 tab colours 증시 자금 on its own range (KHWorld.zones().funds) — 반대매매 금액 · 비중 on
     // theirs (zones().forced, 구역 범위 후속 ②)
-    const Z = window.KHWorld && KHWorld.zones ? KHWorld.zones() : null, z = Z && (/^fd:forced/.test(r.dataset.k) ? Z.forced : Z.funds);
+    const Z = window.KHWorld && KHWorld.zones ? KHWorld.zones() : null, z = Z && (/^fd:forced/.test(r.dataset.k) ? Z.forced : r.dataset.k === 'fd:unpaid' ? Z.unpaid : Z.funds);   // 미수금 apart (사용자 14:26)
     if (getComputedStyle(chip).backgroundColor !== norm(z ? KH.colorOf(w.ratio, { scope: 'world', range: z.value }) : KH.colorOf(w.ratio, 'world'))) out.bad.push(`${r.dataset.k} chip colour`);
     const cc = w.change > 0 ? 'up' : w.change < 0 ? 'dn' : 'flat';
     if (w.c && !lc.classList.contains(cc)) out.bad.push(`${r.dataset.k} change class ${lc.className} (want ${cc})`);

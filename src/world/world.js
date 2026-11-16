@@ -194,8 +194,9 @@ const isFut = it => it.gkey === 'usf';                 // 미국 선물: listed 
    Z = {auto, pick, zones: Map zone key → {key, group, name, value (±R), unit '%'|'bp', p95}} — the 지표 data's ranges (null: no 지표
    data yet, or an older template). Zone keys = the group keys, plus 'forced' (반대매매). */
 const FORCED = new Set(['forced', 'forcedRatio']);
-const zoneKeyOf = it => isFund(it) && FORCED.has(it.fkey) ? 'forced' : it.gkey;
-const ZONE_NAME = { forced: '반대매매' };
+// 미수금 too (사용자 2026-11-16 14:26 "그래"): a few % a day, it held 예탁금 · 신용융자 (±0.2 %) pale in the 증시 자금 zone
+const zoneKeyOf = it => isFund(it) && FORCED.has(it.fkey) ? 'forced' : isFund(it) && it.fkey === 'unpaid' ? 'unpaid' : it.gkey;
+const ZONE_NAME = { forced: '반대매매', unpaid: '미수금' };
 let Z = null;
 const zoneNum = it => isRate(it) ? bpOf(it) : it.ratio;         // what a zone colours: a yield's bp, every other row's %
 const zoneOf = (it, scope) => Z && scope !== 'kr' && it && it.cm && !isRef(it) ? Z.zones.get(zoneKeyOf(it)) || null : null;
@@ -1363,7 +1364,7 @@ function fillRow(el, it, sub, rank, R) {
 // mixes groups, so its block caption carries them instead (fillZoneCaption)
 const zoneTitle = z => Z && !Z.auto
   ? `자동 · 금리는 칩 글자가 bp라서 고른 범위와 따로, bp 변화의 95%가 들어가게 맞춘 색 범위 ${zoneTxt(z)}`
-  : `자동 · ${z.key === 'forced' ? '반대매매 두 줄(금액 · 비중)' : '이 구역'} 값의 95%가 들어가게 맞춘 색 범위 ${zoneTxt(z)}${z.unit === 'bp' ? ' (금리는 bp 변화로 색칠해요)' : ''}`;
+  : `자동 · ${z.key === 'forced' ? '반대매매 두 줄(금액 · 비중)' : z.key === 'unpaid' ? '미수금 한 줄' : '이 구역'} 값의 95%가 들어가게 맞춘 색 범위 ${zoneTxt(z)}${z.unit === 'bp' ? ' (금리는 bp 변화로 색칠해요)' : ''}`;
 function fillZoneTag(el, z, name) {
   const t = z ? (name ? `${z.name} ` : '') + zoneTag(z) : '';
   if (el.__t !== t) { el.__t = t; el.replaceChildren(...(z ? [h('span', { class: 'sr', text: '색 범위 ' }), t] : [])); }
@@ -1377,7 +1378,12 @@ function fillHead(sec, hd) {
   // goes without its name (the head says it), the next one names itself. Only while the 지표 tab draws them
   const zs = zonesShown() && !sec.flat ? [...new Set(sec.items.filter(it => !isRef(it)).map(it => zoneOf(it)).filter(Boolean))] : [];
   fillZoneTag(rg, zs[0] || null);
-  fillZoneTag(rg2, zs[1] || null, true);
+  // the rest in one ring, each naming itself (증시 자금: "미수금 ±4% · 반대매매 ±30%" — 미수금 apart since 2026-11-16 14:26)
+  if (zs.length > 2) {
+    const t = zs.slice(1).map(z => `${z.name} ${zoneTag(z)}`).join(' · ');
+    if (rg2.__t !== t) { rg2.__t = t; rg2.replaceChildren(h('span', { class: 'sr', text: '색 범위 ' }), t); }
+    rg2.title = zs.slice(1).map(zoneTitle).join(' | '); rg2.hidden = false;
+  } else fillZoneTag(rg2, zs[1] || null, true);
   a.classList.toggle('note', !!MACRO_NOTE[sec.key]);
   if (sec.flat && !sec.ref) { s.replaceChildren(); a.replaceChildren(); return; }
   const cash = sec.cash || sec.items;                    // 미국: only the cash indices speak for the section
