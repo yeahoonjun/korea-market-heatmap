@@ -11,7 +11,7 @@ CSS (src/news/news.css) — the shared checks of qa/news/stdcss.py:
   ⑧ springs only (no bezier, no literal durations, none of --c-base / --c-slow / --c-in / --m-*; press 0s → --c-fast), hover only on a fine
   pointer, one reduce switch · ⑨ glass material kept: no theme rule, no background / shadow / blur on the card itself (the .card plate is
   the template's: translucent --card-bg, the 1px edge reflection in --card-sh), and the template still has the sheen · edge · blur.
-News-specific: the title tabs are an underline .seg (KH.ui.seg — lead / trail), the outlet tabs the template segment with no size
+News-specific: the title tabs are an underline .seg (KH.ui.seg — rigid on lead), the outlet tabs the template segment with no size
 override, the 지도 종목 기사만 chip a filter pill (--h-chip, --chip-on + 1.5px ring), the outlet badge follows the badge recipe, ! is
 --fail-dot (오래됨 · a stale outlet · the note line), the 더보기 fold (only the list box grows; rows .nw-x in at a quarter, out first), the
 summary hold (nw-hold) is still there.
@@ -89,12 +89,15 @@ A.check('③ no --live here (nothing in the card is 장중 / 실시간)', '--liv
 segov = [(s, k, v) for s, k, v in D if s.startswith('.news .nw-tabs > button') and k in ('padding', 'height', 'min-height', 'font-size') and not s.startswith('@media')]
 A.check('§7 outlet tabs = the template segment (.movers-tabs, KH.ui.seg), no size override on PC', not segov, segov)
 ul = {k: first('.news .nw-ftabs.seg::before', k) for k in ('top', 'height', 'background', 'box-shadow')}
-A.check('§7 title tabs = an underline row: the segment indicator as a 2px --acc-line bar (moved by KH.ui.seg: lead / trail)',
+A.check('§7 title tabs = an underline row: the segment indicator as a 2px --acc-line bar (moved by KH.ui.seg: rigid on lead)',
         ul == {'top': 'auto', 'height': '2px', 'background': 'var(--acc-line)', 'box-shadow': 'none'} and "class: 'seg nw-ftabs'" in JS and 'UI.seg(ttl)' in JS, ul)
 A.check('§7 the old scaleX bar of the title tabs is gone (no ::after with --c-base)', not re.search(r'\.nw-tt button::after|nw-tt button\{', css))
 chip = (first('.news .nw-only[aria-pressed="true"]', 'box-shadow') or '')
-A.check('§7 지도 종목 기사만 = a filter pill: on = --chip-on + 1.5px --chip-ring, the check grows on lead and fades in', '1.5px var(--chip-ring)' in chip
-        and 'width var(--sp-lead-dur) var(--sp-lead)' in (first('.news .nw-only .nw-ck', 'transition') or ''), chip)
+A.check('§7 지도 종목 기사만 = a filter pill: on = --chip-on + 1.5px --chip-ring; ② 단단한 이동 — the check keeps its 14px place (the width never '
+        'changes), it fades in (fade) and out (close), nothing grows or moves', '1.5px var(--chip-ring)' in chip
+        and first('.news .nw-only .nw-ck', 'width') == '14px' and first('.news .nw-only[aria-pressed="true"] .nw-ck', 'width') is None
+        and (first('.news .nw-only .nw-ck', 'transition') or '') == 'opacity var(--sp-close-dur) var(--sp-close)'
+        and (first('.news .nw-only[aria-pressed="true"] .nw-ck', 'transition') or '') == 'opacity var(--sp-fade-dur) var(--sp-fade)', chip)
 sink = [s for s, k, v in D if k == 'transform' and v == 'translateY(1px)']
 A.check('§7 keys and chips sink 1px (지도 종목 기사만 · 종목 칩 · 더보기 / 다시 시도 · ↻)', all(any(n in s for s in sink) for n in ('.nw-only', '.nw-chip', '.nw-kbtn', '.nw-rk')), sink)
 # ↻ 새로 받기 (news.md §17): a --h-key square on the key surface, its hover only on a fine pointer, the turn only while it works, 줄이기 still + .45

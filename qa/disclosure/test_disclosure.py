@@ -233,7 +233,7 @@ def run(br):
       const marksOk = [...m.entries()].every(([c, v]) => KH.disclosures(c).some(x => (KH.getSetting('discKinds') || []).includes(x.k)));
       const sub = [...document.querySelector('#news-p-disc .dc-sub').children].map(e => e.className);
       return { want, chip: parseInt(b.querySelector('.dc-ln').textContent.replace(/\\D/g, '')), word: b.querySelector('.dc-lw').textContent, num: b.querySelector('.dc-ln').textContent, role: b.getAttribute('role'),
-        label: b.getAttribute('aria-label'), pressed: b.getAttribute('aria-checked'), ap: b.getAttribute('aria-pressed'), dis: b.getAttribute('aria-disabled'), track: !!b.querySelector('.dc-trk .dc-knob'),
+        label: b.getAttribute('aria-label'), pressed: b.getAttribute('aria-checked'), ap: b.getAttribute('aria-pressed'), dis: b.getAttribute('aria-disabled'), track: !!b.querySelector('.dc-trk.swt'),
         legend: document.querySelector('#legend .dc-lg').textContent, marksOk, sub, swatch: !!b.querySelector('.dmsw'),
         nonMarked: KH.disclosures().rows.filter(r => !['실적','주요'].includes(r.k)).every(r => !m.has(r.c) || KH.disclosures(r.c).some(x => ['실적','주요'].includes(x.k))) }; }""")
     check('map switch (role=switch, aria-checked) in the tab row after 공시 종류 · 지도 종목만: "[corner] 지도에서 공시 종목만 밝게 · N종목 [track]", off; N = map stocks with a 실적 · 주요 filing = legend; marks = marked kinds only',
@@ -244,7 +244,7 @@ def run(br):
     pg.click('#news .dc-lit'); pg.wait_for_timeout(300); pg.evaluate(SETTLE_JS)
     d = pg.evaluate("""() => { const m = KH.marks.get('disc'), tiles = [...document.querySelectorAll('#map .tile[data-c]')];
       const lit = tiles.filter(t => !t.classList.contains('mdim')), dim = tiles.filter(t => t.classList.contains('mdim'));
-      const tr = document.querySelector('.dc-lit .dc-trk').getBoundingClientRect(), kn = document.querySelector('.dc-lit .dc-knob').getBoundingClientRect();
+      const t = document.querySelector('.dc-lit .dc-trk'), tr = t.getBoundingClientRect(), ka = getComputedStyle(t, '::after'), kx = 2 + new DOMMatrixReadOnly(ka.transform).m41, kn = { right: tr.left + kx + parseFloat(ka.width) };
       return { pressed: document.querySelector('.dc-lit').getAttribute('aria-checked'), only: KH.marks.onlyName(), lit: lit.length, litMarked: lit.every(t => m.has(t.dataset.c)),
         dimUnmarked: dim.every(t => !m.has(t.dataset.c)), drawnMarked: tiles.filter(t => m.has(t.dataset.c)).length, filter: getComputedStyle(dim[0]).filter,
         layoutDim: KH.layout().filter(t => t.kind === 'tile' && t.dim).length, dims: dim.length, knobR: Math.round(tr.right - kn.right), fill: getComputedStyle(document.querySelector('.dc-lit .dc-trk'), '::before').backgroundColor,
@@ -373,34 +373,35 @@ def run(br):
               hb == {'h': 36, 'st': 0, 'chip': 0, 'over': 0, 'ix': True, 'page': 0}, hb)
         ctx.close()
 
-    # ── 2f · the switch itself (design.md §7 · §6-4): sunken track + raised knob from the tokens, the knob's edges on follow (front) / settle
-    #    (back) and at most 3px longer while it moves, the fill = --sw-on; the count swaps in place; the knob can be dragged (from 4 px) ──
+    # ── 2f · the switch itself (design.md §7 · §6-4, ② 단단한 이동 — AGENTS §3-38): the template's one switch — sunken track + raised knob
+    #    (.swt ::after) that moves in one piece on lead (no stretch), the fill = --sw-on on fade; the count swaps in place; the knob can be
+    #    dragged (from 4 px) and settle carries the finger's speed (KH.ui.sw · KH.spring.release) ──
     mode('ok')
     E.items = []
     ctx, pg = open_page(br, LIVE, 1280, 800, errors=E)
     disc_tab(pg)
-    sw = pg.evaluate("""() => { const b = document.querySelector('#news .dc-lit'), t = b.querySelector('.dc-trk'), k = b.querySelector('.dc-knob'), R = e => e.getBoundingClientRect(), root = getComputedStyle(document.documentElement);
+    sw = pg.evaluate("""() => { const b = document.querySelector('#news .dc-lit'), t = b.querySelector('.dc-trk'), R = e => e.getBoundingClientRect(), root = getComputedStyle(document.documentElement);
       const css = (el, p, pe) => getComputedStyle(el, pe || null)[p], v = n => root.getPropertyValue(n).trim();
       const probe = document.createElement('i'); document.body.append(probe); const col = c => { probe.style.color = c; return getComputedStyle(probe).color; };
-      const res = { w: R(t).width, h: R(t).height, knob: parseFloat(css(k, 'width', '::before')), trk: css(t, 'backgroundColor') === col(v('--trk')), trkSh: css(t, 'boxShadow').includes('inset'),
-        knobBg: css(k, 'backgroundColor', '::before') === col(v('--knob')), knobSh: css(k, 'boxShadow', '::before') !== 'none', fill: css(t, 'backgroundColor', '::before') === col(v('--sw-on')),
+      const ease = n => { probe.style.transitionTimingFunction = `var(${n})`; return getComputedStyle(probe).transitionTimingFunction.replace(/\s+/g, ''); };
+      const res = { w: R(t).width, h: R(t).height, knob: [parseFloat(css(t, 'width', '::after')), parseFloat(css(t, 'height', '::after'))], kids: t.children.length, trk: css(t, 'backgroundColor') === col(v('--trk')), trkSh: css(t, 'boxShadow').includes('inset'),
+        knobBg: css(t, 'backgroundColor', '::after') === col(v('--knob')), knobSh: css(t, 'boxShadow', '::after') !== 'none', fill: css(t, 'backgroundColor', '::before') === col(v('--sw-on')),
         notData: ![col(v('--up-text')), col(v('--dn-text'))].includes(css(t, 'backgroundColor', '::before')),
-        offT: [css(k, 'transitionProperty'), css(k, 'transitionDuration'), css(k, 'transitionTimingFunction').split('linear(').length - 1],
-        follow: v('--sp-follow-dur'), settle: v('--sp-settle-dur') };
+        offT: [css(t, 'transitionProperty', '::after'), css(t, 'transitionDuration', '::after'), css(t, 'transitionTimingFunction', '::after').replace(/\s+/g, '').startsWith(ease('--sp-lead') + ',')],
+        fillT: css(t, 'transitionTimingFunction', '::before').replace(/\s+/g, '') === ease('--sp-fade'), lead: v('--sp-lead-dur') };
       probe.remove(); return res; }""")
-    # the move, frame by frame: the knob's two CSS transitions paused and sought every 10 ms (no frame timing involved)
-    mv = pg.evaluate("""() => { const b = document.querySelector('#news .dc-lit'), k = b.querySelector('.dc-knob'); b.click();
-      const an = k.getAnimations(); an.forEach(a => a.pause()); const kw = [];
-      for (let t = 0; t <= 520; t += 10) { an.forEach(a => { a.currentTime = t; }); kw.push([t, parseFloat(getComputedStyle(k, '::before').width), k.getBoundingClientRect().width]); }
+    # the move, frame by frame: the knob's CSS transition paused and sought every 10 ms (no frame timing involved)
+    mv = pg.evaluate("""() => { const b = document.querySelector('#news .dc-lit'), t = b.querySelector('.dc-trk'); b.click(); getComputedStyle(t, '::after').transform;
+      const an = document.getAnimations().filter(a => a.effect && a.effect.target === t && a.effect.pseudoElement === '::after'); an.forEach(a => a.pause()); const kw = [];
+      for (let ms = 0; ms <= 360; ms += 10) { an.forEach(a => { a.currentTime = ms; }); const cs = getComputedStyle(t, '::after'), m = new DOMMatrixReadOnly(cs.transform); kw.push([ms, parseFloat(cs.width), m.m41, m.a]); }
       an.forEach(a => a.finish()); return { n: an.map(a => a.transitionProperty).sort().join(), kw }; }""")
     kw = mv['kw']
-    onT = pg.evaluate("() => { const k = document.querySelector('#news .dc-knob'), cs = getComputedStyle(k); return [cs.transitionProperty, cs.transitionDuration]; }")
-    vis = max(x[1] for x in kw); edges = max(x[2] for x in kw)
-    check(f'switch: track {sw["w"]:.0f}×{sw["h"]:.0f} sunken (--trk + inset shadow), knob {sw["knob"]:.0f} raised (--knob + shadow), fill = --sw-on (not the up / down colours)',
-          sw['w'] == 44 and sw['h'] == 26 and sw['knob'] == 22 and sw['trk'] and sw['trkSh'] and sw['knobBg'] and sw['knobSh'] and sw['fill'] and sw['notData'], sw)
-    check(f'switch motion: off → front edge left on follow ({sw["follow"]}), back edge right on settle ({sw["settle"]}); on → the other way round; while moving the edges open {edges - 22:.1f}px, the knob you see ≤ 3px longer ({vis - 22:.1f}), then round again',
-          sw['offT'][0] == 'left, right' and sw['offT'][1] == f'{float(sw["follow"][:-2]) / 1000:g}s, {float(sw["settle"][:-2]) / 1000:g}s' and sw['offT'][2] == 2 and mv['n'] == 'left,right'
-          and onT == ['right, left', sw['offT'][1]] and 24.5 <= vis <= 25 and edges > vis and abs(kw[-1][1] - 22) < .5 and kw[0][1] == 22, f'{sw["offT"]} {onT} {mv["n"]} vis {vis} edges {edges} {kw[::5]}')
+    xs = [x[2] for x in kw]
+    check(f'switch: track {sw["w"]:.0f}×{sw["h"]:.0f} sunken (--trk + inset shadow), knob {sw["knob"]} raised (--knob + shadow, the track\'s ::after — no knob element), fill = --sw-on (not the up / down colours)',
+          sw['w'] == 44 and sw['h'] == 26 and sw['knob'] == [22, 22] and sw['kids'] == 0 and sw['trk'] and sw['trkSh'] and sw['knobBg'] and sw['knobSh'] and sw['fill'] and sw['notData'], sw)
+    check(f'switch motion (② 단단한 이동): the knob only translates on lead ({sw["lead"]}), 0 → 18px, 22px wide at every sought frame (no stretch), overshoot ≤ 1.5 %; the fill on fade',
+          'transform' in sw['offT'][0] and sw['offT'][2] and sw['fillT'] and mv['n'] == 'transform' and all(abs(x[1] - 22) < .01 and abs(x[3] - 1) < 1e-6 for x in kw)
+          and abs(xs[0]) < .3 and abs(xs[-1] - 18) < .01 and max(xs) <= 18 + 18 * .015 + .01, f'{sw["offT"]} {mv["n"]} {kw[::6]}')
     pg.click('#news .dc-lit'); pg.wait_for_timeout(700)
     # §6-4: 코스피 → 코스닥 changes the count — the old one leaves, the new one comes in, both in one cell for a moment, then one
     sx = pg.evaluate("""() => new Promise(res => { const c = document.querySelector('#news .dc-lc'), seen = [];
@@ -415,12 +416,12 @@ def run(br):
     # drag the knob (KH.ui.sw): 4 px does nothing yet, past half way it lands on, back again lands off
     def drag(dx):
         pg.evaluate("document.querySelector('#news .dc-lit').scrollIntoView({block: 'center'})"); pg.wait_for_timeout(150)
-        kb = pg.evaluate("(() => { const r = document.querySelector('#news .dc-knob').getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; })()")
+        kb = pg.evaluate("(() => { const r = document.querySelector('#news .dc-lit .dc-trk').getBoundingClientRect(), on = document.querySelector('#news .dc-lit').getAttribute('aria-checked') === 'true'; return [r.x + (on ? 31 : 13), r.y + r.height / 2]; })()")
         pg.mouse.move(kb[0], kb[1]); pg.mouse.down()
         for i in range(1, 7):
             pg.mouse.move(kb[0] + dx * i / 6, kb[1]); pg.wait_for_timeout(16)
-        pg.mouse.up(); pg.wait_for_timeout(700)
-        return pg.evaluate("() => ({ checked: document.querySelector('#news .dc-lit').getAttribute('aria-checked'), only: KH.marks.onlyName(), drag: document.querySelector('#news .dc-lit').classList.contains('drag') })")
+        pg.mouse.up(); pg.wait_for_timeout(900)
+        return pg.evaluate("() => ({ checked: document.querySelector('#news .dc-lit').getAttribute('aria-checked'), only: KH.marks.onlyName(), drag: document.querySelector('#news .dc-lit').classList.contains('drag') || document.querySelector('#news .dc-lit').classList.contains('sw-fly') })")
     d1 = drag(16); d2 = drag(-16); d3 = drag(3)
     check('drag the knob: right past half → on (the map dims), left → off; a 3px nudge is a plain press (on)',
           d1 == {'checked': 'true', 'only': 'disc', 'drag': False} and d2 == {'checked': 'false', 'only': None, 'drag': False} and d3['checked'] == 'true', f'{d1} {d2} {d3}')
@@ -746,9 +747,9 @@ def run(br):
     ctx, pg = open_page(br, LIVE, 1280, 800, motion='reduced')
     disc_tab(pg)
     pg.evaluate("KHDisc.refresh()"); pg.wait_for_timeout(600)
-    rm = pg.evaluate("() => ({ anim: [...document.querySelectorAll('#map .dm, #news .dc-row')].filter(x => getComputedStyle(x).animationName !== 'none').length, ind: getComputedStyle(document.querySelector('#news .dc-ktabs'), '::before').transitionDuration, bar: getComputedStyle(document.querySelector('#news .nw-ftabs'), '::before').transitionDuration, lit: getComputedStyle(document.querySelector('#news .dc-lit')).transitionDuration, ck: getComputedStyle(document.querySelector('#news .dc-lit .dc-knob')).transitionDuration + ',' + getComputedStyle(document.querySelector('#news .dc-lit .dc-trk'), '::before').transitionDuration + ',' + getComputedStyle(document.querySelector('#news .dc-lit .dc-knob'), '::before').transitionDuration })")
+    rm = pg.evaluate("() => ({ anim: [...document.querySelectorAll('#map .dm, #news .dc-row')].filter(x => getComputedStyle(x).animationName !== 'none').length, ind: getComputedStyle(document.querySelector('#news .dc-ktabs'), '::before').transitionDuration, bar: getComputedStyle(document.querySelector('#news .nw-ftabs'), '::before').transitionDuration, lit: getComputedStyle(document.querySelector('#news .dc-lit')).transitionDuration, ck: getComputedStyle(document.querySelector('#news .dc-lit .dc-trk'), '::after').transitionDuration + ',' + getComputedStyle(document.querySelector('#news .dc-lit .dc-trk'), '::before').transitionDuration })")
     zero = lambda v: set(v.replace(' ', '').split(',')) <= {'0s'}
-    check('reduced motion: no corner / row animation; kind indicator, title bar, map switch (knob edges, fill, knob shadow) 0s', rm['anim'] == 0 and zero(rm['ind']) and zero(rm['bar']) and zero(rm['lit']) and zero(rm['ck']), rm)
+    check('reduced motion: no corner / row animation; kind indicator, title bar, map switch (knob move + shadow, fill) 0s', rm['anim'] == 0 and zero(rm['ind']) and zero(rm['bar']) and zero(rm['lit']) and zero(rm['ck']), rm)
     ctx.close()
 
     # ── 14 · a Worker without the route (404): nothing of this shows, the news card as before, one request ──
@@ -831,8 +832,8 @@ def design(br):
     check('design: every font size in the tab is one of the seven steps (≥ 11px); the new dot = --new-dot', set(d['sizes']) <= {11, 12, 13, 14, 16, 20, 26} and d['dot'] == d['newDot'], d)
     check('design: 공시 종류 = one 2px --acc-line underline under the picked kind (KH.ui.seg)', d['ind'] and d['ul'] == ['2px', d['accLine']] and abs(d['ulX'] - d['selX']) <= 1 and abs(d['ulW'] - d['selW']) <= 1, d)
     pg.click('#news .dc-ktabs button[data-k="정기"]'); pg.wait_for_timeout(30)
-    mv = pg.evaluate("() => { const t = document.querySelector('#news .dc-ktabs'), c = getComputedStyle(t, '::before'); return { dir: t.dataset.dir, fn: c.transitionTimingFunction.split('linear(').length - 1, prop: c.transitionProperty }; }")
-    check('design: picking 정기 moves the underline right on lead (front) / trail (back)', mv['dir'] == 'r' and mv['fn'] >= 2 and 'left' in mv['prop'], mv)
+    mv = pg.evaluate("() => { const t = document.querySelector('#news .dc-ktabs'), c = getComputedStyle(t, '::before'), fs = c.transitionTimingFunction.split(/,\\s*(?=linear\\()/); return { dir: t.dataset.dir, fn: c.transitionTimingFunction.split('linear(').length - 1, prop: c.transitionProperty, one: new Set(fs).size === 1 && new Set(c.transitionDuration.split(', ')).size === 1 }; }")
+    check('design: picking 정기 moves the underline right in one piece (② 단단한 이동: every edge on lead)', mv['dir'] == 'r' and mv['fn'] >= 2 and 'left' in mv['prop'] and mv['one'], mv)
     pg.click('#news .dc-ktabs button[data-k="all"]'); pg.wait_for_timeout(700)
     # the fold (KHNews.fold): the list box opens on `open`, the rows past the first count come in at a quarter; closing — out first
     pg.evaluate("""() => { window.__f = []; const t0 = performance.now(), l = document.querySelector('#news-p-disc .nw-list');
