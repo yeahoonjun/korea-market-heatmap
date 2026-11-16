@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="ko" data-th="base" data-fx="std" data-speed="1">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<link rel="icon" href="data:,">
+<title>컨트롤 움직임 통일 — 시안 · 판세</title>
+<style>
+/* 판세 — 컨트롤 움직임 통일 시안 (AGENTS §3-38). 토큰은 src/template.html :root · glass-dark 그대로(스프링 linear() 곡선 포함).
+   --k = 길이 배수: 보통 1 · 4배 느리게 4 · 줄이기 0(모든 길이 0 = 끝 모습만). 혼자 열리는 파일 — 외부 요청 없음. */
+:root{
+  --page:#131418;--panel:#191a1f;--panel2:#202228;--line:#2b2d34;--line2:#373a42;
+  --fg:#eef0f3;--fg2:#bcc0c8;--muted:#8a8f99;
+  --acc:#ffb547;--acc-fill:#ffb547;--acc-line:#ffb547;--focus:#ffb547;--acc-soft:rgba(255,181,71,.14);--acc-bd:rgba(255,181,71,.35);
+  --up-text:#ff5c66;--dn-text:#2fd67a;--live:#b08cff;
+  --card-bg:var(--panel);--card-bd:var(--line);--card-r:10px;--card-sh:none;
+  --tray-bg:#0f1014;--tray-sh:inset 0 1px 3px rgba(0,0,0,.7),inset 0 0 0 1px rgba(255,255,255,.05);
+  --ind-bg:#2c2f37;--ind-sh:inset 0 1px 0 rgba(255,255,255,.13),0 1px 2px rgba(0,0,0,.55),0 4px 10px rgba(0,0,0,.35);
+  --key-bg:#25272e;--key-hover:#2b2d35;--key-fg:var(--fg);--key-ic:var(--fg2);
+  --key-sh:inset 0 1px 0 rgba(255,255,255,.12),0 1px 2px rgba(0,0,0,.55),0 4px 10px rgba(0,0,0,.3);
+  --key-dn:inset 0 1px 2px rgba(0,0,0,.55),0 0 0 rgba(0,0,0,0),0 0 0 rgba(0,0,0,0);
+  --press-f:brightness(.86);
+  --r-key:12px;--r-pill:999px;--r-tray:12px;--r-in:8px;--r-chip:999px;--r-badge:4px;--r-row:8px;--r-mark:2px;
+  --trk:#0f1014;--knob:#f3f4f7;--sw-on:var(--acc-fill);
+  --knob-sh:0 1px 1px rgba(0,0,0,.3),0 3px 6px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.85);
+  --knob-dn:0 1px 1px rgba(0,0,0,.4),0 1px 2px rgba(0,0,0,.3),inset 0 1px 0 rgba(255,255,255,.85);
+  --chip-bg:#25272e;--chip-on:#514333;--chip-ring:rgba(255,181,71,.8);   /* --chip-on = color-mix(#ffb547 20 %, #25272e) 미리 계산 */
+  --fill-1:rgba(255,255,255,.05);--fill-2:rgba(255,255,255,.09);--fill-3:rgba(255,255,255,.14);
+  --fs-xs:11px;--fs-sm:12px;--fs-md:13px;--fs-lg:14px;--fs-xl:16px;--fs-2xl:20px;
+  --space-1:2px;--space-2:4px;--space-3:6px;--space-4:8px;--space-5:12px;--space-6:16px;--space-7:24px;--space-8:32px;
+  --h-chip:24px;--h-key:32px;--h-row:36px;--edge:18px;
+  --sans:'Pretendard Variable',Pretendard,-apple-system,BlinkMacSystemFont,system-ui,'Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',sans-serif;
+  /* design.md §6-2 스프링 (scripts/design_tokens.mjs가 만든 값 그대로) */
+  --sp-lead:linear(0, .017 2.3%, .077 5.2%, .214 9.6%, .536 18.8%, .691 24.1%, .808 29.3%, .898 35%, .96 41.2%, 1 49.3%, 1.014 61.5%, 1);
+  --sp-trail:linear(0, .019 2.4%, .085 5.4%, .233 10%, .533 18.6%, .685 23.9%, .799 29.1%, .884 34.5%, .95 41.1%, .991 49.5%, 1.008 62.3%, 1);
+  --sp-follow:linear(0, .019 2.4%, .085 5.4%, .229 9.9%, .529 18.5%, .682 23.8%, .797 29%, .884 34.5%, .95 41.1%, .991 49.4%, 1.008 62.1%, 1);
+  --sp-settle:linear(0, .017 2.3%, .08 5.3%, .218 9.7%, .536 18.8%, .693 24.2%, .811 29.5%, .898 35.1%, .961 41.5%, 1 49.8%, 1.014 62.9%, 1);
+  --sp-fade:linear(0, .019 2.5%, .084 5.7%, .239 10.9%, .51 19.5%, .662 25.4%, .781 31.5%, .871 38.2%, .936 46%, .978 56.2%, .999 72.8%, 1);
+  --sp-close:linear(0, .017 2.6%, .083 6.2%, .241 12.1%, .492 21.1%, .645 27.8%, .761 34.5%, .853 42.1%, .92 50.9%, .966 62.5%, .992 80.1%, 1);
+  --c-out:cubic-bezier(.22,1,.36,1);--c-inout:cubic-bezier(.65,0,.35,1);
+  --k:1;
+  --d-lead:calc(342ms * var(--k));--d-trail:calc(632ms * var(--k));--d-follow:calc(290ms * var(--k));--d-settle:calc(510ms * var(--k));
+  --d-fade:calc(405ms * var(--k));--d-close:calc(254ms * var(--k));--d-fast:calc(180ms * var(--k));--d-switch:calc(252ms * var(--k));
+}
+/* linear()가 없는 옛 브라우저: 비슷한 곡선으로 (움직임이 아예 사라지지 않게) */
+@supports not (transition-timing-function:linear(0, 1)){
+  :root{--sp-lead:cubic-bezier(.2,.9,.25,1.02);--sp-trail:cubic-bezier(.25,.8,.3,1.01);--sp-follow:cubic-bezier(.2,.9,.25,1.01);
+    --sp-settle:cubic-bezier(.2,.9,.25,1.02);--sp-fade:cubic-bezier(.2,.8,.3,1);--sp-close:cubic-bezier(.3,.7,.3,1)}
+}
+html[data-speed="4"]{--k:4}
+html[data-fx="reduced"]{--k:0}
+@media (max-width:760px){:root{--h-chip:32px;--h-key:40px;--h-row:44px;--edge:12px}}
+/* 글라스 어둡게 (template.html html[data-theme="glass-dark"]) */
+html[data-th="glass"]{
+  --page:#0b0c10;--panel:rgba(255,255,255,.045);--panel2:rgba(255,255,255,.08);--line:rgba(255,255,255,.09);--line2:rgba(255,255,255,.16);
+  --fg:#f5f6f8;--fg2:#c9cdd4;--muted:#9ea3ad;--live:#b48fff;--up-text:#ff6b74;
+  --card-bg:rgba(27,29,35,.74);--card-bd:transparent;--card-r:22px;
+  --card-sh:inset 0 1px 0 rgba(255,255,255,.16),inset 0 0 0 .5px rgba(255,255,255,.1),inset 0 -1px 0 rgba(0,0,0,.25),0 10px 30px rgba(0,0,0,.35);
+  --tray-bg:rgba(0,0,0,.34);--tray-sh:inset 0 1px 2px rgba(0,0,0,.5),inset 0 0 0 .5px rgba(255,255,255,.1);
+  --ind-bg:rgba(255,255,255,.16);
+  --ind-sh:inset 0 1px 0 rgba(255,255,255,.38),inset 0 -1px 0 rgba(0,0,0,.2),inset 0 0 0 .5px rgba(255,255,255,.2),0 1px 2px rgba(0,0,0,.35),0 4px 10px rgba(0,0,0,.25);
+  --key-bg:rgba(255,255,255,.11);--key-hover:rgba(255,255,255,.15);
+  --key-sh:inset 0 1px 0 rgba(255,255,255,.32),inset 0 -1px 0 rgba(0,0,0,.25),inset 0 0 0 .5px rgba(255,255,255,.16),0 1px 2px rgba(0,0,0,.4),0 4px 10px rgba(0,0,0,.25);
+  --key-dn:inset 0 1px 0 rgba(255,255,255,.2),inset 0 -1px 0 rgba(0,0,0,.2),inset 0 0 0 .5px rgba(255,255,255,.14),0 1px 1px rgba(0,0,0,.35),0 0 0 rgba(0,0,0,0);
+  --press-f:brightness(1.2) saturate(1.1);
+  --chip-bg:var(--key-bg);--chip-on:rgba(255,181,71,.2);
+  --trk:rgba(0,0,0,.36);--knob:#f2f4f7;
+  --knob-sh:inset 0 1px 0 #fff,0 1px 1px rgba(0,0,0,.3),0 3px 8px rgba(0,0,0,.4);--knob-dn:inset 0 1px 0 #fff,0 1px 1px rgba(0,0,0,.35),0 1px 3px rgba(0,0,0,.3);
+  --r-key:999px;--r-tray:999px;--r-in:999px;--r-chip:999px;
+}
+
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%;background:var(--page)}
+body{margin:0;background:var(--page);color:var(--fg);font:400 var(--fs-md)/1.45 var(--sans);overflow-x:clip;-webkit-tap-highlight-color:transparent}
+button{font:inherit;color:inherit;background:none;border:0;margin:0;padding:0;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+h1,h2,h3,p,ul{margin:0}
+.wrap{max-width:1120px;margin:0 auto;padding:0 var(--edge) var(--space-8)}
+
+/* 맨 위 도구 줄 — 비교할 컨트롤이 아니라 페이지 도구라서 움직이지 않아요 */
+.bar{position:sticky;top:0;z-index:20;background:var(--page);box-shadow:0 1px 0 var(--line2)}
+.bar .in{max-width:1120px;margin:0 auto;padding:var(--space-4) var(--edge);display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-4) var(--space-5)}
+.opt{display:flex;align-items:center;gap:var(--space-2)}
+.opt>span{font-size:var(--fs-xs);color:var(--muted);margin-right:var(--space-1)}
+.opt button,.playall{min-height:34px;padding:0 var(--space-4);border-radius:var(--r-row);box-shadow:inset 0 0 0 1px var(--line2);font-size:var(--fs-sm);font-weight:600;color:var(--fg2)}
+.opt button[aria-pressed="true"]{color:var(--fg);background:var(--acc-soft);box-shadow:inset 0 0 0 1.5px var(--acc)}
+.playall{margin-left:auto;color:#1b1404;background:var(--acc-fill);box-shadow:none;padding:0 var(--space-5)}
+.playall[disabled]{opacity:.6;cursor:progress}
+@media (pointer:coarse){.opt button,.playall{min-height:40px}}
+
+.intro{padding:var(--space-6) 0 var(--space-5)}
+.intro h1{font-size:var(--fs-2xl);font-weight:700;letter-spacing:-.01em;line-height:1.2}
+.intro p{margin-top:var(--space-4);color:var(--fg2);font-size:var(--fs-lg);word-break:keep-all}
+.intro .tip{margin-top:var(--space-3);font-size:var(--fs-sm);color:var(--muted)}
+.recbox{margin:var(--space-5) 0 var(--space-6);padding:var(--space-5) var(--space-5);border-radius:var(--r-row);background:var(--acc-soft);box-shadow:inset 0 0 0 1px var(--acc-bd);word-break:keep-all}
+.recbox b{color:var(--acc)}
+.recbox p{font-size:var(--fs-md);color:var(--fg)}
+.recbox p+p{margin-top:var(--space-3);color:var(--fg2)}
+
+.grid{display:grid;grid-template-columns:1fr;gap:var(--space-5)}
+@media (min-width:900px){.grid{grid-template-columns:1fr 1fr}.grid .card.now{grid-column:1 / -1}}
+
+.card{position:relative;background:var(--card-bg);border:1px solid var(--card-bd);border-radius:var(--card-r);box-shadow:var(--card-sh);padding:var(--space-5) var(--space-5) var(--space-6);min-width:0}
+.card.is-rec{outline:1.5px solid var(--acc);outline-offset:-1px}
+.ch{display:flex;align-items:center;gap:var(--space-4);flex-wrap:wrap}
+.ch h2{font-size:var(--fs-xl);font-weight:700;line-height:1.3;word-break:keep-all}
+.ch h2 .no{color:var(--fg2);margin-right:var(--space-2)}
+.badge{display:inline-flex;align-items:center;height:18px;padding:0 var(--space-3);border-radius:var(--r-badge);font-size:var(--fs-xs);font-weight:600;line-height:1}
+.badge.rec{background:var(--acc-fill);color:#1b1404}
+.badge.base{box-shadow:inset 0 0 0 1px var(--line2);color:var(--fg2)}
+.play{margin-left:auto;display:inline-flex;align-items:center;gap:var(--space-2);min-height:34px;padding:0 var(--space-4);border-radius:var(--r-row);box-shadow:inset 0 0 0 1px var(--line2);font-size:var(--fs-sm);font-weight:600;color:var(--fg2)}
+.play svg{width:12px;height:12px}
+.play[disabled]{opacity:.55;cursor:progress}
+@media (pointer:coarse){.play{min-height:40px}}
+.lead{margin-top:var(--space-3);font-size:var(--fs-lg);color:var(--fg);word-break:keep-all}
+.notes{list-style:none;padding:0;margin-top:var(--space-5);display:grid;gap:var(--space-2)}
+.notes li{position:relative;padding-left:52px;font-size:var(--fs-sm);color:var(--fg2);word-break:keep-all;line-height:1.5}
+.notes li b{position:absolute;left:0;top:0;font-weight:600;color:var(--muted)}
+.uses{margin-top:var(--space-4);font-size:var(--fs-xs);color:var(--muted);word-break:keep-all}
+.uses code{white-space:nowrap;font:600 var(--fs-xs) var(--sans);color:var(--fg2);background:var(--fill-1);border-radius:var(--r-badge);padding:1px var(--space-2)}
+
+/* ── 시연 ── */
+.demo{margin-top:var(--space-5);padding:var(--space-5) var(--space-4) var(--space-4);border-radius:var(--r-row);background:var(--fill-1);display:grid;gap:var(--space-5)}
+.cell{min-width:0}
+.cap{display:block;margin-bottom:var(--space-3);font-size:var(--fs-xs);color:var(--muted);line-height:1.25}
+.trio{display:flex;flex-wrap:wrap;align-items:flex-end;gap:var(--space-5) var(--space-6)}
+
+/* 세그먼트 (파인 트레이 + 솟은 표시) */
+.seg{position:relative;isolation:isolate;display:flex;max-width:380px;padding:3px;background:var(--tray-bg);box-shadow:var(--tray-sh);border-radius:var(--r-tray)}
+.seg>button{position:relative;z-index:1;flex:1 1 0;min-width:0;min-height:calc(var(--h-key) - 6px);padding:0 var(--space-4);border-radius:var(--r-in);font-size:var(--fs-md);font-weight:600;color:var(--muted);white-space:nowrap;transition:color var(--d-fast) var(--c-out),filter var(--d-fast) var(--c-out)}
+.seg>button[aria-pressed="true"]{color:var(--fg)}
+.seg>button:active,.seg>button.is-press{filter:var(--press-f);transition-duration:0s}
+.seg>button:focus-visible{outline-offset:-1px}
+.seg>.ind{position:absolute;z-index:0;top:3px;bottom:3px;left:var(--l,3px);right:var(--r,3px);border-radius:var(--r-in);background:var(--ind-bg);box-shadow:var(--ind-sh);pointer-events:none}
+
+/* 밑줄 탭 */
+.ut{position:relative;display:flex;gap:var(--space-6);box-shadow:inset 0 -1px 0 var(--line)}
+.ut>button{position:relative;height:var(--h-key);padding:0 var(--space-1);font-size:var(--fs-lg);font-weight:600;color:var(--muted);white-space:nowrap;transition:color var(--d-fast) var(--c-out)}
+.ut>button[aria-selected="true"]{color:var(--fg)}
+.ut>button:focus-visible{outline-offset:-2px}
+.ut>.ind{position:absolute;bottom:0;height:2px;left:var(--l,0px);right:var(--r,0px);border-radius:var(--r-mark) var(--r-mark) 0 0;background:var(--acc-line);pointer-events:none}
+
+/* 표시가 옮겨 가는 법 — 안마다 (data-dir r = 오른쪽으로) */
+.g-now .ind,.g-slide .ind{transition:left var(--d-trail) var(--sp-trail),right var(--d-lead) var(--sp-lead)}
+.g-now [data-dir="l"]>.ind,.g-slide [data-dir="l"]>.ind{transition:left var(--d-lead) var(--sp-lead),right var(--d-trail) var(--sp-trail)}
+.g-rigid .ind,.g-ios .ind{transition:left var(--d-lead) var(--sp-lead),right var(--d-lead) var(--sp-lead)}
+.g-fade .ind{display:none}
+/* ③: 칸마다 자기 판 · 밑줄 — 새 칸에서 6px 미끄러지며 fade, 옛 칸은 close로 그 자리에서 사라짐 */
+.g-fade .seg>button::before,.g-fade .ut>button::after{content:"";position:absolute;pointer-events:none;opacity:0;
+  transition:opacity var(--d-close) var(--sp-close),transform var(--d-close) var(--sp-close)}
+.g-fade .seg>button::before{z-index:-1;inset:0;border-radius:var(--r-in);background:var(--ind-bg);box-shadow:var(--ind-sh)}
+.g-fade .ut>button::after{left:0;right:0;bottom:0;height:2px;border-radius:var(--r-mark) var(--r-mark) 0 0;background:var(--acc-line)}
+.g-fade .seg>button[aria-pressed="true"]::before,.g-fade .ut>button[aria-selected="true"]::after{opacity:1;transform:none;
+  transition:opacity var(--d-fade) var(--sp-fade),transform var(--d-fade) var(--sp-fade)}
+.g-fade .seg>button.pre::before,.g-fade .ut>button.pre::after{opacity:0;transform:translateX(var(--fx,0px));transition:none}
+.snap>.ind{transition:none!important}
+
+/* 스위치 (파인 트랙 + 솟은 손잡이) */
+.sw{position:relative;display:inline-grid;place-items:center;width:52px;height:var(--h-key);border-radius:var(--r-pill)}
+@media (pointer:coarse){.sw::after,.star::after,.key::after,.chip::after{content:"";position:absolute;left:50%;top:50%;width:max(100%,44px);height:max(100%,44px);transform:translate(-50%,-50%)}}
+.trk{--t:0;position:relative;width:44px;height:26px;border-radius:var(--r-pill);background:var(--trk);box-shadow:var(--tray-sh)}
+.sw[aria-checked="true"] .trk{--t:1}
+.fill{position:absolute;inset:0;border-radius:inherit;background:var(--sw-on);box-shadow:inset 0 1px 2px rgba(0,0,0,.28);opacity:var(--t);transition:opacity var(--d-fade) var(--sp-fade)}
+/* e = 두 가장자리(앞 follow · 뒤 settle) — 보이는 손잡이는 ≤ 3px 늘어나요 (disc.css · KH.spring.knob와 같은 모양) */
+.kn-e{position:absolute;top:2px;bottom:2px;left:calc(2px + var(--t) * 18px);right:calc(2px + (1 - var(--t)) * 18px);display:flex;justify-content:flex-start;
+  transition:left var(--d-follow) var(--sp-follow),right var(--d-settle) var(--sp-settle)}
+.sw[aria-checked="true"] .kn-e{justify-content:flex-end;transition:right var(--d-follow) var(--sp-follow),left var(--d-settle) var(--sp-settle)}
+.kn-e::before{content:"";flex:none;width:100%;max-width:25px;border-radius:var(--r-pill);background:var(--knob);box-shadow:var(--knob-sh);transition:box-shadow var(--d-fast) var(--c-out)}
+/* s = 손잡이 하나가 통째로 */
+.kn-s{position:absolute;left:2px;top:2px;width:22px;height:22px;border-radius:50%;background:var(--knob);box-shadow:var(--knob-sh);transform:translateX(calc(var(--t) * 18px));transition:box-shadow var(--d-fast) var(--c-out)}
+/* i = 누르는 동안 4px 넓어짐(가는 쪽으로), 놓으면 follow로 옮기며 돌아옴 */
+.kn-i{--pw:0px;position:absolute;top:2px;height:22px;left:calc(2px + var(--t) * 18px - var(--t) * var(--pw));width:calc(22px + var(--pw));border-radius:var(--r-pill);background:var(--knob);box-shadow:var(--knob-sh);
+  transition:left var(--d-follow) var(--sp-follow),width var(--d-follow) var(--sp-follow),box-shadow var(--d-fast) var(--c-out)}
+.sw.press .kn-i{--pw:4px}
+.sw:active .kn-e::before,.sw.is-press .kn-e::before,.sw:active :is(.kn-s,.kn-i),.sw.is-press :is(.kn-s,.kn-i),.sw.press .kn-i{box-shadow:var(--knob-dn)}
+.g-now .sw-b .kn-s{transition:transform var(--d-switch) var(--c-inout),box-shadow var(--d-fast) var(--c-out)}
+.g-now .sw-b .fill{transition:opacity var(--d-switch) var(--c-inout)}
+.g-rigid .kn-s{transition:transform var(--d-lead) var(--sp-lead),box-shadow var(--d-fast) var(--c-out)}
+.g-fade .kn-s{transition:transform var(--d-fade) var(--sp-fade),box-shadow var(--d-fast) var(--c-out)}
+
+/* 칩 (필터 알약) — ①~④는 체크 자리를 늘 비워 두어 폭이 그대로, 지금(템플릿 .kchip)은 체크가 생기며 폭이 자라요 */
+.chips{display:flex;flex-wrap:wrap;gap:var(--space-3)}
+.chip{position:relative;display:inline-flex;align-items:center;height:var(--h-chip);padding:0 var(--space-5) 0 var(--space-4);border-radius:var(--r-chip);background:var(--chip-bg);
+  box-shadow:inset 0 0 0 1.5px transparent,var(--key-sh);font-size:var(--fs-sm);font-weight:600;color:var(--key-fg);white-space:nowrap;
+  transition:background-color var(--d-fade) var(--sp-fade),box-shadow var(--d-fade) var(--sp-fade),transform var(--d-fast) var(--c-out),filter var(--d-fast) var(--c-out)}
+.chip[aria-pressed="true"]{background:var(--chip-on);box-shadow:inset 0 0 0 1.5px var(--chip-ring),var(--key-sh)}
+.chip .ck{flex:none;width:14px;height:14px;margin-right:var(--space-2);opacity:0}
+.chip[aria-pressed="true"] .ck{opacity:1;transform:none}
+.g-now .chip{padding:0 var(--space-5);transition:background-color var(--d-fast) var(--c-out),box-shadow var(--d-fast) var(--c-out),transform var(--d-fast) var(--c-out),filter var(--d-fast) var(--c-out)}
+.g-now .chip .ck{width:0;margin-right:0;transform:scale(.6);transition:width var(--d-fast) var(--c-out),margin var(--d-fast) var(--c-out),opacity var(--d-fast) var(--c-out),transform var(--d-fast) var(--c-out)}
+.g-now .chip[aria-pressed="true"] .ck{width:14px;margin-right:var(--space-3)}
+.g-slide .chip .ck{transform:translateX(-4px);transition:opacity var(--d-close) var(--sp-close),transform var(--d-close) var(--sp-close)}
+.g-slide .chip[aria-pressed="true"] .ck{transition:opacity var(--d-fade) var(--sp-fade),transform var(--d-lead) var(--sp-lead)}
+.g-rigid .chip .ck,.g-ios .chip .ck{transition:opacity var(--d-close) var(--sp-close)}
+.g-rigid .chip[aria-pressed="true"] .ck,.g-ios .chip[aria-pressed="true"] .ck{transition:opacity var(--d-fade) var(--sp-fade)}
+.g-fade .chip .ck{transform:translateY(3px);transition:opacity var(--d-close) var(--sp-close),transform var(--d-close) var(--sp-close)}
+.g-fade .chip[aria-pressed="true"] .ck{transition:opacity var(--d-fade) var(--sp-fade),transform var(--d-fade) var(--sp-fade)}
+
+/* 키 누름 — 내려감 0ms, 올라옴 --c-fast (스프링 아님, design.md §6-2) */
+.key{position:relative;display:inline-flex;align-items:center;gap:var(--space-3);height:var(--h-key);padding:0 var(--space-5);border-radius:var(--r-key);background:var(--key-bg);box-shadow:var(--key-sh);
+  color:var(--key-fg);font-size:var(--fs-md);font-weight:600;white-space:nowrap;
+  transition:transform var(--d-fast) var(--c-out),box-shadow var(--d-fast) var(--c-out),filter var(--d-fast) var(--c-out)}
+.key svg{width:16px;height:16px;color:var(--key-ic);flex:none}
+.key:active,.key.is-press{transform:translateY(1px);box-shadow:var(--key-dn);filter:var(--press-f);transition-duration:0s}
+.g-fade .key:active,.g-fade .key.is-press{transform:none;box-shadow:var(--key-sh)}
+
+/* 아이콘 토글 ☆ 관심 — 켜짐 = 채운 별(앰버) */
+.star{position:relative;display:inline-grid;place-items:center;width:var(--h-key);height:var(--h-key);border-radius:var(--r-key);color:var(--fg2);
+  transition:transform var(--d-fast) var(--c-out),filter var(--d-fast) var(--c-out)}
+.star svg{grid-area:1/1;width:20px;height:20px}
+.star .s1{color:var(--acc);opacity:0}
+.star[aria-pressed="true"] .s1{opacity:1;transform:none}
+.star[aria-pressed="true"] .s0{opacity:0}
+.star:active,.star.is-press{transform:translateY(1px);filter:var(--press-f);transition-duration:0s}
+.g-fade .star:active,.g-fade .star.is-press{transform:none}
+.g-now .star svg{transition:opacity var(--d-fast) var(--c-out)}
+.g-slide .star .s1{transform:scale(.8);transition:opacity var(--d-close) var(--sp-close),transform var(--d-close) var(--sp-close)}
+.g-slide .star[aria-pressed="true"] .s1{transition:opacity var(--d-fade) var(--sp-fade),transform var(--d-lead) var(--sp-lead)}
+:is(.g-slide,.g-rigid,.g-ios,.g-fade) .star .s0{transition:opacity var(--d-close) var(--sp-close)}
+:is(.g-rigid,.g-ios) .star .s1{transition:opacity var(--d-close) var(--sp-close)}
+:is(.g-rigid,.g-ios) .star[aria-pressed="true"] .s1{transition:opacity var(--d-fade) var(--sp-fade)}
+.g-fade .star .s1{transform:translateY(3px);transition:opacity var(--d-close) var(--sp-close),transform var(--d-close) var(--sp-close)}
+.g-fade .star[aria-pressed="true"] .s1{transition:opacity var(--d-fade) var(--sp-fade),transform var(--d-fade) var(--sp-fade)}
+
+@media (hover:hover) and (pointer:fine){
+  .key:hover{background:var(--key-hover)}
+  .seg>button:hover,.ut>button:hover{color:var(--fg)}
+  .star:hover{background:var(--fill-1)}
+}
+
+/* 표 — 안 한눈에 */
+.sum{margin-top:var(--space-7)}
+.sum h2{font-size:var(--fs-xl);font-weight:700}
+.tbl{margin-top:var(--space-4);overflow-x:auto;border-radius:var(--r-row);box-shadow:inset 0 0 0 1px var(--line)}
+.tbl table{width:100%;min-width:640px;border-collapse:collapse;font-size:var(--fs-sm)}
+.tbl th,.tbl td{padding:var(--space-3) var(--space-4);text-align:left;vertical-align:top;border-bottom:1px solid var(--line);word-break:keep-all}
+.tbl th{font-weight:600;color:var(--fg2);background:var(--fill-1)}
+.tbl td:first-child{color:var(--muted);white-space:nowrap}
+.tbl tr:last-child td{border-bottom:0}
+.tbl .r{color:var(--acc);font-weight:600}
+.foot{margin-top:var(--space-6);font-size:var(--fs-xs);color:var(--muted);word-break:keep-all}
+</style>
+</head>
+<body>
+<div class="bar"><div class="in">
+  <div class="opt" role="group" aria-label="테마"><span>테마</span><button type="button" data-th="base" aria-pressed="true">기본</button><button type="button" data-th="glass" aria-pressed="false">글라스 어둡게</button></div>
+  <div class="opt" role="group" aria-label="효과"><span>효과</span><button type="button" data-fx="std" aria-pressed="true">기본</button><button type="button" data-fx="reduced" aria-pressed="false">줄이기</button></div>
+  <div class="opt" role="group" aria-label="빠르기"><span>빠르기</span><button type="button" data-speed="1" aria-pressed="true">보통</button><button type="button" data-speed="4" aria-pressed="false">4배 느리게</button></div>
+  <button type="button" class="playall" id="playall">▶ 모두 재생</button>
+</div></div>
+
+<main class="wrap">
+  <section class="intro">
+    <h1>컨트롤 움직임 통일 — 시안</h1>
+    <p>지금은 스위치 · 세그먼트 · 밑줄 탭 · 칩 · 키 · ☆가 저마다 다르게 움직여요. 한 가지 움직임을 모든 컨트롤에 똑같이 쓴 네 안이에요. 눌러 보거나 ▶로 한꺼번에 움직여 보고 골라 주세요.</p>
+    <p class="tip">‘4배 느리게’로 보면 차이가 잘 보여요. ‘줄이기’는 기기에서 동작 줄이기를 켰을 때 모습이에요.</p>
+  </section>
+
+  <div class="recbox" id="recbox">
+    <p><b>추천 ② 단단한 이동</b> — 모든 컨트롤이 모양을 바꾸지 않고 같은 스프링 하나로 옮겨 가요.</p>
+    <p>기준: 숫자가 많고 3초마다 값이 바뀌는 차분한 화면. 늘어남(① · ④)은 숫자보다 컨트롤이 먼저 눈에 띄고, 페이드(③)는 어디로 갔는지 흐려요. ②는 고른 자리가 바로 보이고, 가장 가벼워요(손잡이 · 표시가 transform 하나).</p>
+    <p>②를 고르면 지난 결정 8번 ‘스위치 손잡이 늘어남’(design.md §10)을 거둬요. 끌어서 놓을 때 손가락 속도를 이어받는 것(settle)은 그대로예요.</p>
+  </div>
+
+  <div class="grid" id="cards"></div>
+
+  <section class="sum">
+    <h2>한눈에</h2>
+    <div class="tbl"><table>
+      <thead><tr><th>컨트롤</th><th>지금</th><th>① 미끄러짐</th><th class="r">② 단단한 이동 · 추천</th><th>③ 페이드</th><th>④ iOS식</th></tr></thead>
+      <tbody>
+        <tr><td>세그먼트</td><td>앞 lead · 뒤 trail로 늘었다 줄어요</td><td>지금과 같음</td><td>lead 하나로 통째로</td><td>새 칸에서 6px fade, 옛 칸 close</td><td>②와 같음</td></tr>
+        <tr><td>밑줄 탭</td><td>lead · trail</td><td>지금과 같음</td><td>lead 하나</td><td>새 칸에서 6px fade</td><td>②와 같음</td></tr>
+        <tr><td>스위치</td><td>둘이 달라요: 늘어남(공시 지도) · 252ms 곡선(지분 공시)</td><td>앞 follow · 뒤 settle, ≤ 3px 늘어남</td><td>lead 하나, 늘어남 없음</td><td>fade 곡선으로(넘침 거의 0)</td><td>누르는 동안 4px 넓어짐 + follow</td></tr>
+        <tr><td>칩</td><td>체크가 생기며 폭이 자라 옆 칩을 밀어요</td><td>체크가 4px 미끄러지며 fade</td><td>체크 fade만</td><td>체크가 3px 아래에서 fade</td><td>②와 같음</td></tr>
+        <tr><td>키 누름</td><td>1px 가라앉음</td><td>1px</td><td>1px</td><td>가라앉지 않고 어두워지기만</td><td>1px</td></tr>
+        <tr><td>☆ 관심</td><td>색만 180ms</td><td>.8 → 1로 커지며 fade</td><td>fade만</td><td>3px 아래에서 fade</td><td>②와 같음</td></tr>
+        <tr><td>줄이기</td><td colspan="5">모든 안이 같아요 — 길이 0, 끝 모습만 바로 보여요</td></tr>
+      </tbody>
+    </table></div>
+    <p class="foot">토큰은 실제 앱(src/template.html)과 같아요: 스프링 linear() 곡선 · 모서리 --r-* · 높이 --h-*(760px 아래 휴대폰 값) · 앰버 = 켜짐 · 고름. 끌기 · 던짐은 이 시안에 없어요(어느 안이든 놓을 때는 settle이 손가락 속도를 이어받아요).</p>
+  </section>
+</main>
+
+<script>
+(function () {
+  'use strict';
+  const NS = 'http://www.w3.org/2000/svg';
+  function h(tag, attrs) {
+    const el = document.createElement(tag);
+    if (attrs) for (const k in attrs) {
+      const v = attrs[k];
+      if (v == null || v === false) continue;
+      if (k === 'class') el.className = v; else if (k === 'html') el.innerHTML = v; else el.setAttribute(k, v === true ? '' : String(v));
+    }
+    for (let i = 2; i < arguments.length; i++) {
+      const c = arguments[i];
+      if (c == null || c === false) continue;
+      if (Array.isArray(c)) c.forEach(x => { if (x != null) el.append(x); }); else el.append(c);
+    }
+    return el;
+  }
+  const ICON = {
+    play: '<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 1.8v8.4L10 6z" fill="currentColor"/></svg>',
+    ref: '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"><path d="M20 11a8 8 0 1 0-2.3 5.7" vector-effect="non-scaling-stroke"/><path d="M20 4.5V11h-6.5" vector-effect="non-scaling-stroke"/></svg>',
+    ck: '<svg class="ck" viewBox="0 0 20 20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 10.5l3.6 3.6 7.4-8"/></svg>',
+    s0: '<svg class="s0" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" vector-effect="non-scaling-stroke"><path vector-effect="non-scaling-stroke" d="M12 3.2l2.7 5.6 6.1.8-4.5 4.2 1.1 6.1L12 17l-5.4 2.9 1.1-6.1-4.5-4.2 6.1-.8z"/></svg>',
+    s1: '<svg class="s1" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path vector-effect="non-scaling-stroke" d="M12 3.2l2.7 5.6 6.1.8-4.5 4.2 1.1 6.1L12 17l-5.4 2.9 1.1-6.1-4.5-4.2 6.1-.8z"/></svg>',
+  };
+  const frag = s => { const t = document.createElement('template'); t.innerHTML = s; return t.content.firstChild; };
+
+  /* 안 — 이름 · 한 줄 느낌 · 좋은 점 · 아쉬운 점 · 줄이기 · 쓰는 것, 스위치 종류(e 두 가장자리 · s 통째로 · i 누르면 넓어짐) */
+  const GR = [
+    { id: 'now', cls: 'g-now', no: '', name: '지금 앱 (비교 기준)', base: true, sw: [['e', '스위치 · 공시 지도'], ['s', '스위치 · 지분 공시']],
+      lead: '컨트롤마다 따로 만들어져서 움직임이 달라요.',
+      plus: '세그먼트 · 밑줄 탭 · 공시 지도 스위치는 이미 스프링이에요.',
+      minus: '스위치 둘이 서로 달라요 — 공시 지도는 손잡이가 늘어나고(KH.spring.knob 모양), 지분 공시(템플릿 .swbtn)는 252ms 곡선으로 그냥 옮겨요. 칩은 체크가 생기며 폭이 자라 옆 칩을 밀고, ☆는 색만 바뀌어요.',
+      rm: '모두 바로 끝 모습.', uses: ['lead + trail', 'follow + settle', '--c-switch 252ms', '--c-fast 180ms'] },
+    { id: 'slide', cls: 'g-slide', no: '①', name: '미끄러짐 — 늘었다 줄며', sw: [['e', '스위치']],
+      lead: '쫀득하고 살아 있어요. 표시와 손잡이가 가는 쪽으로 먼저 늘어났다가 뒤가 따라와요.',
+      plus: '어디서 어디로 갔는지 가장 잘 보여요. 세그먼트 · 탭은 지금 이 방식이라 바꿀 곳이 적어요.',
+      minus: '늘어남이 눈을 끌어요 — 3초마다 숫자가 바뀌는 화면에서 컨트롤이 숫자보다 먼저 보일 수 있어요. 가장자리 둘을 따로 움직여 계산이 가장 많아요.',
+      rm: '늘어남 없이 바로 끝 자리로.', uses: ['표시 lead + trail', '손잡이 follow + settle(≤ 3px)', '체크 lead', '색 fade', '누름 1px'] },
+    { id: 'rigid', cls: 'g-rigid', no: '②', name: '단단한 이동', rec: true, sw: [['s', '스위치']],
+      lead: '모양은 그대로, 같은 스프링 하나(lead)로 미끄러져 가요. 조용하고 단정해요.',
+      plus: '모든 컨트롤이 정말 같은 움직임이에요. 늘어남이 없어 눈이 숫자에 머물러요. transform 하나라 가장 가벼워요.',
+      minus: '①보다 덜 생생해요. 짧게 넘치는 1.45 %(약 1px)만 남아요.',
+      rm: '바로 끝 자리로.', uses: ['옮김 lead 하나', '색 · 체크 · ☆ fade', '누름 1px'] },
+    { id: 'fade', cls: 'g-fade', no: '③', name: '페이드 + 짧은 이동', sw: [['s', '스위치']],
+      lead: '표시가 가로지르지 않아요. 새 칸에서 6px 미끄러지며 나타나고, 옛 칸은 그 자리에서 사라져요.',
+      plus: '가장 차분해요. 줄이 바뀌는 고르기(design.md §7)와 같은 규칙이에요. 키는 가라앉지 않고 어두워지기만 해요.',
+      minus: '어디로 갔는지 덜 보여요. 스위치 손잡이는 옮길 수밖에 없어 문법이 섞여요. 칸마다 판이 하나씩 더 있어요.',
+      rm: '바로 나타나요.', uses: ['나타남 fade + 6px', '사라짐 close', '손잡이 fade', '누름 = 어두워짐'] },
+    { id: 'ios', cls: 'g-ios', no: '④', name: 'iOS식 — 스위치만 늘어남', sw: [['i', '스위치']],
+      lead: '누르는 동안 스위치 손잡이만 4px 넓어지고, 나머지는 ②처럼 단단해요.',
+      plus: '누름이 손끝에 분명해요. 휴대폰에서 익숙한 느낌이에요.',
+      minus: '스위치만 예외라 통일이 반쪽이에요. 짧게 톡 누르거나 키보드 · 자동 재생에선 넓어짐이 거의 안 보여요.',
+      rm: '넓어짐 없이 바로 끝 자리로.', uses: ['손잡이 누름 넓어짐 follow', '옮김 lead', '색 fade', '누름 1px'] },
+  ];
+
+  function segment() {
+    return h('div', { class: 'seg', role: 'group', 'aria-label': '기간', 'data-i': '0' },
+      h('i', { class: 'ind', 'aria-hidden': 'true' }),
+      ['오늘', '1주', '1달'].map((t, i) => h('button', { type: 'button', 'aria-pressed': String(i === 0) }, t)));
+  }
+  function utabs() {
+    return h('div', { class: 'ut', role: 'tablist', 'aria-label': '카드', 'data-i': '0' },
+      h('i', { class: 'ind', 'aria-hidden': 'true' }),
+      ['시장 뉴스', '오늘 공시', '정책 자료'].map((t, i) => h('button', { type: 'button', role: 'tab', 'aria-selected': String(i === 0), tabindex: i === 0 ? '0' : '-1' }, t)));
+  }
+  function sw(kind, label) {
+    const knob = kind === 'e' ? 'kn-e' : kind === 'i' ? 'kn-i' : 'kn-s';
+    return h('button', { type: 'button', class: 'sw sw-' + (kind === 's' ? 'b' : 'a'), role: 'switch', 'aria-checked': 'false', 'aria-label': label, 'data-kind': kind },
+      h('span', { class: 'trk' }, h('span', { class: 'fill' }), h('span', { class: knob })));
+  }
+  function chip(t, on) { return h('button', { type: 'button', class: 'chip', 'aria-pressed': String(on) }, frag(ICON.ck), h('span', null, t)); }
+
+  function card(g) {
+    const play = h('button', { type: 'button', class: 'play', 'aria-label': (g.no || '지금 앱') + ' 재생' }, frag(ICON.play), '재생');
+    const swCells = g.sw.map(([k, cap]) => h('div', { class: 'cell' }, h('span', { class: 'cap' }, cap), sw(k, cap.replace('스위치 · ', '') + ' 켜기')));
+    const el = h('section', { class: 'card ' + g.cls + (g.rec ? ' is-rec' : '') + (g.base ? ' now' : ''), id: 'g-' + g.id, 'aria-labelledby': 'h-' + g.id },
+      h('header', { class: 'ch' },
+        h('h2', { id: 'h-' + g.id }, g.no ? h('span', { class: 'no' }, g.no) : null, g.name),
+        g.rec ? h('span', { class: 'badge rec' }, '추천') : null,
+        play),
+      h('p', { class: 'lead' }, g.lead),
+      h('div', { class: 'demo' },
+        h('div', { class: 'cell' }, h('span', { class: 'cap' }, '세그먼트 (3칸)'), segment()),
+        h('div', { class: 'cell' }, h('span', { class: 'cap' }, '밑줄 탭'), utabs()),
+        h('div', { class: 'trio' },
+          swCells,
+          h('div', { class: 'cell' }, h('span', { class: 'cap' }, '아이콘 토글'),
+            h('button', { type: 'button', class: 'star', 'aria-pressed': 'false', 'aria-label': '관심' }, frag(ICON.s0), frag(ICON.s1))),
+          h('div', { class: 'cell' }, h('span', { class: 'cap' }, '키 누름'),
+            h('button', { type: 'button', class: 'key' }, frag(ICON.ref), '새로고침'))),
+        h('div', { class: 'cell' }, h('span', { class: 'cap' }, '칩 (켜짐 · 꺼짐)'),
+          h('div', { class: 'chips', role: 'group', 'aria-label': '공시 종류' }, chip('실적', true), chip('주요', false), chip('지분', false)))),
+      h('ul', { class: 'notes' },
+        h('li', null, h('b', null, '좋은 점'), g.plus),
+        h('li', null, h('b', null, '아쉬운 점'), g.minus),
+        h('li', null, h('b', null, '줄이기'), g.rm)),
+      h('p', { class: 'uses' }, '쓰는 것 ', g.uses.map((u, i) => [i ? ' · ' : '', h('code', null, u)]).flat()));
+    play.addEventListener('click', () => run([el], play));
+    return el;
+  }
+
+  const host = document.getElementById('cards');
+  GR.forEach(g => host.append(card(g)));
+
+  /* ── 표시 ── */
+  const selAttr = grp => grp.classList.contains('ut') ? 'aria-selected' : 'aria-pressed';
+  const btnsOf = grp => Array.from(grp.children).filter(x => x.tagName === 'BUTTON');
+  function place(grp, anim) {
+    const ind = grp.querySelector(':scope > .ind');
+    if (!ind) return;
+    const b = btnsOf(grp)[+grp.dataset.i || 0];
+    const L = b.offsetLeft, R = grp.clientWidth - (b.offsetLeft + b.offsetWidth);
+    if (!anim) grp.classList.add('snap');
+    ind.style.setProperty('--l', L + 'px');
+    ind.style.setProperty('--r', R + 'px');
+    if (!anim) { void ind.offsetWidth; grp.classList.remove('snap'); }
+  }
+  function select(grp, idx, anim) {
+    const bs = btnsOf(grp), prev = +grp.dataset.i || 0;
+    if (idx === prev) return;
+    const dir = idx > prev ? 'r' : 'l', attr = selAttr(grp);
+    grp.dataset.dir = dir;
+    const fade = anim && grp.closest('.g-fade');
+    if (fade) { bs[idx].style.setProperty('--fx', (dir === 'r' ? -6 : 6) + 'px'); bs[idx].classList.add('pre'); }
+    bs.forEach((b, i) => { b.setAttribute(attr, String(i === idx)); if (attr === 'aria-selected') b.tabIndex = i === idx ? 0 : -1; });
+    if (fade) { void bs[idx].offsetWidth; bs[idx].classList.remove('pre'); }
+    grp.dataset.i = String(idx);
+    place(grp, anim);
+  }
+  function placeAll() { document.querySelectorAll('.seg, .ut').forEach(g => place(g, false)); }
+
+  /* ── 누름 흉내 (자동 재생 · 키보드) ── */
+  const K = () => +getComputedStyle(document.documentElement).getPropertyValue('--k') || 0;
+  const wait = ms => new Promise(r => setTimeout(r, ms));
+  function pressFor(el, ms) { el.classList.add('is-press'); setTimeout(() => el.classList.remove('is-press'), ms); }
+  function toggleSw(el, sim) {
+    const next = el.getAttribute('aria-checked') !== 'true';
+    if (el.dataset.kind === 'i' && sim) {
+      el.classList.add('press');
+      setTimeout(() => { el.setAttribute('aria-checked', String(next)); el.classList.remove('press'); }, 140 * Math.max(1, K()));
+    } else el.setAttribute('aria-checked', String(next));
+  }
+  const flip = (el, a) => el.setAttribute(a, String(el.getAttribute(a) !== 'true'));
+
+  /* ── 입력 ── */
+  host.addEventListener('click', e => {
+    const b = e.target.closest('button');
+    if (!b || !host.contains(b)) return;
+    const grp = b.parentElement;
+    if (grp.classList.contains('seg') || grp.classList.contains('ut')) select(grp, btnsOf(grp).indexOf(b), true);
+    else if (b.classList.contains('sw')) toggleSw(b, e.detail === 0);
+    else if (b.classList.contains('chip')) flip(b, 'aria-pressed');
+    else if (b.classList.contains('star')) flip(b, 'aria-pressed');
+  });
+  host.addEventListener('keydown', e => {     // 탭 줄 ← → (누르고 있기는 바로 — design.md §8)
+    const b = e.target.closest('.ut > button');
+    if (!b || (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight')) return;
+    const grp = b.parentElement, bs = btnsOf(grp), i = bs.indexOf(b), n = (i + (e.key === 'ArrowRight' ? 1 : bs.length - 1)) % bs.length;
+    e.preventDefault(); select(grp, n, !e.repeat); bs[n].focus();
+  });
+  host.addEventListener('pointerdown', e => { const s = e.target.closest('.sw[data-kind="i"]'); if (s) s.classList.add('press'); });
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach(t => host.addEventListener(t, e => { const s = e.target.closest && e.target.closest('.sw[data-kind="i"]'); if (s) s.classList.remove('press'); }, true));
+
+  /* ── 자동 재생: 모든 컨트롤을 한꺼번에, 네 걸음 ── */
+  const SEQ = [2, 0, 1, 0];
+  let busy = 0;
+  async function run(cards, btn) {
+    const all = document.querySelectorAll('.play, #playall');
+    busy++; all.forEach(b => b.disabled = true);
+    try {
+      for (let s = 0; s < SEQ.length; s++) {
+        cards.forEach(c => {
+          c.querySelectorAll('.seg, .ut').forEach(g => select(g, SEQ[s], true));
+          c.querySelectorAll('.sw').forEach(x => toggleSw(x, true));
+          const ch = c.querySelectorAll('.chip'); flip(ch[0], 'aria-pressed'); flip(ch[1], 'aria-pressed');
+          flip(c.querySelector('.star'), 'aria-pressed');
+          pressFor(c.querySelector('.key'), 160);
+        });
+        await wait(1150 * Math.max(1, K()));
+      }
+    } finally { busy--; if (!busy) all.forEach(b => b.disabled = false); }
+  }
+  document.getElementById('playall').addEventListener('click', () => run(Array.from(host.querySelectorAll('.card'))));
+
+  /* ── 맨 위 도구 ── */
+  const root = document.documentElement;
+  document.querySelector('.bar').addEventListener('click', e => {
+    const b = e.target.closest('.opt button');
+    if (!b) return;
+    const key = Object.keys(b.dataset)[0];
+    root.dataset[key] = b.dataset[key];
+    b.parentElement.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+    if (key === 'th') requestAnimationFrame(placeAll);
+  });
+  if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) document.querySelector('.opt [data-fx="reduced"]').click();
+
+  placeAll();
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(placeAll);
+  let rz = 0;
+  addEventListener('resize', () => { cancelAnimationFrame(rz); rz = requestAnimationFrame(placeAll); });
+})();
+</script>
+</body>
+</html>
