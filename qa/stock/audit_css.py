@@ -225,7 +225,7 @@ ivm = ' '.join(b for s, b in R if s == 'html[data-theme^="glass"] .sp-ivm') + ' 
 check('⑨ glass: the stuck header keeps --bar-bg · --bar-sh · --blur-bar', all(t in head for t in ('var(--bar-bg', 'var(--bar-sh', 'backdrop-filter: var(--blur-bar')), head[:200])
 check('⑨ glass: the 분 picker keeps --pop-bg and the blur', 'var(--pop-bg)' in ivm and 'backdrop-filter: var(--blur' in ivm, ivm[:200])
 gl = re.search(r'html\[data-theme="glass-dark"\]\{(.*?)\n\}', TPL, re.S)
-check('⑨ the template still carries the glass sheen in --bar-bg / --tip-bg (main 90e1f3b)', bool(gl) and re.search(r'--bar-bg:linear-gradient', gl.group(1)) and re.search(r'--tip-bg:linear-gradient', gl.group(1)))
+check('⑨ the template still carries the glass sheen in --bar-bg / --tip-bg (④ 리퀴드 글라스: the radial --gl-sheen over each fill, AGENTS §3-38)', bool(gl) and re.search(r'--bar-bg:var\(--gl-sheen\),', gl.group(1)) and re.search(r'--tip-bg:var\(--gl-sheen\),', gl.group(1)) and re.search(r'--gl-sheen:radial-gradient\(', gl.group(1)))
 
 # JS
 js = re.sub(r'/\*.*?\*/', '', JS, flags=re.S)

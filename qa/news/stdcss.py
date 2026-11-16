@@ -182,11 +182,12 @@ def glass_template(A, tpl):
     for th in ('glass-dark', 'glass-light'):
         m = re.search(r'html\[data-theme="%s"\]\{(.*?)\n\}' % th, tpl, re.S)
         body = m.group(1) if m else ''
-        sheen = re.search(r'--tip-bg:linear-gradient\(180deg', body) and re.search(r'--bar-bg:linear-gradient\(180deg', body)
+        # ④ 리퀴드 글라스 (AGENTS §3-38): the radial --gl-sheen over each fill, the edges in the shadows, blur 14px
+        sheen = re.search(r'--gl-sheen:radial-gradient\(', body) and re.search(r'--tip-bg:var\(--gl-sheen\),', body) and re.search(r'--bar-bg:var\(--gl-sheen\),', body)
         edge = re.search(r'--card-sh:inset 0 1px 0 (#fff|rgba\(255,255,255,\.\d+\))', body) and re.search(r'--tip-sh:inset 0 1px 0', body)
-        blur = re.search(r'--blur:blur\(24px\)', body)
-        A.check(f'⑨ template {th}: sheen (--tip-bg · --bar-bg 180° light), 1px edge reflection (--card-sh · --tip-sh inset 0 1px 0), blur 24px',
+        blur = re.search(r'--blur:blur\(14px\)', body)
+        A.check(f'⑨ template {th}: sheen (④ --gl-sheen over --tip-bg · --bar-bg), 1px edge reflection (--card-sh · --tip-sh inset 0 1px 0), blur 14px',
                 bool(m) and bool(sheen) and bool(edge) and bool(blur))
-    A.check('⑨ template: the big glass plates keep their 1px edge ::after, the tooltip / sheet keep --tip-bg · --sheet-bg and the blur',
-            'html[data-theme^="glass"] :is(.tip,header.top)::after' in tpl and re.search(r'\.tip\{[^}]*background:var\(--tip-bg\)[^}]*backdrop-filter:var\(--blur\)', tpl)
+    A.check('⑨ template: the big glass plates (tooltip · header · cards) keep their edge ring ::after, the tooltip / sheet keep --tip-bg · --sheet-bg and the blur',
+            bool(re.search(r'html\[data-theme\^="glass"\] :is\([^)]*\.tip\b[^)]*header\.top[^)]*\.card\b[^)]*\)::after', tpl)) and re.search(r'\.tip\{[^}]*background:var\(--tip-bg\)[^}]*backdrop-filter:var\(--blur\)', tpl)
             and re.search(r'\.card\{background:var\(--card-bg\)[^}]*box-shadow:var\(--card-sh\)', tpl))

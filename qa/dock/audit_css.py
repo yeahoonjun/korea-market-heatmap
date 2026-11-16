@@ -10,7 +10,10 @@ room under the page), the dock tokens --dock-bg / --dock-sh / --dock-r / --dock-
 
 CSS
   ① no gradient paint, no blur on the dock (dock.md §4: the glass dock is thick glass to look at, never blurred — it only floats
-     once the map has gone by); --dock-bg is a flat colour in every theme
+     once the map has gone by); --dock-bg is a flat colour in 기본 · 신문 — the two glass themes (④ 리퀴드 글라스, AGENTS §3-38 ·
+     design.md §2 예외) lay the card sheen (var(--gl-sheen-card)) over a ≥ .97 fill and wear the template's 1.25px glass ring: that
+     shared ring rule (html[data-theme^="glass"] :is(…)::after — a mask, its width and inherited corner) is the template's material and
+     is checked by qa/std_template/test_std_template.py, not counted as a dock rule here
   ② no glow — no drop-shadow() / blur() filter, no shadow layer blurred at offset 0 0 (--dock-sh included), keyframes move only
      opacity / transform, nothing endless
   ③ glass material kept (사용자 2026-11-16 01:32 "글라스가 플랫해지면 글라스가 아닌데"): the search sheet takes --sheet-bg (the glass
@@ -120,7 +123,8 @@ def novar(v):
 ALL = rules(CSS)
 KF = [(s, b) for s, b in ALL if s.startswith('@keyframes')]
 DOCK_SEL = re.compile(r'\.dock\b|\.dk-|\.ssheet|\.ss-|\.dkset|\bdkRise\b')
-R = [(s, b) for s, b in ALL if not s.startswith('@keyframes') and DOCK_SEL.search(s)]
+GLASS_RING = re.compile(r'^html\[data-theme\^="glass"\] :is\([^)]*\)::after$')     # the template's shared glass ring (④), see ①
+R = [(s, b) for s, b in ALL if not s.startswith('@keyframes') and DOCK_SEL.search(s) and not GLASS_RING.match(s)]
 R += [(s, b) for s, b in ALL if re.search(r'(^|\s)footer$', s) and '72px' in b]
 D = [(s, k, v) for s, b in R for k, v in decls(b)]
 check(f'scope: {len(R)} dock / search-sheet rules found', len(R) >= 60, len(R))
@@ -137,8 +141,12 @@ bad = [(s, k, v) for s, k, v in D if 'gradient(' in v]
 check('① no gradient paint in any dock / sheet rule', not bad, bad)
 bad = [(s, k, v) for s, k, v in D if k in ('backdrop-filter', '-webkit-backdrop-filter') and not s.startswith('.ssheet')]
 check('① no blur on the dock (only the search sheet takes the glass blur)', not bad, bad)
-bad = [(s, v) for s, v in TOKS.get('--dock-bg', []) if 'gradient' in v or 'rgba' in v]
-check(f'① --dock-bg is one flat, opaque colour in all {len(TOKS.get("--dock-bg", []))} themes', len(TOKS.get('--dock-bg', [])) == 4 and not bad, TOKS.get('--dock-bg'))
+bad = [(s, v) for s, v in TOKS.get('--dock-bg', []) if 'glass' not in s and ('gradient' in v or 'rgba' in v or 'var(' in v)]
+gl = [(s, v) for s, v in TOKS.get('--dock-bg', []) if 'glass' in s]
+glok = len(gl) == 2 and all(re.fullmatch(r'var\(--gl-sheen-card\),rgba\(\d+,\d+,\d+,(\.9[7-9]|1)\)', v) for s, v in gl)
+check(f'① --dock-bg: one flat, opaque colour in 기본 · 신문; 글라스 = the card sheen over a ≥ .97 fill (④, no blur)', len(TOKS.get('--dock-bg', [])) == 4 and not bad and glok, TOKS.get('--dock-bg'))
+ring = [s for s, b in ALL if GLASS_RING.match(s) and '.dock' in s and 'mask' in b]
+check('③ glass ④: the dock wears the template\'s glass ring (the shared ::after mask rule names .dock)', bool(ring), ring)
 
 # ② glow
 bad = [(s, k, v) for s, k, v in D if re.search(r'drop-shadow\(|(?<![\w-])blur\(', v) and k not in ('backdrop-filter', '-webkit-backdrop-filter')]
@@ -170,8 +178,8 @@ check('③ glass: no dock / sheet rule takes the material away under a glass the
 for th in ('glass-dark', 'glass-light'):
     m = re.search(r'html\[data-theme="' + th + r'"\]\{(.*?)\n\}', SRC, re.S)
     body = m.group(1) if m else ''
-    check(f'③ glass: {th} still carries the sheen (--tip-bg gradient → --sheet-bg) and the 1px inset edge in --sheet-sh',
-          bool(re.search(r'--tip-bg:linear-gradient', body)) and '--sheet-bg:var(--tip-bg)' in body and re.search(r'--sheet-sh:inset 0 1px 0', body), body[:120])
+    check(f'③ glass: {th} still carries the sheen (--tip-bg = the ④ radial --gl-sheen over the fill → --sheet-bg) and the 1px inset edge in --sheet-sh',
+          bool(re.search(r'--tip-bg:var\(--gl-sheen\),', body)) and bool(re.search(r'--gl-sheen:radial-gradient\(', body)) and '--sheet-bg:var(--tip-bg)' in body and re.search(r'--sheet-sh:inset 0 1px 0', body), body[:120])
 
 # ④ amber · status
 amb = [(s, k, v) for s, k, v in D if AMBER.search(v) and s != '.dk-l1 .st']
