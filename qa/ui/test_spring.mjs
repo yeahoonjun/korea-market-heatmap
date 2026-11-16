@@ -335,7 +335,7 @@ console.log('6. 이름 붙은 스프링 · 오류');
 
 console.log('7. edges · knob · release');
 {
-  t('edges: 첫 호출은 그 자리에 · 오른쪽으로 가면 오른쪽 가장자리가 lead(앞서 가고 늘었다 줄며 도착) · 프레임마다 쓰기 1번 · will-change는 움직이는 동안만', () => {
+  t('edges(② 단단한 이동, 기본): 첫 호출은 그 자리에 · 두 가장자리가 같은 lead로 함께(폭은 60 → 80을 고르게, 늘어남 없음) · 프레임마다 쓰기 1번 · will-change는 움직이는 동안만', () => {
     const env = load(), el = fakeEl();
     let rests = 0;
     const ctl = env.sp.edges(el, { left: 0, width: 60 }, { onRest: () => rests++ });
@@ -343,24 +343,37 @@ console.log('7. edges · knob · release');
     assert.equal(env.sp.edges(el), ctl, 'one controller per element');
     ctl.to({ left: 200, width: 80 });
     assert.equal(el.vals.willChange, 'transform');
-    let maxW = 0, leadAhead = 0, frames = 0;
+    let maxW = 0, minW = Infinity, maxGap = 0, frames = 0;
     while (env.pending()) {
       const w0 = el.writes.transform || 0;
       env.frame(); frames++;
       assert.equal((el.writes.transform || 0) - w0, 1, 'one transform write per frame');
       const l = tx(el), w = wd(el), r = l + w;
-      maxW = Math.max(maxW, w);
-      if ((r - 60) / 220 > (l - 0) / 200 + 0.05) leadAhead++;
+      maxW = Math.max(maxW, w); minW = Math.min(minW, w);
+      maxGap = Math.max(maxGap, Math.abs((r - 60) / 220 - (l - 0) / 200));    // both edges the same share of their way: one spring
       if (env.pending()) assert.equal(el.vals.willChange, 'transform');
     }
     assert.equal(el.vals.transform, 'translateX(200px)'); assert.equal(el.vals.width, '80px'); assert.equal(el.vals.willChange, '');
-    assert.ok(maxW > 80 + 40, `stretched to ${maxW.toFixed(1)}px`); assert.ok(leadAhead > frames / 3, `right edge ahead in ${leadAhead}/${frames} frames`);
+    assert.ok(frames > 5, `${frames} frames`);
+    assert.ok(maxGap < 0.002, `edges in step (max gap ${maxGap.toFixed(4)})`);
+    assert.ok(minW >= 60 - 0.01 && maxW <= 80 + 0.5, `width stays between 60 and 80 (+ lead's 1.45 % of 20): ${minW.toFixed(2)} – ${maxW.toFixed(2)}`);
     assert.equal(rests, 1);
-    // back to the left: now the left edge leads
+    // the same width both ways: a rigid move keeps it exactly
+    ctl.to({ left: 20, width: 80 }); let w2 = new Set();
+    while (env.pending()) { env.frame(); w2.add(wd(el).toFixed(2)); }
+    assert.deepEqual([...w2], ['80.00'], 'same width → the width never changes'); assert.equal(rests, 2);
+    assert.equal(env.errors.length, 0);
+  });
+  t('edges({trail:"trail"}): 부르는 쪽이 고르면 예전처럼 가는 쪽 가장자리가 앞서고(lead) 뒤가 따라와 늘었다 줄며 도착', () => {
+    const env = load(), el = fakeEl();
+    const ctl = env.sp.edges(el, { left: 0, width: 60 }, { trail: 'trail' });
+    ctl.to({ left: 200, width: 80 });
+    let maxW = 0, leadAhead = 0, frames = 0;
+    while (env.pending()) { env.frame(); frames++; const l = tx(el), w = wd(el), r = l + w; maxW = Math.max(maxW, w); if ((r - 60) / 220 > (l - 0) / 200 + 0.05) leadAhead++; }
+    assert.ok(maxW > 80 + 40, `stretched to ${maxW.toFixed(1)}px`); assert.ok(leadAhead > frames / 3, `right edge ahead in ${leadAhead}/${frames} frames`);
     ctl.to({ left: 20, width: 60 }); let leftAhead = 0, fr = 0;
     while (env.pending()) { env.frame(); fr++; const l = tx(el), r = l + wd(el); if ((200 - l) / 180 > (280 - r) / 200 + 0.05) leftAhead++; }
-    assert.ok(leftAhead > fr / 3, `left edge ahead in ${leftAhead}/${fr} frames`); assert.equal(rests, 2);
-    assert.equal(env.errors.length, 0);
+    assert.ok(leftAhead > fr / 3, `left edge ahead in ${leftAhead}/${fr} frames`);
   });
   t('edges: 방향을 도중에 바꿔도 가장자리 위치가 튀지 않음 · set(box)은 바로(키보드 연달아, §8) · write:"left" · 글자 있는 요소엔 will-change 없음 · 원래 will-change로 되돌림', () => {
     const env = load(), el = fakeEl();
@@ -383,11 +396,25 @@ console.log('7. edges · knob · release');
     assert.equal(el.vals.transform, 'translateX(200px)'); assert.equal(el.vals.width, '80px'); assert.equal(env.pending(), 0); assert.equal(el.writes.willChange, undefined);
     await null; await null; assert.equal(rests, 1);
   });
-  t('knob: 앞 가장자리 follow · 뒤 settle, 늘어남 최대 ≈ 3px(20px · 200px 이동 모두 ≤ 3), 끝은 원래 폭 · stretch:0이면 안 늘어남', () => {
+  t('knob(② 단단한 이동, 기본): 모양 그대로 lead 하나로(폭 20 고정, 20px · 200px 이동) · {stretch:3, front:"follow", back:"settle"}을 고르면 예전처럼 ≤ 3px 늘어남', () => {
+    const { k, c } = kcOf('lead');
     for (const travel of [20, 200]) {
       const env = load(), el = fakeEl();
       const kn = env.sp.knob(el, 0, { width: 20 });
       assert.equal(el.vals.transform, 'translateX(0px)'); assert.equal(el.vals.width, '20px');
+      kn.to(travel); const ws = new Set(); let fr = 0, t = 0, maxErr = 0;
+      const sol = env.sp.solve(k, c, 0, travel, 0);
+      while (env.pending()) {
+        env.frame(); fr++; t += 1 / 60; ws.add(el.vals.width);
+        if (env.pending()) maxErr = Math.max(maxErr, Math.abs(tx(el) - sol.x(t)));
+      }
+      assert.deepEqual([...ws], ['20px'], `travel ${travel}: the knob keeps its width`);
+      assert.ok(maxErr < 0.02 * travel + 0.05, `travel ${travel}: rides lead (max ${maxErr.toFixed(3)}px off the closed form)`);
+      assert.ok(fr > 5); assert.equal(el.vals.transform, `translateX(${travel}px)`); assert.equal(el.vals.willChange, '');
+    }
+    for (const travel of [20, 200]) {
+      const env = load(), el = fakeEl();
+      const kn = env.sp.knob(el, 0, { width: 20, stretch: 3, front: 'follow', back: 'settle' });
       kn.to(travel); let maxS = 0, frontFirst = 0, fr = 0;
       while (env.pending()) {
         env.frame(); fr++;
@@ -398,10 +425,10 @@ console.log('7. edges · knob · release');
       assert.ok(frontFirst > fr / 3, `front edge ahead in ${frontFirst}/${fr} frames`);
       assert.equal(el.vals.transform, `translateX(${travel}px)`); assert.equal(el.vals.width, '20px'); assert.equal(el.vals.willChange, '');
     }
-    const env = load(), el = fakeEl(); const kn = env.sp.knob(el, 0, { width: 18, stretch: 0 }); kn.to(20); let mw = 0;
+    const env = load(), el = fakeEl(); const kn = env.sp.knob(el, 0, { width: 18, stretch: 0, front: 'follow', back: 'settle' }); kn.to(20); let mw = 0;
     while (env.pending()) { env.frame(); mw = Math.max(mw, wd(el)); } assert.equal(mw, 18);
-    // going left: the left edge leads, the box only grows to the right of it
-    const e2 = fakeEl(); const k2 = env.sp.knob(e2, 20, { width: 20 }); k2.to(0); env.frame(); env.frame(); env.frame();
+    // going left with a stretch: the left edge leads, the box only grows to the right of it
+    const e2 = fakeEl(); const k2 = env.sp.knob(e2, 20, { width: 20, stretch: 3 }); k2.configure({ front: 'follow', back: 'settle' }); k2.to(0); env.frame(); env.frame(); env.frame();
     assert.ok(tx(e2) < 20 && wd(e2) > 20);
   });
   t(`release: px/ms → px/s로 settle 스프링 · |v| > 0.11 px/ms = 던짐(그 쪽 다음 점), 아니면 가장 가까운 점 · knob도 받음 · maxOvershoot`, () => {
@@ -446,7 +473,7 @@ for (const f of ['dist/index.html', 'web/index.html']) {
   assert.ok(readFileSync(join(ROOT, f), 'utf8').includes(SRC.trim().slice(0, 200).replace(/<\/script/g, '<\\/script')), `${f}에 src/ui/spring.js가 없어요 — 다시 빌드`);
 }
 const PORT = +(process.env.SPRING_QA_PORT || 8940);
-assert.ok(PORT >= 8940 && PORT <= 8949, 'ports 8940–8949');
+assert.ok((PORT >= 8940 && PORT <= 8949) || (PORT >= 9070 && PORT <= 9079), 'ports 8940–8949 (or 9070–9079)');
 spawnSync('fuser', ['-k', `${PORT}/tcp`], { stdio: 'ignore' });
 const mock = spawn('python3', [join(ROOT, 'qa/news/mock_api.py'), String(PORT)], { stdio: 'ignore', env: { ...process.env, MOCK_WEB: join(ROOT, 'web') } });
 const browser = await pw.chromium.launch({ executablePath: '/usr/bin/google-chrome', args: ['--no-sandbox'] });
@@ -505,10 +532,10 @@ try {
       assert.deepEqual(d.first, ['translateX(0px)', '60px']); assert.deepEqual(d.sync, ['translateX(0px)', 'transform']);
       const moving = d.samples.filter(s => s[1] !== 'translateX(200px)' || s[2] !== '80px');
       const distinct = new Set(moving.map(s => s[1] + s[2])).size;
-      const maxW = Math.max(...d.samples.map(s => s[5]));
+      const maxW = Math.max(...d.samples.map(s => s[5])), minW = Math.min(...d.samples.map(s => s[5]));
       const restMs = (d.samples.find(s => s[1] === 'translateX(200px)' && s[2] === '80px') || [Infinity])[0];
       assert.ok(distinct >= 10, `${label} ${w}: ${distinct} distinct frames`);
-      assert.ok(maxW > 120, `${label} ${w}: stretched to ${maxW.toFixed(1)}px`);
+      assert.ok(minW >= 59.5 && maxW <= 81, `${label} ${w}: rigid (② 단단한 이동) — width ${minW.toFixed(1)} – ${maxW.toFixed(1)}px, never stretched`);
       assert.ok(restMs > 250 && restMs < 3000, `${label} ${w}: rests after ${restMs.toFixed(0)} ms`);
       assert.ok(moving.every(s => s[3] === 'transform'), 'will-change while moving'); assert.deepEqual(d.end, ['translateX(200px)', '80px', '']);
       assert.deepEqual(d.stats, { active: 0, scheduled: false }, 'loop off when idle');
@@ -528,7 +555,7 @@ try {
       assert.deepEqual(red, ['reduced', 'translateX(200px)', '80px', '', 0]);
       await rctx.close();
       assert.deepEqual(errs, [], `${label} ${w}: console errors`);
-      console.log(`  ✓ ${label} ${w}×${h}: KH.spring (${info.css.length}개 CSS에서), 표시 ${distinct}프레임 · 최대 폭 ${maxW.toFixed(0)}px · ${restMs.toFixed(0)}ms에 섬 · 줄이기 바로 · 콘솔 오류 0`); n++;
+      console.log(`  ✓ ${label} ${w}×${h}: KH.spring (${info.css.length}개 CSS에서), 표시 ${distinct}프레임 · 폭 ${minW.toFixed(0)}–${maxW.toFixed(0)}px(늘어남 없음) · ${restMs.toFixed(0)}ms에 섬 · 줄이기 바로 · 콘솔 오류 0`); n++;
       await ctx.close();
     }
   }
