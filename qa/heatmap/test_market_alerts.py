@@ -135,15 +135,21 @@ def context(browser, w, alerts='today', hx=True):
         res = route.fetch()
         try:
             j = res.json()
-            if hx:
-                for row in j.get('stocks', []):
-                    if row.get('c') == HX:
-                        row['hx'] = 1
+            for row in j.get('stocks', []):
+                if hx and row.get('c') == HX:
+                    row['hx'] = 1
+                # the file's 거래정지 stocks really halted: volume 0 (a row with KRX volume today reads as resumed — 사용자 13:15)
+                if row.get('c') in HALTED and not RESUMED.get('on'):
+                    row['v'] = 0
             route.fulfill(response=res, body=json.dumps(j, ensure_ascii=False), headers={**res.headers, 'content-type': 'application/json'})
         except Exception:
             route.fulfill(response=res)
     ctx.route('**/api/quotes*', quotes)
     return ctx
+
+
+HALTED = {c for c, v in FAKE_C.items() if v.get('stop')}
+RESUMED = {'on': False}
 
 
 def open_page(browser, w, theme='base', market='K', tag='', wait=1800, **kw):
@@ -270,6 +276,13 @@ def run_live(browser):
     of = pg.evaluate("() => ['005930', '000660', '373220', '207940', '005380', '035420', '000270'].map(c => [c, KH.alerts.of(c)])")
     of = dict(of)
     check('order: 거래정지 → 투자경고 → 관리종목 (three on one stock)', of['005930'] and of['005930']['keys'] == ['stop', 'warning', 'adm'], of['005930'])
+    # the file still says 거래정지, but today's quotes show KRX volume and no hx → trading again: the halt badge goes (사용자 13:15)
+    RESUMED['on'] = True
+    rctx, rpg = open_page(browser, 1280, tag='resumed 1280')
+    rk = rpg.evaluate("() => KH.alerts.of('005930')")
+    check('거래정지 in the file + volume today, no hx → resumed: 투자경고 · 관리종목 stay, 거래정지 goes', rk and rk['keys'] == ['warning', 'adm'], rk)
+    rctx.close()
+    RESUMED['on'] = False
     check('names: 투자주의 · 투자위험 · 관리종목 · unknown → 시장 경보', [of[c]['labels'] for c in ('000660', '373220', '207940', '005380')] == [['투자주의'], ['투자위험'], ['관리종목'], ['시장 경보']], of)
     check('hx:1 on a quotes row → 거래정지 from the quotes (live, not the file)', of['035420'] and of['035420']['keys'] == ['stop'] and of['035420']['live'] and not of['035420']['file'], of['035420'])
     check('a stock without alerts → null', of['000270'] is None, of['000270'])

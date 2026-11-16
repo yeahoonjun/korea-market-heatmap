@@ -2582,6 +2582,14 @@ function loadAlerts(fresh) {
   AL_LOAD.st = 'loading'; AL_LOAD.t = Date.now();
   loadData('alerts', fresh).then(j => { AL_LOAD.st = j ? 'ok' : 'fail'; if (j || !ALERTS) setAlerts(j); });
 }
+// trading again today: the quote row (no hx) has KRX volume today — a halted stock's row reads volume 0 (실측 11/16: the six hx rows all
+// v 0); the quotes must be today's (DATA.k.date = KST today), and when the row carries its own trade time that must be today too
+function resumed(r) {
+  if (!r || MODE !== 'live' || !(r.v > 0) || !DATA || !DATA.k) return false;
+  const today = kst(new Date()); if (!today || DATA.k.date !== today.date) return false;
+  if (isFinite(r.tm)) { const k = kst(new Date(r.tm)); if (!k || k.date !== today.date) return false; }
+  return true;
+}
 // → ['stop', 'warning', …] most important first, or null (no lookups but the two Map gets for a stock without one)
 function alertKeys(code) {
   const f = ALERTS && ALERTS.map.get(code), r = DATA ? rawGet(code) : null, hx = !!(r && r.hx === 1);
@@ -2589,7 +2597,9 @@ function alertKeys(code) {
   const ff = f && alertsFresh() ? f : null;
   if (!ff && !hx) return null;
   const out = [];
-  if (hx || ff.stop) out.push('stop');
+  // 거래정지 from the file, but the stock is trading again today (사용자 2026-11-16 13:15 "장중에 거래정지 풀린건 네이버에서 갑자기 가격이
+  // 들어오니까 알 수 있는 거 아닌가?"): a row with no hx and a KRX trade today (volume > 0, trade time on today's date) → the halt is over
+  if (!hx && ff && ff.stop && resumed(r)) { if (!ff.a && !ff.adm) return null; } else if (hx || ff.stop) out.push('stop');
   if (ff && ff.a) out.push(['caution', 'warning', 'risk'].includes(ff.a) ? ff.a : 'other');
   if (ff && ff.adm) out.push('adm');
   return out.sort((a, b) => AL_ORDER.indexOf(a) - AL_ORDER.indexOf(b));
