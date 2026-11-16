@@ -5,6 +5,8 @@
                      GET api/world/chart/{key}?tf=3m|1y for the detail sheet (daily closes; no intraday source exists).
                      지표 also: GET api/funds (증시 자금, 금융투자협회 — once a day upstream, asked here at most every 10 min) and
                      api/funds/chart/{key}?tf=3m|1y; an older Worker without the route → the group is simply absent (AGENTS §3-32).
+                     지표 also: GET api/koreaexim?kind=fx|rate (수출입은행 고시 — once a business day, asked here at most every 10 min):
+                     two small tables inside the 환율 and 금리 cards (AGENTS §3-27 끝).
    Uses window.KH (§3): MODE, LIVE_URL, colorOf, palette, fmt, h, market; listens to kh:palette.
    등락 색상 (2026-11-16): everything here is a 해외 · 지표 value, so colours ask KH.colorOf(r, 'world') / KH.palette('world') (an older
    template ignores the argument) and the boxes carry .pal-w (#world from the template, the detail sheet here). The one exception: a
@@ -50,7 +52,7 @@ const KINDS = {
     title: CM_NAME, hash: 'cmdty', noun: CM_NAME,
     fail: `${CM_NAME} 탭의 시세를 불러오지 못했어요`, empty: '지금 보여 줄 원자재·환율·금리 시세가 없어요',
     snapTitle: `${CM_NAME} 탭은 실시간 버전에서 볼 수 있어요`,
-    snapBody: '원유·금·곡물 같은 원자재 선물과 환율·국채 금리를 30초마다, 증시 자금(금융투자협회)은 하루 한 번 새로 받아 와요. 이 미리보기는 네트워크가 막혀 있어서 시세를 받을 수 없어요.',
+    snapBody: '원유·금·곡물 같은 원자재 선물과 환율·국채 금리를 30초마다, 증시 자금(금융투자협회)과 수출입은행 고시는 하루 한 번 새로 받아 와요. 이 미리보기는 네트워크가 막혀 있어서 시세를 받을 수 없어요.',
   },
 };
 // what each tab asks the Worker for: the 지표 tab adds 환율 · 금리 (an older Worker ignores `with` and the groups are simply absent)
@@ -404,6 +406,136 @@ function loadFunds(force) {
     }
   })();
   return FUNDS.busy;
+}
+
+/* 수출입은행 고시 (AGENTS §3-27 끝 · §3-2, 사용자 2026-11-16 11:33 "그래 추천대로"): GET api/koreaexim?kind=fx|rate. The bank posts
+   once a business day (before 11:32 on 2026-11-16, the minute unknown); the Worker keeps one copy per posting day. Two small
+   tables in the 지표 tab, not clickable (a row's title is the only extra):
+   ① inside the 환율 card, below its rows — 원/달러 · 원/엔(100엔) · 원/유로 · 원/위안: 매매기준율 · 송금 보낼 때(tts) · 받을 때(ttb),
+      the numbers to look at when changing or sending money. No change is shown, so no colour.
+   ③ inside the 금리 card, below the 국채 rows under its own heading "기준금리 · 은행간 금리" — SOFR · ESTR (· TONA when it is sent)
+      overnight, EURIBOR · TIBOR 1 · 3 · 6 · 12개월, %; the change in bp against the previous posting when the Worker has one
+      (colour = up / down only, like a yield).
+   Asked at most every 10 min while the 지표 tab is shown (2 min after a failure); 404 = a Worker without the route → absent for this
+   page. A failure without any value shows one muted line in that table's place; nothing else waits for it. */
+const KXIM_POLL_MS = 10 * 60e3, KXIM_RETRY_MS = 2 * 60e3;
+const KXIM = { fx: null, rate: null, err: { fx: null, rate: null }, tried: 0, gone: false, busy: null, hm: {} };
+const KX_FX = [['USD', '원/달러'], ['JPY', '원/엔(100엔)'], ['EUR', '원/유로'], ['CNH', '원/위안']];
+const KX_CUR = { USD: '달러', EUR: '유로', JPY: '엔' };
+const KX_SEC = { fx: 'fx', rates: 'rate' };               // list section → the table it carries
+const isoDay = s => (/^\d{4}-\d{2}-\d{2}$/.test(String(s || '')) ? String(s) : null);
+const posNum = v => (v == null || v === '' || !isFinite(+v) || +v <= 0 ? null : +v);
+function kxNorm(j, kind) {
+  if (!j || !Array.isArray(j.items) || !isoDay(j.date)) return null;
+  let items;
+  if (kind === 'fx') {
+    const by = new Map(j.items.filter(x => x && typeof x.code === 'string').map(x => [x.code, x]));
+    items = KX_FX.map(([code, name]) => { const x = by.get(code); const base = x && posNum(x.base); return base ? { code, name, base, tts: posNum(x.tts), ttb: posNum(x.ttb) } : null; }).filter(Boolean);
+  } else {
+    items = j.items.filter(x => x && /^[A-Z]{3,8}$/.test(x.family) && typeof x.tenor === 'string' && x.value != null && isFinite(+x.value)).slice(0, 16).map(x => ({
+      key: String(x.key || x.family + x.tenor), family: x.family, cur: KX_CUR[x.cur] || '', tenor: x.tenor.slice(0, 8), value: +x.value,
+      raw: /^-?\d+(\.\d+)?$/.test(String(x.raw || '')) ? String(x.raw) : null, name: String(x.name || '').slice(0, 40), bp: x.bp == null || !isFinite(+x.bp) ? null : +x.bp,
+    }));
+  }
+  if (!items.length) return null;
+  return {
+    items, date: j.date, today: j.today === true, waiting: j.waiting === true, stale: j.stale === true,
+    firstSeen: /^\d{2}:\d{2}$/.test(String(j.firstSeen || '')) ? j.firstSeen : null, exact: j.exact === true,
+  };
+}
+// both tables at once, at most every 10 min (2 min after a failure); a value that came stays when a later ask fails
+function loadKxim(force) {
+  if (!LIVE || KXIM.gone || KXIM.busy) return KXIM.busy;
+  const now = Date.now();
+  const d = S.data.commodity;
+  if (!d || !d.groups.some(g => KX_SEC[g.key])) return null;   // an older Worker without 환율 · 금리: nowhere to put them
+  const failed = !!(KXIM.err.fx || KXIM.err.rate);
+  if (!force && now - KXIM.tried < (failed ? KXIM_RETRY_MS : KXIM_POLL_MS)) return null;
+  KXIM.tried = now;
+  KXIM.busy = (async () => {
+    const was = JSON.stringify([KXIM.fx, KXIM.rate, !!KXIM.err.fx, !!KXIM.err.rate]);
+    await Promise.all(['fx', 'rate'].map(async kind => {
+      try {
+        const v = kxNorm(await getJSON('api/koreaexim?kind=' + kind), kind);
+        KXIM[kind] = v; KXIM.err[kind] = null;
+      } catch (e) {
+        if (e.status === 404) KXIM.gone = true;
+        KXIM.err[kind] = e;
+      }
+    }));
+    if (KXIM.gone) { KXIM.fx = KXIM.rate = null; }
+    KXIM.busy = null;
+    const changed = was !== JSON.stringify([KXIM.fx, KXIM.rate, !!KXIM.err.fx, !!KXIM.err.rate]);
+    if (changed && S.shown && S.kind === 'commodity' && els && !els.snap) render();
+  })();
+  return KXIM.busy;
+}
+// what a table's place holds: 'data' · 'fail' (nothing came, the last ask failed) · null (hidden: not asked yet, an older Worker, empty)
+const kxState = kind => (KXIM[kind] ? 'data' : !KXIM.gone && KXIM.err[kind] ? 'fail' : null);
+// its height for the column balance (distribute): the last measured one for this kind and row style, else an estimate
+function kxHeight(secKey, compact) {
+  const kind = KX_SEC[secKey], st = kind && S.kind === 'commodity' ? kxState(kind) : null;
+  if (!st) return 0;
+  const m = KXIM.hm[kind + (compact ? ':c' : '') + ':' + st];
+  if (m) return m;
+  if (st === 'fail') return 70;
+  const n = KXIM[kind].items.length;
+  return 16 + 26 + 22 + n * (compact ? 30 : 26) + (compact ? 48 : 34);
+}
+const kxWhen = v => (v.today ? (v.firstSeen ? (v.exact ? `오늘 ${v.firstSeen} 고시` : `오늘 고시 · ${v.firstSeen} 확인`) : '오늘 고시') : `${mdText(v.date, true)} 고시`);
+const kxFixed = (v, dp) => (v == null ? '—' : (v < 0 ? MINUS : '') + fixed(v, dp));
+function kxHead(kind, v) {
+  const id = 'kw-kx-' + kind;
+  const meta = ['하루 한 번', kind === 'rate' ? '수출입은행' : null, v ? kxWhen(v) : null].filter(Boolean).join(' · ');
+  const warn = v && v.stale ? h('span', { class: 'kw-kxw', title: '수출입은행에서 새 값을 확인하지 못했어요' }, uiWarn(), h('span', { class: 'sr', text: '새 값을 확인하지 못했어요' })) : null;
+  return h('div', { class: 'kw-kxh' }, h('h5', { class: 'kw-kxt', id }, kind === 'fx' ? '수출입은행 고시' : '기준금리 · 은행간 금리'), h('span', { class: 'kw-kxm' }, meta, warn));
+}
+function kxFxTable(v) {
+  return h('table', { class: 'kw-kxtb kw-kxf', 'aria-labelledby': 'kw-kx-fx' },
+    h('thead', {}, h('tr', {}, h('th', { scope: 'col', class: 'nm' }, h('span', { class: 'sr', text: '통화' })),
+      h('th', { scope: 'col', text: '매매기준율' }), h('th', { scope: 'col', text: '송금 보낼 때' }), h('th', { scope: 'col', text: '송금 받을 때' }))),
+    h('tbody', {}, v.items.map(it => h('tr', { 'data-k': it.code, title: `${it.name} · 매매기준율 ${kxFixed(it.base, 2)}원 · 송금 보낼 때 ${kxFixed(it.tts, 2)}원 · 받을 때 ${kxFixed(it.ttb, 2)}원` },
+      h('th', { scope: 'row', class: 'nm', text: it.name }), h('td', { text: kxFixed(it.base, 2) }), h('td', { text: kxFixed(it.tts, 2) }), h('td', { text: kxFixed(it.ttb, 2) })))));
+}
+function kxRateTable(v) {
+  const hasBp = v.items.some(it => it.bp != null);
+  const fams = [];
+  for (const it of v.items) { const f = fams[fams.length - 1]; if (f && f.family === it.family) f.items.push(it); else fams.push({ family: it.family, cur: it.cur, items: [it] }); }
+  return h('table', { class: 'kw-kxtb kw-kxr' + (hasBp ? '' : ' nobp'), 'aria-labelledby': 'kw-kx-rate' },
+    h('thead', {}, h('tr', {}, h('th', { scope: 'col', class: 'nm' }, h('span', { class: 'sr', text: '이름' })), h('th', { scope: 'col', class: 'tn', text: '기간' }),
+      h('th', { scope: 'col', text: '금리' }), hasBp ? h('th', { scope: 'col', text: '변화' }) : null)),
+    fams.map(f => h('tbody', { 'data-f': f.family }, f.items.map((it, i) => {
+      const bp = it.bp == null ? null : Math.round(it.bp * 10) / 10;
+      return h('tr', { 'data-k': it.key, title: `${it.name || f.family + ' ' + it.tenor} · ${it.raw != null ? it.raw : kxFixed(it.value, 3)}%` },
+        i === 0 ? h('th', { scope: 'rowgroup', class: 'nm', rowspan: String(f.items.length) }, f.family, f.cur ? h('small', { text: f.cur }) : null) : null,
+        h('td', { class: 'tn', text: it.tenor }),
+        h('td', { text: kxFixed(it.value, 3) + '%' }),
+        hasBp ? h('td', { class: 'bp ' + (bp == null ? 'flat' : cls(bp)), text: bp == null ? '' : bpText(bp) }) : null);
+    }))));
+}
+function kxNote(kind, v) {
+  const t = kind === 'fx' ? ['환전 · 송금할 때 참고하는 은행 고시값이에요. 실제로 적용되는 환율은 은행과 우대율마다 달라요.']
+    : ['익일은 하루짜리 기준금리, 1~12개월은 은행끼리 빌려주는 기간별 금리예요.', v.items.some(it => it.bp != null) ? '변화는 전 영업일 고시 대비 bp(1bp = 0.01%p)로 보여 줘요.' : null];
+  if (v.waiting) t.push('오늘 고시는 아직 나오지 않았어요.');
+  if (v.stale) t.push('새 값을 확인하지 못해 지난 값을 보여 줘요.');
+  return h('p', { class: 'kw-kxn', text: t.filter(Boolean).join(' ') });
+}
+// fill one table's place (only when what it shows changed); returns true when its height moved off the one distribute used
+function fillKx(box, kind, compact) {
+  const st = kxState(kind), v = KXIM[kind];
+  const sig = JSON.stringify([st, v, compact]);
+  if (box.__sig !== sig) {
+    box.__sig = sig;
+    box.hidden = !st;
+    if (!st) box.replaceChildren();
+    else if (st === 'fail') put(box, kxHead(kind, null), h('p', { class: 'kw-kxn kw-stale' }, uiWarn(), kind === 'fx' ? '수출입은행 고시 환율을 불러오지 못했어요' : '수출입은행 고시 금리를 불러오지 못했어요'));
+    else put(box, kxHead(kind, v), kind === 'fx' ? kxFxTable(v) : kxRateTable(v), kxNote(kind, v));
+  }
+  if (!st) return false;
+  const k = kind + (compact ? ':c' : '') + ':' + st, used = kxHeight(kind === 'fx' ? 'fx' : 'rates', compact);
+  const hgt = box.offsetHeight + parseFloat(getComputedStyle(box).marginTop || 0);
+  KXIM.hm[k] = hgt;
+  return Math.abs(hgt - used) > 12;
 }
 
 /* ───────── DOM scaffold ───────── */
@@ -992,7 +1124,7 @@ function listGeom(W, minWide) {
 // sections → columns with heights as even as possible. Contiguous runs keep the reading order; when that leaves one
 // column much taller, the biggest sections are spread first (each column still lists its sections in the original order).
 function distribute(secs, n, rowH) {
-  const hs = secs.map(s => (s.head ? HEAD_H : 6) + s.items.length * rowH + SEC_PAD + (s.key === 'funds' ? 24 : 0));
+  const hs = secs.map(s => (s.head ? HEAD_H : 6) + s.items.length * rowH + SEC_PAD + (s.key === 'funds' ? 24 : 0) + kxHeight(s.key, rowH === ROW_HC));
   const colH = idx => idx.reduce((a, i) => a + hs[i], 0) + Math.max(0, idx.length - 1) * COL_GAP;
   n = Math.min(n, secs.length);
   if (n <= 1) return [secs];
@@ -1182,7 +1314,8 @@ function renderList(d) {
         const hd = h(b.title ? 'h4' : 'h3', { class: 'kw-sh', id }, h('span', { class: 't' }), h('span', { class: 's' }), h('span', { class: 'a' }));
         const el = h('section', { class: 'kw-sec' + (sec.ref ? ' ref' : ''), 'data-g': sec.key, 'aria-labelledby': id }, hd,
           h('div', { class: 'kw-rows' }, sec.items.map(rowEl)),
-          sec.key === 'funds' ? h('p', { class: 'kw-fsrc', text: FUND_SRC }) : null);
+          sec.key === 'funds' ? h('p', { class: 'kw-fsrc', text: FUND_SRC }) : null,
+          KX_SEC[sec.key] && S.kind === 'commodity' ? h('div', { class: 'kw-kx', 'data-kx': KX_SEC[sec.key], hidden: true }) : null);   // 수출입은행 고시
         el.__sec = sec;
         return el;
       })))]).filter(Boolean));
@@ -1191,13 +1324,17 @@ function renderList(d) {
     if (scrollY !== sy) scrollTo(scrollX, sy);
   }
   // fill in place
+  let kxMoved = false;
   for (const secEl of L.querySelectorAll('.kw-sec')) {
     const old = secEl.__sec;
     const sec = cols.flat().find(s => s.key === old.key) || old;
     secEl.__sec = sec;
     fillHead(sec, secEl.firstChild);
     sec.items.forEach((it, i) => fillRow(els.rows.get(it.key), it, subs.get(it.key), sec.flat && !sec.ref ? sec.rank + i : 0, R));
+    const kx = secEl.querySelector(':scope > .kw-kx');
+    if (kx && fillKx(kx, kx.dataset.kx, geo.compact)) kxMoved = true;
   }
+  if (kxMoved && !els.kxRe) { els.kxRe = true; schedRender(); } else if (!kxMoved) els.kxRe = false;   // the columns balance on the measured height (once)
   if (!S.listFocus || !els.rows.has(S.listFocus)) S.listFocus = cols.length && cols[0][0] ? cols[0][0].items[0].key : null;
   for (const [k, el] of els.rows) el.tabIndex = k === S.listFocus ? 0 : -1;
   // a place or unit that would be cut is left out, so the name keeps its room (one layout read for all rows)
@@ -1764,6 +1901,9 @@ function renderSource(d) {
   }
   const fg = S.kind === 'commodity' && d && d.groups.find(g => g.key === 'funds');
   if (fg) kids.push(h('span', { class: 'kw-src-fd' }, ` 증시 자금은 금융투자협회 통계(금융위원회 공공데이터포털)로 하루 한 번, 전 영업일 값으로 바뀌어요${fg.basDt ? ` — 지금 ${mdText(fg.basDt, true)} 자료` : ''}.`));
+  // 수출입은행 고시 (AGENTS §3-27 끝): "한국수출입은행 · 하루 한 번" with the posting day on screen
+  const kx = S.kind === 'commodity' && d && d.groups.some(g => KX_SEC[g.key]) ? (KXIM.fx || KXIM.rate) : null;
+  if (kx) kids.push(h('span', { class: 'kw-src-kx' }, ` 수출입은행 고시 환율 · 금리: 한국수출입은행 · 하루 한 번, 지금 ${mdText(kx.date, true)} 고시예요.`));
   els.src.replaceChildren(...kids);
 }
 
@@ -2178,7 +2318,7 @@ async function load(kind, quiet) {
     const j = await getJSON(worldUrl(kind), ac.signal);
     if (seq !== S.seq) return null;
     S.data[kind] = withFunds(normalise(j, kind));
-    if (kind === 'commodity') loadFunds();
+    if (kind === 'commodity') { loadFunds(); loadKxim(); }
     S.at[kind] = Date.now();
     S.err[kind] = null;
     failedW.delete('data:' + kind);
@@ -2253,7 +2393,7 @@ function show(kind) {
   render();
   if (was && sameKind && (S.timer || S.busy === kind)) return;   // already polling / loading this kind
   const age = Date.now() - (S.at[kind] || 0);
-  if (!S.data[kind] || age >= POLL_MS) load(kind); else { schedule(POLL_MS - age); if (kind === 'commodity') loadFunds(); }
+  if (!S.data[kind] || age >= POLL_MS) load(kind); else { schedule(POLL_MS - age); if (kind === 'commodity') { loadFunds(); loadKxim(); } }
 }
 function hide() {
   S.shown = false;

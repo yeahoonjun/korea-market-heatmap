@@ -31,6 +31,8 @@
 //   GET /api/health                    → {ok:true}
 //   GET /api/time                      → {t: server ms} (no-store; the page clock's offset, §3-17)
 //   GET /api/policy                    → 정책 자료: KDI 경제정책자료 RSS + 행정안전부 관보 목록 (policy.js; key = secret DATA_GO_KR_KEY)
+//   GET /api/koreaexim?kind=fx|rate    → 수출입은행 고시 환율 · 기준금리 · 은행간 금리, 하루 한 번 (koreaexim.js; KV day copies,
+//                                        secrets KOREAEXIM_FX_KEY · KOREAEXIM_RATE_KEY); /api/koreaexim/probe = 확인용
 //   GET /api/live (WebSocket), /api/live/state → 실시간 갱신 hub (Durable Object MarketHub, live.js; docs/standards/realtime.md):
 //                                        top 300 × 2 every LIVE_POLL_MS in the regular session, budget-guarded to stay inside the $5 plan
 // Contract: AGENTS.md §3, sources and pitfalls: data/ENDPOINTS_DETAIL.md.
@@ -40,7 +42,7 @@ import { MarketHub, liveRoute, configureLive, configureRelay, relayNews } from '
 import { policyRoute } from './policy.js';   // 정책 자료: KDI RSS + 관보 API (docs/standards/policy-feeds.md)
 import { datagoRoute } from './datago_routes.js';   // 공공데이터포털: /api/funds*, /api/datago/status (AGENTS §3-32, docs/standards/datago.md)
 import { calendarRoute } from './calendar.js';   // 증시 캘린더 /api/calendar (AGENTS §3-33, docs/standards/calendar.md)
-import { koreaeximRoute } from './koreaexim.js';   // 수출입은행 확인용 /api/koreaexim/probe (AGENTS §3-27 끝)
+import { koreaeximRoute } from './koreaexim.js';   // 수출입은행 고시 /api/koreaexim?kind=fx|rate + 확인용 /probe (AGENTS §3-27 끝 · §3-2)
 import { stockDatagoRoute } from './stock_datago.js';   // 종목 페이지 대차 · 기업 · 배당 /api/stock/{code}/lending|corp|dividend (AGENTS §3 · §3-32)
 export { MarketHub };                // the Durable Object class (wrangler.toml [exports.MarketHub]) must be exported by the main module
 // the hub polls the same rows as /api/quotes (quotesCore is a hoisted function declaration below)
@@ -129,7 +131,7 @@ export default {
       if (path === '/api/news') return await getNewsRoute(request, env, ctx);   // 시장 뉴스 RSS (docs/standards/news.md §2-2)
       if (path === '/api/policy') return await policyRoute(request, env, ctx);   // 정책 자료 (policy.js, AGENTS §3-2)
       if (path === '/api/calendar') return await calendarRoute(request, env, ctx, url);   // 증시 캘린더 (calendar.js)
-      if (path === '/api/koreaexim/probe') return await koreaeximRoute(request, env, ctx, url);   // 수출입은행 확인용 (koreaexim.js)
+      if (path === '/api/koreaexim' || path === '/api/koreaexim/probe') return await koreaeximRoute(request, env, ctx, url);   // 수출입은행 고시 · 확인용 (koreaexim.js)
       if (ASSETS[path]) return await getAsset(request, env, ctx, path);
       m = path.match(THEME_WHY_RE);                                   // 테마 편입 이유 (§3-37 ①): one small file per theme
       if (m) return await getAsset(request, env, ctx, path, { file: `theme_why/${+m[1]}.json`, type: JSON_T, ttl: 600, cors: true });

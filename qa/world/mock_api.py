@@ -4,7 +4,7 @@
   python3 qa/world/mock_api.py [port=8803]
 
 Routes: /api/world?kind=index|commodity[&with=fx,rates], /api/world/chart/<key>?tf=3m|1y (1d / unknown key → 400 like the Worker),
-        /api/funds, /api/funds/chart/<key>?tf=3m|1y (증시 자금, AGENTS §3-32),
+        /api/funds, /api/funds/chart/<key>?tf=3m|1y (증시 자금, AGENTS §3-32), /api/koreaexim?kind=fx|rate (수출입은행 고시),
         /api/quotes, /api/market, /api/replay/dates, /api/breadth, /api/themes, /data/<name>.json, static files from web/.
 Test controls (not part of the contract):
   /__mode?world=ok|fail|empty|closed|slow|html404|drift&chart=ok|none|fail   switch failure modes
@@ -16,6 +16,12 @@ Test controls (not part of the contract):
                                     console quiet — other suites are unaffected); on = fixtures/funds.json; stale = the same with
                                     stale:true; partial = 신용융자 rows a day older; gone = plain 404 (a Worker without the route);
                                     fail = 503 {error, code}; slow = on after 2.5 s
+         &kx=empty|on|wait|stale|late|old|nobp|tona|fxfail|fail|gone|slow   수출입은행 고시 /api/koreaexim?kind=fx|rate (AGENTS
+                                    §3-27 끝): empty (default) = 200 with no items (both tables stay absent, other suites unaffected);
+                                    on = fixtures/koreaexim.json (today, 11:04 고시, exact); wait = Friday's posting + waiting (before
+                                    11:00); stale = Friday + stale:true; late = today, first seen 13:20, not exact; old = Friday on a
+                                    weekend (neither waiting nor stale); nobp = no prev (no 변화 column); tona = + TONA 익일; fxfail =
+                                    fx 503 (rate ok); fail = both 503 {error, code}; gone = plain 404 (an older Worker); slow = on after 2.5 s
   /__stats   request counts per route        /__reset   counts + modes back to default
   /__last?kind=index|commodity   the last /api/world answer sent
 """
@@ -40,6 +46,7 @@ WORLD = {k: json.loads((FIX / f'world_{k}.json').read_text(encoding='utf-8')) fo
 CHARTS = json.loads((FIX / 'charts.json').read_text(encoding='utf-8'))
 MACRO = json.loads((FIX / 'world_macro.json').read_text(encoding='utf-8'))
 FUNDS = json.loads((FIX / 'funds.json').read_text(encoding='utf-8'))
+KXIM = json.loads((FIX / 'koreaexim.json').read_text(encoding='utf-8'))
 FUND_KEYS = {it['key']: it for it in FUNDS['items']}
 KEYS = {it['key']: it for d in list(WORLD.values()) + [MACRO] for g in d['groups'] for it in g['items']}
 MARKET_P = ROOT / 'qa/extras/fixtures/market.json'
@@ -53,7 +60,7 @@ for m in ('K', 'Q'):
     rows += sorted((x for x in SNAP['stocks'] if x['m'] == m and x['c'].endswith('0')), key=lambda x: -x['cap'])[:300]
 QUOTES['stocks'] = rows
 
-DEFAULT = {'world': 'ok', 'chart': 'ok', 'macro': 'off', 'funds': 'empty'}
+DEFAULT = {'world': 'ok', 'chart': 'ok', 'macro': 'off', 'funds': 'empty', 'kx': 'empty'}
 MODE = dict(DEFAULT)
 STATS = {}
 LOCK = threading.Lock()
@@ -86,6 +93,32 @@ def funds_body():
         for it in d['items']:
             if it['key'].startswith('credit'):
                 it['basDt'], it['prevDt'] = '2026-11-12', '2026-11-11'
+    return d
+
+
+def kxim_body(kind):
+    """/api/koreaexim?kind=fx|rate in the Worker's shape (fixtures/koreaexim.json + the mode)"""
+    mode = MODE['kx']
+    d = json.loads(json.dumps(KXIM[kind]))
+    d['asOf'] = time.strftime('%Y-%m-%dT%H:%M:%S+09:00', time.gmtime(time.time() + 9 * 3600))
+    if mode in ('wait', 'stale', 'old'):
+        # Friday's posting is what is shown; its own prev = Thursday (the same offsets again, enough for a fixture)
+        bp = {it['key']: it.get('bp') for it in d['items']} if kind == 'rate' else {}
+        d['items'] = d['prev']['items'] if kind == 'fx' else [dict(it, bp=round(bp[it['key']] * 0.5, 2)) for it in d['prev']['items']]
+        d.update(date='2026-11-13', today=False, firstSeen=None, exact=False)
+        d['prev'] = dict(d['prev'], date='2026-11-12')
+        if mode == 'wait':
+            d['waiting'] = True
+        if mode == 'stale':
+            d['stale'] = True
+    if mode == 'late':
+        d.update(firstSeen='13:20', exact=False)
+    if mode == 'nobp':
+        d['prev'] = None
+        for it in d['items']:
+            it.pop('bp', None); it.pop('change', None)
+    if mode == 'tona' and kind == 'rate':
+        d['items'].insert(2, {'key': 'TONAON', 'family': 'TONA', 'cur': 'JPY', 'tenor': '익일', 'months': 0, 'name': 'TONA 익일물', 'value': 0.477, 'raw': '0.477', 'bp': 0.1})
     return d
 
 
@@ -226,6 +259,21 @@ class H(SimpleHTTPRequestHandler):
             if tf not in ('3m', '1y'):
                 return self.send_json({'error': 'tf는 3m 또는 1y여야 해요'}, 400)
             return self.send_json(funds_chart(key, tf))
+        if path == '/api/koreaexim':                   # 수출입은행 고시 (AGENTS §3-27 끝)
+            kind, mode = q.get('kind'), MODE['kx']
+            with LOCK:
+                STATS['kx:' + str(kind)] = STATS.get('kx:' + str(kind), 0) + 1
+            if kind not in ('fx', 'rate'):
+                return self.send_json({'error': 'kind는 fx 또는 rate여야 해요'}, 400)
+            if mode == 'gone':
+                return self.send_body(b'Not found', 404, 'text/plain')
+            if mode == 'fail' or (mode == 'fxfail' and kind == 'fx'):
+                return self.send_json({'error': '수출입은행 고시를 아직 받지 못했어요', 'code': 'network'}, 503)
+            if mode == 'empty':
+                return self.send_json({'asOf': None, 'kind': kind, 'date': None, 'items': [], 'prev': None})
+            if mode == 'slow':
+                time.sleep(2.5)
+            return self.send_json(kxim_body(kind))
         if path == '/api/quotes':
             return self.send_json(QUOTES)
         if path == '/api/market':
