@@ -18,7 +18,7 @@
    ↻ 새로 받기: the head's icon key asks the tab shown again — spec.refresh() → Promise<true (arrived) · false (failed) · null (gone)>
    and spec.freshAt() → Date.now() of its last good answer (under 10 s: not asked again, "방금 받았어요"). KHNews.atTime(text) = the
    head's "HH:MM 기준" span.
-   Design standard (docs/standards/design.md, ux/std-news 2026-11-16): the title tabs are an underline row (KH.ui.seg, lead / trail), the
+   Design standard (docs/standards/design.md, ux/std-news 2026-11-16): the title tabs are an underline row (KH.ui.seg, rigid on lead), the
    outlet tabs the template's segment; 더보기 · 접기 is a fold (only the list's box grows on `open`, what is below moves once — KHNews.fold
    for the other tabs); a number that moves with new data (a chip's %, a count) changes in place the way it went (KH.ui.swap, §6-4 · P9),
    the first draw and a tab / map change write it at once (P4); 화려하게 fades a picked tab's content in (4 px). The one reduce switch is

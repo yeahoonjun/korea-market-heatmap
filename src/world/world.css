@@ -113,8 +113,8 @@ html[data-theme="glass-light"] #world{--nodata:#e6e9ee}
 .kw-retry:is(:active,.is-press):not([data-st="work"]){transform:translateY(1px);box-shadow:var(--key-dn);filter:var(--press-f);transition-duration:0s,0s,0s,var(--c-base),var(--c-base)}
 .kw-retry.sm{margin:0 0 0 var(--space-3);padding:0 var(--space-5);font-size:var(--fs-sm)}
 
-/* header toggles: 지역순 · 등락률순, 목록 · 지도 — the template's segment exactly (deep tray + one raised indicator, KH.ui.seg: the lead
-   edge on --sp-lead, the trailing one on --sp-trail; press = the theme's filter, the cells do not sink; --h-key on phones) */
+/* header toggles: 지역순 · 등락률순, 목록 · 지도 — the template's segment exactly (deep tray + one raised indicator, KH.ui.seg: every
+   edge on --sp-lead, the shape kept; press = the theme's filter, the cells do not sink; --h-key on phones) */
 .kw-tools{display:flex;align-items:center;gap:var(--space-4)}
 .kw-seg[hidden]{display:none}
 
@@ -280,9 +280,10 @@ html[data-theme="glass-light"] #world{--nodata:#e6e9ee}
    amber ring and no check; 1px + darker under the finger. The % is data (up / down colour). */
 .kw-peers{display:flex;flex-wrap:wrap;gap:var(--space-2);padding:var(--space-5) calc(var(--h-key) + var(--space-6)) var(--space-1) var(--space-6)}
 .kw-peers-h{width:100%;font-size:var(--fs-sm);font-weight:600;color:var(--muted);margin-bottom:1px}
-.kw-peers button{position:relative;display:inline-flex;align-items:center;gap:var(--space-3);height:var(--h-key);padding:0 var(--space-5);border-radius:var(--r-chip);border:0;background:var(--chip-bg);box-shadow:var(--key-sh);font-size:var(--fs-sm);color:var(--fg2);white-space:nowrap;font-variant-numeric:tabular-nums;transition:transform var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out),background-color var(--c-fast) var(--c-out),box-shadow var(--c-fast) var(--c-out),color var(--c-fast) var(--c-out)}
+.kw-peers button{position:relative;display:inline-flex;align-items:center;gap:var(--space-3);height:var(--h-key);padding:0 var(--space-5);border-radius:var(--r-chip);border:0;background:var(--chip-bg);box-shadow:var(--key-sh);font-size:var(--fs-sm);color:var(--fg2);white-space:nowrap;font-variant-numeric:tabular-nums;transition:transform var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out),background-color var(--sp-close-dur) var(--sp-close),box-shadow var(--sp-close-dur) var(--sp-close),color var(--sp-close-dur) var(--sp-close)}
 .kw-peers button .v{font-weight:600}
-.kw-peers button[aria-pressed="true"]{background:var(--chip-on);box-shadow:inset 0 0 0 1.5px var(--chip-ring);color:var(--fg)}
+/* ② 단단한 이동 (AGENTS §3-38): the colour change is `fade` in / `close` out, nothing moves */
+.kw-peers button[aria-pressed="true"]{background:var(--chip-on);box-shadow:inset 0 0 0 1.5px var(--chip-ring);color:var(--fg);transition:transform var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out),background-color var(--sp-fade-dur) var(--sp-fade),box-shadow var(--sp-fade-dur) var(--sp-fade),color var(--sp-fade-dur) var(--sp-fade)}
 @media (hover:hover) and (pointer:fine){.kw-peers button:hover{color:var(--fg)}}
 .kw-peers button:is(:active,.is-press){transform:translateY(1px);filter:var(--press-f);transition-duration:0s}
 .kw-peers button:not([aria-pressed="true"]):is(:active,.is-press){box-shadow:var(--key-dn)}

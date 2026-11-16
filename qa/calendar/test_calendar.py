@@ -343,7 +343,7 @@ def motion(br):
         ready(pg)
         c = pg.evaluate(CHIP_JS)
         if mo == 'fancy':
-            check('fancy: chip toggles in place and animates (check · label · fill transitions)', c['same'] and c['on'] == 'true' and len(c['anims']) >= 2 and c['op'] < 0.5 and c['op1'] == 1, c)
+            check('fancy: chip toggles in place and animates (check · fill fade in — ② 단단한 이동: nothing slides or grows)', c['same'] and c['on'] == 'true' and len(c['anims']) >= 2 and 'transform' not in c['anims'] and c['op'] < 0.5 and c['op1'] == 1, c)
         else:
             check('reduced: chip toggles at once (no transition)', c['same'] and c['on'] == 'true' and not c['anims'] and c['op'] == 1, c)
         check(f'{mo}: a chip keeps its width and its neighbours stay put', c['dw'] < 0.6 and c['dx'] < 0.6, (c['dw'], c['dx']))

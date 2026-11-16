@@ -1,8 +1,10 @@
 /* KH.spring — the one shared spring engine (docs/standards/design.md §6-3 "JS", AGENTS §3-7 "KH.spring").
  *
- * For what CSS transitions can't do: retargeting mid-flight keeps the current velocity, drags hand over their release velocity,
- * a segmented / tab indicator rides two springs (leading edge `lead`, trailing edge `trail`), a switch knob stretches. Plain
- * transitions keep using `transition: … var(--sp-<name>-dur) var(--sp-<name>)` (scripts/design_tokens.mjs).
+ * For what CSS transitions can't do: retargeting mid-flight keeps the current velocity, drags hand over their release velocity.
+ * Controls move rigidly (사용자 2026-11-16 10:02 "컨트롤 움직임은 추천대로 2번", AGENTS §3-38 — drafts/motion-unify.html ② 단단한 이동): a
+ * segmented / tab indicator and a switch knob keep their shape and ride one spring, `lead`, on both edges (no stretch). The two-edge
+ * options (trail · front / back · stretch) are still there for a caller that asks. Plain transitions keep using
+ * `transition: … var(--sp-<name>-dur) var(--sp-<name>)` (scripts/design_tokens.mjs).
  *
  *   KH.spring.animate({from, to, name | k, c, velocity?, onUpdate(v, vel), onRest(v)?, fancy?, scale?, restDelta?})
  *       → handle {retarget(to, {velocity?, name? | k?, c?}), stop(), set(v), value(), velocity(), target(), running()}
@@ -12,9 +14,9 @@
  *     |x − to| < 1e-3·scale and |vel| < 1e-3·scale·ω0 (scale = |to − from|, or |vel|/ω0 if larger) → onUpdate(to, 0), onRest(to).
  *     KH.motion() 'reduced' or a hidden tab → the end value at once (onUpdate now, onRest a microtask later); `fancy: true` also
  *     ends at once unless KH.motion() is 'fancy'. kh:motion / visibilitychange finish whatever is moving then.
- *   KH.spring.edges(el, {left, width}, {lead, trail, write, willChange, instant, onRest}) → indicator controller (one per element;
- *     the first call places it, later calls animate) {to(box, {instant}), set(box), value(), moving(), stop(), destroy()}
- *   KH.spring.knob(el, x, {width, stretch, front, back, write, willChange, instant, onRest}) → switch knob controller (same;
+ *   KH.spring.edges(el, {left, width}, {lead:'lead', trail:'lead', write, willChange, instant, onRest}) → indicator controller (one per
+ *     element; the first call places it, later calls animate) {to(box, {instant}), set(box), value(), moving(), stop(), destroy()}
+ *   KH.spring.knob(el, x, {width, stretch:0, front:'lead', back:'lead', write, willChange, instant, onRest}) → switch knob controller (same;
  *     handle-like: to(x), set(x), retarget(x, {velocity, name}), value(), velocity(), target(), running(), box(), stop(), destroy())
  *   KH.spring.release(handle, velocityPxPerMs, {points?, to?, name?, maxOvershoot?}) → {to, thrown, velocity, carried}
  *     (settle spring with the release speed, §8 throw > 0.11 px/ms; maxOvershoot px caps the carried speed for hard ends)
@@ -223,9 +225,11 @@
   }
 
   const EDGES = new WeakMap();
-  /* edges(el, {left, width}, {lead:'lead', trail:'trail', write, willChange, instant, onRest}) — a segmented / tab / underline
-     indicator: its leading edge (the side it moves toward) rides `lead`, the other edge `trail`, so it stretches and catches up
-     (design.md §6-2, §7). The first call places it; later calls (same element) animate. Reads no layout: pass numbers you have. */
+  /* edges(el, {left, width}, {lead:'lead', trail:'lead', write, willChange, instant, onRest}) — a segmented / tab / underline
+     indicator: its leading edge (the side it moves toward) rides `lead`, the other edge `trail` — by default `lead` too, so the
+     indicator moves as one piece and keeps its shape (② 단단한 이동, design.md §7; between two widths it changes width once, evenly).
+     A caller may still pass trail:'trail' for the old stretch-and-catch-up. The first call places it; later calls (same element)
+     animate. Reads no layout: pass numbers you have. */
   function edges(el, box, o) {
     let ctl = EDGES.get(el);
     if (ctl) { if (o) ctl.configure(o); return box ? ctl.to(box, o) : ctl; }
@@ -235,7 +239,7 @@
     return ctl;
   }
   function makeEdges(el, o) {
-    const cfg = { lead: o.lead || 'lead', trail: o.trail || 'trail', onRest: o.onRest };
+    const cfg = { lead: o.lead || 'lead', trail: o.trail || 'lead', onRest: o.onRest };
     let L = null, R = null, moving = false;   // moving: a to() whose onRest is still owed (once, when both edges rest)
     const pt = painter(el, o, put => put(L.value(), R.value() - L.value()));
     const done = () => { if (!L || !R || !moving || L.running() || R.running()) return; moving = false; pt.moving(false); call(cfg.onRest, ctl.value()); };
@@ -269,9 +273,10 @@
   }
 
   const KNOBS = new WeakMap();
-  /* knob(el, x, {width, stretch:3, front:'follow', back:'settle', write, willChange, instant, onRest}) — a switch knob of width
-     `width` going to translateX(x): the front edge rides `front`, the back edge `back`, the gap soft-capped at `stretch` px
-     (design.md §7, §10-8: ~3px). Handle-like (value / velocity / target / retarget / set) so KH.spring.release() takes it. */
+  /* knob(el, x, {width, stretch:0, front:'lead', back:'lead', write, willChange, instant, onRest}) — a switch knob of width
+     `width` going to translateX(x). By default it keeps its shape and rides `lead` (② 단단한 이동 — design.md §10-8 "손잡이 늘어남"
+     withdrawn 2026-11-16); with stretch > 0 the front edge rides `front`, the back edge `back`, the gap soft-capped at `stretch` px.
+     Handle-like (value / velocity / target / retarget / set) so KH.spring.release() takes it (settle + the finger's speed). */
   function knob(el, x, o) {
     let ctl = KNOBS.get(el);
     if (ctl) { if (o) ctl.configure(o); return x != null ? ctl.to(x, o) : ctl; }
@@ -281,8 +286,8 @@
     return ctl;
   }
   function makeKnob(el, o) {
-    const cfg = { width: fin(o.width, 'width'), stretch: o.stretch != null ? Math.max(0, fin(o.stretch, 'stretch')) : 3,
-      front: o.front || 'follow', back: o.back || 'settle', onRest: o.onRest };
+    const cfg = { width: fin(o.width, 'width'), stretch: o.stretch != null ? Math.max(0, fin(o.stretch, 'stretch')) : 0,
+      front: o.front || 'lead', back: o.back || 'lead', onRest: o.onRest };
     let F = null, B = null, moving = false;
     const pt = painter(el, o, put => {
       const f = F.value(), d = f - B.value(), S = cfg.stretch;

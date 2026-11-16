@@ -39,7 +39,7 @@ from playwright.sync_api import sync_playwright
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 PORT = int(os.environ.get('DOCK_QA_PORT', 9060))
-assert 9060 <= PORT <= 9069 or 9080 <= PORT <= 9089, 'ports 9060–9069 (or 9080–9089: ux/glass-liquid)'
+assert 9060 <= PORT <= 9089, 'ports 9060–9069 (or 9070–9079: ux/motion-rigid, 9080–9089: ux/glass-liquid)'
 URL = f'http://127.0.0.1:{PORT}/'
 NOPROXY = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 THEMES = ['base', 'paper', 'glass-dark', 'glass-light']

@@ -109,13 +109,13 @@ if(d.dataset.serif==='on'){var s=document.getElementById('kh-serif');if(s&&windo
      theme's own ink, no hue at all — the shape and the words say it. One value per theme (paper · glass below) */
   --live:#b08cff; --fail-dot:var(--fg);
   /* ── design.md §6-2 springs (scripts/design_tokens.mjs — generated, do not edit by hand) ── */
-  /* lead 620/40 · ζ 0.80 · 넘침 1.45% · 0.5% 290ms — 세그먼트·탭·밑줄 표시의 가는 쪽 가장자리 */
+  /* lead 620/40 · ζ 0.80 · 넘침 1.45% · 0.5% 290ms — 컨트롤이 옮겨 가는 것 하나(세그먼트·탭·밑줄 표시·스위치 손잡이 — ② 단단한 이동, 두 가장자리 모두) */
   --sp-lead:linear(0, .017 2.3%, .077 5.2%, .214 9.6%, .536 18.8%, .691 24.1%, .808 29.3%, .898 35%, .96 41.2%, 1 49.3%, 1.014 61.5%, 1); --sp-lead-dur:342ms; --sp-lead-kc:"620 40";
-  /* trail 190/23 · ζ 0.83 · 넘침 0.86% · 0.5% 510ms — 같은 표시의 뒤 가장자리 */
+  /* trail 190/23 · ζ 0.83 · 넘침 0.86% · 0.5% 510ms — (② 뒤 쓰지 않음 — 늘었다 줄며 도착하는 뒤 가장자리, 엔진 옵션) */
   --sp-trail:linear(0, .019 2.4%, .085 5.4%, .233 10%, .533 18.6%, .685 23.9%, .799 29.1%, .884 34.5%, .95 41.1%, .991 49.5%, 1.008 62.3%, 1); --sp-trail-dur:632ms; --sp-trail-kc:"190 23";
-  /* follow 900/50 · ζ 0.83 · 넘침 0.88% · 0.5% 235ms — 툴팁·십자선·스위치 손잡이 앞 가장자리 */
+  /* follow 900/50 · ζ 0.83 · 넘침 0.88% · 0.5% 235ms — 툴팁·십자선이 따라감 */
   --sp-follow:linear(0, .019 2.4%, .085 5.4%, .229 9.9%, .529 18.5%, .682 23.8%, .797 29%, .884 34.5%, .95 41.1%, .991 49.4%, 1.008 62.1%, 1); --sp-follow-dur:290ms; --sp-follow-kc:"900 50";
-  /* settle 280/27 · ζ 0.81 · 넘침 1.37% · 0.5% 430ms — 손가락을 놓은 뒤(시트·스위치·티커) */
+  /* settle 280/27 · ζ 0.81 · 넘침 1.37% · 0.5% 430ms — 손가락을 놓은 뒤(시트·스위치 끌기·티커) — 놓은 속도를 이어받음 */
   --sp-settle:linear(0, .017 2.3%, .08 5.3%, .218 9.7%, .536 18.8%, .693 24.2%, .811 29.5%, .898 35.1%, .961 41.5%, 1 49.8%, 1.014 62.9%, 1); --sp-settle-dur:510ms; --sp-settle-kc:"280 27";
   /* fade 420/37 · ζ 0.90 · 넘침 0.14% · 0.5% 270ms — 나타남(opacity + 흐림) */
   --sp-fade:linear(0, .019 2.5%, .084 5.7%, .239 10.9%, .51 19.5%, .662 25.4%, .781 31.5%, .871 38.2%, .936 46%, .978 56.2%, .999 72.8%, 1); --sp-fade-dur:405ms; --sp-fade-kc:"420 37";
@@ -307,7 +307,7 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 .has-clock #clock:empty{display:none}
 .has-clock #clock:not(:empty) ~ .ttl{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .tabs{display:flex;gap:var(--space-1);background:var(--tray-bg);box-shadow:var(--tray-sh);border-radius:var(--r-tray);padding:var(--space-2)}
-.tabs button{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;min-height:var(--h-key);padding:var(--space-1) 14px;border-radius:var(--r-in);font-size:var(--fs-lg);font-weight:600;color:var(--muted);transition:color var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out);white-space:nowrap}
+.tabs button{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;min-height:var(--h-key);padding:var(--space-1) 14px;border-radius:var(--r-in);font-size:var(--fs-lg);font-weight:600;color:var(--muted);transition:color var(--sp-fade-dur) var(--sp-fade),filter var(--c-fast) var(--c-out);white-space:nowrap}
 .tabs button[aria-pressed="true"]{color:var(--fg)}
 @media (hover:hover) and (pointer:fine){ .tabs button:hover{color:var(--fg)} }
 .tabs .tn{line-height:16px}
@@ -372,7 +372,7 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 .ctl.off{opacity:.42}
 .ctl.off .seg button{cursor:not-allowed}
 .seg{display:flex;background:var(--tray-bg);box-shadow:var(--tray-sh);border-radius:var(--r-tray);padding:3px}
-.seg button{padding:5px var(--space-4);border-radius:var(--r-in);font-size:var(--fs-md);color:var(--muted);white-space:nowrap;transition:color var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out)}
+.seg button{padding:5px var(--space-4);border-radius:var(--r-in);font-size:var(--fs-md);color:var(--muted);white-space:nowrap;transition:color var(--sp-fade-dur) var(--sp-fade),filter var(--c-fast) var(--c-out)}
 .seg button[hidden]{display:none!important}
 @media (hover:hover) and (pointer:fine){ .seg button:hover{color:var(--fg)} }
 .seg button[aria-pressed="true"]{color:var(--fg)}
@@ -401,26 +401,36 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 .swbtn{display:flex;align-items:center;justify-content:space-between;gap:var(--space-5);width:100%;min-height:var(--h-row);padding:var(--space-2) var(--space-4) var(--space-2) var(--space-5);border-radius:var(--r-key);background:var(--key-bg);box-shadow:var(--key-sh);font-size:var(--fs-md);color:var(--fg);text-align:left;touch-action:pan-y;transition:filter var(--c-fast) var(--c-out)}
 @media (hover:hover) and (pointer:fine){ .swbtn:hover{background:var(--key-hover)} }
 .swbtn:active,.swbtn.is-press{filter:var(--press-f);transition-duration:0s}
-/* KH.addSetting({multi:true}): on / off chips (controls §5-7: fill + ring + a check that grows 0 → 14 px), at least `min` stay on */
+/* KH.addSetting({multi:true}): on / off chips (controls §5-7, ② 단단한 이동 — 사용자 2026-11-16 10:02): fill + 1.5px ring + a check. The
+   check's 14px place is always there, so a chip is as wide on as off and never pushes its neighbours (the 일정 chips' recipe); the left
+   padding is a step smaller (--space-4) for that empty place. Switching on: fill · ring · check `fade`; off: `close`. Nothing moves.
+   At least `min` stay on */
 .kchips{display:flex;flex-wrap:wrap;gap:var(--space-3)}
-.kchip{position:relative;display:inline-flex;align-items:center;height:var(--h-key);padding:0 var(--space-5);border-radius:var(--r-chip);background:var(--chip-bg);box-shadow:var(--key-sh);font-size:var(--fs-sm);font-weight:600;color:var(--key-fg);white-space:nowrap;
-  transition:background var(--c-fast) var(--c-out),box-shadow var(--c-fast) var(--c-out),transform var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out)}
-.kchip .ck{display:inline-block;width:0;height:14px;opacity:0;transform:scale(.6);background:currentColor;-webkit-mask:var(--ck-mask) center/14px no-repeat;mask:var(--ck-mask) center/14px no-repeat;
-  transition:width var(--c-fast) var(--c-out),opacity var(--c-fast) var(--c-out),transform var(--c-fast) var(--c-out),margin var(--c-fast) var(--c-out)}
-.kchip[aria-pressed="true"]{background:var(--chip-on);box-shadow:inset 0 0 0 1.5px var(--chip-ring),var(--key-sh)}
-.kchip[aria-pressed="true"] .ck{width:14px;opacity:1;transform:none;margin-right:var(--space-3)}
+.kchip{position:relative;display:inline-flex;align-items:center;height:var(--h-key);padding:0 var(--space-5) 0 var(--space-4);border-radius:var(--r-chip);background:var(--chip-bg);box-shadow:var(--key-sh);font-size:var(--fs-sm);font-weight:600;color:var(--key-fg);white-space:nowrap;
+  transition:background-color var(--sp-close-dur) var(--sp-close),box-shadow var(--sp-close-dur) var(--sp-close),transform var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out)}
+.kchip .ck{display:inline-block;flex:none;width:14px;height:14px;margin-right:var(--space-2);opacity:0;background:currentColor;-webkit-mask:var(--ck-mask) center/14px no-repeat;mask:var(--ck-mask) center/14px no-repeat;
+  transition:opacity var(--sp-close-dur) var(--sp-close)}
+.kchip[aria-pressed="true"]{background:var(--chip-on);box-shadow:inset 0 0 0 1.5px var(--chip-ring),var(--key-sh);
+  transition:background-color var(--sp-fade-dur) var(--sp-fade),box-shadow var(--sp-fade-dur) var(--sp-fade),transform var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out)}
+.kchip[aria-pressed="true"] .ck{opacity:1;transition:opacity var(--sp-fade-dur) var(--sp-fade)}
 .kchip .n{margin-left:var(--space-3);color:var(--fg2);font-weight:500;font-variant-numeric:tabular-nums}
 .kchip .n:empty{display:none}
 .kchip:not([aria-disabled="true"]):is(:active,.is-press){transform:translateY(1px);box-shadow:var(--key-dn);filter:var(--press-f);transition-duration:0s}
+.kchip[aria-pressed="true"]:not([aria-disabled="true"]):is(:active,.is-press){box-shadow:inset 0 0 0 1.5px var(--chip-ring),var(--key-dn)}
 .kchip[aria-disabled="true"]{cursor:not-allowed}
 @media (pointer:coarse){ .kchip::before{content:"";position:absolute;left:50%;top:50%;width:max(100%,44px);height:44px;transform:translate(-50%,-50%)} }
-.swbtn .swt{--t:0;position:relative;flex:none;width:44px;height:26px;border-radius:var(--r-pill);background:var(--trk);box-shadow:var(--tray-sh)}
-.swbtn .swt::before{content:"";position:absolute;inset:0;border-radius:inherit;background:var(--sw-on);box-shadow:inset 0 1px 2px color-mix(in srgb,var(--shc) 28%,transparent);opacity:var(--t);transition:opacity var(--c-switch) var(--c-inout)}
-.swbtn .swt::after{content:"";position:absolute;left:2px;top:2px;width:22px;height:22px;border-radius:50%;background:var(--knob);box-shadow:var(--knob-sh);transform:translateX(calc(var(--t) * 18px));transition:transform var(--c-switch) var(--c-inout),box-shadow var(--c-fast) var(--c-out)}
-.swbtn[aria-checked="true"] .swt{--t:1}
-.swbtn:active .swt::after,.swbtn.is-press .swt::after,.swbtn.drag .swt::after{box-shadow:var(--knob-dn)}
-.swbtn.drag .swt::after{transition:box-shadow var(--c-fast) var(--c-out)}
-.swbtn.drag .swt::before{transition:none}
+/* 스위치 — one implementation for every switch (design.md §7 · ② 단단한 이동, 사용자 2026-11-16 10:02 "컨트롤 움직임은 추천대로 2번"): 표시 설정
+   rows (.swbtn), 종목 페이지 지분 공시 (.sp-switch), 오늘 공시 탭 지도 스위치 (.dc-lit). A sunken track .swt (44 × 26); its ::before = the fill
+   (`fade`), its ::after = the raised knob (22, round) that moves in one piece on `lead` — it never stretches (design.md §10-8 withdrawn).
+   Drag (KH.ui.sw, from 4 px): the finger owns --t (.drag: no transition); let go, `settle` carries on from the finger's speed
+   (KH.spring.release — faster than 0.11 px/ms is a throw that way), .sw-fly while it lands. 줄이기: every length 0 */
+[role="switch"] .swt{--t:0;position:relative;flex:none;width:44px;height:26px;border-radius:var(--r-pill);background:var(--trk);box-shadow:var(--tray-sh)}
+[role="switch"] .swt::before{content:"";position:absolute;inset:0;border-radius:inherit;background:var(--sw-on);box-shadow:inset 0 1px 2px color-mix(in srgb,var(--shc) 28%,transparent);opacity:var(--t);transition:opacity var(--sp-fade-dur) var(--sp-fade)}
+[role="switch"] .swt::after{content:"";position:absolute;left:2px;top:2px;width:22px;height:22px;border-radius:50%;background:var(--knob);box-shadow:var(--knob-sh);transform:translateX(calc(var(--t) * 18px));transition:transform var(--sp-lead-dur) var(--sp-lead),box-shadow var(--c-fast) var(--c-out)}
+[role="switch"][aria-checked="true"] .swt{--t:1}
+[role="switch"]:is(:active,.is-press,.drag):not([aria-disabled="true"]) .swt::after{box-shadow:var(--knob-dn)}
+[role="switch"]:is(.drag,.sw-fly) .swt::after{transition:box-shadow var(--c-fast) var(--c-out)}
+[role="switch"]:is(.drag,.sw-fly) .swt::before{transition:none}
 /* wide desktop: every control in one row; 색 기준 and 순매수 기간 open as small popovers; palette names from 1800px */
 @media (min-width:1280px){
   .ctls{display:contents}
@@ -573,8 +583,8 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 .wgbar[hidden]{display:none}
 .wgchips{display:flex;gap:var(--space-3);overflow-x:auto;scrollbar-width:none;padding:1px 1px var(--space-1)}
 .wgchips::-webkit-scrollbar{display:none}
-.wgi{display:inline-flex;flex:none;padding:1px;border-radius:var(--r-chip);background:var(--chip-bg);box-shadow:var(--key-sh);transition:background-color var(--c-fast) var(--c-out),box-shadow var(--c-fast) var(--c-out)}
-.wgi[data-on]{background:var(--chip-on);box-shadow:inset 0 0 0 1.5px var(--chip-ring)}
+.wgi{display:inline-flex;flex:none;padding:1px;border-radius:var(--r-chip);background:var(--chip-bg);box-shadow:var(--key-sh);transition:background-color var(--sp-close-dur) var(--sp-close),box-shadow var(--sp-close-dur) var(--sp-close)}
+.wgi[data-on]{background:var(--chip-on);box-shadow:inset 0 0 0 1.5px var(--chip-ring);transition:background-color var(--sp-fade-dur) var(--sp-fade),box-shadow var(--sp-fade-dur) var(--sp-fade)}
 .wgc{display:inline-flex;align-items:center;gap:var(--space-3);height:30px;padding:0 var(--space-5);border-radius:var(--r-chip);font-size:var(--fs-md);font-weight:600;color:var(--fg2);white-space:nowrap;transition:color var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out)}
 .wgi[data-on] .wgc{color:var(--fg)}
 @media (hover:hover) and (pointer:fine){ .wgc:hover{color:var(--fg)} }
@@ -866,7 +876,7 @@ span.cdb.cdb > i{position:absolute;top:50%;width:auto;height:1px;margin-top:-.5p
 .dbar::before{content:"";position:absolute;left:50%;top:-2px;bottom:-2px;width:1px;background:var(--line2)}
 .dbar i{position:absolute;top:1px;height:8px;border-radius:var(--r-mark)}
 .movers-tabs{display:flex;gap:var(--space-1);margin-bottom:var(--space-4);padding:3px;border-radius:var(--r-tray);background:var(--tray-bg);box-shadow:var(--tray-sh)}
-.movers-tabs button{flex:1 1 0;font-size:var(--fs-sm);padding:var(--space-2) var(--space-4);border-radius:var(--r-in);color:var(--muted);white-space:nowrap;transition:color var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out)}
+.movers-tabs button{flex:1 1 0;font-size:var(--fs-sm);padding:var(--space-2) var(--space-4);border-radius:var(--r-in);color:var(--muted);white-space:nowrap;transition:color var(--sp-fade-dur) var(--sp-fade),filter var(--c-fast) var(--c-out)}
 .movers-tabs button[aria-pressed="true"]{color:var(--fg)}
 .movers{display:flex;flex-direction:column;gap:1px}
 .movers button{display:grid;grid-template-columns:10px minmax(0,1fr) auto 66px;gap:var(--space-4);align-items:center;padding:var(--space-3);margin:0 -6px;border-radius:var(--r-row);font-size:var(--fs-md);text-align:left}
@@ -1044,7 +1054,7 @@ footer .credit .dc{width:1.15em;height:1.15em;flex:none}
   .viewseg button{min-width:44px}
   .sheet .acts button,.sheet .acts a{height:var(--h-row)}
   .swbtn{min-height:var(--h-row)}
-  .kchip{height:var(--h-chip);padding:0 var(--space-5);font-size:var(--fs-md)}
+  .kchip{height:var(--h-chip);padding:0 var(--space-5) 0 var(--space-4);font-size:var(--fs-md)}
   .status .tshort{display:inline}
   .status.has-blab .tshort{display:none}
   .status.has-blab .badge .bl{display:none}
@@ -1108,7 +1118,7 @@ html[data-motion="reduced"] .status.live .dot{animation:none}
 html[data-motion="reduced"] .tile.flash-up::after,html[data-motion="reduced"] .tile.flash-dn::after{animation:none;opacity:0}
 html[data-motion="reduced"] .tile .pc{animation:none}
 /* ───────────────── living controls (docs/standards/controls.md, V1 입체): shared parts ─────────────────
-   KH.ui.seg moves one raised indicator per segment / tab row (leading edge --sp-lead, trailing --sp-trail); press = 1px down, shorter
+   KH.ui.seg moves one raised indicator per segment / tab row (rigid: every edge on --sp-lead, ② 단단한 이동); press = 1px down, shorter
    shadow, darker (0 ms down, --c-fast up); labels swap in place; 44 px hit areas on touch screens. Other modules may reuse these. */
 :root{--ck-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M4.5 10.5l3.6 3.6 7.4-8' fill='none' stroke='%23000' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")}
 /* a label that changes in place (KH.ui.swap, design.md §6-4 — the same as extras' xSwap): the old text is the box's ::before, the new one
@@ -1142,13 +1152,19 @@ html[data-motion="reduced"] .kspn,html[data-motion="reduced"] .kspn circle{anima
 @keyframes kspnArc{from{stroke-dasharray:12 48}to{stroke-dasharray:34 48}}
 /* labels stacked in one cell (KH.ui.state): the box keeps the widest label, so neighbours never move */
 .klb{display:inline-grid;align-items:center;justify-items:center;min-width:0}
-.kl{grid-area:1/1;display:inline-flex;align-items:center;justify-content:center;gap:var(--space-3);opacity:0;transform:translateY(6px);pointer-events:none;white-space:nowrap;transition:opacity var(--c-fast) var(--c-in),transform var(--c-fast) var(--c-in)}
-.kl.out{transform:translateY(-6px)}
-.kl.on{opacity:1;transform:none;transition:opacity var(--c-fast) var(--c-out) var(--c-fast),transform var(--c-fast) var(--c-out) var(--c-fast)}
+/* the label change is design.md §6-4 — the same as KH.ui.swap (② 단단한 이동, AGENTS §3-38; it was ±6px on --c-fast): the old label leaves
+   in 100 ms on `close` (opacity → 0, blur 2px, 4px up), the new one comes in 60 ms later over 180 ms on `fade` (from 4px below). The box
+   keeps its widest label, so nothing moves. 줄이기: all three lengths 0 */
+:root{--kl-out:100ms; --kl-gap:60ms; --kl-in:180ms}
+html[data-motion="reduced"]{--kl-out:0ms; --kl-gap:0ms; --kl-in:0ms}
+.kl{grid-area:1/1;display:inline-flex;align-items:center;justify-content:center;gap:var(--space-3);opacity:0;transform:translateY(4px);filter:blur(2px);pointer-events:none;white-space:nowrap;transition:opacity var(--kl-out) var(--sp-close),transform var(--kl-out) var(--sp-close),filter var(--kl-out) var(--sp-close)}
+.kl.out{transform:translateY(-4px)}
+.kl.on{opacity:1;transform:none;filter:none;transition:opacity var(--kl-in) var(--sp-fade) var(--kl-gap),transform var(--kl-in) var(--sp-fade) var(--kl-gap),filter var(--kl-in) var(--sp-fade) var(--kl-gap)}
 .kl .kck path{stroke-dasharray:13;stroke-dashoffset:13;transition:stroke-dashoffset var(--c-base) var(--c-out)}
-.kl.on .kck path{stroke-dashoffset:0;transition-delay:var(--c-fast)}
-html[data-motion="fancy"] .kl .kck{transform:scale(.6);transition:transform var(--c-base) var(--c-pop)}
-html[data-motion="fancy"] .kl.on .kck{transform:none;transition-delay:var(--c-fast)}
+.kl.on .kck path{stroke-dashoffset:0;transition-delay:var(--kl-gap)}
+/* 화려하게: the done check alone pops .6 → 1 on the `pop` spring (design.md §6-2 — the only overshoot above 1.5 %) */
+html[data-motion="fancy"] .kl .kck{transform:scale(.6);transition:transform var(--sp-pop-dur) var(--sp-pop)}
+html[data-motion="fancy"] .kl.on .kck{transform:none;transition-delay:var(--kl-gap)}
 .kck,.kwn{flex:none;width:15px;height:15px}
 /* a short note under an icon-only key: no layout, nothing to press (KH.ui.bubble) */
 .kbub{position:fixed;z-index:140;padding:var(--space-3) var(--space-4);border-radius:var(--r-row);background:var(--tip-bg);box-shadow:inset 0 0 0 1px var(--tip-bd),var(--tip-sh);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);color:var(--fg);font-size:var(--fs-sm);font-weight:600;white-space:nowrap;pointer-events:none;opacity:0;transform:translateY(-4px);transition:opacity var(--c-fast) var(--c-in),transform var(--c-fast) var(--c-in)}
@@ -1162,8 +1178,9 @@ html[data-motion="fancy"] .kl.on .kck{transform:none;transition-delay:var(--c-fa
 .seg::before,.tabs-sc::before,.movers-tabs::before{content:"";position:absolute;z-index:0;left:var(--il,0px);right:var(--ir,0px);top:var(--it,0px);bottom:var(--ib,0px);border-radius:var(--r-in);background:var(--ind-bg);box-shadow:var(--ind-sh);pointer-events:none;opacity:0}
 .tabs-sc::after{content:"";position:absolute;z-index:2;left:calc(var(--il,0px) + 10px);right:calc(var(--ir,0px) + 10px);bottom:var(--ib,0px);height:2px;border-radius:var(--r-mark) var(--r-mark) 0 0;background:var(--acc-line);pointer-events:none;opacity:0}
 :is(.seg,.tabs-sc,.movers-tabs)[data-ind]::before,.tabs-sc[data-ind]::after{opacity:1}
-:is(.seg,.tabs-sc,.movers-tabs)[data-dir="r"]::before,.tabs-sc[data-dir="r"]::after{transition:right var(--sp-lead-dur) var(--sp-lead),left var(--sp-trail-dur) var(--sp-trail),top var(--sp-lead-dur) var(--sp-lead),bottom var(--sp-lead-dur) var(--sp-lead)}
-:is(.seg,.tabs-sc,.movers-tabs)[data-dir="l"]::before,.tabs-sc[data-dir="l"]::after{transition:left var(--sp-lead-dur) var(--sp-lead),right var(--sp-trail-dur) var(--sp-trail),top var(--sp-lead-dur) var(--sp-lead),bottom var(--sp-lead-dur) var(--sp-lead)}
+/* ② 단단한 이동 (사용자 2026-11-16 10:02, AGENTS §3-38): all four edges on the one `lead` spring — the indicator keeps its shape on the way
+   (between two tab widths it changes width once, evenly; no stretch). data-dir="" (first place · resize · held keys) = no transition */
+:is(.seg,.tabs-sc,.movers-tabs):is([data-dir="r"],[data-dir="l"])::before,.tabs-sc:is([data-dir="r"],[data-dir="l"])::after{transition:left var(--sp-lead-dur) var(--sp-lead),right var(--sp-lead-dur) var(--sp-lead),top var(--sp-lead-dur) var(--sp-lead),bottom var(--sp-lead-dur) var(--sp-lead)}
 :is(.seg,.tabs-sc,.movers-tabs):not([data-ind])>button:is([aria-pressed="true"],[aria-selected="true"]){background:var(--ind-bg);box-shadow:var(--ind-sh)}
 .tabs-sc:not([data-ind])>button:is([aria-pressed="true"],[aria-selected="true"]){box-shadow:var(--ind-sh),inset 0 -2px 0 var(--acc-line)}
 .tabs>.tpin::before{content:"";position:absolute;z-index:-1;left:var(--ind-in,0px);right:var(--ind-in,0px);top:calc(var(--ind-in,0px) + var(--ind-iy,0px));bottom:calc(var(--ind-in,0px) + var(--ind-iy,0px));border-radius:var(--r-in);background:var(--ind-bg);box-shadow:var(--ind-sh);pointer-events:none;opacity:0}
@@ -1182,7 +1199,15 @@ html[data-motion="fancy"] .kl.on .kck{transform:none;transition-delay:var(--c-fa
 :is(.setbtn,.ddbtn,.morebtn,.bchip,.wgadd,.crumbs .back,.map-empty .we button,.wgpop .acts button,.sheet .acts > *,.movers .more,.secs .more){transition:transform var(--c-fast) var(--c-out),box-shadow var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out),background-color var(--c-base) var(--c-out),color var(--c-base) var(--c-out)}
 :is(.setbtn,.ddbtn,.morebtn,.bchip,.wgadd,.crumbs .back,.map-empty .we button,.wgpop .acts button,.sheet .acts > *,.movers .more,.secs .more):is(:active:not(:disabled):not([aria-disabled="true"]),.is-press){transform:translateY(1px);box-shadow:var(--key-dn);filter:var(--press-f);transition-duration:0s,0s,0s,var(--c-base),var(--c-base)}
 /* keys without a surface (☆ · × · ⋯ · 경로) and chips: 1px + darker, no shadow */
-:is(.sheet .x,.ctls-hd .x,.wstar,.wbtn,.wgm,.crumbs button.c,.wgc){transition:transform var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out),color var(--c-fast) var(--c-out)}
+:is(.sheet .x,.ctls-hd .x,.wgm,.crumbs button.c,.wgc){transition:transform var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out),color var(--c-fast) var(--c-out)}
+/* ☆ ↔ ★ (② 단단한 이동 — 사용자 2026-11-16 10:02: the icon toggle is a fade only): both glyphs in one grid cell (starGlyphs), the one shown
+   fades in on `fade`, the other leaves on `close`, the colour follows on the same springs; nothing moves or grows (the press below sinks 1px) */
+.sg0,.sg1{grid-area:1/1;transition:opacity var(--sp-close-dur) var(--sp-close)}
+.sg1{opacity:0}
+[aria-pressed="true"]>.sg1{opacity:1;transition:opacity var(--sp-fade-dur) var(--sp-fade)}
+[aria-pressed="true"]>.sg0{opacity:0}
+:is(.wstar,.wbtn,.tstar){transition:transform var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out),color var(--sp-close-dur) var(--sp-close),background-color var(--c-fast) var(--c-out)}
+:is(.wstar,.wbtn,.tstar)[aria-pressed="true"]{transition:transform var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out),color var(--sp-fade-dur) var(--sp-fade),background-color var(--c-fast) var(--c-out)}
 :is(.sheet .x,.ctls-hd .x,.wstar,.wbtn,.wgm,.crumbs button.c:not(.cur),.wgc):is(:active,.is-press){transform:translateY(1px);filter:var(--press-f);transition-duration:0s}
 .tstar:is(:active,.is-press){transform:translateY(1px);filter:var(--press-f);transition-duration:0s}
 /* data rows and bars never sink: they only darken */
@@ -1832,7 +1857,7 @@ const fmtPct = (v, d = 2) => sgn(v) + Math.abs(v).toFixed(d) + '%';
 
 /* ───────────────── living controls (docs/standards/controls.md) — KH.ui, shared with extras · stock · world ─────────────────
    seg(el): the raised indicator of a segment / tab row follows its pressed button — aria-pressed, or aria-selected in a tablist
-   (design.md §6-3: leading edge the lead spring, trailing edge trail — the CSS curves of KH.spring.edges; a resize only re-places it). swap(el, text, from?): a label changes in place. roll(el, text, dir): 화려하게 digits roll (the
+   (design.md §6-3 · §7, ② 단단한 이동: both edges on the lead spring, the shape kept — the CSS curves of KH.spring.edges; a resize only re-places it). swap(el, text, from?): a label changes in place. roll(el, text, dir): 화려하게 digits roll (the
    element's text is the value at every moment). busy(btn, promise): a ring in place of the label while it works. state(el, st):
    .klb/.kl stacked labels (the box keeps the widest one). bubble(anchor, text, 'done'|'fail'): a short note under an icon-only key
    (no layout) + aria-live. sw(btn): a switch row whose knob can be dragged. live(text): a polite announcement. icon(name).
@@ -1880,10 +1905,19 @@ function uiSegPlace(seg, snap) {
     st.pinT = setTimeout(() => { st.pinT = 0; if (ext.getAttribute('aria-pressed') === 'true') host.dataset.pin = 'on'; }, uiMs('--c-base') + 30);
   };
   if (!moved && v.join() === st.v) { st.i = i; handOver(); return; }          // a redraw that changed nothing: a running move goes on
-  seg.dataset.dir = moved ? (i > st.i ? 'r' : 'l') : '';
+  // a pick on another line of a wrapped segment (2 × 2 테마 · 색상, design.md §7 P5): the indicator does not glide across the lines —
+  // it is put there at once and fades in on `fade` (the same as the stock page's .sp-ind)
+  const row = moved && !!st.v && Math.abs(parseFloat(v[2]) - parseFloat(st.v.split(',')[2])) > 1;
+  seg.dataset.dir = moved && !row ? (i > st.i ? 'r' : 'l') : '';
   put(v);
   seg.dataset.ind = '';
   st.i = i; st.v = v.join();
+  if (row && MOTION !== 'reduced') {
+    const d = uiMs('--sp-fade-dur');
+    if (d > 0) for (const pe of seg.classList.contains('tabs-sc') ? ['::before', '::after'] : ['::before']) {
+      try { seg.animate([{ opacity: 0 }, { opacity: 1 }], { duration: d, easing: uiEase('fade'), pseudoElement: pe }); } catch (e) { /* no pseudo-element animation: it is just there */ }
+    }
+  }
   handOver();
 }
 // the market row's ★관심 (§3-4): a sibling of the scroller (.tabs-sc), part of the same segment
@@ -2064,27 +2098,63 @@ function uiBubble(anchor, text, kind) {
   uiLive(text);
   return b;
 }
+/* sw(btn): the one switch (CSS "스위치": track .swt, knob = its ::after on `lead`, fill = its ::before on `fade`). The knob can be dragged
+   (design.md §8: from 4 px, the finger owns --t). Let go: KH.spring.release — `settle` carries on from the finger's speed of the last
+   100 ms (px/ms), faster than KH.spring.THROW (0.11) is a throw to that end, else the nearer end; at most 1px past the end (a track has
+   hard ends). The state changes at the release (btn.click(), so the module's own handler runs), the knob lands meanwhile (.sw-fly) and
+   hands back to the CSS pose at rest. Without KH.spring or under 줄이기: the nearer end at once. A new press or a state set from outside
+   mid-flight ends the flight where it is (the CSS transition takes it from there). */
 function uiSwitch(btn) {
   if (!btn || btn.__sw) return; btn.__sw = true;
   const tr = btn.querySelector('.swt'); if (!tr) return;
-  let sx = 0, t0 = 0, t = 0, down = false, dragged = false, skipUntil = 0;
+  const TRAV = 18;                                             // 44 − 22 − 2 × 2: the knob's way (px), CSS translateX(--t × 18px)
+  let sx = 0, t0 = 0, t = 0, down = false, dragged = false, skipUntil = 0, smp = [], fly = null;
   const on = () => btn.getAttribute('aria-checked') === 'true';
-  tr.addEventListener('pointerdown', e => { down = true; dragged = false; sx = e.clientX; t0 = t = on() ? 1 : 0; try { tr.setPointerCapture(e.pointerId); } catch (x) {} });
+  const land = () => { if (fly) { const f = fly; fly = null; f.h.stop(); } btn.classList.remove('sw-fly'); tr.style.removeProperty('--t'); };
+  new MutationObserver(() => { if (fly && on() !== fly.on) land(); }).observe(btn, { attributes: true, attributeFilter: ['aria-checked'] });
+  tr.addEventListener('pointerdown', e => {
+    if (btn.getAttribute('aria-disabled') === 'true') return;
+    const cur = fly ? Math.min(1, Math.max(0, fly.h.value() / TRAV)) : (on() ? 1 : 0);
+    if (fly) { const f = fly; fly = null; f.h.stop(); btn.classList.remove('sw-fly'); tr.style.setProperty('--t', cur); }
+    down = true; dragged = false; sx = e.clientX; t0 = t = cur; smp = [{ t: e.timeStamp, x: t * TRAV }];
+    try { tr.setPointerCapture(e.pointerId); } catch (x) {}
+  });
   tr.addEventListener('pointermove', e => {
     if (!down) return;
     const dx = e.clientX - sx;
     if (!dragged) { if (Math.abs(dx) < 4) return; dragged = true; btn.classList.add('drag'); }
-    t = Math.min(1, Math.max(0, t0 + dx / 18)); tr.style.setProperty('--t', t);
+    t = Math.min(1, Math.max(0, t0 + dx / TRAV)); tr.style.setProperty('--t', t);
+    smp.push({ t: e.timeStamp, x: t * TRAV });
+    while (smp.length > 2 && e.timeStamp - smp[0].t > 100) smp.shift();
   });
-  const up = () => {
+  const up = e => {
     if (!down) return; down = false;
-    if (!dragged) return;
-    void tr.offsetWidth; btn.classList.remove('drag'); tr.style.removeProperty('--t');
-    if ((t >= .5) !== on()) btn.click();                       // lands on the nearer side from where the finger left it
+    if (!dragged) { tr.style.removeProperty('--t'); return; }   // a press (the click toggles it); a flight it stopped goes on in CSS
     skipUntil = performance.now() + 400;                       // the click that follows the drag changes nothing
+    const S = springApi(), x = t * TRAV;
+    const win = smp.filter(p => e.timeStamp - p.t <= 100), a = win[0], b = win[win.length - 1];
+    const v = e.type !== 'pointercancel' && win.length > 1 && b.t > a.t ? (b.x - a.x) / (b.t - a.t) : 0;   // px/ms; a finger that stopped → 0
+    btn.classList.remove('drag');
+    if (!S || typeof S.animate !== 'function' || typeof S.release !== 'function' || MOTION === 'reduced') {
+      void tr.offsetWidth; tr.style.removeProperty('--t');
+      if ((t >= .5) !== on()) btn.click();                     // lands on the nearer side from where the finger left it
+      return;
+    }
+    btn.classList.add('sw-fly');
+    const hnd = S.animate({ from: x, to: x, name: 'settle', onUpdate: p => tr.style.setProperty('--t', String(Math.round(p / TRAV * 1e4) / 1e4)),
+      onRest: () => { if (fly && fly.h === hnd) { fly = null; btn.classList.remove('sw-fly'); tr.style.removeProperty('--t'); } } });
+    const r = S.release(hnd, v, { points: [0, TRAV], maxOvershoot: 1 });
+    const want = r.to > TRAV / 2;
+    fly = { h: hnd, on: want };
+    if (want !== on()) btn.click();
+    if (fly && fly.h === hnd && on() !== want) { fly.on = on(); hnd.retarget(on() ? TRAV : 0); }   // the module kept its state: back home
+    if (fly && fly.h === hnd && !hnd.running()) land();        // a hidden tab: already there
   };
   tr.addEventListener('pointerup', up); tr.addEventListener('pointercancel', up);
-  btn.addEventListener('click', e => { if (e.isTrusted && performance.now() < skipUntil) { e.stopImmediatePropagation(); e.preventDefault(); } }, true);
+  btn.addEventListener('click', e => {
+    if (e.isTrusted && performance.now() < skipUntil) { e.stopImmediatePropagation(); e.preventDefault(); return; }
+    if (e.isTrusted && fly) land();                            // pressed again while it lands: the CSS takes it from where it is
+  }, true);
 }
 // keys sink while Space / Enter is held, as under a finger
 document.addEventListener('keydown', e => { if ((e.key === ' ' || e.key === 'Enter') && !e.repeat && e.target instanceof HTMLElement && e.target.matches('button, a[href]')) e.target.classList.add('is-press'); });
@@ -4017,8 +4087,10 @@ function limTag(st) {
 function starBtn(code, extraCls) {
   const on = WATCH.includes(code);
   return h('button', { class: extraCls, type: 'button', 'data-w': code, 'aria-pressed': String(on), 'aria-label': on ? '관심종목에서 빼기' : '관심종목에 추가', title: on ? '관심종목에서 빼기' : '관심종목에 추가',
-    'aria-haspopup': WG.groups.length > 1 ? 'dialog' : null, onclick: ev => { ev.stopPropagation(); starClick(code, ev.currentTarget); }, text: on ? '★' : '☆' });
+    'aria-haspopup': WG.groups.length > 1 ? 'dialog' : null, onclick: ev => { ev.stopPropagation(); starClick(code, ev.currentTarget); } }, starGlyphs());
 }
+// ☆ and ★ in one grid cell (② 단단한 이동: the toggle is a fade only — CSS .sg0 / .sg1 follow the button's aria-pressed); the label says it
+function starGlyphs() { return [h('span', { class: 'sg0', 'aria-hidden': 'true', text: '☆' }), h('span', { class: 'sg1', 'aria-hidden': 'true', text: '★' })]; }
 // the metric row under the price when the colour metric is not today's change
 function metricRow(st) {
   const k = kind();
@@ -4141,7 +4213,7 @@ function syncHoverStar() {
   const on = WATCH.includes(state.hover);
   tstar.hidden = false;
   tstar.style.left = (x + w - 26) + 'px'; tstar.style.top = (y + 2) + 'px';
-  tstar.textContent = on ? '★' : '☆';
+  if (!tstar.firstChild) tstar.append(...starGlyphs());
   tstar.setAttribute('aria-pressed', String(on));
   const lbl = on ? '관심종목에서 빼기' : '관심종목에 추가';
   tstar.setAttribute('aria-label', lbl); tstar.title = lbl;
@@ -4157,7 +4229,7 @@ function syncStars() {
   syncHoverStar();
   for (const b of document.querySelectorAll('button[data-w]')) {
     const on = WATCH.includes(b.dataset.w);
-    b.setAttribute('aria-pressed', String(on)); b.textContent = on ? '★' : '☆';
+    b.setAttribute('aria-pressed', String(on)); if (!b.querySelector('.sg1')) b.replaceChildren(...starGlyphs());
     const lbl = on ? '관심종목에서 빼기' : '관심종목에 추가'; b.setAttribute('aria-label', lbl); b.title = lbl;
   }
   if (state.hover && tip.classList.contains('show') && !String(state.hover).startsWith('#')) { const st = get(state.hover); if (st) fillTip(st); }
@@ -7433,9 +7505,11 @@ stickMeasure(); scrollFrame();
 <script>
 /* KH.spring — the one shared spring engine (docs/standards/design.md §6-3 "JS", AGENTS §3-7 "KH.spring").
  *
- * For what CSS transitions can't do: retargeting mid-flight keeps the current velocity, drags hand over their release velocity,
- * a segmented / tab indicator rides two springs (leading edge `lead`, trailing edge `trail`), a switch knob stretches. Plain
- * transitions keep using `transition: … var(--sp-<name>-dur) var(--sp-<name>)` (scripts/design_tokens.mjs).
+ * For what CSS transitions can't do: retargeting mid-flight keeps the current velocity, drags hand over their release velocity.
+ * Controls move rigidly (사용자 2026-11-16 10:02 "컨트롤 움직임은 추천대로 2번", AGENTS §3-38 — drafts/motion-unify.html ② 단단한 이동): a
+ * segmented / tab indicator and a switch knob keep their shape and ride one spring, `lead`, on both edges (no stretch). The two-edge
+ * options (trail · front / back · stretch) are still there for a caller that asks. Plain transitions keep using
+ * `transition: … var(--sp-<name>-dur) var(--sp-<name>)` (scripts/design_tokens.mjs).
  *
  *   KH.spring.animate({from, to, name | k, c, velocity?, onUpdate(v, vel), onRest(v)?, fancy?, scale?, restDelta?})
  *       → handle {retarget(to, {velocity?, name? | k?, c?}), stop(), set(v), value(), velocity(), target(), running()}
@@ -7445,9 +7519,9 @@ stickMeasure(); scrollFrame();
  *     |x − to| < 1e-3·scale and |vel| < 1e-3·scale·ω0 (scale = |to − from|, or |vel|/ω0 if larger) → onUpdate(to, 0), onRest(to).
  *     KH.motion() 'reduced' or a hidden tab → the end value at once (onUpdate now, onRest a microtask later); `fancy: true` also
  *     ends at once unless KH.motion() is 'fancy'. kh:motion / visibilitychange finish whatever is moving then.
- *   KH.spring.edges(el, {left, width}, {lead, trail, write, willChange, instant, onRest}) → indicator controller (one per element;
- *     the first call places it, later calls animate) {to(box, {instant}), set(box), value(), moving(), stop(), destroy()}
- *   KH.spring.knob(el, x, {width, stretch, front, back, write, willChange, instant, onRest}) → switch knob controller (same;
+ *   KH.spring.edges(el, {left, width}, {lead:'lead', trail:'lead', write, willChange, instant, onRest}) → indicator controller (one per
+ *     element; the first call places it, later calls animate) {to(box, {instant}), set(box), value(), moving(), stop(), destroy()}
+ *   KH.spring.knob(el, x, {width, stretch:0, front:'lead', back:'lead', write, willChange, instant, onRest}) → switch knob controller (same;
  *     handle-like: to(x), set(x), retarget(x, {velocity, name}), value(), velocity(), target(), running(), box(), stop(), destroy())
  *   KH.spring.release(handle, velocityPxPerMs, {points?, to?, name?, maxOvershoot?}) → {to, thrown, velocity, carried}
  *     (settle spring with the release speed, §8 throw > 0.11 px/ms; maxOvershoot px caps the carried speed for hard ends)
@@ -7656,9 +7730,11 @@ stickMeasure(); scrollFrame();
   }
 
   const EDGES = new WeakMap();
-  /* edges(el, {left, width}, {lead:'lead', trail:'trail', write, willChange, instant, onRest}) — a segmented / tab / underline
-     indicator: its leading edge (the side it moves toward) rides `lead`, the other edge `trail`, so it stretches and catches up
-     (design.md §6-2, §7). The first call places it; later calls (same element) animate. Reads no layout: pass numbers you have. */
+  /* edges(el, {left, width}, {lead:'lead', trail:'lead', write, willChange, instant, onRest}) — a segmented / tab / underline
+     indicator: its leading edge (the side it moves toward) rides `lead`, the other edge `trail` — by default `lead` too, so the
+     indicator moves as one piece and keeps its shape (② 단단한 이동, design.md §7; between two widths it changes width once, evenly).
+     A caller may still pass trail:'trail' for the old stretch-and-catch-up. The first call places it; later calls (same element)
+     animate. Reads no layout: pass numbers you have. */
   function edges(el, box, o) {
     let ctl = EDGES.get(el);
     if (ctl) { if (o) ctl.configure(o); return box ? ctl.to(box, o) : ctl; }
@@ -7668,7 +7744,7 @@ stickMeasure(); scrollFrame();
     return ctl;
   }
   function makeEdges(el, o) {
-    const cfg = { lead: o.lead || 'lead', trail: o.trail || 'trail', onRest: o.onRest };
+    const cfg = { lead: o.lead || 'lead', trail: o.trail || 'lead', onRest: o.onRest };
     let L = null, R = null, moving = false;   // moving: a to() whose onRest is still owed (once, when both edges rest)
     const pt = painter(el, o, put => put(L.value(), R.value() - L.value()));
     const done = () => { if (!L || !R || !moving || L.running() || R.running()) return; moving = false; pt.moving(false); call(cfg.onRest, ctl.value()); };
@@ -7702,9 +7778,10 @@ stickMeasure(); scrollFrame();
   }
 
   const KNOBS = new WeakMap();
-  /* knob(el, x, {width, stretch:3, front:'follow', back:'settle', write, willChange, instant, onRest}) — a switch knob of width
-     `width` going to translateX(x): the front edge rides `front`, the back edge `back`, the gap soft-capped at `stretch` px
-     (design.md §7, §10-8: ~3px). Handle-like (value / velocity / target / retarget / set) so KH.spring.release() takes it. */
+  /* knob(el, x, {width, stretch:0, front:'lead', back:'lead', write, willChange, instant, onRest}) — a switch knob of width
+     `width` going to translateX(x). By default it keeps its shape and rides `lead` (② 단단한 이동 — design.md §10-8 "손잡이 늘어남"
+     withdrawn 2026-11-16); with stretch > 0 the front edge rides `front`, the back edge `back`, the gap soft-capped at `stretch` px.
+     Handle-like (value / velocity / target / retarget / set) so KH.spring.release() takes it (settle + the finger's speed). */
   function knob(el, x, o) {
     let ctl = KNOBS.get(el);
     if (ctl) { if (o) ctl.configure(o); return x != null ? ctl.to(x, o) : ctl; }
@@ -7714,8 +7791,8 @@ stickMeasure(); scrollFrame();
     return ctl;
   }
   function makeKnob(el, o) {
-    const cfg = { width: fin(o.width, 'width'), stretch: o.stretch != null ? Math.max(0, fin(o.stretch, 'stretch')) : 3,
-      front: o.front || 'follow', back: o.back || 'settle', onRest: o.onRest };
+    const cfg = { width: fin(o.width, 'width'), stretch: o.stretch != null ? Math.max(0, fin(o.stretch, 'stretch')) : 0,
+      front: o.front || 'lead', back: o.back || 'lead', onRest: o.onRest };
     let F = null, B = null, moving = false;
     const pt = painter(el, o, put => {
       const f = F.value(), d = f - B.value(), S = cfg.stretch;
@@ -7892,9 +7969,9 @@ html[data-theme="paper"] .sp-head, html[data-theme^="glass"] .sp-head { backgrou
 @media (max-width: 430px) { .sp-nxt .t { display: none; } }
 .sp-star { position: relative; flex: none; display: inline-grid; place-items: center; width: var(--h-row); height: var(--h-row); margin-left: var(--space-1); border-radius: var(--r-key); color: var(--muted); touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
 .sp-star[hidden], .sp-nf .sp-star { display: none; }
-.sp .sp-star svg { width: 20px; height: 20px; fill: transparent; transition: fill var(--c-fast) var(--c-out), color var(--c-fast) var(--c-out); }   /* ☆ → ★ (§5-9): the fill comes in, no pop */
+.sp .sp-star svg { width: 20px; height: 20px; fill: transparent; transition: fill var(--sp-close-dur) var(--sp-close), color var(--sp-close-dur) var(--sp-close); }   /* ☆ → ★ (② 단단한 이동): the fill fades in (`fade`), out on `close`, no pop */
 .sp-star[aria-pressed="true"] { color: var(--acc, var(--amber)); }                  /* switched on: outline = the readable amber (dark ochre on paper) */
-.sp .sp-star[aria-pressed="true"] svg { fill: var(--acc-fill, var(--amber)); }          /* fill = the highlighter amber */
+.sp .sp-star[aria-pressed="true"] svg { fill: var(--acc-fill, var(--amber)); transition: fill var(--sp-fade-dur) var(--sp-fade), color var(--sp-fade-dur) var(--sp-fade); }   /* fill = the highlighter amber */
 
 /* ── meta + stats ───────────────────── */
 .sp-main { max-width: 1760px; margin: 0 auto; padding: var(--space-4) var(--edge) var(--space-7); }
@@ -7949,8 +8026,8 @@ html[data-theme="paper"] .sp-head, html[data-theme^="glass"] .sp-head { backgrou
 .sp-tfbar { position: relative; display: flex; align-items: center; gap: var(--space-5); margin-bottom: var(--space-4); }
 
 /* ── 고르기 (design.md §7): segments (봉 간격 · 시세 정보 탭 · 재무 기간 · 안정성 지표 · 뉴스/공시) in the template's deep tray (.seg) and the
-   공시 종류 underline row. One indicator element per row (.sp-ind), moved by KH.spring.edges in stock.js: the edge on the side it travels
-   to rides `lead`, the other `trail` (§6-2/§6-3). The template's ::before indicator is not used here; without KH.spring it is (KH.ui.seg). */
+   공시 종류 underline row. One indicator element per row (.sp-ind), moved by KH.spring.edges in stock.js: both edges on `lead`, the shape
+   kept (② 단단한 이동, §6-2/§6-3). The template's ::before indicator is not used here; without KH.spring it is (KH.ui.seg). */
 .sp .sp-ix::before { content: none; }
 .sp .sp-ix.sp-ix > button:is([aria-pressed="true"], [aria-selected="true"]) { background: none; box-shadow: none; }
 .sp-ind { position: absolute; z-index: 0; left: 0; top: 0; width: 0; height: 0; border-radius: var(--r-in); background: var(--ind-bg); box-shadow: var(--ind-sh); pointer-events: none; opacity: 0; }
@@ -7960,7 +8037,7 @@ html[data-theme="paper"] .sp-head, html[data-theme^="glass"] .sp-head { backgrou
    press filter (0 ms down, --c-fast up); hover only on a fine pointer (design.md §8) */
 .sp-seg { display: flex; gap: var(--space-1); padding: var(--space-2); border-radius: var(--r-tray); }
 .sp :is(.sp-seg, .sp-mseg, .sp-dfilt) > button { flex: 1 1 0; min-height: var(--h-key); padding: 0 var(--space-2); border-radius: var(--r-in); font-size: var(--fs-lg); font-weight: 600; line-height: var(--lh-ui); color: var(--muted); white-space: nowrap; touch-action: manipulation; -webkit-tap-highlight-color: transparent;
-  transition: color var(--c-fast) var(--c-out), filter var(--c-fast) var(--c-out), transform var(--c-fast) var(--c-out); }
+  transition: color var(--sp-fade-dur) var(--sp-fade), filter var(--c-fast) var(--c-out), transform var(--c-fast) var(--c-out); }
 .sp :is(.sp-seg, .sp-mseg, .sp-dfilt) > button:is([aria-pressed="true"], [aria-selected="true"]) { color: var(--fg); }
 .sp :is(.sp-seg, .sp-mseg, .sp-dfilt) > button:active { transform: translateY(1px); filter: var(--press-f); transition-duration: 0s; }
 .sp-tabs > button:focus-visible { outline-offset: -1px; }
@@ -8399,14 +8476,12 @@ a.sp-nw-a:visited .sp-nw-t { color: var(--fg2); }
 .sp-dfilt button[aria-pressed="true"] small { color: var(--fg2); }
 .sp-nw-src { display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--space-5); margin-top: var(--space-2); font-size: var(--fs-sm); color: var(--muted); }
 .sp-nw-src > span { padding: var(--space-3) 0; }
-/* 지분 공시 포함: the template's switch (.swbtn + .swt: deep track, raised knob, 44 × 26, drag with KH.ui.sw) without its row surface;
-   here its knob and fill run on the springs (knob `follow`, fill `fade`, design.md §7) */
-.sp-switch { display: inline-flex; align-items: center; gap: var(--space-4); min-height: var(--h-key); margin-left: auto; padding: 0 var(--space-1); font-size: var(--fs-sm); font-weight: 600; color: var(--fg2); }
+/* 지분 공시 포함: the template's one switch (.swbtn + .swt: deep track, raised knob 44 × 26 that moves in one piece on `lead`, fill `fade`,
+   drag with KH.ui.sw — ② 단단한 이동, AGENTS §3-38) without its row surface; the label's colour follows on `fade` */
+.sp-switch { display: inline-flex; align-items: center; gap: var(--space-4); min-height: var(--h-key); margin-left: auto; padding: 0 var(--space-1); font-size: var(--fs-sm); font-weight: 600; color: var(--fg2); transition: color var(--sp-fade-dur) var(--sp-fade), filter var(--c-fast) var(--c-out); }
 .sp-switch.swbtn { width: auto; justify-content: flex-end; border-radius: var(--r-in); box-shadow: none; }
 .sp-switch.swbtn:not(#_) { background: none; }   /* (an id-level rule: no key surface, also against the template's hover / no-hover surfaces) */
 .sp-switch[aria-checked="true"] { color: var(--fg); }
-.sp-switch .swt::before { transition: opacity var(--sp-fade-dur) var(--sp-fade); }
-.sp-switch .swt::after { transition: transform var(--sp-follow-dur) var(--sp-follow), box-shadow var(--c-fast) var(--c-out); }
 .sp-nw-tag.k { color: var(--fg2); background: var(--panel2); box-shadow: none; }
 .sp-nw-tag.fix { color: var(--fg); box-shadow: inset 0 0 0 1px var(--fg2); }
 /* 공시 배지: today's DART row the map's feed has seen — the time, and the unread dot before it while it is new (--new-dot, template) */
@@ -8750,7 +8825,7 @@ const uiSeg = el => { if (UI && typeof UI.seg === 'function') UI.seg(el); };
 const cMs = (name, d) => (UI && typeof UI.ms === 'function' ? UI.ms(name) : d);          // '줄이기' sets --c-fast/base/switch to 0
 const say = t => { if (UI && typeof UI.live === 'function') UI.live(t); };
 /* 고르기 표시 (design.md §6-3 · §7 · §8): one indicator element per segment / tab row / underline row (.sp-ind), moved by KH.spring.edges —
-   the edge on the side it travels to rides `lead`, the other `trail`, so it stretches a little on the way and settles. The first placement,
+   both edges on `lead` (its default since ② 단단한 이동, AGENTS §3-38): it keeps its shape on the way, no stretch. The first placement,
    a resize, held arrow keys (§8) and 줄이기 put it there at once; a pick on another line of a wrapped row fades it in there (P5). Without
    KH.spring the template's ::before indicator does it (KH.ui.seg). line: the underline row (a 2px bar along the bottom). */
 const SEGS = new Map();   // row → {ind, line, top, quick}
@@ -8902,7 +8977,7 @@ function build() {
 
 function buildLive() {
   // segments (docs/standards/controls.md §5-4): the template's deep tray (.seg) + one raised indicator that slides (KH.ui.seg)
-  // design.md §7 segment: 분 · 일 · 주 · 월 · 년; the indicator's two edges run on `lead` / `trail` (stock.css)
+  // design.md §7 segment: 분 · 일 · 주 · 월 · 년; the indicator moves in one piece on `lead` (stock.css)
   R.tfs = h('div', { class: 'sp-seg sp-tfs seg', role: 'group', 'aria-label': '차트 간격' },
     TF_TABS.map(([k, label]) => k === 'min'
       ? (R.minBtn = h('button', { type: 'button', class: 'sp-tfmin', 'data-tf': k, 'aria-pressed': 'false', 'aria-haspopup': 'menu', 'aria-expanded': 'false', 'aria-controls': 'sp-ivm',
@@ -10593,7 +10668,7 @@ function buildNews(panel) {
     note: h('p', { class: 'sp-note' }),
   };
   R.nw.srcText = h('span');
-  // the template's switch (§5-8: .swbtn + .swt, 44 × 26, --c-switch, the knob can be dragged with KH.ui.sw)
+  // the template's one switch (§5-8: .swbtn + .swt, 44 × 26, knob on `lead` in one piece, the knob can be dragged with KH.ui.sw)
   R.nw.equity = h('button', { type: 'button', class: 'sp-switch swbtn', role: 'switch', 'aria-checked': 'false', onclick: () => setDiscEquity(!discEquity) },
     h('span', { class: 'sp-switch-t', text: '지분 공시 포함' }), h('span', { class: 'swt', 'aria-hidden': 'true' }));
   if (UI && typeof UI.sw === 'function') UI.sw(R.nw.equity);
@@ -11650,13 +11725,14 @@ html{--xe-x:var(--h-key);--xe-fl-r:max(2px,calc(var(--sheet-r,16px) - 4px));--xe
 .xs-off .xs-track,.xs-hold .xs-track,.xs-vp:has(.xs-item:focus-visible) .xs-track{animation-play-state:paused}
 .xs-off .xs-track{will-change:auto}
 @media (hover:hover) and (pointer:fine){.xs-vp:hover .xs-track{animation-play-state:paused}}
-/* ⏸ / ▶: a raised round key (--h-key); paused = held down (--key-on) with an amber icon (selected); the shapes swap in place with `fade` */
+/* ⏸ / ▶: a raised round key (--h-key); paused = held down (--key-on) with an amber icon (selected); the shapes cross-fade in place — the
+   one shown on `fade`, the other out on `close`, nothing turns or grows (an icon toggle, ② 단단한 이동 — AGENTS §3-38) */
 .xs-pp{position:relative;flex:none;display:grid;place-items:center;width:var(--h-key);height:var(--h-key);border-radius:var(--r-pill);border:0;background:var(--key-bg);box-shadow:var(--key-sh);color:var(--key-ic);cursor:pointer;padding:0;touch-action:manipulation;-webkit-tap-highlight-color:transparent;transition:transform var(--c-fast) var(--c-out),box-shadow var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out),background-color var(--sp-fade-dur) var(--sp-fade),color var(--sp-fade-dur) var(--sp-fade)}
 .xs-pp[aria-pressed="true"]{box-shadow:var(--key-on);color:var(--acc,var(--amber))}
 .xs-pp:is(:active,.is-press){transform:translateY(1px);box-shadow:var(--key-dn);filter:var(--press-f);transition-duration:0s,0s,0s,var(--sp-fade-dur),var(--sp-fade-dur)}
 .xs-ppi{display:grid;place-items:center}
-.xs-ppi svg{grid-area:1/1;width:12px;height:12px;transition:transform var(--sp-fade-dur) var(--sp-fade),opacity var(--sp-fade-dur) var(--sp-fade)}
-.xs-pp[aria-pressed="true"] .xs-ppi svg:first-child,.xs-pp:not([aria-pressed="true"]) .xs-ppi svg:last-child{opacity:0;transform:rotate(90deg) scale(.5)}
+.xs-ppi svg{grid-area:1/1;width:12px;height:12px;transition:opacity var(--sp-fade-dur) var(--sp-fade)}
+.xs-pp[aria-pressed="true"] .xs-ppi svg:first-child,.xs-pp:not([aria-pressed="true"]) .xs-ppi svg:last-child{opacity:0;transition:opacity var(--sp-close-dur) var(--sp-close)}
 @media (pointer:coarse){.xs-pp::before{content:"";position:absolute;left:50%;top:50%;width:max(100%,44px);height:max(100%,44px);transform:translate(-50%,-50%)}}
 @media (hover:hover) and (pointer:fine){.xs-pp:hover{background:var(--key-hover);color:var(--fg)}.xs-pp[aria-pressed="true"]:hover{color:var(--acc,var(--amber))}}
 .xs-msg{color:var(--muted);font-size:var(--fs-md)}
@@ -11736,10 +11812,10 @@ section.rp-player[hidden]{display:none;opacity:0;translate:0 12px;pointer-events
 .rp-player .rp-main{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-3) var(--space-6);padding-right:calc(var(--xe-x) + var(--space-5))}
 /* ▶ ⏸: the player's primary key (--pri-*, like 완료) — amber is kept for selected · focus · open · done (design.md §2) */
 .rp-player .rp-play{position:relative;order:1;flex:none;width:var(--h-key);height:var(--h-key);border-radius:var(--r-pill);display:grid;place-items:center;background:var(--pri-bg);color:var(--pri-fg);box-shadow:var(--pri-sh)}
-/* ▶ ↔ ⏸ in place: the shape that leaves turns and shrinks, the other comes back (`fade`) */
+/* ▶ ↔ ⏸ in place: a cross-fade only — the shape shown on `fade`, the other out on `close`, nothing turns or grows (an icon toggle, ② 단단한 이동) */
 .rp-pi{display:grid;place-items:center}
-.rp-pi svg{grid-area:1/1;transition:transform var(--sp-fade-dur) var(--sp-fade),opacity var(--sp-fade-dur) var(--sp-fade)}
-.rp-play:not([data-on]) .rp-pi svg:last-child,.rp-play[data-on] .rp-pi svg:first-child{opacity:0;transform:rotate(90deg) scale(.5)}
+.rp-pi svg{grid-area:1/1;transition:opacity var(--sp-fade-dur) var(--sp-fade)}
+.rp-play:not([data-on]) .rp-pi svg:last-child,.rp-play[data-on] .rp-pi svg:first-child{opacity:0;transition:opacity var(--sp-close-dur) var(--sp-close)}
 .rp-player .rp-when{order:2;display:flex;flex-direction:column;gap:var(--space-1);min-width:0}
 .rp-player .rp-time{flex:none;font-size:var(--fs-num);font-weight:700;line-height:var(--lh-num);letter-spacing:-.02em;font-variant-numeric:tabular-nums;color:var(--fg)}
 .rp-player .rp-more{display:none}
@@ -12036,12 +12112,12 @@ dialog.xk{width:min(560px,calc(100% - 2 * var(--space-5)));max-height:min(760px,
 .xk-row:is(:active,.is-press){transform:translateY(1px);filter:var(--press-f);transition-duration:0s}
 .xk-row:focus-visible{outline-offset:calc(var(--focus-w) * -1)}
 .xk-row small{color:var(--muted);font-size:var(--fs-sm)}
-/* 추가 ↔ 추가됨: a toggle chip at the row's end (§5-7) — on: fill + 1.5px amber ring (`fade`), the check's slot opens 0 → 14px (`lead`);
-   off: `close`; the label swaps in its box */
-.xk-chk{margin-left:auto;flex:none;display:inline-flex;align-items:center;height:var(--h-chip);padding:0 var(--space-4);border-radius:var(--r-chip);background:var(--chip-bg);box-shadow:inset 0 0 0 1px var(--line2);color:var(--fg2);font-size:var(--fs-sm);transition:background-color var(--sp-close-dur) var(--sp-close),box-shadow var(--sp-close-dur) var(--sp-close),color var(--sp-close-dur) var(--sp-close)}
-.xk-ck{display:block;flex:none;width:0;height:14px;margin-right:0;opacity:0;transform:scale(.6);background:var(--acc-line,var(--amber));-webkit-mask:var(--ck-mask) center/14px 14px no-repeat;mask:var(--ck-mask) center/14px 14px no-repeat;transition:width var(--sp-close-dur) var(--sp-close),margin-right var(--sp-close-dur) var(--sp-close),opacity var(--sp-close-dur) var(--sp-close),transform var(--sp-close-dur) var(--sp-close)}
+/* 추가 ↔ 추가됨: a toggle chip at the row's end (§5-7, ② 단단한 이동 — the template .kchip's recipe) — the check's 14px place is always
+   there, so the chip keeps its width; on: fill + 1.5px amber ring + check `fade`; off: `close`; the label swaps in its box */
+.xk-chk{margin-left:auto;flex:none;display:inline-flex;align-items:center;height:var(--h-chip);padding:0 var(--space-4) 0 var(--space-3);border-radius:var(--r-chip);background:var(--chip-bg);box-shadow:inset 0 0 0 1px var(--line2);color:var(--fg2);font-size:var(--fs-sm);transition:background-color var(--sp-close-dur) var(--sp-close),box-shadow var(--sp-close-dur) var(--sp-close),color var(--sp-close-dur) var(--sp-close)}
+.xk-ck{display:block;flex:none;width:14px;height:14px;margin-right:var(--space-2);opacity:0;background:var(--acc-line,var(--amber));-webkit-mask:var(--ck-mask) center/14px 14px no-repeat;mask:var(--ck-mask) center/14px 14px no-repeat;transition:opacity var(--sp-close-dur) var(--sp-close)}
 .xk-row[aria-pressed="true"] .xk-chk{background:var(--chip-on);box-shadow:inset 0 0 0 1.5px var(--chip-ring);color:var(--fg);transition:background-color var(--sp-fade-dur) var(--sp-fade),box-shadow var(--sp-fade-dur) var(--sp-fade),color var(--sp-fade-dur) var(--sp-fade)}
-.xk-row[aria-pressed="true"] .xk-ck{width:14px;margin-right:var(--space-2);opacity:1;transform:none;transition:width var(--sp-lead-dur) var(--sp-lead),margin-right var(--sp-lead-dur) var(--sp-lead),opacity var(--sp-fade-dur) var(--sp-fade),transform var(--sp-fade-dur) var(--sp-fade)}
+.xk-row[aria-pressed="true"] .xk-ck{opacity:1;transition:opacity var(--sp-fade-dur) var(--sp-fade)}
 /* search: a field (--r-in), a deep tray, focus = the same ring drawn with box-shadow (§5-15); 16px text (no iOS zoom) */
 .xk-q{height:var(--h-row);margin-bottom:var(--space-3);padding:0 var(--space-5);border-radius:var(--r-in);border:0;background:var(--tray-bg);box-shadow:var(--tray-sh);color:var(--fg);font-size:var(--fs-xl);outline:none;transition:box-shadow var(--c-fast) var(--c-out)}
 .xk-q:focus{box-shadow:var(--tray-sh),0 0 0 var(--focus-off) var(--panel),0 0 0 calc(var(--focus-off) + var(--focus-w)) var(--focus,var(--amber))}
@@ -15074,8 +15150,8 @@ html[data-theme="glass-light"] #world{--nodata:#e6e9ee}
 .kw-retry:is(:active,.is-press):not([data-st="work"]){transform:translateY(1px);box-shadow:var(--key-dn);filter:var(--press-f);transition-duration:0s,0s,0s,var(--c-base),var(--c-base)}
 .kw-retry.sm{margin:0 0 0 var(--space-3);padding:0 var(--space-5);font-size:var(--fs-sm)}
 
-/* header toggles: 지역순 · 등락률순, 목록 · 지도 — the template's segment exactly (deep tray + one raised indicator, KH.ui.seg: the lead
-   edge on --sp-lead, the trailing one on --sp-trail; press = the theme's filter, the cells do not sink; --h-key on phones) */
+/* header toggles: 지역순 · 등락률순, 목록 · 지도 — the template's segment exactly (deep tray + one raised indicator, KH.ui.seg: every
+   edge on --sp-lead, the shape kept; press = the theme's filter, the cells do not sink; --h-key on phones) */
 .kw-tools{display:flex;align-items:center;gap:var(--space-4)}
 .kw-seg[hidden]{display:none}
 
@@ -15241,9 +15317,10 @@ html[data-theme="glass-light"] #world{--nodata:#e6e9ee}
    amber ring and no check; 1px + darker under the finger. The % is data (up / down colour). */
 .kw-peers{display:flex;flex-wrap:wrap;gap:var(--space-2);padding:var(--space-5) calc(var(--h-key) + var(--space-6)) var(--space-1) var(--space-6)}
 .kw-peers-h{width:100%;font-size:var(--fs-sm);font-weight:600;color:var(--muted);margin-bottom:1px}
-.kw-peers button{position:relative;display:inline-flex;align-items:center;gap:var(--space-3);height:var(--h-key);padding:0 var(--space-5);border-radius:var(--r-chip);border:0;background:var(--chip-bg);box-shadow:var(--key-sh);font-size:var(--fs-sm);color:var(--fg2);white-space:nowrap;font-variant-numeric:tabular-nums;transition:transform var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out),background-color var(--c-fast) var(--c-out),box-shadow var(--c-fast) var(--c-out),color var(--c-fast) var(--c-out)}
+.kw-peers button{position:relative;display:inline-flex;align-items:center;gap:var(--space-3);height:var(--h-key);padding:0 var(--space-5);border-radius:var(--r-chip);border:0;background:var(--chip-bg);box-shadow:var(--key-sh);font-size:var(--fs-sm);color:var(--fg2);white-space:nowrap;font-variant-numeric:tabular-nums;transition:transform var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out),background-color var(--sp-close-dur) var(--sp-close),box-shadow var(--sp-close-dur) var(--sp-close),color var(--sp-close-dur) var(--sp-close)}
 .kw-peers button .v{font-weight:600}
-.kw-peers button[aria-pressed="true"]{background:var(--chip-on);box-shadow:inset 0 0 0 1.5px var(--chip-ring);color:var(--fg)}
+/* ② 단단한 이동 (AGENTS §3-38): the colour change is `fade` in / `close` out, nothing moves */
+.kw-peers button[aria-pressed="true"]{background:var(--chip-on);box-shadow:inset 0 0 0 1.5px var(--chip-ring);color:var(--fg);transition:transform var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out),background-color var(--sp-fade-dur) var(--sp-fade),box-shadow var(--sp-fade-dur) var(--sp-fade),color var(--sp-fade-dur) var(--sp-fade)}
 @media (hover:hover) and (pointer:fine){.kw-peers button:hover{color:var(--fg)}}
 .kw-peers button:is(:active,.is-press){transform:translateY(1px);filter:var(--press-f);transition-duration:0s}
 .kw-peers button:not([aria-pressed="true"]):is(:active,.is-press){box-shadow:var(--key-dn)}
@@ -17820,7 +17897,7 @@ html[data-motion="reduced"] .news{--nw-tx-out:0ms;--nw-tx-gap:0ms;--nw-tx-in:0ms
 @media (pointer:coarse) and (min-width:761px){.news{--nw-rh:calc(var(--h-row) + var(--space-4))}}
 .news .nw-hd{display:flex;align-items:center;gap:var(--space-4) var(--space-5);min-height:var(--h-key);margin:0 0 var(--space-4);min-width:0}
 .news .nw-hd h2{margin:0;flex:none}
-/* 언론사 탭 = 템플릿 세그먼트 .movers-tabs 그대로(KH.ui.seg: 앞 가장자리 lead · 뒤 trail), 크기를 덮어쓰지 않아요 */
+/* 언론사 탭 = 템플릿 세그먼트 .movers-tabs 그대로(KH.ui.seg: 모양 그대로 lead 하나로), 크기를 덮어쓰지 않아요 */
 .news .nw-tabs{margin:0;flex:none;min-width:0}
 .news .nw-tabs > button{flex:1 1 auto}
 .news .nw-tabs > button .nw-bad{display:inline-block;margin-left:var(--space-2);color:var(--fail-dot);font-weight:700}
@@ -17833,7 +17910,7 @@ html[data-motion="reduced"] .news{--nw-tx-out:0ms;--nw-tx-gap:0ms;--nw-tx-in:0ms
 .news.multi .nw-pane[hidden]{display:none}
 .news.multi .nw-hd{margin:0 0 var(--space-4)}
 .news .nw-sub{display:flex;align-items:center;gap:var(--space-4) var(--space-5);min-height:var(--h-key);margin:0 0 var(--space-3);min-width:0}
-/* 제목 탭 = 밑줄 탭(design.md §7 ③): 고른 탭 아래 2px --acc-line 하나가 KH.ui.seg로 옮겨 가요 — 가는 쪽 가장자리 lead · 뒤 trail
+/* 제목 탭 = 밑줄 탭(design.md §7 ③): 고른 탭 아래 2px --acc-line 하나가 KH.ui.seg로 옮겨 가요 — 모양 그대로 lead 하나로(② 단단한 이동)
    (템플릿 .seg 표시를 밑줄로, 공시 종류 탭 · 종목 페이지 공시 종류와 같은 조리법) */
 .news .nw-ftabs.seg{display:flex;align-items:stretch;flex:0 1 auto;gap:var(--space-5);min-width:0;padding:0;border-radius:0;background:none;box-shadow:none}
 .news .nw-ftabs.seg::before{top:auto;height:2px;border-radius:var(--r-mark) var(--r-mark) 0 0;background:var(--acc-line);box-shadow:none}
@@ -17866,16 +17943,19 @@ html[data-motion="reduced"] .news .nw-rk[data-st="work"] .nw-rki{opacity:.45}
 .news .nw-at.stale{color:var(--fg2);font-weight:600}
 .news .nw-at svg{width:15px;height:15px;flex:none}
 .news .nw-at .kwn{color:var(--fail-dot)}
-/* 켜고 끄기 칩 "지도 종목 기사만" (필터 = 알약 칩, design.md §7): 채움 + 1.5px 테 + 체크가 0 → 14px (lead), 체크는 fade로 나타나요 */
-.news .nw-only{position:relative;display:inline-flex;align-items:center;height:var(--h-chip);padding:0 var(--space-5);border-radius:var(--r-chip);background:var(--chip-bg);box-shadow:var(--key-sh);
+/* 켜고 끄기 칩 "지도 종목 기사만" · 공시 "지도 종목만" (필터 = 알약 칩, design.md §7 · ② 단단한 이동 — 템플릿 .kchip과 같은 조리법): 체크 자리
+   14px를 늘 비워 두어 켜도 꺼도 폭이 그대로(옆을 밀지 않음, 왼쪽 안쪽 여백은 한 단 작게). 켤 때 채움 · 1.5px 테 · 체크 fade, 끌 때 close */
+.news .nw-only{position:relative;display:inline-flex;align-items:center;height:var(--h-chip);padding:0 var(--space-5) 0 var(--space-4);border-radius:var(--r-chip);background:var(--chip-bg);box-shadow:var(--key-sh);
   font-size:var(--fs-sm);line-height:var(--lh-ui);font-weight:600;color:var(--key-fg);white-space:nowrap;flex:none;touch-action:manipulation;-webkit-tap-highlight-color:transparent;
-  transition:background var(--sp-lead-dur) var(--sp-lead),box-shadow var(--sp-lead-dur) var(--sp-lead),transform var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out)}
-.news .nw-only .nw-ck{display:inline-block;width:0;height:14px;opacity:0;transform:scale(.6);background:currentColor;-webkit-mask:var(--ck-mask) center/14px no-repeat;mask:var(--ck-mask) center/14px no-repeat;
-  transition:width var(--sp-lead-dur) var(--sp-lead),opacity var(--sp-fade-dur) var(--sp-fade),transform var(--sp-lead-dur) var(--sp-lead),margin var(--sp-lead-dur) var(--sp-lead)}
-.news .nw-only[aria-pressed="true"]{background:var(--chip-on);box-shadow:inset 0 0 0 1.5px var(--chip-ring),var(--key-sh)}
-.news .nw-only[aria-pressed="true"] .nw-ck{width:14px;opacity:1;transform:none;margin-right:var(--space-3)}
+  transition:background-color var(--sp-close-dur) var(--sp-close),box-shadow var(--sp-close-dur) var(--sp-close),transform var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out)}
+.news .nw-only .nw-ck{display:inline-block;flex:none;width:14px;height:14px;margin-right:var(--space-2);opacity:0;background:currentColor;-webkit-mask:var(--ck-mask) center/14px no-repeat;mask:var(--ck-mask) center/14px no-repeat;
+  transition:opacity var(--sp-close-dur) var(--sp-close)}
+.news .nw-only[aria-pressed="true"]{background:var(--chip-on);box-shadow:inset 0 0 0 1.5px var(--chip-ring),var(--key-sh);
+  transition:background-color var(--sp-fade-dur) var(--sp-fade),box-shadow var(--sp-fade-dur) var(--sp-fade),transform var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out)}
+.news .nw-only[aria-pressed="true"] .nw-ck{opacity:1;transition:opacity var(--sp-fade-dur) var(--sp-fade)}
 .news .nw-only .nw-n{margin-left:var(--space-3);color:var(--fg2);font-weight:500;font-variant-numeric:tabular-nums}
 .news .nw-only:not([aria-disabled="true"]):is(:active,.is-press){transform:translateY(1px);box-shadow:var(--key-dn);filter:var(--press-f);transition-duration:0s}
+.news .nw-only[aria-pressed="true"]:not([aria-disabled="true"]):is(:active,.is-press){box-shadow:inset 0 0 0 1.5px var(--chip-ring),var(--key-dn)}
 @media (hover:hover) and (pointer:fine){ .news .nw-only:not([aria-disabled="true"]):not([aria-pressed="true"]):hover{background:var(--key-hover)} }
 
 /* 오래된 목록 한 줄 (한 곳이 이번에 실패해서 마지막으로 받은 목록을 보여 줄 때) — ! = --fail-dot */
@@ -18015,7 +18095,7 @@ html[data-motion="reduced"] .news *{animation:none!important}
    ↻ 새로 받기: the head's icon key asks the tab shown again — spec.refresh() → Promise<true (arrived) · false (failed) · null (gone)>
    and spec.freshAt() → Date.now() of its last good answer (under 10 s: not asked again, "방금 받았어요"). KHNews.atTime(text) = the
    head's "HH:MM 기준" span.
-   Design standard (docs/standards/design.md, ux/std-news 2026-11-16): the title tabs are an underline row (KH.ui.seg, lead / trail), the
+   Design standard (docs/standards/design.md, ux/std-news 2026-11-16): the title tabs are an underline row (KH.ui.seg, rigid on lead), the
    outlet tabs the template's segment; 더보기 · 접기 is a fold (only the list's box grows on `open`, what is below moves once — KHNews.fold
    for the other tabs); a number that moves with new data (a chip's %, a count) changes in place the way it went (KH.ui.swap, §6-4 · P9),
    the first draw and a tab / map change write it at once (P4); 화려하게 fades a picked tab's content in (4 px). The one reduce switch is
@@ -18720,8 +18800,6 @@ show();
 .news .dc-litw{display:flex;justify-content:flex-end;flex:none;order:7;margin-left:auto;min-width:0}
 .news .dc-litw[hidden]{display:none}
 .news .dc-lit{
-  --trk-w:calc(var(--space-8) + var(--space-5)); --trk-h:calc(var(--space-7) + var(--space-1)); --trk-in:var(--space-1);
-  --trav:calc(var(--trk-w) - var(--trk-h));
   position:relative;display:inline-flex;align-items:center;gap:var(--space-5);min-width:0;min-height:var(--h-key);padding:0 var(--space-2) 0 var(--space-3);
   border-radius:var(--r-row);font-size:var(--fs-md);line-height:var(--lh-ui);font-weight:600;color:var(--fg);text-align:left;
   touch-action:pan-y;-webkit-tap-highlight-color:transparent;transition:background-color var(--sp-fade-dur) var(--sp-fade)}
@@ -18737,22 +18815,8 @@ show();
 @keyframes dcTxIn{from{opacity:0;filter:blur(2px);transform:translateY(var(--space-2))}}
 .news .dc-lc .kspn{width:var(--fs-md);height:var(--fs-md);color:var(--fg2)}
 .news .dc-lit .dc-bad{color:var(--fail-dot);font-weight:700}
-/* 트랙 · 채움 · 손잡이 (--t: 0 꺼짐 · 1 켜짐 — 끄는 동안은 KH.ui.sw가 손가락 자리로) */
-.news .dc-trk{--t:0;position:relative;flex:none;width:var(--trk-w);height:var(--trk-h);border-radius:var(--r-pill);background:var(--trk);box-shadow:var(--tray-sh)}
-.news .dc-trk::before{content:"";position:absolute;inset:0;border-radius:inherit;background:var(--sw-on);box-shadow:inset 0 1px 2px color-mix(in srgb,var(--shc) 28%,transparent);opacity:var(--t);
-  transition:opacity var(--sp-fade-dur) var(--sp-fade)}
-/* .dc-knob = the two edges (left / right on their own springs); its ::before = the raised knob you see, at most 3px longer than round
-   (design.md §7 "3px 늘었다 돌아와요" — the follow / settle pair alone opens ≈ 6px over an 18px travel), held to the front edge */
-.news .dc-knob{position:absolute;top:var(--trk-in);bottom:var(--trk-in);left:calc(var(--trk-in) + var(--t) * var(--trav));right:calc(var(--trk-in) + (1 - var(--t)) * var(--trav));
-  display:flex;justify-content:flex-start;
-  transition:left var(--sp-follow-dur) var(--sp-follow),right var(--sp-settle-dur) var(--sp-settle)}
-.news .dc-knob::before{content:"";flex:none;width:100%;max-width:calc(var(--trk-h) - 2 * var(--trk-in) + var(--space-1) * 1.5);border-radius:var(--r-pill);background:var(--knob);box-shadow:var(--knob-sh);
-  transition:box-shadow var(--c-fast) var(--c-out)}
-.news .dc-lit[aria-checked="true"] .dc-trk{--t:1}
-.news .dc-lit[aria-checked="true"] .dc-knob{justify-content:flex-end;transition:right var(--sp-follow-dur) var(--sp-follow),left var(--sp-settle-dur) var(--sp-settle)}
-.news .dc-lit:is(:active,.is-press,.drag):not([aria-disabled="true"]) .dc-knob::before{box-shadow:var(--knob-dn)}
-.news .dc-lit.drag .dc-knob{transition:none}
-.news .dc-lit.drag .dc-trk::before{transition:none}
+/* 트랙 · 채움 · 손잡이 = 템플릿의 스위치 하나 그대로(.swt: 파인 트랙 44 × 26, 채움 ::before `fade`, 솟은 손잡이 ::after가 모양 그대로 `lead`로 —
+   ② 단단한 이동, 사용자 2026-11-16 10:02, AGENTS §3-38). 끌기는 KH.ui.sw(4px부터, 놓으면 `settle`이 손가락 속도를 이어받아요) */
 .news .dc-lit[aria-disabled="true"]{opacity:.45;cursor:not-allowed}
 .news .dc-lit[aria-disabled="true"][title]{cursor:help}
 .news .dc-lit[aria-disabled="true"] .dc-trk{pointer-events:none}
@@ -18807,7 +18871,7 @@ show();
 
 /* ── 패널의 "오늘 공시" 탭 (뉴스 카드 안 — 자리 · 채우기 · 두 단 · 더보기(접고 펴기 = news.css fold) · 휴대폰 규칙은 뉴스와 같아요) ── */
 /* 공시 종류 = 밑줄 탭 (design.md §7 ③, 종목 페이지 .sp-dfilt · 카드 제목 탭과 같음): 템플릿 세그먼트 표시를 2px 밑줄로 — KH.ui.seg가
-   가는 쪽 가장자리 lead · 뒤 trail로 옮겨요 */
+   모양 그대로 lead 하나로 옮겨요(② 단단한 이동) */
 .news .dc-ktabs{display:flex;gap:var(--space-1);flex:1 1 auto;min-width:0;overflow-x:auto;scrollbar-width:none;padding:0;border-radius:0;background:none;box-shadow:inset 0 -1px 0 var(--line)}
 .news .dc-ktabs::-webkit-scrollbar{display:none}
 .news .dc-ktabs::before{top:auto;height:2px;border-radius:var(--r-mark) var(--r-mark) 0 0;background:var(--acc-line);box-shadow:none}
@@ -18874,7 +18938,7 @@ show();
    failures back off 1 → 2 → 4 → 5 min, "오래됨" after 5 min of failures. The Worker's weak ETag goes back as If-None-Match: a 304
    keeps the list and takes the time from x-as-of. A Worker without the route (404): nothing of this shows. Snapshot (dist/): the tab says
    "실시간 버전에서 볼 수 있어요", nothing else.
-   Design standard (docs/standards/design.md, ux/std-news 2026-11-16): the kind tabs are an underline row (KH.ui.seg, lead / trail),
+   Design standard (docs/standards/design.md, ux/std-news 2026-11-16): the kind tabs are an underline row (KH.ui.seg, rigid on lead),
    더보기 · 접기 is the card's fold (KHNews.fold: only the list's box grows on `open`, what is below moves once), counts that move with a
    new answer and a chip's % on a new quote change in place the way they went (KH.ui.swap, §6-4 · P9; the first draw, a map / filter
    change: at once — P4), the switch's count swaps (§6-4). ! = --fail-dot; amber only selected / on / focus. */
@@ -18999,15 +19063,15 @@ if (!LIVE) {
 
 /* ───────── the map switch in the 오늘 공시 tab: [corner] 지도에서 공시 종목만 밝게 · 26종목 [track] — on → only those stocks stay bright ─────────
    It sat in the map header (#stage-tools) as the chip "공시 26" until 2026-11-15 — 사용자 2026-11-14 08:10 "사진의 공시 버튼 차라리 아래에 뉴스
-   공시칸으로 옮기든 하는게 나을거같아". Now it is a switch (design.md §7: sunken track, raised knob whose two edges move on their own springs —
-   the front one `follow`, the back one `settle` — so it stretches a little on the way) in the tab's own row: at the end of the 공시 종류 ·
+   공시칸으로 옮기든 하는게 나을거같아". Now it is a switch — the template's one switch (.swt: sunken track, raised knob that moves in one
+   piece on `lead`, fill on `fade` — ② 단단한 이동, AGENTS §3-38) — in the tab's own row: at the end of the 공시 종류 ·
    지도 종목만 line on a wide card, a line of its own at the top of the tab on a narrow one (phones · 1024 PC). It only works while that tab
    is on screen: leaving the tab, a hidden card, 해외 · 지표, 공시 보기 off or nothing to light turns the map back to normal (a dimmed map with
    no visible way back is worse than one more press). Not remembered across reloads. The knob can be dragged (KH.ui.sw, from 4 px). */
 const litCount = h('span', { class: 'dc-lc' });                // "· 26종목" (+ "!"), the ring while loading — changes swap in place (§6-4)
 const lit = h('button', { type: 'button', class: 'dc-lit', role: 'switch', 'aria-checked': 'false' },
   h('span', { class: 'dc-ll' }, h('i', { class: 'dmsw', 'aria-hidden': 'true' }), h('span', { class: 'dc-lw', text: '지도에서 공시 종목만 밝게' }), litCount),
-  h('span', { class: 'dc-trk swt', 'aria-hidden': 'true' }, h('i', { class: 'dc-knob' })));
+  h('span', { class: 'dc-trk swt', 'aria-hidden': 'true' }));
 const litBox = h('span', { class: 'dc-litw' }, lit);
 if (typeof UI.sw === 'function') UI.sw(lit);
 lit.addEventListener('click', () => {
@@ -19560,16 +19624,19 @@ schedule();
 /* 두 번째 줄: 출처 필터 칩 전체 · KDI · 관보 (알약 칩은 필터에만 — design.md §7) */
 .news .pl-sub{display:flex;align-items:center;gap:var(--space-4) var(--space-5);min-height:var(--h-key);margin:0 0 var(--space-3);min-width:0}
 .news .pl-chips{display:flex;flex-wrap:wrap;gap:var(--space-3);min-width:0}
-.news .pl-chip{position:relative;display:inline-flex;align-items:center;height:var(--h-chip);padding:0 var(--space-5);border-radius:var(--r-pill);background:var(--chip-bg);box-shadow:var(--key-sh);
+/* 칩 움직임 = 템플릿 .kchip과 같은 조리법(② 단단한 이동, AGENTS §3-38): 체크 자리 14px를 늘 비워 두어 폭이 그대로, 켤 때 fade · 끌 때 close */
+.news .pl-chip{position:relative;display:inline-flex;align-items:center;height:var(--h-chip);padding:0 var(--space-5) 0 var(--space-4);border-radius:var(--r-pill);background:var(--chip-bg);box-shadow:var(--key-sh);
   font-size:var(--fs-sm);line-height:var(--lh-ui);font-weight:600;color:var(--key-fg);white-space:nowrap;touch-action:manipulation;-webkit-tap-highlight-color:transparent;
-  transition:background var(--sp-lead-dur) var(--sp-lead),box-shadow var(--sp-lead-dur) var(--sp-lead),transform var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out)}
-.news .pl-chip .pl-ck{display:inline-block;width:0;height:14px;opacity:0;transform:scale(.6);background:currentColor;-webkit-mask:var(--ck-mask) center/14px no-repeat;mask:var(--ck-mask) center/14px no-repeat;
-  transition:width var(--sp-lead-dur) var(--sp-lead),opacity var(--sp-fade-dur) var(--sp-fade),transform var(--sp-lead-dur) var(--sp-lead),margin var(--sp-lead-dur) var(--sp-lead)}
-.news .pl-chip[aria-pressed="true"]{background:var(--chip-on);box-shadow:inset 0 0 0 1.5px var(--chip-ring),var(--key-sh)}
-.news .pl-chip[aria-pressed="true"] .pl-ck{width:14px;opacity:1;transform:none;margin-right:var(--space-3)}
+  transition:background-color var(--sp-close-dur) var(--sp-close),box-shadow var(--sp-close-dur) var(--sp-close),transform var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out)}
+.news .pl-chip .pl-ck{display:inline-block;flex:none;width:14px;height:14px;margin-right:var(--space-2);opacity:0;background:currentColor;-webkit-mask:var(--ck-mask) center/14px no-repeat;mask:var(--ck-mask) center/14px no-repeat;
+  transition:opacity var(--sp-close-dur) var(--sp-close)}
+.news .pl-chip[aria-pressed="true"]{background:var(--chip-on);box-shadow:inset 0 0 0 1.5px var(--chip-ring),var(--key-sh);
+  transition:background-color var(--sp-fade-dur) var(--sp-fade),box-shadow var(--sp-fade-dur) var(--sp-fade),transform var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out)}
+.news .pl-chip[aria-pressed="true"] .pl-ck{opacity:1;transition:opacity var(--sp-fade-dur) var(--sp-fade)}
 .news .pl-chip .pl-n{margin-left:var(--space-3);color:var(--fg2);font-weight:500;font-variant-numeric:tabular-nums}
 .news .pl-chip .pl-n:empty{display:none}
 .news .pl-chip:not([aria-disabled="true"]):is(:active,.is-press){transform:translateY(1px);box-shadow:var(--key-dn);filter:var(--press-f);transition-duration:0s}
+.news .pl-chip[aria-pressed="true"]:not([aria-disabled="true"]):is(:active,.is-press){box-shadow:inset 0 0 0 1.5px var(--chip-ring),var(--key-dn)}
 .news .pl-chip[aria-disabled="true"]{opacity:.45;cursor:not-allowed}
 @media (hover:hover) and (pointer:fine){ .news .pl-chip:not([aria-disabled="true"]):hover{filter:brightness(1.08)} }
 
@@ -20482,7 +20549,7 @@ sync();
 :is(.kc-ik,.kc-tk,.kc-acts a,.kc-acts button):is(:active,.is-press){transform:translateY(1px);box-shadow:var(--key-dn);filter:var(--press-f);transition-duration:0s}
 @media (hover:hover) and (pointer:fine){ :is(.kc-ik,.kc-tk,.kc-acts a,.kc-acts button,.kc-chip):hover{filter:brightness(1.08)} }
 
-/* week strip: a segment (tray + raised marker; marker edges lead / trail, design.md §7 ①) */
+/* week strip: a segment (tray + raised marker; the marker moves in one piece on lead, design.md §7 ①) */
 .kc-wk{position:relative;display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:var(--space-2);padding:var(--space-2);border-radius:var(--r-key);background:var(--tray-bg);box-shadow:var(--tray-sh)}
 .kc-wk .kc-ind{position:absolute;top:var(--space-2);bottom:var(--space-2);left:0;width:0;border-radius:calc(var(--r-key) - 4px);background:var(--key-bg);box-shadow:var(--key-sh),inset 0 0 0 1.5px var(--acc);pointer-events:none}
 .kc-wk button{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:var(--space-1);min-height:58px;border-radius:calc(var(--r-key) - 4px);transition:filter var(--c-fast) var(--c-out)}
@@ -20498,21 +20565,20 @@ sync();
 .kc-marks b{font-size:var(--fs-xs);font-weight:600;color:var(--muted);line-height:6px}
 
 /* filter chips (pills are for filters only, design.md §7; surface = the 켜고 끄기 칩 of controls.md §5-7: --chip-bg raised, on = --chip-on +
-   1.5px --chip-ring + a check). The check's box is always there, so a chip is as wide on as off and no neighbour moves: off, the label
-   sits centred over it (shifted half the check), on, the check fades and grows in (.6 → 1) and the label slides back. Switching on =
-   `fade` (fill · check) + `lead` (label · check position); switching off = `close` (shorter). The chip is toggled in place (calendar.js). */
+   1.5px --chip-ring + a check). The check's box is always there, so a chip is as wide on as off and no neighbour moves (② 단단한 이동,
+   사용자 2026-11-16 10:02 — the template .kchip's recipe, the left padding a step smaller for the empty place): nothing slides or grows,
+   switching on = `fade` (fill · check), switching off = `close` (shorter). The chip is toggled in place (calendar.js). */
 .kc-chips{display:flex;gap:var(--space-3);overflow-x:auto;padding:var(--space-5) var(--space-3) var(--space-3);margin:0 calc(-1 * var(--space-3));scrollbar-width:none}
 .kc-chips::-webkit-scrollbar{display:none}
-.kc-chip{--ck:14px;--ckg:var(--space-2);position:relative;flex:none;display:inline-flex;align-items:center;height:var(--h-chip);padding:0 var(--space-5);border-radius:var(--r-pill);background:var(--chip-bg);box-shadow:var(--key-sh);
+.kc-chip{--ck:14px;--ckg:var(--space-2);position:relative;flex:none;display:inline-flex;align-items:center;height:var(--h-chip);padding:0 var(--space-5) 0 var(--space-4);border-radius:var(--r-pill);background:var(--chip-bg);box-shadow:var(--key-sh);
   font-size:var(--fs-sm);line-height:var(--lh-ui);font-weight:600;color:var(--key-fg);white-space:nowrap;
   transition:background-color var(--sp-close-dur) var(--sp-close),box-shadow var(--sp-close-dur) var(--sp-close),transform var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out)}
 .kc-chip .kck{flex:none;width:var(--ck);height:var(--ck);margin-right:var(--ckg);background:currentColor;-webkit-mask:var(--ck-mask) center/var(--ck) no-repeat;mask:var(--ck-mask) center/var(--ck) no-repeat;
-  opacity:0;transform:translateX(calc(var(--ck) / -2)) scale(.6);transition:opacity var(--sp-close-dur) var(--sp-close),transform var(--sp-close-dur) var(--sp-close)}
-.kc-chip .kcl{display:inline-block;transform:translateX(calc((var(--ck) + var(--ckg)) / -2));transition:transform var(--sp-close-dur) var(--sp-close)}
+  opacity:0;transition:opacity var(--sp-close-dur) var(--sp-close)}
+.kc-chip .kcl{display:inline-block}
 .kc-chip[aria-pressed="true"]{background:var(--chip-on);box-shadow:inset 0 0 0 1.5px var(--chip-ring),var(--key-sh);
   transition:background-color var(--sp-fade-dur) var(--sp-fade),box-shadow var(--sp-fade-dur) var(--sp-fade),transform var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out)}
-.kc-chip[aria-pressed="true"] .kck{opacity:1;transform:none;transition:opacity var(--sp-fade-dur) var(--sp-fade),transform var(--sp-lead-dur) var(--sp-lead)}
-.kc-chip[aria-pressed="true"] .kcl{transform:none;transition:transform var(--sp-lead-dur) var(--sp-lead)}
+.kc-chip[aria-pressed="true"] .kck{opacity:1;transition:opacity var(--sp-fade-dur) var(--sp-fade)}
 .kc-chip:is(:active,.is-press){transform:translateY(1px);box-shadow:var(--key-dn);filter:var(--press-f);transition-duration:0s}
 .kc-chip[aria-pressed="true"]:is(:active,.is-press){box-shadow:inset 0 0 0 1.5px var(--chip-ring),var(--key-dn)}
 .kc-chips .kc-sep{flex:none;width:1px;margin:var(--space-3) var(--space-1);background:var(--line2)}
@@ -20654,8 +20720,8 @@ sync();
    Each day lists 미국 first, then 한국 (user 2026-11-15 19:2x "미국 일정 한국일정 따로 분리하고 미국일정을 먼저"). Company details the
    Worker tags `minor` (금융위 주식권리일정 시한 …) — and 주총 of stocks neither watched nor on the map — stay behind the chip
    "기업 세부 일정" or a day's own "기업 세부 일정 N개 더 보기" (user 19:23 "그래 그게 맞고").
-   Chips toggle in place (design.md §6 · §7: fill `fade` in / `close` out, the check fades in and the label slides over the box it
-   always reserves, so a chip never changes width and its neighbours never move; press 1px). html[data-motion=reduced] → instant.
+   Chips toggle in place (design.md §6 · §7, ② 단단한 이동: fill and check `fade` in / `close` out in the box the check always reserves,
+   so a chip never changes width and its neighbours never move; nothing slides; press 1px). html[data-motion=reduced] → instant.
    Saved: localStorage khm.cal = {kinds:[…], hi:bool, weekly:bool, detail:bool} (weekly option expiries and company details hidden by default). */
 (() => {
   'use strict';
@@ -20898,7 +20964,7 @@ sync();
     });
     return wk;
   }
-  // the raised marker under the chosen day: leading edge `lead`, trailing `trail` (KH.spring.edges, design.md §6-3 · §7 ①);
+  // the raised marker under the chosen day: one piece on `lead` (KH.spring.edges' default — ② 단단한 이동, design.md §6-3 · §7 ①);
   // the first place, a resize and held arrow keys (design.md §8) set it at once
   function placeInd(animate) {
     const wk = root() && root().querySelector('.kc-wk'); if (!wk) return;

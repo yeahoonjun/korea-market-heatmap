@@ -25,7 +25,7 @@
 :is(.kc-ik,.kc-tk,.kc-acts a,.kc-acts button):is(:active,.is-press){transform:translateY(1px);box-shadow:var(--key-dn);filter:var(--press-f);transition-duration:0s}
 @media (hover:hover) and (pointer:fine){ :is(.kc-ik,.kc-tk,.kc-acts a,.kc-acts button,.kc-chip):hover{filter:brightness(1.08)} }
 
-/* week strip: a segment (tray + raised marker; marker edges lead / trail, design.md §7 ①) */
+/* week strip: a segment (tray + raised marker; the marker moves in one piece on lead, design.md §7 ①) */
 .kc-wk{position:relative;display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:var(--space-2);padding:var(--space-2);border-radius:var(--r-key);background:var(--tray-bg);box-shadow:var(--tray-sh)}
 .kc-wk .kc-ind{position:absolute;top:var(--space-2);bottom:var(--space-2);left:0;width:0;border-radius:calc(var(--r-key) - 4px);background:var(--key-bg);box-shadow:var(--key-sh),inset 0 0 0 1.5px var(--acc);pointer-events:none}
 .kc-wk button{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:var(--space-1);min-height:58px;border-radius:calc(var(--r-key) - 4px);transition:filter var(--c-fast) var(--c-out)}
@@ -41,21 +41,20 @@
 .kc-marks b{font-size:var(--fs-xs);font-weight:600;color:var(--muted);line-height:6px}
 
 /* filter chips (pills are for filters only, design.md §7; surface = the 켜고 끄기 칩 of controls.md §5-7: --chip-bg raised, on = --chip-on +
-   1.5px --chip-ring + a check). The check's box is always there, so a chip is as wide on as off and no neighbour moves: off, the label
-   sits centred over it (shifted half the check), on, the check fades and grows in (.6 → 1) and the label slides back. Switching on =
-   `fade` (fill · check) + `lead` (label · check position); switching off = `close` (shorter). The chip is toggled in place (calendar.js). */
+   1.5px --chip-ring + a check). The check's box is always there, so a chip is as wide on as off and no neighbour moves (② 단단한 이동,
+   사용자 2026-11-16 10:02 — the template .kchip's recipe, the left padding a step smaller for the empty place): nothing slides or grows,
+   switching on = `fade` (fill · check), switching off = `close` (shorter). The chip is toggled in place (calendar.js). */
 .kc-chips{display:flex;gap:var(--space-3);overflow-x:auto;padding:var(--space-5) var(--space-3) var(--space-3);margin:0 calc(-1 * var(--space-3));scrollbar-width:none}
 .kc-chips::-webkit-scrollbar{display:none}
-.kc-chip{--ck:14px;--ckg:var(--space-2);position:relative;flex:none;display:inline-flex;align-items:center;height:var(--h-chip);padding:0 var(--space-5);border-radius:var(--r-pill);background:var(--chip-bg);box-shadow:var(--key-sh);
+.kc-chip{--ck:14px;--ckg:var(--space-2);position:relative;flex:none;display:inline-flex;align-items:center;height:var(--h-chip);padding:0 var(--space-5) 0 var(--space-4);border-radius:var(--r-pill);background:var(--chip-bg);box-shadow:var(--key-sh);
   font-size:var(--fs-sm);line-height:var(--lh-ui);font-weight:600;color:var(--key-fg);white-space:nowrap;
   transition:background-color var(--sp-close-dur) var(--sp-close),box-shadow var(--sp-close-dur) var(--sp-close),transform var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out)}
 .kc-chip .kck{flex:none;width:var(--ck);height:var(--ck);margin-right:var(--ckg);background:currentColor;-webkit-mask:var(--ck-mask) center/var(--ck) no-repeat;mask:var(--ck-mask) center/var(--ck) no-repeat;
-  opacity:0;transform:translateX(calc(var(--ck) / -2)) scale(.6);transition:opacity var(--sp-close-dur) var(--sp-close),transform var(--sp-close-dur) var(--sp-close)}
-.kc-chip .kcl{display:inline-block;transform:translateX(calc((var(--ck) + var(--ckg)) / -2));transition:transform var(--sp-close-dur) var(--sp-close)}
+  opacity:0;transition:opacity var(--sp-close-dur) var(--sp-close)}
+.kc-chip .kcl{display:inline-block}
 .kc-chip[aria-pressed="true"]{background:var(--chip-on);box-shadow:inset 0 0 0 1.5px var(--chip-ring),var(--key-sh);
   transition:background-color var(--sp-fade-dur) var(--sp-fade),box-shadow var(--sp-fade-dur) var(--sp-fade),transform var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out)}
-.kc-chip[aria-pressed="true"] .kck{opacity:1;transform:none;transition:opacity var(--sp-fade-dur) var(--sp-fade),transform var(--sp-lead-dur) var(--sp-lead)}
-.kc-chip[aria-pressed="true"] .kcl{transform:none;transition:transform var(--sp-lead-dur) var(--sp-lead)}
+.kc-chip[aria-pressed="true"] .kck{opacity:1;transition:opacity var(--sp-fade-dur) var(--sp-fade)}
 .kc-chip:is(:active,.is-press){transform:translateY(1px);box-shadow:var(--key-dn);filter:var(--press-f);transition-duration:0s}
 .kc-chip[aria-pressed="true"]:is(:active,.is-press){box-shadow:inset 0 0 0 1.5px var(--chip-ring),var(--key-dn)}
 .kc-chips .kc-sep{flex:none;width:1px;margin:var(--space-3) var(--space-1);background:var(--line2)}

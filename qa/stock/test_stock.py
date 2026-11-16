@@ -192,18 +192,21 @@ def run_iv_ma(b):
     P.wait_chart()
     tabs = P.ev("() => [...document.querySelectorAll('.sp-tfs > button')].map(b => [b.dataset.tf, b.textContent.trim()])")
     check('iv_tabs_are_min_day_week_month_year', tabs == [['min', '분'], ['day', '일'], ['week', '주'], ['month', '월'], ['year', '년']], tabs)
-    # design.md §6-3 · §7 (ux/std-stock): the raised indicator is one element moved by KH.spring.edges — going right, its right edge
-    # (`lead`) gets there ahead of its left edge (`trail`), then both rest on the picked tab; going back left, the left edge leads
+    # design.md §6-3 · §7 (ux/std-stock; ② 단단한 이동 — AGENTS §3-38): the raised indicator is one element moved by KH.spring.edges in
+    # one piece — both edges on `lead`, each the same share of its way at every frame (no edge ahead, no stretch), both rest on the tab
     seg = P.ev("""() => new Promise(res => {
       const s = document.querySelector('.sp-tfs'), ind = s.querySelector(':scope > .sp-ind'), at = k => s.querySelector(`[data-tf="${k}"]`);
       const g = () => { const m = /translateX\\(([-\\d.]+)px\\)/.exec(ind.style.transform || ''); const l = m ? +m[1] : NaN; return [l, l + parseFloat(ind.style.width)]; };
       const out = { h: at('day').getBoundingClientRect().height, caret: !!document.querySelector('.sp-tfmin svg.cr'), on: s.dataset.on != null, before: getComputedStyle(s, '::before').content };
       const run = (k, done) => { const a = g(); at(k).click(); const t0 = performance.now(), fr = [];
         (function f() { fr.push(g()); if (performance.now() - t0 < 750) requestAnimationFrame(f); else done(a, fr, [at(k).offsetLeft, at(k).offsetLeft + at(k).offsetWidth]); })(); };
-      run('year', (a, fr, t) => { out.r = { a, t, end: fr[fr.length - 1], lead: fr.some(([l, r]) => (r - a[1]) / (t[1] - a[1]) - (l - a[0]) / (t[0] - a[0]) > 0.15) };
-        run('day', (a2, fr2, t2) => { out.l = { a: a2, t: t2, end: fr2[fr2.length - 1], lead: fr2.some(([l, r]) => (l - a2[0]) / (t2[0] - a2[0]) - (r - a2[1]) / (t2[1] - a2[1]) > 0.15) }; res(out); }); }); })""")
+      const gap = (a, fr, t) => Math.max(0, ...fr.map(([l, r]) => Math.abs((r - a[1]) / (t[1] - a[1]) - (l - a[0]) / (t[0] - a[0]))));
+      const wd = fr => fr.map(([l, r]) => r - l);
+      run('year', (a, fr, t) => { out.r = { a, t, end: fr[fr.length - 1], gap: gap(a, fr, t), w: [Math.min(...wd(fr)), Math.max(...wd(fr))], moved: new Set(fr.map(x => x[0])).size };
+        run('day', (a2, fr2, t2) => { out.l = { a: a2, t: t2, end: fr2[fr2.length - 1], gap: gap(a2, fr2, t2), w: [Math.min(...wd(fr2)), Math.max(...wd(fr2))], moved: new Set(fr2.map(x => x[0])).size }; res(out); }); }); })""")
     rest = lambda x: abs(x['end'][0] - x['t'][0]) < 1 and abs(x['end'][1] - x['t'][1]) < 1
-    check('iv_segment_indicator_lead_trail_edges', seg['r']['lead'] and seg['l']['lead'] and rest(seg['r']) and rest(seg['l']) and seg['on'] and seg['before'] == 'none' and seg['h'] == 40 and seg['caret'], seg)
+    rigid = lambda x: x['gap'] < 0.01 and x['moved'] >= 5 and x['w'][1] - x['w'][0] <= abs((x['t'][1] - x['t'][0]) - (x['a'][1] - x['a'][0])) + 0.6
+    check('iv_segment_indicator_rigid_lead', rigid(seg['r']) and rigid(seg['l']) and rest(seg['r']) and rest(seg['l']) and seg['on'] and seg['before'] == 'none' and seg['h'] == 40 and seg['caret'], seg)
     wait_iv(P, 'day')
     st = P.ev(PICK_STATE)
     check('iv_min_tab_is_menu_button', st['expanded'] == 'false' and not st['open'] and st['hidden'] and st['pressed'] == 'false' and '분봉' in st['aria']

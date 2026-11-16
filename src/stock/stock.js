@@ -189,7 +189,7 @@ const uiSeg = el => { if (UI && typeof UI.seg === 'function') UI.seg(el); };
 const cMs = (name, d) => (UI && typeof UI.ms === 'function' ? UI.ms(name) : d);          // '줄이기' sets --c-fast/base/switch to 0
 const say = t => { if (UI && typeof UI.live === 'function') UI.live(t); };
 /* 고르기 표시 (design.md §6-3 · §7 · §8): one indicator element per segment / tab row / underline row (.sp-ind), moved by KH.spring.edges —
-   the edge on the side it travels to rides `lead`, the other `trail`, so it stretches a little on the way and settles. The first placement,
+   both edges on `lead` (its default since ② 단단한 이동, AGENTS §3-38): it keeps its shape on the way, no stretch. The first placement,
    a resize, held arrow keys (§8) and 줄이기 put it there at once; a pick on another line of a wrapped row fades it in there (P5). Without
    KH.spring the template's ::before indicator does it (KH.ui.seg). line: the underline row (a 2px bar along the bottom). */
 const SEGS = new Map();   // row → {ind, line, top, quick}
@@ -341,7 +341,7 @@ function build() {
 
 function buildLive() {
   // segments (docs/standards/controls.md §5-4): the template's deep tray (.seg) + one raised indicator that slides (KH.ui.seg)
-  // design.md §7 segment: 분 · 일 · 주 · 월 · 년; the indicator's two edges run on `lead` / `trail` (stock.css)
+  // design.md §7 segment: 분 · 일 · 주 · 월 · 년; the indicator moves in one piece on `lead` (stock.css)
   R.tfs = h('div', { class: 'sp-seg sp-tfs seg', role: 'group', 'aria-label': '차트 간격' },
     TF_TABS.map(([k, label]) => k === 'min'
       ? (R.minBtn = h('button', { type: 'button', class: 'sp-tfmin', 'data-tf': k, 'aria-pressed': 'false', 'aria-haspopup': 'menu', 'aria-expanded': 'false', 'aria-controls': 'sp-ivm',
@@ -2032,7 +2032,7 @@ function buildNews(panel) {
     note: h('p', { class: 'sp-note' }),
   };
   R.nw.srcText = h('span');
-  // the template's switch (§5-8: .swbtn + .swt, 44 × 26, --c-switch, the knob can be dragged with KH.ui.sw)
+  // the template's one switch (§5-8: .swbtn + .swt, 44 × 26, knob on `lead` in one piece, the knob can be dragged with KH.ui.sw)
   R.nw.equity = h('button', { type: 'button', class: 'sp-switch swbtn', role: 'switch', 'aria-checked': 'false', onclick: () => setDiscEquity(!discEquity) },
     h('span', { class: 'sp-switch-t', text: '지분 공시 포함' }), h('span', { class: 'swt', 'aria-hidden': 'true' }));
   if (UI && typeof UI.sw === 'function') UI.sw(R.nw.equity);

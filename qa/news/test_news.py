@@ -476,8 +476,9 @@ def design(br):
     check('design: title tabs = one 2px --acc-line underline under the picked tab (KH.ui.seg indicator)', d['ind'] and d['ul'] == ['2px', d['accLine']] and abs(d['ulX'] - d['tabX']) <= 1 and abs(d['ulW'] - d['tabW']) <= 1, d)
     pg.click('#news-t-disc'); pg.wait_for_timeout(30)
     mv = pg.evaluate("""() => { const t = document.querySelector('#news .nw-ftabs'), cs = getComputedStyle(t, '::before');
-      return { dir: t.dataset.dir, prop: cs.transitionProperty, fn: cs.transitionTimingFunction.split('linear(').length - 1, dur: cs.transitionDuration }; }""")
-    check('design: picking 오늘 공시 moves the underline right — leading edge lead, trailing trail (two linear() spring curves)', mv['dir'] == 'r' and 'left' in mv['prop'] and 'right' in mv['prop'] and mv['fn'] >= 2, mv)
+      const fs = cs.transitionTimingFunction.split(/,\\s*(?=linear\\()/);
+      return { dir: t.dataset.dir, prop: cs.transitionProperty, fn: cs.transitionTimingFunction.split('linear(').length - 1, dur: cs.transitionDuration, one: new Set(fs).size === 1 && new Set(cs.transitionDuration.split(', ')).size === 1 }; }""")
+    check('design: picking 오늘 공시 moves the underline right in one piece — ② 단단한 이동: every edge on the one lead curve, one length', mv['dir'] == 'r' and 'left' in mv['prop'] and 'right' in mv['prop'] and mv['fn'] >= 2 and mv['one'], mv)
     pg.wait_for_timeout(700)
     pg.click('#news-t-news'); pg.wait_for_selector('#news .nw-row:not(.skel)'); pg.wait_for_timeout(700)
     # the fold: frames sampled from the press to the end (open, then close)

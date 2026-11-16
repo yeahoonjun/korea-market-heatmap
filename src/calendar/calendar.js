@@ -6,8 +6,8 @@
    Each day lists 미국 first, then 한국 (user 2026-11-15 19:2x "미국 일정 한국일정 따로 분리하고 미국일정을 먼저"). Company details the
    Worker tags `minor` (금융위 주식권리일정 시한 …) — and 주총 of stocks neither watched nor on the map — stay behind the chip
    "기업 세부 일정" or a day's own "기업 세부 일정 N개 더 보기" (user 19:23 "그래 그게 맞고").
-   Chips toggle in place (design.md §6 · §7: fill `fade` in / `close` out, the check fades in and the label slides over the box it
-   always reserves, so a chip never changes width and its neighbours never move; press 1px). html[data-motion=reduced] → instant.
+   Chips toggle in place (design.md §6 · §7, ② 단단한 이동: fill and check `fade` in / `close` out in the box the check always reserves,
+   so a chip never changes width and its neighbours never move; nothing slides; press 1px). html[data-motion=reduced] → instant.
    Saved: localStorage khm.cal = {kinds:[…], hi:bool, weekly:bool, detail:bool} (weekly option expiries and company details hidden by default). */
 (() => {
   'use strict';
@@ -250,7 +250,7 @@
     });
     return wk;
   }
-  // the raised marker under the chosen day: leading edge `lead`, trailing `trail` (KH.spring.edges, design.md §6-3 · §7 ①);
+  // the raised marker under the chosen day: one piece on `lead` (KH.spring.edges' default — ② 단단한 이동, design.md §6-3 · §7 ①);
   // the first place, a resize and held arrow keys (design.md §8) set it at once
   function placeInd(animate) {
     const wk = root() && root().querySelector('.kc-wk'); if (!wk) return;

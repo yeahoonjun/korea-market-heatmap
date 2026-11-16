@@ -16,7 +16,7 @@
    failures back off 1 → 2 → 4 → 5 min, "오래됨" after 5 min of failures. The Worker's weak ETag goes back as If-None-Match: a 304
    keeps the list and takes the time from x-as-of. A Worker without the route (404): nothing of this shows. Snapshot (dist/): the tab says
    "실시간 버전에서 볼 수 있어요", nothing else.
-   Design standard (docs/standards/design.md, ux/std-news 2026-11-16): the kind tabs are an underline row (KH.ui.seg, lead / trail),
+   Design standard (docs/standards/design.md, ux/std-news 2026-11-16): the kind tabs are an underline row (KH.ui.seg, rigid on lead),
    더보기 · 접기 is the card's fold (KHNews.fold: only the list's box grows on `open`, what is below moves once), counts that move with a
    new answer and a chip's % on a new quote change in place the way they went (KH.ui.swap, §6-4 · P9; the first draw, a map / filter
    change: at once — P4), the switch's count swaps (§6-4). ! = --fail-dot; amber only selected / on / focus. */
@@ -141,15 +141,15 @@ if (!LIVE) {
 
 /* ───────── the map switch in the 오늘 공시 tab: [corner] 지도에서 공시 종목만 밝게 · 26종목 [track] — on → only those stocks stay bright ─────────
    It sat in the map header (#stage-tools) as the chip "공시 26" until 2026-11-15 — 사용자 2026-11-14 08:10 "사진의 공시 버튼 차라리 아래에 뉴스
-   공시칸으로 옮기든 하는게 나을거같아". Now it is a switch (design.md §7: sunken track, raised knob whose two edges move on their own springs —
-   the front one `follow`, the back one `settle` — so it stretches a little on the way) in the tab's own row: at the end of the 공시 종류 ·
+   공시칸으로 옮기든 하는게 나을거같아". Now it is a switch — the template's one switch (.swt: sunken track, raised knob that moves in one
+   piece on `lead`, fill on `fade` — ② 단단한 이동, AGENTS §3-38) — in the tab's own row: at the end of the 공시 종류 ·
    지도 종목만 line on a wide card, a line of its own at the top of the tab on a narrow one (phones · 1024 PC). It only works while that tab
    is on screen: leaving the tab, a hidden card, 해외 · 지표, 공시 보기 off or nothing to light turns the map back to normal (a dimmed map with
    no visible way back is worse than one more press). Not remembered across reloads. The knob can be dragged (KH.ui.sw, from 4 px). */
 const litCount = h('span', { class: 'dc-lc' });                // "· 26종목" (+ "!"), the ring while loading — changes swap in place (§6-4)
 const lit = h('button', { type: 'button', class: 'dc-lit', role: 'switch', 'aria-checked': 'false' },
   h('span', { class: 'dc-ll' }, h('i', { class: 'dmsw', 'aria-hidden': 'true' }), h('span', { class: 'dc-lw', text: '지도에서 공시 종목만 밝게' }), litCount),
-  h('span', { class: 'dc-trk swt', 'aria-hidden': 'true' }, h('i', { class: 'dc-knob' })));
+  h('span', { class: 'dc-trk swt', 'aria-hidden': 'true' }));
 const litBox = h('span', { class: 'dc-litw' }, lit);
 if (typeof UI.sw === 'function') UI.sw(lit);
 lit.addEventListener('click', () => {
