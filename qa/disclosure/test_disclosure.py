@@ -9,7 +9,11 @@ serving the web/ of git rev DISC_QA_BASE (default: main) with no disclosure rout
 
 The map switch (오늘 공시 tab, ux/disc-toggle 2026-11-15) is checked as role=switch + aria-checked; its count is .dc-ln "· N종목".
 DISC_QA_BASE=HEAD compares the working tree's build with the last commit's (use it while changing this feature: main may predate it).
-The baseline check is known to be flaky (a late font / ticker frame) — rerun once before chasing a single failure there.
+The baseline check is known to be flaky (a late font / ticker frame) — rerun once before chasing a single failure there. Since ux/std-news
+both builds get one more fit after the fonts (the template's industry-header label can miss its first fit — main too), a size is measured
+twice at most, and the side cards are shot with the news card hidden (its wrapped titles end on fractional pixels on phones).
+design() (ux/std-news, design.md): token sizes, the kind underline on KH.ui.seg, 더보기 through KHNews.fold, counts that swap only with a
+new answer, the tooltip's 공시 block on the glass plate. --only=design | --only=baseline runs that section alone.
 """
 import json
 import os
