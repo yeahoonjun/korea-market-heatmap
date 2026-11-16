@@ -1935,7 +1935,9 @@ function uiSwap(el, text, from, dir) {
     an.push(n.animate([{ opacity: 0, transform: `translateY(${4 * sg}px)`, filter: blur }, { opacity: 1, transform: 'none', filter: 'blur(0px)' }], { duration: UI_SWAP.in, delay: UI_SWAP.gap, easing: uiEase('fade'), fill: 'backwards' }));
   } catch (e) { uiStop(el); return; }
   el.__us = an;
-  Promise.all(an.map(a => a.finished)).then(() => { if (el.__us === an) { el.__us = null; el.classList.remove('sw-go', 'sw-b'); delete el.dataset.was; } }, () => {});
+  // the end: drop the classes AND cancel the finished animations — the ::before one holds opacity 0 (fill: forwards), and a box whose own
+  // ::before is a mark (the summary card's --live dot) would keep it hidden for good (사용자 2026-11-16 11:45, the empty dot in "장중")
+  Promise.all(an.map(a => a.finished)).then(() => { if (el.__us === an) { el.__us = null; el.classList.remove('sw-go', 'sw-b'); delete el.dataset.was; for (const x of an) { try { x.cancel(); } catch (e) { /* gone */ } } } }, () => {});
 }
 // a number written in place: the swap goes the way the value went (no digit roll — design.md §6-2 P10 keeps rolls for the 화려하게 ticker)
 const numOf = t => { const m = /[+−-]?[\d,]*\.?\d+/.exec(String(t || '').replace(/−/g, '-')); return m ? parseFloat(m[0].replace(/,/g, '')) : NaN; };

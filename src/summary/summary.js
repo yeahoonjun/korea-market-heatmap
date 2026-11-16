@@ -55,6 +55,7 @@ function phase() {
 }
 const dataDay = () => { const a = asOfMs(); return a ? kstOf(a).day : null; };
 const PILL = { pre: '장 전', open: '장중', after: '오늘 마감', closed: '휴장' };
+const streaming = () => { try { const L = window.KHLive, st = L && typeof L.state === 'function' ? L.state() : null; return !!(st && st.phase === 'stream'); } catch (e) { return false; } };
 function whenText(ph) {
   const a = asOfMs(), k = a ? kstOf(a) : null, d = dataDay();
   if (!LIVE) return d ? `${dayLong(d)} 15:30 종가 기준` : '스냅샷 기준';
@@ -199,6 +200,8 @@ function groupBy(list, key, minN, minCap) {
 }
 function model() {
   const ph = phase(), M = { ph, pill: PILL[ph], when: whenText(ph), live: ph === 'open' };
+  // 장중 + the 3-second stream running → "실시간" in --live, the header's word (사용자 2026-11-16 11:45 "장중이 아니라 실시간으로 바꾸고 색깔")
+  if (ph === 'open' && streaming()) M.pill = '실시간';
   if (!LIVE) M.pill = '스냅샷';
   const ix = KH.index() || {};
   const K = ix.KOSPI, Q = ix.KOSDAQ;
@@ -435,10 +438,14 @@ const sec = (title, ...kids) => { const k = kids.flat(Infinity).filter(Boolean);
 function secFlow(M) {
   const B = M.br;
   return sec('오늘 흐름',
-    B ? say(B.say + (B.lu || B.ld ? ` · 상한가 ${B.lu} · 하한가 ${B.ld}` : '')) : null,
+    // the counts in colour (사용자 2026-11-16 11:46 "여기도 색상 적용"): 상한가 · 하한가 like the table above, 상승 : 하락 per market below
+    B ? h('p', { class: 'sm-say' }, B.say, B.lu || B.ld ? [' · 상한가 ', h('b', { class: 'sm-c ' + limCls(B.lu, 1), text: NF0.format(B.lu) }),
+      ' · 하한가 ', h('b', { class: 'sm-c ' + limCls(B.ld, -1), text: NF0.format(B.ld) })] : null) : null,
     M.capSay ? say(M.capSay) : null,
     M.capW != null && B ? line(kk('시총 가중'), num(M.capW), sep(), kk('종목 중간값'), num(B.med)) : null,
-    B ? sub(`상승 : 하락 — 코스피 ${NF0.format(B.K.up)} : ${NF0.format(B.K.dn)} · 코스닥 ${NF0.format(B.Q.up)} : ${NF0.format(B.Q.dn)} · ${scopeText(B)}` + (B.src === 'stream' && B.fail ? ' · 전 종목은 불러오지 못했어요' : '')) : null);
+    B ? h('p', { class: 'sm-sub' }, '상승 : 하락 — 코스피 ', h('b', { class: 'sm-c up', text: NF0.format(B.K.up) }), ' : ', h('b', { class: 'sm-c dn', text: NF0.format(B.K.dn) }),
+      ' · 코스닥 ', h('b', { class: 'sm-c up', text: NF0.format(B.Q.up) }), ' : ', h('b', { class: 'sm-c dn', text: NF0.format(B.Q.dn) }),
+      ` · ${scopeText(B)}` + (B.src === 'stream' && B.fail ? ' · 전 종목은 불러오지 못했어요' : '')) : null);
 }
 function secSector(M) {
   return sec('업종 · 테마',
