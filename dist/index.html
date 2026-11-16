@@ -1251,11 +1251,9 @@ html[data-theme^="glass"] :is(.tip,.sheet,.sugg,.ssheet,.ixtip) :is(.up,.dn):not
    basis badge) are the only secondary words straight on the glass: 어둡게 writes them in --fg. */
 html[data-theme^="glass"] :is(.tip,.sheet,.sugg,.ssheet,.ixtip){--fg2:var(--gl-ink2);--muted:var(--gl-ink2);--faint:var(--gl-ink2)}
 html[data-theme="glass-dark"] header.top .status{--fg2:var(--fg)}
-/* the status badge (실시간 · KRX 15:30 종가 · 다시 보기) on the stuck glass: on the selected tab's near-opaque fill, tinted as before —
-   its --live / amber words fell to 2.2:1 over a bright tile on the clearer glass */
+/* the status badge (실시간 · KRX 15:30 종가 · 다시 보기) on the stuck glass: on the selected tab's near-opaque fill (the live / replay
+   tint of its fill goes; the --live / amber words and border stay) — those words fell to 2.2:1 over a bright tile on the clearer glass */
 html[data-theme^="glass"] header.top .status .badge{background:var(--gl-sel)}
-html[data-theme^="glass"] header.top .status.live .badge{background:color-mix(in srgb,var(--live) 12%,var(--gl-sel))}
-html[data-theme^="glass"] header.top .status.replay .badge{background:color-mix(in srgb,var(--acc-fill) 14%,var(--gl-sel))}
 /* the glass falls back to the opaque panel in place (--m-2 cross-fade) when the frame watchdog trips */
 html[data-theme^="glass"] header.top::before{transition:background var(--m-2) var(--m-out)}
 
