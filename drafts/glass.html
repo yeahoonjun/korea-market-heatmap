@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="ko" data-view="dark" data-blur="on" data-live="on">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark light">
+<link rel="icon" href="data:,">
+<title>글라스 테마 개선 — 시안 · 판세</title>
+<style>
+/* 판세 — 글라스 테마 개선 시안 (AGENTS §3-38). 안마다 재질 값은 아래 스크립트의 표 R 한 곳 — CSS와 대비 계산이 같은 표를 읽어요.
+   혼자 열리는 파일, 외부 요청 없음. 지도 조각은 가짜 값이에요(3초마다 몇 칸씩 바뀜). */
+:root{
+  --sans:'Pretendard Variable',Pretendard,-apple-system,BlinkMacSystemFont,system-ui,'Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',sans-serif;
+  --fs-xs:11px;--fs-sm:12px;--fs-md:13px;--fs-lg:14px;--fs-xl:16px;--fs-2xl:20px;
+  --space-1:2px;--space-2:4px;--space-3:6px;--space-4:8px;--space-5:12px;--space-6:16px;--space-7:24px;--space-8:32px;
+  --r-badge:4px;--r-row:8px;--r-mark:2px;--edge:18px;
+  /* 페이지 글자 (글라스 어둡게) */
+  --pg:#0b0c10;--pg-fg:#f5f6f8;--pg-fg2:#c9cdd4;--pg-muted:#9ea3ad;--pg-line:rgba(255,255,255,.12);--pg-line2:rgba(255,255,255,.18);
+  --pg-acc:#ffb547;--pg-acc-soft:rgba(255,181,71,.14);--pg-acc-bd:rgba(255,181,71,.35);--pg-fill:rgba(255,255,255,.05);
+}
+@media (max-width:760px){:root{--edge:12px}}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%;background:var(--pg)}
+body{margin:0;background:var(--pg);color:var(--pg-fg);font:400 var(--fs-md)/1.45 var(--sans);overflow-x:clip;-webkit-tap-highlight-color:transparent}
+button{font:inherit;color:inherit;background:none;border:0;margin:0;padding:0;cursor:pointer;touch-action:manipulation}
+:focus-visible{outline:3px solid #ffb547;outline-offset:2px}
+h1,h2,h3,p,ul{margin:0}
+.wrap{max-width:1180px;margin:0 auto;padding:0 var(--edge) var(--space-8)}
+
+.bar{position:sticky;top:0;z-index:30;background:var(--pg);box-shadow:0 1px 0 var(--pg-line2)}
+.bar .in{max-width:1180px;margin:0 auto;padding:var(--space-4) var(--edge);display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-4) var(--space-5)}
+.opt{display:flex;align-items:center;gap:var(--space-2)}
+.opt>span{font-size:var(--fs-xs);color:var(--pg-muted);margin-right:var(--space-1)}
+.opt button{min-height:34px;padding:0 var(--space-4);border-radius:var(--r-row);box-shadow:inset 0 0 0 1px var(--pg-line2);font-size:var(--fs-sm);font-weight:600;color:var(--pg-fg2)}
+.opt button[aria-pressed="true"]{color:var(--pg-fg);background:var(--pg-acc-soft);box-shadow:inset 0 0 0 1.5px var(--pg-acc)}
+@media (pointer:coarse){.opt button{min-height:40px}}
+
+.intro{padding:var(--space-6) 0 var(--space-4)}
+.intro h1{font-size:var(--fs-2xl);font-weight:700;line-height:1.2;letter-spacing:-.01em}
+.intro p{margin-top:var(--space-4);color:var(--pg-fg2);font-size:var(--fs-lg);word-break:keep-all}
+.why{margin-top:var(--space-4);padding:var(--space-5);border-radius:var(--r-row);background:var(--pg-fill);box-shadow:inset 0 0 0 1px var(--pg-line)}
+.why h2{font-size:var(--fs-lg);font-weight:700}
+.why ol{margin:var(--space-3) 0 0;padding-left:20px;display:grid;gap:var(--space-2);font-size:var(--fs-md);color:var(--pg-fg2);word-break:keep-all}
+.why b{color:var(--pg-fg);font-weight:600}
+.recbox{margin:var(--space-5) 0 var(--space-4);padding:var(--space-5);border-radius:var(--r-row);background:var(--pg-acc-soft);box-shadow:inset 0 0 0 1px var(--pg-acc-bd);word-break:keep-all}
+.recbox p{font-size:var(--fs-md)}
+.recbox p+p{margin-top:var(--space-3);color:var(--pg-fg2)}
+.recbox b{color:var(--pg-acc)}
+.rules{margin-top:var(--space-3);font-size:var(--fs-sm);color:var(--pg-muted);word-break:keep-all}
+
+.rc{margin-top:var(--space-7);padding-top:var(--space-6);border-top:1px solid var(--pg-line2)}
+.rc.is-rec .rh h2::after{content:"추천";display:inline-flex;align-items:center;height:18px;margin-left:var(--space-4);padding:0 var(--space-3);border-radius:var(--r-badge);background:#ffb547;color:#1b1404;font-size:var(--fs-xs);font-weight:600;vertical-align:3px}
+.rh h2{font-size:var(--fs-xl);font-weight:700;word-break:keep-all}
+.rh h2 .no{color:var(--pg-fg2);margin-right:var(--space-2)}
+.rh .lead{margin-top:var(--space-3);font-size:var(--fs-lg);word-break:keep-all}
+.spec{list-style:none;padding:0;margin-top:var(--space-4);display:grid;gap:var(--space-2)}
+.spec li{position:relative;padding-left:64px;font-size:var(--fs-sm);color:var(--pg-fg2);word-break:keep-all;line-height:1.5}
+.spec li b{position:absolute;left:0;top:0;font-weight:600;color:var(--pg-muted)}
+.spec code{white-space:nowrap;font:600 var(--fs-xs) var(--sans);color:var(--pg-fg);background:var(--pg-fill);border-radius:var(--r-badge);padding:1px var(--space-2)}
+
+.scenes{margin-top:var(--space-5);display:grid;grid-template-columns:1fr;gap:var(--space-6)}
+@media (min-width:900px){html[data-view="both"] .scenes{grid-template-columns:1fr 1fr}}
+html[data-view="dark"] .sw-light,html[data-view="light"] .sw-dark{display:none!important}
+.scw{min-width:0;max-width:560px}
+@media (min-width:900px){html:not([data-view="both"]) .scw{max-width:none;display:grid;grid-template-columns:minmax(0,560px) minmax(0,1fr);gap:var(--space-6);align-items:start}}
+.scw .lab{font-size:var(--fs-xs);color:var(--pg-muted);margin-bottom:var(--space-3)}
+.cx{margin-top:var(--space-3);font-size:var(--fs-sm);color:var(--pg-fg2);word-break:keep-all}
+.cx p+p{margin-top:var(--space-1)}
+.cx p:first-child{font-size:var(--fs-xs);color:var(--pg-muted)}
+.cx .n{font-variant-numeric:tabular-nums;font-weight:600;color:var(--pg-fg)}
+.cx .low{color:var(--pg-fg);text-decoration:underline;text-decoration-style:dotted;text-underline-offset:3px}
+.cx .low::before{content:"! ";font-weight:700}
+.cx small{display:block;margin-top:var(--space-1);font-size:var(--fs-xs);color:var(--pg-muted)}
+
+/* ── 장면: 지도 조각 + 유리 판 넷 ── */
+.sc{position:relative;height:556px;border-radius:16px;overflow:hidden;background:var(--page);color:var(--fg);font-size:var(--fs-md);isolation:isolate;contain:paint}
+.sc[data-t="dark"]{--page:#0b0c10;--map-bg:#000;--fg:#f5f6f8;--fg2:#c9cdd4;--muted:#9ea3ad;--up:#ff6b74;--dn:#2fd67a;--acc:#ffb547;--acc-line:#ffb547;--live:#b48fff;
+  --fill-2:rgba(255,255,255,.09);--tray-bg:rgba(0,0,0,.34);--tray-sh:inset 0 1px 2px rgba(0,0,0,.5),inset 0 0 0 .5px rgba(255,255,255,.1);
+  --ind-bg:rgba(255,255,255,.16);--ind-sh:inset 0 1px 0 rgba(255,255,255,.38),inset 0 -1px 0 rgba(0,0,0,.2),inset 0 0 0 .5px rgba(255,255,255,.2),0 1px 2px rgba(0,0,0,.35),0 4px 10px rgba(0,0,0,.25);
+  --key-bg:rgba(255,255,255,.11);--key-sh:inset 0 1px 0 rgba(255,255,255,.32),inset 0 -1px 0 rgba(0,0,0,.25),inset 0 0 0 .5px rgba(255,255,255,.16),0 1px 2px rgba(0,0,0,.4),0 4px 10px rgba(0,0,0,.25);
+  --tile-fg:#fff;--lab-sh:0 0 1px rgba(0,0,0,.6),0 0 3px rgba(0,0,0,.42),0 1px 2px rgba(0,0,0,.5)}
+.sc[data-t="light"]{--page:#e7eaf0;--map-bg:#f8f9fb;--fg:#0f1115;--fg2:#353b44;--muted:#535a65;--up:#b8232d;--dn:#0b6e3b;--acc:#7f4700;--acc-line:#a86200;--live:#6a3fd0;
+  --fill-2:rgba(20,16,12,.07);--tray-bg:rgba(15,17,21,.06);--tray-sh:inset 0 1px 2px rgba(15,17,21,.13),inset 0 0 0 .5px rgba(15,17,21,.07);
+  --ind-bg:#fafbfc;--ind-sh:inset 0 1px 0 #fff,inset 0 0 0 .5px rgba(15,17,21,.06),0 1px 2px rgba(20,30,50,.16),0 4px 10px rgba(20,30,50,.1);
+  --key-bg:rgba(255,255,255,.8);--key-sh:inset 0 1px 0 #fff,inset 0 -1px 0 rgba(15,17,21,.05),inset 0 0 0 .5px rgba(15,17,21,.08),0 1px 2px rgba(20,30,50,.14),0 4px 10px rgba(20,30,50,.08);
+  --tile-fg:#000;--lab-sh:none}
+.map{position:absolute;left:0;right:0;top:0;height:392px;background:var(--map-bg);border-radius:0 0 12px 12px;overflow:hidden}
+.tile{position:absolute;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;text-align:center;color:var(--tile-fg);text-shadow:var(--lab-sh);
+  box-shadow:inset 0 0 0 .5px var(--map-bg);line-height:1.15;font-variant-numeric:tabular-nums}
+.tile .nm{font-weight:600;font-size:12px;white-space:nowrap;max-width:94%;overflow:hidden;text-overflow:ellipsis}
+.tile .pc{font-size:12px}
+.tile.big .nm{font-size:15px}.tile.big .pc{font-size:14px}
+.tile.sm .nm{display:none}.tile.xs .pc{display:none}
+.tile::after{content:"";position:absolute;inset:0;opacity:0;pointer-events:none}
+.tile.fu::after{background:rgba(255,255,255,.16);animation:fl 700ms ease-out}
+.tile.fd::after{background:rgba(0,0,0,.2);animation:fl 700ms ease-out}
+.sc[data-t="light"] .tile.fu::after,.sc[data-t="light"] .tile.fd::after{background:rgba(20,32,58,.09)}
+@keyframes fl{from{opacity:1}to{opacity:0}}
+@media (prefers-reduced-motion:reduce){.tile.fu::after,.tile.fd::after{animation:none}}
+
+/* 유리 판 — 재질은 판마다 변수(--bg 채움 · --bf 뒤 흐림 · --sh 그림자/가장자리 · --rg 가장자리 반사 고리 · --rw 고리 굵기 · --ro 고리 투명도 · --rad 모서리) */
+.g{position:absolute;z-index:2;background:var(--bg);-webkit-backdrop-filter:var(--bf,none);backdrop-filter:var(--bf,none);box-shadow:var(--sh,none);border-radius:var(--rad,16px);color:var(--fg)}
+.g::after{content:"";position:absolute;inset:0;border-radius:inherit;padding:var(--rw,1px);background:var(--rg,none);opacity:var(--ro,1);pointer-events:none;
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask:linear-gradient(#000 0 0) content-box exclude,linear-gradient(#000 0 0)}
+.head{top:2px;left:4px;right:4px;padding:var(--space-3) var(--space-4) var(--space-4)}
+.hrow{display:flex;align-items:center;gap:var(--space-4);height:30px;padding:0 var(--space-2)}
+.logo{font-size:var(--fs-xl);font-weight:700;letter-spacing:-.02em}
+.clk{margin-left:auto;font-size:var(--fs-xl);font-weight:650;font-variant-numeric:tabular-nums}
+.clk small{font-size:var(--fs-sm);color:var(--fg2);font-weight:600;margin-left:1px}
+.live{display:inline-flex;align-items:center;gap:var(--space-2);font-size:var(--fs-xs);font-weight:600;color:var(--fg2)}
+.live::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--live)}
+.tray{position:relative;display:flex;gap:var(--space-1);margin-top:var(--space-3);padding:var(--space-1);border-radius:999px;background:var(--tray-bg);box-shadow:var(--tray-sh)}
+.tray span{position:relative;z-index:1;flex:1 1 0;display:flex;flex-direction:column;align-items:center;justify-content:center;height:40px;border-radius:999px;font-size:var(--fs-lg);font-weight:600;color:var(--fg2);line-height:1.15}
+.tray span.on{color:var(--fg);background:var(--ind-bg);box-shadow:var(--ind-sh),inset 0 -2px 0 var(--acc-line)}
+.tray small{font-size:var(--fs-xs);font-weight:600;font-variant-numeric:tabular-nums}
+.up{color:var(--up)}.dn{color:var(--dn)}.fl{color:var(--fg2)}
+.pop{top:112px;right:10px;width:min(208px,60%);padding:var(--space-3)}
+.pop .t{padding:var(--space-2) var(--space-3) var(--space-3);font-size:var(--fs-xs);font-weight:600;color:var(--fg2)}
+.pop .row{display:flex;align-items:center;justify-content:space-between;height:38px;padding:0 var(--space-3);border-radius:calc(var(--rad) - 6px);font-size:var(--fs-md)}
+.pop .row.on{background:var(--fill-2);font-weight:600}
+.pop .row svg{width:16px;height:16px;color:var(--acc)}
+.pop .hint{padding:var(--space-3) var(--space-3) var(--space-2);font-size:var(--fs-xs);color:var(--fg2);line-height:1.35;word-break:keep-all}
+.card{left:10px;right:10px;top:404px;padding:var(--space-4) var(--space-5) var(--space-5)}
+.card .ct{display:flex;align-items:baseline;gap:var(--space-4)}
+.card .ct b{font-size:var(--fs-lg);font-weight:650}
+.card .ct span{font-size:var(--fs-xs);color:var(--fg2)}
+.card .nums{display:flex;gap:var(--space-6);margin-top:var(--space-3);font-size:var(--fs-xl);font-weight:700;font-variant-numeric:tabular-nums}
+.card .nums small{font-size:var(--fs-xs);font-weight:600;color:var(--fg2);margin-right:var(--space-2)}
+.brd{display:flex;gap:2px;height:8px;margin-top:var(--space-3);border-radius:var(--r-badge);overflow:hidden}
+.brd i{display:block;height:100%;border-radius:var(--r-mark)}
+.dock{left:8px;right:8px;bottom:8px;height:56px;display:flex;align-items:center;padding:0 var(--space-2) 0 var(--space-5)}
+.dock .dc{flex:1 1 0;min-width:0;display:flex;flex-direction:column;justify-content:center;line-height:1.2}
+.dock .dc+.dc{padding-left:var(--space-5);margin-left:var(--space-5);box-shadow:-1px 0 0 var(--div,rgba(127,127,127,.25))}
+.dock .dc span{font-size:var(--fs-xs);color:var(--fg2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dock .dc b{font-size:var(--fs-xl);font-weight:650;font-variant-numeric:tabular-nums;white-space:nowrap}
+.dock .dc b small{font-size:var(--fs-sm);margin-left:var(--space-2)}
+.dock .dc .brd{height:6px;margin-top:5px}
+.dock .q{flex:none;display:grid;place-items:center;width:44px;height:44px;margin-left:var(--space-4);border-radius:50%;background:var(--key-bg);box-shadow:var(--key-sh);color:var(--fg)}
+.dock .q svg{width:18px;height:18px}
+</style>
+<style id="gen"></style>
+</head>
+<body>
+<div class="bar"><div class="in">
+  <div class="opt" role="group" aria-label="테마"><span>테마</span><button type="button" data-k="view" data-v="dark" aria-pressed="true">어둡게</button><button type="button" data-k="view" data-v="light" aria-pressed="false">밝게</button><button type="button" data-k="view" data-v="both" aria-pressed="false">둘 다</button></div>
+  <div class="opt" role="group" aria-label="흐림"><span>흐림</span><button type="button" data-k="blur" data-v="on" aria-pressed="true">켬</button><button type="button" data-k="blur" data-v="off" aria-pressed="false">끔 · 대체 모습</button></div>
+  <div class="opt" role="group" aria-label="지도 갱신"><span>지도</span><button type="button" data-k="live" data-v="on" aria-pressed="true">3초마다 바뀜</button><button type="button" data-k="live" data-v="off" aria-pressed="false">멈춤</button></div>
+</div></div>
+
+<main class="wrap">
+  <section class="intro">
+    <h1>글라스 테마 개선 — 시안</h1>
+    <p>같은 화면 조각(머리글 · 탭 줄, 떠 있는 팝오버, 카드, 아래 막대)에 유리 네 가지를 입혔어요. 히트맵 조각은 3초마다 몇 칸씩 바뀌어요. 글라스 어둡게 · 밝게 · 둘 다를 위에서 바꿔 볼 수 있어요.</p>
+    <div class="why">
+      <h2>지금 유리가 약해 보이는 까닭</h2>
+      <ol>
+        <li><b>채움이 거의 불투명해요.</b> 떠 있는 판 84 %, 카드 74 %, 아래 막대 100 % — 뒤 색이 거의 안 비쳐요.</li>
+        <li><b>가장자리 빛이 너무 가늘어요.</b> .5px 고리 · 12~16 %라 휴대폰에선 거의 안 보여요.</li>
+        <li><b>비칠 색이 없는 곳이 많아요.</b> 지도 위에 오는 건 붙은 머리글 · 떠 있는 판뿐이에요. 카드 · 아래 막대는 지도 아래 바탕 위에 놓여서(아래 막대는 지도가 지나간 뒤에 떠요) 비칠 색이 없어요 — 거기서 유리를 만드는 건 가장자리와 두께예요. 그래서 장면도 실제처럼 머리글 · 팝오버는 지도 위, 카드 · 아래 막대는 지도 아래에 뒀어요.</li>
+      </ol>
+    </div>
+    <div class="recbox" id="recbox"></div>
+    <p class="rules">네 안이 모두 지키는 것: 흐림은 지도 위에 뜨는 판(붙은 머리글 + 떠 있는 판)에만, 한 화면 2장까지 · 카드 · 아래 막대 · 키는 흐림 0 · 판 위 보조 글자는 한 단 진하게(--fg2) · 빨강 · 초록은 데이터에만 · 흐림을 끄거나 ‘투명도 줄이기’면 같은 모양에 채움만 불투명.</p>
+  </section>
+  <div id="recipes"></div>
+  <p class="rules" style="margin-top:24px">대비는 판 뒤가 넓은 한 색 타일일 때(흐림이 도움이 안 되는 가장 나쁜 경우)로 계산했어요 — 뒤 색에 채도 · 밝기를 건 뒤 채움을 덮은 색. 광택 그라데이션은 빼고 셌어요. 실기기에서 재지 않았어요.</p>
+</main>
+
+<script>
+(function () {
+  'use strict';
+  /* ── 재질 표: 안 × 테마 × 판(head 머리글 · float 떠 있는 판 · card · dock) ──
+     fill [r,g,b,a] · blur px · sat · bri(뒤 흐림에 거는 값) · sheen(위 광택, 채움 위에 그림) · sh(그림자 · 가장자리) · ring(가장자리 반사 고리) · fb(대체 모습 채움) */
+  const W = 'rgba(255,255,255,';
+  const ringNow = 'linear-gradient(140deg,' + W + '.5),transparent 28%,transparent 72%,' + W + '.2))';
+  const R = [
+    { id: 'now', no: '①', name: '지금 앱 (비교 기준)',
+      lead: '반투명 판 + 흐림 + .5px 가장자리. 판이 거의 불투명이라 유리라기보다 어두운 판이에요.',
+      edge: '위 1px 빛 .16~.24 + .5px 고리 · 140° 반사 고리(툴팁 · 머리글만)',
+      cost: '흐림 판 2장 — 머리글 20px · 떠 있는 판 24px(디자인 기준 §5 상한 20px을 넘어요). 카드 · 아래 막대 0장. 이걸 1로 봐요.',
+      fbText: '지금 규칙 그대로 — 어둡게 #1b1d23 · 머리글 #14161b, 밝게 #f4f6f9 · #eef1f5.',
+      dark: {
+        head: { fill: [16, 18, 24, .62], blur: 20, sat: 1.6, bri: 1, sheen: 'linear-gradient(180deg,' + W + '.07),' + W + '0) 60%)', sh: 'inset 0 1px 0 ' + W + '.16),inset 0 0 0 .5px ' + W + '.1),0 10px 24px rgba(0,0,0,.3)', ring: [ringNow, 1, .5], rad: 22, fb: [20, 22, 27] },
+        float: { fill: [20, 22, 28, .84], blur: 24, sat: 1.4, bri: 1, sheen: 'linear-gradient(180deg,' + W + '.09),' + W + '0) 30%)', sh: 'inset 0 1px 0 ' + W + '.24),inset 0 0 0 .5px ' + W + '.12),0 18px 50px rgba(0,0,0,.5)', ring: [ringNow, 1, 1], rad: 20, fb: [27, 29, 35] },
+        card: { fill: [27, 29, 35, .74], sh: 'inset 0 1px 0 ' + W + '.16),inset 0 0 0 .5px ' + W + '.1),inset 0 -1px 0 rgba(0,0,0,.25),0 10px 30px rgba(0,0,0,.35)', rad: 22 },
+        dock: { fill: [24, 26, 32, 1], sh: 'inset 0 1px 0 ' + W + '.22),inset 0 0 0 .5px ' + W + '.14),0 12px 32px rgba(0,0,0,.5)', rad: 28 } },
+      light: {
+        head: { fill: [246, 247, 250, .64], blur: 20, sat: 1.6, bri: 1, sheen: 'linear-gradient(180deg,' + W + '.5),' + W + '0) 60%)', sh: 'inset 0 1px 0 #fff,inset 0 0 0 .5px rgba(15,17,21,.08),0 10px 24px rgba(20,30,50,.1)', ring: [ringNow, 1, 1], rad: 22, fb: [238, 241, 245] },
+        float: { fill: [248, 249, 251, .86], blur: 24, sat: 1.4, bri: 1, sheen: 'linear-gradient(180deg,' + W + '.5),' + W + '0) 30%)', sh: 'inset 0 1px 0 #fff,inset 0 0 0 .5px ' + W + '.8),0 18px 50px rgba(20,30,50,.24)', ring: [ringNow, 1, 1], rad: 20, fb: [244, 246, 249] },
+        card: { fill: [255, 255, 255, .69], sh: 'inset 0 1px 0 #fff,inset 0 0 0 .5px ' + W + '.9),0 1px 2px rgba(20,30,50,.06),0 10px 30px rgba(20,30,50,.1)', rad: 22 },
+        dock: { fill: [249, 250, 251, 1], sh: 'inset 0 1px 0 #fff,inset 0 0 0 .5px rgba(15,17,21,.1),0 12px 32px rgba(20,30,50,.18)', rad: 28 } } },
+
+    { id: 'frost', no: '②', name: '두꺼운 서리 유리',
+      lead: '흐림을 상한(20px)까지, 채도를 올리고 채움을 60 % 안팎으로 낮췄어요. 뒤 타일 색이 부드러운 색 덩어리로 번져 보여요.',
+      edge: '위 1px 빛 .28 + 1px 안쪽 고리 .08 + 아래 1px 그늘, 160° 반사 고리',
+      cost: '흐림 판 2장, 둘 다 20px + 채도 1.8 · 밝기 1.04(흐림과 같은 단계에서 계산 — 추가 비용 거의 없음). 장수 · 면적은 지금과 같아요 ≈ 1.',
+      fbText: '어둡게 #1e2028 · 머리글 #16181e, 밝게 #f6f7fa · #eff1f5 — 위 광택과 가장자리는 그대로.',
+      dark: {
+        head: { fill: [18, 20, 26, .56], blur: 20, sat: 1.8, bri: 1.04, sheen: 'linear-gradient(180deg,' + W + '.1),' + W + '.02) 50%,' + W + '0))', sh: 'inset 0 1px 0 ' + W + '.28),inset 0 0 0 1px ' + W + '.07),inset 0 -1px 0 rgba(0,0,0,.3),0 12px 28px rgba(0,0,0,.35)', ring: ['linear-gradient(160deg,' + W + '.35),' + W + '.05) 40%,' + W + '.14))', 1, 1], rad: 22, fb: [22, 24, 30] },
+        float: { fill: [24, 26, 33, .6], blur: 20, sat: 1.8, bri: 1.04, sheen: 'linear-gradient(180deg,' + W + '.12),' + W + '.03) 45%,' + W + '0))', sh: 'inset 0 1px 0 ' + W + '.28),inset 0 0 0 1px ' + W + '.08),inset 0 -1px 0 rgba(0,0,0,.3),0 16px 40px rgba(0,0,0,.45)', ring: ['linear-gradient(160deg,' + W + '.35),' + W + '.05) 40%,' + W + '.14))', 1, 1], rad: 20, fb: [30, 32, 40] },
+        card: { fill: [34, 36, 44, .9], sheen: 'linear-gradient(180deg,' + W + '.07),' + W + '0) 50%)', sh: 'inset 0 1px 0 ' + W + '.2),inset 0 0 0 1px ' + W + '.07),inset 0 -1px 0 rgba(0,0,0,.3),0 10px 28px rgba(0,0,0,.4)', rad: 22 },
+        dock: { fill: [32, 34, 42, 1], sheen: 'linear-gradient(180deg,' + W + '.07),' + W + '0) 50%)', sh: 'inset 0 1px 0 ' + W + '.22),inset 0 0 0 1px ' + W + '.07),inset 0 -1px 0 rgba(0,0,0,.3),0 12px 32px rgba(0,0,0,.5)', rad: 28 } },
+      light: {
+        head: { fill: [246, 247, 250, .56], blur: 20, sat: 1.7, bri: 1.03, sheen: 'linear-gradient(180deg,' + W + '.55),' + W + '.1) 50%,' + W + '0))', sh: 'inset 0 1px 0 #fff,inset 0 0 0 1px ' + W + '.55),inset 0 -1px 0 rgba(15,17,21,.06),0 12px 28px rgba(20,30,50,.12)', ring: ['linear-gradient(160deg,' + W + '.95),' + W + '.25) 40%,' + W + '.6))', 1, 1], rad: 22, fb: [239, 241, 245] },
+        float: { fill: [250, 251, 253, .6], blur: 20, sat: 1.7, bri: 1.03, sheen: 'linear-gradient(180deg,' + W + '.55),' + W + '.1) 45%,' + W + '0))', sh: 'inset 0 1px 0 #fff,inset 0 0 0 1px ' + W + '.6),inset 0 -1px 0 rgba(15,17,21,.06),0 16px 40px rgba(20,30,50,.2)', ring: ['linear-gradient(160deg,' + W + '.95),' + W + '.25) 40%,' + W + '.6))', 1, 1], rad: 20, fb: [246, 247, 250] },
+        card: { fill: [255, 255, 255, .82], sheen: 'linear-gradient(180deg,' + W + '.6),' + W + '0) 50%)', sh: 'inset 0 1px 0 #fff,inset 0 0 0 1px ' + W + '.7),inset 0 -1px 0 rgba(15,17,21,.05),0 1px 2px rgba(20,30,50,.08),0 10px 28px rgba(20,30,50,.12)', rad: 22 },
+        dock: { fill: [250, 251, 253, 1], sheen: 'linear-gradient(180deg,' + W + '.6),' + W + '0) 50%)', sh: 'inset 0 1px 0 #fff,inset 0 0 0 1px ' + W + '.7),inset 0 -1px 0 rgba(15,17,21,.06),0 12px 32px rgba(20,30,50,.18)', rad: 28 } } },
+
+    { id: 'clear', no: '③', name: '맑은 유리 + 강한 가장자리',
+      lead: '흐림을 8px로 줄이고 채움을 40 % 안팎으로 — 뒤 타일 모양이 비쳐요. 대신 가장자리 빛을 1.5px로 또렷하게, 뒤를 조금 어둡게(밝게는 밝게) 해서 글자를 지켜요.',
+      edge: '1.5px 반사 고리(135°, 위 왼쪽 .85) + 위 1px .5 + 아래 1px 빛 .12 + 1px 안쪽 고리',
+      cost: '흐림 판 2장, 8px. 흐림은 가장 싸요 ≈ 0.8. 대신 3초마다 바뀌는 타일이 판 뒤로 또렷이 비쳐 글자 뒤가 자주 흔들려요.',
+      fbText: '어둡게 #17191f · 머리글 #121418, 밝게 #f7f8fa · #f0f2f5 — 1.5px 가장자리는 그대로.',
+      dark: {
+        head: { fill: [10, 11, 15, .38], blur: 8, sat: 1.3, bri: .8, sheen: 'linear-gradient(180deg,' + W + '.06),' + W + '0) 35%)', sh: 'inset 0 1px 0 ' + W + '.5),inset 0 -1px 0 ' + W + '.12),inset 0 0 0 1px ' + W + '.14),0 14px 34px rgba(0,0,0,.45)', ring: ['linear-gradient(135deg,' + W + '.85),' + W + '.15) 30%,' + W + '.05) 60%,' + W + '.45))', 1.5, 1], rad: 22, fb: [18, 20, 24] },
+        float: { fill: [12, 13, 17, .42], blur: 8, sat: 1.3, bri: .82, sheen: 'linear-gradient(180deg,' + W + '.06),' + W + '0) 35%)', sh: 'inset 0 1px 0 ' + W + '.5),inset 0 -1px 0 ' + W + '.12),inset 0 0 0 1px ' + W + '.14),0 20px 50px rgba(0,0,0,.55)', ring: ['linear-gradient(135deg,' + W + '.85),' + W + '.15) 30%,' + W + '.05) 60%,' + W + '.45))', 1.5, 1], rad: 20, fb: [23, 25, 31] },
+        card: { fill: [22, 24, 30, .82], sh: 'inset 0 1px 0 ' + W + '.45),inset 0 -1px 0 ' + W + '.1),inset 0 0 0 1px ' + W + '.12),0 14px 34px rgba(0,0,0,.45)', ring: ['linear-gradient(135deg,' + W + '.7),' + W + '.12) 30%,' + W + '.04) 60%,' + W + '.35))', 1.5, 1], rad: 22 },
+        dock: { fill: [22, 24, 30, .94], sh: 'inset 0 1px 0 ' + W + '.45),inset 0 -1px 0 ' + W + '.1),inset 0 0 0 1px ' + W + '.12),0 14px 34px rgba(0,0,0,.5)', ring: ['linear-gradient(135deg,' + W + '.7),' + W + '.12) 30%,' + W + '.04) 60%,' + W + '.35))', 1.5, 1], rad: 28 } },
+      light: {
+        head: { fill: [255, 255, 255, .38], blur: 8, sat: 1.25, bri: 1.12, sheen: 'linear-gradient(180deg,' + W + '.4),' + W + '0) 35%)', sh: 'inset 0 1px 0 #fff,inset 0 -1px 0 ' + W + '.8),inset 0 0 0 1px ' + W + '.6),0 0 0 .5px rgba(15,17,21,.16),0 14px 34px rgba(20,30,50,.16)', ring: ['linear-gradient(135deg,#fff,' + W + '.4) 30%,' + W + '.15) 60%,' + W + '.9))', 1.5, 1], rad: 22, fb: [240, 242, 245] },
+        float: { fill: [255, 255, 255, .46], blur: 8, sat: 1.25, bri: 1.12, sheen: 'linear-gradient(180deg,' + W + '.4),' + W + '0) 35%)', sh: 'inset 0 1px 0 #fff,inset 0 -1px 0 ' + W + '.8),inset 0 0 0 1px ' + W + '.6),0 0 0 .5px rgba(15,17,21,.16),0 20px 50px rgba(20,30,50,.22)', ring: ['linear-gradient(135deg,#fff,' + W + '.4) 30%,' + W + '.15) 60%,' + W + '.9))', 1.5, 1], rad: 20, fb: [247, 248, 250] },
+        card: { fill: [255, 255, 255, .74], sh: 'inset 0 1px 0 #fff,inset 0 -1px 0 ' + W + '.8),inset 0 0 0 1px ' + W + '.6),0 0 0 .5px rgba(15,17,21,.14),0 14px 34px rgba(20,30,50,.14)', ring: ['linear-gradient(135deg,#fff,' + W + '.4) 30%,' + W + '.15) 60%,' + W + '.9))', 1.5, 1], rad: 22 },
+        dock: { fill: [255, 255, 255, .9], sh: 'inset 0 1px 0 #fff,inset 0 -1px 0 ' + W + '.8),inset 0 0 0 1px ' + W + '.6),0 0 0 .5px rgba(15,17,21,.14),0 14px 34px rgba(20,30,50,.18)', ring: ['linear-gradient(135deg,#fff,' + W + '.4) 30%,' + W + '.15) 60%,' + W + '.9))', 1.5, 1], rad: 28 } } },
+
+    { id: 'liquid', no: '④', name: '리퀴드 글라스 느낌 (절제)',
+      lead: '중간 흐림(14px)에 채도 1.8로 뒤 색을 진하게(밝게에선 뒤를 6 % 밝혀요), 가장자리는 위 왼쪽 · 아래 오른쪽이 빛을 받는 두께 있는 유리예요. 굴절(SVG 필터)은 뺐어요.',
+      edge: '1.25px 반사 고리(위 왼쪽 .7 · 아래 오른쪽 .5) + 위 · 아래 1px 빛 + 옆 1px + 안쪽 위아래 옅은 두께 그늘',
+      cost: '흐림 판 2장, 14px + 채도 1.8 ≈ 0.9. 두께 그늘 · 고리는 판을 그릴 때 한 번(지도가 바뀌어도 다시 계산 안 함). 굴절(feDisplacementMap)은 크롬 계열에서만 되고 사파리 · 파이어폭스는 안 되며, 삼성 인터넷은 여기서 확인할 수 없고, 3초마다 바뀌는 지도 위에선 판마다 비용이 커서 넣지 않았어요(themes.md §6-2와 같은 결정).',
+      fbText: '어둡게 #1c1e25 · 머리글 #15171c, 밝게 #f6f7f9 · #eef0f4 — 두께 그늘 · 고리는 그대로.',
+      dark: {
+        head: { fill: [14, 16, 22, .48], blur: 14, sat: 1.8, bri: 1, sheen: 'radial-gradient(130% 70% at 25% 0%,' + W + '.1),' + W + '0) 60%)', sh: 'inset 0 1px 0 ' + W + '.34),inset 1px 0 0 ' + W + '.1),inset -1px 0 0 ' + W + '.06),inset 0 -1px 0 ' + W + '.16),inset 0 10px 18px -14px ' + W + '.12),inset 0 -12px 20px -16px ' + W + '.12),0 1px 2px rgba(0,0,0,.3),0 12px 30px rgba(0,0,0,.36)', ring: ['linear-gradient(135deg,' + W + '.7),' + W + '.12) 22%,' + W + '0) 50%,' + W + '.1) 78%,' + W + '.5))', 1.25, 1], rad: 24, fb: [21, 23, 28] },
+        float: { fill: [16, 18, 24, .58], blur: 14, sat: 1.8, bri: 1, sheen: 'radial-gradient(130% 70% at 25% 0%,' + W + '.1),' + W + '0) 60%)', sh: 'inset 0 1px 0 ' + W + '.34),inset 1px 0 0 ' + W + '.1),inset -1px 0 0 ' + W + '.06),inset 0 -1px 0 ' + W + '.16),inset 0 10px 18px -14px ' + W + '.12),inset 0 -12px 20px -16px ' + W + '.12),0 1px 2px rgba(0,0,0,.3),0 14px 36px rgba(0,0,0,.42)', ring: ['linear-gradient(135deg,' + W + '.7),' + W + '.12) 22%,' + W + '0) 50%,' + W + '.1) 78%,' + W + '.5))', 1.25, 1], rad: 24, fb: [28, 30, 37] },
+        card: { fill: [30, 32, 40, .86], sheen: 'radial-gradient(130% 70% at 25% 0%,' + W + '.07),' + W + '0) 60%)', sh: 'inset 0 1px 0 ' + W + '.3),inset 1px 0 0 ' + W + '.08),inset -1px 0 0 ' + W + '.05),inset 0 -1px 0 ' + W + '.12),inset 0 -12px 20px -16px ' + W + '.1),0 1px 2px rgba(0,0,0,.3),0 10px 28px rgba(0,0,0,.38)', ring: ['linear-gradient(135deg,' + W + '.55),' + W + '.1) 22%,' + W + '0) 50%,' + W + '.08) 78%,' + W + '.4))', 1.25, 1], rad: 24 },
+        dock: { fill: [27, 29, 36, .97], sheen: 'radial-gradient(130% 70% at 25% 0%,' + W + '.07),' + W + '0) 60%)', sh: 'inset 0 1px 0 ' + W + '.3),inset 1px 0 0 ' + W + '.08),inset -1px 0 0 ' + W + '.05),inset 0 -1px 0 ' + W + '.12),inset 0 -12px 20px -16px ' + W + '.1),0 1px 2px rgba(0,0,0,.3),0 12px 32px rgba(0,0,0,.48)', ring: ['linear-gradient(135deg,' + W + '.55),' + W + '.1) 22%,' + W + '0) 50%,' + W + '.08) 78%,' + W + '.4))', 1.25, 1], rad: 28 } },
+      light: {
+        head: { fill: [255, 255, 255, .46], blur: 14, sat: 1.8, bri: 1.06, sheen: 'radial-gradient(130% 70% at 25% 0%,' + W + '.55),' + W + '0) 60%)', sh: 'inset 0 1px 0 #fff,inset 1px 0 0 ' + W + '.7),inset -1px 0 0 ' + W + '.5),inset 0 -1px 0 ' + W + '.9),inset 0 -12px 20px -16px ' + W + '.9),0 0 0 .5px rgba(15,17,21,.1),0 1px 2px rgba(20,30,50,.12),0 12px 30px rgba(20,30,50,.16)', ring: ['linear-gradient(135deg,#fff,' + W + '.35) 22%,' + W + '0) 50%,' + W + '.3) 78%,' + W + '.9))', 1.25, 1], rad: 24, fb: [238, 240, 244] },
+        float: { fill: [255, 255, 255, .54], blur: 14, sat: 1.8, bri: 1.06, sheen: 'radial-gradient(130% 70% at 25% 0%,' + W + '.55),' + W + '0) 60%)', sh: 'inset 0 1px 0 #fff,inset 1px 0 0 ' + W + '.7),inset -1px 0 0 ' + W + '.5),inset 0 -1px 0 ' + W + '.9),inset 0 -12px 20px -16px ' + W + '.9),0 0 0 .5px rgba(15,17,21,.1),0 1px 2px rgba(20,30,50,.12),0 14px 36px rgba(20,30,50,.2)', ring: ['linear-gradient(135deg,#fff,' + W + '.35) 22%,' + W + '0) 50%,' + W + '.3) 78%,' + W + '.9))', 1.25, 1], rad: 24, fb: [246, 247, 249] },
+        card: { fill: [255, 255, 255, .8], sheen: 'radial-gradient(130% 70% at 25% 0%,' + W + '.6),' + W + '0) 60%)', sh: 'inset 0 1px 0 #fff,inset 1px 0 0 ' + W + '.7),inset -1px 0 0 ' + W + '.5),inset 0 -1px 0 ' + W + '.9),0 0 0 .5px rgba(15,17,21,.08),0 1px 2px rgba(20,30,50,.08),0 10px 28px rgba(20,30,50,.12)', ring: ['linear-gradient(135deg,#fff,' + W + '.35) 22%,' + W + '0) 50%,' + W + '.3) 78%,' + W + '.9))', 1.25, 1], rad: 24 },
+        dock: { fill: [251, 252, 253, .97], sheen: 'radial-gradient(130% 70% at 25% 0%,' + W + '.6),' + W + '0) 60%)', sh: 'inset 0 1px 0 #fff,inset 1px 0 0 ' + W + '.7),inset -1px 0 0 ' + W + '.5),inset 0 -1px 0 ' + W + '.9),0 0 0 .5px rgba(15,17,21,.1),0 1px 2px rgba(20,30,50,.1),0 12px 32px rgba(20,30,50,.18)', ring: ['linear-gradient(135deg,#fff,' + W + '.35) 22%,' + W + '0) 50%,' + W + '.3) 78%,' + W + '.9))', 1.25, 1], rad: 28 } } },
+  ];
+  /* 프레임 순서: ① 지금은 맨 앞(번호 없음) */
+  const REC = 'liquid';
+
+  /* ── 색 계산 (CSS 필터 함수는 sRGB에서 계산) ── */
+  const hexRGB = c => { c = c.replace('#', ''); return [0, 2, 4].map(i => parseInt(c.slice(i, i + 2), 16)); };
+  const mix = (a, b, t) => a.map((v, i) => v * (1 - t) + b[i] * t);
+  const clamp = v => Math.max(0, Math.min(255, v));
+  function filt(rgb, sat, bri) {
+    const [r, g, b] = rgb.map(v => v / 255), s = sat;
+    const R2 = (.213 + .787 * s) * r + (.715 - .715 * s) * g + (.072 - .072 * s) * b;
+    const G2 = (.213 - .213 * s) * r + (.715 + .285 * s) * g + (.072 - .072 * s) * b;
+    const B2 = (.213 - .213 * s) * r + (.715 - .715 * s) * g + (.072 + .928 * s) * b;
+    return [R2, G2, B2].map(v => clamp(Math.max(0, Math.min(1, v)) * bri * 255));
+  }
+  const lum = rgb => { const f = v => { v /= 255; return v <= .04045 ? v / 12.92 : Math.pow((v + .055) / 1.055, 2.4); }; const [r, g, b] = rgb.map(f); return .2126 * r + .7152 * g + .0722 * b; };
+  const contrast = (a, b) => { const A = lum(a), B = lum(b); return (Math.max(A, B) + .05) / (Math.min(A, B) + .05); };
+
+  /* 지도 팔레트 (빨강 상승, template.html PALETTES.krg · lightPal) */
+  const PAL = {
+    dark: ['#12a15b', '#15814b', '#1f5a41', '#383c46', '#74303c', '#b8343f', '#ef3e4a'].map(hexRGB),
+    light: (() => { const N = hexRGB('#cfd3da'), g = hexRGB('#0e8247'), r = hexRGB('#d0303a'); return [g, mix(N, g, .72), mix(N, g, .42), N, mix(N, r, .42), mix(N, r, .72), r]; })(),
+  };
+  const MAPBG = { dark: [0, 0, 0], light: [248, 249, 251] };
+  const TXT = {
+    dark: { fg: '#f5f6f8', fg2: '#c9cdd4', up: '#ff6b74', dn: '#2fd67a' },
+    light: { fg: '#0f1115', fg2: '#353b44', up: '#b8232d', dn: '#0b6e3b' },
+  };
+  /* 머리글 탭의 숫자 판(트레이)과 고른 탭 — 지금 앱 값 / 새 안 공통(숫자 뒤는 불투명에 가깝게) */
+  const PLATE = {
+    now: { dark: { tray: [0, 0, 0, .34], sel: [255, 255, 255, .16] }, light: { tray: [15, 17, 21, .06], sel: [250, 251, 252, 1] } },
+    any: { dark: { tray: [0, 0, 0, .55], sel: [44, 47, 56, .94] }, light: { tray: [255, 255, 255, .72], sel: [255, 255, 255, 1] } },
+  };
+  const plate = (rec, th) => (PLATE[rec.id] || PLATE.any)[th];
+  const over = (f, c) => c.map((v, i) => f[3] * f[i] + (1 - f[3]) * v);
+  /* 지도 위 가장 나쁜 경우: 판 뒤가 넓은 한 색 타일(흐림이 섞어 주지 못함) — 뒤 색에 채도 · 밝기 → 채움 → (트레이 → 고른 탭) */
+  function worst(rec, th) {
+    const T = {}; for (const k in TXT[th]) T[k] = hexRGB(TXT[th][k]);
+    const H = rec[th].head, F = rec[th].float, pl = plate(rec, th), I = Infinity;
+    const o = { hd: I, tabUp: I, tabDn: I, tabFg2: I, selUp: I, selDn: I, flFg: I, flFg2: I, flNum: I };
+    for (const bg of PAL[th].concat([MAPBG[th]])) {
+      const h0 = over(H.fill, filt(bg, H.sat, H.bri)), t = over(pl.tray, h0), s = over(pl.sel, t), f = over(F.fill, filt(bg, F.sat, F.bri));
+      o.hd = Math.min(o.hd, contrast(T.fg, h0));
+      o.tabUp = Math.min(o.tabUp, contrast(T.up, t)); o.tabDn = Math.min(o.tabDn, contrast(T.dn, t)); o.tabFg2 = Math.min(o.tabFg2, contrast(T.fg2, t));
+      o.selUp = Math.min(o.selUp, contrast(T.up, s)); o.selDn = Math.min(o.selDn, contrast(T.dn, s));
+      o.flFg = Math.min(o.flFg, contrast(T.fg, f)); o.flFg2 = Math.min(o.flFg2, contrast(T.fg2, f));
+      o.flNum = Math.min(o.flNum, contrast(T.up, f), contrast(T.dn, f));
+    }
+    return o;
+  }
+  const colorAt = (pc, th) => {     // ±3 % 일곱 단계 사이를 잇기
+    const s = PAL[th], x = Math.max(-3, Math.min(3, pc)) + 3, i = Math.min(5, Math.floor(x)), t = x - i;
+    return mix(s[i], s[i + 1], t).map(Math.round);
+  };
+  const css = rgb => 'rgb(' + rgb.map(Math.round).join(',') + ')';
+
+  /* ── 생성 CSS ── */
+  const rgba = f => 'rgba(' + f.slice(0, 3).join(',') + ',' + f[3] + ')';
+  function decl(P, fallback) {
+    const fill = fallback && P.fb ? 'rgb(' + P.fb.join(',') + ')' : rgba(P.fill);
+    const bg = (P.sheen ? P.sheen + ',' : '') + fill;
+    const bf = !fallback && P.blur ? 'blur(' + P.blur + 'px) saturate(' + P.sat + ')' + (P.bri !== 1 ? ' brightness(' + P.bri + ')' : '') : 'none';
+    let s = '--bg:' + bg + ';--bf:' + bf + ';';
+    if (!fallback) s += '--sh:' + P.sh + ';--rad:' + P.rad + 'px;' + (P.ring ? '--rg:' + P.ring[0] + ';--rw:' + P.ring[1] + 'px;--ro:' + P.ring[2] + ';' : '--rg:none;');
+    return s;
+  }
+  let gen = '', genFb = '';
+  for (const rec of R) for (const th of ['dark', 'light']) {
+    const sel = '.sc[data-r="' + rec.id + '"][data-t="' + th + '"]';
+    const map = { head: '.head', float: '.pop', card: '.card', dock: '.dock' };
+    for (const pn in map) {
+      const P = rec[th][pn];
+      gen += sel + ' ' + map[pn] + '{' + decl(P, false) + '}\n';
+      if (P.blur) genFb += sel + ' ' + map[pn] + '{' + decl(P, true) + '}\n';
+    }
+    const pl = plate(rec, th);
+    gen += sel + '{--div:' + (th === 'dark' ? 'rgba(255,255,255,.12)' : 'rgba(15,17,21,.1)') + ';--tray-bg:' + rgba(pl.tray) + ';--ind-bg:' + rgba(pl.sel) + '}\n';
+  }
+  /* 대체 모습: 흐림 끔(시안 단추) · 투명도 줄이기 · backdrop-filter 없음 → 같은 모양, 채움만 불투명 */
+  gen += genFb.replace(/^/gm, 'html[data-blur="off"] ').replace(/html\[data-blur="off"\] $/, '');
+  gen += '@media (prefers-reduced-transparency:reduce){\n' + genFb + '}\n';
+  gen += '@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){\n' + genFb + '}\n';
+  document.getElementById('gen').textContent = gen;
+
+  /* ── 지도 조각 (squarify, 가짜 값) ── */
+  let seed = 7;
+  const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const STOCKS = [['삼성전자', 420, 1.42], ['SK하이닉스', 150, 3.1], ['LG에너지솔루션', 90, -.84], ['삼성바이오로직스', 60, .35], ['현대차', 45, -1.6], ['기아', 38, -1.1],
+    ['셀트리온', 36, 2.3], ['KB금융', 30, .9], ['NAVER', 28, -2.4], ['신한지주', 25, .6], ['POSCO홀딩스', 24, -.3], ['삼성물산', 22, 1.1], ['HD현대중공업', 21, 4.2],
+    ['현대모비스', 20, -.5], ['LG화학', 19, -2.9], ['카카오', 18, -1.3], ['삼성SDI', 17, .1], ['하나금융지주', 15, 1.7], ['두산에너빌리티', 14, 2.8], ['메리츠금융', 14, -.2],
+    ['삼성생명', 13, .4], ['SK이노베이션', 12, -.9], ['한국전력', 12, .2], ['고려아연', 11, -3.4], ['삼성전기', 10, 1.9], ['크래프톤', 9, -.6], ['SK텔레콤', 8, .05], ['KT&G', 8, .7]]
+    .map(([n, v, p]) => ({ n, v, p }));
+  const NW = 360, NH = 392;
+  function squarify(items) {
+    const tot = items.reduce((a, b) => a + b.v, 0), sc = NW * NH / tot;
+    const list = items.map(d => Object.assign({}, d, { a: d.v * sc }));
+    const out = []; let x = 0, y = 0, w = NW, h = NH, row = [];
+    const wst = (r, side) => { const s = r.reduce((a, b) => a + b.a, 0), mx = Math.max(...r.map(q => q.a)), mn = Math.min(...r.map(q => q.a)); return Math.max(side * side * mx / (s * s), s * s / (side * side * mn)); };
+    const lay = () => {
+      const s = row.reduce((a, b) => a + b.a, 0);
+      if (w >= h) { const cw = s / h; let cy = y; for (const r of row) { const rh = r.a / cw; out.push(Object.assign(r, { x, y: cy, w: cw, h: rh })); cy += rh; } x += cw; w -= cw; }
+      else { const rh = s / w; let cx = x; for (const r of row) { const rw = r.a / rh; out.push(Object.assign(r, { x: cx, y, w: rw, h: rh })); cx += rw; } y += rh; h -= rh; }
+      row = [];
+    };
+    while (list.length) {
+      const side = Math.min(w, h), it = list[0];
+      if (!row.length || wst(row.concat(it), side) <= wst(row, side)) { row.push(it); list.shift(); } else lay();
+    }
+    if (row.length) lay();
+    return out;
+  }
+  const LAYOUT = squarify(STOCKS);
+  const fmt = p => (p > 0 ? '+' : p < 0 ? '−' : '') + Math.abs(p).toFixed(2) + '%';
+
+  function h(tag, attrs) {
+    const el = document.createElement(tag);
+    if (attrs) for (const k in attrs) { const v = attrs[k]; if (v == null || v === false) continue; if (k === 'class') el.className = v; else if (k === 'html') el.innerHTML = v; else el.setAttribute(k, String(v)); }
+    for (let i = 2; i < arguments.length; i++) { const c = arguments[i]; if (c == null || c === false) continue; if (Array.isArray(c)) c.forEach(x => x != null && el.append(x)); else el.append(c); }
+    return el;
+  }
+  const CK = '<svg viewBox="0 0 20 20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 10.5l3.6 3.6 7.4-8"/></svg>';
+  const Q = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5" vector-effect="non-scaling-stroke"/><path d="M15.5 15.5L20 20" vector-effect="non-scaling-stroke"/></svg>';
+
+  function breadth(th) {
+    const s = PAL[th];
+    return h('div', { class: 'brd', 'aria-hidden': 'true' }, h('i', { style: 'flex:612;background:' + css(s[6]) }), h('i', { style: 'flex:41;background:' + css(s[3]) }), h('i', { style: 'flex:295;background:' + css(s[0]) }));
+  }
+  function card(th) {
+    return h('div', { class: 'g card' },
+      h('div', { class: 'ct' }, h('b', null, '등락 분포'), h('span', null, '코스피 전 종목 948')),
+      h('div', { class: 'nums' }, h('span', { class: 'up' }, h('small', null, '오른'), '612'), h('span', { class: 'fl' }, h('small', null, '보합'), '41'), h('span', { class: 'dn' }, h('small', null, '내린'), '295')),
+      breadth(th));
+  }
+  function dock(th) {
+    return h('div', { class: 'g dock' },
+      h('div', { class: 'dc' }, h('span', null, '코스피'), h('b', null, '2,612.34', h('small', { class: 'up' }, '+0.84%'))),
+      h('div', { class: 'dc' }, h('span', null, '등락 분포 · 상한 3 · 하한 0'), breadth(th)),
+      h('span', { class: 'q', 'aria-hidden': 'true', html: Q }));
+  }
+  const tilesByScene = [];
+  function scene(rec, th) {
+    const map = h('div', { class: 'map', 'aria-hidden': 'true' });
+    const tiles = LAYOUT.map(d => {
+      const t = h('div', { class: 'tile', style: 'left:' + (d.x / NW * 100) + '%;top:' + (d.y / NH * 100) + '%;width:' + (d.w / NW * 100) + '%;height:' + (d.h / NH * 100) + '%;background:' + css(colorAt(d.p, th)) },
+        h('span', { class: 'nm' }, d.n), h('span', { class: 'pc' }, fmt(d.p)));
+      map.append(t); return t;
+    });
+    const sc = h('div', { class: 'sc', 'data-r': rec.id, 'data-t': th, role: 'img', 'aria-label': rec.name + ' · 글라스 ' + (th === 'dark' ? '어둡게' : '밝게') + ' 장면' },
+      map,
+      h('div', { class: 'g head' },
+        h('div', { class: 'hrow' }, h('span', { class: 'logo' }, '판세'), h('span', { class: 'live' }, '실시간'), h('span', { class: 'clk' }, '13:05', h('small', null, ':42'))),
+        h('div', { class: 'tray' },
+          h('span', { class: 'on' }, '코스피', h('small', { class: 'up' }, '+0.84%')),
+          h('span', null, '코스닥', h('small', { class: 'dn' }, '−0.31%')),
+          h('span', null, '전체', h('small', { class: 'up' }, '+0.52%')),
+          h('span', null, '테마', h('small', { class: 'fl' }, ' ')))),
+      h('div', { class: 'g pop' },
+        h('div', { class: 't' }, '색 기준'),
+        h('div', { class: 'row on' }, '오늘 등락률', h('span', { html: CK })),
+        h('div', { class: 'row' }, '기간 수익률'),
+        h('div', { class: 'row' }, '외국인 순매수'),
+        h('div', { class: 'row' }, '기관 순매수'),
+        h('div', { class: 'hint' }, '타일 색을 무엇으로 칠할지 골라요')),
+      card(th), dock(th));
+    tilesByScene.push({ tiles, th });
+    const w = worst(rec, th);
+    const num = (v, lab) => h('span', { class: v < 4.5 ? 'low' : null }, lab + ' ', h('span', { class: 'n' }, v.toFixed(1)));
+    const cx = h('div', { class: 'cx' },
+      h('p', null, '지도 위 가장 나쁜 대비'),
+      h('p', null, '머리글 탭 숫자 — ', num(w.tabUp, '상승'), ' · ', num(w.tabDn, '하락'), ' · ', num(Math.min(w.selUp, w.selDn), '고른 탭')),
+      h('p', null, '떠 있는 판 — ', num(w.flFg, '본문'), ' · ', num(w.flFg2, '보조'), ' · ', num(w.flNum, '등락 숫자')),
+      h('small', null, '! = 4.5:1 아래. 판 위 등락 숫자(툴팁 · 빠른 보기)가 4.5 아래면 숫자를 숫자 판(어둡게 검정 55 % · 밝게 흰색 72 %) 위에 써요 — 머리글 탭처럼.'));
+    return h('div', { class: 'scw sw-' + th },
+      h('div', null, h('div', { class: 'lab' }, '글라스 ' + (th === 'dark' ? '어둡게' : '밝게')), sc),
+      h('div', null, cx));
+  }
+
+  const host = document.getElementById('recipes');
+  for (const rec of R) {
+    const P = rec.dark;
+    const fl = p => p.blur ? '흐림 ' + p.blur + 'px · 채도 ' + p.sat + (p.bri !== 1 ? ' · 밝기 ' + p.bri : '') : '흐림 없음';
+    const pct = p => Math.round(p.fill[3] * 100) + ' %';
+    const sec = h('section', { class: 'rc' + (rec.id === REC ? ' is-rec' : ''), id: 'r-' + rec.id, 'aria-labelledby': 'rh-' + rec.id },
+      h('div', { class: 'rh' },
+        h('h2', { id: 'rh-' + rec.id }, rec.no ? h('span', { class: 'no' }, rec.no) : null, rec.name),
+        h('p', { class: 'lead' }, rec.lead),
+        h('ul', { class: 'spec' },
+          h('li', null, h('b', null, '두께'), '머리글 ', h('code', null, fl(P.head)), ' · 떠 있는 판 ', h('code', null, fl(P.float))),
+          h('li', null, h('b', null, '바탕 비침'), '채움 — 머리글 ', h('code', null, pct(P.head)), ' · 떠 있는 판 ', h('code', null, pct(P.float)), ' · 카드 ', h('code', null, pct(P.card)), ' · 아래 막대 ', h('code', null, pct(P.dock)), ' (어둡게 기준)'),
+          h('li', null, h('b', null, '가장자리'), rec.edge),
+          h('li', null, h('b', null, '비용'), rec.cost),
+          h('li', null, h('b', null, '대체 모습'), '흐림 끔 · 투명도 줄이기 · 흐림 미지원: ' + rec.fbText))),
+      h('div', { class: 'scenes' }, scene(rec, 'dark'), scene(rec, 'light')));
+    host.append(sec);
+  }
+  /* 숫자 이름 정리: 지금 = 비교 기준, 그다음 ② ③ ④ — 표의 no 그대로 */
+
+  /* 추천 */
+  const rw = { dark: worst(R.find(r => r.id === REC), 'dark'), light: worst(R.find(r => r.id === REC), 'light') };
+  const nowW = { dark: worst(R[0], 'dark'), light: worst(R[0], 'light') };
+  const minTab = t => Math.min(rw[t].tabUp, rw[t].tabDn, rw[t].selUp, rw[t].selDn), minFl = t => Math.min(rw[t].flFg2, rw[t].flFg);
+  document.getElementById('recbox').append(
+    h('p', null, h('b', null, '추천 ④ 리퀴드 글라스 느낌(절제)'), ' — 처음 글라스를 정할 때의 요청(“애플의 리퀴드 글라스 느낌”)에 가장 가깝고, 판이 두께 있는 유리로 보여요.'),
+    h('p', null, '읽기: 머리글 탭의 등락 숫자는 지도 위 가장 나쁜 경우에도 어둡게 ' + minTab('dark').toFixed(1) + ':1 · 밝게 ' + minTab('light').toFixed(1) + ':1이에요 — 숫자 뒤에 숫자 판(트레이)을 깔아서예요. 지금 앱은 ' + Math.min(nowW.dark.selUp, nowW.light.tabUp).toFixed(1) + ':1까지 떨어져요(빨강이 진한 날, 고른 탭 · 밝게). 떠 있는 판 글자는 보조까지 어둡게 ' + minFl('dark').toFixed(1) + ' · 밝게 ' + minFl('light').toFixed(1) + ':1. 비용: 흐림 판 2장 그대로, 떠 있는 판 반경 24 → 14px.'),
+    h('p', null, '다른 길: 글자 뒤가 가장 고른 건 ② 서리 유리예요 — 유리 느낌보다 차분함이 중요하면 ②. ③은 가장 맑지만 3초마다 바뀌는 타일이 글자 뒤에서 또렷이 흔들려요.'));
+
+  /* 타일 글자 크기 (실제 그려진 크기로) */
+  function fitTiles() {
+    for (const s of tilesByScene) for (const t of s.tiles) {
+      const w = t.clientWidth, hh = t.clientHeight;
+      t.classList.toggle('big', w > 120 && hh > 70);
+      t.classList.toggle('sm', w < 56 || hh < 30);
+      t.classList.toggle('xs', w < 46 || hh < 16);
+    }
+  }
+  /* 밝은 지도: 타일 글자는 검정 · 흰색 중 대비가 큰 쪽 */
+  function ink(t, th, rgb) { if (th === 'light') t.style.color = contrast(rgb, [0, 0, 0]) >= contrast(rgb, [255, 255, 255]) ? '#000' : '#fff'; }
+  tilesByScene.forEach(s => s.tiles.forEach((t, i) => ink(t, s.th, colorAt(LAYOUT[i].p, s.th))));
+  fitTiles();
+  let rz = 0; addEventListener('resize', () => { cancelAnimationFrame(rz); rz = requestAnimationFrame(fitTiles); });
+
+  /* 3초마다 몇 칸씩 바뀜 (가짜 값) */
+  const root = document.documentElement;
+  setInterval(() => {
+    if (document.hidden || root.dataset.live !== 'on') return;
+    const pick = new Set(); while (pick.size < 5) pick.add(Math.floor(rnd() * LAYOUT.length));
+    for (const i of pick) {
+      const d = LAYOUT[i], dv = (rnd() - .5) * 1.2, up = dv > 0;
+      d.p = Math.max(-6, Math.min(8, +(d.p + dv).toFixed(2)));
+      for (const s of tilesByScene) {
+        const t = s.tiles[i], rgb = colorAt(d.p, s.th);
+        t.style.background = css(rgb); ink(t, s.th, rgb);
+        t.lastChild.textContent = fmt(d.p);
+        t.classList.remove('fu', 'fd'); void t.offsetWidth; t.classList.add(up ? 'fu' : 'fd');
+        setTimeout(() => t.classList.remove('fu', 'fd'), 720);
+      }
+    }
+  }, 3000);
+
+  /* 맨 위 도구 */
+  document.querySelector('.bar').addEventListener('click', e => {
+    const b = e.target.closest('.opt button'); if (!b) return;
+    root.dataset[b.dataset.k] = b.dataset.v;
+    b.parentElement.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+    requestAnimationFrame(fitTiles);
+  });
+})();
+</script>
+</body>
+</html>
