@@ -28,7 +28,7 @@ from playwright.sync_api import sync_playwright
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 PORT = int(os.environ.get('EXTRAS_STD_PORT', 9016))
-assert 9010 <= PORT <= 9019, 'ports 9010–9019'
+assert 9010 <= PORT <= 9019 or 9070 <= PORT <= 9079, 'ports 9010–9019 (or 9070–9079: ux/motion-rigid)'
 URL = f'http://127.0.0.1:{PORT}/'
 NOPROXY = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 FAILS, PASSES, ERRS = [], [], []
