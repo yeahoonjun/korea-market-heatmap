@@ -1,5 +1,5 @@
 /* 해외 지수 · 원자재 tabs (AGENTS.md §3-4).
-   window.KHWorld = { show(kind), hide(), layout(), shown() }   kind: 'index' | 'commodity'
+   window.KHWorld = { show(kind), hide(), layout(), shown(), view(), openDetail(key, opts), detailOpen(), zones() }   kind: 'index' | 'commodity'
    The template shows <div id="world"> (in place of the map + side cards) and calls show(); another tab calls hide().
    Data (live only): GET api/world?kind=…  every 30 s while shown and the browser tab is visible (지표 = kind=commodity&with=fx,rates);
                      GET api/world/chart/{key}?tf=3m|1y for the detail sheet (daily closes; no intraday source exists).
@@ -177,7 +177,27 @@ const chipText = it => isRate(it) ? bpText(bpOf(it)) : isFundPct(it) ? fundChg(i
 const chipIsChange = it => isRate(it) || isFundPct(it);
 const isRef = it => !!it.ref;
 const isFut = it => it.gkey === 'usf';                 // 미국 선물: listed under 미국, never part of its average
-const colorOf = (it, scope) => isRef(it) ? tok().ref : (it.ratio == null || !isFinite(it.ratio)) ? tok().nodata : KH.colorOf(it.ratio, scope || 'world');
+/* 색 범위 자동 · 구역마다 (AGENTS §3-27, 사용자 2026-11-16 13:04 "지표탭에서 등락률 자동 계산은 환율 금리 증시자금 에너지 금속 농산물 등
+   각 구역별 계산이 필요할거같아"): on the 지표 tab under 자동 every group (환율 · 금리 · 증시 자금 · 에너지 · 금속 · 농산물 — whatever
+   groups the Worker sends) takes its own range, measured on its own rows with the template's one rule (KH.autoRange: p95 → the zone
+   step table, hysteresis per zone). 환율 moves ±0.3 % a day and 원자재 ±3 %, so one range for the tab left 환율 · 금리 grey.
+   금리 is coloured by its bp change (the number its chip shows) on the bp table; the others by their %. A picked ±3 · ±5 · ±10 %
+   keeps one range for the whole tab, as before (금리 then colour by their % change on it — the old rule). 해외 (지수) stays on the
+   tab's range: regions move alike. ZR = Map gkey → {key, name, value (±R), unit '%'|'bp', p95}, only while the 지표 tab draws under
+   자동; null otherwise (hidden, 해외, a picked range, an older template). */
+let ZR = null;
+const zoneNum = it => isRate(it) ? bpOf(it) : it.ratio;         // what a zone colours: a yield's bp, every other row's %
+const zoneOf = (it, scope) => ZR && scope !== 'kr' && it && !isRef(it) ? ZR.get(it.gkey) || null : null;
+// the number behind an item's colour (and its bar): the zone's (bp for a yield) or, on the tab's range, the % change
+const colNum = (it, scope) => zoneOf(it, scope) ? zoneNum(it) : it.ratio;
+const rTxt = v => { const a = Math.abs(v); return String(+(a >= 10 ? a.toFixed(0) : a >= 1 ? a.toFixed(1) : a.toFixed(2))); };   // the template's fmtR
+const zoneTxt = z => `±${rTxt(z.value)}${z.unit === 'bp' ? 'bp' : '%'}`;
+const colorOf = (it, scope) => {
+  if (isRef(it)) return tok().ref;
+  const z = zoneOf(it, scope), v = z ? zoneNum(it) : it.ratio;
+  if (v == null || !isFinite(v)) return tok().nodata;
+  return z ? KH.colorOf(v, { scope: scope || 'world', range: z.value }) : KH.colorOf(v, scope || 'world');
+};
 // the detail sheet's side: 'world', or 'kr' for a 국내 index opened from the ticker / the dock
 const dScope = () => (S.detail && S.detail.scope === 'kr' ? 'kr' : 'world');
 const weightOf = it => WEIGHT[it.key] || 1;
@@ -624,9 +644,28 @@ function syncTools(hasData, mode) {
 let rafR = 0;
 const schedRender = () => { cancelAnimationFrame(rafR); rafR = requestAnimationFrame(() => { if (S.shown) render(); }); };
 
+/* 구역마다: one range per group of the 지표 data (see ZR) — measured before anything takes a colour. The key is the group's
+   (fx · rates · funds · energy · metals · agri …), kept apart from the tabs' by the template; values = the rows' zoneNum (VIX-like
+   reference rows left out); a group of yields (every row a rate) is a bp zone. */
+function measureZones(d) {
+  if (!d || d.kind !== 'commodity' || typeof KH.autoRange !== 'function' || !rangeIsAuto()) return null;
+  const m = new Map();
+  // in the list's order: 환율 · 금리 · 증시 자금 first (shown first since 2026-11-14), then 원자재 as the Worker sends them
+  for (const g of d.groups.slice().sort((a, b) => (MACRO_NOTE[b.key] ? 1 : 0) - (MACRO_NOTE[a.key] ? 1 : 0))) {
+    const items = g.items.filter(it => !isRef(it));
+    if (!items.length) continue;
+    const gk = items[0].gkey || g.key, unit = items.every(isRate) ? 'bp' : '%';
+    let r = null;
+    try { r = KH.autoRange('CMDTY:' + gk, items.map(zoneNum), unit); } catch (e) { r = null; }
+    if (r && r.value > 0) m.set(gk, { key: gk, name: g.name || gk, value: +r.value, unit, p95: r.p95 });
+  }
+  return m.size ? m : null;
+}
+
 /* ───────── render ───────── */
 function render() {
   if (!S.shown || !els) return;
+  ZR = null;                                               // set again below once the data is in (a message box colours nothing)
   if (els.snap) return renderSnapshot();
   syncMotion();
   const K = KINDS[S.kind], d = S.data[S.kind], err = S.err[S.kind];
@@ -675,8 +714,13 @@ function render() {
     return;
   }
   // §3-27 색 범위 자동: hand the template what this tab draws (VIX is a reference, never coloured) before anything takes a colour
-  // 증시 자금 is a day-old statistic, not today's move: it takes colours from the range but does not set it
-  if (typeof KH.feedRange === 'function') { try { KH.feedRange(S.kind, d.all.filter(it => !isRef(it) && !isFund(it)).map(it => it.ratio)); } catch (e) { /* fixed range */ } }
+  // 증시 자금 is a day-old statistic, not today's move: it does not set the tab's range (the ticker and other boxes still colour on
+  // it). 구역마다 (지표 under 자동): every group's own range first (ZR); the template is told them for the 자동 key's name
+  ZR = measureZones(d);
+  if (typeof KH.feedRange === 'function') {
+    const zs = ZR ? [...ZR.values()].map(z => ({ key: z.key, name: z.name, value: z.value, unit: z.unit })) : null;
+    try { KH.feedRange(S.kind, d.all.filter(it => !isRef(it) && !isFund(it)).map(it => it.ratio), zs); } catch (e) { /* fixed range */ }
+  }
   renderBar(d, err);
   if (mode === 'geoload') {
     els.tiles.clear(); els.heads.clear(); els.boxes = null;
@@ -1016,10 +1060,19 @@ const rangeIsAuto = () => { try { return typeof KH.rangeInfo === 'function' && !
 function renderLegend(d) {
   const P = (KH.palette && KH.palette('world').stops) || [];
   const R = rangeNow();
-  const kids = [h('span', { class: 'lg' }, h('span', { class: 'k', text: '색' }), h('b', { text: '오늘 등락률' }),
+  const grad = P.length ? h('span', { class: 'grad', style: `background:linear-gradient(90deg,${P.join(',')})`, 'aria-hidden': 'true' }) : null;
+  // 구역마다 (지표 under 자동): the ends differ per zone, so the bar has no ±N ticks; what each zone uses is listed once here (the
+  // saved picture's legend reads this row — its tile map has no zone tags) and beside every group's name in the list
+  const zs = ZR ? [...ZR.values()] : null;
+  const kids = zs ? [
+    h('span', { class: 'lg' }, h('span', { class: 'k', text: '색' }), h('b', { text: '오르내림' }),
+      h('span', { class: 'rauto', title: `구역마다 그 구역 값의 95%가 들어가게 맞춰요 · 금리는 bp 변화로 색칠해요 · ${zs.map(z => z.name + ' ' + zoneTxt(z)).join(' · ')}`, text: '자동 · 구역마다' }),
+      grad, h('span', { class: 'note', text: '양 끝 = 구역 범위' })),
+    h('span', { class: 'lg kw-lgz' }, h('span', { class: 'k', text: '구역 범위' }), zs.map(z => h('span', { class: 'kw-lgzi' }, z.name + ' ', h('b', { text: zoneTxt(z) })))),
+  ] : [h('span', { class: 'lg' }, h('span', { class: 'k', text: '색' }), h('b', { text: '오늘 등락률' }),
     R && rangeIsAuto() ? h('span', { class: 'rauto', title: `화면 등락률의 95%가 들어가게 맞춰요 · 지금 ±${R}%`, text: `자동 ±${R}%` }) : null,
     R ? h('span', { class: 'tk', text: `${MINUS}${R}%` }) : null,
-    P.length ? h('span', { class: 'grad', style: `background:linear-gradient(90deg,${P.join(',')})`, 'aria-hidden': 'true' }) : null,
+    grad,
     R ? h('span', { class: 'tk', text: `+${R}%` }) : null)];
   if (d.all.some(isRef)) kids.push(h('span', { class: 'lg' }, h('i', { class: 'sw kw-refsw' }), h('span', { text: 'VIX는 참고 지표라 색칠하지 않아요' })));
   if (S.mode === 'geo') {
@@ -1034,7 +1087,8 @@ function renderLegend(d) {
   if (S.mode === 'list') {
     kids.push(h('span', { class: 'lg' }, h('i', { class: 'kw-sd open', 'aria-hidden': 'true' }), h('span', { text: '장중' }),
       h('i', { class: 'kw-sd close', 'aria-hidden': 'true' }), h('span', { text: '마감' })));
-    if (R) kids.push(h('span', { class: 'lg right' }, h('span', { class: 'k', text: '막대' }), h('b', { text: `가운데가 0 · 끝이 ±${R}%` })));
+    if (zs) kids.push(h('span', { class: 'lg right' }, h('span', { class: 'k', text: '막대' }), h('b', { text: '가운데가 0 · 끝이 구역 범위' })));
+    else if (R) kids.push(h('span', { class: 'lg right' }, h('span', { class: 'k', text: '막대' }), h('b', { text: `가운데가 0 · 끝이 ±${R}%` })));
     els.legend.replaceChildren(...kids);
     return;
   }
@@ -1168,6 +1222,9 @@ function buildColumns(d, geo) {
   const rowH = geo.compact ? ROW_HC : ROW_H;
   const secs = regionSections(d);
   const macro = secs.filter(s => MACRO_NOTE[s.key]);
+  // 구역마다 + 등락률순: the ranked rows mix 에너지 · 금속 · 농산물, so the block gets its caption to carry each group's range (an older
+  // Worker without 환율 · 금리 too; nothing changes under a picked range)
+  if (!macro.length && ZR && S.sort === 'pct' && S.kind === 'commodity') return [{ key: 'cm', title: '원자재', cols: ranked(d.all, geo) }];
   if (!macro.length) return [{ key: 'all', title: null, cols: S.sort !== 'pct' ? distribute(secs, geo.n, rowH) : ranked(d.all, geo) }];
   const base = secs.filter(s => !MACRO_NOTE[s.key]);
   // 환율 · 금리를 원자재보다 먼저 — 사용자 2026-11-14 02:11 "지표 순서도 환율/금리를 원자재보다 먼저 보이게"
@@ -1235,15 +1292,17 @@ function fillRow(el, it, sub, rank, R) {
   const chip = lp.firstChild;
   swapTo(chip.firstChild, p, chipNum(it));
   const col = ref ? null : colorOf(it);
+  // 구역마다: the chip's colour and the bar both read the zone's number (a yield's bp) on the zone's range; else the % on the tab's
+  const z = zoneOf(it), bv = colNum(it), bR = z ? z.value : R;
   chip.style.backgroundColor = col || '';
   chip.style.color = col ? inkOn(col) : '';
-  chip.className = 'kw-pchip' + (ref ? ' ref' : it.ratio == null ? ' nod' : '');
+  chip.className = 'kw-pchip' + (ref ? ' ref' : bv == null ? ' nod' : '');
   el.__col = col;
   const bar = lb.firstChild;
-  const frac = it.ratio == null || !R ? 0 : Math.min(Math.abs(it.ratio) / R, 1) * 50;
+  const frac = bv == null || !isFinite(bv) || !bR ? 0 : Math.min(Math.abs(bv) / bR, 1) * 50;
   bar.style.width = frac.toFixed(2) + '%';
-  bar.style.left = it.ratio >= 0 ? '50%' : '';
-  bar.style.right = it.ratio < 0 ? '50%' : '';
+  bar.style.left = bv >= 0 ? '50%' : '';
+  bar.style.right = bv < 0 ? '50%' : '';
   bar.style.backgroundColor = ref ? '' : col || '';
   bar.className = ref ? 'ref' : '';
   el.classList.toggle('ref', ref);
@@ -1251,9 +1310,20 @@ function fillRow(el, it, sub, rank, R) {
   el.setAttribute('aria-label', ariaOf(it) + (rank ? `, ${rank}위` : ''));
   el.classList.toggle('sel', !!(S.detail && S.detail.key === it.key));
 }
+// 구역마다: the zone's range beside its name, small, in the legend's "자동 ±N%" tag look (thin ring, no amber); a ranked section (등락률순)
+// mixes groups, so its block caption carries them instead (fillZoneCaption)
+const zoneTitle = z => `자동 · 이 구역 값의 95%가 들어가게 맞춘 색 범위 ${zoneTxt(z)}${z.unit === 'bp' ? ' (금리는 bp 변화로 색칠해요)' : ''}`;
+function fillZoneTag(el, z, name) {
+  const t = z ? (name ? `${z.name} ` : '') + zoneTxt(z) : '';
+  if (el.__t !== t) { el.__t = t; el.replaceChildren(...(z ? [h('span', { class: 'sr', text: '색 범위 ' }), t] : [])); }
+  if (z) el.title = zoneTitle(z); else el.removeAttribute('title');
+  el.hidden = !z;
+}
 function fillHead(sec, hd) {
-  const [t, s, a] = hd.children;
+  const [t, rg, s, a] = hd.children;
   t.textContent = sec.name;
+  const z = !sec.flat && sec.items.length ? zoneOf(sec.items.find(it => !isRef(it)) || sec.items[0]) : null;
+  fillZoneTag(rg, z);
   a.classList.toggle('note', !!MACRO_NOTE[sec.key]);
   if (sec.flat && !sec.ref) { s.replaceChildren(); a.replaceChildren(); return; }
   const cash = sec.cash || sec.items;                    // 미국: only the cash indices speak for the section
@@ -1270,6 +1340,21 @@ function fillHead(sec, hd) {
   if (MACRO_NOTE[sec.key]) { a.replaceChildren(h('small', { class: 'kw-shn', text: MACRO_NOTE[sec.key] })); return; }
   const avg = avgOf(cash);
   put(a, avg == null ? null : h('small', { text: cash.length < sec.items.length ? '지수 평균' : '평균' }), avg == null ? null : h('b', { class: cls(avg), text: pct(avg) }));
+}
+// 등락률순 under 구역마다: the 원자재 caption lists each group's range ("에너지 ±3%"), in the groups' order; empty otherwise
+function fillZoneCaption(L, d) {
+  for (const bt of L.querySelectorAll('.kw-bt')) {
+    const box = bt.querySelector('.kw-btz');
+    if (!box) continue;
+    const want = ZR && S.sort === 'pct' && bt.dataset.b === 'cm'
+      ? [...new Set(d.all.filter(it => !isMacro(it) && !isRef(it)).map(it => it.gkey))].map(k => ZR.get(k)).filter(Boolean) : [];
+    const sig = want.map(z => z.name + zoneTxt(z)).join('|');
+    if (box.__sig !== sig) {
+      box.__sig = sig;
+      box.replaceChildren(...want.map(z => { const el = h('span', { class: 'kw-rg' }); fillZoneTag(el, z, true); return el; }));
+    }
+    box.hidden = !want.length;
+  }
 }
 function renderList(d) {
   const L = els.list;
@@ -1308,10 +1393,10 @@ function renderList(d) {
     for (const [k, el] of els.rows) if (!keep.has(k)) { el.remove(); els.rows.delete(k); }
     // a captioned block (지표: 원자재 / 환율 · 금리) spans the grid row; its sections' headings sit one level below the caption
     L.replaceChildren(...blocks.flatMap(b => [
-      b.title ? h('h3', { class: 'kw-bt', 'data-b': b.key }, b.title) : null,
+      b.title ? h('h3', { class: 'kw-bt', 'data-b': b.key }, h('span', { class: 'kw-btt', text: b.title }), h('span', { class: 'kw-btz', hidden: true })) : null,
       ...b.cols.map(col => h('div', { class: 'kw-col', 'data-b': b.key }, col.map(sec => {
         const id = `kw-sh-${S.kind}-${sec.key}`;
-        const hd = h(b.title ? 'h4' : 'h3', { class: 'kw-sh', id }, h('span', { class: 't' }), h('span', { class: 's' }), h('span', { class: 'a' }));
+        const hd = h(b.title ? 'h4' : 'h3', { class: 'kw-sh', id }, h('span', { class: 't' }), h('span', { class: 'kw-rg', hidden: true }), h('span', { class: 's' }), h('span', { class: 'a' }));
         const el = h('section', { class: 'kw-sec' + (sec.ref ? ' ref' : ''), 'data-g': sec.key, 'aria-labelledby': id }, hd,
           h('div', { class: 'kw-rows' }, sec.items.map(rowEl)),
           sec.key === 'funds' ? h('p', { class: 'kw-fsrc', text: FUND_SRC }) : null,
@@ -1324,6 +1409,7 @@ function renderList(d) {
     if (scrollY !== sy) scrollTo(scrollX, sy);
   }
   // fill in place
+  fillZoneCaption(L, d);
   let kxMoved = false;
   for (const secEl of L.querySelectorAll('.kw-sec')) {
     const old = secEl.__sec;
@@ -2397,6 +2483,7 @@ function show(kind) {
 }
 function hide() {
   S.shown = false;
+  ZR = null;                                               // a sheet opened from the ticker on another tab colours on that tab's range
   clearTimeout(S.timer); S.timer = 0;
   clearTimeout(nightT); nightT = 0;
   S.seq++; S.busy = null;
@@ -2453,7 +2540,11 @@ async function openDetailKey(key, opts) {
   openDetail(key, opts.opener || null, null, null, kind, opts.today, opts.scope);
   return !!S.detail;
 }
-window.KHWorld = { show, hide, layout, shown: () => S.shown ? S.kind : null, view: () => S.view, openDetail: openDetailKey, detailOpen: () => !!S.detail };
+// zones() → the 지표 tab's 구역마다 ranges as drawn now: {gkey: {name, value (±R), unit '%'|'bp', p95}} | null (해외, hidden, a picked
+// range) — for QA (the colours: KH.colorOf(a yield's bp or the row's %, {scope: 'world', range: value}))
+const zonesApi = () => ZR ? Object.fromEntries([...ZR.values()].map(z => [z.key, { name: z.name, value: z.value, unit: z.unit, p95: z.p95 }])) : null;
+window.KHWorld = { show, hide, layout, shown: () => S.shown ? S.kind : null, view: () => S.view, openDetail: openDetailKey, detailOpen: () => !!S.detail,
+  zones: zonesApi };
 
 // the template may have tried show() before this script existed (page opened at #world / #cmdty): start now
 try {

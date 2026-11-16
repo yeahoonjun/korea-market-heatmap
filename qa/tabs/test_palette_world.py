@@ -41,6 +41,7 @@ ATLAS_URL = 'https://cdn.jsdelivr.net/npm/world-atlas@2.0.2/countries-110m.json'
 ATLAS = (ROOT / 'qa/world/fixtures/countries-110m.json').read_bytes()
 WFIX = {k: json.loads((ROOT / f'qa/world/fixtures/world_{k}.json').read_text(encoding='utf-8')) for k in ('index', 'commodity')}
 RATIO = {it['key']: it['ratio'] for d in WFIX.values() for g in d['groups'] for it in g['items'] if it.get('ratio') is not None and not it.get('ref')}   # VIX: grey, no colour
+GKEY = {it['key']: g['key'] for g in WFIX['commodity']['groups'] for it in g['items']}   # 지표 rows → their group (구역마다, AGENTS §3-27)
 GEO = {'840': 'INX', '392': 'N225', '826': 'FTSE', '276': 'GDAXI', '156': 'SSEC', '076': 'BVSP'}
 
 ap = argparse.ArgumentParser()
@@ -150,14 +151,16 @@ CHIPS = """() => { const out = { n: 0, bad: [], differ: 0 };
   for (const r of document.querySelectorAll('#world .kw-lr[data-k]')) {
     const chip = r.querySelector('.kw-pchip'); if (!chip) continue;
     const k = r.dataset.k, it = RATIO[k]; if (it == null) continue;
-    const got = getComputedStyle(chip).backgroundColor, want = __pw.norm(KH.colorOf(it, 'world')), kr = __pw.norm(KH.colorOf(it));
+    // 구역마다 (AGENTS §3-27): the 지표 tab under 자동 colours each group on its own range (KHWorld.zones()); 해외 keeps the tab's
+    const Z = window.KHWorld && KHWorld.zones ? KHWorld.zones() : null, z = Z && GKEY[k] ? Z[GKEY[k]] : null;
+    const got = getComputedStyle(chip).backgroundColor, want = __pw.norm(z ? KH.colorOf(it, { scope: 'world', range: z.value }) : KH.colorOf(it, 'world')), kr = __pw.norm(KH.colorOf(it));
     out.n++; if (got !== want) out.bad.push(`${k} ${got} != ${want}`); if (want !== kr) out.differ++;
   }
   return out; }"""
 
 
 def chips(pg):
-    return pg.evaluate("RATIO => { window.RATIO = RATIO; return (" + CHIPS + ")(); }", RATIO)
+    return pg.evaluate("([RATIO, GKEY]) => { window.RATIO = RATIO; window.GKEY = GKEY; return (" + CHIPS + ")(); }", [RATIO, GKEY])
 
 
 def tiles_state(pg, side_key):

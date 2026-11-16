@@ -163,7 +163,9 @@ ROWS_JS = r"""
     if (chip.textContent !== w.p) out.bad.push(`${r.dataset.k} chip '${chip.textContent}' != '${w.p}'`);
     if (st.textContent !== w.st) out.bad.push(`${r.dataset.k} state '${st.textContent}' != '${w.st}'`);
     if (dot.getBoundingClientRect().width > 0) out.bad.push(`${r.dataset.k} shows a 장중/마감 dot`);
-    if (getComputedStyle(chip).backgroundColor !== norm(KH.colorOf(w.ratio, 'world'))) out.bad.push(`${r.dataset.k} chip colour`);
+    // 구역마다 (AGENTS §3-27): under 자동 the 지표 tab colours 증시 자금 on its own range (KHWorld.zones().funds)
+    const Z = window.KHWorld && KHWorld.zones ? KHWorld.zones() : null, z = Z && Z.funds;
+    if (getComputedStyle(chip).backgroundColor !== norm(z ? KH.colorOf(w.ratio, { scope: 'world', range: z.value }) : KH.colorOf(w.ratio, 'world'))) out.bad.push(`${r.dataset.k} chip colour`);
     const cc = w.change > 0 ? 'up' : w.change < 0 ? 'dn' : 'flat';
     if (w.c && !lc.classList.contains(cc)) out.bad.push(`${r.dataset.k} change class ${lc.className} (want ${cc})`);
     if (!/^증시 자금, /.test(r.getAttribute('aria-label') || '') || !/금융투자협회/.test(r.getAttribute('aria-label'))) out.bad.push(`${r.dataset.k} aria '${r.getAttribute('aria-label')}'`);
