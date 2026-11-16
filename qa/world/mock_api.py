@@ -103,7 +103,8 @@ def kxim_body(kind):
     d['asOf'] = time.strftime('%Y-%m-%dT%H:%M:%S+09:00', time.gmtime(time.time() + 9 * 3600))
     if mode in ('wait', 'stale', 'old'):
         # Friday's posting is what is shown; its own prev = Thursday (the same offsets again, enough for a fixture)
-        d['items'] = d['prev']['items'] if kind == 'fx' else [dict(it, bp=round(it['bp'] * 0.5, 2)) for it in d['prev']['items']]
+        bp = {it['key']: it.get('bp') for it in d['items']} if kind == 'rate' else {}
+        d['items'] = d['prev']['items'] if kind == 'fx' else [dict(it, bp=round(bp[it['key']] * 0.5, 2)) for it in d['prev']['items']]
         d.update(date='2026-11-13', today=False, firstSeen=None, exact=False)
         d['prev'] = dict(d['prev'], date='2026-11-12')
         if mode == 'wait':

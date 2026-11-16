@@ -447,7 +447,9 @@ function kxNorm(j, kind) {
 function loadKxim(force) {
   if (!LIVE || KXIM.gone || KXIM.busy) return KXIM.busy;
   const now = Date.now();
-  const failed = !KXIM.fx || !KXIM.rate;
+  const d = S.data.commodity;
+  if (!d || !d.groups.some(g => KX_SEC[g.key])) return null;   // an older Worker without 환율 · 금리: nowhere to put them
+  const failed = !!(KXIM.err.fx || KXIM.err.rate);
   if (!force && now - KXIM.tried < (failed ? KXIM_RETRY_MS : KXIM_POLL_MS)) return null;
   KXIM.tried = now;
   KXIM.busy = (async () => {
