@@ -13386,21 +13386,18 @@ function layoutStats(ctx, fam, st, W, pad, C) {
   const meas = a => { if (a.bar) return a.bw; if (a.sw) return 12; ctx.font = `${a.w} ${FS}px ${fam}`; const full = ctx.measureText(a.t).width; return a.mw != null ? Math.min(full, a.mw) : full; };
   const gw = g => g.reduce((n, a) => n + a.gap + meas(a), 0);
   const minOf = a => { ctx.font = `${a.w} ${FS}px ${fam}`; const ch = [...a.t]; return ch.length <= MIN_NAME + 1 ? ctx.measureText(a.t).width : ctx.measureText(ch.slice(0, MIN_NAME).join('') + '…').width; };
-  // shorten a group's fit atoms (fit 1 first — names, fit 2 last — the scope) so the group is at most maxW wide; false when it cannot
+  // shorten a group's fit atoms (fit 1 first — names, fit 2 last — the scope) so the group is at most maxW wide: one cap for all the
+  // atoms of a level (the longest give way first, the short ones keep whole), never under a couple of letters; false when it cannot
   const shrink = (g, maxW) => {
     for (const lvl of [1, 2]) {
       const fits = g.filter(a => a.fit === lvl);
-      if (!fits.length) continue;
-      let over = gw(g) - maxW;
-      if (over <= 0) return true;
-      // take the room off the longest names first, never under a couple of letters
-      for (let k = 0; k < 40 && over > 0.5; k++) {
-        const cand = fits.map(a => ({ a, w: meas(a), min: minOf(a) })).filter(x => x.w - x.min > 0.5).sort((x, y) => y.w - x.w);
-        if (!cand.length) break;
-        const top = cand[0], next = cand[1] ? cand[1].w : top.min;
-        const cut = Math.min(over, Math.max(0.5, top.w - Math.max(next, top.min)));
-        top.a.mw = top.w - cut; over -= cut;
-      }
+      if (!fits.length || gw(g) <= maxW + 0.5) continue;
+      for (const a of fits) { delete a.mw; a.full = meas(a); a.min = Math.min(a.full, minOf(a)); }
+      const at = M => { for (const a of fits) a.mw = Math.max(a.min, Math.min(a.full, M)); return gw(g); };
+      let lo = 0, hi = Math.max(...fits.map(a => a.full));
+      if (at(lo) > maxW + 0.5) { for (const a of fits) delete a.mw; continue; }   // not even a couple of letters each: whole again, the next level / line
+      for (let k = 0; k < 18; k++) { const mid = (lo + hi) / 2; if (at(mid) <= maxW) lo = mid; else hi = mid; }
+      at(lo);
     }
     return gw(g) <= maxW + 0.5;
   };
