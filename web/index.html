@@ -609,6 +609,7 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 .ind .hd{background:var(--ihd-bg);font-size:var(--fs-xs);font-weight:500;color:var(--ihd-fg)}
 .sec .hd .t,.ind .hd .t{overflow:hidden;text-overflow:ellipsis;min-width:0}
 .sec .hd .v,.ind .hd .v{font-variant-numeric:tabular-nums;flex:none;font-weight:600}
+.sec .hd .v:empty,.ind .hd .v:empty{display:none}  /* no value: no 6px gap taken from a narrow band's name */
 .sec .hd:hover,.ind .hd:hover{color:var(--sec-hov)}
 .sec .hd:hover .t,.ind .hd:hover .t{text-decoration:underline;text-underline-offset:2px;text-decoration-color:var(--acc)}
 .focus-leaf .ind .hd,.focus-leaf .sec .hd{cursor:default}
@@ -3161,6 +3162,16 @@ function flatRoot(items, themes) {
   const children = themes ? items.map(t => ({ id: 'H|' + t.id, kind: 'theme', t })) : items.map(st => ({ id: 'T|' + st.c, kind: 'tile', st }));
   return d3.hierarchy({ id: 'root', children }).sum(d => d.kind === 'theme' ? Math.max(d.t.cap, 0) : d.kind === 'tile' ? Math.max(sizeV(d.st), 0) : 0).sort((a, b) => b.value - a.value);
 }
+// sector / industry bands: a band shows when its box is tall enough and either wide enough for a cut name (the old width rule) or
+// its whole name fits. The fit is estimated with textUnits — the tile labels' metric, no glyph measuring — so the decision never
+// waits for the web font and never changes when it arrives (Hangul 1.02 em vs Pretendard's ~0.89 em: it errs on the safe side).
+// Type: .sec .hd = --fs-sm, .ind .hd = --fs-xs; padding 0 var(--space-2) on both sides (read once — the tokens are theme-free).
+let bandType = null;
+const bandName = n => n.data.kind === 'group' ? n.data.g.name : n.data.kind === 'sector' ? n.data.s : n.data.i;
+function nameFits(n, w, top) {
+  if (!bandType) bandType = { sec: parseFloat(cssVar('--fs-sm')) || 12, ind: parseFloat(cssVar('--fs-xs')) || 11, pad: 2 * (parseFloat(cssVar('--space-2')) || 4) };
+  return w >= textUnits(bandName(n) || '') * (top ? bandType.sec : bandType.ind) + bandType.pad;
+}
 function layout(root, W, H, type) {
   const narrow = W < 560;
   const SH = narrow ? 18 : 20, IH = narrow ? 14 : 15;
@@ -3172,8 +3183,8 @@ function layout(root, W, H, type) {
     .paddingTop(n => {
       const w = n.x1 - n.x0, hh = n.y1 - n.y0;
       let v = 0;
-      if (n.depth === 1) v = (w > 44 && hh > 34) ? SH : 0;
-      else if (n.depth === 2) v = (zoomedInd || (w > 62 && hh > 48)) ? IH : 0;
+      if (n.depth === 1) v = hh > 34 && (w > 44 || nameFits(n, w, true)) ? SH : 0;
+      else if (n.depth === 2) v = zoomedInd || (hh > 48 && (w > 62 || nameFits(n, w, false))) ? IH : 0;
       n._hd = v;
       return v;
     })(root);
@@ -3357,7 +3368,13 @@ function placeNode(el, n, mdl) {
   el.__hd = H;
   hd.style.height = H + 'px';
   hd.style.display = H ? 'flex' : 'none';
-  if (!H) { el.__vtxt = null; return; }
+  // a hidden band keeps no text: the DOM is this layout's alone, not whatever an earlier one (a load-time size) showed
+  if (!H) {
+    el.__vtxt = null;
+    for (const s of hd.children) if (s.firstChild) s.textContent = '';
+    if (hd.children[1].className !== 'v') hd.children[1].className = 'v';
+    return;
+  }
   const top = n.data.kind === 'sector' || n.data.kind === 'group';
   const name = n.data.kind === 'group' ? n.data.g.name : n.data.kind === 'sector' ? n.data.s : n.data.i;
   // a sector header always shows the whole sector's value, even while zoomed into one of its industries
@@ -3635,6 +3652,9 @@ function render({ animate = false, regroup = false } = {}) {
   if (rangeMoved()) queueMicrotask(() => { if (legendR !== curRange() && !isWorld()) { renderSide(); renderLegend(); } });
   else syncAutoKey();
   if (state.view !== 'map') { if (DATA.stocks.length) introLeft = false; renderTableFor(); emitRender(); return; }
+  // lay out at the height the page has now: the ResizeObserver refit runs a frame after the header / legend change, and a quotes
+  // answer landing in between (the first one on load) drew the whole map at a provisional height — then again a frame later
+  fitMapHeight();
   const W = mapEl.clientWidth, H = mapEl.clientHeight;
   if (!W || !H) { emitRender(); return; }
   const mdl = model();
@@ -6219,13 +6239,15 @@ function fitMapHeight() {
   set(Math.max(rp ? 240 : 520, Math.round(innerHeight - top - 14 - lgH - rp)) + 'px');
 }
 let fh = 0;
-addEventListener('resize', () => { cancelAnimationFrame(fh); fh = requestAnimationFrame(fitMapHeight); });
+const refitMap = () => { cancelAnimationFrame(fh); fh = requestAnimationFrame(fitMapHeight); };
+addEventListener('resize', refitMap);
 narrowMQ.addEventListener('change', fitMapHeight);
-if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitMapHeight);
-// the market strip and the extras buttons arrive after boot and change the header height
-new ResizeObserver(() => { cancelAnimationFrame(fh); fh = requestAnimationFrame(fitMapHeight); }).observe($('.tools'));
-new ResizeObserver(() => { cancelAnimationFrame(fh); fh = requestAnimationFrame(fitMapHeight); }).observe($('#strip'));
-new ResizeObserver(() => { cancelAnimationFrame(fh); fh = requestAnimationFrame(fitMapHeight); }).observe($('header.top'));
+// the web font: Pretendard's dynamic subsets load per glyph range once text needs them, so fonts.ready settles at boot, before any
+// of them starts — each batch that lands ('loadingdone') can move the header / map bar / legend, and only a size change refits
+if (document.fonts) { if (document.fonts.ready) document.fonts.ready.then(refitMap); document.fonts.addEventListener('loadingdone', refitMap); }
+// what sets the map's top and bottom: the header (strip, extras buttons arrive after boot), the map bar above it (crumbs, the index
+// line's own row under 800 px, ★관심 group chips) and the legend under it
+{ const ro = new ResizeObserver(refitMap); for (const s of ['.tools', '#strip', 'header.top', '.stagebar', '#wgbar', '#legend']) { const el = $(s); if (el) ro.observe(el); } }
 // the replay player opening / closing / changing height (it writes --rp-h into <html style>)
 let lastRp = -1;
 new MutationObserver(() => { const v = playerH(); if (v === lastRp) return; lastRp = v; cancelAnimationFrame(fh); fh = requestAnimationFrame(fitMapHeight); })
