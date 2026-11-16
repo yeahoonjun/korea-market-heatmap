@@ -7,10 +7,11 @@ The live build (web/) behind qa/float/mock_float.py on SECTOR_QA_PORT (default 9
 build's web/, e.g. main's, for a before / after count). 1280 × 800 · 1440 × 900 · 390 × 844 × 코스피 · 코스닥, each loaded `loads` times
 fresh with a different timing: plain (화려하게 — the intro), the web font held back 1.5 s (기본), CPU × 3 + the font held back 0.8 s
 (줄이기). Once the web font is in and the map has settled:
-room    no sector / industry header hidden — or its name cut — while its whole name fits: name width in the font as drawn (canvas
-        measureText, after the font is in) × 1.2 + the header's padding ≤ the box width, and the box is taller than the layout's
-        height rule (sector > 34, industry > 48 — "정말 낮아서 숨긴 것" stays hidden). A cut name counts only when the header itself
-        has that room (the value took it).
+room    no sector / industry header hidden — or its name cut — while its whole name fits with room to spare: name width in the
+        font as drawn (canvas measureText, after the font is in) × 1.3 + the header's padding ≤ the box width, and the box is taller
+        than the layout's height rule (sector > 34, industry > 48 — "정말 낮아서 숨긴 것" stays hidden). 1.3: the layout decides with
+        textUnits (no glyph measuring), 1.18–1.27 × Pretendard over all 88 sector / industry names — a box past 1.3 × is one it
+        must show. A cut name counts only when the header itself has that room (the value or its gap took it).
 clean   a hidden header carries no text (an earlier layout's name / value left in a display:none header made the DOM depend on the
         load's timing — the qa/disclosure baseline compare saw it as "the label misses its first fit, 2 of 6 loads").
 same    the header DOM (shown, name, value, box) is the same in every load of one viewport × market.
@@ -84,11 +85,11 @@ STATE = r"""() => {
     cv.font = `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
     const need = cv.measureText(name).width, pad = parseFloat(hcs.paddingLeft) + parseFloat(hcs.paddingRight);
     const w = el.offsetWidth, h = el.offsetHeight, shown = hd.style.display !== 'none' && getComputedStyle(hd).display !== 'none';
-    const tall = sec ? h > 34 : h > 48;
-    if (!shown && tall && w >= need * 1.2 + pad) room.push([sec ? 'S' : 'I', name, 'hidden', w + '×' + h, 'needs ' + Math.ceil(need + pad)]);
+    const tall = sec ? h > 34 : h > 48, SLACK = 1.3;
+    if (!shown && tall && w >= need * SLACK + pad) room.push([sec ? 'S' : 'I', name, 'hidden', w + '×' + h, 'needs ' + Math.ceil(need + pad)]);
     if (shown) {
       const tw = t.getBoundingClientRect().width, avail = hd.clientWidth - pad;
-      if (tw + 0.5 < need && avail >= need * 1.2) room.push([sec ? 'S' : 'I', name, 'cut', w + '×' + h, `drawn ${Math.round(tw)} of ${Math.ceil(need)}, value "${v.textContent}"`]);
+      if (tw + 0.5 < need && avail >= need * SLACK) room.push([sec ? 'S' : 'I', name, 'cut', w + '×' + h, `drawn ${Math.round(tw)} of ${Math.ceil(need)}, value "${v.textContent}"`]);
     }
     if (!shown && (t.textContent || v.textContent)) stale.push([sec ? 'S' : 'I', name, t.textContent + '|' + v.textContent]);
     sig.push([sec ? 'S' : 'I', el.dataset.s + '/' + (el.dataset.i || ''), shown ? 1 : 0, w, h, t.textContent, v.textContent].join(' '));
