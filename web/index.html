@@ -16612,9 +16612,9 @@ function render() {
     return;
   }
   // §3-27 색 범위 자동: hand the template what this tab draws (VIX is a reference, never coloured) before anything takes a colour
-  // 증시 자금 is a day-old statistic, not today's move: it does not set the tab's range (the ticker and other boxes still colour on
-  // it). 구역마다 (지표): every zone's own range first (Z — under a picked range only 금리); the template is told them under 자동
-  // for the 자동 key's name
+  // 증시 자금 is a day-old statistic, not today's move: it does not set the tab's range (KH.range() — the 자동 key's ±N, and the
+  // colour of any value here without a zone). 구역마다 (지표): every zone's own range first (Z — under a picked range only 금리);
+  // the template is told them under 자동 for the 자동 key's name
   if (S.kind === 'commodity') Z = measureZones(d);
   if (typeof KH.feedRange === 'function') {
     const zs = S.kind === 'commodity' && Z && Z.auto ? zoneList().map(z => ({ key: z.key, name: z.name, value: z.value, unit: z.unit })) : null;
