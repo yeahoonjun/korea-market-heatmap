@@ -174,8 +174,9 @@ h1,h2,h3,p,ul{margin:0}
   transition:left var(--d-follow) var(--sp-follow),width var(--d-follow) var(--sp-follow),box-shadow var(--d-fast) var(--c-out)}
 .sw.press .kn-i{--pw:4px}
 .sw:active .kn-e::before,.sw.is-press .kn-e::before,.sw:active :is(.kn-s,.kn-i),.sw.is-press :is(.kn-s,.kn-i),.sw.press .kn-i{box-shadow:var(--knob-dn)}
-.g-now .sw-b .kn-s{transition:transform var(--d-switch) var(--c-inout),box-shadow var(--d-fast) var(--c-out)}
-.g-now .sw-b .fill{transition:opacity var(--d-switch) var(--c-inout)}
+.g-now .sw[data-kind="s"] .kn-s{transition:transform var(--d-switch) var(--c-inout),box-shadow var(--d-fast) var(--c-out)}
+.g-now .sw[data-kind="s"] .fill{transition:opacity var(--d-switch) var(--c-inout)}
+.g-now .sw[data-kind="f"] .kn-s{transition:transform var(--d-follow) var(--sp-follow),box-shadow var(--d-fast) var(--c-out)}
 .g-rigid .kn-s{transition:transform var(--d-lead) var(--sp-lead),box-shadow var(--d-fast) var(--c-out)}
 .g-fade .kn-s{transition:transform var(--d-fade) var(--sp-fade),box-shadow var(--d-fast) var(--c-out)}
 
@@ -272,7 +273,7 @@ h1,h2,h3,p,ul{margin:0}
       <tbody>
         <tr><td>세그먼트</td><td>앞 lead · 뒤 trail로 늘었다 줄어요</td><td>지금과 같음</td><td>lead 하나로 통째로</td><td>새 칸에서 6px fade, 옛 칸 close</td><td>②와 같음</td></tr>
         <tr><td>밑줄 탭</td><td>lead · trail</td><td>지금과 같음</td><td>lead 하나</td><td>새 칸에서 6px fade</td><td>②와 같음</td></tr>
-        <tr><td>스위치</td><td>둘이 달라요: 늘어남(공시 지도) · 252ms 곡선(지분 공시)</td><td>앞 follow · 뒤 settle, ≤ 3px 늘어남</td><td>lead 하나, 늘어남 없음</td><td>fade 곡선으로(넘침 거의 0)</td><td>누르는 동안 4px 넓어짐 + follow</td></tr>
+        <tr><td>스위치</td><td>셋이 달라요: 늘어남(공시 지도) · follow(지분 공시) · 252ms 곡선(표시 설정)</td><td>앞 follow · 뒤 settle, ≤ 3px 늘어남</td><td>lead 하나, 늘어남 없음</td><td>fade 곡선으로(넘침 거의 0)</td><td>누르는 동안 4px 넓어짐 + follow</td></tr>
         <tr><td>칩</td><td>체크가 생기며 폭이 자라 옆 칩을 밀어요</td><td>체크가 4px 미끄러지며 fade</td><td>체크 fade만</td><td>체크가 3px 아래에서 fade</td><td>②와 같음</td></tr>
         <tr><td>키 누름</td><td>1px 가라앉음</td><td>1px</td><td>1px</td><td>가라앉지 않고 어두워지기만</td><td>1px</td></tr>
         <tr><td>☆ 관심</td><td>색만 180ms</td><td>.8 → 1로 커지며 fade</td><td>fade만</td><td>3px 아래에서 fade</td><td>②와 같음</td></tr>
@@ -312,11 +313,11 @@ h1,h2,h3,p,ul{margin:0}
 
   /* 안 — 이름 · 한 줄 느낌 · 좋은 점 · 아쉬운 점 · 줄이기 · 쓰는 것, 스위치 종류(e 두 가장자리 · s 통째로 · i 누르면 넓어짐) */
   const GR = [
-    { id: 'now', cls: 'g-now', no: '', name: '지금 앱 (비교 기준)', base: true, sw: [['e', '스위치 · 공시 지도'], ['s', '스위치 · 지분 공시']],
+    { id: 'now', cls: 'g-now', no: '', name: '지금 앱 (비교 기준)', base: true, sw: [['e', '스위치 · 공시 지도'], ['f', '스위치 · 지분 공시'], ['s', '스위치 · 표시 설정']],
       lead: '컨트롤마다 따로 만들어져서 움직임이 달라요.',
       plus: '세그먼트 · 밑줄 탭 · 공시 지도 스위치는 이미 스프링이에요.',
-      minus: '스위치 둘이 서로 달라요 — 공시 지도는 손잡이가 늘어나고(KH.spring.knob 모양), 지분 공시(템플릿 .swbtn)는 252ms 곡선으로 그냥 옮겨요. 칩은 체크가 생기며 폭이 자라 옆 칩을 밀고, ☆는 색만 바뀌어요.',
-      rm: '모두 바로 끝 모습.', uses: ['lead + trail', 'follow + settle', '--c-switch 252ms', '--c-fast 180ms'] },
+      minus: '스위치만 세 가지예요 — 공시 지도는 손잡이가 늘어나고(follow + settle), 종목 페이지 지분 공시는 follow로 통째로, 표시 설정(템플릿 .swbtn)은 252ms 곡선으로 옮겨요. 칩은 체크가 생기며 폭이 자라 옆 칩을 밀고, ☆는 색만 바뀌어요.',
+      rm: '모두 바로 끝 모습.', uses: ['lead + trail', 'follow + settle', 'follow', '--c-switch 252ms', '--c-fast 180ms'] },
     { id: 'slide', cls: 'g-slide', no: '①', name: '미끄러짐 — 늘었다 줄며', sw: [['e', '스위치']],
       lead: '쫀득하고 살아 있어요. 표시와 손잡이가 가는 쪽으로 먼저 늘어났다가 뒤가 따라와요.',
       plus: '어디서 어디로 갔는지 가장 잘 보여요. 세그먼트 · 탭은 지금 이 방식이라 바꿀 곳이 적어요.',
@@ -351,7 +352,7 @@ h1,h2,h3,p,ul{margin:0}
   }
   function sw(kind, label) {
     const knob = kind === 'e' ? 'kn-e' : kind === 'i' ? 'kn-i' : 'kn-s';
-    return h('button', { type: 'button', class: 'sw sw-' + (kind === 's' ? 'b' : 'a'), role: 'switch', 'aria-checked': 'false', 'aria-label': label, 'data-kind': kind },
+    return h('button', { type: 'button', class: 'sw', role: 'switch', 'aria-checked': 'false', 'aria-label': label, 'data-kind': kind },
       h('span', { class: 'trk' }, h('span', { class: 'fill' }), h('span', { class: knob })));
   }
   function chip(t, on) { return h('button', { type: 'button', class: 'chip', 'aria-pressed': String(on) }, frag(ICON.ck), h('span', null, t)); }
