@@ -387,7 +387,9 @@ def run_themes(browser):
             if w == 360:
                 pg.screenshot(path=str(SHOTS / f'alerts_page_{th}_360.png'))
             to_table(pg)
-            o['table'] = pg.evaluate("() => __al.over(document.querySelector('.tablewrap'))")
+            # phones (≤ 430px) swipe the table sideways with the 종목 column frozen (사용자 2026-11-16 12:55) — the box scrolls on purpose;
+            # what must fit is the frozen name cell (its badges inside it) and the page
+            o['table'] = pg.evaluate("() => w <= 430 ? __al.over(document.querySelector('.tablewrap tbody td:first-child')) : __al.over(document.querySelector('.tablewrap'))".replace('w <= 430', 'true' if w <= 430 else 'false'))
             to_map(pg)
             opts, where = search(pg, '삼성전자')
             o['search'] = max(0, pg.evaluate(f"() => __al.over(document.querySelector('{where}'))") - BASE_SEARCH.get((th, w), 0))
