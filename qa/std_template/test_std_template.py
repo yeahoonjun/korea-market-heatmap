@@ -37,7 +37,7 @@ import urllib.request
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 PORT = int(os.environ.get('STD_QA_PORT', 9020))
-assert 9020 <= PORT <= 9029 or 9050 <= PORT <= 9069, 'ports 9020–9029 (or 9050–9069: ux/std-wrapup · ux/std-dock)'
+assert 9020 <= PORT <= 9029 or 9050 <= PORT <= 9079, 'ports 9020–9029 (or 9050–9079: ux/std-wrapup · ux/std-dock · ux/motion-rigid)'
 URL = f'http://127.0.0.1:{PORT}/'
 NOPROXY = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 THEMES = ['base', 'paper', 'glass-dark', 'glass-light']
@@ -115,7 +115,7 @@ RADIUS_OK = {'.brand i b': 'the logo mark', '.legend .limsw': 'legend mark', '@m
 HEIGHT_RE = re.compile(r'svg|::before|::after|\b(i|b)\b|\.dot|\.sw\b|\.cd[ib]|\.grad|\.bar\b|\.ck\b|\.kov|\.kck|\.kwn|\.kspn|\.pl\b|\.mbl|\.sep|\.tsep|\.grab|\.dmsw|\.limsw|\.dbar|\.breadth|\.sr\b|\.ttl|label\.row input|\.msg')
 HEIGHT_DATA = {'.map': MAPBOX, '@media (max-width: 760px) .map,.tablewrap': MAPBOX, '.tablewrap': MAPBOX, '.hist': 'data: the 등락 분포 bars', '.spark svg': 'data: the sparkline',
                '.legend': MAPBOX, '.crumbs': MAPBOX, '.crumbs .ixl': MAPBOX, '.stagebar.ix-row > .ixl': MAPBOX, '.search input': MAPBOX + ' (검색 칸 34)',
-               '.setbtn': MAPBOX + ' (the tools row: 34 = 검색 칸 · 세그먼트)', '.swbtn .swt': 'switch track 44 × 26 (controls.md §5-8)', '.sugg': 'list cap (scrolls)',
+               '.setbtn': MAPBOX + ' (the tools row: 34 = 검색 칸 · 세그먼트)', '[role="switch"] .swt': 'switch track 44 × 26 — the one switch of every module (controls.md §5-8, ② 단단한 이동)', '.sugg': 'list cap (scrolls)',
                '.sheet': 'sheet cap (scrolls)', '.world-missing': 'message box keeps the map area', '.dock': DOCK, '.dk-v': DOCK, '.dk-bar': DOCK + ' (the 등락 분포 bar 6px)',
                '.wgc': NEXT + ' (★관심 group chips, desktop 30)', '.wgm': NEXT, '@media (max-width:760px) .wgadd': NEXT + ' (phone ＋ 42)',
                '.wgpop input[type="text"]': NEXT + ' (group name field 38)', '.wgpop .acts button': NEXT + ' (popover keys 34)', '.map-empty .we button': NEXT + ' (40 at every width)',

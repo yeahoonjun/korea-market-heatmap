@@ -1130,13 +1130,19 @@ html[data-motion="reduced"] .kspn,html[data-motion="reduced"] .kspn circle{anima
 @keyframes kspnArc{from{stroke-dasharray:12 48}to{stroke-dasharray:34 48}}
 /* labels stacked in one cell (KH.ui.state): the box keeps the widest label, so neighbours never move */
 .klb{display:inline-grid;align-items:center;justify-items:center;min-width:0}
-.kl{grid-area:1/1;display:inline-flex;align-items:center;justify-content:center;gap:var(--space-3);opacity:0;transform:translateY(6px);pointer-events:none;white-space:nowrap;transition:opacity var(--c-fast) var(--c-in),transform var(--c-fast) var(--c-in)}
-.kl.out{transform:translateY(-6px)}
-.kl.on{opacity:1;transform:none;transition:opacity var(--c-fast) var(--c-out) var(--c-fast),transform var(--c-fast) var(--c-out) var(--c-fast)}
+/* the label change is design.md §6-4 — the same as KH.ui.swap (② 단단한 이동, AGENTS §3-38; it was ±6px on --c-fast): the old label leaves
+   in 100 ms on `close` (opacity → 0, blur 2px, 4px up), the new one comes in 60 ms later over 180 ms on `fade` (from 4px below). The box
+   keeps its widest label, so nothing moves. 줄이기: all three lengths 0 */
+:root{--kl-out:100ms; --kl-gap:60ms; --kl-in:180ms}
+html[data-motion="reduced"]{--kl-out:0ms; --kl-gap:0ms; --kl-in:0ms}
+.kl{grid-area:1/1;display:inline-flex;align-items:center;justify-content:center;gap:var(--space-3);opacity:0;transform:translateY(4px);filter:blur(2px);pointer-events:none;white-space:nowrap;transition:opacity var(--kl-out) var(--sp-close),transform var(--kl-out) var(--sp-close),filter var(--kl-out) var(--sp-close)}
+.kl.out{transform:translateY(-4px)}
+.kl.on{opacity:1;transform:none;filter:none;transition:opacity var(--kl-in) var(--sp-fade) var(--kl-gap),transform var(--kl-in) var(--sp-fade) var(--kl-gap),filter var(--kl-in) var(--sp-fade) var(--kl-gap)}
 .kl .kck path{stroke-dasharray:13;stroke-dashoffset:13;transition:stroke-dashoffset var(--c-base) var(--c-out)}
-.kl.on .kck path{stroke-dashoffset:0;transition-delay:var(--c-fast)}
-html[data-motion="fancy"] .kl .kck{transform:scale(.6);transition:transform var(--c-base) var(--c-pop)}
-html[data-motion="fancy"] .kl.on .kck{transform:none;transition-delay:var(--c-fast)}
+.kl.on .kck path{stroke-dashoffset:0;transition-delay:var(--kl-gap)}
+/* 화려하게: the done check alone pops .6 → 1 on the `pop` spring (design.md §6-2 — the only overshoot above 1.5 %) */
+html[data-motion="fancy"] .kl .kck{transform:scale(.6);transition:transform var(--sp-pop-dur) var(--sp-pop)}
+html[data-motion="fancy"] .kl.on .kck{transform:none;transition-delay:var(--kl-gap)}
 .kck,.kwn{flex:none;width:15px;height:15px}
 /* a short note under an icon-only key: no layout, nothing to press (KH.ui.bubble) */
 .kbub{position:fixed;z-index:140;padding:var(--space-3) var(--space-4);border-radius:var(--r-row);background:var(--tip-bg);box-shadow:inset 0 0 0 1px var(--tip-bd),var(--tip-sh);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);color:var(--fg);font-size:var(--fs-sm);font-weight:600;white-space:nowrap;pointer-events:none;opacity:0;transform:translateY(-4px);transition:opacity var(--c-fast) var(--c-in),transform var(--c-fast) var(--c-in)}
@@ -1840,10 +1846,19 @@ function uiSegPlace(seg, snap) {
     st.pinT = setTimeout(() => { st.pinT = 0; if (ext.getAttribute('aria-pressed') === 'true') host.dataset.pin = 'on'; }, uiMs('--c-base') + 30);
   };
   if (!moved && v.join() === st.v) { st.i = i; handOver(); return; }          // a redraw that changed nothing: a running move goes on
-  seg.dataset.dir = moved ? (i > st.i ? 'r' : 'l') : '';
+  // a pick on another line of a wrapped segment (2 × 2 테마 · 색상, design.md §7 P5): the indicator does not glide across the lines —
+  // it is put there at once and fades in on `fade` (the same as the stock page's .sp-ind)
+  const row = moved && !!st.v && Math.abs(parseFloat(v[2]) - parseFloat(st.v.split(',')[2])) > 1;
+  seg.dataset.dir = moved && !row ? (i > st.i ? 'r' : 'l') : '';
   put(v);
   seg.dataset.ind = '';
   st.i = i; st.v = v.join();
+  if (row && MOTION !== 'reduced') {
+    const d = uiMs('--sp-fade-dur');
+    if (d > 0) for (const pe of seg.classList.contains('tabs-sc') ? ['::before', '::after'] : ['::before']) {
+      try { seg.animate([{ opacity: 0 }, { opacity: 1 }], { duration: d, easing: uiEase('fade'), pseudoElement: pe }); } catch (e) { /* no pseudo-element animation: it is just there */ }
+    }
+  }
   handOver();
 }
 // the market row's ★관심 (§3-4): a sibling of the scroller (.tabs-sc), part of the same segment
