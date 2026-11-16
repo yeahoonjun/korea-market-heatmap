@@ -150,6 +150,10 @@ html[data-theme="glass-light"] #world{--nodata:#e6e9ee}
    dot), the head says which day, and a source line closes the section. */
 .kw-sd[hidden]{display:none}
 .kw-sec[data-g=funds] .kw-sh .t{flex:none}
+/* 구역 범위 후속 ② (사용자 2026-11-16 13:42): 증시 자금 carries two range tags ("±3%" · "반대매매 ±30%"); where the head is too narrow
+   for them, the day and the reading note, the note goes to a second line, whole and right-aligned, instead of shrinking to "색…" */
+.kw-sec[data-g=funds] .kw-sh{flex-wrap:wrap;row-gap:0;padding-top:var(--space-1);padding-bottom:var(--space-1)}
+.kw-sec[data-g=funds] .kw-sh .a.note{flex:none}
 .kw-fsrc{margin:0;padding:var(--space-3) var(--space-3) var(--space-1);font-size:var(--fs-xs);line-height:var(--lh-ui,1.25);color:var(--faint)}
 /* 수출입은행 고시 (AGENTS §3-27 끝): a small table inside the 환율 card and one inside the 금리 card, below their rows, after a rule
    and their own heading (h5) — once a business day, not clickable. Colour only for the bp's up / down (design.md §2); figures
