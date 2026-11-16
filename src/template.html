@@ -1682,8 +1682,11 @@ html[data-theme="glass-light"]{--sheet-skirt:#f6f7f9}
         setReplay(frame, {tween: ms, easing?: 'out'}) — 'fancy' + map view: colour (Lab), value text and boxes (FLIP) move from the
                          current picture to the frame over ms (linear unless easing 'out'); otherwise drawn at once as before.
         range()          → the colour range in use (± value at the palette ends: %, or % of market cap for 순매수 sizes).
-                         §3-27 today's range may be 자동 (the default): rangeInfo() → {value, auto, pick, p95, scope}; the 해외 ·
-                         원자재 module calls feedRange(kind, ratios) with what it draws. 'kh:palette' also fires when the 자동 step moves.
+                         §3-27 today's range may be 자동 (the default): rangeInfo() → {value, auto, pick, p95, scope, zones}; the 해외 ·
+                         원자재 module calls feedRange(kind, ratios, zones?) with what it draws. 'kh:palette' also fires when the 자동 step moves.
+                         구역마다 (2026-11-16): autoRange(key, values, unit '%'|'bp') → {value, p95} | null — the same p95 → step-up +
+                         hysteresis rule with the zone step tables (autoSteps(unit)); colorOf(r, {scope, range: R}) colours on ±R instead
+                         of the tab's range (any unit: the 지표 tab's 금리 zone passes bp).
         view()           → 'map'|'table' (§3-9: the 3D view is gone). KH.layout() tiles gain dim (true when dimmed).
         'kh:data' detail {changed: [[code, ±1], …]} — the ticks since the previous quotes ([] in a replay or under 정규장 종가).
    §3-6 <div id="clock"> sits in the title spot; <html class="has-clock"> (set by src/extras) hides the title text visually.
@@ -1823,6 +1826,11 @@ const FLOW_IX = { fgn: { 1: 0, 5: 3, 20: 5 }, inst: { 1: 1, 5: 4, 20: 6 } };
 const RANGES = { day: [3, 5, 10], period: [10, 20, 50], flow: { 1: [0.1, 0.3, 1], 5: [0.3, 1, 3], 20: [1, 3, 10] } };
 // §3-27 색 범위 자동 (today's change only): the 95th percentile of |change %| over what the tab draws, rounded up to one of these
 const AUTO_STEPS = [1, 2, 3, 4, 5, 7, 10, 15, 20, 30];
+// 구역마다 (사용자 2026-11-16 13:04 "환율 금리 증시자금 에너지 금속 농산물 등 각 구역별 계산"): the 지표 tab's 자동 sets a range per zone.
+// A zone may be much quieter than a tab (환율 ±0.1~0.5 %/day), so its % table starts lower — 0.2 · 0.3 · 0.5 · 0.7 (the 2 · 3 · 5 · 7
+// rhythm one decade down), then the tab's own steps; a yield zone colours its bp change on a bp table (2 bp floor: a 0.5 bp wobble
+// on a quiet day stays pale)
+const AUTO_STEPS_ZONE = { '%': [0.2, 0.3, 0.5, 0.7, ...AUTO_STEPS], bp: [2, 3, 5, 7, 10, 15, 20, 30, 50] };
 let NODATA = cssVar('--nodata');          // the theme's no-data fill (re-read on a theme change)
 /* 등락 색상 by side (사용자 2026-11-16 11:20 "등락률 색상을 해외 시장이랑 국내 시장이랑 따로"): 'kr' = 국내 values (코스피 · 코스닥 · 전체 ·
    테마 · ★관심 · 일정, the stock page, the ticker's 지수 · 종목 items, the dock, the summary card's domestic rows) — khm.palette2 as
@@ -2413,14 +2421,29 @@ function p95abs(vals) {
   const i = (a.length - 1) * 0.95, lo = Math.floor(i), hi = Math.min(a.length - 1, lo + 1);
   return a[lo] + (a[hi] - a[lo]) * (i - lo);
 }
-const autoStepOf = p => AUTO_STEPS.find(s => s >= p - 1e-9) || AUTO_STEPS[AUTO_STEPS.length - 1];
-function autoStep(scope, p) {
+// the one rule (tabs and zones alike): p95 rounded up to the step table, a higher step at once, a lower one only 15 % under it
+const autoStepOf = (p, steps = AUTO_STEPS) => steps.find(s => s >= p - 1e-9) || steps[steps.length - 1];
+function autoStep(scope, p, steps = AUTO_STEPS) {
   AUTO.p.set(scope, p);
-  const cur = AUTO.at.get(scope), up = autoStepOf(p);
-  const next = cur == null || up > cur ? up : Math.min(cur, autoStepOf(p / 0.85));
+  const cur = AUTO.at.get(scope), up = autoStepOf(p, steps);
+  const next = cur == null || up > cur ? up : Math.min(cur, autoStepOf(p / 0.85, steps));
   AUTO.at.set(scope, next);
   return next;
 }
+/* 구역마다 (KH.autoRange): a module colouring its own zones (src/world — the 지표 tab's 환율 · 금리 · 증시 자금 · 에너지 · 금속 · 농산물)
+   hands one zone's values → that zone's step, kept apart from the tabs' (key 'zone:' + key) with the same hysteresis. unit '%' or 'bp'
+   picks the table; no finite value → null (the caller keeps the tab's range). Does not touch the tab's scale or fire 'kh:palette':
+   the caller draws with colorOf(v, {scope, range}). */
+function autoRange(key, vals, unit) {
+  const steps = AUTO_STEPS_ZONE[unit === 'bp' ? 'bp' : '%'];
+  const p = vals && typeof vals[Symbol.iterator] === 'function' ? p95abs(vals) : null;
+  if (p == null) return null;
+  return { value: autoStep('zone:' + String(key), p, steps), p95: p };
+}
+// what the 지표 tab's 자동 shows per zone (feedRange's third argument), for the 자동 key's name; market → [{key, name, value, unit}]
+const AUTO_ZONES = new Map();
+const zoneText = z => `${z.name} ±${fmtR(z.value)}${z.unit === 'bp' ? 'bp' : '%'}`;
+const autoZones = () => rangeAuto() ? AUTO_ZONES.get(state.market) || null : null;
 // 국내: measure what this tab draws (today's colours only — a period / flow metric keeps its fixed ranges)
 function autoMeasure() {
   if (isWorld() || kind() !== 'day') return;
@@ -2428,22 +2451,27 @@ function autoMeasure() {
   const p = p95abs(vals);
   if (p != null) autoStep(autoScope(), p);
 }
-// 해외 · 원자재 (KH.feedRange): src/world hands the ratios it is about to draw → the range now
-function feedRange(kindName, ratios) {
+// 해외 · 원자재 (KH.feedRange): src/world hands the ratios it is about to draw → the range now. zones (구역마다, the 지표 tab under 자동):
+// [{key, name, value, unit}] the module colours by instead — only names the 자동 key here; the tab's step is measured as before
+// (the ticker and other boxes still colour 해외 · 지표 values on it). null / absent = no zones.
+function feedRange(kindName, ratios, zones) {
   const m = kindName === 'commodity' || kindName === 'cmdty' ? 'CMDTY' : 'WORLD';
   if (state.market === m && ratios && typeof ratios[Symbol.iterator] === 'function') {
+    const zs = Array.isArray(zones) && zones.length ? zones.filter(z => z && z.value > 0).map(z => ({ key: String(z.key), name: String(z.name || z.key), value: +z.value, unit: z.unit === 'bp' ? 'bp' : '%' })) : null;
+    const sig = zs ? zs.map(zoneText).join('|') : '', was = AUTO_ZONES.has(m) ? AUTO_ZONES.get(m).map(zoneText).join('|') : '';
+    if (zs && zs.length) AUTO_ZONES.set(m, zs); else AUTO_ZONES.delete(m);
     const p = p95abs(ratios);
     if (p != null) autoStep(m, p);
-    rangeMoved();
+    if (!rangeMoved() && sig !== was) syncAutoKey();
   }
   return curRange();
 }
-const autoTitle = () => `화면 등락률의 95%가 들어가게 맞춰요 · 지금 ±${fmtR(dayR())}%`;
+const autoTitle = () => { const zs = autoZones(); return zs ? `구역마다 그 구역 값의 95%가 들어가게 맞춰요 · ${zs.map(zoneText).join(' · ')}` : `화면 등락률의 95%가 들어가게 맞춰요 · 지금 ±${fmtR(dayR())}%`; };
 function syncAutoKey() {
   const b = document.querySelector('#rangeseg button[data-v="auto"]');
   if (!b) return;
   b.title = autoTitle();
-  b.setAttribute('aria-label', `자동, 지금 ±${fmtR(dayR())}%`);
+  b.setAttribute('aria-label', autoZones() ? '자동, 구역마다' : `자동, 지금 ±${fmtR(dayR())}%`);
 }
 // the scale is built for scaleR; when today's range moved (a new auto step, another tab's step) rebuild it and tell the modules
 let scaleR = null, legendR = null;
@@ -3146,6 +3174,7 @@ const grpCls = list => { const v = isFlow() ? sumAmt(list) : groupVal(list); ret
 
 /* ───────────────── colour ───────────────── */
 let actScale, dayScale, dayScaleW;
+const RSCALE = new Map();             // KH.colorOf(r, {range}) scales, palette key|R → scale (rangeColor below)
 function makeScale(R, side) {
   const p = PAL(side);
   return d3.scaleLinear().domain([-R, -R * 2 / 3, -R / 3, 0, R / 3, R * 2 / 3, R]).range(p.stops).interpolate(d3.interpolateLab).clamp(true);
@@ -3154,6 +3183,7 @@ function makeScale(R, side) {
 // back under the plain names for a box (#world, its detail sheet, the ticker's / summary card's 해외 · 지표 items)
 function rebuildColor() {
   const p = PAL(), w = PAL('world'), st = document.documentElement.style;
+  RSCALE.clear();                      // the palette or theme may have moved: scales on a caller's own range are rebuilt on demand
   scaleR = dayR();                     // today's range on this side (국내 or 해외 · 원자재): a number, or the tab's 자동 step
   dayScale = makeScale(scaleR);
   dayScaleW = palKey('world') === palKey('kr') ? dayScale : makeScale(scaleR, 'world');
@@ -3170,6 +3200,18 @@ function rebuildColor() {
 const colorOf = v => v == null ? NODATA : v === 0 ? PAL().stops[3] : actScale(v);
 const colorFor = st => colorOf(cval(st));
 const dayColor = (r, side) => side === 'world' ? (r === 0 ? PAL('world').stops[3] : dayScaleW(r)) : r === 0 ? PAL().stops[3] : dayScale(r);
+// KH.colorOf(r, {scope, range: R}) (구역마다): the same palette on ±R (any unit — a zone's %, or bp) instead of today's range; one scale
+// per side × R (RSCALE), dropped on every rebuildColor (palette · theme · range change). R not a positive number → today's range, as before.
+const rangeArg = s => { const R = s && typeof s === 'object' ? +s.range : NaN; return R > 0 && isFinite(R) ? R : null; };
+function rangeColor(r, side, R) {
+  if (R == null || R === scaleR) return dayColor(r, side);
+  const P = PAL(side);
+  if (r === 0) return P.stops[3];
+  const k = palKey(side) + '|' + R;
+  let sc = RSCALE.get(k);
+  if (!sc) { sc = makeScale(R, side); RSCALE.set(k, sc); }
+  return sc(r);
+}
 
 /* buckets for the histogram legend */
 function bucketOf(r) {
@@ -6796,7 +6838,8 @@ window.KH = {
   asOf: () => (DATA ? DATA.asOf : null),
   // 등락 색상 by side: colorOf(r, scope?) · palette(scope?) — scope 'world' (해외 · 지표 values, wherever they show) | 'tab' (the side of
   // the tab shown now) | anything else / none = 국내 (what every module drew before the sides). The range is today's range in use, as before
-  colorOf: (r, scope) => dayColor(r, palArg(scope)),
+  // {scope, range: R} (구역마다) = that side's palette on ±R instead (src/world's zones; R in the caller's unit)
+  colorOf: (r, scope) => rangeColor(r, palArg(scope), rangeArg(scope)),
   palette: scope => {
     const side = palArg(scope), p = PAL(side);
     return { key: palKey(side), label: p.label, stops: p.stops.slice(), up: p.stops[6], down: p.stops[0], flat: p.stops[3], upText: p.upText, dnText: p.dnText,
@@ -6825,8 +6868,14 @@ window.KH = {
   // §3-27 rangeInfo() → {value (= range()), auto (자동 is on for today's colours here), pick ('auto' | the number pressed), p95 (the
   // last measure for this tab, or null), scope}; feedRange(kind 'index'|'commodity', ratios) — src/world hands the ratios it draws
   // (reference rows such as VIX left out) before drawing them; when the 자동 step moves the scale is rebuilt and 'kh:palette' fires
-  rangeInfo: () => ({ value: curRange(), auto: rangeAuto(), pick: rangePick(), p95: AUTO.p.has(autoScope()) ? AUTO.p.get(autoScope()) : null, scope: autoScope() }),
+  // zones: the 지표 tab's 구역마다 ranges under 자동 ([{key, name, value, unit '%'|'bp'}] as fed), else null
+  rangeInfo: () => ({ value: curRange(), auto: rangeAuto(), pick: rangePick(), p95: AUTO.p.has(autoScope()) ? AUTO.p.get(autoScope()) : null, scope: autoScope(),
+    zones: autoZones() ? autoZones().map(z => Object.assign({}, z)) : null }),
   feedRange,
+  // 구역마다: autoRange(key, values, unit '%'|'bp') → {value, p95} | null (the tabs' rule on the zone tables); autoSteps(unit?) → a copy
+  // of the table ('%' · 'bp' for zones, none = the tabs')
+  autoRange,
+  autoSteps: unit => (unit === 'bp' || unit === '%' ? AUTO_STEPS_ZONE[unit] : AUTO_STEPS).slice(),
   market: () => ({ THEME: 'theme', WATCH: 'watch', WORLD: 'world', CMDTY: 'cmdty', CAL: 'cal' })[state.market] || state.market,
   basis: basisId,
   ui: KHUI,

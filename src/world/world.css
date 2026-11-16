@@ -131,6 +131,14 @@ html[data-theme="glass-light"] #world{--nodata:#e6e9ee}
 .kw-sh .a{margin-left:auto;display:inline-flex;align-items:baseline;gap:var(--space-3);flex:none;font-variant-numeric:tabular-nums}
 .kw-sh .a small{font-size:var(--fs-xs);font-weight:400;color:var(--muted)}
 .kw-sh .a b{font-size:var(--fs-md);font-weight:600}
+/* 색 범위 자동 · 구역마다 (AGENTS §3-27): the zone's range beside its name — the legend's "자동 ±N%" tag (thin ring --line2, --fg2,
+   no amber, tabular), one type step under the head; under 등락률순 the 원자재 caption lists them ("에너지 ±3%"), wrapping on phones */
+.kw-rg{flex:none;display:inline-flex;align-items:center;padding:0 var(--space-3);line-height:18px;border-radius:var(--r-chip,999px);box-shadow:inset 0 0 0 1px var(--line2);color:var(--fg2);font-size:var(--fs-xs);font-weight:600;font-variant-numeric:tabular-nums;font-family:var(--font,inherit);white-space:nowrap}
+.kw-rg[hidden],.kw-btz[hidden]{display:none}
+.kw-btz{display:inline-flex;flex-wrap:wrap;align-items:center;gap:var(--space-2);min-width:0}
+/* the legend's 구역 범위 row: one "환율 ±0.3%" per zone, wrapping as whole items (phones) */
+.kw-legend .kw-lgz{flex-wrap:wrap;white-space:normal;min-width:0}
+.kw-legend .kw-lgzi{white-space:nowrap}
 /* 지표 tab (§3-28): block captions 원자재 / 환율 · 금리 span the list grid; the 환율 · 금리 heads carry a reading note, not an average */
 .kw-bt{grid-column:1/-1;display:flex;align-items:center;gap:var(--space-4);margin:var(--space-1) var(--space-1) calc(var(--space-2) * -1);font-size:var(--fs-md);font-weight:var(--w-strong,700);color:var(--fg2);font-family:var(--font-head,inherit)}
 .kw-bt::after{content:"";flex:1 1 auto;height:1px;background:var(--line)}
