@@ -695,6 +695,8 @@ python3 tmp/shot.py /home/claude/heatmap/dist/index.html    # 1440×900 / 390×8
   - 템플릿 두 군데: `norm()` 행에 **`limf`**(원천 상 · 하한가 표시만 — `lim`엔 ±29.5% 어림이 섞여 있어요), close.json 읽기에 `CLOSE.lim`(등락 분포 카드도 네 번째 칸을 써요). 빌드: `web/close.json` 행 네 번째 `lim`(§3-3). 점검 `qa/summary/test_summary.py`(포트 8981 · 8982 — 디자인 기준 에이전트는 9010~9068, 지도 상자 = `main` 빌드 비교 포함) · `qa/summary/audit_css.py`(브라우저 없이).
   - 요청: 템플릿 `--live`를 앰버 밖 색으로(design.md §2 — 장중 점이 아직 앰버) · 요약이 따로 받는 `/api/breadth` · `/api/news` · `/api/market`을 나눠 쓸 연결점(`KH.breadth()` · `KHNews.items()` · `KH.marketItems()`). 같은 줄기(ux/std-world, 2026-11-16): `/api/world?kind=index`를 해외 · 요약 카드 · extras가 따로 받아요 — 공용 저장소 하나로 묶기 검토.
 
+- **고칠 것 (사용자 2026-11-16 18:40 "오늘의 요약에 왜 금요일 내용이 나와? 가온칩스는 금요일 상한가 간건데?")**: 16:40 매일 작업이 GitHub 예약 지연으로 18:40까지 안 돌아 `web/close.json`이 11/13 그대로였는데, `summary.js`가 장 밖(`after` · `pre` · `closed`)에 close.json을 **날짜 확인 없이** 써서 금요일 상한가 · 종목이 "오늘 마감"으로 나왔어요(지도는 템플릿이 날짜를 확인해서 괜찮음). 그날 18:41에 매일 작업을 손으로 돌렸어요. 다음 주 고침: ① close.json `date`가 마지막 거래일이 아니면 `after`엔 장중처럼 `/api/breadth` · 시세(KRX 값)로, `pre` · `closed`엔 그 날짜를 머리에 밝혀요 ② 16:40 작업이 늦지 않게 Cloudflare cron에서 `workflow_dispatch`로 깨우기(또는 close.json만 Worker가 만들기) 검토 — 07:50 경보도 같은 문제.
+
 ## 3-35. 떠 있는 창 움직임 · 일정 표시 설정 · 탭 순서 · 휴대폰 머리글 (사용자 2026-11-15 19:49~19:53, `ux/float-motion`)
 
 "표시 설정처럼 이런 플로팅되는 창들은 모션 없어?" · "일정에 표시설정은 왜이래?" · "탭 순서 관심과 일정 바꿔주고" · "모바일에서는 시계가 위 테두리랑 너무 붙어보여 … 위에 간격을 조금 더"
