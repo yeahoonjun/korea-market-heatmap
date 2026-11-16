@@ -1,18 +1,20 @@
-/* 공시 배지 (src/disclosure/disc.js · docs/standards/disclosure.md — C안). drafts/disclosure.html의 C 모양 그대로, 새 공시 표시만 사용자
-   2026-11-14 결정대로 "새" 글자 대신 시각 앞의 작은 점(--new-dot). 타일 귀퉁이 · 견본(.dmsw)은 템플릿에 있어요(표 보기도 써서).
-   색은 모두 역할 토큰(themes.md §4) + 템플릿의 ✚ --dm-flap · --dm-crease · --dm-cut · --new-dot. 빨강 · 초록은 등락률 숫자에만, 앰버는
-   컨트롤(켜짐 · 포커스 · 실패 표시)에만. 지도 머리줄 공시 칩(.dc-hchip)은 오늘 공시 탭의 지도 스위치(.dc-lit)로 옮겼어요(사용자 2026-11-14 08:10 요청, 11-15 진행). */
-:root{--dc-badge-r:6px}
-html[data-theme="paper"]{--dc-badge-r:2px}
-html[data-theme^="glass"]{--dc-badge-r:999px}
+/* 공시 배지 (src/disclosure/disc.js · docs/standards/disclosure.md — C안). drafts/disclosure.html의 C 모양, 새 공시 표시만 사용자 2026-11-14
+   결정대로 "새" 글자 대신 시각 앞의 작은 점(--new-dot). 타일 귀퉁이 · 견본(.dmsw)은 템플릿에 있어요(표 보기도 써서).
+   디자인 기준(docs/standards/design.md, ux/std-news 2026-11-16): 글자 --fs-* · 간격 --space-* · 모서리 --r-* · 높이 --h-* · 채움 --fill-* 토큰만,
+   움직임은 --sp-* 스프링(누름만 0 → --c-fast), hover는 (hover:hover) and (pointer:fine) 안에서만, 줄이기는 html[data-motion] 하나.
+   색은 역할 토큰(themes.md §4) + 템플릿의 --dm-flap · --dm-crease · --dm-cut · --new-dot. 빨강 · 초록은 등락률 숫자에만, 앰버는 고름(밑줄) ·
+   켜짐(칩 · 스위치 채움) · 포커스에만, 실패 !는 --fail-dot. 빛 · 그라데이션 없음. 툴팁 · 빠른 보기 덩어리(.dsc)는 템플릿 판(.tip · .sheet)
+   안에 그려져서 그 판의 글라스 재질(광택 · 1px 가장자리 반사 · 흐림)을 덮지 않아요(바탕 · 흐림 · 그림자 없음 — qa/disclosure/audit_css.py).
+   지도 머리줄 공시 칩(.dc-hchip)은 오늘 공시 탭의 지도 스위치(.dc-lit)로 옮겼어요(사용자 2026-11-14 08:10 요청, 11-15 진행). */
 
 /* 새 공시: 시각 앞의 작은 점 (글자 "새" 대신, 화면 읽기는 "새 공시") */
 .dc-dot{display:inline-block;flex:none;width:7px;height:7px;border-radius:50%;background:var(--new-dot);vertical-align:1px}
-.dc-tm{display:inline-flex;align-items:center;gap:5px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.dc-tm{display:inline-flex;align-items:center;gap:var(--space-2);white-space:nowrap;font-variant-numeric:tabular-nums}
 
-/* 공시 종류 = 글자 배지 · 중립색 (종목 페이지 .sp-nw-tag · 뉴스의 언론사 배지와 같은 재료), 꼬리표(정정 · 철회)는 점선 테 */
-.dc-kb{display:inline-block;flex:none;font-size:11px;font-weight:500;line-height:18px;padding:0 6px;border-radius:var(--dc-badge-r);color:var(--fg2);box-shadow:inset 0 0 0 1px var(--line2);white-space:nowrap;letter-spacing:-.01em}
-.dc-kb.fix{color:var(--fg2);box-shadow:none;outline:1px dashed var(--line2);outline-offset:-1px}
+/* 공시 종류 = 배지 한 조리법(design.md §5: 11px/600 · 높이 18 · --r-badge · 1px 안쪽 테), 중립색 — 뉴스의 언론사 배지 · 종목 페이지 .sp-nw-tag와
+   같아요. 꼬리표(정정 · 철회)는 같은 배지에 점선 테 */
+.dc-kb{display:inline-block;flex:none;height:18px;font-size:var(--fs-xs);font-weight:600;line-height:18px;padding:0 var(--space-3);border-radius:var(--r-badge);color:var(--fg2);box-shadow:inset 0 0 0 1px var(--line2);white-space:nowrap}
+.dc-kb.fix{box-shadow:none;outline:1px dashed var(--line2);outline-offset:-1px}
 
 /* ── 오늘 공시 탭의 지도 스위치 "[귀퉁이] 지도에서 공시 종목만 밝게 · 26종목 [트랙]" (사용자 2026-11-14 08:10: 지도 머리줄 공시 칩을
    "아래에 뉴스 공시칸으로") — design.md §7 스위치: 파인 트랙 + 솟은 손잡이, 손잡이 두 가장자리가 앞 `follow` · 뒤 `settle`로 따로 움직여
@@ -26,17 +28,15 @@ html[data-theme^="glass"]{--dc-badge-r:999px}
   --trav:calc(var(--trk-w) - var(--trk-h));
   position:relative;display:inline-flex;align-items:center;gap:var(--space-5);min-width:0;min-height:var(--h-key);padding:0 var(--space-2) 0 var(--space-3);
   border-radius:var(--r-row);font-size:var(--fs-md);line-height:var(--lh-ui);font-weight:600;color:var(--fg);text-align:left;
-  touch-action:pan-y;-webkit-tap-highlight-color:transparent;transition:background-color var(--c-fast) var(--c-out)}
+  touch-action:pan-y;-webkit-tap-highlight-color:transparent;transition:background-color var(--sp-fade-dur) var(--sp-fade)}
 .news .dc-ll{display:inline-flex;align-items:center;flex-wrap:wrap;gap:0 var(--space-2);min-width:0;word-break:keep-all}
 .news .dc-ll .dmsw{flex:none;margin-right:var(--space-1)}
 .news .dc-lw{min-width:0}
-/* 수 "· 26종목": 바뀔 때 design.md §6-4 — 나감 100ms(흐림 2px · 위로 4px) → 60ms 뒤 들어옴 180ms(아래에서 4px). 두 글자가 한 칸에 겹쳐요 */
+/* 수 "· 26종목": 바뀔 때 design.md §6-4 — 나감 100ms(close, 흐림 2px · 위로 4px) → 60ms 뒤 들어옴 180ms(fade, 아래에서 4px). 두 글자가 한 칸에 겹쳐요 */
 .news .dc-lc{display:inline-grid;align-items:center;justify-items:start;font-weight:500;color:var(--fg2);white-space:nowrap;font-variant-numeric:tabular-nums}
 .news .dc-lv{grid-area:1/1;display:inline-flex;align-items:center;gap:var(--space-2)}
-.news .dc-lv.out{animation:dcTxOut var(--dc-tx-out) var(--c-in) forwards;pointer-events:none}
-.news .dc-lv.in{animation:dcTxIn var(--dc-tx-in) var(--sp-fade) calc(var(--dc-tx-out) + var(--dc-tx-gap)) both}
-.news .dc-lit{--dc-tx-out:100ms;--dc-tx-gap:60ms;--dc-tx-in:180ms}
-html[data-motion="reduced"] .news .dc-lit{--dc-tx-out:0ms;--dc-tx-gap:0ms;--dc-tx-in:0ms}
+.news .dc-lv.out{animation:dcTxOut var(--nw-tx-out) var(--sp-close) forwards;pointer-events:none}
+.news .dc-lv.in{animation:dcTxIn var(--nw-tx-in) var(--sp-fade) calc(var(--nw-tx-out) + var(--nw-tx-gap)) both}
 @keyframes dcTxOut{to{opacity:0;filter:blur(2px);transform:translateY(calc(var(--space-2) * -1))}}
 @keyframes dcTxIn{from{opacity:0;filter:blur(2px);transform:translateY(var(--space-2))}}
 .news .dc-lc .kspn{width:var(--fs-md);height:var(--fs-md);color:var(--fg2)}
@@ -76,86 +76,84 @@ html[data-motion="reduced"] .news .dc-lit{--dc-tx-out:0ms;--dc-tx-gap:0ms;--dc-t
 .legend .dc-lg2{color:var(--muted)}
 @media (max-width:760px){ .legend .dc-lg .u,.legend .dc-lg2{display:none} }
 
-/* ── 툴팁 · 빠른 보기 덩어리 (headBlock 바로 아래, 같은 업종 목록 위) ── */
-.dsc{padding:9px 13px 9px;border-bottom:1px solid var(--line);font-size:12.5px;color:var(--fg)}
-.dsc-h{display:flex;align-items:center;gap:7px;min-height:18px;margin-bottom:5px;font-size:12px;color:var(--muted)}
+/* ── 툴팁 · 빠른 보기 덩어리 (headBlock 바로 아래, 같은 업종 목록 위) — 템플릿 머리(.card-head)와 같은 안쪽 가장자리 12 ── */
+.dsc{padding:var(--space-4) var(--space-5);border-bottom:1px solid var(--line);font-size:var(--fs-sm);line-height:var(--lh-ui);color:var(--fg)}
+.dsc-h{display:flex;align-items:center;gap:var(--space-3);min-height:18px;margin-bottom:var(--space-2);font-size:var(--fs-sm);color:var(--muted)}
 .dsc-h b{color:var(--fg2);font-weight:600}
-.dsc-h .r{margin-left:auto;display:inline-flex;align-items:center;gap:5px;font-variant-numeric:tabular-nums}
-.dsc .dr{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;column-gap:7px;min-height:24px;color:var(--fg);text-decoration:none}
-.dsc .dr .dk{display:inline-flex;gap:4px}
-.dsc .dr .tt{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12.5px}
-.dsc .dr .dc-tm{font-size:12px;color:var(--muted)}
-.dsc-more{font-size:12px;color:var(--muted);margin-top:3px;line-height:18px}
+.dsc-h .r{margin-left:auto;display:inline-flex;align-items:center;gap:var(--space-2);font-variant-numeric:tabular-nums}
+.dsc .dr{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;column-gap:var(--space-3);min-height:var(--h-chip);color:var(--fg);text-decoration:none}
+.dsc .dr .dk{display:inline-flex;gap:var(--space-2)}
+.dsc .dr .tt{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--fs-sm)}
+.dsc .dr .dc-tm{font-size:var(--fs-sm);color:var(--muted)}
+.dsc-more{font-size:var(--fs-sm);color:var(--muted);margin-top:var(--space-1);line-height:18px}
 .dsc-more b{color:var(--fg2);font-weight:500}
-.dsc-hint{font-size:11.5px;color:var(--muted);margin-top:4px}
-/* 빠른 보기: 줄 = DART 링크(새 탭) — 종류 / 제목 두 줄 / 시각, 누르는 곳 44px 이상 */
-.dsc.dsc-q .dr{grid-template-columns:auto minmax(0,1fr);grid-template-areas:"k tt" ". tm";row-gap:1px;min-height:44px;padding:6px 0;align-items:start;box-shadow:inset 0 -1px 0 var(--line);border-radius:2px}
+.dsc-hint{font-size:var(--fs-xs);color:var(--muted);margin-top:var(--space-2)}
+/* 빠른 보기: 줄 = DART 링크(새 탭) — 종류 / 제목 두 줄 / 시각, 누르는 곳 44px 이상(휴대폰 52) */
+.dsc.dsc-q .dr{grid-template-columns:auto minmax(0,1fr);grid-template-areas:"k tt" ". tm";row-gap:1px;min-height:calc(var(--h-row) + var(--space-4));padding:var(--space-3) 0;align-items:start;box-shadow:inset 0 -1px 0 var(--line);border-radius:var(--r-mark)}
 .dsc.dsc-q .dr:last-of-type{box-shadow:none}
 .dsc.dsc-q .dr .dk{grid-area:k;margin-top:1px}
-.dsc.dsc-q .dr .tt{grid-area:tt;white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;font-size:13.5px;line-height:20px}
+.dsc.dsc-q .dr .tt{grid-area:tt;white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;font-size:var(--fs-md);line-height:var(--lh-text);word-break:keep-all}
 .dsc.dsc-q .dr .dc-tm{grid-area:tm}
-.dsc.dsc-q a.dr:hover .tt{text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--muted)}
+@media (hover:hover) and (pointer:fine){ .dsc.dsc-q a.dr:hover .tt{text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--muted)} }
 .dsc.dsc-q a.dr:visited .tt{color:var(--fg2)}
-.dsc.dsc-q a.dr:focus-visible{outline-offset:-2px}
-.dsc .dall{display:flex;margin-top:8px}
-.dsc .dc-all{position:relative;flex:1;display:inline-flex;align-items:center;justify-content:center;height:36px;border-radius:var(--r-key);background:var(--key-bg);box-shadow:var(--key-sh);color:var(--key-fg);font-size:13px;font-weight:600;
-  transition:transform var(--c-fast) var(--c-out),box-shadow var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out),background-color var(--c-base) var(--c-out)}
-.dsc .dc-all:hover{background:var(--key-hover)}
+.dsc.dsc-q a.dr:focus-visible{outline-offset:calc(-1 * var(--space-1))}
+.dsc .dall{display:flex;margin-top:var(--space-4)}
+.dsc .dc-all{position:relative;flex:1;display:inline-flex;align-items:center;justify-content:center;height:var(--h-row);border-radius:var(--r-key);background:var(--key-bg);box-shadow:var(--key-sh);color:var(--key-fg);
+  font-size:var(--fs-md);line-height:var(--lh-ui);font-weight:600;touch-action:manipulation;-webkit-tap-highlight-color:transparent;
+  transition:transform var(--c-fast) var(--c-out),box-shadow var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out),background-color var(--sp-fade-dur) var(--sp-fade)}
+@media (hover:hover) and (pointer:fine){ .dsc .dc-all:hover{background:var(--key-hover)} }
 .dsc .dc-all:is(:active,.is-press){transform:translateY(1px);box-shadow:var(--key-dn);filter:var(--press-f);transition-duration:0s}
 @media (max-width:760px){
-  .dsc{padding:10px 16px 12px}
-  .dsc.dsc-q .dr{min-height:54px;padding:8px 0}
-  .dsc.dsc-q .dr .tt{font-size:14px}
-  .dsc .dc-all{height:44px}
+  .dsc{padding:var(--space-4) var(--space-6) var(--space-5)}
+  .dsc.dsc-q .dr{padding:var(--space-4) 0}
+  .dsc.dsc-q .dr .tt{font-size:var(--fs-lg)}
 }
 
-/* ── 패널의 "오늘 공시" 탭 (뉴스 카드 안 — 자리 · 채우기 · 두 단 · 더보기 · 휴대폰 규칙은 뉴스와 같아요) ── */
-/* 공시 종류 = 밑줄 탭 (controls §5-6, 종목 페이지 .sp-dfilt와 같음): 고른 칸 표시를 2px 밑줄로 */
-.news .dc-ktabs{display:flex;gap:2px;flex:1 1 auto;min-width:0;overflow-x:auto;scrollbar-width:none;padding:0;border-radius:0;background:none;box-shadow:inset 0 -1px 0 var(--line)}
+/* ── 패널의 "오늘 공시" 탭 (뉴스 카드 안 — 자리 · 채우기 · 두 단 · 더보기(접고 펴기 = news.css fold) · 휴대폰 규칙은 뉴스와 같아요) ── */
+/* 공시 종류 = 밑줄 탭 (design.md §7 ③, 종목 페이지 .sp-dfilt · 카드 제목 탭과 같음): 템플릿 세그먼트 표시를 2px 밑줄로 — KH.ui.seg가
+   가는 쪽 가장자리 lead · 뒤 trail로 옮겨요 */
+.news .dc-ktabs{display:flex;gap:var(--space-1);flex:1 1 auto;min-width:0;overflow-x:auto;scrollbar-width:none;padding:0;border-radius:0;background:none;box-shadow:inset 0 -1px 0 var(--line)}
 .news .dc-ktabs::-webkit-scrollbar{display:none}
-.news .dc-ktabs::before{top:auto;height:2px;border-radius:2px 2px 0 0;background:var(--acc-line);box-shadow:none}
+.news .dc-ktabs::before{top:auto;height:2px;border-radius:var(--r-mark) var(--r-mark) 0 0;background:var(--acc-line);box-shadow:none}
 .news .dc-ktabs:not([data-ind]) > button[aria-pressed="true"]{background:none;box-shadow:inset 0 -2px 0 var(--acc-line)}
-.news .dc-ktabs > button{flex:none;display:inline-flex;align-items:center;gap:5px;height:30px;padding:0 9px;border-radius:0;font-size:13px;font-weight:600;color:var(--muted);white-space:nowrap}
-.news .dc-ktabs > button small{font-size:11.5px;font-weight:500;color:var(--muted);font-variant-numeric:tabular-nums}
-.news .dc-ktabs > button:hover,.news .dc-ktabs > button[aria-pressed="true"]{color:var(--fg)}
+.news .dc-ktabs > button{flex:none;display:inline-flex;align-items:center;gap:var(--space-2);height:var(--h-key);padding:0 var(--space-4);border-radius:0;font-size:var(--fs-md);line-height:var(--lh-ui);font-weight:600;color:var(--muted);white-space:nowrap;
+  touch-action:manipulation;-webkit-tap-highlight-color:transparent;transition:color var(--sp-fade-dur) var(--sp-fade),filter var(--c-fast) var(--c-out)}
+.news .dc-ktabs > button small{font-size:var(--fs-xs);font-weight:500;color:var(--muted);font-variant-numeric:tabular-nums}
+.news .dc-ktabs > button[aria-pressed="true"]{color:var(--fg)}
 .news .dc-ktabs > button[aria-pressed="true"] small{color:var(--fg2)}
-.news .dc-ktabs > button:focus-visible{outline-offset:-3px;border-radius:4px}
+@media (hover:hover) and (pointer:fine){ .news .dc-ktabs > button:not([aria-disabled="true"]):hover{color:var(--fg)} }
+.news .dc-ktabs > button:focus-visible{outline-offset:calc(-1 * var(--focus-w));border-radius:var(--r-badge)}
 .news .dc-ktabs > button[aria-disabled="true"]{opacity:.45;cursor:not-allowed}
-.news .dc-sub .nw-only{height:26px;font-size:12px;padding:0 10px}
-/* 줄 (PC 32px): 시각 58 · 종목 칩 150 · 종류 auto · 제목 1fr */
-.news .dc-row{position:relative;display:grid;grid-template-columns:58px 150px auto minmax(0,1fr);grid-template-areas:"t c k tt";align-items:center;column-gap:10px;height:var(--nw-rh);padding:0 6px;margin:0 -6px;border-radius:6px;box-shadow:inset 0 -1px 0 var(--row-bd);min-width:0;transition:background var(--c-fast) var(--c-out)}
-.news .dc-row:hover{background:var(--row-hov)}
-.news .dc-row .dc-tm{grid-area:t;font-size:12.5px;color:var(--muted)}
+/* 줄 (PC = 목록 줄 --nw-rh): 시각 58 · 종목 칩 150 · 종류 auto · 제목 1fr */
+.news .dc-row{position:relative;display:grid;grid-template-columns:58px 150px auto minmax(0,1fr);grid-template-areas:"t c k tt";align-items:center;column-gap:var(--space-5);height:var(--nw-rh);
+  padding:0 var(--space-3);margin:0 calc(-1 * var(--space-3));border-radius:var(--r-row);box-shadow:inset 0 -1px 0 var(--row-bd);min-width:0}
+@media (hover:hover) and (pointer:fine){ .news .dc-row:not(.skel):hover{background:var(--row-hov)} }
+.news .dc-row .dc-tm{grid-area:t;font-size:var(--fs-sm);line-height:var(--lh-ui);color:var(--muted)}
 .news .dc-row .dc-cc{grid-area:c;min-width:0;display:flex}
-.news .dc-row .dc-k{grid-area:k;display:inline-flex;gap:4px;min-width:0}
+.news .dc-row .dc-k{grid-area:k;display:inline-flex;gap:var(--space-2);min-width:0}
 .news .dc-row .dc-tt{grid-area:tt}
 .news .dc-pane[data-k1="1"] .dc-row .dc-kb:not(.fix){display:none}
-.news .dc-x{color:var(--muted);font-size:12px;margin-left:6px;font-variant-numeric:tabular-nums}
+.news .dc-x{color:var(--muted);font-size:var(--fs-sm);margin-left:var(--space-3);font-variant-numeric:tabular-nums}
 .news .dc-chip,.news .dc-chipx{max-width:100%;min-width:0}
 .news .dc-cn{overflow:hidden;text-overflow:ellipsis;min-width:0}
-/* 지도에 없는 종목: 테만 있는 이름 + 시장 → 종목 페이지 */
-.news .dc-chipx{position:relative;display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 9px;border-radius:var(--r-chip);background:none;box-shadow:inset 0 0 0 1px var(--line2);font-size:12.5px;font-weight:600;color:var(--fg);white-space:nowrap;
+/* 지도에 없는 종목: 테만 있는 이름 + 시장 → 종목 페이지 (데이터 칩과 같은 크기, 누르면 1px) */
+.news .dc-chipx{position:relative;display:inline-flex;align-items:center;gap:var(--space-3);height:var(--h-chip);padding:0 var(--space-4);border-radius:var(--r-chip);background:none;box-shadow:inset 0 0 0 1px var(--line2);
+  font-size:var(--fs-sm);line-height:var(--lh-ui);font-weight:600;color:var(--fg);white-space:nowrap;touch-action:manipulation;-webkit-tap-highlight-color:transparent;
   transition:transform var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out)}
-.news .dc-chipx small{font-weight:500;color:var(--muted);font-size:11.5px}
-.news .dc-chipx:hover{background:var(--row-hov)}
+.news .dc-chipx small{font-weight:500;color:var(--muted);font-size:var(--fs-xs)}
+@media (hover:hover) and (pointer:fine){ .news .dc-chipx:hover{background:var(--row-hov)} }
 .news .dc-chipx:is(:active,.is-press){transform:translateY(1px);filter:var(--press-f);transition-duration:0s}
 @media (pointer:coarse){ .news :is(.dc-chipx)::before{content:"";position:absolute;left:50%;top:50%;width:max(100%,44px);height:44px;transform:translate(-50%,-50%)} }
 .news .dc-row.skel .nw-sk{display:block}
-html:not([data-motion="reduced"]) .news .dc-row.skel .nw-sk{animation:nwSk 1.4s var(--c-inout) infinite alternate}
-html[data-motion="fancy"] .news .dc-row.in{animation:nwIn var(--c-base) var(--c-out) both;animation-delay:var(--d,0ms)}
-@media (hover:none){ .news .dc-row:hover{background:none} }
-/* 휴대폰 (≤760): 1줄 종목 칩 · 종류 · 시각(오른쪽) / 2줄 제목 15px 두 줄 — 5개 + 더보기 */
+/* 휴대폰 (≤760): 1줄 종목 칩 · 종류 · 시각(오른쪽) / 2줄 제목 두 줄(14px · 행간 1.45) — 5개 + 더보기, 줄 44px 이상 */
 @media (max-width:760px){
   .news .dc-sub{flex-wrap:wrap}
   .news .dc-ktabs{flex:1 1 100%;width:100%}
-  .news .dc-ktabs > button{height:40px;padding:0 9px;font-size:13.5px}
-  .news .dc-sub .nw-only{height:32px;font-size:12.5px}
-  .news .dc-row{grid-template-columns:auto auto minmax(0,1fr);grid-template-areas:"c k t" "tt tt tt";row-gap:6px;height:auto;padding:11px 0 12px;margin:0;border-radius:0}
+  .news .dc-row{grid-template-columns:auto auto minmax(0,1fr);grid-template-areas:"c k t" "tt tt tt";row-gap:var(--space-3);height:auto;min-height:var(--h-row);padding:var(--space-5) 0;margin:0;border-radius:0}
   .news .dc-pane[data-k1="1"] .dc-row{grid-template-columns:auto auto minmax(0,1fr)}
-  .news .dc-row .dc-tm{justify-self:end;font-size:12px}
+  .news .dc-row .dc-tm{justify-self:end}
   .news .dc-row .dc-cc{max-width:200px}
-  .news .dc-row .dc-tt{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;font-size:15px;line-height:21px;font-weight:500;width:100%}
+  .news .dc-row .dc-tt{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;font-size:var(--fs-lg);line-height:var(--lh-text);font-weight:500;width:100%}
   .news .dc-row .dc-tt a{display:inline}
-  .news .dc-chip,.news .dc-chipx{height:32px;padding:0 12px;font-size:13px}
+  .news .dc-chipx{padding:0 var(--space-5);font-size:var(--fs-md)}
 }
-html[data-motion="reduced"] .news .dc-row{animation:none!important}

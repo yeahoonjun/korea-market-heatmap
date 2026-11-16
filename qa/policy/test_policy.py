@@ -90,7 +90,7 @@ ROWS_JS = r"""() => [...document.querySelectorAll('#news-p-policy .pl-row:not(.s
 })"""
 CHIPS_JS = r"""() => [...document.querySelectorAll('#news-p-policy .pl-chip')].map(b => ({k: b.dataset.k, pressed: b.getAttribute('aria-pressed'), off: b.getAttribute('aria-disabled') === 'true',
   n: b.querySelector('.pl-n').textContent, h: b.getBoundingClientRect().height, before: parseFloat(getComputedStyle(b, '::before').height) || 0}))"""
-TABS_JS = r"""() => [...document.querySelectorAll('#news .nw-tt button[role="tab"]')].map(b => ({k: b.dataset.k, sel: b.getAttribute('aria-selected'), text: b.textContent.trim(), h: b.getBoundingClientRect().height}))"""
+TABS_JS = r"""() => [...document.querySelectorAll('#news .nw-ftabs > button[role="tab"]')].map(b => ({k: b.dataset.k, sel: b.getAttribute('aria-selected'), text: b.textContent.trim(), h: b.getBoundingClientRect().height}))"""
 FOOT_JS = r"""() => { const f = document.getElementById('foot'); return [...f.children].map(p => (p.id || p.className || 'p') + (p.hidden ? '(hidden)' : '') + ':' + p.textContent.trim().slice(0, 40)); }"""
 # the rows reach 6px past the pane on purpose (hover tint, as the news rows) — the card (padding) must not overflow
 OVER_JS = r"""() => { const d = document.documentElement, c = document.getElementById('news');
