@@ -101,7 +101,7 @@ if(d.dataset.serif==='on'){var s=document.getElementById('kh-serif');if(s&&windo
   /* corners §4: 2 · 4 · 8 · 12 · 16 · 999 — the existing --r-key 12 · --r-in 8 · --r-pill 999 · --sheet-r 16 keep their roles */
   --r-mark:2px; --r-badge:4px; --r-row:8px; --r-card:12px; --r-float:12px;
   /* control heights §4 (desktop; phones below) — touch targets stay ≥ 44px on phones */
-  --h-chip:24px; --h-key:32px; --h-row:36px;
+  --h-chip:24px; --h-key:32px; --h-row:36px; --h-badge:18px;
   /* surfaces §2: fill alphas on dark themes; status colours start as today's values and move off amber when each module migrates */
   --fill-1:rgba(255,255,255,.05); --fill-2:rgba(255,255,255,.09); --fill-3:rgba(255,255,255,.14);
   /* status (design.md §2 ⑦, ux/std-template): --live = 장중 · 실시간 연결 — violet, ≥ 30° of hue from the amber, every palette's up /
@@ -811,6 +811,17 @@ table.list{width:100%;border-collapse:collapse;font-size:var(--fs-md)}
 .card-head .nxrow b{font-weight:600;color:var(--muted)}
 .card-head .nxrow .nxk{color:var(--fg2)}
 .limtag{display:inline-block;flex:none;font-size:var(--fs-xs);font-weight:700;line-height:16px;padding:0 var(--space-2);border-radius:var(--r-badge);border:1px solid currentColor;font-variant-numeric:normal}
+/* 시장 경보 (AGENTS §3-37 ⓐ, design.md §5 배지): the exchange's own names on the neutral badge — no red · green · amber; the step is the
+   shape: 투자주의 ring only · 투자경고 ring + fill · 투자위험 · 거래정지 solid ink · 관리종목 ring + a 2px bar at the start */
+.altags{display:inline-flex;align-items:center;gap:var(--space-2);flex:none;vertical-align:middle;white-space:nowrap}
+.altag{display:inline-flex;align-items:center;flex:none;height:var(--h-badge);padding:0 var(--space-2);border-radius:var(--r-badge);font-size:var(--fs-xs);font-weight:600;line-height:1;letter-spacing:0;color:var(--fg2);box-shadow:inset 0 0 0 1px var(--line2);white-space:nowrap;font-variant-numeric:normal}
+.altag.l2{color:var(--fg);background:var(--fill-3)}
+.altag.l3{color:var(--page);background:var(--fg);box-shadow:none}
+.altag.adm{color:var(--fg);box-shadow:inset 2px 0 0 var(--fg2),inset 0 0 0 1px var(--line2);padding-left:var(--space-3)}
+.almore{flex:none;font-size:var(--fs-xs);font-weight:600;color:var(--muted);white-space:nowrap}
+.card-head .nmrow .altags{align-self:center}
+.card-head .alnote{display:flex;flex-wrap:wrap;gap:0 var(--space-3);margin-top:var(--space-3);font-size:var(--fs-xs);line-height:var(--lh-ui);color:var(--muted)}
+.card-head .alnote .alx{color:var(--fg2)}
 /* 화려하게: the 현재가 / 등락률 cells of a row whose price just moved */
 .list td.fl-u,.list td.fl-d{position:relative}
 .list td.fl-u::after,.list td.fl-d::after{content:"";position:absolute;inset:0;pointer-events:none;opacity:0;animation:fx-flash var(--m-flash) var(--m-out) var(--dl,0ms)}
@@ -1109,6 +1120,9 @@ footer .credit .dc{width:1.15em;height:1.15em;flex:none}
   .list td:first-child{width:auto;max-width:none;min-width:7.2em;white-space:normal}
   .list .nmt{min-width:5.6em;white-space:normal;word-break:keep-all;overflow-wrap:anywhere;line-height:var(--lh-ui);display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
   .list .limtag{font-size:var(--fs-xs);padding:0 var(--space-2)}
+  /* 시장 경보: its own line under the name (the ☆ 22 + gap + the 10px mark + gap in front), so the name column stays as narrow as before */
+  .list .nmcell:has(.altags){flex-wrap:wrap;row-gap:var(--space-1)}
+  .list .nmcell .altags{order:9;flex-basis:100%;padding-left:calc(var(--h-chip) + var(--space-3) * 2)}
 }
 /* phones and tablets (and a 7-column table below 1440 px): no room for the tag — the hatched chip and the muted name say it (and the
    row's aria-label) */
@@ -1277,6 +1291,8 @@ html[data-theme^="glass"] :is(.tip,.sheet,.sugg,.ssheet,.ixtip) :is(.up,.dn):not
    --fg, as the top-left sheen also lifts the dark glass), so does --fg2. On the stuck header the status words (the date, the price
    basis badge) are the only secondary words straight on the glass: 어둡게 writes them in --fg. */
 html[data-theme^="glass"] :is(.tip,.sheet,.sugg,.ssheet,.ixtip){--fg2:var(--gl-ink2);--muted:var(--gl-ink2);--faint:var(--gl-ink2)}
+/* 시장 경보 on the floating glass: the filled step sits on the number plate (no see-through fill on see-through glass, design.md §5) */
+html[data-theme^="glass"] :is(.tip,.sheet,.sugg,.ssheet) .altag.l2{background:var(--gl-plate)}
 html[data-theme="glass-dark"] header.top .status{--fg2:var(--fg)}
 /* the status badge (실시간 · KRX 15:30 종가 · 다시 보기) on the stuck glass: on the selected tab's near-opaque fill (the live / replay
    tint of its fill goes; the --live / amber words and border stay) — those words fell to 2.2:1 over a bright tile on the clearer glass */
@@ -1647,7 +1663,7 @@ html[data-theme="glass-light"]{--sheet-skirt:#f6f7f9}
         국내), 'tab' = the side of the tab shown, none = 국내 (khm.palette2). palette() also gives {scope, same}; palScope() → 'kr'|'world';
         palettePick() → {kr, world}. CSS: --up-text / --dn-text = 국내, --up-text-w / --dn-text-w = 해외 · 지표, class .pal-w maps a box
         to the latter (#world has it). 'kh:palette' from the 색상 control carries {detail: {scope: 'kr'|'world'|'both'}}.
-   §3-2 loadData(name)   name 'themes'|'periods'|'flows' (§3-3 also 'names'|'close') → Promise<JSON|null>. Snapshot: <script id="kh-data-NAME">
+   §3-2 loadData(name)   name 'themes'|'periods'|'flows' (§3-3 also 'names'|'close', §3-37 ⓐ 'alerts') → Promise<JSON|null>. Snapshot: <script id="kh-data-NAME">
                          (waits for the DOM; no block → null); live: GET data/NAME.json (404 → null). Memoised per name; a failed load is
                          forgotten so the next call retries (the heatmap itself asks for names/close at most once per few minutes).
         watch (§3-11)    groups of codes, localStorage 'khm.watchGroups' {v:1, groups:[{id,name,codes}], active} (the old 'khm.watch'
@@ -1714,7 +1730,11 @@ html[data-theme="glass-light"]{--sheet-skirt:#f6f7f9}
    §3-23b 실시간 갱신 (docs/standards/realtime.md §7): feed(body) → bool — an /api/quotes-shaped body drawn the poll's way (refused in the
         snapshot, under 전체, when empty); pausePoll(on) — the 10 s quotes timer off while the hub is live, back within one interval;
         scope() → 'top' | 'all'; polling() → {paused, ok, last, wait}. Mount <span id="live-mark" hidden> in #status (src/live draws the
-        state; #status.has-lm while it shows: the status dot and the "실시간" badge give way to it). */
+        state; #status.has-lm while it shows: the status dot and the "실시간" badge give way to it).
+   §3-37 ⓐ 시장 경보: alerts.of(code) → {keys ['stop'|'risk'|'warning'|'adm'|'caution'|'other', most important first], labels, live,
+        file, when 'M/D HH:MM', quoteAt} | null (web/alerts.json from today or the weekday before + the quotes' hx), alerts.tags(code,
+        {max = 2, cls}) → <span class="altags"> neutral badges + "외 N" | null, alerts.note(code) → "한국거래소 지정 · M/D HH:MM 기준",
+        alerts.aria(code) → ", 투자경고, 관리종목", alerts.info() → {asOf, at, n, count, fresh, when} | null, 'kh:alerts' after a load. */
 
 /* ───────────────── 효과 level (AGENTS §3-5): 'reduced' | 'standard' | 'fancy', localStorage khm.motion ─────────────────
    No stored choice: the device's reduced-motion setting picks 'reduced', otherwise 'fancy' (사용자 2026-11-10 13:58: 화려하게가 기본). <html data-motion> mirrors it for CSS. */
@@ -2455,7 +2475,7 @@ const metricShort = () => isFlow() ? flowShort() : COLOR_METRICS[state.colorBy].
 const metricLong = () => isFlow() ? `${FLOW_WHO[state.sizeBy]} 순매수 ${state.flowWin}일` : COLOR_METRICS[state.colorBy].long;
 
 /* ───────────────── daily data (themes / periods / flows) ───────────────── */
-const DATA_NAMES = ['themes', 'periods', 'flows', 'names', 'close'];
+const DATA_NAMES = ['themes', 'periods', 'flows', 'names', 'close', 'alerts'];
 const dataMemo = new Map();
 // fresh: skip the memo and revalidate (used to pick up a newer close.json after the daily build)
 function loadData(name, fresh) {
@@ -2501,6 +2521,101 @@ function need(name) {
 }
 const PER = () => DS.periods.j, FLO = () => DS.flows.j;
 function needForMetric() { if (kind() === 'period') need('periods'); if (isFlow()) need('flows'); if (state.market === 'THEME') need('themes'); }
+
+/* ───────────────── 시장 경보 (AGENTS §3-37 ⓐ): web/alerts.json + the quotes' hx ─────────────────
+   alerts.json {asOf:'YYYY-MM-DD', at:'HH:MM', n, c:{code:{a?:'caution'|'warning'|'risk'|raw, adm?:1, stop?:1}}} → ALERTS {asOf, at, n,
+   map: Map(code → that object)}, read once per load — a tile costs one Map lookup (the 600-tile map adds nothing else). The quotes' hx:1
+   (거래정지 now, the Worker's row / live delta) joins in for the codes the page streams. The file counts only when it is from the
+   reference day or the weekday before it (live: the KST clock, snapshot: the quotes' day; newer is fine) — older, missing (404, an old
+   Worker) or broken: none of the file's badges, hx still shows. The names are the exchange's own; the badge is neutral (design.md §5):
+   the step is the shape (주의 ring · 경고 ring + fill · 위험 / 거래정지 solid ink · 관리종목 ring + a bar), never red · green · amber. */
+const AL_LABEL = { stop: '거래정지', risk: '투자위험', warning: '투자경고', adm: '관리종목', caution: '투자주의', other: '시장 경보' };
+const AL_ORDER = ['stop', 'risk', 'warning', 'adm', 'caution', 'other'];      // the most important first (2 shown + "외 N")
+const AL_CLS = { stop: 'l3', risk: 'l3', warning: 'l2', adm: 'adm', caution: 'l1', other: 'l1' };
+let ALERTS = null;                    // {asOf, at, n, map} | null
+const AL_LOAD = { st: 'idle', t: 0 };
+const AL_FRESH = { t: 0, a: null, ref: '', v: false };
+// the latest weekday strictly before ymd ('YYYY-MM-DD')
+function prevWeekday(ymd) {
+  let d = kstDay(ymd);
+  if (!isFinite(d)) return '';
+  do d--; while ([0, 6].includes((((d + 4) % 7) + 7) % 7));   // 1970-01-01 was a Thursday
+  return new Date(d * 864e5).toISOString().slice(0, 10);
+}
+function alertsFresh() {
+  if (!ALERTS) return false;
+  const now = Date.now();
+  if (now - AL_FRESH.t < 60000 && AL_FRESH.a === ALERTS) return AL_FRESH.v;
+  const ref = MODE === 'live' || !DATA || !DATA.k ? (kst(new Date(now)) || {}).date : DATA.k.date;
+  AL_FRESH.t = now; AL_FRESH.a = ALERTS; AL_FRESH.ref = ref || '';
+  AL_FRESH.v = !!ref && ALERTS.asOf >= prevWeekday(ref);
+  return AL_FRESH.v;
+}
+function setAlerts(j) {
+  const ok = j && /^\d{4}-\d\d-\d\d$/.test(j.asOf || '') && j.c && typeof j.c === 'object';
+  const next = ok ? { asOf: j.asOf, at: /^\d\d:\d\d$/.test(j.at || '') ? j.at : '', n: +j.n || 0, map: new Map(Object.entries(j.c).filter(([c, v]) => CODE_RE.test(c) && v && typeof v === 'object')) } : null;
+  const same = (a, b) => a === b || (a && b && a.asOf === b.asOf && a.at === b.at && a.map.size === b.map.size && JSON.stringify([...a.map]) === JSON.stringify([...b.map]));
+  if (same(ALERTS, next)) return;
+  ALERTS = next; AL_FRESH.t = 0;
+  bump();
+  if (DATA) {
+    renderAll(); refreshOpenViews();
+    if (sugg.classList.contains('open')) renderSugg();
+    if (SS.open) ssRender();
+  }
+  document.dispatchEvent(new CustomEvent('kh:alerts', { detail: alertsInfo() }));
+}
+// fresh: revalidate (the daily job writes 07:50 · 16:40 — an open page asks again every 30 minutes while it is seen)
+function loadAlerts(fresh) {
+  if (AL_LOAD.st === 'loading') return;
+  AL_LOAD.st = 'loading'; AL_LOAD.t = Date.now();
+  loadData('alerts', fresh).then(j => { AL_LOAD.st = j ? 'ok' : 'fail'; if (j || !ALERTS) setAlerts(j); });
+}
+// → ['stop', 'warning', …] most important first, or null (no lookups but the two Map gets for a stock without one)
+function alertKeys(code) {
+  const f = ALERTS && ALERTS.map.get(code), r = DATA ? rawGet(code) : null, hx = !!(r && r.hx === 1);
+  if (!f && !hx) return null;
+  const ff = f && alertsFresh() ? f : null;
+  if (!ff && !hx) return null;
+  const out = [];
+  if (hx || ff.stop) out.push('stop');
+  if (ff && ff.a) out.push(['caution', 'warning', 'risk'].includes(ff.a) ? ff.a : 'other');
+  if (ff && ff.adm) out.push('adm');
+  return out.sort((a, b) => AL_ORDER.indexOf(a) - AL_ORDER.indexOf(b));
+}
+const alertWhen = () => (ALERTS ? `${mdDay(ALERTS.asOf)}${ALERTS.at ? ' ' + ALERTS.at : ''}` : '');
+// what one stock shows: {keys, labels, live (거래정지 from the quotes, not the file), file (any badge from the file), when, quoteAt} | null
+function alertOf(code) {
+  const keys = alertKeys(String(code));
+  if (!keys) return null;
+  const f = ALERTS && alertsFresh() ? ALERTS.map.get(String(code)) : null, r = DATA ? rawGet(String(code)) : null;
+  const live = !!(r && r.hx === 1) && !(f && f.stop);
+  return { keys, labels: keys.map(k => AL_LABEL[k]), live, file: !!f, when: f ? alertWhen() : '', quoteAt: DATA && DATA.k ? DATA.k.hhmm : '' };
+}
+// "한국거래소 지정 · 11/16 07:50 기준" (the file) · "… · 시세 14:05 기준" (거래정지 from the quotes only)
+function alertSrc(A) {
+  if (A.file) return `한국거래소 지정 · ${A.when} 기준${A.live ? ` · 거래정지는 시세 ${A.quoteAt} 기준` : ''}`;
+  return `한국거래소 지정 · 시세${A.quoteAt ? ' ' + A.quoteAt : ''} 기준`;
+}
+// the badges: the first `max` (default 2) + "외 N" (its names for screen readers and the title); null when the stock has none
+function alertTags(code, opts) {
+  const A = alertOf(code);
+  if (!A) return null;
+  const max = Math.max(1, (opts && opts.max) || 2), src = alertSrc(A), rest = A.labels.slice(max);
+  return h('span', { class: 'altags' + (opts && opts.cls ? ' ' + opts.cls : ''), 'data-al': A.keys.join(' ') },
+    A.keys.slice(0, max).map(k => h('span', { class: 'altag ' + AL_CLS[k], 'data-k': k, title: `${AL_LABEL[k]} · ${A.live && k === 'stop' && A.file ? `시세 ${A.quoteAt} 기준` : src}`, text: AL_LABEL[k] })),
+    rest.length ? h('span', { class: 'almore', title: rest.join(' · ') }, h('span', { 'aria-hidden': 'true', text: `외 ${rest.length}` }), h('span', { class: 'sr', text: rest.join(', ') })) : null);
+}
+// the line under the tooltip / quick-view head: "외 1: 관리종목 · 한국거래소 지정 · 11/16 07:50 기준"
+function alertNote(code, max = 2) {
+  const A = alertOf(code);
+  if (!A) return null;
+  const rest = A.labels.slice(max);
+  return h('div', { class: 'alnote' }, rest.length ? h('span', { class: 'alx', text: `외 ${rest.length}: ${rest.join(' · ')}` }) : null, h('span', { text: alertSrc(A) }));
+}
+// ", 거래정지, 투자경고" — the tail of a tile's / table row's name
+function alertAria(code) { const k = alertKeys(code); return k ? ', ' + k.map(x => AL_LABEL[x]).join(', ') : ''; }
+function alertsInfo() { return ALERTS ? { asOf: ALERTS.asOf, at: ALERTS.at, n: ALERTS.n, count: ALERTS.map.size, fresh: alertsFresh(), when: alertWhen() } : null; }
 
 /* ───────────────── watchlist groups (AGENTS §3-11) ─────────────────
    localStorage khm.watchGroups = {v:1, groups:[{id, name, codes}], active:'all'|id}. The first load moves the old khm.watch (a code
@@ -3424,7 +3539,7 @@ function stockDesc(st) {
     // 4th line on big tiles: the market cap as drawn (cap × p_basis / p_krx, or the replay frame's)
     mc: st.cap > 0 ? fmtEok(st.cap) : '',
     col: colorOf(v), nod: v == null, lim, nonx: !!st.nonx,
-    aria: (day ? `${st.n} ${v == null ? '데이터 없음' : fmtPct(v)}` : `${st.n} ${metricLong()} ${v == null ? '데이터 없음' : stText(st)}`) + limTxt + (st.nonx ? ', NXT 거래 없음(KRX 값)' : ''),
+    aria: (day ? `${st.n} ${v == null ? '데이터 없음' : fmtPct(v)}` : `${st.n} ${metricLong()} ${v == null ? '데이터 없음' : stText(st)}`) + limTxt + (st.nonx ? ', NXT 거래 없음(KRX 값)' : '') + alertAria(st.c),
   };
 }
 function themeDesc(t) {
@@ -4151,13 +4266,14 @@ function headBlock(st, how, cr) {
   return h('div', { class: 'card-head' },
     h('div', { class: 'path', text: pathTxt }),
     h('div', { class: 'nmrow' }, nameBtn ? h('button', { class: 'nmbtn', type: 'button', title: '차트·호가 보기', onclick: () => openStockFromSheet(st.c), text: st.n }) : h('b', { text: st.n }), h('small', { text: st.c }),
-      limTag(st),
+      limTag(st), alertTags(st.c),
       tipMode ? (watched ? h('span', { class: 'wmark', text: '★ 관심' }) : null) : starBtn(st.c, 'wstar')),
     h('div', { class: 'px' }, h('b', { text: st.p > 0 ? fmtInt(st.p) : '—' }), h('span', { class: cls(st.r), text: `${fmtChg(st.d)}  (${fmtPct(st.r)})` }), kind() !== 'day' ? h('span', { class: 'flat', text: '오늘' }) : null),
     nxLine(st),
     ohlcRow(st, cr),
     metricRow(st),
-    h('div', { class: 'meta' }, h('span', {}, '시가총액 ', h('em', { text: fmtEok(st.cap) })), h('span', {}, rowTvLabel(st) + ' ', h('em', { text: fmtEok(st.tv) }))));
+    h('div', { class: 'meta' }, h('span', {}, '시가총액 ', h('em', { text: fmtEok(st.cap) })), h('span', {}, rowTvLabel(st) + ' ', h('em', { text: fmtEok(st.tv) }))),
+    alertNote(st.c));
 }
 function peerTitle(pr) {
   const m = state.market;
@@ -5366,7 +5482,7 @@ function renderTable() {
   const tbody = h('tbody', {}, list.map(s => {
     const v = cval(s);
     const cells = [
-      h('td', { class: 'k-n' }, h('div', { class: 'nmcell' }, starBtn(s.c, 'wbtn'), rowMark(s, v, v == null ? 'nod' : s.nonx ? 'nonx' : null), h('span', { class: 'nmt', text: s.n }), h('small', { text: s.c }), markSw(s.c), limTag(s), nxTag(s))),
+      h('td', { class: 'k-n' }, h('div', { class: 'nmcell' }, starBtn(s.c, 'wbtn'), rowMark(s, v, v == null ? 'nod' : s.nonx ? 'nonx' : null), h('span', { class: 'nmt', text: s.n }), h('small', { text: s.c }), markSw(s.c), alertTags(s.c, { max: 1 }), limTag(s), nxTag(s))),
       wgCol ? h('td', { class: 'k-g', text: gOf(s.c).map(g => g.name).join(', ') }) : null,
       h('td', { class: 'k-i indc', title: `${s.s} · ${s.i}` }, h('span', { class: 'indt', text: `${s.s} · ${s.i}` })),
       h('td', { class: 'k-p', 'data-f': '', text: s.p > 0 ? fmtInt(s.p) : '—' }),
@@ -5376,7 +5492,7 @@ function renderTable() {
     if (k === 'flow') { const a = amt(s); cells.push(h('td', { class: 'k-a ' + (a == null ? 'nd' : cls(a)), text: a == null ? '데이터 없음' : fmtAmt(a) })); }
     cells.push(h('td', { class: 'k-vol', text: fmtVol(s.v) }), h('td', { class: 'k-tv', text: fmtEok(s.tv) }), h('td', { class: 'k-cap', text: fmtEok(s.cap) }));
     return h('tr', { class: (s.c === state.selected ? 'sel' : '') + (s.nonx ? ' nonx' : ''), 'data-c': s.c, tabindex: '0',
-      'aria-label': `${s.n} ${k === 'day' ? fmtPct(s.r) : metricLong() + ' ' + (v == null ? '데이터 없음' : stText(s))}${s.nonx ? ', NXT 거래 없음(KRX 값)' : ''}${markAria(s.c)}`,
+      'aria-label': `${s.n} ${k === 'day' ? fmtPct(s.r) : metricLong() + ' ' + (v == null ? '데이터 없음' : stText(s))}${s.nonx ? ', NXT 거래 없음(KRX 값)' : ''}${alertAria(s.c)}${markAria(s.c)}`,
       onclick: ev => rowOpen(s, ev.currentTarget),
       onkeydown: ev => { if ((ev.key === 'Enter' || ev.key === ' ') && ev.target === ev.currentTarget) { ev.preventDefault(); rowOpen(s, ev.currentTarget); } } }, cells);
   }));
@@ -6391,10 +6507,10 @@ function suggKids(s) {
     if (s.ext) {
       // outside the map: the quote when we have one, else just name · code · market and "종목 페이지"
       const r = s.row, nm = s.n || (r && r.n) || `${s.c} 종목`, mk = s.m || (r && r.m);
-      return [r && kind() === 'day' && ohlcOf(r) ? candleIcon(ohlcOf(r)) : h('i', { class: 'sw' + (r && r.nonx ? ' nonx' : ''), style: `background:${r ? colorFor(r) : NODATA}` }), h('span', {}, nm, ' ', h('span', { class: 'meta', text: `${s.c}${mk ? ' · ' + MKT_NAME[mk] : ''}${(s.n || r) && isPreferred({ c: s.c }) ? ' · 우선주' : ''}${r && r.nonx ? ' · NXT 없음' : ''}` })),
+      return [r && kind() === 'day' && ohlcOf(r) ? candleIcon(ohlcOf(r)) : h('i', { class: 'sw' + (r && r.nonx ? ' nonx' : ''), style: `background:${r ? colorFor(r) : NODATA}` }), h('span', {}, nm, ' ', alertTags(s.c, { max: 1, cls: 'sm' }), ' ', h('span', { class: 'meta', text: `${s.c}${mk ? ' · ' + MKT_NAME[mk] : ''}${(s.n || r) && isPreferred({ c: s.c }) ? ' · 우선주' : ''}${r && r.nonx ? ' · NXT 없음' : ''}` })),
         h('span', { class: 'meta num', text: r && r.p > 0 ? fmtInt(r.p) : '' }), r ? h('span', { class: 'num ' + cls(r.r), text: fmtPct(r.r) }) : h('span', { class: 'meta', text: '종목 페이지' })];
     }
-    return [kind() === 'day' && ohlcOf(s) ? candleIcon(ohlcOf(s)) : h('i', { class: 'sw' + (s.nonx ? ' nonx' : ''), style: `background:${colorFor(s)}` }), h('span', {}, s.n, ' ', h('span', { class: 'meta', text: `${s.c} · ${s.i}${s.nonx ? ' · NXT 없음' : ''}` })),
+    return [kind() === 'day' && ohlcOf(s) ? candleIcon(ohlcOf(s)) : h('i', { class: 'sw' + (s.nonx ? ' nonx' : ''), style: `background:${colorFor(s)}` }), h('span', {}, s.n, ' ', alertTags(s.c, { max: 1, cls: 'sm' }), ' ', h('span', { class: 'meta', text: `${s.c} · ${s.i}${s.nonx ? ' · NXT 없음' : ''}` })),
       h('span', { class: 'meta num', text: s.p > 0 ? fmtInt(s.p) : '—' }), h('span', { class: 'num ' + cls(s.r), text: fmtPct(s.r) })];
   }
 }
@@ -6799,6 +6915,17 @@ window.KH = {
   ohlc: khOhlc, candleIcon, candleBar,
   h,
   loadData: name => loadData(name),
+  // 시장 경보 (AGENTS §3-37 ⓐ): of(code) → {keys, labels, live, file, when, quoteAt} | null · tags(code, {max, cls}) → the badges | null ·
+  // note(code) → "한국거래소 지정 · M/D HH:MM 기준" | '' · aria(code) → ", 투자경고" | '' · info() → {asOf, at, n, count, fresh, when} | null;
+  // 'kh:alerts' {detail: info} on document after a load changed them
+  alerts: {
+    of: code => alertOf(String(code)),
+    tags: (code, opts) => alertTags(String(code), opts),
+    note: code => { const A = alertOf(String(code)); return A ? alertSrc(A) : ''; },
+    aria: code => alertAria(String(code)),
+    info: alertsInfo,
+    label: k => AL_LABEL[k] || '',
+  },
   watch: watchApi,
   layout: khLayout,
   setReplay,
@@ -7570,6 +7697,13 @@ renderCrumbs();
 renderSide();
 renderLegend();
 if (MODE === 'live') { poll(); syncPollers(); loadClose(); }
+loadAlerts();
+// 시장 경보: the daily job writes 07:50 · 16:40 KST — a page left open asks again every 30 minutes while it is seen
+if (MODE === 'live') {
+  const alAgain = () => { if (!document.hidden && Date.now() - AL_LOAD.t > 30 * 60000) loadAlerts(true); };
+  setInterval(alAgain, 5 * 60000);
+  document.addEventListener('visibilitychange', alAgain);
+}
 stickMeasure(); scrollFrame();
 })();
 </script>
