@@ -792,7 +792,6 @@ table.list{width:100%;border-collapse:collapse;font-size:var(--fs-md)}
 .list th:first-child,.list td:first-child,.list th:nth-child(2),.list td:nth-child(2){text-align:left}
 .list th[aria-sort]{color:var(--fg)}
 .list th[aria-sort="descending"] button::after{content:" ▾"} .list th[aria-sort="ascending"] button::after{content:" ▴"}
-.list th .th-ord{font-size:inherit;font-weight:inherit;color:var(--muted)}   /* phones: the 종목 header names the order (시총순 · 가나다순) */
 .list td{padding:var(--space-4) var(--space-5);border-bottom:1px solid color-mix(in srgb,var(--ov) 4%,transparent);text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
 .list tbody tr{cursor:pointer}
 @media (hover:hover) and (pointer:fine){ .list tbody tr:hover{background:color-mix(in srgb,var(--ov) 3.5%,transparent)} }
@@ -1105,16 +1104,17 @@ footer .credit .dc{width:1.15em;height:1.15em;flex:none}
 .bm-it[aria-checked="true"] b{color:var(--acc)}
 @media (hover:hover) and (pointer:fine){ .bm-it:hover{background:var(--panel2)} }
 .bm-it:focus-visible{outline:var(--focus-w) solid var(--focus);outline-offset:calc(var(--focus-w) * -1)}
-/* phones: the table keeps a readable name column (two lines): 종목 · 현재가 · 등락률 · 거래대금 (거래량 · 시가총액 dropped; with a 기간 /
-   순매수 column, that instead of 거래대금) */
+/* phones: the table keeps a readable name column (two lines): 종목 · 현재가 · 등락률 · 거래대금 · 시총 (거래량 dropped; with a 기간 /
+   순매수 column, that instead of 거래대금; 시총 back 2026-11-16 12:53). Under 375px the numbers step down to --fs-sm to fit 360 */
 @media (max-width:430px){
-  .list .k-vol,.list .k-cap,.list.x7 .k-tv,.list .k-g{display:none}
+  .list .k-vol,.list.x7 .k-tv,.list .k-g{display:none}
   .list td{padding:var(--space-4) var(--space-2)}
   .list th button{padding:0 var(--space-2)}
   .list td:first-child{width:auto;max-width:none;min-width:7.2em;white-space:normal}
   .list .nmt{min-width:5.6em;white-space:normal;word-break:keep-all;overflow-wrap:anywhere;line-height:var(--lh-ui);display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
   .list .limtag{font-size:var(--fs-xs);padding:0 var(--space-2)}
 }
+@media (max-width:374px){ .list td:not(:first-child){font-size:var(--fs-sm)} .list td{padding:var(--space-4) var(--space-1)} .list th button{padding:0 var(--space-1)} }
 /* phones and tablets (and a 7-column table below 1440 px): no room for the tag — the hatched chip and the muted name say it (and the
    row's aria-label) */
 @media (max-width:1023px){ .list .nxtag{display:none} }
@@ -5366,20 +5366,14 @@ function renderTable() {
   const val = key === 'v' ? cval : key === 'a' ? amt : key === 'r' ? (s => s.r) : key === 'vol' ? (s => s.v) : key === 'g' ? gKey : (s => s[key]);
   sortRows(list, key, dir, val);
   const prevTop = wrap.scrollTop;
-  // phones (≤ 430px) hide the 시가총액 column, so the 종목 header carries the order instead (사용자 2026-11-16 12:50 "시총줄이 없어서 다른
-  // 순서로 정렬하면 다시 시총순으로 정렬할수가 없네"): it reads "종목 · 시총순" / "종목 · 가나다순" and a tap goes 시총 큰 순 → 작은 순 →
-  // 가나다 → 시총 큰 순; from any other column's order one tap brings 시총 큰 순 back
-  const phoneT = tableMQ().matches, nOrd = c => phoneT && c === 'n';
-  const thSort = c => nOrd(c) ? (key === 'cap' || key === 'n' ? (dir < 0 ? 'descending' : 'ascending') : null) : key === c ? (dir < 0 ? 'descending' : 'ascending') : null;
-  const thLabel = (c, label) => !nOrd(c) ? label : [label, h('small', { class: 'th-ord', text: key === 'n' ? ' · 가나다순' : key === 'cap' ? ' · 시총순' : '' })];
-  const nextSort = c => !nOrd(c) ? { key: c, dir: key === c ? -dir : (c === 'n' || c === 'i' || c === 'g' ? 1 : -1) }
-    : key === 'cap' && dir < 0 ? { key: 'cap', dir: 1 } : key === 'cap' ? { key: 'n', dir: 1 } : { key: 'cap', dir: -1 };
-  const thead = h('thead', {}, h('tr', {}, cols.map(([c, label]) => h('th', { class: 'k-' + c, 'data-k': c, 'aria-sort': thSort(c) },
-    h('button', { type: 'button', 'aria-label': nOrd(c) ? `종목, 지금 ${key === 'n' ? '가나다순' : key === 'cap' ? (dir < 0 ? '시가총액 큰 순' : '시가총액 작은 순') : '다른 열 순서'} — 누르면 ${key === 'cap' && dir < 0 ? '시가총액 작은 순' : key === 'cap' ? '가나다순' : '시가총액 큰 순'}` : null, onclick: () => {
-      state.sort = nextSort(c);
+  // phones (≤ 430px): the 시가총액 column stays (사용자 2026-11-16 12:53 "시총줄은 안넣어줘?") under the short head "시총"
+  const phoneT = tableMQ().matches;
+  const thead = h('thead', {}, h('tr', {}, cols.map(([c, label]) => h('th', { class: 'k-' + c, 'data-k': c, 'aria-sort': key === c ? (dir < 0 ? 'descending' : 'ascending') : null },
+    h('button', { type: 'button', 'aria-label': phoneT && c === 'cap' ? '시가총액' : null, onclick: () => {
+      state.sort = { key: c, dir: key === c ? -dir : (c === 'n' || c === 'i' || c === 'g' ? 1 : -1) };
       renderTable();
       const b = $(`#tablewrap th[data-k="${c}"] button`); if (b) b.focus();
-    } }, thLabel(c, label))))));
+    } }, phoneT && c === 'cap' ? '시총' : label)))));
   const rowOpen = (s, tr) => openStock(s.c, tr);
   const tbody = h('tbody', {}, list.map(s => {
     const v = cval(s);
