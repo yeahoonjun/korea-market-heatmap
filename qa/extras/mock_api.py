@@ -131,7 +131,7 @@ class H(SimpleHTTPRequestHandler):
             return self.send_json(WORLD)
         if path == '/api/breadth':
             m = q.get('m', 'K')
-            rows = [[x['c'], x['r']] for x in SNAP['stocks'] if x['m'] == m]
+            rows = [[x['c'], x['r']] + ([x['lim']] if x.get('lim') in (1, -1) else []) for x in SNAP['stocks'] if x['m'] == m]   # [code, r, lim?] (§3-3)
             return self.send_json({'m': m, 'part': int(q.get('part', 1) or 1), 'parts': 1, 'asOf': SNAP['asOf'], 'rows': rows})
         if path == '/api/themes':
             return self.send_json({'asOf': SNAP['asOf'], 'themes': []})
