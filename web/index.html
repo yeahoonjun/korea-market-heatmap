@@ -358,7 +358,12 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 .search input:focus ~ kbd{display:none}
 .sugg{position:absolute;left:0;right:0;top:40px;z-index:60;background:var(--pop-bg);border:1px solid var(--tip-bd);border-radius:var(--tip-r);padding:var(--space-2);box-shadow:var(--pop-sh);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);display:none;max-height:340px;overflow:auto}
 .sugg.open{display:block}
-.sugg button{display:grid;grid-template-columns:10px 1fr auto auto;align-items:center;gap:var(--space-4);width:100%;text-align:left;padding:var(--space-4) var(--space-4);border-radius:var(--r-row);font-size:var(--fs-lg)}
+.sugg button{display:grid;grid-template-columns:10px minmax(0,1fr) auto auto;align-items:center;gap:var(--space-4);width:100%;text-align:left;padding:var(--space-4) var(--space-4);border-radius:var(--r-row);font-size:var(--fs-lg)}
+/* the box is as wide as the search field but never narrower than a readable row — the field sits at the page's left edge at every width,
+   so it grows to the right, inside the page (360: 138 → 336px) */
+.sugg{min-width:min(360px,calc(100vw - 2 * var(--edge)))}
+/* the name cell may not push the row wider than the box (a long 업종 · 경보 words: 19px at 1280, 49px at 360 — 2026-11-16): it wraps */
+.sugg button > span:nth-child(2){min-width:0;overflow-wrap:anywhere}
 .sugg button[aria-selected="true"]{background:color-mix(in srgb,var(--ov) 6%,transparent)}
 @media (hover:hover) and (pointer:fine){ .sugg button:hover{background:color-mix(in srgb,var(--ov) 6%,transparent)} }
 .sugg .sw{width:10px;height:10px;border-radius:var(--r-mark)}
