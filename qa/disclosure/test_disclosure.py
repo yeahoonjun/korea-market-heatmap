@@ -42,7 +42,7 @@ SIZES = [(360, 740), (390, 844), (768, 1024), (1280, 800), (1920, 1080)]
 THEMES = ['base', 'paper', 'glass-dark', 'glass-light']
 NOPROXY = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 SHOTS = '--shots' in sys.argv
-ONLY = next((a.split('=', 1)[1] for a in sys.argv if a.startswith('--only=')), '')   # --only=design | baseline: that section alone
+ONLY = next((a.split('=', 1)[1] for a in sys.argv if a.startswith('--only=')), '')   # --only=design | baseline | refresh: that section alone
 results = []
 
 
@@ -70,13 +70,15 @@ class Errors:
         page.on('pageerror', lambda e: self.items.append(f'pageerror: {e}'))
 
 
-def open_page(br, url, w, h, theme='base', motion='standard', errors=None, market='K', store=None, wait=1800):
+def open_page(br, url, w, h, theme='base', motion='standard', errors=None, market='K', store=None, wait=1800, clock=False):
     mobile = w <= 760
     ctx = br.new_context(viewport={'width': w, 'height': h}, is_mobile=mobile, has_touch=mobile, device_scale_factor=1)
     st = {'theme': theme, 'motion': motion, 'tickerPaused': True, 'market': market}
     st.update(store or {})
     ctx.add_init_script('try{' + ''.join(f"localStorage.setItem('khm.{k}', {json.dumps(json.dumps(v))});" for k, v in st.items()) + '}catch(e){}')
     pg = ctx.new_page()
+    if clock:
+        pg.clock.install()
     if errors is not None:
         errors.attach(pg)
     pg.goto(url)
@@ -971,6 +973,51 @@ def shots(br):
     print('shots →', out)
 
 
+def refresh_key(br):
+    # ── 18 · ↻ 새로 받기 on the 오늘 공시 tab (the news card head's key, 사용자 2026-11-16 09:24): this tab's list only; under 10 s since its
+    #        last answer → no request ("방금 받았어요"); a press brings the new filing at once (pointer in the pane), with its new dot, the
+    #        counts swapping (§6-4) and the head's time from the answer; a failure → ! (--fail-dot), the list stays ──
+    E = Errors()
+    E.allow = ['Failed to load resource']
+    mode('drift')
+    ctx, pg = open_page(br, LIVE, 1440, 900, errors=E, clock=True)
+    disc_tab(pg)
+    pg.click('#news .dc-only'); pg.wait_for_timeout(300)          # 지도 종목만 off: the drift rows are outside the map
+    k = pg.evaluate("({ label: document.querySelector('#news .nw-rk').getAttribute('aria-label'), hidden: document.querySelector('#news .nw-rk').hidden })")
+    check('↻ on 오늘 공시: "오늘 공시 새로 받기", shown', k['label'] == '오늘 공시 새로 받기' and not k['hidden'], k)
+    route = '/api/disclosures/today'
+    n0 = mock('/__stats').get(route, 0)
+    pg.click('#news .nw-rk'); pg.wait_for_timeout(300)
+    b = pg.evaluate("[...document.querySelectorAll('.kbub')].map(b => b.textContent)")
+    check('↻ under 10 s since the last answer → no request, "방금 받았어요"', mock('/__stats').get(route, 0) == n0 and '방금 받았어요' in b, (mock('/__stats').get(route, 0) - n0, b))
+    top = "(() => { const r = document.querySelector('#news-p-disc .dc-row'); return [r.querySelector('.dc-tt a').textContent, !!r.querySelector('.dc-dot')]; })()"
+    cnt = "document.querySelector('#news .dc-ktabs button[aria-pressed=\"true\"] small').textContent"
+    t0, c0 = pg.evaluate(top), pg.evaluate(cnt)
+    n_news = mock('/__stats').get('/api/news', 0)
+    pg.route('**/api/disclosures/today*', lambda r: r.fulfill(json=dict(_j := json.loads(r.fetch().text()), asOf=_j['asOf'][:11] + '23:58:00+09:00')))
+    pg.clock.run_for(11000); pg.wait_for_timeout(100)
+    n0 = mock('/__stats').get(route, 0)
+    pg.evaluate("window.__sw = []; const o = KH.ui.swap; KH.ui.swap = (el, t, f, d) => { __sw.push([el.closest('.dc-ktabs') ? 'kind' : el.closest('.nw-ftabs') ? 'title' : el.className, String(f), String(t)]); return o(el, t, f, d); }; 0")
+    pg.hover('#news-p-disc .dc-row:nth-child(2)'); pg.hover('#news .nw-rk'); pg.click('#news .nw-rk'); pg.wait_for_timeout(800)
+    sw = pg.evaluate("__sw")
+    t1, c1 = pg.evaluate(top), pg.evaluate(cnt)
+    at = pg.evaluate("document.querySelector('#news .nw-at').textContent")
+    check('↻: one request for this tab only (시장 뉴스 not asked)', mock('/__stats').get(route, 0) - n0 == 1 and mock('/__stats').get('/api/news', 0) == n_news, (mock('/__stats').get(route, 0) - n0, mock('/__stats').get('/api/news', 0) - n_news))
+    check('↻ with the pointer in the pane: the new filing on top at once, with its new dot; head = the answer\'s time', t1[0] != t0[0] and '시험' in t1[0] and t1[1] and at == '23:58 기준', (t0, t1, at))
+    check('↻: the kind count moved with the answer and swapped in place (§6-4)', c1 != c0 and any(x[0] == 'kind' and x[1] == c0 and x[2] == c1 for x in sw), (c0, c1, sw))
+    st = pg.evaluate("document.querySelector('#news .nw-rk').dataset.st")
+    check('↻: ✓ (done) after the answer', st == 'done', st)
+    pg.unroute('**/api/disclosures/today*')
+    mode('fail', 'ok')
+    pg.clock.run_for(11000); pg.wait_for_timeout(100)
+    pg.click('#news .nw-rk'); pg.wait_for_timeout(700)
+    f = pg.evaluate("({ st: document.querySelector('#news .nw-rk').dataset.st, rows: document.querySelectorAll('#news-p-disc .dc-row:not(.skel)').length, bub: [...document.querySelectorAll('.kbub')].map(b => b.textContent), col: getComputedStyle(document.querySelector('#news .nw-rk .kwn')).color, fd: (() => { const i = document.createElement('i'); i.style.color = 'var(--fail-dot)'; document.body.append(i); const c = getComputedStyle(i).color; i.remove(); return c; })() })")
+    check('↻ fails → ! (--fail-dot) + "못 받았어요"; the list stays', f['st'] == 'fail' and f['rows'] > 0 and f['col'] == f['fd'] and any('못 받았어요' in x for x in f['bub']), f)
+    ctx.close()
+    check('↻ (오늘 공시): no console errors', not E.items, E.items[:3])
+    mode('ok')
+
+
 def main():
     subprocess.run(['fuser', '-k', f'{PORT}/tcp'], capture_output=True)
     srv = subprocess.Popen([sys.executable, str(MOCK), str(PORT)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -986,6 +1033,8 @@ def main():
                 run(br)
             if ONLY in ('', 'design'):
                 design(br)
+            if ONLY in ('', 'refresh'):
+                refresh_key(br)
             if ONLY in ('', 'baseline'):
                 baseline(br)
             if SHOTS:

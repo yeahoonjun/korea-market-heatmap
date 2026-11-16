@@ -78,7 +78,7 @@ const S = {
   view: [], byCode: new Map(), marks: new Map(), markSig: '', fresh: new Set(), seen: '', rp: null, rpKey: '',
   mapSet: new Set(), mapKey: '',
   kt: 'main', only: true, open: false, L: { measure: false, base: 5, two: false, phone: narrowMQ.matches, rowsMax: MAX_ROWS },
-  pending: false, ptr: false, hov: '', litOn: false, lgKey: '', tabbed: false, names: null, namesBusy: false, swap: false,
+  pending: false, now: false, ptr: false, hov: '', litOn: false, lgKey: '', tabbed: false, names: null, namesBusy: false, swap: false,
 };
 const today = () => kstOf(nowMs()).date;
 const isToday = () => !!S.data && S.data.date === today();
@@ -334,7 +334,7 @@ function emptyMsg() {
 function renderPanel(o = {}) {
   if (!S.tabbed) return;
   const L = S.L, d = S.data, none = !d || !S.view.length;
-  if (!o.force && reading() && list.querySelector('.dc-row:not(.skel)')) { S.pending = true; return; }
+  if (!o.force && !S.now && reading() && list.querySelector('.dc-row:not(.skel)')) { S.pending = true; return; }
   S.pending = false;
   pane.dataset.k1 = ['정기', '지분', '기타'].includes(S.kt) ? '1' : '0';
   for (const b of ktabs.children) {
@@ -385,13 +385,24 @@ function atKids(atEl) {
     const since = S.tries > 0 ? S.okAt : isoMs(d.asOf), m = Math.max(5, Math.round((Date.now() - since) / 60000));
     return [icon('warn'), h('span', { text: `${asOfText(d.asOf)} 기준 · ${m}분째 못 받았어요` }), retryKey(true)];
   }
-  return h('span', { text: `${asOfText(d.asOf)} 기준` });
+  return atTime(asOfText(d.asOf));
+}
+const atTime = t => (window.KHNews && typeof window.KHNews.atTime === 'function' ? window.KHNews.atTime(t) : h('span', { text: `${t} 기준` }));
+// ↻ (the news card head's key): at once, drawn even with the pointer in the pane (the reader asked); a list an earlier (polling)
+// answer left waiting comes in too. null = the route is gone (404) — the tab is no longer there
+async function userLoad() {
+  const ok = await load({ now: true });
+  if (S.gone) return null;
+  if (S.pending) renderPanel({ force: true });
+  return ok;
 }
 const tabSpec = {
   key: 'disc', pane, list,
   label: () => (!S.data || isToday() ? '오늘 공시' : `${dayLong(S.data.date)} 공시`),
   count: () => (S.data ? String(listFor('mark', true).length) : ''),
   at: atKids,
+  refresh: () => userLoad(),
+  freshAt: () => S.okAt,
   render(L) { S.L = L; renderPanel({ force: true }); renderLit(); },
   onShow: () => renderLit(),
   // leaving the tab (시장 뉴스, the card hidden, the tab removed): the map back to normal — its key is no longer on screen
@@ -583,7 +594,7 @@ function load(o = {}) {
       derive(); schedule();
       return true;
     }
-    if (d) { S.tries = 0; S.okAt = Date.now(); S.err = false; setData(d); }
+    if (d) { S.tries = 0; S.okAt = Date.now(); S.err = false; S.now = !!o.now; setData(d); S.now = false; }
     else { S.tries++; S.err = !S.data; if (!o.silent) refreshAll(); else { renderLit(); renderLegend(); } }
     schedule();
     return !!d;

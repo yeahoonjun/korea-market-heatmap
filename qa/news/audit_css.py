@@ -21,7 +21,10 @@ Build: web/index.html and dist/index.html carry this CSS / JS.
 
 Deliberate values off the scale (named here so the audit can list them):
   - the badge recipe's height 18px (design.md §5) — also its line-height; the 2px underline of a picked tab (design.md §7 ③)
-  - icon boxes: the ✓ mask 14px, the warn / spin icons 15px, the 6px chevron box (drawn at 1.75px)
+  - icon boxes: the ✓ mask 14px, the warn / spin icons 15px, the 6px chevron box (drawn at 1.75px), the ↻ key's icon 16px (1.75px)
+  - the phone's screen-reader-only "기준" of the head time (1 × 1 px, clipped — not a height)
+  - the ↻ key's turn while it works (kspn, the template's ring keyframes — controls.md §5-3) is the one endless animation besides the
+    skeleton breath; 줄이기 stops it (still, .45)
   - the skeleton bar 10px · the touch hit areas 44px (::before, pointer:coarse) · the phone message box min-height 300px (the card keeps
     one height across states)
   - grid track widths (time column 40px) — geometry, not spacing
@@ -44,14 +47,15 @@ css, R, D, KF = parse(CSS)
 OK_AMBER = re.compile(r'aria-pressed="true"|aria-selected="true"|\.nw-ftabs\.seg::before|:focus')
 HEIGHT_OK = {('.news .nw-src', 'height', '18px'), ('.news .nw-only .nw-ck', 'height', '14px'), ('.news .nw-at svg', 'height', '15px'),
              ('.news .nw-note > svg', 'height', '15px'), ('.news .nw-more::after', 'height', '6px'), ('.news .nw-sk', 'height', '10px'), ('.news .nw-ftabs.seg::before', 'height', '2px'),
-             ('@media (max-width:760px) .news .nw-msg', 'min-height', '300px')}
+             ('@media (max-width:760px) .news .nw-msg', 'min-height', '300px'), ('.news .nw-rk svg', 'height', '16px'),
+             ('@media (max-width:760px) .news .nw-at .nw-atw', 'height', '1px')}
 
 
 def height_ok(s, k, v):
     return (s, k, v) in HEIGHT_OK or (s.endswith('::before') and '(pointer:coarse)' in s and v == '44px')
 
 
-common(A, 'news.css', css, R, D, KF, height_ok=height_ok, amber_ok=lambda s: bool(OK_AMBER.search(s)), endless=['nwSk'])
+common(A, 'news.css', css, R, D, KF, height_ok=height_ok, amber_ok=lambda s: bool(OK_AMBER.search(s)), endless=['kspn', 'nwSk'])
 
 
 def first(sel, prop):
@@ -92,7 +96,18 @@ chip = (first('.news .nw-only[aria-pressed="true"]', 'box-shadow') or '')
 A.check('§7 지도 종목 기사만 = a filter pill: on = --chip-on + 1.5px --chip-ring, the check grows on lead and fades in', '1.5px var(--chip-ring)' in chip
         and 'width var(--sp-lead-dur) var(--sp-lead)' in (first('.news .nw-only .nw-ck', 'transition') or ''), chip)
 sink = [s for s, k, v in D if k == 'transform' and v == 'translateY(1px)']
-A.check('§7 keys and chips sink 1px (지도 종목 기사만 · 종목 칩 · 더보기 / 다시 시도)', all(any(n in s for s in sink) for n in ('.nw-only', '.nw-chip', '.nw-kbtn')), sink)
+A.check('§7 keys and chips sink 1px (지도 종목 기사만 · 종목 칩 · 더보기 / 다시 시도 · ↻)', all(any(n in s for s in sink) for n in ('.nw-only', '.nw-chip', '.nw-kbtn', '.nw-rk')), sink)
+# ↻ 새로 받기 (news.md §17): a --h-key square on the key surface, its hover only on a fine pointer, the turn only while it works, 줄이기 still + .45
+rkd = {k: v for s, k, v in D if s == '.news .nw-rk'}
+A.check('↻ key: --h-key square, --r-key, the key surface (--key-bg · --key-sh)', rkd.get('width') == rkd.get('height') == 'var(--h-key)' and rkd.get('border-radius') == 'var(--r-key)'
+        and rkd.get('background') == 'var(--key-bg)' and rkd.get('box-shadow') == 'var(--key-sh)', rkd)
+rkh = [s for s, k, v in D if '.nw-rk' in s and ':hover' in s]
+A.check('↻ key: hover only inside (hover:hover) and (pointer:fine)', rkh and all('(hover:hover) and (pointer:fine)' in s for s in rkh), rkh)
+rka = [(s, v) for s, k, v in D if '.nw-rk' in s and k == 'animation']
+A.check('↻ key: turns (kspn) only in data-st="work"; 줄이기 → still, .45', rka and all('[data-st="work"]' in s and 'kspn' in v for s, v in rka)
+        and any('data-motion="reduced"' in s and '.nw-rk' in s and k == 'opacity' and v == '.45' for s, k, v in D), rka)
+A.check('↻ key (news.js): 1.75px non-scaling ↻, the template async states (KH.ui.state, .klb/.kl), the 10 s guard, KH.ui.bubble',
+        'stroke-width="1.75"' in JS and 'non-scaling-stroke' in JS and "UI.state(rk" in JS and 'RK_GAP = 10e3' in JS and 'UI.bubble(rk' in JS and "'방금 받았어요'" in JS)
 rowsink = [s for s in sink if re.search(r'\.nw-row|\.nw-ftabs|\.nw-tabs', s)]
 A.check('§7 rows and tabs never sink (tabs: the template\'s --press-f)', not rowsink, rowsink)
 chev = first('.news .nw-more::after', 'border-width') or ''
