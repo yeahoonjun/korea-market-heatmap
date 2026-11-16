@@ -64,7 +64,7 @@ html[data-theme="paper"] .sp-head, html[data-theme^="glass"] .sp-head { backgrou
 .sp-code:empty + .sp-mkt::before { content: none; }
 .sp-path { flex: 0 1 auto; min-width: 0; font-size: var(--fs-sm); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* phones: 상한가 sits on the price line, right above the change, so the quote stays narrow and the name keeps its room */
-.sp-quote { flex: none; display: grid; grid-template-columns: auto auto; grid-template-areas: "lim price" "chg chg" "nxt nxt"; justify-content: end; align-items: center; text-align: right; padding-left: var(--space-4); }
+.sp-quote { flex: none; display: grid; grid-template-columns: auto auto; grid-template-areas: "lim price" "chg chg" "nxt nxt" "al al"; justify-content: end; align-items: center; text-align: right; padding-left: var(--space-4); }
 .sp-price { grid-area: price; font-family: var(--font-head, var(--sans)); font-size: var(--fs-2xl); font-weight: 700; letter-spacing: -.01em; white-space: nowrap; }   /* with 명조 제목 on (paper) only the price is set in --font-head; the name stays Pretendard */
 .sp-price, .sp-chg { --od-lh: 1.2; line-height: var(--od-lh); font-variant-numeric: tabular-nums; }
 .sp-chg { grid-area: chg; justify-self: end; font-size: var(--fs-md); font-weight: 600; white-space: pre; margin-top: 1px; }
@@ -83,6 +83,10 @@ html[data-theme="paper"] .sp-head, html[data-theme^="glass"] .sp-head { backgrou
 /* 상한가·하한가: a data label (the badge recipe, design.md §5), so it takes the rise/fall text colours */
 .sp-lim { grid-area: lim; justify-self: end; flex: none; display: inline-flex; align-items: center; height: 18px; margin-right: var(--space-3); padding: 0 var(--space-2); border-radius: var(--r-badge); font-size: var(--fs-xs); font-weight: 700; line-height: 1; white-space: nowrap; }
 .sp-lim[hidden] { display: none; }
+/* 시장 경보 (AGENTS §3-37 ⓐ): the template's neutral badges (.altags · .altag, design.md §5) under the quote — a stock fact, no colour */
+.sp-al { grid-area: al; justify-self: end; display: inline-flex; min-width: 0; margin-top: var(--space-2); }
+.sp-al[hidden] { display: none; }
+.sp-alnote { color: var(--muted); }
 .sp-lim.up { color: var(--up-text); background: color-mix(in srgb, var(--up-text) 15%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--up-text) 45%, transparent); }
 .sp-lim.dn { color: var(--dn-text); background: color-mix(in srgb, var(--dn-text) 15%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--dn-text) 45%, transparent); }
 /* 관심종목 */
@@ -667,7 +671,7 @@ a.sp-nw-a:visited .sp-nw-t { color: var(--fg2); }
   .sp-code { grid-area: code; } .sp-mkt { grid-area: mkt; }
   .sp-path { grid-area: path; margin-top: 1px; }
   .sp-path::before { content: none; }
-  .sp-quote { grid-template-areas: "price price" "chg lim" "nxt nxt"; }
+  .sp-quote { grid-template-areas: "price price" "chg lim" "nxt nxt" "al al"; }
   .sp-lim { margin: 1px 0 0 var(--space-3); }
   .sp-price { font-size: var(--fs-num); letter-spacing: -.02em; }
   .sp-price .hn-d { font-size: var(--fs-2xl); letter-spacing: -.01em; }
@@ -697,6 +701,7 @@ a.sp-nw-a:visited .sp-nw-t { color: var(--fg2); }
   .sp-chg { font-size: var(--fs-xl); margin-top: 0; }
   .sp-chg .hn-d { font-size: var(--fs-lg); }
   .sp-lim { margin: 0; align-self: center; }
+  .sp-al { margin: 0; align-self: center; }
   .sp-nxt { margin: 0 0 0 var(--space-3); }
   .sp-star { margin-left: auto; }
   .sp-stats { grid-template-columns: repeat(5, minmax(0, auto)) repeat(2, minmax(200px, 1fr)); }

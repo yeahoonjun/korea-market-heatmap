@@ -320,12 +320,13 @@ function build() {
   R.price = h('div', { class: 'sp-price num' });
   R.chg = h('div', { class: 'sp-chg num' });
   R.lim = h('span', { class: 'sp-lim', hidden: true });
+  R.al = h('span', { class: 'sp-al', hidden: true });                     // 시장 경보 (AGENTS §3-37 ⓐ): the template's neutral badges
   R.nxt = h('div', { class: 'sp-nxt num', hidden: true }, h('span', { class: 'k' }), ' ', h('span', { class: 'pv' }), ' ', h('span', { class: 'pr' }), h('span', { class: 't' }));
   R.star = h('button', { class: 'sp-star', type: 'button', 'aria-label': '관심종목', 'aria-pressed': 'false', hidden: true, onclick: toggleWatch },
     svg('svg', { class: 'sp-ic', viewBox: '0 0 24 24', 'aria-hidden': 'true' }, svg('path', { d: 'M12 3.4l2.6 5.5 6 .8-4.4 4.2 1.1 6-5.3-2.9-5.3 2.9 1.1-6-4.4-4.2 6-.8z' })));
   R.head = h('header', { class: 'sp-head' }, h('div', { class: 'sp-head-in' }, R.back,
     h('div', { class: 'sp-id' }, R.name, h('div', { class: 'sp-sub' }, R.code, R.mkt, R.path)),
-    h('div', { class: 'sp-quote', 'aria-live': 'polite' }, R.price, R.chg, R.lim, R.nxt),
+    h('div', { class: 'sp-quote', 'aria-live': 'polite' }, R.price, R.chg, R.lim, R.al, R.nxt),
     R.star));
   R.meta = h('div', { class: 'sp-meta' });
   R.stats = h('dl', { class: 'sp-stats' });
@@ -508,6 +509,7 @@ function renderHead() {
     R.chg.setAttribute('aria-label', `전일 대비 ${signed(chg)}원, ${pct(ratio)}`);
   }
   renderLim();
+  renderAl();
   renderNxt();
   renderStar();
   if (name) document.title = `${name} ${price != null ? int(price) : ''} ${price != null ? pct(ratio) : ''} · 판세`.replace(/\s+/g, ' ');
@@ -561,6 +563,24 @@ function renderLim() {
   R.lim.textContent = lim > 0 ? '상한가' : lim < 0 ? '하한가' : '';
 }
 
+// 시장 경보 (AGENTS §3-37 ⓐ): KH.alerts.tags (투자주의 · 경고 · 위험 · 관리종목 · 거래정지, 2 + "외 N"); the 기준 시각 goes in the meta
+// line. Redrawn only when what it says changes — the quote box is aria-live and the quotes arrive every few seconds.
+const alertsApi = () => (KH.alerts && typeof KH.alerts.tags === 'function' && typeof KH.alerts.of === 'function' ? KH.alerts : null);
+function renderAl() {
+  const A = alertsApi(), el = A && S.code ? A.tags(S.code, { max: 2 }) : null;
+  const sig = el ? `${S.code}|${el.dataset.al}|${[...el.querySelectorAll('[title]')].map(x => x.title).join('|')}` : '';
+  if (R.al.dataset.sig === sig) return;
+  R.al.dataset.sig = sig;
+  R.al.hidden = !el;
+  R.al.replaceChildren(...(el ? [el] : []));
+}
+function alertMeta() {
+  const A = alertsApi(), a = A && S.code ? A.of(S.code) : null;
+  if (!a) return null;
+  const rest = a.labels.slice(2);
+  return h('span', { class: 'sp-alnote' }, rest.length ? `외 ${rest.length}: ${rest.join(' · ')} · ` : '', A.note(S.code));
+}
+
 // 관심종목: KH.watch comes from the heatmap (AGENTS.md §3-2). Without it the star stays hidden.
 const watchApi = () => (KH.watch && typeof KH.watch.has === 'function' && typeof KH.watch.toggle === 'function' ? KH.watch : null);
 function renderStar() {
@@ -610,6 +630,8 @@ function renderMeta() {
         retryKey('sum', async () => { const r = await fetchSummary(false); if (r === false) scheduleSummary(); return r; }, applySummary, 'sp-link sp-retry')));
     }
   }
+  const al = alertMeta();
+  if (al) kids.push(al);
   R.meta.replaceChildren(...kids);
 }
 
@@ -3014,7 +3036,8 @@ document.addEventListener('kh:data', () => { if (S.open) { renderPeers(); render
 document.addEventListener('kh:basis', () => { if (S.open) renderHead(); });   // the headline is the row in the chosen basis   // 업종 path / provisional price arrive with the quotes
 // a change of effect level ends whatever rolls or swaps in the header at its end value (design.md §6-3)
 document.addEventListener('kh:motion', () => { if (R.price) for (const el of [R.price, R.chg, R.nxt.querySelector('.pv'), R.nxt.querySelector('.pr')]) numSettle(el); });
-document.addEventListener('kh:watch', () => { if (S.open) renderStar(); });   // the picker keeps its own ticks and counts in step
+document.addEventListener('kh:watch', () => { if (S.open) renderStar(); });
+document.addEventListener('kh:alerts', () => { if (S.open) { renderAl(); renderMeta(); } });   // the picker keeps its own ticks and counts in step
 
 window.KHStock = { open, close, isOpen: () => S.open };
 onHash();
