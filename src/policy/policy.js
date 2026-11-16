@@ -10,7 +10,9 @@
    Footer: <p id="foot-policy"> right after the 공시 line (above ©, the disclaimer stays last — AGENTS §3-30), kept there across the
    template's footer redraws by watching #foot (the template is not changed).
    Design (design.md, approved): --fs-* / --space-* / --r-* / --h-* tokens only, no red / green (no price data here), amber only for the
-   chosen chip and focus; the failure mark is --fail-dot. */
+   chosen chip and focus; the failure mark is --fail-dot. 더보기 · 접기 = the card's fold (KHNews.fold, as 시장 뉴스 · 오늘 공시 — no
+   40 ms stagger any more, ux/std-wrapup); chip counts that move with a new answer swap in place (KH.ui.swap); ↻ in the card head asks
+   this tab again (spec refresh · freshAt). */
 (() => {
 'use strict';
 const KH = window.KH;
@@ -66,7 +68,7 @@ if (!LIVE) {
 /* ───────── state ───────── */
 const S = {
   data: null, okAt: 0, lastTry: 0, tries: 0, loading: true, busy: null, timer: 0, gone: false,
-  f: 'all', open: false, shown: 0, pending: false, swapLater: false, ptr: false, near: !('IntersectionObserver' in window), tabbed: false,
+  f: 'all', open: false, pending: false, swapLater: false, ptr: false, near: !('IntersectionObserver' in window), tabbed: false,
   L: { measure: false, base: 5, two: false, phone: narrowMQ.matches, rowsMax: MAX_ROWS },
 };
 
@@ -94,10 +96,10 @@ function retryKey(sm) {
 const warn = () => { const i = icon('warn'); if (i && i.classList) i.classList.add('pl-warn'); return i; };
 
 /* ───────── rows ───────── */
-function row(x, k, grow) {
-  const anim = grow && k >= S.shown;
+// rows past the first row count are .nw-x: they come in / leave together with the 더보기 fold (KHNews.fold — policy.css)
+function row(x, k, base) {
   const side = [x.org, x.kind].filter(Boolean).join(' · ');
-  return h('li', { class: 'pl-row' + (anim ? ' in' : ''), style: anim ? `--d:${Math.min(8, k - S.shown) * 40}ms` : null, 'data-src': x.src },
+  return h('li', { class: 'pl-row' + (k >= base ? ' nw-x' : ''), 'data-src': x.src },
     h('time', { class: 'pl-tm', datetime: x.t, text: dateText(x.t) }),
     h('span', { class: 'pl-src', text: SRC[x.src] }),
     h('span', { class: 'pl-tt', title: x.title + (side ? ` — ${side}` : '') },
@@ -161,10 +163,9 @@ function renderPanel(o = {}) {
   else if (!d && S.loading) kids = skel(base);
   else if (!d) kids = [msgLi('정책 자료를 불러오지 못했어요', 'KDI 경제정보센터 · 공공데이터포털 모두 답하지 않았어요. 잠시 뒤 다시 눌러 주세요.', retryKey(false))];
   else if (!all.length) kids = [emptyMsg()];
-  else kids = all.slice(0, shown).map((x, k) => row(x, k, o.grow));
+  else kids = all.slice(0, shown).map((x, k) => row(x, k, base));
   put(list, kids);
   list.classList.toggle('is-msg', kids.length === 1 && kids[0].classList.contains('pl-msg'));
-  if (!L.measure) S.shown = d ? Math.min(shown, all.length) : 0;
   const total = Math.min(MAX_ROWS, all.length);
   const lab = more.querySelector('.kl[data-l="idle"]');
   if (lab) lab.textContent = `더보기 (${total}개)`;
@@ -304,15 +305,22 @@ chips.addEventListener('click', e => {
   S.f = b.dataset.k;
   renderPanel({ force: true });
 });
+// 휴대폰: 접으면 카드 머리로 (§3-14와 같아요)
+function headBack() {
+  if (!narrowMQ.matches || !card) return;
+  const top = card.getBoundingClientRect().top, stuck = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--stuck-h')) || 0;
+  if (top < stuck) scrollBy({ top: top - stuck - 8, behavior: motion() === 'reduced' ? 'auto' : 'smooth' });
+}
+// 더보기 · 접기 = the card's fold, the same as 시장 뉴스 · 오늘 공시 (design.md §7 · §12 ①, KHNews.fold): only the list's box grows on
+// `open` and what is below moves once; the new rows (.nw-x) come in together a quarter of the way; closing — they leave first, the box
+// closes on `close`, then the page comes up once. No stagger (§6-2: a list one opens often).
 more.addEventListener('click', () => {
-  S.open = !S.open;
-  if (typeof UI.state === 'function') UI.state(more, S.open ? 'less' : 'idle');
-  more.setAttribute('aria-expanded', String(S.open));
-  renderPanel({ force: true, grow: S.open });
-  if (!S.open && narrowMQ.matches && card) {                 // 휴대폰: 접으면 카드 머리로 (§3-14와 같아요)
-    const top = card.getBoundingClientRect().top, stuck = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--stuck-h')) || 0;
-    if (top < stuck) scrollBy({ top: top - stuck - 8, behavior: motion() === 'reduced' ? 'auto' : 'smooth' });
-  }
+  const want = !S.open;
+  if (typeof UI.state === 'function') UI.state(more, want ? 'less' : 'idle');
+  more.setAttribute('aria-expanded', String(want));
+  const apply = w => { S.open = w; renderPanel({ force: true }); };
+  if (typeof News.fold === 'function') News.fold(list, want, apply, { onEnd: want ? null : headBack });
+  else { apply(want); if (!want) headBack(); }
   more.focus({ preventScroll: true });
 });
 const flush = () => { if (S.pending && !reading()) renderPanel(); };

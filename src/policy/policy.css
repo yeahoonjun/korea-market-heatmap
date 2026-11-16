@@ -59,8 +59,9 @@
 .news .pl-kbtn:is(:active,.is-press){transform:translateY(1px);box-shadow:var(--key-dn);filter:var(--press-f);transition-duration:0s}
 .news .pl-kbtn.sm{height:var(--h-chip);padding:0 var(--space-5)}
 .news .pl-kbtn[hidden]{display:inline-flex;visibility:hidden}
-.news .pl-more::after{content:"";width:6px;height:6px;margin-top:-3px;border:solid var(--key-ic);border-width:0 1.75px 1.75px 0;transform:rotate(45deg);transition:transform var(--sp-lead-dur) var(--sp-lead),margin var(--sp-lead-dur) var(--sp-lead)}
-.news .pl-more[aria-expanded="true"]::after{margin-top:3px;transform:rotate(225deg)}
+/* 꺾쇠(선 1.75px): 펼칠 때 open, 접을 때 close로 반 바퀴 — 시장 뉴스 · 오늘 공시의 더보기와 같아요 */
+.news .pl-more::after{content:"";flex:none;width:6px;height:6px;border:solid var(--key-ic);border-width:0 1.75px 1.75px 0;transform:translateY(-25%) rotate(45deg);transition:transform var(--sp-close-dur) var(--sp-close)}
+.news .pl-more[aria-expanded="true"]::after{transform:translateY(25%) rotate(225deg);transition-duration:var(--sp-open-dur);transition-timing-function:var(--sp-open)}
 @media (pointer:coarse){ .news :is(.pl-chip,.pl-kbtn.sm)::before{content:"";position:absolute;left:50%;top:50%;width:max(100%,44px);height:44px;transform:translate(-50%,-50%)} }
 
 /* 빈 · 오류 · 불러오는 중: 목록 자리를 그대로 차지해요 — 상태가 바뀌어도 카드 높이 그대로 */
@@ -69,12 +70,14 @@
 .news .pl-msg b{font-weight:600;color:var(--fg)}
 .news .pl-msg small{font-size:var(--fs-sm);color:var(--muted)}
 .news .pl-msg a{color:var(--fg);font-weight:600;text-underline-offset:3px}
-.news .pl-sk{display:block;height:10px;border-radius:var(--r-pill);background:var(--line);opacity:.8}
-html:not([data-motion="reduced"]) .news .pl-row.skel .pl-sk{animation:plSk 1.4s var(--c-inout) infinite alternate}
-@keyframes plSk{to{opacity:.35}}
-/* 화려하게: 더보기로 펼친 줄이 아래에서 나타나요(40ms 간격, 8줄까지) */
-html[data-motion="fancy"] .news .pl-row.in{animation:plIn var(--sp-fade-dur) var(--sp-fade) both;animation-delay:var(--d,0ms)}
-@keyframes plIn{from{opacity:0;transform:translateY(var(--space-2))}}
+/* 뼈대: 시장 뉴스 · 오늘 공시와 같은 평평한 --fill-2 막대가 투명도로만 숨쉬어요(news.css nwSk) */
+.news .pl-sk{display:block;height:10px;border-radius:var(--r-pill);background:var(--fill-2)}
+html:not([data-motion="reduced"]) .news .pl-row.skel .pl-sk{animation:nwSk var(--nw-skel-t) var(--c-inout) infinite alternate}
+/* 더보기 · 접기 = 카드의 펼치는 목록(KHNews.fold — design.md §7 · §12 ①): 목록 상자만 open으로 자라고 아래 내용은 한 번에, 새 줄(.nw-x)은
+   상자가 25 % 열린 뒤 §6-4로 다 함께(opacity · 흐림 2px · 아래에서 4px), 접을 땐 먼저 다 함께 나가요. 순차 없음(자주 여는 것 — §6-2) */
+.news .pl-list.nw-fold-anim > .nw-x{opacity:0;transform:translateY(var(--space-2));filter:blur(2px)}
+.news .pl-list.nw-fold-in > .nw-x{opacity:1;transform:none;filter:none;transition:opacity var(--nw-tx-in) var(--sp-fade),transform var(--nw-tx-in) var(--sp-fade),filter var(--nw-tx-in) var(--sp-fade)}
+.news .pl-list.nw-fold-out > .nw-x{opacity:0;transform:translateY(calc(-1 * var(--space-2)));filter:blur(2px);transition:opacity var(--nw-tx-out) var(--sp-close),transform var(--nw-tx-out) var(--sp-close),filter var(--nw-tx-out) var(--sp-close)}
 
 /* 휴대폰 (≤ 760): 1줄 날짜 · 출처 · 기관 / 2줄 제목 두 줄 — 5개 + 더보기, 줄 44px 이상 */
 @media (max-width:760px){
@@ -95,4 +98,4 @@ html[data-motion="fancy"] .news .pl-row.in{animation:plIn var(--sp-fade-dur) var
   .news .pl-msg{min-height:300px}
   .news .pl-pane.is-snap .pl-msg{min-height:0;padding:var(--space-6) var(--space-4)}
 }
-html[data-motion="reduced"] .news .pl-row{animation:none!important}
+html[data-motion="reduced"] .news .pl-row .pl-sk{animation:none}

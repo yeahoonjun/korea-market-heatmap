@@ -2,7 +2,11 @@
    design.md(승인 2026-11-15)대로: 글자 --fs-* · 간격 --space-* · 모서리 --r-* / 테마 --card-r · 높이 --h-* · 움직임 --sp-* 토큰만,
    빨강 · 초록은 숫자에만(.up · .dn), 앰버는 포커스 · 열린 키(--key-on)만, 장중 점은 --live, 빛 · 그라데이션 없음, 최소 11px. */
 
-.msum{position:relative;font-size:var(--fs-md);line-height:var(--lh-row);color:var(--fg);min-width:0}
+.msum{position:relative;font-size:var(--fs-md);line-height:var(--lh-row);color:var(--fg);min-width:0;
+  /* design.md §6-4 글자 바꿈 길이(나감 100 → 60ms 뒤 들어옴 180), 복사 키 글자 상자의 들어옴 지연 — 줄이기 = 0 (ux/std-wrapup: 손으로 쓴
+     100ms · ease-in(--c-in) 대신 토큰 + 나감은 close 스프링, 뉴스 카드 --nw-tx-*와 같은 값) */
+  --sm-tx-out:100ms;--sm-tx-gap:60ms;--sm-tx-in:180ms;--sm-tx-lab:160ms}
+html[data-motion="reduced"] .msum{--sm-tx-out:0ms;--sm-tx-gap:0ms;--sm-tx-in:0ms;--sm-tx-lab:0ms}
 /* 움직이는 동안만: 카드 자신의 바탕 대신 같은 바탕의 판(.sm-skin)이 자라고 줄어요(design-references-full §7 P8 ⓐ) — 아래 내용은
    한 번에 새 자리로(펼칠 땐 처음, 접을 땐 끝, summary.js setOpen), 판이 지나가는 빈자리는 페이지 바탕이 그대로 보여요 */
 .msum.sm-anim{background:transparent;border-color:transparent;box-shadow:none;isolation:isolate}
@@ -45,7 +49,7 @@ html.sm-noanchor{overflow-anchor:none}
 .sm-bar i{display:block;height:100%}
 .msum .sm-in{opacity:0;transform:translateY(var(--space-2))}
 .msum .sm-in.sm-go{opacity:1;transform:none;transition:opacity var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out),transform var(--c-fast) var(--c-out)}
-.msum .sm-out{opacity:0;transform:translateY(calc(var(--space-2) * -1));transition:opacity 100ms var(--c-in),filter 100ms var(--c-in),transform 100ms var(--c-in)}
+.msum .sm-out{opacity:0;transform:translateY(calc(var(--space-2) * -1));transition:opacity var(--sm-tx-out) var(--sp-close),filter var(--sm-tx-out) var(--sp-close),transform var(--sm-tx-out) var(--sp-close)}
 /* 흐림 2px(§6-4)은 짧은 띠에만 — 펼친 표(1,000px 넘음)에 흐림을 걸면 프레임마다 큰 면을 다시 그려서 끊겨요(실측) */
 .msum .sm-band:is(.sm-in:not(.sm-go),.sm-out){filter:blur(2px)}
 /* 처음 펼칠 때 한 번만(P3, 화려하게): 표 덩어리가 하나씩 — 각자 --d 뒤에(40 → 30 → 20ms 간격, 전체 300ms 안). 표 자체는 한 번에 보이고 */
@@ -56,8 +60,8 @@ html.sm-noanchor{overflow-anchor:none}
    자리별로 굴리지 않아요(P10) — 띠 숫자는 15초에 한 번 바뀌는 요약이라 한 번에 바꿔요 */
 .msum .sm-sw{display:inline-grid}
 .msum .sm-sw > span{grid-area:1 / 1}
-.msum .sm-sw > .o{animation:smOutUp 100ms var(--c-in) forwards}
-.msum .sm-sw > .n{animation:smInUp var(--c-fast) var(--c-out) 60ms both}
+.msum .sm-sw > .o{animation:smOutUp var(--sm-tx-out) var(--sp-close) forwards}
+.msum .sm-sw > .n{animation:smInUp var(--sm-tx-in) var(--sp-fade) var(--sm-tx-gap) both}
 .msum .sm-sw.sm-swd > .o{animation-name:smOutDn}
 .msum .sm-sw.sm-swd > .n{animation-name:smInDn}
 @keyframes smOutUp{to{opacity:0;transform:translateY(calc(var(--space-2) * -1))}}
@@ -99,18 +103,20 @@ html.sm-noanchor{overflow-anchor:none}
 .sm-tog,.sm-copy,.sm-fold{position:relative;display:inline-flex;align-items:center;justify-content:center;gap:var(--space-3);height:var(--h-key);padding:0 var(--space-5);border-radius:var(--r-key);background:var(--key-bg);box-shadow:var(--key-sh);color:var(--key-fg);font-size:var(--fs-md);font-weight:600;white-space:nowrap;touch-action:manipulation;transition:filter var(--c-fast) var(--c-out)}
 .sm-tog{flex:none;width:var(--h-key);padding:0}
 .sm-tog[aria-expanded="true"]{box-shadow:var(--key-on)}
-:is(.sm-tog,.sm-copy,.sm-fold,.sm-stk):active{transform:translateY(1px);box-shadow:var(--key-dn);filter:var(--press-f);transition-duration:0ms}
+:is(.sm-tog,.sm-copy,.sm-fold,.sm-stk):active{transform:translateY(1px);box-shadow:var(--key-dn);filter:var(--press-f);transition-duration:0s}
 .sm-fold{margin-left:auto}
 /* 글로 복사(P11): 키 크기는 그대로 — 아이콘 칸에 세 아이콘(복사 · ✓ · !)이 겹쳐 있고, 글자 칸은 가장 긴 글자 폭(겹친 세 글자).
    바뀔 때: 나가는 아이콘은 100ms에 작아지며 사라지고, 들어오는 아이콘은 살짝 돌며 .5 → 1(`fade` 스프링). 완료 · 실패 아이콘은 앰버(design.md §2) */
 .sm-copy .sm-ci{position:relative;flex:none;width:var(--space-6);height:var(--space-6)}
-.sm-copy .sm-i{position:absolute;left:0;top:0;width:100%;height:100%;color:var(--key-ic);opacity:0;transform:rotate(-20deg) scale(.5);transition:opacity 100ms var(--c-in),transform 100ms var(--c-in)}
+.sm-copy .sm-i{position:absolute;left:0;top:0;width:100%;height:100%;color:var(--key-ic);opacity:0;transform:rotate(-20deg) scale(.5);transition:opacity var(--sm-tx-out) var(--sp-close),transform var(--sm-tx-out) var(--sp-close)}
 .sm-copy[data-st="idle"] .sm-i-copy,.sm-copy[data-st="done"] .sm-i-done,.sm-copy[data-st="fail"] .sm-i-fail{opacity:1;transform:none;transition:opacity var(--sp-fade-dur) var(--sp-fade),transform var(--sp-fade-dur) var(--sp-fade)}
-.sm-copy[data-st="done"] .sm-i-done,.sm-copy[data-st="fail"] .sm-i-fail{color:var(--acc)}
+.sm-copy[data-st="done"] .sm-i-done{color:var(--acc)}
+/* 안 됐어요의 ! = --fail-dot(앰버 아님 — design.md §2: 앰버는 고름 · 포커스 · 열림 · 완료만, ux/std-wrapup) */
+.sm-copy[data-st="fail"] .sm-i-fail{color:var(--fail-dot)}
 .sm-copy .sm-kls{display:inline-grid}
 .sm-copy .sm-kl{grid-area:1 / 1;opacity:0;transform:translateY(var(--space-2))}
-.sm-copy .sm-kl.on{opacity:1;transform:none;transition:opacity var(--c-fast) var(--c-out) 160ms,transform var(--c-fast) var(--c-out) 160ms}
-.sm-copy .sm-kl.out{transform:translateY(calc(var(--space-2) * -1));transition:opacity 100ms var(--c-in),transform 100ms var(--c-in)}
+.sm-copy .sm-kl.on{opacity:1;transform:none;transition:opacity var(--c-fast) var(--c-out) var(--sm-tx-lab),transform var(--c-fast) var(--c-out) var(--sm-tx-lab)}
+.sm-copy .sm-kl.out{transform:translateY(calc(var(--space-2) * -1));transition:opacity var(--sm-tx-out) var(--sp-close),transform var(--sm-tx-out) var(--sp-close)}
 .sm-fold .sm-chev{transform:rotate(180deg)}
 .sm-chev{flex:none;color:var(--key-ic);transition:transform var(--sp-close-dur) var(--sp-close)}
 .sm-tog[aria-expanded="true"] > .sm-chev{transform:rotate(180deg);color:var(--acc);transition:transform var(--sp-open-dur) var(--sp-open)}
