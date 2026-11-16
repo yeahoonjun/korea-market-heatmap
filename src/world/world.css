@@ -143,6 +143,30 @@ html[data-theme="glass-light"] #world{--nodata:#e6e9ee}
 .kw-sd[hidden]{display:none}
 .kw-sec[data-g=funds] .kw-sh .t{flex:none}
 .kw-fsrc{margin:0;padding:var(--space-3) var(--space-3) var(--space-1);font-size:var(--fs-xs);line-height:var(--lh-ui,1.25);color:var(--faint)}
+/* 수출입은행 고시 (AGENTS §3-27 끝): a small table inside the 환율 card and one inside the 금리 card, below their rows, after a rule
+   and their own heading (h5) — once a business day, not clickable. Colour only for the bp's up / down (design.md §2); figures
+   tabular; --fs-md rows, --fs-xs heads and notes; the meta line wraps under the heading when the card is narrow (360 phones). */
+.kw-kx{margin:var(--space-4) var(--space-3) 0;padding-top:var(--space-4);border-top:1px solid var(--line);min-width:0}
+.kw-kx[hidden]{display:none}
+.kw-kxh{display:flex;flex-wrap:wrap;align-items:baseline;column-gap:var(--space-4);row-gap:var(--space-1);margin-bottom:var(--space-3)}
+.kw-kxt{margin:0;font-size:var(--fs-md);font-weight:var(--w-strong,700);line-height:var(--lh-ui);color:var(--fg);font-family:var(--font-head,inherit)}
+.kw-kxm{display:inline-flex;align-items:center;gap:var(--space-2);margin-left:auto;font-size:var(--fs-xs);line-height:var(--lh-ui);color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.kw-kxw{display:inline-flex}
+.kw-kxw .kwn{width:13px;height:13px;color:var(--fail-dot)}
+.kw-kxtb{width:100%;border-collapse:collapse;font-size:var(--fs-md);line-height:var(--lh-row);font-variant-numeric:tabular-nums;color:var(--fg)}
+.kw-kxtb :is(th,td){padding:var(--space-2) 0 var(--space-2) var(--space-4);text-align:right;white-space:nowrap;font-weight:500;vertical-align:baseline}
+.kw-kxtb :is(th,td).nm{padding-left:0;text-align:left}
+.kw-kxtb thead th{padding-top:0;font-size:var(--fs-xs);color:var(--muted)}
+.kw-kxtb tbody th.nm{font-weight:600}
+.kw-kxtb th.nm small{margin-left:var(--space-2);font-size:var(--fs-xs);font-weight:500;color:var(--muted)}
+.kw-kxtb .tn{text-align:left}
+.kw-kxtb td.tn{color:var(--fg2)}
+.kw-kxr th.nm{width:100%}                /* the name takes the slack: 기간 · 금리 · 변화 read together on the right */
+.kw-kxtb td.bp{font-size:var(--fs-sm)}
+.kw-kxtb td.bp.flat{color:var(--fg2)}
+.kw-kxr tbody+tbody :is(th,td){border-top:1px solid var(--line)}
+.kw-kxn{margin:var(--space-3) 0 0;font-size:var(--fs-xs);line-height:var(--lh-ui);color:var(--muted)}
+.kw-kxn.kw-stale{display:flex;color:var(--fg2)}
 .kw-sum .kw-sumk{font-weight:600;color:var(--fg)}
 .kw-rows{display:flex;flex-direction:column}
 /* a list row (design.md §7 목록 줄): --h-row (36 desktop · 44 phones), --r-row, the theme's press filter (rows never sink) */

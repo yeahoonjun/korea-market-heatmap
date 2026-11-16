@@ -1,0 +1,616 @@
+{
+ "fx": {
+  "kind": "fx",
+  "source": "한국수출입은행",
+  "date": "2026-11-16",
+  "today": true,
+  "firstSeen": "11:04",
+  "exact": true,
+  "items": [
+   {
+    "code": "AED",
+    "per": 1,
+    "name": "아랍에미리트 디르함",
+    "base": 363.1,
+    "tts": 366.73,
+    "ttb": 359.46,
+    "change": 1.3
+   },
+   {
+    "code": "AUD",
+    "per": 1,
+    "name": "호주 달러",
+    "base": 903.98,
+    "tts": 913.01,
+    "ttb": 894.94,
+    "change": -0.8
+   },
+   {
+    "code": "BHD",
+    "per": 1,
+    "name": "바레인 디나르",
+    "base": 3536.73,
+    "tts": 3572.09,
+    "ttb": 3501.36,
+    "change": 0
+   },
+   {
+    "code": "BND",
+    "per": 1,
+    "name": "브루나이 달러",
+    "base": 1035.88,
+    "tts": 1046.23,
+    "ttb": 1025.52,
+    "change": 2.1
+   },
+   {
+    "code": "CAD",
+    "per": 1,
+    "name": "캐나다 달러",
+    "base": 934.52,
+    "tts": 943.86,
+    "ttb": 925.17,
+    "change": 1.3
+   },
+   {
+    "code": "CHF",
+    "per": 1,
+    "name": "스위스 프랑",
+    "base": 1589.35,
+    "tts": 1605.24,
+    "ttb": 1573.45,
+    "change": -0.8
+   },
+   {
+    "code": "CNH",
+    "per": 1,
+    "name": "위안화",
+    "base": 199.78,
+    "tts": 201.77,
+    "ttb": 197.78,
+    "change": 0
+   },
+   {
+    "code": "DKK",
+    "per": 1,
+    "name": "덴마아크 크로네",
+    "base": 196.66,
+    "tts": 198.62,
+    "ttb": 194.69,
+    "change": 2.1
+   },
+   {
+    "code": "EUR",
+    "per": 1,
+    "name": "유로",
+    "base": 1470.14,
+    "tts": 1484.84,
+    "ttb": 1455.43,
+    "change": 1.3
+   },
+   {
+    "code": "GBP",
+    "per": 1,
+    "name": "영국 파운드",
+    "base": 1762.42,
+    "tts": 1780.04,
+    "ttb": 1744.79,
+    "change": -0.8
+   },
+   {
+    "code": "HKD",
+    "per": 1,
+    "name": "홍콩 달러",
+    "base": 169.99,
+    "tts": 171.68,
+    "ttb": 168.29,
+    "change": 0
+   },
+   {
+    "code": "IDR",
+    "per": 100,
+    "name": "인도네시아 루피아",
+    "base": 7.33,
+    "tts": 7.4,
+    "ttb": 7.25,
+    "change": 2.1
+   },
+   {
+    "code": "JPY",
+    "per": 100,
+    "name": "일본 옌",
+    "base": 834.37,
+    "tts": 842.71,
+    "ttb": 826.02,
+    "change": 1.3
+   },
+   {
+    "code": "KWD",
+    "per": 1,
+    "name": "쿠웨이트 디나르",
+    "base": 4318.98,
+    "tts": 4362.16,
+    "ttb": 4275.79,
+    "change": -0.8
+   },
+   {
+    "code": "MYR",
+    "per": 1,
+    "name": "말레이지아 링기트",
+    "base": 326.29,
+    "tts": 329.55,
+    "ttb": 323.02,
+    "change": 0
+   },
+   {
+    "code": "NOK",
+    "per": 1,
+    "name": "노르웨이 크로네",
+    "base": 139.36,
+    "tts": 140.75,
+    "ttb": 137.96,
+    "change": 2.1
+   },
+   {
+    "code": "NZD",
+    "per": 1,
+    "name": "뉴질랜드 달러",
+    "base": 737.14,
+    "tts": 744.51,
+    "ttb": 729.76,
+    "change": 1.3
+   },
+   {
+    "code": "SAR",
+    "per": 1,
+    "name": "사우디 리얄",
+    "base": 355.46,
+    "tts": 359.01,
+    "ttb": 351.9,
+    "change": -0.8
+   },
+   {
+    "code": "SEK",
+    "per": 1,
+    "name": "스웨덴 크로나",
+    "base": 132.41,
+    "tts": 133.73,
+    "ttb": 131.08,
+    "change": 0
+   },
+   {
+    "code": "SGD",
+    "per": 1,
+    "name": "싱가포르 달러",
+    "base": 1035.88,
+    "tts": 1046.23,
+    "ttb": 1025.52,
+    "change": 2.1
+   },
+   {
+    "code": "THB",
+    "per": 1,
+    "name": "태국 바트",
+    "base": 39.37,
+    "tts": 39.76,
+    "ttb": 38.97,
+    "change": 1.3
+   },
+   {
+    "code": "USD",
+    "per": 1,
+    "name": "미국 달러",
+    "base": 1333.7,
+    "tts": 1347.03,
+    "ttb": 1320.36,
+    "change": -0.8
+   }
+  ],
+  "prev": {
+   "date": "2026-11-13",
+   "items": [
+    {
+     "code": "AED",
+     "per": 1,
+     "name": "아랍에미리트 디르함",
+     "base": 361.8,
+     "tts": 366.73,
+     "ttb": 359.46
+    },
+    {
+     "code": "AUD",
+     "per": 1,
+     "name": "호주 달러",
+     "base": 904.78,
+     "tts": 913.01,
+     "ttb": 894.94
+    },
+    {
+     "code": "BHD",
+     "per": 1,
+     "name": "바레인 디나르",
+     "base": 3536.73,
+     "tts": 3572.09,
+     "ttb": 3501.36
+    },
+    {
+     "code": "BND",
+     "per": 1,
+     "name": "브루나이 달러",
+     "base": 1033.78,
+     "tts": 1046.23,
+     "ttb": 1025.52
+    },
+    {
+     "code": "CAD",
+     "per": 1,
+     "name": "캐나다 달러",
+     "base": 933.22,
+     "tts": 943.86,
+     "ttb": 925.17
+    },
+    {
+     "code": "CHF",
+     "per": 1,
+     "name": "스위스 프랑",
+     "base": 1590.15,
+     "tts": 1605.24,
+     "ttb": 1573.45
+    },
+    {
+     "code": "CNH",
+     "per": 1,
+     "name": "위안화",
+     "base": 199.78,
+     "tts": 201.77,
+     "ttb": 197.78
+    },
+    {
+     "code": "DKK",
+     "per": 1,
+     "name": "덴마아크 크로네",
+     "base": 194.56,
+     "tts": 198.62,
+     "ttb": 194.69
+    },
+    {
+     "code": "EUR",
+     "per": 1,
+     "name": "유로",
+     "base": 1468.84,
+     "tts": 1484.84,
+     "ttb": 1455.43
+    },
+    {
+     "code": "GBP",
+     "per": 1,
+     "name": "영국 파운드",
+     "base": 1763.22,
+     "tts": 1780.04,
+     "ttb": 1744.79
+    },
+    {
+     "code": "HKD",
+     "per": 1,
+     "name": "홍콩 달러",
+     "base": 169.99,
+     "tts": 171.68,
+     "ttb": 168.29
+    },
+    {
+     "code": "IDR",
+     "per": 100,
+     "name": "인도네시아 루피아",
+     "base": 5.23,
+     "tts": 7.4,
+     "ttb": 7.25
+    },
+    {
+     "code": "JPY",
+     "per": 100,
+     "name": "일본 옌",
+     "base": 833.07,
+     "tts": 842.71,
+     "ttb": 826.02
+    },
+    {
+     "code": "KWD",
+     "per": 1,
+     "name": "쿠웨이트 디나르",
+     "base": 4319.78,
+     "tts": 4362.16,
+     "ttb": 4275.79
+    },
+    {
+     "code": "MYR",
+     "per": 1,
+     "name": "말레이지아 링기트",
+     "base": 326.29,
+     "tts": 329.55,
+     "ttb": 323.02
+    },
+    {
+     "code": "NOK",
+     "per": 1,
+     "name": "노르웨이 크로네",
+     "base": 137.26,
+     "tts": 140.75,
+     "ttb": 137.96
+    },
+    {
+     "code": "NZD",
+     "per": 1,
+     "name": "뉴질랜드 달러",
+     "base": 735.84,
+     "tts": 744.51,
+     "ttb": 729.76
+    },
+    {
+     "code": "SAR",
+     "per": 1,
+     "name": "사우디 리얄",
+     "base": 356.26,
+     "tts": 359.01,
+     "ttb": 351.9
+    },
+    {
+     "code": "SEK",
+     "per": 1,
+     "name": "스웨덴 크로나",
+     "base": 132.41,
+     "tts": 133.73,
+     "ttb": 131.08
+    },
+    {
+     "code": "SGD",
+     "per": 1,
+     "name": "싱가포르 달러",
+     "base": 1033.78,
+     "tts": 1046.23,
+     "ttb": 1025.52
+    },
+    {
+     "code": "THB",
+     "per": 1,
+     "name": "태국 바트",
+     "base": 38.07,
+     "tts": 39.76,
+     "ttb": 38.97
+    },
+    {
+     "code": "USD",
+     "per": 1,
+     "name": "미국 달러",
+     "base": 1334.5,
+     "tts": 1347.03,
+     "ttb": 1320.36
+    }
+   ]
+  }
+ },
+ "rate": {
+  "kind": "rate",
+  "source": "한국수출입은행",
+  "date": "2026-11-16",
+  "today": true,
+  "firstSeen": "11:04",
+  "exact": true,
+  "items": [
+   {
+    "key": "SOFRON",
+    "family": "SOFR",
+    "cur": "USD",
+    "tenor": "익일",
+    "months": 0,
+    "name": "SOFR 익일물",
+    "value": 3.9,
+    "raw": "3.9",
+    "bp": -1
+   },
+   {
+    "key": "ESTRON",
+    "family": "ESTR",
+    "cur": "EUR",
+    "tenor": "익일",
+    "months": 0,
+    "name": "ESTR 익일물",
+    "value": 2.443,
+    "raw": "2.443",
+    "bp": 0.4
+   },
+   {
+    "key": "EURIBOR1M",
+    "family": "EURIBOR",
+    "cur": "EUR",
+    "tenor": "1개월",
+    "months": 1,
+    "name": "EURIBOR1개월",
+    "value": 2.479,
+    "raw": "2.479",
+    "bp": 0
+   },
+   {
+    "key": "EURIBOR3M",
+    "family": "EURIBOR",
+    "cur": "EUR",
+    "tenor": "3개월",
+    "months": 3,
+    "name": "EURIBOR3개월",
+    "value": 2.766,
+    "raw": "2.766",
+    "bp": 1.2
+   },
+   {
+    "key": "EURIBOR6M",
+    "family": "EURIBOR",
+    "cur": "EUR",
+    "tenor": "6개월",
+    "months": 6,
+    "name": "EURIBOR6개월",
+    "value": 3.023,
+    "raw": "3.023",
+    "bp": -0.6
+   },
+   {
+    "key": "EURIBOR12M",
+    "family": "EURIBOR",
+    "cur": "EUR",
+    "tenor": "12개월",
+    "months": 12,
+    "name": "EURIBOR12개월",
+    "value": 3.293,
+    "raw": "3.293",
+    "bp": 0.3
+   },
+   {
+    "key": "TIBOR1M",
+    "family": "TIBOR",
+    "cur": "JPY",
+    "tenor": "1개월",
+    "months": 1,
+    "name": "TIBOR 1개월",
+    "value": 1.41982,
+    "raw": "1.41982",
+    "bp": 2.5
+   },
+   {
+    "key": "TIBOR3M",
+    "family": "TIBOR",
+    "cur": "JPY",
+    "tenor": "3개월",
+    "months": 3,
+    "name": "TIBOR 3개월",
+    "value": 1.78673,
+    "raw": "1.78673",
+    "bp": -0.2
+   },
+   {
+    "key": "TIBOR6M",
+    "family": "TIBOR",
+    "cur": "JPY",
+    "tenor": "6개월",
+    "months": 6,
+    "name": "TIBOR 6개월",
+    "value": 1.92591,
+    "raw": "1.92591",
+    "bp": 0
+   },
+   {
+    "key": "TIBOR12M",
+    "family": "TIBOR",
+    "cur": "JPY",
+    "tenor": "12개월",
+    "months": 12,
+    "name": "TIBOR 12개월",
+    "value": 1.63391,
+    "raw": "1.63391",
+    "bp": 1
+   }
+  ],
+  "prev": {
+   "date": "2026-11-13",
+   "items": [
+    {
+     "key": "SOFRON",
+     "family": "SOFR",
+     "cur": "USD",
+     "tenor": "익일",
+     "months": 0,
+     "name": "SOFR 익일물",
+     "value": 3.91,
+     "raw": "3.9"
+    },
+    {
+     "key": "ESTRON",
+     "family": "ESTR",
+     "cur": "EUR",
+     "tenor": "익일",
+     "months": 0,
+     "name": "ESTR 익일물",
+     "value": 2.439,
+     "raw": "2.443"
+    },
+    {
+     "key": "EURIBOR1M",
+     "family": "EURIBOR",
+     "cur": "EUR",
+     "tenor": "1개월",
+     "months": 1,
+     "name": "EURIBOR1개월",
+     "value": 2.479,
+     "raw": "2.479"
+    },
+    {
+     "key": "EURIBOR3M",
+     "family": "EURIBOR",
+     "cur": "EUR",
+     "tenor": "3개월",
+     "months": 3,
+     "name": "EURIBOR3개월",
+     "value": 2.754,
+     "raw": "2.766"
+    },
+    {
+     "key": "EURIBOR6M",
+     "family": "EURIBOR",
+     "cur": "EUR",
+     "tenor": "6개월",
+     "months": 6,
+     "name": "EURIBOR6개월",
+     "value": 3.029,
+     "raw": "3.023"
+    },
+    {
+     "key": "EURIBOR12M",
+     "family": "EURIBOR",
+     "cur": "EUR",
+     "tenor": "12개월",
+     "months": 12,
+     "name": "EURIBOR12개월",
+     "value": 3.29,
+     "raw": "3.293"
+    },
+    {
+     "key": "TIBOR1M",
+     "family": "TIBOR",
+     "cur": "JPY",
+     "tenor": "1개월",
+     "months": 1,
+     "name": "TIBOR 1개월",
+     "value": 1.39482,
+     "raw": "1.41982"
+    },
+    {
+     "key": "TIBOR3M",
+     "family": "TIBOR",
+     "cur": "JPY",
+     "tenor": "3개월",
+     "months": 3,
+     "name": "TIBOR 3개월",
+     "value": 1.78873,
+     "raw": "1.78673"
+    },
+    {
+     "key": "TIBOR6M",
+     "family": "TIBOR",
+     "cur": "JPY",
+     "tenor": "6개월",
+     "months": 6,
+     "name": "TIBOR 6개월",
+     "value": 1.92591,
+     "raw": "1.92591"
+    },
+    {
+     "key": "TIBOR12M",
+     "family": "TIBOR",
+     "cur": "JPY",
+     "tenor": "12개월",
+     "months": 12,
+     "name": "TIBOR 12개월",
+     "value": 1.62391,
+     "raw": "1.63391"
+    }
+   ]
+  }
+ }
+}
