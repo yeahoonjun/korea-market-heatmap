@@ -525,8 +525,8 @@ def design(br):
         pg.wait_for_selector('#news .nw-row:not(.skel)', timeout=8000)
         gl = pg.evaluate(r"""() => { const n = document.getElementById('news'), cs = getComputedStyle(n), m = cs.backgroundColor.match(/rgba?\(([^)]+)\)/);
           const a = m ? (m[1].split(/[ ,\/]+/).filter(Boolean)[3] || '1') : '1';
-          return { alpha: +a, edge: /inset/.test(cs.boxShadow) && /rgba\(255, 255, 255/.test(cs.boxShadow), r: cs.borderTopLeftRadius }; }""")
-        check(f'glass {th}: the news card keeps its material — translucent plate, 1px edge reflection, 22px corner (template .card)', gl['alpha'] < 1 and gl['edge'] and gl['r'] == '22px', gl)
+          return { alpha: +a, edge: /inset/.test(cs.boxShadow) && /rgba\(255, 255, 255/.test(cs.boxShadow), r: cs.borderTopLeftRadius, tok: getComputedStyle(document.documentElement).getPropertyValue('--card-r').trim() }; }""")
+        check(f'glass {th}: the news card keeps its material — translucent plate, 1px edge reflection, the template\'s --card-r corner (.card; ④ 24px)', gl['alpha'] < 1 and gl['edge'] and gl['r'] == gl['tok'] == '24px', gl)
         ctx.close()
     # kept: while the market summary card is open (PC) the news card does not grow with the side column — nw-hold, rows as when folded
     ctx, pg = open_page(br, LIVE, 1440, 900)

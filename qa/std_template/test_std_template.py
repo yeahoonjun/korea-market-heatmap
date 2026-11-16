@@ -1,15 +1,19 @@
 #!/usr/bin/env python3
 """The template on the design standard (roadmap 6, step template — ux/std-template; design.md §2 · §3 · §4 · §6, AGENTS §3-31 · §3-36).
 
-  python3 qa/std_template/test_std_template.py [audit] [page] [cap] [limits]       (no argument = all four)
+  python3 qa/std_template/test_std_template.py [audit] [page] [cap] [limits] [glass]       (no argument = all five)
 
 audit  static, src/template.html's <style>: the scale (design.md §3 · §4 — every font size on --fs-*, line heights on --lh-*, padding /
        margin / gap on --space-*, corners on --r-*, heights on --h-*; what is left is listed below with its reason: the map box
        (design.md §11 템플릿), the dock (dock.md), icon · mark · data boxes, hit areas, negative margins, and the controls the next
-       step ("컨트롤 움직임 통일", AGENTS §3-38) will size) — and hover only on a fine pointer (design.md §8); no radial gradient; a linear gradient only where it draws data or a shape (the legend scale,
-       no-data / no-NXT hatches, the folded 공시 corner, the tab row's overflow mask); no glow (no zero-offset blurred box-shadow, no
-       drop-shadow(), text halos only behind map labels / the crumbs over the index line); status rules (live · err · fail · stale) never
-       read the amber; --live and --fail-dot are defined for every theme and none of them is amber.
+       step ("컨트롤 움직임 통일", AGENTS §3-38) will size) — and hover only on a fine pointer (design.md §8); a gradient only where it
+       draws data or a shape (the legend scale, no-data / no-NXT hatches, the folded 공시 corner, the tab row's overflow mask) — or the
+       glass material (design.md §2 예외, ④ 리퀴드 글라스, AGENTS §3-38): the radial sheen and the 135° ring only as glass-theme tokens
+       (--gl-sheen* · --gl-ring*), the ring rules paint var(--gl-ring*) and use a gradient only as their mask; no glow (no zero-offset
+       blurred box-shadow, no drop-shadow(), text halos only behind map labels / the crumbs over the index line); the inner thickness
+       light (an inset, blurred, white shadow) only in the glass tokens; status rules (live · err · fail · stale) never read the amber;
+       --live and --fail-dot are defined for every theme and none of them is amber; the glass tokens carry the drafts/glass.html ④
+       values (fills, blur 14px · saturate 1.8 · 밝게 brightness 1.06, plates, fallback fills).
 page   the live build (web/) behind qa/float/mock_float.py on STD_QA_PORT (default 9020; 9020–9029 only): four themes × 390 · 768 · 1280 ·
        1440 — map top (390 247 · 768 250 · 1280+ 207), no element wider than the screen, console errors 0; --live / --fail-dot computed
        per theme (≥ 30° of hue from the amber and the new-filing blue, ≥ 3:1 on the page); the live dot and the 실시간 badge in --live;
@@ -23,6 +27,12 @@ limits 상한가 · 하한가 in the phone dock's 등락 분포 cell (사용자 
        same counts = the flags; the aria-label carries them; the top line fits (no overlap, the name whole) at 360 · 390 with two-digit
        counts; the cell (44) · dock (56) · bottom gap (8) · top line (14) are the same as without counts; an older close.json (no flags)
        and a replay hide the counts in the dock and the card (no 0).
+glass  ④ on the page (글라스 어둡게 · 밝게 × 1440 · 390, header stuck over the map): blur 14px · saturate 1.8 (밝게 + brightness 1.06) on
+       the stuck header and the tooltip, none on cards · the dock; the 1.25px ring (135°) on the header, tooltip, cards, dock, popovers;
+       the tab tray = the number plate, the selected tab near-opaque; 등락 numbers on the tooltip / quick view on the plate with no
+       layout shift (the same boxes as with the plate off); at most two blurred panels at once (stuck header + tooltip); the fallback —
+       유리 흐림 끄기 (data-blur="off") and prefers-reduced-transparency: reduce (CDP emulation) — the same shapes with opaque fills, the
+       sheen and the ring kept, no blur. The contrast of the numbers over the worst tile: qa/std_template/test_glass_contrast.py.
 Exit 1 on a fail. Ports are stopped with fuser -k.
 """
 import colorsys
@@ -37,7 +47,7 @@ import urllib.request
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 PORT = int(os.environ.get('STD_QA_PORT', 9020))
-assert 9020 <= PORT <= 9029 or 9050 <= PORT <= 9069, 'ports 9020–9029 (or 9050–9069: ux/std-wrapup · ux/std-dock)'
+assert 9020 <= PORT <= 9029 or 9050 <= PORT <= 9069 or 9080 <= PORT <= 9089, 'ports 9020–9029 (or 9050–9069: ux/std-wrapup · ux/std-dock, 9080–9089: ux/glass-liquid)'
 URL = f'http://127.0.0.1:{PORT}/'
 NOPROXY = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 THEMES = ['base', 'paper', 'glass-dark', 'glass-light']
@@ -75,9 +85,10 @@ GRAD_OK = [   # selector (substring) → why a gradient is fine there
     ('.tile .dm', 'the folded 공시 corner (a hard-stop diagonal = a shape)'), ('.dmsw::after', 'the corner swatch'),
     ('.tabs-sc.more-r', 'the tab row overflow mask (a mask, not paint)'),
     ('.rc', 'the number drum\'s 14 % fade (a mask, not paint — design.md §6-2 P10)'),
-    ('html[data-theme^="glass"] :is(.tip,header.top)::after', 'glass material: edge reflection (user 2026-11-16 01:32 — glass themes only)'),
-    ('html[data-theme="glass-', 'glass material: top sheen in --tip-bg / --bar-bg (user 2026-11-16 01:32 — glass themes only)'),
+    ('html[data-theme="glass-', 'glass material ④: the sheen / ring tokens (--gl-sheen* radial, --gl-ring* 135°) — glass themes only'),
 ]
+# the ring rules (④): they paint var(--gl-ring*) and use a gradient only as the mask that cuts the 1.25px ring out of the box
+RING_SEL = re.compile(r'^html\[data-theme\^="glass"\] .*::after$')
 HALO_OK = ['.tile .lab', '.stagebar.ix-bg .crumbs']   # dark text halos: legibility over data (tile colours · the index line)
 STATUS_SEL = re.compile(r'\.status\.(live|err)|\.err\b|stale|\[data-st="fail"\]|\.kwn|\.fail')
 AMBER = re.compile(r'var\(--(acc|acc-fill|acc-line|acc-soft|acc-bd|amber|amber-soft)\)|#ffb547|255,\s*181,\s*71')
@@ -170,15 +181,23 @@ def audit():
     css = src[src.index('<style>') + 7:src.index('</style>')]
     audit_scale(css)
     rules = css_rules(css)
-    check('audit: no radial-gradient in the template CSS', 'radial-gradient' not in css)
-    bad = []
+    rad = [sel[:80] for sel, body in rules if 'radial-gradient' in body and (not sel.startswith('html[data-theme="glass-') or any('radial-gradient' in v for k, v in re.findall(r'(--[\w-]+|[\w-]+)\s*:\s*([^;]+)', body) if not k.startswith('--gl-sheen')))]
+    check('audit: radial-gradient only as the glass sheen token (--gl-sheen*, glass themes)', not rad, rad)
+    bad, ring = [], []
     for sel, body in rules:
         if 'gradient(' not in body:
+            continue
+        if RING_SEL.match(sel):
+            paint = re.search(r'background\s*:\s*([^;]+)', body)
+            masks = re.findall(r'(?:-webkit-)?mask\s*:\s*([^;]+)', body)
+            if (paint and 'gradient(' in paint.group(1)) or not masks or 'gradient(' in re.sub(r'(?:-webkit-)?mask\s*:[^;]+', '', re.sub(r'background\s*:[^;]+', '', body)):
+                ring.append(sel[:80])
             continue
         if any(k in sel for k, _ in GRAD_OK):
             continue
         bad.append(sel[:80])
-    check('audit: linear gradients only on the allow-list (data scale, hatches, 공시 corner, overflow · drum masks)', not bad, bad)
+    check('audit: linear gradients only on the allow-list (data scale, hatches, 공시 corner, overflow · drum masks, glass tokens)', not bad, bad)
+    check('audit: the glass ring rules paint var(--gl-ring*) and use a gradient only as the mask', not ring, ring)
     js_grad = [m.group(0)[:90] for m in re.finditer(r'[^\n]*gradient\([^\n]*', src[src.index('</style>'):]) if 'legend' not in m.group(0) and "class: 'grad'" not in m.group(0)]
     check('audit: the script draws no gradient but the legend colour scale', not js_grad, js_grad)
     glow = []
@@ -208,6 +227,55 @@ def audit():
     lv = {sel for sel, _ in toks.get('--live', [])}
     check('audit: --live has a value for 기본 · 신문 · 글라스 어둡게 · 글라스 밝게',
           ':root' in lv and any('paper' in x for x in lv) and any('glass-dark' in x for x in lv) and any('glass-light' in x for x in lv), lv)
+    # the inner thickness light (④ — design.md §6-6 bans an inner glow; §2 예외 for the glass material): only in the glass theme tokens
+    inner = []
+    for sel, body in rules:
+        for prop, val in re.findall(r'(box-shadow|--[\w-]*sh[\w-]*)\s*:\s*([^;]+)', body):
+            for part in re.split(r',(?![^(]*\))', val):
+                m = re.match(r'\s*inset\s+(-?[\d.]+)(?:px)?\s+(-?[\d.]+)(?:px)?\s+([\d.]+)px', part)
+                if m and float(m.group(3)) > 0 and re.search(r'#fff\b|rgba\(255,\s*255,\s*255', part) and not sel.startswith('html[data-theme="glass-'):
+                    inner.append((sel[:60], part.strip()[:60]))
+    check('audit: an inner light (inset, blurred, white) only in the glass themes\' tokens (④ 두께 빛)', not inner, inner)
+    glass_tokens(src)
+
+
+# drafts/glass.html R[id:'liquid'] (사용자 2026-11-16 10:02 "글라스 테마는 추천대로 4번") — head = --bar-bg, float = --tip-bg (→ sheets ·
+# popovers), card = --card-bg, dock = --dock-bg; fb = the opaque fill when the blur is off
+LIQUID = {
+    'glass-dark': {'--bar-bg': 'rgba(14,16,22,.48)', '--tip-bg': 'rgba(16,18,24,.58)', '--card-bg': 'rgba(30,32,40,.86)', '--dock-bg': 'rgba(27,29,36,.97)',
+                   '--blur': 'blur(14px) saturate(1.8)', '--blur-bar': 'blur(14px) saturate(1.8)', '--gl-plate': 'rgba(0,0,0,.55)', '--gl-sel': 'rgba(44,47,56,.94)',
+                   'fb': ('#15171c', '#1c1e25'), 'sheen': '.1', 'ring': 'linear-gradient(135deg,rgba(255,255,255,.7),'},
+    'glass-light': {'--bar-bg': 'rgba(255,255,255,.46)', '--tip-bg': 'rgba(255,255,255,.54)', '--card-bg': 'rgba(255,255,255,.8)', '--dock-bg': 'rgba(251,252,253,.97)',
+                    '--blur': 'blur(14px) saturate(1.8) brightness(1.06)', '--blur-bar': 'blur(14px) saturate(1.8) brightness(1.06)', '--gl-plate': 'rgba(255,255,255,.72)', '--gl-sel': '#fff',
+                    'fb': ('#eef0f4', '#f6f7f9'), 'sheen': '.55', 'ring': 'linear-gradient(135deg,#fff,'},
+}
+
+
+def glass_tokens(src):
+    for th, want in LIQUID.items():
+        m = re.search(r'html\[data-theme="%s"\]\{(.*?)\n\}' % th, src, re.S)
+        body = re.sub(r'/\*.*?\*/', '', m.group(1), flags=re.S) if m else ''
+        decl = dict((k, v.strip()) for k, v in re.findall(r'(--[\w-]+)\s*:\s*([^;]+);', body))
+        bad = []
+        for k in ('--bar-bg', '--tip-bg', '--card-bg', '--dock-bg'):
+            if not decl.get(k, '').endswith(',' + want[k]) or 'var(--gl-sheen' not in decl.get(k, ''):
+                bad.append((k, decl.get(k)))
+        for k in ('--blur', '--blur-bar', '--gl-plate', '--gl-sel'):
+            if decl.get(k) != want[k]:
+                bad.append((k, decl.get(k)))
+        if not decl.get('--gl-sheen', '').startswith('radial-gradient(130% 70% at 25% 0%,rgba(255,255,255,' + want['sheen'] + ')'):
+            bad.append(('--gl-sheen', decl.get('--gl-sheen')))
+        if not decl.get('--gl-ring', '').startswith(want['ring']):
+            bad.append(('--gl-ring', decl.get('--gl-ring')))
+        for k in ('--tip-sh', '--bar-sh', '--card-sh', '--dock-sh'):     # 위 1px 빛 + 옆 1px + 아래 1px 빛
+            v = decl.get(k, '')
+            if not (re.search(r'inset 0 1px 0 (#fff|rgba\(255,255,255,\.\d+\))', v) and 'inset 1px 0 0' in v and 'inset -1px 0 0' in v and 'inset 0 -1px 0' in v):
+                bad.append((k, v[:80]))
+        check(f'audit: {th} carries the ④ values (fills · sheen · 135° ring · blur 14px · edges · plate · selected tab)', not bad, bad)
+        hd, fl = want['fb']
+        fb = [x for x in re.findall(r'html\[data-theme="%s"\](?:\[data-blur="off"\])?\{([^}]*--blur:none[^}]*)\}' % th, src)]
+        ok = len(fb) == 3 and all(f'--tip-bg:var(--gl-sheen),{fl}' in x and f'--bar-bg:var(--gl-sheen),{hd}' in x and '--blur-bar:none' in x for x in fb)
+        check(f'audit: {th} fallback (흐림 끔 · 투명도 줄이기 · 흐림 미지원) = the same sheen on the opaque ④ fills {hd} · {fl}, no blur', ok, fb)
 
 
 # ───────────────────────── page ─────────────────────────
@@ -377,7 +445,7 @@ def motion(br):
 def run(parts):
     if 'audit' in parts:
         audit()
-    if parts & {'page', 'cap', 'limits'}:
+    if parts & {'page', 'cap', 'limits', 'glass'}:
         from playwright.sync_api import sync_playwright
         start_mock()
         try:
@@ -389,11 +457,115 @@ def run(parts):
                     cap(br)
                 if 'limits' in parts:
                     limits(br)
+                if 'glass' in parts:
+                    glass(br)
                 br.close()
         finally:
             subprocess.run(['fuser', '-k', f'{PORT}/tcp'], capture_output=True)
         check(f'console errors: {len(ERRS)}', not ERRS, ERRS[:6])
 
+
+
+# ───────────────────────── glass ④ (AGENTS §3-38) ─────────────────────────
+GL_UNDER = "(() => { const m = document.getElementById('map').getBoundingClientRect().top + scrollY; scrollTo(0, Math.max(0, m - 40)); return scrollY; })()"
+GL_BIG = "(() => { const t = [...document.querySelectorAll('#map .tile')].sort((a, b) => b.offsetWidth * b.offsetHeight - a.offsetWidth * a.offsetHeight)[0]; const r = t.getBoundingClientRect(); return { c: t.dataset.c, x: r.left + r.width / 2, y: r.top + Math.min(r.height / 2, 60) }; })()"
+GL_STATE = r"""() => {
+  const hd = document.querySelector('header.top'), b4 = getComputedStyle(hd, '::before'), af = getComputedStyle(hd, '::after');
+  const probe = document.createElement('i'); document.body.append(probe);
+  const rgb = v => { probe.style.color = ''; probe.style.color = v; return getComputedStyle(probe).color; };
+  const css = getComputedStyle(document.documentElement), tok = k => css.getPropertyValue(k).trim();
+  const ring = el => { if (!el) return null; const a = getComputedStyle(el, '::after'); return { img: a.backgroundImage.slice(0, 60), pad: a.paddingTop, content: a.content }; };
+  const vis = e => { const cs = getComputedStyle(e), r = e.getBoundingClientRect(); return cs.display !== 'none' && cs.visibility !== 'hidden' && +cs.opacity > 0 && r.width > 0 && r.height > 0 && r.bottom > 0 && r.top < innerHeight; };
+  // blurred panels on screen right now (the stuck header's panel is its ::before)
+  const blurred = [...document.querySelectorAll('body *')].filter(e => { const f = getComputedStyle(e).backdropFilter; return f && f !== 'none' && vis(e); }).map(e => e.id || String(e.className).split(' ')[0]);
+  if (b4.backdropFilter && b4.backdropFilter !== 'none') blurred.push('header::before');
+  const tabs = document.querySelector('header.top .tabs'), pill = getComputedStyle(document.querySelector('header.top .tabs-sc'), '::before');
+  const out = { stuck: hd.classList.contains('is-stuck'), head: { bf: b4.backdropFilter, bg: b4.backgroundColor, img: b4.backgroundImage.slice(0, 40) }, headRing: ring(hd),
+    plate: rgb(tok('--gl-plate')), sel: rgb(tok('--gl-sel')), tray: getComputedStyle(tabs).backgroundColor, pill: pill.backgroundColor, pillOn: pill.opacity,
+    blurred };
+  const tip = document.querySelector('.tip');
+  if (tip && vis(tip)) { const t = getComputedStyle(tip); out.tip = { bf: t.backdropFilter, bg: t.backgroundColor, img: t.backgroundImage.slice(0, 40), ring: ring(tip),
+    nums: [...tip.querySelectorAll(':is(.up,.dn):not(.limtag)')].map(e => getComputedStyle(e).backgroundColor) }; }
+  const card = [...document.querySelectorAll('.card')].find(vis);
+  if (card) out.card = { bf: getComputedStyle(card).backdropFilter, ring: ring(card) };
+  const dock = document.querySelector('.dock.on');
+  if (dock) out.dock = { bf: getComputedStyle(dock).backdropFilter, ring: ring(dock), bg: getComputedStyle(dock).backgroundImage.slice(0, 40) };
+  const pop = document.querySelector('.ctl.dd.open > .seg');
+  if (pop) out.pop = { bf: getComputedStyle(pop).backdropFilter, ring: ring(pop) };
+  const sh = document.querySelector('.sheet.open');
+  if (sh) out.sheet = { bf: getComputedStyle(sh).backdropFilter, bg: getComputedStyle(sh).backgroundColor, nums: [...sh.querySelectorAll(':is(.up,.dn):not(.limtag)')].map(e => getComputedStyle(e).backgroundColor) };
+  probe.remove();
+  return out;
+}"""
+# the text of every 등락 number in the tooltip / quick view: where its glyphs sit (a Range over the text) with the plate rule on and off
+GL_TEXTPOS = r"""(sel) => { const out = [];
+  for (const el of document.querySelectorAll(sel)) { const r = document.createRange(); r.selectNodeContents(el); const b = r.getBoundingClientRect(); out.push([Math.round(b.left * 10) / 10, Math.round(b.top * 10) / 10]); }
+  return out; }"""
+GL_EXPECT = {'glass-dark': {'bf': 'blur(14px) saturate(1.8)', 'fb': ('rgb(21, 23, 28)', 'rgb(28, 30, 37)'), 'ring': 'linear-gradient(135deg, rgba(255, 255, 255, 0.7)'},
+             'glass-light': {'bf': 'blur(14px) saturate(1.8) brightness(1.06)', 'fb': ('rgb(238, 240, 244)', 'rgb(246, 247, 249)'), 'ring': 'linear-gradient(135deg, rgb(255, 255, 255)'}}
+
+
+def glass(br):
+    for theme, E in GL_EXPECT.items():
+        for w, h in ((1440, 900), (390, 844)):
+            ctx, pg = open_page(br, w, h, theme=theme, extra={'set.glassBlur': 'on'})
+            pg.evaluate(GL_UNDER); pg.wait_for_timeout(400)
+            tag = f'glass [{theme} {w}]'
+            if w == 1440:
+                b = pg.evaluate(GL_BIG); pg.mouse.move(b['x'], b['y']); pg.wait_for_timeout(500)
+            s = pg.evaluate(GL_STATE)
+            check(f'{tag}: the stuck header — blur {E["bf"]}, the 1.25px 135° ring, the radial sheen over the fill',
+                  s['stuck'] and s['head']['bf'] == E['bf'] and s['headRing']['img'].startswith(E['ring']) and s['headRing']['pad'] == '1.25px' and s['head']['img'].startswith('radial-gradient'), s['head'] | {'ring': s['headRing']})
+            check(f'{tag}: the tab tray is the number plate ({s["plate"]}), the selected tab\'s pill near-opaque ({s["sel"]})',
+                  s['tray'] == s['plate'] and s['pill'] == s['sel'] and s['pillOn'] == '1', (s['tray'], s['pill'], s['pillOn']))
+            check(f'{tag}: the card — no blur, the ring', s.get('card') and s['card']['bf'] == 'none' and 'linear-gradient(135deg' in s['card']['ring']['img'], s.get('card'))
+            check(f'{tag}: at most two blurred panels on screen ({len(s["blurred"])})', len(s['blurred']) <= 2, s['blurred'])
+            if w == 1440:
+                t = s.get('tip')
+                check(f'{tag}: the tooltip — blur {E["bf"]}, the ring, every 등락 number on the plate ({len(t["nums"]) if t else 0})',
+                      t and t['bf'] == E['bf'] and t['ring']['img'].startswith(E['ring']) and t['nums'] and all(x == s['plate'] for x in t['nums']), t)
+                sel = '.tip :is(.up,.dn):not(.limtag)'
+                on = pg.evaluate(GL_TEXTPOS, sel)
+                pg.add_style_tag(content='html[data-theme] .tip :is(.up,.dn){padding:0!important;margin:0!important;background:none!important}')
+                off = pg.evaluate(GL_TEXTPOS, sel)
+                check(f'{tag}: the plate moves no number (glyphs at the same place with the plate off)', on and on == off, (on[:4], off[:4]))
+                pg.mouse.move(3, 3); pg.wait_for_timeout(300)
+                pg.click('.ctl.dd[data-ctl="colorBy"] .ddbtn'); pg.wait_for_timeout(500)
+                s2 = pg.evaluate(GL_STATE)
+                check(f'{tag}: the 색 기준 popover — blur {E["bf"]}, the ring', s2.get('pop') and s2['pop']['bf'] == E['bf'] and s2['pop']['ring']['img'].startswith(E['ring']), s2.get('pop'))
+                pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
+            else:
+                pg.evaluate("document.getElementById('map').scrollIntoView({block:'end'}); scrollBy(0, 400)"); pg.wait_for_timeout(700)
+                s2 = pg.evaluate(GL_STATE)
+                d = s2.get('dock')
+                check(f'{tag}: the dock — no blur, the sheen, the ring', d and d['bf'] == 'none' and d['bg'].startswith('radial-gradient') and 'linear-gradient(135deg' in d['ring']['img'], d)
+                pg.evaluate(GL_UNDER); pg.wait_for_timeout(300)
+            b = pg.evaluate(GL_BIG); pg.evaluate(f"KH.quick({json.dumps(b['c'])})"); pg.wait_for_timeout(700)
+            s3 = pg.evaluate(GL_STATE)
+            q = s3.get('sheet')
+            check(f'{tag}: the quick view — blur {E["bf"]}, every 등락 number on the plate', q and q['bf'] == E['bf'] and q['nums'] and all(x == s['plate'] for x in q['nums']), q)
+            pg.keyboard.press('Escape'); pg.wait_for_timeout(300)
+            # 유리 흐림 끄기: the same shapes, opaque fills, the sheen and the ring kept
+            pg.evaluate("document.documentElement.dataset.blur = 'off'"); pg.wait_for_timeout(300)
+            if w == 1440:
+                b = pg.evaluate(GL_BIG); pg.mouse.move(b['x'], b['y']); pg.wait_for_timeout(500)
+            f = pg.evaluate(GL_STATE)
+            ok = f['head']['bf'] == 'none' and f['head']['bg'] == E['fb'][0] and f['head']['img'].startswith('radial-gradient') and f['headRing']['img'].startswith(E['ring'])
+            if w == 1440:
+                ok = ok and f.get('tip') and f['tip']['bf'] == 'none' and f['tip']['bg'] == E['fb'][1] and f['tip']['img'].startswith('radial-gradient') and f['tip']['ring']['img'].startswith(E['ring'])
+            check(f'{tag}: 유리 흐림 끄기 (data-blur="off") — no blur, opaque fills {E["fb"]}, the sheen and the ring kept', ok, f['head'] | {'tip': f.get('tip')})
+            ctx.close()
+        # 투명도 줄이기: the same fallback from the media query (Chrome's emulated media)
+        ctx, pg = open_page(br, 1440, 900, theme=theme, extra={'set.glassBlur': 'on'})
+        cdp = ctx.new_cdp_session(pg)
+        cdp.send('Emulation.setEmulatedMedia', {'features': [{'name': 'prefers-reduced-transparency', 'value': 'reduce'}]})
+        pg.wait_for_timeout(300)
+        pg.evaluate(GL_UNDER); pg.wait_for_timeout(400)
+        b = pg.evaluate(GL_BIG); pg.mouse.move(b['x'], b['y']); pg.wait_for_timeout(500)
+        f = pg.evaluate(GL_STATE)
+        ok = f['head']['bf'] == 'none' and f['head']['bg'] == E['fb'][0] and f['head']['img'].startswith('radial-gradient') and f.get('tip') and f['tip']['bf'] == 'none' and f['tip']['bg'] == E['fb'][1] and f['tip']['ring']['img'].startswith(E['ring'])
+        check(f'glass [{theme}]: prefers-reduced-transparency: reduce — the same fallback (no blur, opaque fills, sheen · ring kept)', ok, f['head'] | {'tip': f.get('tip')})
+        ctx.close()
 
 CAPSTATE = r"""() => {
   const tiles = [...document.querySelectorAll('#map .tile')].filter(t => !t.classList.contains('leaving') && t.offsetWidth > 0);
@@ -635,7 +807,7 @@ def limits(br):
 
 
 if __name__ == '__main__':
-    parts = set(sys.argv[1:]) or {'audit', 'page', 'cap', 'limits'}
+    parts = set(sys.argv[1:]) or {'audit', 'page', 'cap', 'limits', 'glass'}
     run(parts)
     print(f'\n{len(PASSES)} passed, {len(FAILS)} failed')
     for f in FAILS:
