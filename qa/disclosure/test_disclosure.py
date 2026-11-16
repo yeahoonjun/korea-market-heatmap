@@ -891,16 +891,13 @@ def baseline(br):
                 ctx, pg = open_page(br, url, w, h, 'base', motion='reduced', store={'clock': False}, wait=2200)
                 pg.add_style_tag(content='#tip{display:none!important}')
                 shots[name] = {k: pg.locator(sel).screenshot() for k, sel in (('map', '#map'), ('legend', '#legend'))}
+                shots[name]['geo'] = pg.evaluate("() => ['#map', '#legend', ...document.querySelectorAll('main.layout > .side > section')].map(s => { const r = (typeof s === 'string' ? document.querySelector(s) : s).getBoundingClientRect(); return [Math.round(r.x), Math.round(r.y + scrollY), Math.round(r.width), Math.round(r.height)]; })")
+                shots[name]['dom'] = pg.evaluate("() => [...document.querySelectorAll('#map .node')].map(n => [n.className, n.style.cssText, n.getAttribute('aria-label') || '', n.textContent, n.style.color]).join('\\n') + document.getElementById('legend').innerHTML")
                 # the side cards with the news card out of the way: on phones they sit under it, and a card above that ends on a fractional
                 # pixel (its wrapped titles: 14px × 1.45) shifts their thin bars' anti-aliasing — what is compared is the cards themselves
-                ys = pg.evaluate("scrollY")
                 pg.add_style_tag(content='#news{display:none!important}')
                 shots[name].update({k: pg.locator(sel).screenshot() for k, sel in (('side', 'main.layout > .side > section:nth-child(1)'),
                                     ('side2', 'main.layout > .side > section:nth-child(2)'), ('side3', 'main.layout > .side > section:nth-child(3)'))})
-                pg.evaluate("document.querySelectorAll('style').forEach(s => { if (s.textContent.includes('#news{display:none')) s.remove(); })")
-                pg.evaluate(f"scrollTo(0, {ys})"); pg.wait_for_timeout(150)
-                shots[name]['geo'] = pg.evaluate("() => ['#map', '#legend', ...document.querySelectorAll('main.layout > .side > section')].map(s => { const r = (typeof s === 'string' ? document.querySelector(s) : s).getBoundingClientRect(); return [Math.round(r.x), Math.round(r.y + scrollY), Math.round(r.width), Math.round(r.height)]; })")
-                shots[name]['dom'] = pg.evaluate("() => [...document.querySelectorAll('#map .node')].map(n => [n.className, n.style.cssText, n.getAttribute('aria-label') || '', n.textContent, n.style.color]).join('\\n') + document.getElementById('legend').innerHTML")
                 ctx.close()
             diff = {}
             for k in ('map', 'legend', 'side', 'side2', 'side3'):
@@ -915,7 +912,7 @@ def baseline(br):
             same_geo = gb[:2] == gn[:2] and [g[2:] for g in gb[2:]] == [g[2:] for g in gn[2:]]
             ok = all(isinstance(v[0], int) and v[1] <= 2 for v in diff.values()) and same_geo and shots['base']['dom'] == shots['new']['dom']
             check(f'no filings → {w}x{h}: map · legend · side cards same DOM, same boxes, pixels equal within 2/255 raster noise vs {BASE_REV} (differing px, max step: {diff})', ok,
-                  f"geo {same_geo} dom {shots['base']['dom'] == shots['new']['dom']} {gb} {gn}")
+                  f"geo {same_geo} dom {shots['base']['dom'] == shots['new']['dom']} {gb} {gn} " + next((f'first DOM diff: {x[:160]} | {y[:160]}' for x, y in zip(shots['base']['dom'].split('\n'), shots['new']['dom'].split('\n')) if x != y), ''))
     finally:
         srv.terminate(); srv.wait(5)
         subprocess.run(['git', 'worktree', 'remove', '--force', str(wt)], cwd=ROOT, capture_output=True)
