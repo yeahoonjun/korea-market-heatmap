@@ -285,7 +285,7 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 .has-clock #clock:empty{display:none}
 .has-clock #clock:not(:empty) ~ .ttl{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .tabs{display:flex;gap:var(--space-1);background:var(--tray-bg);box-shadow:var(--tray-sh);border-radius:var(--r-tray);padding:var(--space-2)}
-.tabs button{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;min-height:var(--h-key);padding:var(--space-1) 14px;border-radius:var(--r-in);font-size:var(--fs-lg);font-weight:600;color:var(--muted);transition:color var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out);white-space:nowrap}
+.tabs button{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;min-height:var(--h-key);padding:var(--space-1) 14px;border-radius:var(--r-in);font-size:var(--fs-lg);font-weight:600;color:var(--muted);transition:color var(--sp-fade-dur) var(--sp-fade),filter var(--c-fast) var(--c-out);white-space:nowrap}
 .tabs button[aria-pressed="true"]{color:var(--fg)}
 .tabs button:hover{color:var(--fg)}
 .tabs .tn{line-height:16px}
@@ -349,7 +349,7 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 .ctl.off{opacity:.42}
 .ctl.off .seg button{cursor:not-allowed}
 .seg{display:flex;background:var(--tray-bg);box-shadow:var(--tray-sh);border-radius:var(--r-tray);padding:3px}
-.seg button{padding:5px var(--space-4);border-radius:var(--r-in);font-size:var(--fs-md);color:var(--muted);white-space:nowrap;transition:color var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out)}
+.seg button{padding:5px var(--space-4);border-radius:var(--r-in);font-size:var(--fs-md);color:var(--muted);white-space:nowrap;transition:color var(--sp-fade-dur) var(--sp-fade),filter var(--c-fast) var(--c-out)}
 .seg button[hidden]{display:none!important}
 .seg button:hover{color:var(--fg)}
 .seg button[aria-pressed="true"]{color:var(--fg)}
@@ -378,26 +378,36 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 .swbtn{display:flex;align-items:center;justify-content:space-between;gap:var(--space-5);width:100%;min-height:var(--h-row);padding:var(--space-2) var(--space-4) var(--space-2) var(--space-5);border-radius:var(--r-key);background:var(--key-bg);box-shadow:var(--key-sh);font-size:var(--fs-md);color:var(--fg);text-align:left;touch-action:pan-y;transition:filter var(--c-fast) var(--c-out)}
 .swbtn:hover{background:var(--key-hover)}
 .swbtn:active,.swbtn.is-press{filter:var(--press-f);transition-duration:0s}
-/* KH.addSetting({multi:true}): on / off chips (controls §5-7: fill + ring + a check that grows 0 → 14 px), at least `min` stay on */
+/* KH.addSetting({multi:true}): on / off chips (controls §5-7, ② 단단한 이동 — 사용자 2026-11-16 10:02): fill + 1.5px ring + a check. The
+   check's 14px place is always there, so a chip is as wide on as off and never pushes its neighbours (the 일정 chips' recipe); the left
+   padding is a step smaller (--space-4) for that empty place. Switching on: fill · ring · check `fade`; off: `close`. Nothing moves.
+   At least `min` stay on */
 .kchips{display:flex;flex-wrap:wrap;gap:var(--space-3)}
-.kchip{position:relative;display:inline-flex;align-items:center;height:var(--h-key);padding:0 var(--space-5);border-radius:var(--r-chip);background:var(--chip-bg);box-shadow:var(--key-sh);font-size:var(--fs-sm);font-weight:600;color:var(--key-fg);white-space:nowrap;
-  transition:background var(--c-fast) var(--c-out),box-shadow var(--c-fast) var(--c-out),transform var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out)}
-.kchip .ck{display:inline-block;width:0;height:14px;opacity:0;transform:scale(.6);background:currentColor;-webkit-mask:var(--ck-mask) center/14px no-repeat;mask:var(--ck-mask) center/14px no-repeat;
-  transition:width var(--c-fast) var(--c-out),opacity var(--c-fast) var(--c-out),transform var(--c-fast) var(--c-out),margin var(--c-fast) var(--c-out)}
-.kchip[aria-pressed="true"]{background:var(--chip-on);box-shadow:inset 0 0 0 1.5px var(--chip-ring),var(--key-sh)}
-.kchip[aria-pressed="true"] .ck{width:14px;opacity:1;transform:none;margin-right:var(--space-3)}
+.kchip{position:relative;display:inline-flex;align-items:center;height:var(--h-key);padding:0 var(--space-5) 0 var(--space-4);border-radius:var(--r-chip);background:var(--chip-bg);box-shadow:var(--key-sh);font-size:var(--fs-sm);font-weight:600;color:var(--key-fg);white-space:nowrap;
+  transition:background-color var(--sp-close-dur) var(--sp-close),box-shadow var(--sp-close-dur) var(--sp-close),transform var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out)}
+.kchip .ck{display:inline-block;flex:none;width:14px;height:14px;margin-right:var(--space-2);opacity:0;background:currentColor;-webkit-mask:var(--ck-mask) center/14px no-repeat;mask:var(--ck-mask) center/14px no-repeat;
+  transition:opacity var(--sp-close-dur) var(--sp-close)}
+.kchip[aria-pressed="true"]{background:var(--chip-on);box-shadow:inset 0 0 0 1.5px var(--chip-ring),var(--key-sh);
+  transition:background-color var(--sp-fade-dur) var(--sp-fade),box-shadow var(--sp-fade-dur) var(--sp-fade),transform var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out)}
+.kchip[aria-pressed="true"] .ck{opacity:1;transition:opacity var(--sp-fade-dur) var(--sp-fade)}
 .kchip .n{margin-left:var(--space-3);color:var(--fg2);font-weight:500;font-variant-numeric:tabular-nums}
 .kchip .n:empty{display:none}
 .kchip:not([aria-disabled="true"]):is(:active,.is-press){transform:translateY(1px);box-shadow:var(--key-dn);filter:var(--press-f);transition-duration:0s}
+.kchip[aria-pressed="true"]:not([aria-disabled="true"]):is(:active,.is-press){box-shadow:inset 0 0 0 1.5px var(--chip-ring),var(--key-dn)}
 .kchip[aria-disabled="true"]{cursor:not-allowed}
 @media (pointer:coarse){ .kchip::before{content:"";position:absolute;left:50%;top:50%;width:max(100%,44px);height:44px;transform:translate(-50%,-50%)} }
-.swbtn .swt{--t:0;position:relative;flex:none;width:44px;height:26px;border-radius:var(--r-pill);background:var(--trk);box-shadow:var(--tray-sh)}
-.swbtn .swt::before{content:"";position:absolute;inset:0;border-radius:inherit;background:var(--sw-on);box-shadow:inset 0 1px 2px color-mix(in srgb,var(--shc) 28%,transparent);opacity:var(--t);transition:opacity var(--c-switch) var(--c-inout)}
-.swbtn .swt::after{content:"";position:absolute;left:2px;top:2px;width:22px;height:22px;border-radius:50%;background:var(--knob);box-shadow:var(--knob-sh);transform:translateX(calc(var(--t) * 18px));transition:transform var(--c-switch) var(--c-inout),box-shadow var(--c-fast) var(--c-out)}
-.swbtn[aria-checked="true"] .swt{--t:1}
-.swbtn:active .swt::after,.swbtn.is-press .swt::after,.swbtn.drag .swt::after{box-shadow:var(--knob-dn)}
-.swbtn.drag .swt::after{transition:box-shadow var(--c-fast) var(--c-out)}
-.swbtn.drag .swt::before{transition:none}
+/* 스위치 — one implementation for every switch (design.md §7 · ② 단단한 이동, 사용자 2026-11-16 10:02 "컨트롤 움직임은 추천대로 2번"): 표시 설정
+   rows (.swbtn), 종목 페이지 지분 공시 (.sp-switch), 오늘 공시 탭 지도 스위치 (.dc-lit). A sunken track .swt (44 × 26); its ::before = the fill
+   (`fade`), its ::after = the raised knob (22, round) that moves in one piece on `lead` — it never stretches (design.md §10-8 withdrawn).
+   Drag (KH.ui.sw, from 4 px): the finger owns --t (.drag: no transition); let go, `settle` carries on from the finger's speed
+   (KH.spring.release — faster than 0.11 px/ms is a throw that way), .sw-fly while it lands. 줄이기: every length 0 */
+[role="switch"] .swt{--t:0;position:relative;flex:none;width:44px;height:26px;border-radius:var(--r-pill);background:var(--trk);box-shadow:var(--tray-sh)}
+[role="switch"] .swt::before{content:"";position:absolute;inset:0;border-radius:inherit;background:var(--sw-on);box-shadow:inset 0 1px 2px color-mix(in srgb,var(--shc) 28%,transparent);opacity:var(--t);transition:opacity var(--sp-fade-dur) var(--sp-fade)}
+[role="switch"] .swt::after{content:"";position:absolute;left:2px;top:2px;width:22px;height:22px;border-radius:50%;background:var(--knob);box-shadow:var(--knob-sh);transform:translateX(calc(var(--t) * 18px));transition:transform var(--sp-lead-dur) var(--sp-lead),box-shadow var(--c-fast) var(--c-out)}
+[role="switch"][aria-checked="true"] .swt{--t:1}
+[role="switch"]:is(:active,.is-press,.drag):not([aria-disabled="true"]) .swt::after{box-shadow:var(--knob-dn)}
+[role="switch"]:is(.drag,.sw-fly) .swt::after{transition:box-shadow var(--c-fast) var(--c-out)}
+[role="switch"]:is(.drag,.sw-fly) .swt::before{transition:none}
 /* wide desktop: every control in one row; 색 기준 and 순매수 기간 open as small popovers; palette names from 1800px */
 @media (min-width:1280px){
   .ctls{display:contents}
@@ -550,8 +560,8 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 .wgbar[hidden]{display:none}
 .wgchips{display:flex;gap:var(--space-3);overflow-x:auto;scrollbar-width:none;padding:1px 1px var(--space-1)}
 .wgchips::-webkit-scrollbar{display:none}
-.wgi{display:inline-flex;flex:none;padding:1px;border-radius:var(--r-chip);background:var(--chip-bg);box-shadow:var(--key-sh);transition:background-color var(--c-fast) var(--c-out),box-shadow var(--c-fast) var(--c-out)}
-.wgi[data-on]{background:var(--chip-on);box-shadow:inset 0 0 0 1.5px var(--chip-ring)}
+.wgi{display:inline-flex;flex:none;padding:1px;border-radius:var(--r-chip);background:var(--chip-bg);box-shadow:var(--key-sh);transition:background-color var(--sp-close-dur) var(--sp-close),box-shadow var(--sp-close-dur) var(--sp-close)}
+.wgi[data-on]{background:var(--chip-on);box-shadow:inset 0 0 0 1.5px var(--chip-ring);transition:background-color var(--sp-fade-dur) var(--sp-fade),box-shadow var(--sp-fade-dur) var(--sp-fade)}
 .wgc{display:inline-flex;align-items:center;gap:var(--space-3);height:30px;padding:0 var(--space-5);border-radius:var(--r-chip);font-size:var(--fs-md);font-weight:600;color:var(--fg2);white-space:nowrap;transition:color var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out)}
 .wgc:hover,.wgi[data-on] .wgc{color:var(--fg)}
 .wgc .n{font-size:var(--fs-sm);font-weight:500;color:var(--muted);font-variant-numeric:tabular-nums;transition:color var(--c-fast) var(--c-out)}
@@ -840,7 +850,7 @@ span.cdb.cdb > i{position:absolute;top:50%;width:auto;height:1px;margin-top:-.5p
 .dbar::before{content:"";position:absolute;left:50%;top:-2px;bottom:-2px;width:1px;background:var(--line2)}
 .dbar i{position:absolute;top:1px;height:8px;border-radius:var(--r-mark)}
 .movers-tabs{display:flex;gap:var(--space-1);margin-bottom:var(--space-4);padding:3px;border-radius:var(--r-tray);background:var(--tray-bg);box-shadow:var(--tray-sh)}
-.movers-tabs button{flex:1 1 0;font-size:var(--fs-sm);padding:var(--space-2) var(--space-4);border-radius:var(--r-in);color:var(--muted);white-space:nowrap;transition:color var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out)}
+.movers-tabs button{flex:1 1 0;font-size:var(--fs-sm);padding:var(--space-2) var(--space-4);border-radius:var(--r-in);color:var(--muted);white-space:nowrap;transition:color var(--sp-fade-dur) var(--sp-fade),filter var(--c-fast) var(--c-out)}
 .movers-tabs button[aria-pressed="true"]{color:var(--fg)}
 .movers{display:flex;flex-direction:column;gap:1px}
 .movers button{display:grid;grid-template-columns:10px minmax(0,1fr) auto 66px;gap:var(--space-4);align-items:center;padding:var(--space-3);margin:0 -6px;border-radius:var(--r-row);font-size:var(--fs-md);text-align:left}
@@ -1017,7 +1027,7 @@ footer .credit .dc{width:1.15em;height:1.15em;flex:none}
   .viewseg button{min-width:44px}
   .sheet .acts button,.sheet .acts a{height:var(--h-row)}
   .swbtn{min-height:var(--h-row)}
-  .kchip{height:var(--h-chip);padding:0 var(--space-5);font-size:var(--fs-md)}
+  .kchip{height:var(--h-chip);padding:0 var(--space-5) 0 var(--space-4);font-size:var(--fs-md)}
   .status .tshort{display:inline}
   .status.has-blab .tshort{display:none}
   .status.has-blab .badge .bl{display:none}
@@ -1081,7 +1091,7 @@ html[data-motion="reduced"] .status.live .dot{animation:none}
 html[data-motion="reduced"] .tile.flash-up::after,html[data-motion="reduced"] .tile.flash-dn::after{animation:none;opacity:0}
 html[data-motion="reduced"] .tile .pc{animation:none}
 /* ───────────────── living controls (docs/standards/controls.md, V1 입체): shared parts ─────────────────
-   KH.ui.seg moves one raised indicator per segment / tab row (leading edge --sp-lead, trailing --sp-trail); press = 1px down, shorter
+   KH.ui.seg moves one raised indicator per segment / tab row (rigid: every edge on --sp-lead, ② 단단한 이동); press = 1px down, shorter
    shadow, darker (0 ms down, --c-fast up); labels swap in place; 44 px hit areas on touch screens. Other modules may reuse these. */
 :root{--ck-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M4.5 10.5l3.6 3.6 7.4-8' fill='none' stroke='%23000' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")}
 /* a label that changes in place (KH.ui.swap, design.md §6-4 — the same as extras' xSwap): the old text is the box's ::before, the new one
@@ -1135,8 +1145,9 @@ html[data-motion="fancy"] .kl.on .kck{transform:none;transition-delay:var(--c-fa
 .seg::before,.tabs-sc::before,.movers-tabs::before{content:"";position:absolute;z-index:0;left:var(--il,0px);right:var(--ir,0px);top:var(--it,0px);bottom:var(--ib,0px);border-radius:var(--r-in);background:var(--ind-bg);box-shadow:var(--ind-sh);pointer-events:none;opacity:0}
 .tabs-sc::after{content:"";position:absolute;z-index:2;left:calc(var(--il,0px) + 10px);right:calc(var(--ir,0px) + 10px);bottom:var(--ib,0px);height:2px;border-radius:var(--r-mark) var(--r-mark) 0 0;background:var(--acc-line);pointer-events:none;opacity:0}
 :is(.seg,.tabs-sc,.movers-tabs)[data-ind]::before,.tabs-sc[data-ind]::after{opacity:1}
-:is(.seg,.tabs-sc,.movers-tabs)[data-dir="r"]::before,.tabs-sc[data-dir="r"]::after{transition:right var(--sp-lead-dur) var(--sp-lead),left var(--sp-trail-dur) var(--sp-trail),top var(--sp-lead-dur) var(--sp-lead),bottom var(--sp-lead-dur) var(--sp-lead)}
-:is(.seg,.tabs-sc,.movers-tabs)[data-dir="l"]::before,.tabs-sc[data-dir="l"]::after{transition:left var(--sp-lead-dur) var(--sp-lead),right var(--sp-trail-dur) var(--sp-trail),top var(--sp-lead-dur) var(--sp-lead),bottom var(--sp-lead-dur) var(--sp-lead)}
+/* ② 단단한 이동 (사용자 2026-11-16 10:02, AGENTS §3-38): all four edges on the one `lead` spring — the indicator keeps its shape on the way
+   (between two tab widths it changes width once, evenly; no stretch). data-dir="" (first place · resize · held keys) = no transition */
+:is(.seg,.tabs-sc,.movers-tabs):is([data-dir="r"],[data-dir="l"])::before,.tabs-sc:is([data-dir="r"],[data-dir="l"])::after{transition:left var(--sp-lead-dur) var(--sp-lead),right var(--sp-lead-dur) var(--sp-lead),top var(--sp-lead-dur) var(--sp-lead),bottom var(--sp-lead-dur) var(--sp-lead)}
 :is(.seg,.tabs-sc,.movers-tabs):not([data-ind])>button:is([aria-pressed="true"],[aria-selected="true"]){background:var(--ind-bg);box-shadow:var(--ind-sh)}
 .tabs-sc:not([data-ind])>button:is([aria-pressed="true"],[aria-selected="true"]){box-shadow:var(--ind-sh),inset 0 -2px 0 var(--acc-line)}
 .tabs>.tpin::before{content:"";position:absolute;z-index:-1;left:var(--ind-in,0px);right:var(--ind-in,0px);top:calc(var(--ind-in,0px) + var(--ind-iy,0px));bottom:calc(var(--ind-in,0px) + var(--ind-iy,0px));border-radius:var(--r-in);background:var(--ind-bg);box-shadow:var(--ind-sh);pointer-events:none;opacity:0}
@@ -1155,7 +1166,15 @@ html[data-motion="fancy"] .kl.on .kck{transform:none;transition-delay:var(--c-fa
 :is(.setbtn,.ddbtn,.morebtn,.bchip,.wgadd,.crumbs .back,.map-empty .we button,.wgpop .acts button,.sheet .acts > *,.movers .more,.secs .more){transition:transform var(--c-fast) var(--c-out),box-shadow var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out),background-color var(--c-base) var(--c-out),color var(--c-base) var(--c-out)}
 :is(.setbtn,.ddbtn,.morebtn,.bchip,.wgadd,.crumbs .back,.map-empty .we button,.wgpop .acts button,.sheet .acts > *,.movers .more,.secs .more):is(:active:not(:disabled):not([aria-disabled="true"]),.is-press){transform:translateY(1px);box-shadow:var(--key-dn);filter:var(--press-f);transition-duration:0s,0s,0s,var(--c-base),var(--c-base)}
 /* keys without a surface (☆ · × · ⋯ · 경로) and chips: 1px + darker, no shadow */
-:is(.sheet .x,.ctls-hd .x,.wstar,.wbtn,.wgm,.crumbs button.c,.wgc){transition:transform var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out),color var(--c-fast) var(--c-out)}
+:is(.sheet .x,.ctls-hd .x,.wgm,.crumbs button.c,.wgc){transition:transform var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out),color var(--c-fast) var(--c-out)}
+/* ☆ ↔ ★ (② 단단한 이동 — 사용자 2026-11-16 10:02: the icon toggle is a fade only): both glyphs in one grid cell (starGlyphs), the one shown
+   fades in on `fade`, the other leaves on `close`, the colour follows on the same springs; nothing moves or grows (the press below sinks 1px) */
+.sg0,.sg1{grid-area:1/1;transition:opacity var(--sp-close-dur) var(--sp-close)}
+.sg1{opacity:0}
+[aria-pressed="true"]>.sg1{opacity:1;transition:opacity var(--sp-fade-dur) var(--sp-fade)}
+[aria-pressed="true"]>.sg0{opacity:0}
+:is(.wstar,.wbtn,.tstar){transition:transform var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out),color var(--sp-close-dur) var(--sp-close),background-color var(--c-fast) var(--c-out)}
+:is(.wstar,.wbtn,.tstar)[aria-pressed="true"]{transition:transform var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out),color var(--sp-fade-dur) var(--sp-fade),background-color var(--c-fast) var(--c-out)}
 :is(.sheet .x,.ctls-hd .x,.wstar,.wbtn,.wgm,.crumbs button.c:not(.cur),.wgc):is(:active,.is-press){transform:translateY(1px);filter:var(--press-f);transition-duration:0s}
 .tstar:is(:active,.is-press){transform:translateY(1px);filter:var(--press-f);transition-duration:0s}
 /* data rows and bars never sink: they only darken */
@@ -1772,7 +1791,7 @@ const fmtPct = (v, d = 2) => sgn(v) + Math.abs(v).toFixed(d) + '%';
 
 /* ───────────────── living controls (docs/standards/controls.md) — KH.ui, shared with extras · stock · world ─────────────────
    seg(el): the raised indicator of a segment / tab row follows its pressed button — aria-pressed, or aria-selected in a tablist
-   (design.md §6-3: leading edge the lead spring, trailing edge trail — the CSS curves of KH.spring.edges; a resize only re-places it). swap(el, text, from?): a label changes in place. roll(el, text, dir): 화려하게 digits roll (the
+   (design.md §6-3 · §7, ② 단단한 이동: both edges on the lead spring, the shape kept — the CSS curves of KH.spring.edges; a resize only re-places it). swap(el, text, from?): a label changes in place. roll(el, text, dir): 화려하게 digits roll (the
    element's text is the value at every moment). busy(btn, promise): a ring in place of the label while it works. state(el, st):
    .klb/.kl stacked labels (the box keeps the widest one). bubble(anchor, text, 'done'|'fail'): a short note under an icon-only key
    (no layout) + aria-live. sw(btn): a switch row whose knob can be dragged. live(text): a polite announcement. icon(name).
@@ -2002,27 +2021,63 @@ function uiBubble(anchor, text, kind) {
   uiLive(text);
   return b;
 }
+/* sw(btn): the one switch (CSS "스위치": track .swt, knob = its ::after on `lead`, fill = its ::before on `fade`). The knob can be dragged
+   (design.md §8: from 4 px, the finger owns --t). Let go: KH.spring.release — `settle` carries on from the finger's speed of the last
+   100 ms (px/ms), faster than KH.spring.THROW (0.11) is a throw to that end, else the nearer end; at most 1px past the end (a track has
+   hard ends). The state changes at the release (btn.click(), so the module's own handler runs), the knob lands meanwhile (.sw-fly) and
+   hands back to the CSS pose at rest. Without KH.spring or under 줄이기: the nearer end at once. A new press or a state set from outside
+   mid-flight ends the flight where it is (the CSS transition takes it from there). */
 function uiSwitch(btn) {
   if (!btn || btn.__sw) return; btn.__sw = true;
   const tr = btn.querySelector('.swt'); if (!tr) return;
-  let sx = 0, t0 = 0, t = 0, down = false, dragged = false, skipUntil = 0;
+  const TRAV = 18;                                             // 44 − 22 − 2 × 2: the knob's way (px), CSS translateX(--t × 18px)
+  let sx = 0, t0 = 0, t = 0, down = false, dragged = false, skipUntil = 0, smp = [], fly = null;
   const on = () => btn.getAttribute('aria-checked') === 'true';
-  tr.addEventListener('pointerdown', e => { down = true; dragged = false; sx = e.clientX; t0 = t = on() ? 1 : 0; try { tr.setPointerCapture(e.pointerId); } catch (x) {} });
+  const land = () => { if (fly) { const f = fly; fly = null; f.h.stop(); } btn.classList.remove('sw-fly'); tr.style.removeProperty('--t'); };
+  new MutationObserver(() => { if (fly && on() !== fly.on) land(); }).observe(btn, { attributes: true, attributeFilter: ['aria-checked'] });
+  tr.addEventListener('pointerdown', e => {
+    if (btn.getAttribute('aria-disabled') === 'true') return;
+    const cur = fly ? Math.min(1, Math.max(0, fly.h.value() / TRAV)) : (on() ? 1 : 0);
+    if (fly) { const f = fly; fly = null; f.h.stop(); btn.classList.remove('sw-fly'); tr.style.setProperty('--t', cur); }
+    down = true; dragged = false; sx = e.clientX; t0 = t = cur; smp = [{ t: e.timeStamp, x: t * TRAV }];
+    try { tr.setPointerCapture(e.pointerId); } catch (x) {}
+  });
   tr.addEventListener('pointermove', e => {
     if (!down) return;
     const dx = e.clientX - sx;
     if (!dragged) { if (Math.abs(dx) < 4) return; dragged = true; btn.classList.add('drag'); }
-    t = Math.min(1, Math.max(0, t0 + dx / 18)); tr.style.setProperty('--t', t);
+    t = Math.min(1, Math.max(0, t0 + dx / TRAV)); tr.style.setProperty('--t', t);
+    smp.push({ t: e.timeStamp, x: t * TRAV });
+    while (smp.length > 2 && e.timeStamp - smp[0].t > 100) smp.shift();
   });
-  const up = () => {
+  const up = e => {
     if (!down) return; down = false;
-    if (!dragged) return;
-    void tr.offsetWidth; btn.classList.remove('drag'); tr.style.removeProperty('--t');
-    if ((t >= .5) !== on()) btn.click();                       // lands on the nearer side from where the finger left it
+    if (!dragged) { tr.style.removeProperty('--t'); return; }   // a press (the click toggles it); a flight it stopped goes on in CSS
     skipUntil = performance.now() + 400;                       // the click that follows the drag changes nothing
+    const S = springApi(), x = t * TRAV;
+    const win = smp.filter(p => e.timeStamp - p.t <= 100), a = win[0], b = win[win.length - 1];
+    const v = e.type !== 'pointercancel' && win.length > 1 && b.t > a.t ? (b.x - a.x) / (b.t - a.t) : 0;   // px/ms; a finger that stopped → 0
+    btn.classList.remove('drag');
+    if (!S || typeof S.animate !== 'function' || typeof S.release !== 'function' || MOTION === 'reduced') {
+      void tr.offsetWidth; tr.style.removeProperty('--t');
+      if ((t >= .5) !== on()) btn.click();                     // lands on the nearer side from where the finger left it
+      return;
+    }
+    btn.classList.add('sw-fly');
+    const hnd = S.animate({ from: x, to: x, name: 'settle', onUpdate: p => tr.style.setProperty('--t', String(Math.round(p / TRAV * 1e4) / 1e4)),
+      onRest: () => { if (fly && fly.h === hnd) { fly = null; btn.classList.remove('sw-fly'); tr.style.removeProperty('--t'); } } });
+    const r = S.release(hnd, v, { points: [0, TRAV], maxOvershoot: 1 });
+    const want = r.to > TRAV / 2;
+    fly = { h: hnd, on: want };
+    if (want !== on()) btn.click();
+    if (fly && fly.h === hnd && on() !== want) { fly.on = on(); hnd.retarget(on() ? TRAV : 0); }   // the module kept its state: back home
+    if (fly && fly.h === hnd && !hnd.running()) land();        // a hidden tab: already there
   };
   tr.addEventListener('pointerup', up); tr.addEventListener('pointercancel', up);
-  btn.addEventListener('click', e => { if (e.isTrusted && performance.now() < skipUntil) { e.stopImmediatePropagation(); e.preventDefault(); } }, true);
+  btn.addEventListener('click', e => {
+    if (e.isTrusted && performance.now() < skipUntil) { e.stopImmediatePropagation(); e.preventDefault(); return; }
+    if (e.isTrusted && fly) land();                            // pressed again while it lands: the CSS takes it from where it is
+  }, true);
 }
 // keys sink while Space / Enter is held, as under a finger
 document.addEventListener('keydown', e => { if ((e.key === ' ' || e.key === 'Enter') && !e.repeat && e.target instanceof HTMLElement && e.target.matches('button, a[href]')) e.target.classList.add('is-press'); });
@@ -3936,8 +3991,10 @@ function limTag(st) {
 function starBtn(code, extraCls) {
   const on = WATCH.includes(code);
   return h('button', { class: extraCls, type: 'button', 'data-w': code, 'aria-pressed': String(on), 'aria-label': on ? '관심종목에서 빼기' : '관심종목에 추가', title: on ? '관심종목에서 빼기' : '관심종목에 추가',
-    'aria-haspopup': WG.groups.length > 1 ? 'dialog' : null, onclick: ev => { ev.stopPropagation(); starClick(code, ev.currentTarget); }, text: on ? '★' : '☆' });
+    'aria-haspopup': WG.groups.length > 1 ? 'dialog' : null, onclick: ev => { ev.stopPropagation(); starClick(code, ev.currentTarget); } }, starGlyphs());
 }
+// ☆ and ★ in one grid cell (② 단단한 이동: the toggle is a fade only — CSS .sg0 / .sg1 follow the button's aria-pressed); the label says it
+function starGlyphs() { return [h('span', { class: 'sg0', 'aria-hidden': 'true', text: '☆' }), h('span', { class: 'sg1', 'aria-hidden': 'true', text: '★' })]; }
 // the metric row under the price when the colour metric is not today's change
 function metricRow(st) {
   const k = kind();
@@ -4060,7 +4117,7 @@ function syncHoverStar() {
   const on = WATCH.includes(state.hover);
   tstar.hidden = false;
   tstar.style.left = (x + w - 26) + 'px'; tstar.style.top = (y + 2) + 'px';
-  tstar.textContent = on ? '★' : '☆';
+  if (!tstar.firstChild) tstar.append(...starGlyphs());
   tstar.setAttribute('aria-pressed', String(on));
   const lbl = on ? '관심종목에서 빼기' : '관심종목에 추가';
   tstar.setAttribute('aria-label', lbl); tstar.title = lbl;
@@ -4076,7 +4133,7 @@ function syncStars() {
   syncHoverStar();
   for (const b of document.querySelectorAll('button[data-w]')) {
     const on = WATCH.includes(b.dataset.w);
-    b.setAttribute('aria-pressed', String(on)); b.textContent = on ? '★' : '☆';
+    b.setAttribute('aria-pressed', String(on)); if (!b.querySelector('.sg1')) b.replaceChildren(...starGlyphs());
     const lbl = on ? '관심종목에서 빼기' : '관심종목에 추가'; b.setAttribute('aria-label', lbl); b.title = lbl;
   }
   if (state.hover && tip.classList.contains('show') && !String(state.hover).startsWith('#')) { const st = get(state.hover); if (st) fillTip(st); }

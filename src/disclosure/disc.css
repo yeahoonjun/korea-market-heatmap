@@ -24,8 +24,6 @@
 .news .dc-litw{display:flex;justify-content:flex-end;flex:none;order:7;margin-left:auto;min-width:0}
 .news .dc-litw[hidden]{display:none}
 .news .dc-lit{
-  --trk-w:calc(var(--space-8) + var(--space-5)); --trk-h:calc(var(--space-7) + var(--space-1)); --trk-in:var(--space-1);
-  --trav:calc(var(--trk-w) - var(--trk-h));
   position:relative;display:inline-flex;align-items:center;gap:var(--space-5);min-width:0;min-height:var(--h-key);padding:0 var(--space-2) 0 var(--space-3);
   border-radius:var(--r-row);font-size:var(--fs-md);line-height:var(--lh-ui);font-weight:600;color:var(--fg);text-align:left;
   touch-action:pan-y;-webkit-tap-highlight-color:transparent;transition:background-color var(--sp-fade-dur) var(--sp-fade)}
@@ -41,22 +39,8 @@
 @keyframes dcTxIn{from{opacity:0;filter:blur(2px);transform:translateY(var(--space-2))}}
 .news .dc-lc .kspn{width:var(--fs-md);height:var(--fs-md);color:var(--fg2)}
 .news .dc-lit .dc-bad{color:var(--fail-dot);font-weight:700}
-/* 트랙 · 채움 · 손잡이 (--t: 0 꺼짐 · 1 켜짐 — 끄는 동안은 KH.ui.sw가 손가락 자리로) */
-.news .dc-trk{--t:0;position:relative;flex:none;width:var(--trk-w);height:var(--trk-h);border-radius:var(--r-pill);background:var(--trk);box-shadow:var(--tray-sh)}
-.news .dc-trk::before{content:"";position:absolute;inset:0;border-radius:inherit;background:var(--sw-on);box-shadow:inset 0 1px 2px color-mix(in srgb,var(--shc) 28%,transparent);opacity:var(--t);
-  transition:opacity var(--sp-fade-dur) var(--sp-fade)}
-/* .dc-knob = the two edges (left / right on their own springs); its ::before = the raised knob you see, at most 3px longer than round
-   (design.md §7 "3px 늘었다 돌아와요" — the follow / settle pair alone opens ≈ 6px over an 18px travel), held to the front edge */
-.news .dc-knob{position:absolute;top:var(--trk-in);bottom:var(--trk-in);left:calc(var(--trk-in) + var(--t) * var(--trav));right:calc(var(--trk-in) + (1 - var(--t)) * var(--trav));
-  display:flex;justify-content:flex-start;
-  transition:left var(--sp-follow-dur) var(--sp-follow),right var(--sp-settle-dur) var(--sp-settle)}
-.news .dc-knob::before{content:"";flex:none;width:100%;max-width:calc(var(--trk-h) - 2 * var(--trk-in) + var(--space-1) * 1.5);border-radius:var(--r-pill);background:var(--knob);box-shadow:var(--knob-sh);
-  transition:box-shadow var(--c-fast) var(--c-out)}
-.news .dc-lit[aria-checked="true"] .dc-trk{--t:1}
-.news .dc-lit[aria-checked="true"] .dc-knob{justify-content:flex-end;transition:right var(--sp-follow-dur) var(--sp-follow),left var(--sp-settle-dur) var(--sp-settle)}
-.news .dc-lit:is(:active,.is-press,.drag):not([aria-disabled="true"]) .dc-knob::before{box-shadow:var(--knob-dn)}
-.news .dc-lit.drag .dc-knob{transition:none}
-.news .dc-lit.drag .dc-trk::before{transition:none}
+/* 트랙 · 채움 · 손잡이 = 템플릿의 스위치 하나 그대로(.swt: 파인 트랙 44 × 26, 채움 ::before `fade`, 솟은 손잡이 ::after가 모양 그대로 `lead`로 —
+   ② 단단한 이동, 사용자 2026-11-16 10:02, AGENTS §3-38). 끌기는 KH.ui.sw(4px부터, 놓으면 `settle`이 손가락 속도를 이어받아요) */
 .news .dc-lit[aria-disabled="true"]{opacity:.45;cursor:not-allowed}
 .news .dc-lit[aria-disabled="true"][title]{cursor:help}
 .news .dc-lit[aria-disabled="true"] .dc-trk{pointer-events:none}
@@ -111,7 +95,7 @@
 
 /* ── 패널의 "오늘 공시" 탭 (뉴스 카드 안 — 자리 · 채우기 · 두 단 · 더보기(접고 펴기 = news.css fold) · 휴대폰 규칙은 뉴스와 같아요) ── */
 /* 공시 종류 = 밑줄 탭 (design.md §7 ③, 종목 페이지 .sp-dfilt · 카드 제목 탭과 같음): 템플릿 세그먼트 표시를 2px 밑줄로 — KH.ui.seg가
-   가는 쪽 가장자리 lead · 뒤 trail로 옮겨요 */
+   모양 그대로 lead 하나로 옮겨요(② 단단한 이동) */
 .news .dc-ktabs{display:flex;gap:var(--space-1);flex:1 1 auto;min-width:0;overflow-x:auto;scrollbar-width:none;padding:0;border-radius:0;background:none;box-shadow:inset 0 -1px 0 var(--line)}
 .news .dc-ktabs::-webkit-scrollbar{display:none}
 .news .dc-ktabs::before{top:auto;height:2px;border-radius:var(--r-mark) var(--r-mark) 0 0;background:var(--acc-line);box-shadow:none}

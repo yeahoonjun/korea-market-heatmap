@@ -94,9 +94,9 @@ html[data-theme="paper"] .sp-head, html[data-theme^="glass"] .sp-head { backgrou
 @media (max-width: 430px) { .sp-nxt .t { display: none; } }
 .sp-star { position: relative; flex: none; display: inline-grid; place-items: center; width: var(--h-row); height: var(--h-row); margin-left: var(--space-1); border-radius: var(--r-key); color: var(--muted); touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
 .sp-star[hidden], .sp-nf .sp-star { display: none; }
-.sp .sp-star svg { width: 20px; height: 20px; fill: transparent; transition: fill var(--c-fast) var(--c-out), color var(--c-fast) var(--c-out); }   /* ☆ → ★ (§5-9): the fill comes in, no pop */
+.sp .sp-star svg { width: 20px; height: 20px; fill: transparent; transition: fill var(--sp-close-dur) var(--sp-close), color var(--sp-close-dur) var(--sp-close); }   /* ☆ → ★ (② 단단한 이동): the fill fades in (`fade`), out on `close`, no pop */
 .sp-star[aria-pressed="true"] { color: var(--acc, var(--amber)); }                  /* switched on: outline = the readable amber (dark ochre on paper) */
-.sp .sp-star[aria-pressed="true"] svg { fill: var(--acc-fill, var(--amber)); }          /* fill = the highlighter amber */
+.sp .sp-star[aria-pressed="true"] svg { fill: var(--acc-fill, var(--amber)); transition: fill var(--sp-fade-dur) var(--sp-fade), color var(--sp-fade-dur) var(--sp-fade); }   /* fill = the highlighter amber */
 
 /* ── meta + stats ───────────────────── */
 .sp-main { max-width: 1760px; margin: 0 auto; padding: var(--space-4) var(--edge) var(--space-7); }
@@ -145,8 +145,8 @@ html[data-theme="paper"] .sp-head, html[data-theme^="glass"] .sp-head { backgrou
 .sp-tfbar { position: relative; display: flex; align-items: center; gap: var(--space-5); margin-bottom: var(--space-4); }
 
 /* ── 고르기 (design.md §7): segments (봉 간격 · 시세 정보 탭 · 재무 기간 · 안정성 지표 · 뉴스/공시) in the template's deep tray (.seg) and the
-   공시 종류 underline row. One indicator element per row (.sp-ind), moved by KH.spring.edges in stock.js: the edge on the side it travels
-   to rides `lead`, the other `trail` (§6-2/§6-3). The template's ::before indicator is not used here; without KH.spring it is (KH.ui.seg). */
+   공시 종류 underline row. One indicator element per row (.sp-ind), moved by KH.spring.edges in stock.js: both edges on `lead`, the shape
+   kept (② 단단한 이동, §6-2/§6-3). The template's ::before indicator is not used here; without KH.spring it is (KH.ui.seg). */
 .sp .sp-ix::before { content: none; }
 .sp .sp-ix.sp-ix > button:is([aria-pressed="true"], [aria-selected="true"]) { background: none; box-shadow: none; }
 .sp-ind { position: absolute; z-index: 0; left: 0; top: 0; width: 0; height: 0; border-radius: var(--r-in); background: var(--ind-bg); box-shadow: var(--ind-sh); pointer-events: none; opacity: 0; }
@@ -156,7 +156,7 @@ html[data-theme="paper"] .sp-head, html[data-theme^="glass"] .sp-head { backgrou
    press filter (0 ms down, --c-fast up); hover only on a fine pointer (design.md §8) */
 .sp-seg { display: flex; gap: var(--space-1); padding: var(--space-2); border-radius: var(--r-tray); }
 .sp :is(.sp-seg, .sp-mseg, .sp-dfilt) > button { flex: 1 1 0; min-height: var(--h-key); padding: 0 var(--space-2); border-radius: var(--r-in); font-size: var(--fs-lg); font-weight: 600; line-height: var(--lh-ui); color: var(--muted); white-space: nowrap; touch-action: manipulation; -webkit-tap-highlight-color: transparent;
-  transition: color var(--c-fast) var(--c-out), filter var(--c-fast) var(--c-out), transform var(--c-fast) var(--c-out); }
+  transition: color var(--sp-fade-dur) var(--sp-fade), filter var(--c-fast) var(--c-out), transform var(--c-fast) var(--c-out); }
 .sp :is(.sp-seg, .sp-mseg, .sp-dfilt) > button:is([aria-pressed="true"], [aria-selected="true"]) { color: var(--fg); }
 .sp :is(.sp-seg, .sp-mseg, .sp-dfilt) > button:active { transform: translateY(1px); filter: var(--press-f); transition-duration: 0s; }
 .sp-tabs > button:focus-visible { outline-offset: -1px; }
@@ -595,14 +595,12 @@ a.sp-nw-a:visited .sp-nw-t { color: var(--fg2); }
 .sp-dfilt button[aria-pressed="true"] small { color: var(--fg2); }
 .sp-nw-src { display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--space-5); margin-top: var(--space-2); font-size: var(--fs-sm); color: var(--muted); }
 .sp-nw-src > span { padding: var(--space-3) 0; }
-/* 지분 공시 포함: the template's switch (.swbtn + .swt: deep track, raised knob, 44 × 26, drag with KH.ui.sw) without its row surface;
-   here its knob and fill run on the springs (knob `follow`, fill `fade`, design.md §7) */
-.sp-switch { display: inline-flex; align-items: center; gap: var(--space-4); min-height: var(--h-key); margin-left: auto; padding: 0 var(--space-1); font-size: var(--fs-sm); font-weight: 600; color: var(--fg2); }
+/* 지분 공시 포함: the template's one switch (.swbtn + .swt: deep track, raised knob 44 × 26 that moves in one piece on `lead`, fill `fade`,
+   drag with KH.ui.sw — ② 단단한 이동, AGENTS §3-38) without its row surface; the label's colour follows on `fade` */
+.sp-switch { display: inline-flex; align-items: center; gap: var(--space-4); min-height: var(--h-key); margin-left: auto; padding: 0 var(--space-1); font-size: var(--fs-sm); font-weight: 600; color: var(--fg2); transition: color var(--sp-fade-dur) var(--sp-fade), filter var(--c-fast) var(--c-out); }
 .sp-switch.swbtn { width: auto; justify-content: flex-end; border-radius: var(--r-in); box-shadow: none; }
 .sp-switch.swbtn:not(#_) { background: none; }   /* (an id-level rule: no key surface, also against the template's hover / no-hover surfaces) */
 .sp-switch[aria-checked="true"] { color: var(--fg); }
-.sp-switch .swt::before { transition: opacity var(--sp-fade-dur) var(--sp-fade); }
-.sp-switch .swt::after { transition: transform var(--sp-follow-dur) var(--sp-follow), box-shadow var(--c-fast) var(--c-out); }
 .sp-nw-tag.k { color: var(--fg2); background: var(--panel2); box-shadow: none; }
 .sp-nw-tag.fix { color: var(--fg); box-shadow: inset 0 0 0 1px var(--fg2); }
 /* 공시 배지: today's DART row the map's feed has seen — the time, and the unread dot before it while it is new (--new-dot, template) */

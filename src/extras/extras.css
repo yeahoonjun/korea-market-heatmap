@@ -65,13 +65,14 @@ html{--xe-x:var(--h-key);--xe-fl-r:max(2px,calc(var(--sheet-r,16px) - 4px));--xe
 .xs-off .xs-track,.xs-hold .xs-track,.xs-vp:has(.xs-item:focus-visible) .xs-track{animation-play-state:paused}
 .xs-off .xs-track{will-change:auto}
 @media (hover:hover) and (pointer:fine){.xs-vp:hover .xs-track{animation-play-state:paused}}
-/* ⏸ / ▶: a raised round key (--h-key); paused = held down (--key-on) with an amber icon (selected); the shapes swap in place with `fade` */
+/* ⏸ / ▶: a raised round key (--h-key); paused = held down (--key-on) with an amber icon (selected); the shapes cross-fade in place — the
+   one shown on `fade`, the other out on `close`, nothing turns or grows (an icon toggle, ② 단단한 이동 — AGENTS §3-38) */
 .xs-pp{position:relative;flex:none;display:grid;place-items:center;width:var(--h-key);height:var(--h-key);border-radius:var(--r-pill);border:0;background:var(--key-bg);box-shadow:var(--key-sh);color:var(--key-ic);cursor:pointer;padding:0;touch-action:manipulation;-webkit-tap-highlight-color:transparent;transition:transform var(--c-fast) var(--c-out),box-shadow var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out),background-color var(--sp-fade-dur) var(--sp-fade),color var(--sp-fade-dur) var(--sp-fade)}
 .xs-pp[aria-pressed="true"]{box-shadow:var(--key-on);color:var(--acc,var(--amber))}
 .xs-pp:is(:active,.is-press){transform:translateY(1px);box-shadow:var(--key-dn);filter:var(--press-f);transition-duration:0s,0s,0s,var(--sp-fade-dur),var(--sp-fade-dur)}
 .xs-ppi{display:grid;place-items:center}
-.xs-ppi svg{grid-area:1/1;width:12px;height:12px;transition:transform var(--sp-fade-dur) var(--sp-fade),opacity var(--sp-fade-dur) var(--sp-fade)}
-.xs-pp[aria-pressed="true"] .xs-ppi svg:first-child,.xs-pp:not([aria-pressed="true"]) .xs-ppi svg:last-child{opacity:0;transform:rotate(90deg) scale(.5)}
+.xs-ppi svg{grid-area:1/1;width:12px;height:12px;transition:opacity var(--sp-fade-dur) var(--sp-fade)}
+.xs-pp[aria-pressed="true"] .xs-ppi svg:first-child,.xs-pp:not([aria-pressed="true"]) .xs-ppi svg:last-child{opacity:0;transition:opacity var(--sp-close-dur) var(--sp-close)}
 @media (pointer:coarse){.xs-pp::before{content:"";position:absolute;left:50%;top:50%;width:max(100%,44px);height:max(100%,44px);transform:translate(-50%,-50%)}}
 @media (hover:hover) and (pointer:fine){.xs-pp:hover{background:var(--key-hover);color:var(--fg)}.xs-pp[aria-pressed="true"]:hover{color:var(--acc,var(--amber))}}
 .xs-msg{color:var(--muted);font-size:var(--fs-md)}
@@ -446,12 +447,12 @@ dialog.xk{width:min(560px,calc(100% - 2 * var(--space-5)));max-height:min(760px,
 .xk-row:is(:active,.is-press){transform:translateY(1px);filter:var(--press-f);transition-duration:0s}
 .xk-row:focus-visible{outline-offset:calc(var(--focus-w) * -1)}
 .xk-row small{color:var(--muted);font-size:var(--fs-sm)}
-/* 추가 ↔ 추가됨: a toggle chip at the row's end (§5-7) — on: fill + 1.5px amber ring (`fade`), the check's slot opens 0 → 14px (`lead`);
-   off: `close`; the label swaps in its box */
-.xk-chk{margin-left:auto;flex:none;display:inline-flex;align-items:center;height:var(--h-chip);padding:0 var(--space-4);border-radius:var(--r-chip);background:var(--chip-bg);box-shadow:inset 0 0 0 1px var(--line2);color:var(--fg2);font-size:var(--fs-sm);transition:background-color var(--sp-close-dur) var(--sp-close),box-shadow var(--sp-close-dur) var(--sp-close),color var(--sp-close-dur) var(--sp-close)}
-.xk-ck{display:block;flex:none;width:0;height:14px;margin-right:0;opacity:0;transform:scale(.6);background:var(--acc-line,var(--amber));-webkit-mask:var(--ck-mask) center/14px 14px no-repeat;mask:var(--ck-mask) center/14px 14px no-repeat;transition:width var(--sp-close-dur) var(--sp-close),margin-right var(--sp-close-dur) var(--sp-close),opacity var(--sp-close-dur) var(--sp-close),transform var(--sp-close-dur) var(--sp-close)}
+/* 추가 ↔ 추가됨: a toggle chip at the row's end (§5-7, ② 단단한 이동 — the template .kchip's recipe) — the check's 14px place is always
+   there, so the chip keeps its width; on: fill + 1.5px amber ring + check `fade`; off: `close`; the label swaps in its box */
+.xk-chk{margin-left:auto;flex:none;display:inline-flex;align-items:center;height:var(--h-chip);padding:0 var(--space-4) 0 var(--space-3);border-radius:var(--r-chip);background:var(--chip-bg);box-shadow:inset 0 0 0 1px var(--line2);color:var(--fg2);font-size:var(--fs-sm);transition:background-color var(--sp-close-dur) var(--sp-close),box-shadow var(--sp-close-dur) var(--sp-close),color var(--sp-close-dur) var(--sp-close)}
+.xk-ck{display:block;flex:none;width:14px;height:14px;margin-right:var(--space-2);opacity:0;background:var(--acc-line,var(--amber));-webkit-mask:var(--ck-mask) center/14px 14px no-repeat;mask:var(--ck-mask) center/14px 14px no-repeat;transition:opacity var(--sp-close-dur) var(--sp-close)}
 .xk-row[aria-pressed="true"] .xk-chk{background:var(--chip-on);box-shadow:inset 0 0 0 1.5px var(--chip-ring);color:var(--fg);transition:background-color var(--sp-fade-dur) var(--sp-fade),box-shadow var(--sp-fade-dur) var(--sp-fade),color var(--sp-fade-dur) var(--sp-fade)}
-.xk-row[aria-pressed="true"] .xk-ck{width:14px;margin-right:var(--space-2);opacity:1;transform:none;transition:width var(--sp-lead-dur) var(--sp-lead),margin-right var(--sp-lead-dur) var(--sp-lead),opacity var(--sp-fade-dur) var(--sp-fade),transform var(--sp-fade-dur) var(--sp-fade)}
+.xk-row[aria-pressed="true"] .xk-ck{opacity:1;transition:opacity var(--sp-fade-dur) var(--sp-fade)}
 /* search: a field (--r-in), a deep tray, focus = the same ring drawn with box-shadow (§5-15); 16px text (no iOS zoom) */
 .xk-q{height:var(--h-row);margin-bottom:var(--space-3);padding:0 var(--space-5);border-radius:var(--r-in);border:0;background:var(--tray-bg);box-shadow:var(--tray-sh);color:var(--fg);font-size:var(--fs-xl);outline:none;transition:box-shadow var(--c-fast) var(--c-out)}
 .xk-q:focus{box-shadow:var(--tray-sh),0 0 0 var(--focus-off) var(--panel),0 0 0 calc(var(--focus-off) + var(--focus-w)) var(--focus,var(--amber))}
