@@ -340,6 +340,11 @@ html[data-theme="glass-light"] #world{--nodata:#e6e9ee}
 .kw-scrim{display:none}
 .kw-sheet{position:fixed;z-index:92;right:var(--edge);bottom:var(--edge);width:360px;max-height:min(680px,calc(100vh - 2 * var(--edge)));overflow:auto;background:var(--sheet-bg,#18191e);border:1px solid var(--sheet-bd,var(--line2));border-radius:max(2px,calc(var(--sheet-r,16px) - 4px));box-shadow:var(--sheet-fl-sh,var(--sheet-sh));-webkit-backdrop-filter:var(--blur,none);backdrop-filter:var(--blur,none);font-size:var(--fs-md);color:var(--fg);overscroll-behavior:contain;
   opacity:1;translate:none;transition:var(--fl-open)}
+/* 글라스 (④ 리퀴드 글라스, AGENTS §3-38): like the template's tooltip and quick view — the 등락 numbers written on the sheet's glass sit
+   on the template's number plate (--gl-plate, 2px either side given back by the margin: nothing moves), the secondary words one step
+   stronger (--gl-ink2). Glass themes only (the tokens exist there only). */
+html[data-theme^="glass"] .kw-sheet{--fg2:var(--gl-ink2);--muted:var(--gl-ink2);--faint:var(--gl-ink2)}
+html[data-theme^="glass"] .kw-sheet :is(.up,.dn):not(svg){background:var(--gl-plate);border-radius:var(--r-badge);padding:0 var(--space-1);margin:0 calc(-1 * var(--space-1));-webkit-box-decoration-break:clone;box-decoration-break:clone}
 /* open · close (design.md §5 · §7, the template's floating-window tokens — the 일정 sheet's exit technique): desktop = a floating sheet
    that rises 12px with `open` as it fades in (`fade`) and leaves with `close`; phones = up from the bottom edge, the scrim fading, the
    grip / head drag it down (KH.ui.sheetDrag). It stays drawn while it leaves (display allow-discrete); 줄이기 = at once. */
