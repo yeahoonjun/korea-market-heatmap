@@ -30,6 +30,8 @@ html.sm-noanchor{overflow-anchor:none}
 /* 배지 — design.md §5 조리법(11px/600 · 높이 18 · --r-badge · 1px 안쪽 테), 중립. 장중만 앞에 --live 점 */
 .sm-pill{display:inline-flex;align-items:center;gap:var(--space-2);flex:none;margin-top:calc((var(--h-key) - var(--fs-xs) * var(--lh-ui) - var(--space-1) * 2) / 2);padding:var(--space-1) var(--space-3);border-radius:var(--r-badge);font-size:var(--fs-xs);line-height:var(--lh-ui);font-weight:600;color:var(--fg2);box-shadow:inset 0 0 0 1px var(--line2);white-space:nowrap}
 .sm-pill.sm-ph-open::before{content:"";width:var(--space-3);height:var(--space-3);border-radius:var(--r-pill);background:var(--live)}
+/* 장중은 머리글 "실시간" 배지와 같은 색(--live 글자 · 45 % 테 · 12 % 바탕, 사용자 2026-11-16 11:45) — 다른 단계는 중립 */
+.sm-pill.sm-ph-open{color:var(--live);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--live) 45%,transparent);background:color-mix(in srgb,var(--live) 12%,transparent)}
 .msum .sm-hl{flex:1;min-width:0;font-size:var(--fs-lg);line-height:var(--lh-row);font-weight:var(--w-strong);font-family:var(--font-head);letter-spacing:var(--track-head);color:var(--fg);word-break:keep-all;padding-top:calc((var(--h-key) - var(--fs-lg) * var(--lh-row)) / 2)}
 
 /* 자라는 칸: 접힌 띠(.sm-band) ↔ 펼친 표(.sm-full). 높이는 JS(KH.spring 'open' · 'close'), 글자는 §6-4 */
@@ -153,3 +155,5 @@ html.sm-noanchor{overflow-anchor:none}
 .msum .sm-lsw{display:inline-block;flex:none;width:12px;height:10px;border-radius:var(--r-mark);background:var(--limsw)}
 .msum .sm-lsw.u{box-shadow:inset 0 3px 0 var(--lim-bar)}
 .msum .sm-lsw.d{box-shadow:inset 0 -3px 0 var(--lim-bar)}
+/* 문장 안의 수 (오늘 흐름의 상 · 하한가, 상승 : 하락) — 굵기는 문장 그대로, 색만 등락(.up · .dn · .flat) */
+.msum .sm-c{font-weight:inherit;font-variant-numeric:tabular-nums}

@@ -11,7 +11,7 @@ Serves qa/extras/mock_api.py on EXTRAS_STD_PORT (default 9016; 9010–9019) and 
   flat: the replay rail is boxes (the slider's track paints nothing), the session bar's bands are flat colours, no element in extras
     paints a gradient or a drop-shadow (computed styles)
   type ≥ 11px and on the scale in extras' boxes · icons 1.75px on screen (1.5 for the 12-16px session glyphs)
-  tooltip: the session bar's note stays ~130ms after the pointer leaves, then goes · map top 247 · 239 (250 after hours) · 207 · 207 in 4 themes
+  tooltip: the session bar's note stays ~130ms after the pointer leaves, then goes · map top 247 · 238 (250 after hours) · 207 · 207 in 4 themes
   console errors 0
 """
 import datetime
@@ -28,7 +28,7 @@ from playwright.sync_api import sync_playwright
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 PORT = int(os.environ.get('EXTRAS_STD_PORT', 9016))
-assert 9010 <= PORT <= 9019 or 9070 <= PORT <= 9089, 'ports 9010–9019 (or 9070–9079: ux/motion-rigid, 9080–9089: ux/glass-liquid)'
+assert 9010 <= PORT <= 9089, 'ports 9010–9089 (the design-standard · image agents share this range; pick a free one)'
 URL = f'http://127.0.0.1:{PORT}/'
 NOPROXY = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 FAILS, PASSES, ERRS = [], [], []
@@ -239,16 +239,24 @@ def run(b):
             check(f'type [{theme} {w}]: extras text ≥ 11px and on the scale', not off, off[:6])
             stroked = [i for i in st['icons'] if i[2] != 'none']
             check(f'icons [{theme} {w}]: strokes 1.75px on screen (non-scaling)', stroked and all(i[0] == '1.75px' and i[1] == 'non-scaling-stroke' for i in stroked), st['icons'][:4])
-            exp = {390: 247, 768: 239, 1280: 207, 1440: 207}[w]       # 768 in session: the template's status row is shorter (250 after hours)
+            # 768 in session: the template's status row is shorter (250 after hours) — 238 since main 9003f2a (ux/std-template): the status
+            # badge went 11.5 → 11px (design.md §3 scale), the in-session status row 20 → 19px; 390 · 1280 · 1440 and 768 after hours unchanged
+            exp = {390: 247, 768: 238, 1280: 207, 1440: 207}[w]
             check(f'map top [{theme} {w}] = {exp}, no overflow', st['map'] == exp and st['sw'] <= st['cw'], (st['map'], st['sw']))
             if w == 1440 and theme == 'base':
+                # timed in the page (mouseleave → the moment .on goes): a 60 ms sample from here measured the round trip as well, and on
+                # a busy machine (two CPUs shared) that alone passed 130 ms — the note had gone on time but the check said it never stayed. The
+                # page clock is Playwright's (page.clock): its 130 ms timer reads 100–130 ms on performance.now, so ≥ 80 = it stayed, not at once
+                pg.evaluate("""() => { const t = document.querySelector('.sb-tip'), box = document.querySelector('.sb'); window.__tipT = {};
+                  box.addEventListener('mouseleave', () => { window.__tipT.leave = performance.now(); }, { once: true });
+                  new MutationObserver((ms, o) => { if (!t.classList.contains('on') && window.__tipT.leave != null) { window.__tipT.gone = performance.now(); o.disconnect(); } }).observe(t, { attributes: true }); }""")
                 pg.hover('.sb'); pg.wait_for_timeout(450)
                 on0 = pg.evaluate("document.querySelector('.sb-tip').classList.contains('on')")
-                pg.mouse.move(700, 600); pg.wait_for_timeout(60)
-                on1 = pg.evaluate("document.querySelector('.sb-tip').classList.contains('on')")
-                pg.wait_for_timeout(400)
+                pg.mouse.move(700, 600); pg.wait_for_timeout(1200)
+                tt = pg.evaluate('() => window.__tipT')
+                stay = tt.get('gone', 0) - tt.get('leave', 0) if tt.get('leave') is not None and tt.get('gone') is not None else None
                 on2 = pg.evaluate("document.querySelector('.sb-tip').classList.contains('on')")
-                check('session note: shows on hover, stays ~130ms after leaving, then goes', on0 and on1 and not on2, (on0, on1, on2))
+                check('session note: shows on hover, stays ~130ms after leaving, then goes', on0 and stay is not None and 80 <= stay <= 1000 and not on2, (on0, stay, on2))
                 g = pg.evaluate("[...document.querySelectorAll('.sb-pill svg line, .sb-pill .sb-pi *')].filter(e => getComputedStyle(e).stroke !== 'none').map(e => [getComputedStyle(e).strokeWidth, getComputedStyle(e).vectorEffect])")
                 check('session glyphs: strokes 1.5px on screen', g and all(x[0] == '1.5px' and x[1] == 'non-scaling-stroke' for x in g), g[:4])
             done(ctx, pg)
