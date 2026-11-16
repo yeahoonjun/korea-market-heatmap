@@ -1122,7 +1122,7 @@ footer .credit .dc{width:1.15em;height:1.15em;flex:none}
   .list .nmt{min-width:5.6em;white-space:normal;word-break:keep-all;overflow-wrap:anywhere;line-height:var(--lh-ui);display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
   .list .limtag{font-size:var(--fs-xs);padding:0 var(--space-2)}
   /* 시장 경보: its own line under the name (the ☆ 22 + gap + the 10px mark + gap in front), so the name column stays as narrow as before */
-  .list .nmcell:has(.altags){flex-wrap:wrap;row-gap:var(--space-1)}
+  .list .nmcell.has-al{flex-wrap:wrap;row-gap:var(--space-1)}
   .list .nmcell .altags{order:9;flex-basis:100%;padding-left:calc(var(--h-chip) + var(--space-3) * 2)}
 }
 /* phones and tablets (and a 7-column table below 1440 px): no room for the tag — the hatched chip and the muted name say it (and the
@@ -5489,9 +5489,9 @@ function renderTable() {
     } }, label)))));
   const rowOpen = (s, tr) => openStock(s.c, tr);
   const tbody = h('tbody', {}, list.map(s => {
-    const v = cval(s);
+    const v = cval(s), al = alertTags(s.c, { max: 1 });
     const cells = [
-      h('td', { class: 'k-n' }, h('div', { class: 'nmcell' }, starBtn(s.c, 'wbtn'), rowMark(s, v, v == null ? 'nod' : s.nonx ? 'nonx' : null), h('span', { class: 'nmt', text: s.n }), h('small', { text: s.c }), markSw(s.c), alertTags(s.c, { max: 1 }), limTag(s), nxTag(s))),
+      h('td', { class: 'k-n' }, h('div', { class: al ? 'nmcell has-al' : 'nmcell' }, starBtn(s.c, 'wbtn'), rowMark(s, v, v == null ? 'nod' : s.nonx ? 'nonx' : null), h('span', { class: 'nmt', text: s.n }), h('small', { text: s.c }), markSw(s.c), al, limTag(s), nxTag(s))),
       wgCol ? h('td', { class: 'k-g', text: gOf(s.c).map(g => g.name).join(', ') }) : null,
       h('td', { class: 'k-i indc', title: `${s.s} · ${s.i}` }, h('span', { class: 'indt', text: `${s.s} · ${s.i}` })),
       h('td', { class: 'k-p', 'data-f': '', text: s.p > 0 ? fmtInt(s.p) : '—' }),
