@@ -1087,7 +1087,10 @@ html[data-motion="reduced"] .tile .pc{animation:none}
 /* a label that changes in place (KH.ui.swap, design.md §6-4 — the same as extras' xSwap): the old text is the box's ::before, the new one
    .sw-n, in one grid cell; the script moves them (out 100 ms — fades, blurs ≤ font-size / 6, 4px; in 60 ms later over 180 ms on the fade
    spring). A label goes up; a value with a direction (P9) comes in from below when it rose and from above when it fell */
-.sw-go{display:inline-grid}
+.sw-go{display:inline-grid!important}
+/* a box that is a block in its own layout (the tab row's %, list values …) stays a block while it swaps — a module rule like
+   `.tabs .tp{display:block}` outranked .sw-go and laid the old and new text side by side (or on two lines: the tab grew; 사용자 2026-11-16 09:15) */
+.sw-go.sw-b{display:grid!important}
 .sw-go>.sw-n,.sw-go::before{grid-area:1/1}
 .sw-go::before{content:attr(data-was);pointer-events:none}
 /* 화려하게: the changed digits roll on a drum (KH.ui.roll, design.md §6-2 P10 — the same as extras' xRoll): changed digits only, the
@@ -1856,7 +1859,7 @@ function uiEase(name) {
 }
 function uiStop(el) {
   for (const k of ['__ur', '__us']) if (el[k]) { const a = el[k]; el[k] = null; for (const x of a) { try { x.cancel(); } catch (e) { /* gone */ } } }
-  el.classList.remove('sw-go'); delete el.dataset.was;
+  el.classList.remove('sw-go', 'sw-b'); delete el.dataset.was;
 }
 function uiSwap(el, text, from, dir) {
   if (!el) return;
@@ -1868,15 +1871,15 @@ function uiSwap(el, text, from, dir) {
   const n = document.createElement('span'); n.className = 'sw-n'; n.textContent = text;
   el.replaceChildren(n);
   if (!cur || cur === text || MOTION === 'reduced' || document.hidden || !el.isConnected) return;
-  const fs = parseFloat(getComputedStyle(el).fontSize) || 13, blur = `blur(${Math.min(2, fs / 6).toFixed(2)}px)`, sg = dir < 0 ? -1 : 1;
-  el.dataset.was = cur; el.classList.add('sw-go');
+  const cs = getComputedStyle(el), fs = parseFloat(cs.fontSize) || 13, blur = `blur(${Math.min(2, fs / 6).toFixed(2)}px)`, sg = dir < 0 ? -1 : 1;
+  el.dataset.was = cur; el.classList.add('sw-go'); if (!/^inline/.test(cs.display)) el.classList.add('sw-b');
   const an = [];
   try {
     an.push(el.animate([{ opacity: 1, transform: 'none', filter: 'blur(0px)' }, { opacity: 0, transform: `translateY(${-4 * sg}px)`, filter: blur }], { duration: UI_SWAP.out, easing: uiEase('close'), fill: 'forwards', pseudoElement: '::before' }));
     an.push(n.animate([{ opacity: 0, transform: `translateY(${4 * sg}px)`, filter: blur }, { opacity: 1, transform: 'none', filter: 'blur(0px)' }], { duration: UI_SWAP.in, delay: UI_SWAP.gap, easing: uiEase('fade'), fill: 'backwards' }));
   } catch (e) { uiStop(el); return; }
   el.__us = an;
-  Promise.all(an.map(a => a.finished)).then(() => { if (el.__us === an) { el.__us = null; el.classList.remove('sw-go'); delete el.dataset.was; } }, () => {});
+  Promise.all(an.map(a => a.finished)).then(() => { if (el.__us === an) { el.__us = null; el.classList.remove('sw-go', 'sw-b'); delete el.dataset.was; } }, () => {});
 }
 // a number written in place: the swap goes the way the value went (no digit roll — design.md §6-2 P10 keeps rolls for the 화려하게 ticker)
 const numOf = t => { const m = /[+−-]?[\d,]*\.?\d+/.exec(String(t || '').replace(/−/g, '-')); return m ? parseFloat(m[0].replace(/,/g, '')) : NaN; };
@@ -8871,7 +8874,7 @@ function numParts(el) {
 // a part written at once: whatever rolls or swaps in it stops where it should end
 function numWrite(el, t) {
   for (const a of el.getAnimations({ subtree: true })) { try { a.cancel(); } catch (e) { /* gone */ } }
-  el.classList.remove('sw-go'); delete el.dataset.was;
+  el.classList.remove('sw-go', 'sw-b'); delete el.dataset.was;
   if (el.textContent !== t || el.childElementCount) el.textContent = t;
 }
 const rollDigits = (a, b) => { let n = 0; for (let i = 0; i < b.length; i++) if (a[i] !== b[i] && /\d/.test(a[i] || '') && /\d/.test(b[i])) n++; return n; };
