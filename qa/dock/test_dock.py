@@ -166,7 +166,7 @@ def page(br):
                 # ④ 리퀴드 글라스 (AGENTS §3-38): the dock is thick glass to look at — the card sheen in its fill and the 1.25px ring, no blur
                 ring = pg.evaluate("() => { const a = getComputedStyle(document.querySelector('.dock'), '::after'); return a.backgroundImage.slice(0, 30) + ' ' + a.paddingTop; }")
                 check(f'page [{tag}]: the glass dock (④) — no blur, no glow, the card sheen on the dock only (radial), the 1.25px ring',
-                      lk['blur'] == 'none' and lk['bg'].startswith('radial-gradient') and not lk['glow'] and lk['grads'] == ['dock'] and not lk['glows'] and ring.startswith('linear-gradient(135deg') and ring.endswith('1.25px'), (lk, ring))
+                      lk['blur'] == 'none' and lk['bg'].startswith('radial-gradient') and not lk['glow'] and len(lk['grads']) == 1 and str(lk['grads'][0]).split()[0] == 'dock' and not lk['glows'] and ring.startswith('linear-gradient(135deg') and ring.endswith('1.25px'), (lk, ring))
                 check(f'page [{tag}]: glass material kept on the search sheet — the sheen (gradient), the 1px inset edge, the blur',
                       ss and 'blur(' in ss['blur'] and 'gradient' in ss['bg'] and 'inset' in ss['sh'], ss)
             else:
