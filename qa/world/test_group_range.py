@@ -528,6 +528,14 @@ def layout_pass(b):
                 pg.screenshot(path=str(SHOTS / f'gr_{theme}_{w}.png'), full_page=w >= 700)
             finally:
                 ctx.close()
+            # a picked ±5 (후속 ①): the 금리 head alone carries "±Nbp 자동"
+            ctx, pg = open_page(b, w, hgt, theme=theme, pre={'khm.rangeW': 5}, tag=f'{theme} {w} ±5')
+            try:
+                o = pg.evaluate(OVER_JS)
+                check(f'{theme} {w} picked ±5: nothing past the viewport, the "±Nbp 자동" tag whole, head notes whole', o['n'] == 0 and o['doc'] <= 0 and o['tags'] == 1 and not o['cut'] and not o['notes'],
+                      f"over {o['over']} doc {o['doc']} tags {o['tags']} cut {o['cut']} notes {o['notes']}")
+            finally:
+                ctx.close()
 
 
 def main():
