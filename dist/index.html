@@ -823,6 +823,7 @@ table.list{width:100%;border-collapse:collapse;font-size:var(--fs-md)}
 .altag.l3{color:var(--page);background:var(--fg);box-shadow:none}
 .altag.adm{color:var(--fg);box-shadow:inset 2px 0 0 var(--fg2),inset 0 0 0 1px var(--line2);padding-left:var(--space-3)}
 .almore{flex:none;font-size:var(--fs-xs);font-weight:600;color:var(--muted);white-space:nowrap}
+.alsm{font-size:var(--fs-xs);font-weight:600;color:var(--fg2)}
 .card-head .nmrow .altags{align-self:center}
 .card-head .alnote{display:flex;flex-wrap:wrap;gap:0 var(--space-3);margin-top:var(--space-3);font-size:var(--fs-xs);line-height:var(--lh-ui);color:var(--muted)}
 .card-head .alnote .alx{color:var(--fg2)}
@@ -2609,6 +2610,14 @@ function alertTags(code, opts) {
   return h('span', { class: 'altags' + (opts && opts.cls ? ' ' + opts.cls : ''), 'data-al': A.keys.join(' ') },
     A.keys.slice(0, max).map(k => h('span', { class: 'altag ' + AL_CLS[k], 'data-k': k, title: `${AL_LABEL[k]} · ${A.live && k === 'stop' && A.file ? `시세 ${A.quoteAt} 기준` : src}`, text: AL_LABEL[k] })),
     rest.length ? h('span', { class: 'almore', title: rest.join(' · ') }, h('span', { 'aria-hidden': 'true', text: `외 ${rest.length}` }), h('span', { class: 'sr', text: rest.join(', ') })) : null);
+}
+// the search list's small words next to the name (no badge box: the row wraps · ellipsizes like text — the 🔍 sheet cuts long rows)
+function alertWords(code) {
+  const A = alertOf(code);
+  if (!A) return null;
+  const rest = A.labels.slice(1);
+  return h('span', { class: 'alsm', 'data-al': A.keys.join(' '), title: `${A.labels.join(' · ')} · ${alertSrc(A)}` }, A.labels[0],
+    rest.length ? [h('span', { 'aria-hidden': 'true', text: ` 외 ${rest.length}` }), h('span', { class: 'sr', text: ', ' + rest.join(', ') })] : null);
 }
 // the line under the tooltip / quick-view head: "외 1: 관리종목 · 한국거래소 지정 · 11/16 07:50 기준"
 function alertNote(code, max = 2) {
@@ -6511,10 +6520,10 @@ function suggKids(s) {
     if (s.ext) {
       // outside the map: the quote when we have one, else just name · code · market and "종목 페이지"
       const r = s.row, nm = s.n || (r && r.n) || `${s.c} 종목`, mk = s.m || (r && r.m);
-      return [r && kind() === 'day' && ohlcOf(r) ? candleIcon(ohlcOf(r)) : h('i', { class: 'sw' + (r && r.nonx ? ' nonx' : ''), style: `background:${r ? colorFor(r) : NODATA}` }), h('span', {}, nm, ' ', alertTags(s.c, { max: 1, cls: 'sm' }), ' ', h('span', { class: 'meta', text: `${s.c}${mk ? ' · ' + MKT_NAME[mk] : ''}${(s.n || r) && isPreferred({ c: s.c }) ? ' · 우선주' : ''}${r && r.nonx ? ' · NXT 없음' : ''}` })),
+      return [r && kind() === 'day' && ohlcOf(r) ? candleIcon(ohlcOf(r)) : h('i', { class: 'sw' + (r && r.nonx ? ' nonx' : ''), style: `background:${r ? colorFor(r) : NODATA}` }), h('span', {}, nm, ' ', alertWords(s.c), ' ', h('span', { class: 'meta', text: `${s.c}${mk ? ' · ' + MKT_NAME[mk] : ''}${(s.n || r) && isPreferred({ c: s.c }) ? ' · 우선주' : ''}${r && r.nonx ? ' · NXT 없음' : ''}` })),
         h('span', { class: 'meta num', text: r && r.p > 0 ? fmtInt(r.p) : '' }), r ? h('span', { class: 'num ' + cls(r.r), text: fmtPct(r.r) }) : h('span', { class: 'meta', text: '종목 페이지' })];
     }
-    return [kind() === 'day' && ohlcOf(s) ? candleIcon(ohlcOf(s)) : h('i', { class: 'sw' + (s.nonx ? ' nonx' : ''), style: `background:${colorFor(s)}` }), h('span', {}, s.n, ' ', alertTags(s.c, { max: 1, cls: 'sm' }), ' ', h('span', { class: 'meta', text: `${s.c} · ${s.i}${s.nonx ? ' · NXT 없음' : ''}` })),
+    return [kind() === 'day' && ohlcOf(s) ? candleIcon(ohlcOf(s)) : h('i', { class: 'sw' + (s.nonx ? ' nonx' : ''), style: `background:${colorFor(s)}` }), h('span', {}, s.n, ' ', alertWords(s.c), ' ', h('span', { class: 'meta', text: `${s.c} · ${s.i}${s.nonx ? ' · NXT 없음' : ''}` })),
       h('span', { class: 'meta num', text: s.p > 0 ? fmtInt(s.p) : '—' }), h('span', { class: 'num ' + cls(s.r), text: fmtPct(s.r) })];
   }
 }
