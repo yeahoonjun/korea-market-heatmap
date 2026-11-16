@@ -43,6 +43,7 @@ import { policyRoute } from './policy.js';   // 정책 자료: KDI RSS + 관보 
 import { datagoRoute } from './datago_routes.js';   // 공공데이터포털: /api/funds*, /api/datago/status (AGENTS §3-32, docs/standards/datago.md)
 import { calendarRoute } from './calendar.js';   // 증시 캘린더 /api/calendar (AGENTS §3-33, docs/standards/calendar.md)
 import { koreaeximRoute } from './koreaexim.js';   // 수출입은행 고시 /api/koreaexim?kind=fx|rate + 확인용 /probe (AGENTS §3-27 끝 · §3-2)
+import { kisRawRoute } from './kis.js';   // 한국투자 Open API — 장중 수급 잠정 (AGENTS §3-40); /api/kis/raw = dev 초대만
 import { stockDatagoRoute } from './stock_datago.js';   // 종목 페이지 대차 · 기업 · 배당 /api/stock/{code}/lending|corp|dividend (AGENTS §3 · §3-32)
 export { MarketHub };                // the Durable Object class (wrangler.toml [exports.MarketHub]) must be exported by the main module
 // the hub polls the same rows as /api/quotes (quotesCore is a hoisted function declaration below)
@@ -132,6 +133,7 @@ export default {
       if (path === '/api/policy') return await policyRoute(request, env, ctx);   // 정책 자료 (policy.js, AGENTS §3-2)
       if (path === '/api/calendar') return await calendarRoute(request, env, ctx, url);   // 증시 캘린더 (calendar.js)
       if (path === '/api/koreaexim' || path === '/api/koreaexim/probe') return await koreaeximRoute(request, env, ctx, url);   // 수출입은행 고시 · 확인용 (koreaexim.js)
+      if (path === '/api/kis/raw') return await kisRawRoute(request, env, url);   // 확인용 — dev 초대 토큰만 (kis.js)
       if (ASSETS[path]) return await getAsset(request, env, ctx, path);
       m = path.match(THEME_WHY_RE);                                   // 테마 편입 이유 (§3-37 ①): one small file per theme
       if (m) return await getAsset(request, env, ctx, path, { file: `theme_why/${+m[1]}.json`, type: JSON_T, ttl: 600, cors: true });
