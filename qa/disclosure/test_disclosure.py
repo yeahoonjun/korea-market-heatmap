@@ -892,38 +892,31 @@ def baseline(br):
         mock('/__mode?disc=empty', BASE)
         mode('empty')
         for w, h in ((1280, 800), (1920, 1080), (390, 844)):
-            # one retry: the template's industry-header label sometimes misses its first fit on load (both builds — main too, 2 of 6
-            # loads in a 2026-11-16 trace), which shows up as a DOM line only
-            for attempt in range(2):
-                shots = {}
-                for name, url in (('base', BASE), ('new', LIVE)):
-                    ctx, pg = open_page(br, url, w, h, 'base', motion='reduced', store={'clock': False}, wait=2200)
-                    pg.add_style_tag(content='#tip{display:none!important}')
-                    # both builds: one more fit once the fonts are in (the template's industry-header label can miss its first fit)
-                    pg.evaluate("document.fonts.ready.then(() => window.dispatchEvent(new Event('resize')))"); pg.wait_for_timeout(700)
-                    shots[name] = {k: pg.locator(sel).screenshot() for k, sel in (('map', '#map'), ('legend', '#legend'))}
-                    shots[name]['geo'] = pg.evaluate("() => ['#map', '#legend', ...document.querySelectorAll('main.layout > .side > section')].map(s => { const r = (typeof s === 'string' ? document.querySelector(s) : s).getBoundingClientRect(); return [Math.round(r.x), Math.round(r.y + scrollY), Math.round(r.width), Math.round(r.height)]; })")
-                    shots[name]['dom'] = pg.evaluate("() => [...document.querySelectorAll('#map .node')].map(n => [n.className, n.style.cssText, n.getAttribute('aria-label') || '', n.textContent, n.style.color]).join('\\n') + document.getElementById('legend').innerHTML")
-                    # the side cards with the news card out of the way: on phones they sit under it, and a card above that ends on a fractional
-                    # pixel (its wrapped titles: 14px × 1.45) shifts their thin bars' anti-aliasing — what is compared is the cards themselves
-                    pg.add_style_tag(content='#news{display:none!important}')
-                    shots[name].update({k: pg.locator(sel).screenshot() for k, sel in (('side', 'main.layout > .side > section:nth-child(1)'),
-                                        ('side2', 'main.layout > .side > section:nth-child(2)'), ('side3', 'main.layout > .side > section:nth-child(3)'))})
-                    ctx.close()
-                diff = {}
-                for k in ('map', 'legend', 'side', 'side2', 'side3'):
-                    a, b = (Image.open(io.BytesIO(shots[x][k])).convert('RGB') for x in ('base', 'new'))
-                    if a.size != b.size:
-                        diff[k] = ('size', a.size, b.size); continue
-                    d = ImageChops.difference(a, b).convert('L')
-                    hist = d.histogram()
-                    diff[k] = (sum(hist[1:]), max((i for i, v in enumerate(hist) if v), default=0))   # (pixels that differ, largest channel step)
-                # boxes: the map and the legend in place; the side cards keep their size (on phones they sit under the news card, which is taller now)
-                gb, gn = shots['base']['geo'], shots['new']['geo']
-                same_geo = gb[:2] == gn[:2] and [g[2:] for g in gb[2:]] == [g[2:] for g in gn[2:]]
-                ok = all(isinstance(v[0], int) and v[1] <= 2 for v in diff.values()) and same_geo and shots['base']['dom'] == shots['new']['dom']
-                if ok or attempt:
-                    break
+            shots = {}
+            for name, url in (('base', BASE), ('new', LIVE)):
+                ctx, pg = open_page(br, url, w, h, 'base', motion='reduced', store={'clock': False}, wait=2200)
+                pg.add_style_tag(content='#tip{display:none!important}')
+                shots[name] = {k: pg.locator(sel).screenshot() for k, sel in (('map', '#map'), ('legend', '#legend'))}
+                shots[name]['geo'] = pg.evaluate("() => ['#map', '#legend', ...document.querySelectorAll('main.layout > .side > section')].map(s => { const r = (typeof s === 'string' ? document.querySelector(s) : s).getBoundingClientRect(); return [Math.round(r.x), Math.round(r.y + scrollY), Math.round(r.width), Math.round(r.height)]; })")
+                shots[name]['dom'] = pg.evaluate("() => [...document.querySelectorAll('#map .node')].map(n => [n.className, n.style.cssText, n.getAttribute('aria-label') || '', n.textContent, n.style.color]).join('\\n') + document.getElementById('legend').innerHTML")
+                # the side cards with the news card out of the way: on phones they sit under it, and a card above that ends on a fractional
+                # pixel (its wrapped titles: 14px × 1.45) shifts their thin bars' anti-aliasing — what is compared is the cards themselves
+                pg.add_style_tag(content='#news{display:none!important}')
+                shots[name].update({k: pg.locator(sel).screenshot() for k, sel in (('side', 'main.layout > .side > section:nth-child(1)'),
+                                    ('side2', 'main.layout > .side > section:nth-child(2)'), ('side3', 'main.layout > .side > section:nth-child(3)'))})
+                ctx.close()
+            diff = {}
+            for k in ('map', 'legend', 'side', 'side2', 'side3'):
+                a, b = (Image.open(io.BytesIO(shots[x][k])).convert('RGB') for x in ('base', 'new'))
+                if a.size != b.size:
+                    diff[k] = ('size', a.size, b.size); continue
+                d = ImageChops.difference(a, b).convert('L')
+                hist = d.histogram()
+                diff[k] = (sum(hist[1:]), max((i for i, v in enumerate(hist) if v), default=0))   # (pixels that differ, largest channel step)
+            # boxes: the map and the legend in place; the side cards keep their size (on phones they sit under the news card, which is taller now)
+            gb, gn = shots['base']['geo'], shots['new']['geo']
+            same_geo = gb[:2] == gn[:2] and [g[2:] for g in gb[2:]] == [g[2:] for g in gn[2:]]
+            ok = all(isinstance(v[0], int) and v[1] <= 2 for v in diff.values()) and same_geo and shots['base']['dom'] == shots['new']['dom']
             check(f'no filings → {w}x{h}: map · legend · side cards same DOM, same boxes, pixels equal within 2/255 raster noise vs {BASE_REV} (differing px, max step: {diff})', ok,
                   f"geo {same_geo} dom {shots['base']['dom'] == shots['new']['dom']} {gb} {gn} " + next((f'first DOM diff: {x[:160]} | {y[:160]}' for x, y in zip(shots['base']['dom'].split('\n'), shots['new']['dom'].split('\n')) if x != y), ''))
     finally:

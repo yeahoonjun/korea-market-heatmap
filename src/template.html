@@ -610,10 +610,10 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 .sec .hd .t,.ind .hd .t{overflow:hidden;text-overflow:ellipsis;min-width:0}
 .sec .hd .v,.ind .hd .v{font-variant-numeric:tabular-nums;flex:none;font-weight:600}
 .sec .hd .v:empty,.ind .hd .v:empty{display:none}  /* no value: no 6px gap taken from a narrow band's name */
-.sec .hd:hover,.ind .hd:hover{color:var(--sec-hov)}
-.sec .hd:hover .t,.ind .hd:hover .t{text-decoration:underline;text-underline-offset:2px;text-decoration-color:var(--acc)}
+@media (hover:hover) and (pointer:fine){ .sec .hd:hover,.ind .hd:hover{color:var(--sec-hov)} }
+@media (hover:hover) and (pointer:fine){ .sec .hd:hover .t,.ind .hd:hover .t{text-decoration:underline;text-underline-offset:2px;text-decoration-color:var(--acc)} }
 .focus-leaf .ind .hd,.focus-leaf .sec .hd{cursor:default}
-.focus-leaf .sec .hd:hover .t,.focus-leaf .ind .hd:hover .t{text-decoration:none}
+@media (hover:hover) and (pointer:fine){ .focus-leaf .sec .hd:hover .t,.focus-leaf .ind .hd:hover .t{text-decoration:none} }
 .sec.hot{box-shadow:inset 0 0 0 2px var(--sel-1);z-index:4;pointer-events:none}
 .tile{z-index:3;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--tile-fg);text-align:center}
 .tile.nod{background-image:repeating-linear-gradient(135deg,var(--hatch) 0 3px,transparent 3px 8px)}

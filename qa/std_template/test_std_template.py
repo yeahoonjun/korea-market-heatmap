@@ -162,9 +162,7 @@ def audit_scale(css):
     nxt = sorted({sel for sel in HEIGHT_DATA if HEIGHT_DATA[sel].startswith('남은 것') and any(s2 == sel for s2, k, v in D if k in ('height', 'min-height'))})
     print(f'      (남은 것, next step: {len(nxt)} control sizes — {", ".join(nxt)})')
     hov = [sel for sel, _ in R if ':hover' in sel and '(hover:hover)and(pointer:fine)' not in sel.replace(' ', '')]
-    HOV_LATER = {'.sec .hd:hover,.ind .hd:hover', '.sec .hd:hover .t,.ind .hd:hover .t', '.focus-leaf .sec .hd:hover .t,.focus-leaf .ind .hd:hover .t'}
-    check('audit: hover only inside (hover:hover) and (pointer:fine) — design.md §8 (left: the sector / industry header hover, kept for fix/sector-labels to move)',
-          set(hov) <= HOV_LATER and '(hover:none)' not in bare.replace(' ', ''), [h for h in hov if h not in HOV_LATER])
+    check('audit: hover only inside (hover:hover) and (pointer:fine) — design.md §8 (no (hover:none) resets)', not hov and '(hover:none)' not in bare.replace(' ', ''), hov)
 
 
 def audit():
