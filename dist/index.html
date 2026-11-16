@@ -20174,7 +20174,7 @@ sync();
 .kc-wk button{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:var(--space-1);min-height:58px;border-radius:calc(var(--r-key) - 4px);transition:filter var(--c-fast) var(--c-out)}
 .kc-wk button:is(:active,.is-press){filter:var(--press-f);transition-duration:0s}
 .kc-wk .dw{font-size:var(--fs-xs);color:var(--muted);line-height:1}
-.kc-wk .dnum{font-size:var(--fs-xl);font-weight:600;line-height:1.1}
+.kc-wk .dnum{font-size:var(--fs-xl);font-weight:600;line-height:var(--lh-num)}
 .kc-wk .wkend .dnum{color:var(--fg2)}
 .kc-wk .today .dw{color:var(--fg);font-weight:700}
 .kc-wk .closed .dnum{color:var(--muted);text-decoration:line-through;text-decoration-thickness:1px}
@@ -20187,7 +20187,7 @@ sync();
    1.5px --chip-ring + a check). The check's box is always there, so a chip is as wide on as off and no neighbour moves: off, the label
    sits centred over it (shifted half the check), on, the check fades and grows in (.6 → 1) and the label slides back. Switching on =
    `fade` (fill · check) + `lead` (label · check position); switching off = `close` (shorter). The chip is toggled in place (calendar.js). */
-.kc-chips{display:flex;gap:var(--space-3);overflow-x:auto;padding:var(--space-5) 6px var(--space-3);margin:0 -6px;scrollbar-width:none}
+.kc-chips{display:flex;gap:var(--space-3);overflow-x:auto;padding:var(--space-5) var(--space-3) var(--space-3);margin:0 calc(-1 * var(--space-3));scrollbar-width:none}
 .kc-chips::-webkit-scrollbar{display:none}
 .kc-chip{--ck:14px;--ckg:var(--space-2);position:relative;flex:none;display:inline-flex;align-items:center;height:var(--h-chip);padding:0 var(--space-5);border-radius:var(--r-pill);background:var(--chip-bg);box-shadow:var(--key-sh);
   font-size:var(--fs-sm);line-height:var(--lh-ui);font-weight:600;color:var(--key-fg);white-space:nowrap;
@@ -20201,7 +20201,7 @@ sync();
 .kc-chip[aria-pressed="true"] .kcl{transform:none;transition:transform var(--sp-lead-dur) var(--sp-lead)}
 .kc-chip:is(:active,.is-press){transform:translateY(1px);box-shadow:var(--key-dn);filter:var(--press-f);transition-duration:0s}
 .kc-chip[aria-pressed="true"]:is(:active,.is-press){box-shadow:inset 0 0 0 1.5px var(--chip-ring),var(--key-dn)}
-.kc-chips .kc-sep{flex:none;width:1px;margin:6px var(--space-1);background:var(--line2)}
+.kc-chips .kc-sep{flex:none;width:1px;margin:var(--space-3) var(--space-1);background:var(--line2)}
 
 /* day list */
 .kc-list,.kc-det{transition:opacity var(--sp-fade-dur) var(--sp-fade)}
@@ -20235,7 +20235,7 @@ sync();
 .kc-ev .t1{display:flex;align-items:center;gap:var(--space-3);font-size:var(--fs-lg);font-weight:600;word-break:keep-all;min-width:0}
 .kc-ev .t1 .ttl{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
 .kc-ev .co{flex:none;font-weight:700}
-.kc-ev .t2{display:flex;flex-wrap:wrap;align-items:center;gap:2px var(--space-3);margin-top:3px;font-size:var(--fs-sm);color:var(--muted);min-width:0}
+.kc-ev .t2{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-1) var(--space-3);margin-top:var(--space-1);font-size:var(--fs-sm);color:var(--muted);min-width:0}
 .kc-ev .t2 .sub{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
 .kc-ev .t2 .val{flex:0 1 auto;min-width:0;max-width:100%;overflow-wrap:anywhere;color:var(--fg2);font-weight:600}   /* 긴 발표값(수출·수입물가지수 두 값)도 줄을 넘겨 카드 안에 — 사용자 2026-11-15 21:34 "이렇게 튀어나가는거 없게해줘" */
 .kc-ev .chev{width:16px;height:16px;stroke:var(--faint);fill:none;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round}
@@ -20267,7 +20267,7 @@ sync();
 .kc-dlg::backdrop{background:rgba(0,0,0,.5);opacity:0;transition:opacity var(--sp-close-dur) var(--sp-close),display var(--sp-close-dur) allow-discrete,overlay var(--sp-close-dur) allow-discrete}
 .kc-dlg[open].on::backdrop{opacity:1;transition:opacity var(--sp-fade-dur) var(--sp-fade),display var(--sp-fade-dur) allow-discrete,overlay var(--sp-fade-dur) allow-discrete}
 .kc-dlg .kc-grab{position:relative;display:block;height:var(--space-6);margin:0 calc(-1 * var(--edge));touch-action:none;cursor:grab}
-.kc-dlg .kc-grab::before{content:"";position:absolute;left:50%;top:var(--space-4);width:36px;height:4px;margin-left:-18px;border-radius:2px;background:var(--line2)}
+.kc-dlg .kc-grab::before{content:"";position:absolute;left:50%;top:var(--space-4);width:36px;height:4px;margin-left:-18px;border-radius:var(--r-mark);background:var(--line2)}
 .kc-sh{display:flex;align-items:flex-start;gap:var(--space-4);padding:var(--space-2) 0 var(--space-5)}
 @media (max-width:760px){ .kc-dlg .kc-sh{touch-action:none} }   /* the grip and the title row drag the sheet down; the rest scrolls */
 .kc-sh h3{flex:1;margin:0;font-size:var(--fs-2xl);line-height:var(--lh-num);font-weight:700;letter-spacing:-.01em;word-break:keep-all}
@@ -20277,7 +20277,7 @@ sync();
 .kc-kv{display:grid;grid-template-columns:76px minmax(0,1fr);gap:var(--space-4) var(--space-5);margin:0 0 var(--space-6);font-size:var(--fs-md)}
 .kc-kv dt{color:var(--muted)}
 .kc-kv dd{margin:0;word-break:keep-all}
-.kc-kv dd small{display:block;color:var(--muted);font-size:var(--fs-sm);margin-top:2px}
+.kc-kv dd small{display:block;color:var(--muted);font-size:var(--fs-sm);margin-top:var(--space-1)}
 .kc-why{padding:var(--space-5);border-radius:var(--r-row);background:var(--fill-1);color:var(--fg2);line-height:var(--lh-text);margin:0 0 var(--space-6)}
 .kc-acts{display:flex;gap:var(--space-4);flex-wrap:wrap}
 .kc-acts a,.kc-acts button{position:relative;display:inline-flex;align-items:center;gap:var(--space-3);min-height:44px;padding:0 var(--space-6);border-radius:var(--r-key);background:var(--key-bg);box-shadow:var(--key-sh);font-size:var(--fs-md);font-weight:600;text-decoration:none;color:var(--key-fg);
@@ -20301,23 +20301,23 @@ sync();
   .kc-desk{display:grid;grid-template-columns:minmax(0,1fr) 440px;gap:var(--space-6);align-items:start}
   .kc-bar{grid-column:1/-1;display:flex;align-items:center;gap:var(--space-4);min-width:0}
   .kc-bar h2{margin:0 var(--space-4) 0 0;font-size:var(--fs-2xl);font-weight:700;letter-spacing:-.01em;white-space:nowrap}
-  .kc-bar .kc-chips{padding:6px;margin:-6px -6px -6px calc(var(--space-5) - 6px);min-width:0}   /* room for the focus ring inside the scroller */
+  .kc-bar .kc-chips{padding:var(--space-3);margin:calc(-1 * var(--space-3)) calc(-1 * var(--space-3)) calc(-1 * var(--space-3)) calc(var(--space-5) - var(--space-3));min-width:0}   /* room for the focus ring inside the scroller */
   .kc-card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-card);overflow:hidden}
   .kc-mg{display:grid;grid-template-columns:repeat(7,minmax(0,1fr))}
   .kc-mg .h{padding:var(--space-4);font-size:var(--fs-sm);color:var(--muted);border-right:1px solid var(--line);border-bottom:1px solid var(--line);background:var(--panel2)}
-  .kc-mg .cell{position:relative;display:flex;flex-direction:column;align-items:stretch;gap:2px;min-height:112px;padding:var(--space-3) var(--space-3) var(--space-4);border-right:1px solid var(--line);border-bottom:1px solid var(--line);text-align:left;overflow:hidden;min-width:0}
+  .kc-mg .cell{position:relative;display:flex;flex-direction:column;align-items:stretch;gap:var(--space-1);min-height:112px;padding:var(--space-3) var(--space-3) var(--space-4);border-right:1px solid var(--line);border-bottom:1px solid var(--line);text-align:left;overflow:hidden;min-width:0}
   .kc-mg .h:nth-child(7n),.kc-mg .cell:nth-child(7n){border-right:0}
   @media (hover:hover) and (pointer:fine){.kc-mg .cell:hover{background:var(--fill-1)}}
   .kc-mg .cell.out{background:var(--fill-1)}
   .kc-mg .cell.out .dnum{color:var(--faint)}
   .kc-mg .cell{transition:box-shadow var(--sp-close-dur) var(--sp-close)}
   .kc-mg .cell[aria-pressed="true"]{box-shadow:inset 0 0 0 1.5px var(--acc);transition:box-shadow var(--sp-fade-dur) var(--sp-fade)}
-  .kc-mg .top1{display:flex;align-items:center;gap:var(--space-3);margin-bottom:2px;min-width:0}
-  .kc-mg .dnum{flex:none;display:inline-grid;place-items:center;min-width:24px;height:24px;border-radius:12px;font-size:var(--fs-md);font-weight:600}
+  .kc-mg .top1{display:flex;align-items:center;gap:var(--space-3);margin-bottom:var(--space-1);min-width:0}
+  .kc-mg .dnum{flex:none;display:inline-grid;place-items:center;min-width:24px;height:24px;border-radius:var(--r-pill);font-size:var(--fs-md);font-weight:600}
   .kc-mg .cell.wkend .dnum{color:var(--fg2)}
   .kc-mg .cell.today .dnum,.kc-mg .cell.today.wkend .dnum{background:var(--fg);color:var(--page);font-weight:700}
   .kc-mg .cl{font-size:var(--fs-xs);color:var(--fg2);overflow:hidden;white-space:nowrap;text-overflow:ellipsis;min-width:0}
-  .kc-mg .line{display:flex;align-items:center;gap:var(--space-2);font-size:var(--fs-sm);line-height:1.35;color:var(--fg2);white-space:nowrap;overflow:hidden;min-width:0}
+  .kc-mg .line{display:flex;align-items:center;gap:var(--space-2);font-size:var(--fs-sm);line-height:var(--lh-row);color:var(--fg2);white-space:nowrap;overflow:hidden;min-width:0}
   .kc-mg .line .ttl{overflow:hidden;text-overflow:ellipsis}
   .kc-mg .line.s3{color:var(--fg);font-weight:600}
   .kc-mg .line .kc-stars{font-size:var(--fs-xs)}
@@ -20931,7 +20931,11 @@ sync();
    design.md(승인 2026-11-15)대로: 글자 --fs-* · 간격 --space-* · 모서리 --r-* / 테마 --card-r · 높이 --h-* · 움직임 --sp-* 토큰만,
    빨강 · 초록은 숫자에만(.up · .dn), 앰버는 포커스 · 열린 키(--key-on)만, 장중 점은 --live, 빛 · 그라데이션 없음, 최소 11px. */
 
-.msum{position:relative;font-size:var(--fs-md);line-height:var(--lh-row);color:var(--fg);min-width:0}
+.msum{position:relative;font-size:var(--fs-md);line-height:var(--lh-row);color:var(--fg);min-width:0;
+  /* design.md §6-4 글자 바꿈 길이(나감 100 → 60ms 뒤 들어옴 180), 복사 키 글자 상자의 들어옴 지연 — 줄이기 = 0 (ux/std-wrapup: 손으로 쓴
+     100ms · ease-in(--c-in) 대신 토큰 + 나감은 close 스프링, 뉴스 카드 --nw-tx-*와 같은 값) */
+  --sm-tx-out:100ms;--sm-tx-gap:60ms;--sm-tx-in:180ms;--sm-tx-lab:160ms}
+html[data-motion="reduced"] .msum{--sm-tx-out:0ms;--sm-tx-gap:0ms;--sm-tx-in:0ms;--sm-tx-lab:0ms}
 /* 움직이는 동안만: 카드 자신의 바탕 대신 같은 바탕의 판(.sm-skin)이 자라고 줄어요(design-references-full §7 P8 ⓐ) — 아래 내용은
    한 번에 새 자리로(펼칠 땐 처음, 접을 땐 끝, summary.js setOpen), 판이 지나가는 빈자리는 페이지 바탕이 그대로 보여요 */
 .msum.sm-anim{background:transparent;border-color:transparent;box-shadow:none;isolation:isolate}
@@ -20974,7 +20978,7 @@ html.sm-noanchor{overflow-anchor:none}
 .sm-bar i{display:block;height:100%}
 .msum .sm-in{opacity:0;transform:translateY(var(--space-2))}
 .msum .sm-in.sm-go{opacity:1;transform:none;transition:opacity var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out),transform var(--c-fast) var(--c-out)}
-.msum .sm-out{opacity:0;transform:translateY(calc(var(--space-2) * -1));transition:opacity 100ms var(--c-in),filter 100ms var(--c-in),transform 100ms var(--c-in)}
+.msum .sm-out{opacity:0;transform:translateY(calc(var(--space-2) * -1));transition:opacity var(--sm-tx-out) var(--sp-close),filter var(--sm-tx-out) var(--sp-close),transform var(--sm-tx-out) var(--sp-close)}
 /* 흐림 2px(§6-4)은 짧은 띠에만 — 펼친 표(1,000px 넘음)에 흐림을 걸면 프레임마다 큰 면을 다시 그려서 끊겨요(실측) */
 .msum .sm-band:is(.sm-in:not(.sm-go),.sm-out){filter:blur(2px)}
 /* 처음 펼칠 때 한 번만(P3, 화려하게): 표 덩어리가 하나씩 — 각자 --d 뒤에(40 → 30 → 20ms 간격, 전체 300ms 안). 표 자체는 한 번에 보이고 */
@@ -20985,8 +20989,8 @@ html.sm-noanchor{overflow-anchor:none}
    자리별로 굴리지 않아요(P10) — 띠 숫자는 15초에 한 번 바뀌는 요약이라 한 번에 바꿔요 */
 .msum .sm-sw{display:inline-grid}
 .msum .sm-sw > span{grid-area:1 / 1}
-.msum .sm-sw > .o{animation:smOutUp 100ms var(--c-in) forwards}
-.msum .sm-sw > .n{animation:smInUp var(--c-fast) var(--c-out) 60ms both}
+.msum .sm-sw > .o{animation:smOutUp var(--sm-tx-out) var(--sp-close) forwards}
+.msum .sm-sw > .n{animation:smInUp var(--sm-tx-in) var(--sp-fade) var(--sm-tx-gap) both}
 .msum .sm-sw.sm-swd > .o{animation-name:smOutDn}
 .msum .sm-sw.sm-swd > .n{animation-name:smInDn}
 @keyframes smOutUp{to{opacity:0;transform:translateY(calc(var(--space-2) * -1))}}
@@ -21028,20 +21032,20 @@ html.sm-noanchor{overflow-anchor:none}
 .sm-tog,.sm-copy,.sm-fold{position:relative;display:inline-flex;align-items:center;justify-content:center;gap:var(--space-3);height:var(--h-key);padding:0 var(--space-5);border-radius:var(--r-key);background:var(--key-bg);box-shadow:var(--key-sh);color:var(--key-fg);font-size:var(--fs-md);font-weight:600;white-space:nowrap;touch-action:manipulation;transition:filter var(--c-fast) var(--c-out)}
 .sm-tog{flex:none;width:var(--h-key);padding:0}
 .sm-tog[aria-expanded="true"]{box-shadow:var(--key-on)}
-:is(.sm-tog,.sm-copy,.sm-fold,.sm-stk):active{transform:translateY(1px);box-shadow:var(--key-dn);filter:var(--press-f);transition-duration:0ms}
+:is(.sm-tog,.sm-copy,.sm-fold,.sm-stk):active{transform:translateY(1px);box-shadow:var(--key-dn);filter:var(--press-f);transition-duration:0s}
 .sm-fold{margin-left:auto}
 /* 글로 복사(P11): 키 크기는 그대로 — 아이콘 칸에 세 아이콘(복사 · ✓ · !)이 겹쳐 있고, 글자 칸은 가장 긴 글자 폭(겹친 세 글자).
    바뀔 때: 나가는 아이콘은 100ms에 작아지며 사라지고, 들어오는 아이콘은 살짝 돌며 .5 → 1(`fade` 스프링). 완료 · 실패 아이콘은 앰버(design.md §2) */
 .sm-copy .sm-ci{position:relative;flex:none;width:var(--space-6);height:var(--space-6)}
-.sm-copy .sm-i{position:absolute;left:0;top:0;width:100%;height:100%;color:var(--key-ic);opacity:0;transform:rotate(-20deg) scale(.5);transition:opacity 100ms var(--c-in),transform 100ms var(--c-in)}
+.sm-copy .sm-i{position:absolute;left:0;top:0;width:100%;height:100%;color:var(--key-ic);opacity:0;transform:rotate(-20deg) scale(.5);transition:opacity var(--sm-tx-out) var(--sp-close),transform var(--sm-tx-out) var(--sp-close)}
 .sm-copy[data-st="idle"] .sm-i-copy,.sm-copy[data-st="done"] .sm-i-done,.sm-copy[data-st="fail"] .sm-i-fail{opacity:1;transform:none;transition:opacity var(--sp-fade-dur) var(--sp-fade),transform var(--sp-fade-dur) var(--sp-fade)}
 .sm-copy[data-st="done"] .sm-i-done{color:var(--acc)}
 /* 안 됐어요의 ! = --fail-dot(앰버 아님 — design.md §2: 앰버는 고름 · 포커스 · 열림 · 완료만, ux/std-wrapup) */
 .sm-copy[data-st="fail"] .sm-i-fail{color:var(--fail-dot)}
 .sm-copy .sm-kls{display:inline-grid}
 .sm-copy .sm-kl{grid-area:1 / 1;opacity:0;transform:translateY(var(--space-2))}
-.sm-copy .sm-kl.on{opacity:1;transform:none;transition:opacity var(--c-fast) var(--c-out) 160ms,transform var(--c-fast) var(--c-out) 160ms}
-.sm-copy .sm-kl.out{transform:translateY(calc(var(--space-2) * -1));transition:opacity 100ms var(--c-in),transform 100ms var(--c-in)}
+.sm-copy .sm-kl.on{opacity:1;transform:none;transition:opacity var(--c-fast) var(--c-out) var(--sm-tx-lab),transform var(--c-fast) var(--c-out) var(--sm-tx-lab)}
+.sm-copy .sm-kl.out{transform:translateY(calc(var(--space-2) * -1));transition:opacity var(--sm-tx-out) var(--sp-close),transform var(--sm-tx-out) var(--sp-close)}
 .sm-fold .sm-chev{transform:rotate(180deg)}
 .sm-chev{flex:none;color:var(--key-ic);transition:transform var(--sp-close-dur) var(--sp-close)}
 .sm-tog[aria-expanded="true"] > .sm-chev{transform:rotate(180deg);color:var(--acc);transition:transform var(--sp-open-dur) var(--sp-open)}

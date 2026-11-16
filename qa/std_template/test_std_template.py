@@ -37,7 +37,7 @@ import urllib.request
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 PORT = int(os.environ.get('STD_QA_PORT', 9020))
-assert 9020 <= PORT <= 9029 or 9060 <= PORT <= 9069, 'ports 9020–9029 (or 9060–9069: ux/std-dock)'
+assert 9020 <= PORT <= 9029 or 9050 <= PORT <= 9069, 'ports 9020–9029 (or 9050–9069: ux/std-wrapup · ux/std-dock)'
 URL = f'http://127.0.0.1:{PORT}/'
 NOPROXY = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 THEMES = ['base', 'paper', 'glass-dark', 'glass-light']
