@@ -1181,6 +1181,11 @@ def run_info(b):
     want = {'시가총액': [eok(cap) + '원', ''], 'PER': [f"{s5['per']:.2f}배", ''], '추정PER': [f"{s5['cnsPer']:.2f}배", '증권사 예상'], 'PBR': [f"{s5['pbr']:.2f}배", ''],
             'ROE': [f'{roe[0]:.2f}%', roe[1]['label'][:4] + '년 기준'], 'PSR': [f'{cap / sum(qs):.2f}배', '최근 4분기 매출 기준'],
             '배당수익률': [f"{s5['dividendYield']:.2f}%", ''], '외국인 소진율': [f"{s5['foreignRate']:.2f}%", '']}
+    # 주당배당금 next to 배당수익률 (사용자 2026-11-16 10:47): /summary dps, "YYYY년 결산" when it is the last actual annual 주당배당금
+    dlast = next(((v, c) for c, v in reversed(list(zip(fa5['cols'], next((r['values'] for r in fa5['rows'] if r['title'] == '주당배당금'), [])))) if not c['estimate'] and v is not None), None)
+    dps = s5.get('dps') if s5.get('dps') is not None else (dlast[0] if dlast else None)
+    want['주당배당금'] = [f'{int(dps):,}원' if dps and dps > 0 else '—', dlast[1]['label'][:4] + '년 결산' if dlast and dps == dlast[0] and dps > 0 else '']
+    want = {k: want[k] for k in ['시가총액', 'PER', '추정PER', 'PBR', 'ROE', 'PSR', '배당수익률', '주당배당금', '외국인 소진율']}
     check('info_metrics_match_fixtures', x['metrics'] == want and len(qs) == 4, {'shown': x['metrics'], 'want': want})
 
     # 재무 (분기): one column per period with numbers, estimates hatched + 예상, latest actual picked, values listed in 조·억
