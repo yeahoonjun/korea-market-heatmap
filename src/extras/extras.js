@@ -152,12 +152,17 @@ function krwShort(v) {
   const eok = Math.floor(man / 1e4), rest = man % 1e4;
   return eok.toLocaleString('ko-KR') + '억' + (rest ? ' ' + rest.toLocaleString('ko-KR') + '만' : '');
 }
+/* 등락 색상 by side (template 2026-11-16): a ticker item is a 국내 value (코스피 · 코스닥, a stock, a 관심 group's stocks) or a 해외 · 지표
+   one (해외 지수 · 선물 · 원자재 · 환율 · 가상자산); the latter carry .pal-w, so their text reads the 해외 · 지표 palette wherever the
+   ticker is. The key is the strip key (KOSPI, USDKRW …) or a picked id (m: · w: · s: · g:) */
+const tkKr = key => { const k = String(key); return k.startsWith('s:') || k.startsWith('g:') || /^(?:[mw]:)?KOSPI$|^(?:[mw]:)?KOSDAQ$/.test(k); };
+const palCls = key => (tkKr(key) ? '' : ' pal-w');
 function stripItem(it) {
   const def = it.def || STRIP[it.key] || { label: it.name || it.key, dp: 2 };
   const v = +it.value, c = +it.change, r = +it.ratio;
   if (it.none) {          // a picked item whose data did not arrive: grey "—" (§3-22)
     const d = `${def.label} 시세를 불러오지 못했어요`;
-    return h('div', { class: 'xs-item xs-none', role: 'button', tabindex: '0', 'data-k': it.key, title: d, 'aria-label': d },
+    return h('div', { class: 'xs-item xs-none' + palCls(it.key), role: 'button', tabindex: '0', 'data-k': it.key, title: d, 'aria-label': d },
       h('span', { class: 'xs-txt' }, h('span', { class: 'xs-l1' }, h('span', { class: 'xs-k', text: def.label })), h('span', { class: 'xs-l2' }, h('span', { class: 'xs-v', text: '—' }))));
   }
   if (it.value == null || !isFinite(v)) return null;
@@ -174,7 +179,7 @@ function stripItem(it) {
   const desc = `${name} ${fixed(v, def.dp)}${def.unit ? ' ' + def.unit : ''}` +
     (isFinite(c) ? `, 전일 대비 ${sgn(c)}${fixed(c, def.dp)}` : '') + (isFinite(r) ? ` (${pct(r)})` : '') +
     (it.delayed ? `, ${it.delayed}분 지연 시세` : '');
-  return h('div', { class: 'xs-item', role: 'button', tabindex: '0', 'aria-haspopup': 'dialog', 'data-k': it.key, title: desc + ' · 누르면 자세히 봐요', 'aria-label': desc }, kids);
+  return h('div', { class: 'xs-item' + palCls(it.key), role: 'button', tabindex: '0', 'aria-haspopup': 'dialog', 'data-k': it.key, title: desc + ' · 누르면 자세히 봐요', 'aria-label': desc }, kids);
 }
 
 /* ── §3-22 ticker: what flows, what a tap opens, how it pauses ── */
@@ -381,7 +386,7 @@ function tkInfo(id, name, it, opener) {
   const vtxt = it && it.value != null ? `${fixed(+it.value, (it.def && it.def.dp != null ? it.def.dp : 2))}${isFinite(+it.ratio) ? ' (' + pct(+it.ratio) + ')' : ''}` : '';
   makeDialog('xk-info', name, opener, [
     h('h2', { class: 'xd-h', text: name }),
-    vtxt ? h('p', { class: 'xk-v ' + dir(+it.ratio), text: vtxt }) : null,
+    vtxt ? h('p', { class: 'xk-v ' + dir(+it.ratio) + palCls(id), text: vtxt }) : null,
     h('p', { class: 'xd-p', text: '이 항목은 앱 안에 자세한 화면이 없어요. 네이버 증권에서 볼 수 있어요.' }),
     h('a', { class: 'xk-link', href: url, target: '_blank', rel: 'noopener', text: '네이버 증권에서 보기' }),
   ].filter(Boolean));
@@ -403,7 +408,7 @@ async function tkOpen(rawId, el) {
         const it = (strip.items || []).find(x => x.key === key);
         if (it && Array.isArray(it.spark) && it.spark.length > 1) today = { pts: it.spark.map(p => [+p[0], +p[1]]), base: isFinite(+it.change) ? +it.value - +it.change : null };
       }
-      const ok = await window.KHWorld.openDetail(wk, { opener: el, today });
+      const ok = await window.KHWorld.openDetail(wk, { opener: el, today, scope: tkKr(id) ? 'kr' : 'world' });   // 코스피 · 코스닥: 국내 colours
       if (ok) return;
     }
     tkInfo(id.startsWith('m:') || id.startsWith('w:') ? id : 'm:' + key, name, src, el);
@@ -1207,7 +1212,7 @@ function imgTheme() {
 }
 function drawMap(nodes, wt) {
   IMG = imgTheme();
-  const pal = has('palette') ? KH.palette() : {};
+  const pal = has('palette') ? KH.palette(wt ? 'world' : 'kr') : {};     // 해외 · 지표 tabs save with that side's palette
   const upC = pal.upText || '#ff5c66', dnC = pal.dnText || '#2fd67a';
   const fam = getComputedStyle(document.body).fontFamily || 'sans-serif';
   const minX = Math.min(...nodes.map(n => n.x)), minY = Math.min(...nodes.map(n => n.y));
@@ -2508,7 +2513,7 @@ function wcBuild() {
     return r;
   });
   wc.note = h('p', { class: 'xwc-n' });
-  wc.el = h('div', { id: 'xwc', class: 'xwc', role: 'dialog', 'aria-labelledby': 'xwc-h', tabindex: '-1', hidden: true },
+  wc.el = h('div', { id: 'xwc', class: 'xwc pal-w', role: 'dialog', 'aria-labelledby': 'xwc-h', tabindex: '-1', hidden: true },
     h('div', { class: 'xwc-hd' }, title, x), h('ul', { class: 'xwc-l' }, wc.rows.map(r => r.el)), wc.note);
   wc.el.addEventListener('keydown', e => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); wcClose(true); } });
   // Tab out closes it (focus moving back to the clock does not: the press that follows decides)

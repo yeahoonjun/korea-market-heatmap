@@ -5,7 +5,10 @@
                      GET api/world/chart/{key}?tf=3m|1y for the detail sheet (daily closes; no intraday source exists).
                      지표 also: GET api/funds (증시 자금, 금융투자협회 — once a day upstream, asked here at most every 10 min) and
                      api/funds/chart/{key}?tf=3m|1y; an older Worker without the route → the group is simply absent (AGENTS §3-32).
-   Uses window.KH (§3): MODE, LIVE_URL, colorOf, palette, fmt, h, market; listens to kh:palette. */
+   Uses window.KH (§3): MODE, LIVE_URL, colorOf, palette, fmt, h, market; listens to kh:palette.
+   등락 색상 (2026-11-16): everything here is a 해외 · 지표 value, so colours ask KH.colorOf(r, 'world') / KH.palette('world') (an older
+   template ignores the argument) and the boxes carry .pal-w (#world from the template, the detail sheet here). The one exception: a
+   코스피 / 코스닥 sheet opened from the ticker or the dock (openDetail(key, {scope: 'kr'})) is a 국내 value and keeps 국내 colours. */
 (() => {
 'use strict';
 const KH = window.KH;
@@ -172,7 +175,9 @@ const chipText = it => isRate(it) ? bpText(bpOf(it)) : isFundPct(it) ? fundChg(i
 const chipIsChange = it => isRate(it) || isFundPct(it);
 const isRef = it => !!it.ref;
 const isFut = it => it.gkey === 'usf';                 // 미국 선물: listed under 미국, never part of its average
-const colorOf = it => isRef(it) ? tok().ref : (it.ratio == null || !isFinite(it.ratio)) ? tok().nodata : KH.colorOf(it.ratio);
+const colorOf = (it, scope) => isRef(it) ? tok().ref : (it.ratio == null || !isFinite(it.ratio)) ? tok().nodata : KH.colorOf(it.ratio, scope || 'world');
+// the detail sheet's side: 'world', or 'kr' for a 국내 index opened from the ticker / the dock
+const dScope = () => (S.detail && S.detail.scope === 'kr' ? 'kr' : 'world');
 const weightOf = it => WEIGHT[it.key] || 1;
 const dlText = m => m >= 60 && m % 60 === 0 ? `${m / 60}시간 지연` : `${m}분 지연`;
 const delayText = it => it.eod ? '하루 한 번 종가' : it.delayed > 0 ? dlText(it.delayed) : '실시간';
@@ -872,12 +877,12 @@ function onMapKey(e) {
 // KH.range() is the range the colours use (§3-27: 자동 steps such as ±4 / ±7 % too); older templates: probe the scale
 function rangeNow() {
   try { if (typeof KH.range === 'function') { const R = +KH.range(); if (R > 0) return R; } } catch (e) { /* fall back */ }
-  try { const hi = KH.colorOf(1000); for (const R of [1, 2, 3, 5, 10, 20, 30]) if (KH.colorOf(R) === hi) return R; } catch (e) { /* no colour scale */ }
+  try { const hi = KH.colorOf(1000, 'world'); for (const R of [1, 2, 3, 5, 10, 20, 30]) if (KH.colorOf(R, 'world') === hi) return R; } catch (e) { /* no colour scale */ }
   return null;
 }
 const rangeIsAuto = () => { try { return typeof KH.rangeInfo === 'function' && !!KH.rangeInfo().auto; } catch (e) { return false; } };
 function renderLegend(d) {
-  const P = (KH.palette && KH.palette().stops) || [];
+  const P = (KH.palette && KH.palette('world').stops) || [];
   const R = rangeNow();
   const kids = [h('span', { class: 'lg' }, h('span', { class: 'k', text: '색' }), h('b', { text: '오늘 등락률' }),
     R && rangeIsAuto() ? h('span', { class: 'rauto', title: `화면 등락률의 95%가 들어가게 맞춰요 · 지금 ±${R}%`, text: `자동 ±${R}%` }) : null,
@@ -1778,7 +1783,7 @@ let sheet = null, scrim = null;
 function ensureSheet() {
   if (sheet) return;
   scrim = h('div', { class: 'kw-scrim', 'aria-hidden': 'true' });
-  sheet = h('div', { class: 'kw-sheet', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'kw-dt', tabindex: '-1', hidden: true });
+  sheet = h('div', { class: 'kw-sheet pal-w', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'kw-dt', tabindex: '-1', hidden: true });
   document.body.append(scrim, sheet);
   scrim.addEventListener('click', () => closeDetail(true));
   // phones: drag the grip or the head down to dismiss (the template's KH.ui.sheetDrag, design.md §8)
@@ -1799,14 +1804,16 @@ function ensureSheet() {
   addEventListener('resize', () => { if (S.detail && S.detail.chart) drawChart(); });
 }
 // peers: the other indices of the same country (world map) — a switcher at the top of the sheet; place: its title
-function openDetail(key, opener, peers, place, kindArg, today) {
+function openDetail(key, opener, peers, place, kindArg, today, scope) {
   const kind = kindArg || S.kind;
   const d = S.data[kind];
   if (!d || !d.byKey.has(key)) return;
   ensureSheet();
   const same = S.detail && S.detail.key === key;
   peers = peers && peers.length > 1 && peers.includes(key) ? peers : null;
-  S.detail = { key, kind, opener: opener || null, tf: same ? S.detail.tf : '3m', chart: null, peers, place: peers ? place || null : null, today: today || null };
+  S.detail = { key, kind, opener: opener || null, tf: same ? S.detail.tf : '3m', chart: null, peers, place: peers ? place || null : null, today: today || null,
+    scope: scope === 'kr' && (key === 'KOSPI' || key === 'KOSDAQ') ? 'kr' : 'world' };
+  sheet.classList.toggle('pal-w', S.detail.scope === 'world');
   markSel(key);
   fillDetail(true);
   sheet.hidden = false;
@@ -1866,7 +1873,7 @@ function closeDetail(restore) {
 function switchPeer(k) {
   const D = S.detail;
   if (!D || !D.peers || D.key === k) return;
-  openDetail(k, D.opener, D.peers, D.place);
+  openDetail(k, D.opener, D.peers, D.place, null, null, D.scope);
   const b = sheet.querySelector(`.kw-peers button[data-k="${CSS.escape(k)}"]`);
   if (b) b.focus({ preventScroll: true });
 }
@@ -1893,7 +1900,7 @@ function fillDetail(full) {
     : D.kind === 'commodity' ? '근월물 선물 가격이에요. 거래소 시각 기준으로 하루가 바뀌어요.' : null;
   const head = isFund(it) ? fundHead(it) : h('div', { class: 'kw-dh', 'data-k': it.key },
     h('div', { class: 'kw-path', text: [it.group, city && city !== it.group ? city : null].filter(Boolean).join(' · ') }),
-    h('div', { class: 'kw-nmrow' }, h('i', { class: 'kw-sw', style: `background:${colorOf(it)}` }), h('b', { id: 'kw-dt', text: it.name }),
+    h('div', { class: 'kw-nmrow' }, h('i', { class: 'kw-sw', style: `background:${colorOf(it, dScope())}` }), h('b', { id: 'kw-dt', text: it.name }),
       h('span', { class: 'kw-st ' + (it.status === 'OPEN' ? 'open' : 'close'), text: it.status === 'OPEN' ? '장중' : '마감' })),
     h('div', { class: 'kw-px' }, bigNum(valText(it), it.value), u ? h('small', { text: u[0] }) : null,
       h('span', { class: 'kw-pc2 ' + (rate ? cls(it.change) : cls(it.ratio)), text: chgLine })),
@@ -1968,7 +1975,7 @@ function fundHead(it) {
   const chgLine = pctU ? fundChg(it) : `${fundChg(it)}${it.ratio != null ? ` (${pct(it.ratio)})` : ''}`;
   return h('div', { class: 'kw-dh', 'data-k': it.key },
     h('div', { class: 'kw-path', text: '증시 자금 · 금융투자협회' }),
-    h('div', { class: 'kw-nmrow' }, h('i', { class: 'kw-sw', style: `background:${colorOf(it)}` }), h('b', { id: 'kw-dt', text: it.name }),
+    h('div', { class: 'kw-nmrow' }, h('i', { class: 'kw-sw', style: `background:${colorOf(it, dScope())}` }), h('b', { id: 'kw-dt', text: it.name }),
       h('span', { class: 'kw-st close', text: '하루 한 번' })),
     h('div', { class: 'kw-px' }, bigNum(valText(it), it.value), h('span', { class: 'kw-pc2 ' + (it.change == null ? 'flat' : cls(it.change)), text: chgLine })),
     h('dl', { class: 'kw-meta' },
@@ -2303,7 +2310,7 @@ async function openDetailKey(key, opts) {
     kind = find();
   }
   if (!kind) return false;
-  openDetail(key, opts.opener || null, null, null, kind, opts.today);
+  openDetail(key, opts.opener || null, null, null, kind, opts.today, opts.scope);
   return !!S.detail;
 }
 window.KHWorld = { show, hide, layout, shown: () => S.shown ? S.kind : null, view: () => S.view, openDetail: openDetailKey, detailOpen: () => !!S.detail };
