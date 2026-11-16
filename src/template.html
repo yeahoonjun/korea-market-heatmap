@@ -1704,7 +1704,7 @@ html[data-theme="glass-light"]{--sheet-skirt:#f6f7f9}
         setReplay(frame, {tween: ms, easing?: 'out'}) — 'fancy' + map view: colour (Lab), value text and boxes (FLIP) move from the
                          current picture to the frame over ms (linear unless easing 'out'); otherwise drawn at once as before.
         range()          → the colour range in use (± value at the palette ends: %, or % of market cap for 순매수 sizes).
-                         §3-27 today's range may be 자동 (the default): rangeInfo() → {value, auto, pick, p95, scope, zones}; the 해외 ·
+                         §3-27 today's range may be 자동 (the default): rangeInfo() → {value, auto, pick, p95, scope, zones, picks}; the 해외 ·
                          원자재 module calls feedRange(kind, ratios, zones?) with what it draws. 'kh:palette' also fires when the 자동 step moves.
                          구역마다 (2026-11-16): autoRange(key, values, unit '%'|'bp') → {value, p95} | null — the same p95 → step-up +
                          hysteresis rule with the zone step tables (autoSteps(unit)); colorOf(r, {scope, range: R}) colours on ±R instead
@@ -2479,7 +2479,8 @@ function autoMeasure() {
 }
 // 해외 · 원자재 (KH.feedRange): src/world hands the ratios it is about to draw → the range now. zones (구역마다, the 지표 tab under 자동):
 // [{key, name, value, unit}] the module colours by instead — only names the 자동 key here; the tab's step is measured as before
-// (the ticker and other boxes still colour 해외 · 지표 values on it). null / absent = no zones.
+// (KH.range() · KH.colorOf(r, 'world') without a range). null / absent = no zones. The ticker and the summary card colour their numbers
+// by direction only (--up-text-w · --dn-text-w), so no range reaches them; a sheet the ticker opens is src/world's (its zones, any tab).
 function feedRange(kindName, ratios, zones) {
   const m = kindName === 'commodity' || kindName === 'cmdty' ? 'CMDTY' : 'WORLD';
   if (state.market === m && ratios && typeof ratios[Symbol.iterator] === 'function') {
@@ -7019,9 +7020,11 @@ window.KH = {
   // §3-27 rangeInfo() → {value (= range()), auto (자동 is on for today's colours here), pick ('auto' | the number pressed), p95 (the
   // last measure for this tab, or null), scope}; feedRange(kind 'index'|'commodity', ratios) — src/world hands the ratios it draws
   // (reference rows such as VIX left out) before drawing them; when the 자동 step moves the scale is rebuilt and 'kh:palette' fires
-  // zones: the 지표 tab's 구역마다 ranges under 자동 ([{key, name, value, unit '%'|'bp'}] as fed), else null
+  // zones: the 지표 tab's 구역마다 ranges under 자동 ([{key, name, value, unit '%'|'bp'}] as fed), else null; picks: today's choice on
+  // each side whatever tab is shown ({kr: khm.range, world: khm.rangeW} — 'auto' | 3 | 5 | 10), so src/world colours a 지표 item the
+  // 지표 tab's way in a sheet opened from the ticker on another tab (구역 범위 후속 ③, 2026-11-16)
   rangeInfo: () => ({ value: curRange(), auto: rangeAuto(), pick: rangePick(), p95: AUTO.p.has(autoScope()) ? AUTO.p.get(autoScope()) : null, scope: autoScope(),
-    zones: autoZones() ? autoZones().map(z => Object.assign({}, z)) : null }),
+    zones: autoZones() ? autoZones().map(z => Object.assign({}, z)) : null, picks: { kr: state.range, world: state.rangeW } }),
   feedRange,
   // 구역마다: autoRange(key, values, unit '%'|'bp') → {value, p95} | null (the tabs' rule on the zone tables); autoSteps(unit?) → a copy
   // of the table ('%' · 'bp' for zones, none = the tabs')
