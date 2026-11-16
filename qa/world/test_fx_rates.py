@@ -240,7 +240,7 @@ ROWS_JS = r"""
       if (Math.abs(num(lc.textContent) - it.change) > 1e-6 * Math.max(1, Math.abs(it.change))) out.bad.push(`${it.key} change ${lc.textContent} vs ${it.change}`);
     }
     // colour = the number going up / down (KH.colorOf of the day's change; for a yield that change has the bp's sign)
-    if (getComputedStyle(chip).backgroundColor !== norm(KH.colorOf(it.ratio))) out.bad.push(`${it.key} chip colour`);
+    if (getComputedStyle(chip).backgroundColor !== norm(KH.colorOf(it.ratio, 'world'))) out.bad.push(`${it.key} chip colour`);
     const rr = r.getBoundingClientRect();
     for (const el of [chip, lv, lc]) {
       const b = el.getBoundingClientRect();

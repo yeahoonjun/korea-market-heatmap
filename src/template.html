@@ -34,7 +34,7 @@ if(d.dataset.serif==='on'){var s=document.getElementById('kh-serif');if(s&&windo
   --acc:#ffb547; --acc-fill:#ffb547; --acc-line:#ffb547; --focus:#ffb547; --acc-on:#1b1404;
   --acc-soft:rgba(255,181,71,.14); --acc-bd:rgba(255,181,71,.35);
   --amber:var(--acc-fill); --amber-soft:var(--acc-soft);
-  --up-text:#ff5c66; --dn-text:#2fd67a;
+  --up-text:#ff5c66; --dn-text:#2fd67a; --up-text-w:#ff5c66; --dn-text-w:#2fd67a;   /* -w = 해외 · 지표 (rebuildColor sets both sides) */
   --nodata:#26282e;
   --rule:transparent;
   /* overlay ink (hover tints: color-mix with transparent) and shadow ink */
@@ -60,7 +60,7 @@ if(d.dataset.serif==='on'){var s=document.getElementById('kh-serif');if(s&&windo
   --dock-bg:#1e2026; --dock-sh:inset 0 0 0 1px var(--line2),inset 0 1px 0 rgba(255,255,255,.06),0 10px 30px rgba(0,0,0,.55); --dock-r:18px; --dock-div:var(--line2);
   /* type (§5): weights and tracking only — sizes and line heights are the same in every theme */
   --w-head:600; --w-strong:700; --track-head:normal; --font-head:var(--sans); --serif:'KH 명조','Noto Serif KR',var(--sans);
-  --cd-up:#ef3e4a; --cd-dn:#12a15b; --cd-flat:var(--muted);
+  --cd-up:#ef3e4a; --cd-dn:#12a15b; --cd-flat:var(--muted); --cd-up-w:#ef3e4a; --cd-dn-w:#12a15b;
   --sans:'Pretendard Variable',Pretendard,-apple-system,BlinkMacSystemFont,system-ui,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;
   /* motion tokens (docs/motion-brief.md 2-0): the '화려하게' effects read these; JS mirrors them in MT */
   --m-1:120ms; --m-2:240ms; --m-3:480ms;
@@ -379,6 +379,10 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 .seg .pal{display:inline-flex;gap:1px;margin-right:var(--space-3);vertical-align:-1px}
 .seg .pal b{width:6px;height:11px;display:block}
 .seg .pal b:first-child{border-radius:var(--r-mark) 0 0 var(--r-mark)} .seg .pal b:last-child{border-radius:0 var(--r-mark) var(--r-mark) 0}
+/* 등락 색상 by side: a box of 해외 · 지표 values takes that side's text tokens (#world, its detail sheet, the ticker's / summary card's
+   해외 · 지표 items — the template sets the -w values in rebuildColor). 색상 on a 해외 · 지표 tab leads with 국내와 같게: its name always shows */
+.pal-w{--up-text:var(--up-text-w);--dn-text:var(--dn-text-w);--cd-up:var(--cd-up-w);--cd-dn:var(--cd-dn-w)}
+.seg .pal-same .pls{white-space:nowrap}
 .setbtn{display:none;align-items:center;gap:var(--space-3);height:34px;padding:0 var(--space-5);border-radius:var(--r-key);background:var(--key-bg);box-shadow:var(--key-sh);color:var(--key-fg);font-size:var(--fs-md);font-weight:600;white-space:nowrap}
 .setbtn svg{width:16px;height:16px;color:var(--key-ic);flex:none}
 @media (hover:hover) and (pointer:fine){ .setbtn:hover{background:var(--key-hover)} }
@@ -438,6 +442,7 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
   .seg[data-key="palette"] button{padding:5px var(--space-3)}
   .seg[data-key="palette"] .pl{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
   .seg[data-key="palette"] .pal{margin-right:0}
+  .seg[data-key="palette"] .pal-same .pal{margin-right:var(--space-3)}
   .wide-hide{display:none}
   .ctl[data-ctl="colorBy"].off{display:none}
   .ctl.dd{position:relative}
@@ -484,6 +489,7 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
   .ctls .seg{flex-wrap:wrap}
   .ctls .seg button{flex:1 1 auto}
   .ctls .seg[data-key="palette"]{display:grid;grid-template-columns:1fr 1fr}
+  .ctls .seg[data-key="palette"] .pal-same{grid-column:1 / -1}
   .ctls .morep{border-top:1px solid var(--line);padding-top:var(--space-5)}
 }
 @media (min-width:761px) and (max-width:1279px){
@@ -1616,7 +1622,7 @@ html[data-theme="glass-light"]{--sheet-skirt:#f6f7f9}
   </aside>
   <section class="card news" id="news" hidden></section><!-- 시장 뉴스 (src/news, docs/standards/news.md §4): PC = 지도 열 두 번째 줄 -->
 </main>
-<div id="world" hidden></div>
+<div id="world" class="pal-w" hidden></div><!-- .pal-w: 해외 · 지표 values take that side's 등락 colours -->
 <div id="calendar" hidden></div><!-- 일정 tab (src/calendar, AGENTS §3-33) -->
 
 <footer id="foot"></footer>
@@ -1637,6 +1643,10 @@ html[data-theme="glass-light"]{--sheet-skirt:#f6f7f9}
    §3   MODE 'snapshot'|'live', LIVE_URL, MKT_NAME, stock(code) → live row (main stream, or a row fetched for a theme/관심종목 view) | null,
         stocks() → main-stream rows, asOf(), colorOf(r) → colour for today's % (today's colour range), palette(), fmt.{pct,int,chg,eok,vol,cls}, h().
         events on document: 'kh:data' after quotes change, 'kh:palette' after palette or colour-range change.
+        등락 색상 by side (2026-11-16): colorOf(r, scope?) · palette(scope?) — scope 'world' = 해외 · 지표 values (khm.paletteW, 'same' →
+        국내), 'tab' = the side of the tab shown, none = 국내 (khm.palette2). palette() also gives {scope, same}; palScope() → 'kr'|'world';
+        palettePick() → {kr, world}. CSS: --up-text / --dn-text = 국내, --up-text-w / --dn-text-w = 해외 · 지표, class .pal-w maps a box
+        to the latter (#world has it). 'kh:palette' from the 색상 control carries {detail: {scope: 'kr'|'world'|'both'}}.
    §3-2 loadData(name)   name 'themes'|'periods'|'flows' (§3-3 also 'names'|'close') → Promise<JSON|null>. Snapshot: <script id="kh-data-NAME">
                          (waits for the DOM; no block → null); live: GET data/NAME.json (404 → null). Memoised per name; a failed load is
                          forgotten so the next call retries (the heatmap itself asks for names/close at most once per few minutes).
@@ -1809,7 +1819,15 @@ const RANGES = { day: [3, 5, 10], period: [10, 20, 50], flow: { 1: [0.1, 0.3, 1]
 // §3-27 색 범위 자동 (today's change only): the 95th percentile of |change %| over what the tab draws, rounded up to one of these
 const AUTO_STEPS = [1, 2, 3, 4, 5, 7, 10, 15, 20, 30];
 let NODATA = cssVar('--nodata');          // the theme's no-data fill (re-read on a theme change)
-const PAL = () => (THEME_PAL[THEME] || PALETTES)[state.palette] || PALETTES.krg;
+/* 등락 색상 by side (사용자 2026-11-16 11:20 "등락률 색상을 해외 시장이랑 국내 시장이랑 따로"): 'kr' = 국내 values (코스피 · 코스닥 · 전체 ·
+   테마 · ★관심 · 일정, the stock page, the ticker's 지수 · 종목 items, the dock, the summary card's domestic rows) — khm.palette2 as
+   before; 'world' = 해외 · 지표 values wherever they show (the 해외 · 지표 tabs, their detail sheet, the ticker's 해외 · 선물 · 원자재 ·
+   환율 · 가상자산 items, the summary card's 간밤 미국 · 원/달러 · 금리) — khm.paletteW, 'same' (the default, also when nothing is saved)
+   = whatever 국내 uses. PAL() with no side is 국내, so a module that never asks keeps drawing what it drew. */
+const palSide = () => state.market === 'WORLD' || state.market === 'CMDTY' ? 'world' : 'kr';   // the side the palette control changes now
+const palArg = s => { const v = s && typeof s === 'object' ? s.scope : s; return v === 'world' || v === 'w' ? 'world' : v === 'tab' ? palSide() : 'kr'; };
+const palKey = side => side === 'world' && state.paletteW !== 'same' && PALETTES[state.paletteW] ? state.paletteW : state.palette;
+const PAL = side => (THEME_PAL[THEME] || PALETTES)[palKey(side)] || PALETTES.krg;
 const CODE_RE = /^[0-9A-Z]{6}$/;
 const reduced = () => MOTION === 'reduced';
 const fancy = () => MOTION === 'fancy';
@@ -2302,7 +2320,8 @@ const state = {
   rangeW: store.get('rangeW', 'auto'),         // today, 해외 · 원자재 tabs (§3-27: remembered apart from 국내)
   rangeP: store.get('rangeP', 20),             // period returns
   rangeF: store.get('rangeF', 1),              // flows: index into RANGES.flow[window]
-  palette: store.get('palette2', 'krg'),
+  palette: store.get('palette2', 'krg'),       // 국내 (the key from before 해외 · 지표 had their own)
+  paletteW: store.get('paletteW', 'same'),     // 해외 · 지표: 'same' (= 국내) or a palette key
   secSort: ['up', 'dn', 'tv'].includes(store.get('secSort', 'up')) ? store.get('secSort', 'up') : 'up',   // §3-14 섹터·테마 순위 정렬
   moversMore: false, themeRankMore: false,     // §3-14 펼친 목록 (이 페이지에서만)
   view: 'map',
@@ -2318,6 +2337,7 @@ const state = {
   tsort: { key: 'v', dir: -1 },
 };
 if (!PALETTES[state.palette]) state.palette = 'krg';   // (the key; the colours come from PAL(), per theme)
+if (state.paletteW !== 'same' && !PALETTES[state.paletteW]) state.paletteW = 'same';
 // a saved number that is no longer offered falls back to ±3 % as before; anything else (none, garbage) is 자동
 for (const k of ['range', 'rangeW']) if (state[k] !== 'auto' && !RANGES.day.includes(state[k])) state[k] = typeof state[k] === 'number' ? 3 : 'auto';
 if (!RANGES.period.includes(state.rangeP)) state.rangeP = 20;
@@ -3120,24 +3140,31 @@ const grpText = (list, d = 1) => isFlow() ? (sumAmt(list) == null ? '—' : fmtA
 const grpCls = list => { const v = isFlow() ? sumAmt(list) : groupVal(list); return v == null ? 'flat' : cls(v); };
 
 /* ───────────────── colour ───────────────── */
-let actScale, dayScale;
-function makeScale(R) {
-  const p = PAL();
+let actScale, dayScale, dayScaleW;
+function makeScale(R, side) {
+  const p = PAL(side);
   return d3.scaleLinear().domain([-R, -R * 2 / 3, -R / 3, 0, R / 3, R * 2 / 3, R]).range(p.stops).interpolate(d3.interpolateLab).clamp(true);
 }
+// the page's text tokens: --up-text / --dn-text (+ candle --cd-up / --cd-dn) = 국내; the same with -w = 해외 · 지표, which .pal-w puts
+// back under the plain names for a box (#world, its detail sheet, the ticker's / summary card's 해외 · 지표 items)
 function rebuildColor() {
-  const p = PAL();
+  const p = PAL(), w = PAL('world'), st = document.documentElement.style;
   scaleR = dayR();                     // today's range on this side (국내 or 해외 · 원자재): a number, or the tab's 자동 step
   dayScale = makeScale(scaleR);
+  dayScaleW = palKey('world') === palKey('kr') ? dayScale : makeScale(scaleR, 'world');
   actScale = kind() === 'day' ? dayScale : makeScale(curRange());
-  document.documentElement.style.setProperty('--up-text', p.upText);
-  document.documentElement.style.setProperty('--dn-text', p.dnText);
-  document.documentElement.style.setProperty('--cd-up', p.stops[6]);
-  document.documentElement.style.setProperty('--cd-dn', p.stops[0]);
+  st.setProperty('--up-text', p.upText);
+  st.setProperty('--dn-text', p.dnText);
+  st.setProperty('--cd-up', p.stops[6]);
+  st.setProperty('--cd-dn', p.stops[0]);
+  st.setProperty('--up-text-w', w.upText);
+  st.setProperty('--dn-text-w', w.dnText);
+  st.setProperty('--cd-up-w', w.stops[6]);
+  st.setProperty('--cd-dn-w', w.stops[0]);
 }
 const colorOf = v => v == null ? NODATA : v === 0 ? PAL().stops[3] : actScale(v);
 const colorFor = st => colorOf(cval(st));
-const dayColor = r => r === 0 ? PAL().stops[3] : dayScale(r);
+const dayColor = (r, side) => side === 'world' ? (r === 0 ? PAL('world').stops[3] : dayScaleW(r)) : r === 0 ? PAL().stops[3] : dayScale(r);
 
 /* buckets for the histogram legend */
 function bucketOf(r) {
@@ -5644,11 +5671,30 @@ function renderFooter() {
 }
 
 /* ───────────────── controls ───────────────── */
-function buildPaletteSeg() {
-  const seg = $('#palseg');
+/* 색상 changes the side of the tab shown (palSide): 국내 tabs → khm.palette2, 해외 · 지표 → khm.paletteW, where a first key
+   "국내와 같게" (the default) follows the 국내 choice. The row's name says which side it changes ("색상" · "해외 · 지표 색"; the
+   group's name and the keys' titles say 국내 / 해외 · 지표 in words; below 1280 the 국내 row reads "국내 색상"). Rebuilt only when the side, the theme or (for 국내와 같게's
+   swatch) the 국내 palette changes; the raised indicator then jumps to its key instead of sliding over from another side's list. */
+let palSegKey = '';
+const PAL_SIDE_NAME = { kr: '국내', world: '해외 · 지표' };
+function buildPaletteSeg(force) {
+  const seg = $('#palseg'), side = palSide(), key = [side, THEME, state.palette].join('|');
+  if (!force && key === palSegKey && seg.childElementCount) return;
+  palSegKey = key;
+  const set = THEME_PAL[THEME] || PALETTES;
+  const sw = p => h('span', { class: 'pal', 'aria-hidden': 'true' }, h('b', { style: `background:${p.stops[0]}` }), h('b', { style: `background:${p.stops[3]}` }), h('b', { style: `background:${p.stops[6]}` }));
   // the swatches show the palette as this theme inks it
-  seg.replaceChildren(...Object.entries(THEME_PAL[THEME] || PALETTES).map(([k, p]) => h('button', { 'data-v': k, title: p.label },
-    h('span', { class: 'pal', 'aria-hidden': 'true' }, h('b', { style: `background:${p.stops[0]}` }), h('b', { style: `background:${p.stops[3]}` }), h('b', { style: `background:${p.stops[6]}` })), h('span', { class: 'pl', text: p.label }))));
+  const keys = Object.entries(set).map(([k, p]) => h('button', { 'data-v': k, title: `${PAL_SIDE_NAME[side]} 색: ${p.label}` }, sw(p), h('span', { class: 'pl', text: p.label })));
+  if (side === 'world') {
+    const d = set[state.palette] || PALETTES.krg;
+    keys.unshift(h('button', { 'data-v': 'same', class: 'pal-same', title: `국내 탭과 같은 색(지금 ${d.label})을 따라가요` }, sw(d), h('span', { class: 'pls', text: '국내와 같게' })));
+  }
+  seg.replaceChildren(...keys);
+  seg.setAttribute('aria-label', side === 'world' ? '해외 · 지표 탭 색상' : '국내 탭 색상 (해외 · 지표 탭은 따로 골라요)');
+  const lbl = seg.closest('.ctl').querySelector(':scope > span');
+  // 국내: "국내 색상" in the 표시 설정 sheet / popover, "색상" in the one-row toolbar from 1280 (no room there: its width stays as it was)
+  if (lbl) lbl.replaceChildren(...(side === 'world' ? ['해외 · 지표 색'] : [h('span', { class: 'wide-hide', text: '국내 ' }), '색상']));
+  const st = UI_SEG.get(seg); if (st) st.i = -1;       // a new list: the indicator is placed, not moved
 }
 let rangeSegKey = '';
 function buildRangeSeg() {
@@ -5665,9 +5711,11 @@ function trimControlsForMode() {
 }
 function syncControls() {
   buildRangeSeg();
+  buildPaletteSeg();
   for (const seg of document.querySelectorAll('.seg[data-key]')) {
     const k = seg.dataset.key;
-    for (const b of seg.children) b.setAttribute('aria-pressed', String(k === 'range' ? b.dataset.v === String(rangePick()) : String(state[k]) === b.dataset.v));
+    const cur = k === 'range' ? String(rangePick()) : k === 'palette' ? (palSide() === 'world' ? state.paletteW : state.palette) : String(state[k]);
+    for (const b of seg.children) b.setAttribute('aria-pressed', String(cur === b.dataset.v));
   }
   syncAutoKey();
   syncViewSeg();
@@ -5684,6 +5732,21 @@ function syncControls() {
     c.title = v ? (k === 'topN' ? '테마·관심종목 지도에는 종목 수 제한이 없어요' : '순매수 크기에서는 색이 순매수 방향을 나타내요') : '';
     for (const b of c.querySelectorAll('button')) { if (v) b.setAttribute('aria-disabled', 'true'); else b.removeAttribute('aria-disabled'); }
   }
+}
+// 색상: the side of the tab shown — 국내 → khm.palette2 (the key from before the sides), 해외 · 지표 → khm.paletteW ('same' = 국내와 같게).
+// 'kh:palette' {detail: {scope}} — 'kr' moves every 국내 value and, while 해외 · 지표 follow it, theirs too ('both'); 'world' only theirs
+function setPalette(v) {
+  const side = palSide();
+  if (side === 'world' ? !(v === 'same' || PALETTES[v]) : !PALETTES[v]) return;
+  if ((side === 'world' ? state.paletteW : state.palette) === v) return;
+  const follows = state.paletteW === 'same';
+  if (side === 'world') { state.paletteW = v; store.set('paletteW', v); }
+  else { state.palette = v; store.set('palette2', v); }
+  rebuildColor();                      // a picked 등락 분포 bar keeps its edges: only the colours moved
+  document.dispatchEvent(new CustomEvent('kh:palette', { detail: { scope: side === 'world' ? 'world' : follows ? 'both' : 'kr' } }));
+  syncControls();
+  if (side === 'kr') { render(); renderCrumbs(); renderSide(); renderLegend(); renderFooter(); }
+  dkRefresh();
 }
 function setRange(v) {
   const k = kind();
@@ -5704,6 +5767,7 @@ document.addEventListener('click', e => {
   if (b.getAttribute('aria-disabled') === 'true') return;
   if (k === 'range') { setRange(b.dataset.v === 'auto' ? 'auto' : +b.dataset.v); return; }
   if (k === 'view') { setView(b.dataset.v); return; }
+  if (k === 'palette') { setPalette(b.dataset.v); return; }
   let v = b.dataset.v;
   if (k === 'topN') v = v === 'all' ? 'all' : +v;
   else if (k === 'flowWin') v = +v;
@@ -5712,13 +5776,11 @@ document.addEventListener('click', e => {
   const scopeWas = allScope();
   const prevKind = kind();
   state[k] = v;
-  if (k !== 'view') store.set(k === 'palette' ? 'palette2' : k, v);
+  if (k !== 'view') store.set(k, v);
   needForMetric();
-  if (k === 'palette' || k === 'colorBy' || k === 'sizeBy' || k === 'flowWin') {
+  if (k === 'colorBy' || k === 'sizeBy' || k === 'flowWin') {
     rebuildColor();
-    if (k !== 'palette' || kind() !== prevKind) state.bucket = null;
-    if (k === 'palette' || kind() !== prevKind) state.bucket = state.bucket && k === 'palette' ? state.bucket : null;
-    if (k === 'palette') document.dispatchEvent(new CustomEvent('kh:palette'));
+    state.bucket = null;
   }
   syncControls();
   render({ animate: k === 'sizeBy' || k === 'topN' || k === 'flowWin' || k === 'colorBy' });
@@ -6720,8 +6782,17 @@ window.KH = {
   quotes: { put: quotesPut, tracked: code => !!(DATA && MODE === 'live' && (DATA.byCode.has(String(code)) || extraWanted().includes(String(code)))) },
   stocks: () => (DATA ? DATA.stocks : []),
   asOf: () => (DATA ? DATA.asOf : null),
-  colorOf: r => dayColor(r),
-  palette: () => { const p = PAL(); return { key: state.palette, label: p.label, stops: p.stops.slice(), up: p.stops[6], down: p.stops[0], flat: p.stops[3], upText: p.upText, dnText: p.dnText }; },
+  // 등락 색상 by side: colorOf(r, scope?) · palette(scope?) — scope 'world' (해외 · 지표 values, wherever they show) | 'tab' (the side of
+  // the tab shown now) | anything else / none = 국내 (what every module drew before the sides). The range is today's range in use, as before
+  colorOf: (r, scope) => dayColor(r, palArg(scope)),
+  palette: scope => {
+    const side = palArg(scope), p = PAL(side);
+    return { key: palKey(side), label: p.label, stops: p.stops.slice(), up: p.stops[6], down: p.stops[0], flat: p.stops[3], upText: p.upText, dnText: p.dnText,
+      scope: side, same: side === 'world' && palKey('world') === palKey('kr') };
+  },
+  // the side the tab shown now belongs to ('kr' | 'world'), and what each side picked: {kr: key, world: key | 'same'}
+  palScope: () => palSide(),
+  palettePick: () => ({ kr: state.palette, world: state.paletteW }),
   fmt: { pct: fmtPct, int: fmtInt, chg: fmtChg, eok: fmtEok, vol: fmtVol, cls },
   // §3-13 today's candle: ohlc(code | /api/quotes row) → {pc, o, h, l, c} | null in the price basis; candleIcon(o) / candleBar(o, range?)
   // → elements (o null → an empty slot of the same size)
@@ -7311,7 +7382,7 @@ async function dkTap(c) {
     if (W && typeof W.openDetail === 'function') {
       const it = IXM.j && Array.isArray(IXM.j.items) ? IXM.j.items.find(x => x && x.key === key) : null;
       const today = it && Array.isArray(it.spark) && it.spark.length > 1 ? { pts: it.spark.map(p => [+p[0], +p[1]]), base: isFinite(+it.change) ? +it.value - +it.change : null } : null;
-      try { ok = !!(await W.openDetail(key, { opener: c, today })); } catch (e) { ok = false; }
+      try { ok = !!(await W.openDetail(key, { opener: c, today, scope: 'kr' })); } catch (e) { ok = false; }   // a 국내 index: 국내 colours in the sheet
     }
     if (!ok) {
       // no detail here (the snapshot, or the module missing): that index's tab and its line in the map header row

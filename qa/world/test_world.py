@@ -166,7 +166,7 @@ COLORS_JS = r"""
   for (const t of document.querySelectorAll('#world .kw-tile')) {
     const it = items.get(t.dataset.k); if (!it) { bad.push('unknown ' + t.dataset.k); continue; }
     n++;
-    const want = it.ref ? norm('#30333b') : norm(KH.colorOf(it.ratio));
+    const want = it.ref ? norm('#30333b') : norm(KH.colorOf(it.ratio, 'world'));
     const got = norm(t.style.backgroundColor);
     if (want !== got) bad.push(`${it.key} ${got} != ${want}`);
     if (!!it.ref !== t.classList.contains('ref')) bad.push(`${it.key} ref class`);
@@ -215,7 +215,7 @@ LIST_JS = r"""
       if (!chip.classList.contains('ref') || bg !== 'rgba(0, 0, 0, 0)' || !tagEl || tagEl.textContent !== '참고' || /\b(up|dn)\b/.test(lc.className)) bad.ref.push(`${it.key} ref chip ${bg}, tag ${tagEl && tagEl.textContent}, chg ${lc.className}`);
       if (getComputedStyle(r.querySelector('.kw-lb i')).backgroundColor !== 'rgb(91, 95, 105)') bad.ref.push(`${it.key} bar not grey`);
     } else {
-      if (bg !== norm(KH.colorOf(it.ratio))) bad.color.push(`${it.key} ${bg} != ${norm(KH.colorOf(it.ratio))}`);
+      if (bg !== norm(KH.colorOf(it.ratio, 'world'))) bad.color.push(`${it.key} ${bg} != ${norm(KH.colorOf(it.ratio, 'world'))}`);
       const cr = contrast(bg, fg); minInk = Math.min(minInk, cr); if (cr < 4.5) bad.ink.push(`${it.key} ${cr.toFixed(2)}`);
       if (getComputedStyle(r.querySelector('.kw-lb i')).backgroundColor !== bg) bad.color.push(`${it.key} bar colour`);
     }
@@ -610,7 +610,7 @@ GEO_JS = r"""
   const out = { colour: [], label: [], clip: [], overlap: [], none: [], open: [] };
   let coloured = 0;
   for (const [id, it] of Object.entries(rep)) {
-    const want = norm(KH.colorOf(it.ratio));
+    const want = norm(KH.colorOf(it.ratio, 'world'));
     const el = geo.querySelector(`.kw-cp[data-c="${id}"]`) || geo.querySelector(`.kw-gmk[data-c="${id}"]`);
     if (!el) { out.colour.push(`${id} not drawn`); continue; }
     const got = norm(getComputedStyle(el).fill);

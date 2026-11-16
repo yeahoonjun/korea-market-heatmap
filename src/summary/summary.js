@@ -429,7 +429,8 @@ function facts(M) {
   else if (wait) f('us', '미국', null, later('받는 중…'));
   // 장 전에는 간밤 해외 · 환율이 먼저
   if (M.ph === 'pre') F.sort((a, b) => (['us', 'fx'].includes(b.key) ? 1 : 0) - (['us', 'fx'].includes(a.key) ? 1 : 0));
-  return h('dl', { class: 'sm-facts' }, F.map(x => h('div', { class: 'sm-f sm-f-' + x.key },
+  // 원/달러 · 미국 are 해외 · 지표 values: .pal-w gives them that side's 등락 colours (the template's 색상 per side, 2026-11-16)
+  return h('dl', { class: 'sm-facts' }, F.map(x => h('div', { class: 'sm-f sm-f-' + x.key + (x.key === 'fx' || x.key === 'us' ? ' pal-w' : '') },
     h('dt', null, x.label, x.note ? h('small', { text: ' ' + x.note }) : null), h('dd', null, ...x.v))));
 }
 
@@ -478,12 +479,12 @@ function secMacro(M) {
   if (!M.fx && !M.us && !M.us10) return sec('환율 · 금리 · 해외', later(M.macroFail ? '불러오지 못했어요 · 다음 갱신 때 다시 받아요' : '받는 중…'));
   const rate = (name, x) => h('span', { class: 'sm-nv' }, h('span', { class: 'sm-nm', text: name }), h('span', { class: 'sm-v', text: (+x.value).toFixed(2) + '%' }), h('b', { class: 'sm-n ' + cls(bpOf(x), 1), text: sg(rnd(bpOf(x), 1)) + Math.abs(bpOf(x)).toFixed(1) + 'bp' }));
   const r = [M.us10 && rate('미 국채 10년', M.us10), M.kr3 && rate('국고채 3년', M.kr3)].filter(Boolean);
-  return sec('환율 · 금리 · 해외',
+  return palW(sec('환율 · 금리 · 해외',
     M.fx ? line(h('span', { class: 'sm-nv' }, h('span', { class: 'sm-nm', text: '원/달러' }), h('span', { class: 'sm-v', text: NF1.format(+M.fx.value) }), h('b', { class: 'sm-n ' + cls(+M.fx.change, 1), text: fxChg(M.fx) }))) : null,
     r.length ? line(...join(r)) : null,
     M.us ? line(kk(M.us.label), ...join(M.us.items.map(x => nv(shortUS(x.name), x.r)))) : null,
     M.wti ? line(nv('WTI', +M.wti.ratio)) : null,
-    sub([M.fx ? '원/달러는 오르면 원화 약세' : null, M.us && M.us.delayed ? '미국 선물 10분 지연' : null, r.length ? '금리 변화는 bp(0.01%p)' : null].filter(Boolean).join(' · ')));
+    sub([M.fx ? '원/달러는 오르면 원화 약세' : null, M.us && M.us.delayed ? '미국 선물 10분 지연' : null, r.length ? '금리 변화는 bp(0.01%p)' : null].filter(Boolean).join(' · '))));
 }
 function secNews(M) {
   if (!LIVE) return sec('공시 · 뉴스', snapNote('공시 · 뉴스'));
@@ -496,6 +497,8 @@ function secNews(M) {
     n ? h('p', { class: 'sm-l sm-one' }, kk(`${tt} ${src}`), link(n.url, n.title, `${n.title} — ${src}, 새 탭에서 열려요`)) : null,
     !d && !n ? later(D.news.fail ? '뉴스를 불러오지 못했어요' : '받는 중…') : null);
 }
+// a section of 해외 · 지표 values (환율 · 금리 · 해외 — the 지표 tab's numbers): that side's 등락 colours
+function palW(el) { if (el) el.classList.add('pal-w'); return el; }
 const DETAIL = { flow: secFlow, sector: secSector, movers: secMovers, flows: secFlows, macro: secMacro, news: secNews };
 const ORDER = { pre: ['macro', 'flow', 'sector', 'flows', 'movers', 'news'], open: ['flow', 'sector', 'movers', 'flows', 'macro', 'news'], after: ['flow', 'sector', 'movers', 'flows', 'macro', 'news'], closed: ['flow', 'sector', 'movers', 'flows', 'macro', 'news'] };
 const fullBody = M => [h('p', { class: 'sm-when', text: M.when }), facts(M), ...ORDER[M.ph].map(k => DETAIL[k](M)).filter(Boolean)];
