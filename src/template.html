@@ -788,6 +788,7 @@ table.list{width:100%;border-collapse:collapse;font-size:var(--fs-md)}
 .list th:first-child,.list td:first-child,.list th:nth-child(2),.list td:nth-child(2){text-align:left}
 .list th[aria-sort]{color:var(--fg)}
 .list th[aria-sort="descending"] button::after{content:" ▾"} .list th[aria-sort="ascending"] button::after{content:" ▴"}
+.list th .th-ord{font-size:inherit;font-weight:inherit;color:var(--muted)}   /* phones: the 종목 header names the order (시총순 · 가나다순) */
 .list td{padding:var(--space-4) var(--space-5);border-bottom:1px solid color-mix(in srgb,var(--ov) 4%,transparent);text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
 .list tbody tr{cursor:pointer}
 @media (hover:hover) and (pointer:fine){ .list tbody tr:hover{background:color-mix(in srgb,var(--ov) 3.5%,transparent)} }
@@ -5331,6 +5332,11 @@ function sortRows(list, key, dir, val) {
     return dir * (x - y);
   });
 }
+// the phone table (시가총액 column hidden, see the CSS below) — a hoisted getter, so a render before this line still works
+function tableMQ() {
+  if (!tableMQ.m) { tableMQ.m = matchMedia('(max-width:430px)'); tableMQ.m.addEventListener('change', () => { if (state.view === 'table') renderTable(); }); }
+  return tableMQ.m;
+}
 function renderTable() {
   if (state.market === 'THEME' && state.theme == null) { renderThemeTable(); return; }
   const wrap = $('#tablewrap');
@@ -5356,12 +5362,20 @@ function renderTable() {
   const val = key === 'v' ? cval : key === 'a' ? amt : key === 'r' ? (s => s.r) : key === 'vol' ? (s => s.v) : key === 'g' ? gKey : (s => s[key]);
   sortRows(list, key, dir, val);
   const prevTop = wrap.scrollTop;
-  const thead = h('thead', {}, h('tr', {}, cols.map(([c, label]) => h('th', { class: 'k-' + c, 'data-k': c, 'aria-sort': key === c ? (dir < 0 ? 'descending' : 'ascending') : null },
-    h('button', { type: 'button', onclick: () => {
-      state.sort = { key: c, dir: key === c ? -dir : (c === 'n' || c === 'i' || c === 'g' ? 1 : -1) };
+  // phones (≤ 430px) hide the 시가총액 column, so the 종목 header carries the order instead (사용자 2026-11-16 12:50 "시총줄이 없어서 다른
+  // 순서로 정렬하면 다시 시총순으로 정렬할수가 없네"): it reads "종목 · 시총순" / "종목 · 가나다순" and a tap goes 시총 큰 순 → 작은 순 →
+  // 가나다 → 시총 큰 순; from any other column's order one tap brings 시총 큰 순 back
+  const phoneT = tableMQ().matches, nOrd = c => phoneT && c === 'n';
+  const thSort = c => nOrd(c) ? (key === 'cap' || key === 'n' ? (dir < 0 ? 'descending' : 'ascending') : null) : key === c ? (dir < 0 ? 'descending' : 'ascending') : null;
+  const thLabel = (c, label) => !nOrd(c) ? label : [label, h('small', { class: 'th-ord', text: key === 'n' ? ' · 가나다순' : key === 'cap' ? ' · 시총순' : '' })];
+  const nextSort = c => !nOrd(c) ? { key: c, dir: key === c ? -dir : (c === 'n' || c === 'i' || c === 'g' ? 1 : -1) }
+    : key === 'cap' && dir < 0 ? { key: 'cap', dir: 1 } : key === 'cap' ? { key: 'n', dir: 1 } : { key: 'cap', dir: -1 };
+  const thead = h('thead', {}, h('tr', {}, cols.map(([c, label]) => h('th', { class: 'k-' + c, 'data-k': c, 'aria-sort': thSort(c) },
+    h('button', { type: 'button', 'aria-label': nOrd(c) ? `종목, 지금 ${key === 'n' ? '가나다순' : key === 'cap' ? (dir < 0 ? '시가총액 큰 순' : '시가총액 작은 순') : '다른 열 순서'} — 누르면 ${key === 'cap' && dir < 0 ? '시가총액 작은 순' : key === 'cap' ? '가나다순' : '시가총액 큰 순'}` : null, onclick: () => {
+      state.sort = nextSort(c);
       renderTable();
       const b = $(`#tablewrap th[data-k="${c}"] button`); if (b) b.focus();
-    } }, label)))));
+    } }, thLabel(c, label))))));
   const rowOpen = (s, tr) => openStock(s.c, tr);
   const tbody = h('tbody', {}, list.map(s => {
     const v = cval(s);
