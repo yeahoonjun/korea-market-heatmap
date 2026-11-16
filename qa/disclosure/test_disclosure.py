@@ -868,7 +868,7 @@ def design(br):
         r = pg.evaluate("(() => { const r = document.querySelector('#map .tile[data-c=\"005930\"]').getBoundingClientRect(); return [r.x + Math.min(r.width / 2, 30), r.y + Math.min(r.height / 2, 20)]; })()")
         pg.mouse.move(r[0], r[1]); pg.wait_for_timeout(600)
         g = pg.evaluate("""() => { const t = document.getElementById('tip'), b = t.querySelector('.dsc'), c = getComputedStyle(t), a = getComputedStyle(t, '::after');
-          return { dsc: !!b, blur: c.backdropFilter, sheen: c.backgroundImage.includes('linear-gradient'), edge: a.content !== 'none' && a.content !== '', inset: /inset/.test(c.boxShadow),
+          return { dsc: !!b, blur: c.backdropFilter, sheen: /gradient\(/.test(c.backgroundImage), edge: a.content !== 'none' && a.content !== '', inset: /inset/.test(c.boxShadow),
             plate: b ? [getComputedStyle(b).backgroundColor, getComputedStyle(b).backdropFilter] : null }; }""")
         check(f'glass {th}: the tooltip with the 공시 block keeps its material — sheen, 1px edge ::after, inset edge light, blur; the block paints no plate',
               g['dsc'] and 'blur(' in g['blur'] and g['sheen'] and g['edge'] and g['inset'] and g['plate'] == ['rgba(0, 0, 0, 0)', 'none'], g)
