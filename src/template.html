@@ -1100,17 +1100,21 @@ footer .credit .dc{width:1.15em;height:1.15em;flex:none}
 .bm-it[aria-checked="true"] b{color:var(--acc)}
 @media (hover:hover) and (pointer:fine){ .bm-it:hover{background:var(--panel2)} }
 .bm-it:focus-visible{outline:var(--focus-w) solid var(--focus);outline-offset:calc(var(--focus-w) * -1)}
-/* phones: the table keeps a readable name column (two lines): 종목 · 현재가 · 등락률 · 거래대금 · 시총 (거래량 dropped; with a 기간 /
-   순매수 column, that instead of 거래대금; 시총 back 2026-11-16 12:53). Under 375px the numbers step down to --fs-sm to fit 360 */
+/* phones: a readable name column (two lines) frozen on the left, the rest swiped sideways (all but 업종, 2026-11-16 12:55) */
 @media (max-width:430px){
-  .list .k-vol,.list.x7 .k-tv,.list .k-g{display:none}
+  /* every column, swiped sideways inside the table box, the 종목 column frozen on the left (사용자 2026-11-16 12:55 "넘겨서 볼수있게 …
+     종목명은 틀고정식으로"); 업종 stays out (long text before the numbers) */
+  .list.x7 .k-vol{display:table-cell}
+  .list th:first-child,.list td:first-child{position:sticky;left:0;background:var(--th-bg);box-shadow:1px 0 0 var(--line)}
+  .list td:first-child{z-index:1}
+  .list th:first-child{z-index:3}
+  .list tbody tr.sel td:first-child{background:color-mix(in srgb,var(--acc-fill) 14%,var(--th-bg))}
   .list td{padding:var(--space-4) var(--space-2)}
   .list th button{padding:0 var(--space-2)}
   .list td:first-child{width:auto;max-width:none;min-width:7.2em;white-space:normal}
   .list .nmt{min-width:5.6em;white-space:normal;word-break:keep-all;overflow-wrap:anywhere;line-height:var(--lh-ui);display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
   .list .limtag{font-size:var(--fs-xs);padding:0 var(--space-2)}
 }
-@media (max-width:374px){ .list td:not(:first-child){font-size:var(--fs-sm)} .list td{padding:var(--space-4) var(--space-1)} .list th button{padding:0 var(--space-1)} }
 /* phones and tablets (and a 7-column table below 1440 px): no room for the tag — the hatched chip and the muted name say it (and the
    row's aria-label) */
 @media (max-width:1023px){ .list .nxtag{display:none} }
