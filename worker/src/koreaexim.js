@@ -14,7 +14,7 @@
 //   GET /api/koreaexim/probe[?d=YYYYMMDD] → {asOf, date, fx:{…}, rate:{…}}   확인용(2026-11-15 20:12 "그래 그렇게하면 되겠네")
 //
 // 호출 아끼기: 고시일마다 KV REPLAY `kxim:d:<kind>:<YYYYMMDD>` 사본(40일, 빈 지난날은 빈 표시) — 그날 값이 있으면 다시
-// 부르지 않아요. 오늘 값이 없을 때만 평일 10:30 전 60분 · 10:30~14:00 5분 · 그 뒤 30분 간격으로 다시 확인(마지막 빈 확인
+// 부르지 않아요. 오늘 값이 없을 때만 평일 08:00~10:30 60분 · 10:30~14:00 5분 · 그 뒤 30분 간격으로 다시 확인(마지막 빈 확인
 // `kxim:st:<kind>`), 주말은 부르지 않아요. 지난날은 한 번 받으면 끝(주말은 건너뜀). 원천 호출은 종류마다 KST 하루 120번까지
 // (`kxim:n:<kind>:<날짜>`, 확인용 probe의 60번 `kxim:calls:*`과 따로), 한 요청에서 지난날 6번까지. 실패하면 쉬어요
 // (`kxim:cool:<kind>`: 인증 · DATA 코드 오류 60분, 하루 한도 → KST 자정까지, 그 밖 10분), 기록 `kxim:err:<kind>`(3일, 키 없음).
@@ -231,8 +231,9 @@ class Run {
   get failed() { return this.err ? this.err.code : this.blocked; }
 }
 
-// how long an empty "today" answer stands before asking again (weekdays): the posting is around 11:00 KST
-const todayEvery = hm => (hm < 1030 ? 60 : hm < 1400 ? 5 : 30) * 60e3;
+// how long an empty "today" answer stands before asking again (weekdays): the posting came before 11:32 on 2026-11-16 (around
+// 11:00, the minute unknown) — not asked before 08:00, hourly to 10:30, every 5 min to 14:00, then every 30 min (a holiday)
+const todayEvery = hm => (hm < 800 ? Infinity : hm < 1030 ? 60 * 60e3 : hm < 1400 ? 5 * 60e3 : 30 * 60e3);
 
 // the latest posting day before `from` with values: KV copies first, then the source (weekends skipped, empty days remembered)
 async function walkBack(run, from, walk) {
