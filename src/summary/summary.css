@@ -106,7 +106,9 @@ html.sm-noanchor{overflow-anchor:none}
 .sm-copy .sm-ci{position:relative;flex:none;width:var(--space-6);height:var(--space-6)}
 .sm-copy .sm-i{position:absolute;left:0;top:0;width:100%;height:100%;color:var(--key-ic);opacity:0;transform:rotate(-20deg) scale(.5);transition:opacity 100ms var(--c-in),transform 100ms var(--c-in)}
 .sm-copy[data-st="idle"] .sm-i-copy,.sm-copy[data-st="done"] .sm-i-done,.sm-copy[data-st="fail"] .sm-i-fail{opacity:1;transform:none;transition:opacity var(--sp-fade-dur) var(--sp-fade),transform var(--sp-fade-dur) var(--sp-fade)}
-.sm-copy[data-st="done"] .sm-i-done,.sm-copy[data-st="fail"] .sm-i-fail{color:var(--acc)}
+.sm-copy[data-st="done"] .sm-i-done{color:var(--acc)}
+/* 안 됐어요의 ! = --fail-dot(앰버 아님 — design.md §2: 앰버는 고름 · 포커스 · 열림 · 완료만, ux/std-wrapup) */
+.sm-copy[data-st="fail"] .sm-i-fail{color:var(--fail-dot)}
 .sm-copy .sm-kls{display:inline-grid}
 .sm-copy .sm-kl{grid-area:1 / 1;opacity:0;transform:translateY(var(--space-2))}
 .sm-copy .sm-kl.on{opacity:1;transform:none;transition:opacity var(--c-fast) var(--c-out) 160ms,transform var(--c-fast) var(--c-out) 160ms}
