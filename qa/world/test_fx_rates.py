@@ -239,8 +239,11 @@ ROWS_JS = r"""
       if (chip.textContent !== pct(it.ratio)) out.bad.push(`${it.key} chip ${chip.textContent} != ${pct(it.ratio)}`);
       if (Math.abs(num(lc.textContent) - it.change) > 1e-6 * Math.max(1, Math.abs(it.change))) out.bad.push(`${it.key} change ${lc.textContent} vs ${it.change}`);
     }
-    // colour = the number going up / down (KH.colorOf of the day's change; for a yield that change has the bp's sign)
-    if (getComputedStyle(chip).backgroundColor !== norm(KH.colorOf(it.ratio, 'world'))) out.bad.push(`${it.key} chip colour`);
+    // colour = the number going up / down (KH.colorOf of the day's change; for a yield that change has the bp's sign). 구역마다 (AGENTS
+    // §3-27): under 자동 the 지표 tab colours each group on its own range — a yield by its bp — so the expected colour asks KHWorld.zones()
+    const Z = window.KHWorld && KHWorld.zones ? KHWorld.zones() : null, z = Z && Z[it.gkey];
+    const want = z ? KH.colorOf(z.unit === 'bp' ? it.bp : it.ratio, { scope: 'world', range: z.value }) : KH.colorOf(it.ratio, 'world');
+    if (getComputedStyle(chip).backgroundColor !== norm(want)) out.bad.push(`${it.key} chip colour`);
     const rr = r.getBoundingClientRect();
     for (const el of [chip, lv, lc]) {
       const b = el.getBoundingClientRect();

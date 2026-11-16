@@ -191,7 +191,7 @@ TARGETS_JS = r"""
 LIST_JS = r"""
 (fix) => {
   const norm = c => { const e = document.createElement('i'); e.style.color = c; document.body.append(e); const v = getComputedStyle(e).color; e.remove(); return v; };
-  const items = new Map(); for (const g of fix.groups) for (const it of g.items) items.set(it.key, Object.assign({ group: g.name }, it));
+  const items = new Map(); for (const g of fix.groups) for (const it of g.items) items.set(it.key, Object.assign({ group: g.name, gkey: g.key }, it));
   const sgn = v => v > 0 ? '+' : v < 0 ? '−' : '';
   const pct = v => sgn(v) + Math.abs(v).toFixed(2) + '%';
   const num = t => +t.replace(/[,+]/g, '').replace('−', '-');
@@ -215,7 +215,10 @@ LIST_JS = r"""
       if (!chip.classList.contains('ref') || bg !== 'rgba(0, 0, 0, 0)' || !tagEl || tagEl.textContent !== '참고' || /\b(up|dn)\b/.test(lc.className)) bad.ref.push(`${it.key} ref chip ${bg}, tag ${tagEl && tagEl.textContent}, chg ${lc.className}`);
       if (getComputedStyle(r.querySelector('.kw-lb i')).backgroundColor !== 'rgb(91, 95, 105)') bad.ref.push(`${it.key} bar not grey`);
     } else {
-      if (bg !== norm(KH.colorOf(it.ratio, 'world'))) bad.color.push(`${it.key} ${bg} != ${norm(KH.colorOf(it.ratio, 'world'))}`);
+      // 구역마다 (AGENTS §3-27): the 지표 tab under 자동 colours each group on its own range (KHWorld.zones()); 해외 keeps the tab's
+      const Z = window.KHWorld && KHWorld.zones ? KHWorld.zones() : null, z = Z && it.gkey ? Z[it.gkey] : null;
+      const wantC = norm(z ? KH.colorOf(z.unit === 'bp' ? it.bp : it.ratio, { scope: 'world', range: z.value }) : KH.colorOf(it.ratio, 'world'));
+      if (bg !== wantC) bad.color.push(`${it.key} ${bg} != ${wantC}`);
       const cr = contrast(bg, fg); minInk = Math.min(minInk, cr); if (cr < 4.5) bad.ink.push(`${it.key} ${cr.toFixed(2)}`);
       if (getComputedStyle(r.querySelector('.kw-lb i')).backgroundColor !== bg) bad.color.push(`${it.key} bar colour`);
     }

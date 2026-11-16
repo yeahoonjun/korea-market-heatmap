@@ -76,6 +76,10 @@ EXP = {f'{m}:{n}': p95(market_top(m, n)) for m in ('K', 'Q', 'ALL') for n in (10
 WFIX = {k: json.loads((ROOT / f'qa/world/fixtures/world_{k}.json').read_text(encoding='utf-8')) for k in ('index', 'commodity')}
 EXP['WORLD'] = p95([it['ratio'] for g in WFIX['index']['groups'] for it in g['items'] if not it.get('ref') and it.get('ratio') is not None])
 EXP['CMDTY'] = p95([it['ratio'] for g in WFIX['commodity']['groups'] for it in g['items'] if not it.get('ref') and it.get('ratio') is not None])
+# 구역마다 (AGENTS §3-27, 2026-11-16): the 지표 tab under 자동 colours each group on its own range — the zone % table (0.2 · 0.3 · 0.5 ·
+# 0.7 + the tab's steps); the tab's own step (KH.range()) is still measured as before
+ZSTEPS = [0.2, 0.3, 0.5, 0.7] + STEPS
+EXP_ZONES = {g['key']: next((s for s in ZSTEPS if s >= p95([it['ratio'] for it in g['items']]) - 1e-9), ZSTEPS[-1]) for g in WFIX['commodity']['groups']}
 print('expected p95 → step:', {k: (round(v, 3), step_of(v)) for k, v in EXP.items()}, flush=True)
 
 # ── browser helpers ──
@@ -319,8 +323,10 @@ def live_checks(b):
         pg.screenshot(path=str(SHOTS / f'auto_range_{w}_world.png'), full_page=w >= 761)
         go(pg, 'CMDTY', 1800)
         cv = pg.evaluate(INFO)
-        check(f'live {w}: 원자재 auto value', cv['ri']['scope'] == 'CMDTY' and cv['ri']['value'] == step_of(EXP['CMDTY']) and legend_ok(cv, cv['ri']['value']),
-              f"p95 {cv['ri']['p95']:.3f} → ±{cv['ri']['value']}")
+        zs = {z['key']: z['value'] for z in (cv['ri'].get('zones') or [])}
+        check(f'live {w}: 원자재 auto value (tab step as before) + 구역마다 (legend "자동 · 구역마다", no ±N ticks, one range per group)',
+              cv['ri']['scope'] == 'CMDTY' and cv['ri']['value'] == step_of(EXP['CMDTY']) and cv['rauto'] == '자동 · 구역마다' and not cv['ticks'] and zs == EXP_ZONES,
+              f"p95 {cv['ri']['p95']:.3f} → ±{cv['ri']['value']} · zones {zs} (expected {EXP_ZONES}) · {cv['rauto']} {cv['ticks']}")
         go(pg, 'Q', 1200)
         q2 = pg.evaluate(INFO)
         check(f'live {w}: back on 코스닥 the scale returns', q2['ri']['value'] == q['ri']['value'] and legend_ok(q2, q2['ri']['value']), f"±{q2['ri']['value']}")
