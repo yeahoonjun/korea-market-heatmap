@@ -113,13 +113,13 @@ if(d.dataset.serif==='on'){var s=document.getElementById('kh-serif');if(s&&windo
      theme's own ink, no hue at all — the shape and the words say it. One value per theme (paper · glass below) */
   --live:#b08cff; --fail-dot:var(--fg);
   /* ── design.md §6-2 springs (scripts/design_tokens.mjs — generated, do not edit by hand) ── */
-  /* lead 620/40 · ζ 0.80 · 넘침 1.45% · 0.5% 290ms — 세그먼트·탭·밑줄 표시의 가는 쪽 가장자리 */
+  /* lead 620/40 · ζ 0.80 · 넘침 1.45% · 0.5% 290ms — 컨트롤이 옮겨 가는 것 하나(세그먼트·탭·밑줄 표시·스위치 손잡이 — ② 단단한 이동, 두 가장자리 모두) */
   --sp-lead:linear(0, .017 2.3%, .077 5.2%, .214 9.6%, .536 18.8%, .691 24.1%, .808 29.3%, .898 35%, .96 41.2%, 1 49.3%, 1.014 61.5%, 1); --sp-lead-dur:342ms; --sp-lead-kc:"620 40";
-  /* trail 190/23 · ζ 0.83 · 넘침 0.86% · 0.5% 510ms — 같은 표시의 뒤 가장자리 */
+  /* trail 190/23 · ζ 0.83 · 넘침 0.86% · 0.5% 510ms — (② 뒤 쓰지 않음 — 늘었다 줄며 도착하는 뒤 가장자리, 엔진 옵션) */
   --sp-trail:linear(0, .019 2.4%, .085 5.4%, .233 10%, .533 18.6%, .685 23.9%, .799 29.1%, .884 34.5%, .95 41.1%, .991 49.5%, 1.008 62.3%, 1); --sp-trail-dur:632ms; --sp-trail-kc:"190 23";
-  /* follow 900/50 · ζ 0.83 · 넘침 0.88% · 0.5% 235ms — 툴팁·십자선·스위치 손잡이 앞 가장자리 */
+  /* follow 900/50 · ζ 0.83 · 넘침 0.88% · 0.5% 235ms — 툴팁·십자선이 따라감 */
   --sp-follow:linear(0, .019 2.4%, .085 5.4%, .229 9.9%, .529 18.5%, .682 23.8%, .797 29%, .884 34.5%, .95 41.1%, .991 49.4%, 1.008 62.1%, 1); --sp-follow-dur:290ms; --sp-follow-kc:"900 50";
-  /* settle 280/27 · ζ 0.81 · 넘침 1.37% · 0.5% 430ms — 손가락을 놓은 뒤(시트·스위치·티커) */
+  /* settle 280/27 · ζ 0.81 · 넘침 1.37% · 0.5% 430ms — 손가락을 놓은 뒤(시트·스위치 끌기·티커) — 놓은 속도를 이어받음 */
   --sp-settle:linear(0, .017 2.3%, .08 5.3%, .218 9.7%, .536 18.8%, .693 24.2%, .811 29.5%, .898 35.1%, .961 41.5%, 1 49.8%, 1.014 62.9%, 1); --sp-settle-dur:510ms; --sp-settle-kc:"280 27";
   /* fade 420/37 · ζ 0.90 · 넘침 0.14% · 0.5% 270ms — 나타남(opacity + 흐림) */
   --sp-fade:linear(0, .019 2.5%, .084 5.7%, .239 10.9%, .51 19.5%, .662 25.4%, .781 31.5%, .871 38.2%, .936 46%, .978 56.2%, .999 72.8%, 1); --sp-fade-dur:405ms; --sp-fade-kc:"420 37";
@@ -11705,10 +11705,10 @@ section.rp-player[hidden]{display:none;opacity:0;translate:0 12px;pointer-events
 .rp-player .rp-main{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-3) var(--space-6);padding-right:calc(var(--xe-x) + var(--space-5))}
 /* ▶ ⏸: the player's primary key (--pri-*, like 완료) — amber is kept for selected · focus · open · done (design.md §2) */
 .rp-player .rp-play{position:relative;order:1;flex:none;width:var(--h-key);height:var(--h-key);border-radius:var(--r-pill);display:grid;place-items:center;background:var(--pri-bg);color:var(--pri-fg);box-shadow:var(--pri-sh)}
-/* ▶ ↔ ⏸ in place: the shape that leaves turns and shrinks, the other comes back (`fade`) */
+/* ▶ ↔ ⏸ in place: a cross-fade only — the shape shown on `fade`, the other out on `close`, nothing turns or grows (an icon toggle, ② 단단한 이동) */
 .rp-pi{display:grid;place-items:center}
-.rp-pi svg{grid-area:1/1;transition:transform var(--sp-fade-dur) var(--sp-fade),opacity var(--sp-fade-dur) var(--sp-fade)}
-.rp-play:not([data-on]) .rp-pi svg:last-child,.rp-play[data-on] .rp-pi svg:first-child{opacity:0;transform:rotate(90deg) scale(.5)}
+.rp-pi svg{grid-area:1/1;transition:opacity var(--sp-fade-dur) var(--sp-fade)}
+.rp-play:not([data-on]) .rp-pi svg:last-child,.rp-play[data-on] .rp-pi svg:first-child{opacity:0;transition:opacity var(--sp-close-dur) var(--sp-close)}
 .rp-player .rp-when{order:2;display:flex;flex-direction:column;gap:var(--space-1);min-width:0}
 .rp-player .rp-time{flex:none;font-size:var(--fs-num);font-weight:700;line-height:var(--lh-num);letter-spacing:-.02em;font-variant-numeric:tabular-nums;color:var(--fg)}
 .rp-player .rp-more{display:none}
