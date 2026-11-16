@@ -636,9 +636,10 @@ function renderStats() {
   const p = isNum(s.price) ? +s.price : null;
   const prev = isNum(s.prevClose) && +s.prevClose > 0 ? +s.prevClose : sumRef();
   const open = isNum(s.open) && +s.open > 0 ? +s.open : null;
-  const d1 = rangeBar('1일', s.low, s.high, p, { ref: prev, open });
-  const w52 = rangeBar('52주', s.low52, s.high52, p, {});
-  const legend = [open != null ? h('span', { class: 'k-open', text: `시가 ${int(open)}` }) : null,
+  const d1 = rangeBar('1일', s.low, s.high, p, { ref: prev, open, base: prev });
+  const w52 = rangeBar('52주', s.low52, s.high52, p, { base: prev });
+  // 시가 in the colour of its move from 전일 종가 (사용자 2026-11-16 10:46 "색상이 들어가야지"); 전일 is the base, so neutral
+  const legend = [open != null ? h('span', { class: 'k-open' }, '시가 ', h('b', { class: prev != null ? cls(open - prev) : 'flat', text: int(open) })) : null,
     prev != null ? h('span', { class: 'k-prev', text: `전일 ${int(prev)}` }) : null].filter(Boolean);
   R.stats.replaceChildren(
     statItem('시가총액', isNum(s.marketCap) ? F.eok(+s.marketCap) : '—'),
@@ -653,10 +654,10 @@ function renderStats() {
 // A price outside the range (NXT after 15:30 against a KRX-only high/low) pins the dot to the end.
 function rangeItem(label, legend, value, kind) {
   return h('div', { class: 'sp-stat sp-rng ' + kind },
-    h('dt', {}, h('span', { text: label }), legend ? h('small', { class: 'num' }, legend.flatMap((x, i) => (i ? [' · ', x] : [x]))) : null),
+    h('dt', {}, h('span', { text: label }), legend ? h('small', { class: 'num' }, legend.flatMap((x, i) => (i ? [h('span', { class: 'sr', text: ' · ' }), x] : [x]))) : null),
     h('dd', { class: 'num' }, value));
 }
-function rangeBar(name, lo, hi, p, { ref, open }) {
+function rangeBar(name, lo, hi, p, { ref, open, base }) {
   if (!isNum(lo) || !isNum(hi) || +lo <= 0 || +hi < +lo || p == null) return null;
   lo = +lo; hi = +hi;
   const pos = v => (hi > lo ? Math.max(0, Math.min(1, (v - lo) / (hi - lo))) : 0.5);
@@ -669,8 +670,11 @@ function rangeBar(name, lo, hi, p, { ref, open }) {
       h('em', { class: 'tk prev', style: `left:${at(ref)}`, title: `전일 종가 ${int(ref)}` }));
   }
   if (open != null) track.append(h('em', { class: 'tk open', style: `left:${at(open)}`, title: `시가 ${int(open)}` }));
-  track.append(h('i', { class: 'dot', style: `left:${at(p)}` }));
-  return [h('span', { class: 'lo', text: int(lo) }), track, h('span', { class: 'hi', text: int(hi) })];
+  // colour (사용자 2026-11-16 10:46): 최저 · 최고 and the current-price dot in the colour of their move from 전일 종가 (base) — the
+  // Korean apps' 저가 파랑 · 고가 빨강 read, in the user's palette; no base → neutral
+  const tone = v => (base != null && base > 0 ? cls(v - base) : 'flat');
+  track.append(h('i', { class: 'dot ' + tone(p), style: `left:${at(p)}` }));
+  return [h('span', { class: 'lo ' + tone(lo), text: int(lo) }), track, h('span', { class: 'hi ' + tone(hi), text: int(hi) })];
 }
 
 // 같은 업종: Naver's 동일업종 list from /summary (peers, AGENTS.md §3-3) once it is there; until then, in the snapshot and
@@ -2276,7 +2280,16 @@ function renderMetrics() {
     metric('ROE', faWait ? wait : roe ? fixed(roe.v, 2, '%') : '—', roe ? `${periodLong(roe.col, 'annual')} 기준` : ''),
     metric('PSR', !s || faWait || fqWait ? (S.sumErr ? '—' : wait) : psr ? fixed(psr.v, 2, '배') : '—', psr ? psr.basis : ''),
     metric('배당수익률', v(s && s.dividendYield, x => fixed(x, 2, '%'))),
+    // 주당배당금 right after 배당수익률 (사용자 2026-11-16 10:47) — /summary dps, else the last annual 결산 (같은 값을 아래 배당 칸도 써요)
+    dpsMetric(s, v),
     metric('외국인 소진율', v(s && s.foreignRate, x => fixed(x, 2, '%')))));
+}
+
+function dpsMetric(s, v) {
+  const fa = ciState('fa') === 'ok' ? ciData('fa') : null, last = fa ? latestActual(fa, '주당배당금') : null;
+  if (s && isNum(s.dps)) return metric('주당배당금', +s.dps > 0 ? int(+s.dps) + '원' : '—', last && +s.dps === last.v ? `${periodLong(last.col, 'annual')} 결산` : '');
+  if (!s) return metric('주당배당금', v(null, () => '—'));
+  return metric('주당배당금', last && last.v > 0 ? int(last.v) + '원' : ciState('fa') === 'loading' ? skel('3.6em', '1em') : '—', last && last.v > 0 ? `${periodLong(last.col, 'annual')} 결산` : '');
 }
 
 /* 재무: grouped bars per period, estimates hatched, zero line with losses below */

@@ -178,16 +178,29 @@ html[data-theme="glass-dark"]{
   --page:#0b0c10; --panel:rgba(255,255,255,.045); --panel2:rgba(255,255,255,.08); --line:rgba(255,255,255,.09); --line2:rgba(255,255,255,.16);
   --fg:#f5f6f8; --fg2:#c9cdd4; --muted:#9ea3ad; --faint:#8b909a;
   --nodata:#24262c; --r-map:16px; --th-bg:#16181d;
-  --card-bg:rgba(27,29,35,.74); --card-bd:transparent; --card-r:22px;
-  --card-sh:inset 0 1px 0 rgba(255,255,255,.16),inset 0 0 0 .5px rgba(255,255,255,.1),inset 0 -1px 0 rgba(0,0,0,.25),0 10px 30px rgba(0,0,0,.35);
-  --tip-bg:linear-gradient(180deg,rgba(255,255,255,.09),rgba(255,255,255,0) 30%),rgba(20,22,28,.84); --tip-bd:transparent; --tip-r:20px;
-  --tip-sh:inset 0 1px 0 rgba(255,255,255,.24),inset 0 0 0 .5px rgba(255,255,255,.12),0 18px 50px rgba(0,0,0,.5);
-  --sheet-bg:var(--tip-bg); --sheet-bd:transparent; --sheet-r:28px; --sheet-fl-sh:var(--tip-sh); --sheet-sh:inset 0 1px 0 rgba(255,255,255,.24),inset 0 0 0 .5px rgba(255,255,255,.12),0 -14px 40px rgba(0,0,0,.45);
-  --pop-bg:var(--tip-bg); --pop-solid:#1b1d23; --pop-sh:var(--tip-sh);
-  --scrim:rgba(0,0,0,.22); --blur:blur(24px) saturate(1.4); --blur-bar:blur(20px) saturate(1.6);
-  --bar-bg:linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,0) 60%),rgba(16,18,24,.62);
-  --bar-sh:inset 0 1px 0 rgba(255,255,255,.16),inset 0 0 0 .5px rgba(255,255,255,.1),0 10px 24px rgba(0,0,0,.3);
-  --dock-bg:#181a20; --dock-sh:inset 0 1px 0 rgba(255,255,255,.22),inset 0 0 0 .5px rgba(255,255,255,.14),0 12px 32px rgba(0,0,0,.5); --dock-r:28px; --dock-div:rgba(255,255,255,.12);
+  /* ④ 리퀴드 글라스 (절제) — drafts/glass.html R[id:'liquid'], AGENTS §3-38 (사용자 2026-11-16 10:02 "글라스 테마는 추천대로 4번"). The
+     material lives in these tokens: --gl-sheen (the top-left sheen over each fill), --gl-ring (the 1.25px edge reflection, drawn by the
+     ::after ring below), the edges in the --*-sh (1px top · bottom light, 1px sides, the faint inner thickness light — design.md §2 예외),
+     --gl-plate / --gl-sel (the number plate under 등락 numbers on the glass and the near-opaque selected tab), --gl-ink2 (secondary words
+     on the floating glass, one step stronger) */
+  --gl-sheen:radial-gradient(130% 70% at 25% 0%,rgba(255,255,255,.1),rgba(255,255,255,0) 60%);
+  --gl-sheen-card:radial-gradient(130% 70% at 25% 0%,rgba(255,255,255,.07),rgba(255,255,255,0) 60%);
+  --gl-ring:linear-gradient(135deg,rgba(255,255,255,.7),rgba(255,255,255,.12) 22%,rgba(255,255,255,0) 50%,rgba(255,255,255,.1) 78%,rgba(255,255,255,.5));
+  --gl-rw:1.25px;   /* the ring's width */
+  --gl-ring-card:linear-gradient(135deg,rgba(255,255,255,.55),rgba(255,255,255,.1) 22%,rgba(255,255,255,0) 50%,rgba(255,255,255,.08) 78%,rgba(255,255,255,.4));
+  --gl-plate:rgba(0,0,0,.55); --gl-sel:rgba(44,47,56,.94); --gl-ink2:#dfe2e6;
+  --card-bg:var(--gl-sheen-card),rgba(30,32,40,.86); --card-bd:transparent; --card-r:24px;
+  --card-sh:inset 0 1px 0 rgba(255,255,255,.3),inset 1px 0 0 rgba(255,255,255,.08),inset -1px 0 0 rgba(255,255,255,.05),inset 0 -1px 0 rgba(255,255,255,.12),inset 0 -12px 20px -16px rgba(255,255,255,.1),0 1px 2px rgba(0,0,0,.3),0 10px 28px rgba(0,0,0,.38);
+  --tip-bg:var(--gl-sheen),rgba(16,18,24,.58); --tip-bd:transparent; --tip-r:22px;
+  --tip-sh:inset 0 1px 0 rgba(255,255,255,.34),inset 1px 0 0 rgba(255,255,255,.1),inset -1px 0 0 rgba(255,255,255,.06),inset 0 -1px 0 rgba(255,255,255,.16),inset 0 10px 18px -14px rgba(255,255,255,.12),inset 0 -12px 20px -16px rgba(255,255,255,.12),0 1px 2px rgba(0,0,0,.3),0 14px 36px rgba(0,0,0,.42);
+  --sheet-bg:var(--tip-bg); --sheet-bd:transparent; --sheet-r:28px; --sheet-fl-sh:var(--tip-sh);
+  --sheet-sh:inset 0 1px 0 rgba(255,255,255,.34),inset 1px 0 0 rgba(255,255,255,.1),inset -1px 0 0 rgba(255,255,255,.06),inset 0 10px 18px -14px rgba(255,255,255,.12),0 -14px 36px rgba(0,0,0,.42);
+  --pop-bg:var(--tip-bg); --pop-solid:#1c1e25; --pop-sh:var(--tip-sh);
+  --scrim:rgba(0,0,0,.22); --blur:blur(14px) saturate(1.8); --blur-bar:blur(14px) saturate(1.8);
+  --bar-bg:var(--gl-sheen),rgba(14,16,22,.48);
+  --bar-sh:inset 0 1px 0 rgba(255,255,255,.34),inset 1px 0 0 rgba(255,255,255,.1),inset -1px 0 0 rgba(255,255,255,.06),inset 0 -1px 0 rgba(255,255,255,.16),inset 0 10px 18px -14px rgba(255,255,255,.12),inset 0 -12px 20px -16px rgba(255,255,255,.12),0 1px 2px rgba(0,0,0,.3),0 12px 30px rgba(0,0,0,.36);
+  --dock-bg:var(--gl-sheen-card),rgba(27,29,36,.97); --dock-r:28px; --dock-div:rgba(255,255,255,.12);
+  --dock-sh:inset 0 1px 0 rgba(255,255,255,.3),inset 1px 0 0 rgba(255,255,255,.08),inset -1px 0 0 rgba(255,255,255,.05),inset 0 -1px 0 rgba(255,255,255,.12),inset 0 -12px 20px -16px rgba(255,255,255,.1),0 1px 2px rgba(0,0,0,.3),0 12px 32px rgba(0,0,0,.48);
   --tray-bg:rgba(0,0,0,.34); --tray-sh:inset 0 1px 2px rgba(0,0,0,.5),inset 0 0 0 .5px rgba(255,255,255,.1);
   --ind-bg:rgba(255,255,255,.16);
   --ind-sh:inset 0 1px 0 rgba(255,255,255,.38),inset 0 -1px 0 rgba(0,0,0,.2),inset 0 0 0 .5px rgba(255,255,255,.2),0 1px 2px rgba(0,0,0,.35),0 4px 10px rgba(0,0,0,.25);
@@ -216,16 +229,24 @@ html[data-theme="glass-light"]{
   --hatch:rgba(15,17,21,.06); --hatch2:rgba(15,17,21,.14); --nonx-a:rgba(255,255,255,.62); --nonx-b:rgba(255,255,255,.36); --nonx-c:rgba(255,255,255,.2);
   --limsw:#8a919b; --ix-base:#8a919b; --ix-now:#b4bac3; --spark-fill:.12;
   --sb-rest:.24; --sb-track:rgba(15,17,21,.12);
-  --card-bg:rgba(255,255,255,.69); --card-bd:transparent; --card-r:22px; --th-bg:#f3f5f8;
-  --card-sh:inset 0 1px 0 #fff,inset 0 0 0 .5px rgba(255,255,255,.9),0 1px 2px rgba(20,30,50,.06),0 10px 30px rgba(20,30,50,.1);
-  --tip-bg:linear-gradient(180deg,rgba(255,255,255,.5),rgba(255,255,255,0) 30%),rgba(248,249,251,.86); --tip-bd:transparent; --tip-r:20px;
-  --tip-sh:inset 0 1px 0 #fff,inset 0 0 0 .5px rgba(255,255,255,.8),0 18px 50px rgba(20,30,50,.24);
-  --sheet-bg:var(--tip-bg); --sheet-bd:transparent; --sheet-r:28px; --sheet-fl-sh:var(--tip-sh); --sheet-sh:inset 0 1px 0 #fff,inset 0 0 0 .5px rgba(255,255,255,.8),0 -14px 40px rgba(20,30,50,.2);
-  --pop-bg:var(--tip-bg); --pop-solid:#f4f6f9; --pop-sh:var(--tip-sh);
-  --scrim:rgba(30,40,60,.16); --blur:blur(24px) saturate(1.4); --blur-bar:blur(20px) saturate(1.6);
-  --bar-bg:linear-gradient(180deg,rgba(255,255,255,.5),rgba(255,255,255,0) 60%),rgba(246,247,250,.64);
-  --bar-sh:inset 0 1px 0 #fff,inset 0 0 0 .5px rgba(15,17,21,.08),0 10px 24px rgba(20,30,50,.1);
-  --dock-bg:#f9fafb; --dock-sh:inset 0 1px 0 #fff,inset 0 0 0 .5px rgba(15,17,21,.1),0 12px 32px rgba(20,30,50,.18); --dock-r:28px; --dock-div:rgba(15,17,21,.1);
+  /* ④ 리퀴드 글라스 (절제) — the same roles as 글라스 어둡게 (see there); the blur lifts what is behind by 6 % (brightness 1.06) */
+  --gl-sheen:radial-gradient(130% 70% at 25% 0%,rgba(255,255,255,.55),rgba(255,255,255,0) 60%);
+  --gl-sheen-card:radial-gradient(130% 70% at 25% 0%,rgba(255,255,255,.6),rgba(255,255,255,0) 60%);
+  --gl-ring:linear-gradient(135deg,#fff,rgba(255,255,255,.35) 22%,rgba(255,255,255,0) 50%,rgba(255,255,255,.3) 78%,rgba(255,255,255,.9));
+  --gl-ring-card:var(--gl-ring); --gl-rw:1.25px;
+  --gl-plate:rgba(255,255,255,.72); --gl-sel:#fff; --gl-ink2:#353b44;
+  --card-bg:var(--gl-sheen-card),rgba(255,255,255,.8); --card-bd:transparent; --card-r:24px; --th-bg:#f3f5f8;
+  --card-sh:inset 0 1px 0 #fff,inset 1px 0 0 rgba(255,255,255,.7),inset -1px 0 0 rgba(255,255,255,.5),inset 0 -1px 0 rgba(255,255,255,.9),0 0 0 .5px rgba(15,17,21,.08),0 1px 2px rgba(20,30,50,.08),0 10px 28px rgba(20,30,50,.12);
+  --tip-bg:var(--gl-sheen),rgba(255,255,255,.54); --tip-bd:transparent; --tip-r:22px;
+  --tip-sh:inset 0 1px 0 #fff,inset 1px 0 0 rgba(255,255,255,.7),inset -1px 0 0 rgba(255,255,255,.5),inset 0 -1px 0 rgba(255,255,255,.9),inset 0 -12px 20px -16px rgba(255,255,255,.9),0 0 0 .5px rgba(15,17,21,.1),0 1px 2px rgba(20,30,50,.12),0 14px 36px rgba(20,30,50,.2);
+  --sheet-bg:var(--tip-bg); --sheet-bd:transparent; --sheet-r:28px; --sheet-fl-sh:var(--tip-sh);
+  --sheet-sh:inset 0 1px 0 #fff,inset 1px 0 0 rgba(255,255,255,.7),inset -1px 0 0 rgba(255,255,255,.5),0 0 0 .5px rgba(15,17,21,.1),0 -14px 36px rgba(20,30,50,.2);
+  --pop-bg:var(--tip-bg); --pop-solid:#f6f7f9; --pop-sh:var(--tip-sh);
+  --scrim:rgba(30,40,60,.16); --blur:blur(14px) saturate(1.8) brightness(1.06); --blur-bar:blur(14px) saturate(1.8) brightness(1.06);
+  --bar-bg:var(--gl-sheen),rgba(255,255,255,.46);
+  --bar-sh:inset 0 1px 0 #fff,inset 1px 0 0 rgba(255,255,255,.7),inset -1px 0 0 rgba(255,255,255,.5),inset 0 -1px 0 rgba(255,255,255,.9),inset 0 -12px 20px -16px rgba(255,255,255,.9),0 0 0 .5px rgba(15,17,21,.1),0 1px 2px rgba(20,30,50,.12),0 12px 30px rgba(20,30,50,.16);
+  --dock-bg:var(--gl-sheen-card),rgba(251,252,253,.97); --dock-r:28px; --dock-div:rgba(15,17,21,.1);
+  --dock-sh:inset 0 1px 0 #fff,inset 1px 0 0 rgba(255,255,255,.7),inset -1px 0 0 rgba(255,255,255,.5),inset 0 -1px 0 rgba(255,255,255,.9),0 0 0 .5px rgba(15,17,21,.1),0 1px 2px rgba(20,30,50,.1),0 12px 32px rgba(20,30,50,.18);
   --tray-bg:rgba(15,17,21,.06); --tray-sh:inset 0 1px 2px rgba(15,17,21,.13),inset 0 0 0 .5px rgba(15,17,21,.07);
   --ind-bg:#fafbfc; --ind-sh:inset 0 1px 0 #fff,inset 0 0 0 .5px rgba(15,17,21,.06),0 1px 2px rgba(20,30,50,.16),0 4px 10px rgba(20,30,50,.1);
   --key-bg:rgba(255,255,255,.8); --key-hover:rgba(255,255,255,.9); --key-fg:#0f1115; --key-ic:#353b44;
@@ -244,16 +265,17 @@ html[data-theme="glass-light"]{
   --w-head:650; --track-head:-.02em;
 }
 /* the glass fallback (§6-2): no backdrop-filter, reduced transparency, 유리 흐림 끄기, or the frame watchdog / a low-end phone → the same
-   shapes with opaque fills */
-html[data-theme="glass-dark"][data-blur="off"]{--blur:none;--blur-bar:none;--tip-bg:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,0) 30%),#1b1d23;--bar-bg:#14161b}
-html[data-theme="glass-light"][data-blur="off"]{--blur:none;--blur-bar:none;--tip-bg:linear-gradient(180deg,rgba(255,255,255,.5),rgba(255,255,255,0) 30%),#f4f6f9;--bar-bg:#eef1f5}
+   shapes with opaque fills (drafts/glass.html ④ fb): the sheen, the edges and the ring stay, only the fill under the blurred glass —
+   the header (--bar-bg) and the floating glass (--tip-bg → sheets · popovers) — turns opaque. Cards and the dock never blur. */
+html[data-theme="glass-dark"][data-blur="off"]{--blur:none;--blur-bar:none;--tip-bg:var(--gl-sheen),#1c1e25;--bar-bg:var(--gl-sheen),#15171c}
+html[data-theme="glass-light"][data-blur="off"]{--blur:none;--blur-bar:none;--tip-bg:var(--gl-sheen),#f6f7f9;--bar-bg:var(--gl-sheen),#eef0f4}
 @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
-  html[data-theme="glass-dark"]{--tip-bg:#1b1d23;--bar-bg:#14161b}
-  html[data-theme="glass-light"]{--tip-bg:#f4f6f9;--bar-bg:#eef1f5}
+  html[data-theme="glass-dark"]{--blur:none;--blur-bar:none;--tip-bg:var(--gl-sheen),#1c1e25;--bar-bg:var(--gl-sheen),#15171c}
+  html[data-theme="glass-light"]{--blur:none;--blur-bar:none;--tip-bg:var(--gl-sheen),#f6f7f9;--bar-bg:var(--gl-sheen),#eef0f4}
 }
 @media (prefers-reduced-transparency:reduce){
-  html[data-theme="glass-dark"]{--blur:none;--blur-bar:none;--tip-bg:#1b1d23;--bar-bg:#14161b}
-  html[data-theme="glass-light"]{--blur:none;--blur-bar:none;--tip-bg:#f4f6f9;--bar-bg:#eef1f5}
+  html[data-theme="glass-dark"]{--blur:none;--blur-bar:none;--tip-bg:var(--gl-sheen),#1c1e25;--bar-bg:var(--gl-sheen),#15171c}
+  html[data-theme="glass-light"]{--blur:none;--blur-bar:none;--tip-bg:var(--gl-sheen),#f6f7f9;--bar-bg:var(--gl-sheen),#eef0f4}
 }
 /* 명조 제목 (paper only, off by default): titles and big numbers only; line heights are fixed, so nothing moves */
 html[data-theme="paper"][data-serif="on"]{--font-head:var(--serif)}
@@ -1212,14 +1234,47 @@ html[data-theme^="glass"] header.top,html[data-theme^="glass"] header.top.is-stu
 html[data-theme^="glass"] header.top::before{content:"";position:absolute;z-index:-1;inset:4px 6px 0;border-radius:16px;background:var(--bar-bg);box-shadow:var(--bar-sh);pointer-events:none}
 html[data-theme^="glass"] header.top.is-stuck::before{-webkit-backdrop-filter:var(--blur-bar);backdrop-filter:var(--blur-bar)}
 @media (max-width:760px){html[data-theme^="glass"] header.top::before{inset:2px 4px 0;border-radius:24px}}
-/* 글라스의 재질 (사용자 2026-11-16 01:32 "글라스 테마가 플랫해지면 글라스가 아닌데" — design.md §2의 "빛 · 그라데이션 없음"에서 글라스 두 테마만 예외):
-   위에서 비치는 옅은 광택(--tip-bg · --bar-bg 그라데이션)과 큰 유리 판(툴팁 · 머리글)의 가장자리 반사 1px. 카드 · 키 · 아래 막대에는 없어요 */
-html[data-theme^="glass"] :is(.tip,header.top)::after{content:"";position:absolute;inset:0;border-radius:inherit;padding:1px;pointer-events:none;
-  background:linear-gradient(140deg,color-mix(in srgb,white 50%,transparent),transparent 28%,transparent 72%,color-mix(in srgb,white 20%,transparent));
-  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask:linear-gradient(#000 0 0) content-box exclude,linear-gradient(#000 0 0)}
+/* 글라스의 재질 — ④ 리퀴드 글라스 (절제) (사용자 2026-11-16 10:02 "글라스 테마는 추천대로 4번", AGENTS §3-38; design.md §2 예외 — 글라스 두
+   테마만): the top-left sheen in every fill (--gl-sheen in --tip-bg · --bar-bg · --card-bg · --dock-bg), the edges in the shadows (1px top ·
+   bottom light, 1px sides, the faint inner thickness light), and here the 1.25px edge reflection — a mask ring lit at the top left and the
+   bottom right (--gl-ring; cards and the dock the softer --gl-ring-card). No SVG refraction. The ring sits on the glass that does not scroll
+   its own box — the header panel, the tooltip, the popovers (색 기준 · 순매수 기간 · 화면 · 표시 설정 on tablets · 관심 그룹), the search
+   sheet, the cards and the dock; a box that scrolls its own content (빠른 보기, the phone 표시 설정 sheet, 검색 제안) keeps the edges of its
+   --*-sh only — an ::after ring would scroll away with the content. */
+html[data-theme^="glass"] :is(.tip,header.top,.card,.dock,.ssheet,.wgpop)::after{content:"";position:absolute;inset:0;border-radius:inherit;padding:var(--gl-rw);pointer-events:none;
+  background:var(--gl-ring);-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask:linear-gradient(#000 0 0) content-box exclude,linear-gradient(#000 0 0)}
+html[data-theme^="glass"] :is(.card,.dock)::after{background:var(--gl-ring-card)}
+html[data-theme^="glass"] .card{position:relative}   /* the ring's box (measured: no descendant moves — the absolute ones already sat in a positioned box) */
+/* the summary card grows on a skin while it opens / closes (src/summary .sm-anim): the ring rides the skin, not the card's final box */
+html[data-theme^="glass"] .msum .sm-skin::after{content:"";position:absolute;inset:0;border-radius:inherit;padding:var(--gl-rw);pointer-events:none;
+  background:var(--gl-ring-card);-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask:linear-gradient(#000 0 0) content-box exclude,linear-gradient(#000 0 0)}
+html[data-theme^="glass"] .card.sm-anim::after{content:none}
+@media (min-width:1280px){html[data-theme^="glass"] :is(.morep,.ctl.dd > .seg)::after{content:"";position:absolute;inset:0;border-radius:inherit;padding:var(--gl-rw);pointer-events:none;
+  background:var(--gl-ring);-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask:linear-gradient(#000 0 0) content-box exclude,linear-gradient(#000 0 0)}}
+@media (min-width:761px) and (max-width:1279px){html[data-theme^="glass"] .ctls::after{content:"";position:absolute;inset:0;border-radius:inherit;padding:var(--gl-rw);pointer-events:none;
+  background:var(--gl-ring);-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask:linear-gradient(#000 0 0) content-box exclude,linear-gradient(#000 0 0)}}
 html[data-theme^="glass"] header.top::after{z-index:-1;inset:4px 6px 0;border-radius:16px}
 @media (max-width:760px){html[data-theme^="glass"] header.top::after{inset:2px 4px 0;border-radius:24px}}
-html[data-theme="glass-dark"] header.top::after{opacity:.5}
+/* 숫자 판 (④): the 등락 numbers on the glass sit on a plate — the header's market tabs on a tray of --gl-plate (어둡게 black 55 % ·
+   밝게 white 72 %) with the selected tab near-opaque (--gl-sel); on phones the tab row gets the same tray back (glass only — padding 0, so
+   nothing moves). Worst tile under the glass (qa/std_template/test_glass_contrast.py): ≥ 4.5:1. */
+html[data-theme^="glass"] header.top :is(.tabs,.seg){--tray-bg:var(--gl-plate);--ind-bg:var(--gl-sel)}
+@media (max-width:760px){
+  html[data-theme^="glass"] header.top .tabs{background:var(--tray-bg);box-shadow:var(--tray-sh);border-radius:var(--r-tray)}
+  html[data-theme^="glass"] header.top .tabs-sc{border-radius:var(--r-tray) 0 0 var(--r-tray)}   /* a tab scrolled half out is cut by the tray's round end */
+}
+/* … and the 등락 numbers written straight on the floating glass (tooltip, quick view, search suggestions and the search sheet, the
+   index line's tooltip) get the same plate behind them: 2px either side, given back by the margin, so no line or column moves */
+html[data-theme^="glass"] :is(.tip,.sheet,.sugg,.ssheet,.ixtip) :is(.up,.dn):not(.limtag){background:var(--gl-plate);border-radius:var(--r-badge);padding:0 var(--space-1);margin:0 calc(-1 * var(--space-1));-webkit-box-decoration-break:clone;box-decoration-break:clone}
+/* … and the secondary words on the floating glass one step stronger (design.md §5: 판 위 글자는 한 단 진하게): the clearer glass lets a
+   bright tile through, and --muted / --faint fell to 3:1 there — they take --gl-ink2 (밝게 = --fg2; 어둡게 a step between --fg2 and
+   --fg, as the top-left sheen also lifts the dark glass), so does --fg2. On the stuck header the status words (the date, the price
+   basis badge) are the only secondary words straight on the glass: 어둡게 writes them in --fg. */
+html[data-theme^="glass"] :is(.tip,.sheet,.sugg,.ssheet,.ixtip){--fg2:var(--gl-ink2);--muted:var(--gl-ink2);--faint:var(--gl-ink2)}
+html[data-theme="glass-dark"] header.top .status{--fg2:var(--fg)}
+/* the status badge (실시간 · KRX 15:30 종가 · 다시 보기) on the stuck glass: on the selected tab's near-opaque fill (the live / replay
+   tint of its fill goes; the --live / amber words and border stay) — those words fell to 2.2:1 over a bright tile on the clearer glass */
+html[data-theme^="glass"] header.top .status .badge{background:var(--gl-sel)}
 /* the glass falls back to the opaque panel in place (--m-2 cross-fade) when the frame watchdog trips */
 html[data-theme^="glass"] header.top::before{transition:background var(--m-2) var(--m-out)}
 
@@ -1231,8 +1286,7 @@ html[data-theme="paper"] .legend .grad{box-shadow:0 0 0 1px var(--rule)}
 html[data-theme="paper"] :is(.secs > button,.movers > button){border-radius:0;box-shadow:inset 0 -1px 0 var(--row-bd)}
 @media (min-width:981px){html[data-theme="paper"] .side{position:relative} html[data-theme="paper"] .side::before{content:"";position:absolute;left:-8px;top:42px;bottom:0;width:1px;background:var(--line2)}}
 @media (max-width:760px){html[data-theme="paper"] :is(.sheet,.ctls,.bm-in,.ssheet){box-shadow:inset 0 2px 0 var(--pop-solid),inset 0 3px 0 var(--rule),var(--sheet-sh)}}
-/* 글라스: the big floating glass (the tooltip and the header panel) keeps the .5px edge and the 1px top line of its --tip-sh / --bar-sh —
-   the 140° gradient sheen that ran round it went with design.md §2 (no gradients on UI chrome, ux/std-template) */
+/* 글라스: the material (sheen · edges · ring · number plates) is the block "글라스의 재질" above, with the header */
 
 /* ───────────────── 표시 설정 › 화면 › 테마 (안 A: four at once, 2 × 2 with swatches) · 명조 제목 · 유리 흐림 ───────────────── */
 .thm .seg{display:grid;grid-template-columns:1fr 1fr}
@@ -1256,8 +1310,9 @@ html[data-theme="paper"] :is(.secs > button,.movers > button){border-radius:0;bo
    Floats once the map has gone by (never over it), hides while any sheet / dialog / the stock page / the keyboard is open. No blur, and an
    opaque fill (the draft's α .93–.97 over each page, composited): without blur a translucent fill only ghosts the card text behind its numbers.
    Design standard (design.md §2 – §8, ux/std-dock): type --fs-*, space --space-*, corners nested (cell = --dock-r − the panel's 6px, the
-   --dock-r of each theme = the 🔍 key's corner + 6, so key, cells and panel share one centre), heights --h-*, no light and no gradient
-   (the glass material — sheen, 1px edge reflection, blur — is the floating glass's: tooltip · header · sheets, never the dock, §2 예외).
+   --dock-r of each theme = the 🔍 key's corner + 6, so key, cells and panel share one centre), heights --h-*, no light and no gradient —
+   but in the two glass themes the dock is thick glass to look at (④, AGENTS §3-38 · design.md §2 예외): the card sheen in --dock-bg, the
+   edges in --dock-sh and the ring (--gl-ring-card, "글라스의 재질" block); never blurred (it floats over the page, not over the map).
    Shape values dock.md fixed stay off the scale (qa/dock/audit_css.py names them): the panel 56px and the key-only panel 56 × 56, the
    72px of room under the page (8 + 56 + 8), the top line 14px and the value line 20px (cell 44 = 14 + 4 + 20 + 4 + …), the 등락 분포 bar
    6px and its count line 13px, the 44 × 18 index line, the page dots 4 / 12px, the 🔍 18px icon box, the sheet's 78svh and its grip.
@@ -1402,8 +1457,8 @@ html[data-motion="fancy"] .dock.on.dk-first .dk-c + .dk-c{animation-delay:40ms}
   --sheet-skirt:#18191e;
 }
 html[data-theme="paper"]{--sheet-skirt:#fbf1e6}
-html[data-theme="glass-dark"]{--sheet-skirt:#16181e}
-html[data-theme="glass-light"]{--sheet-skirt:#f3f5f8}
+html[data-theme="glass-dark"]{--sheet-skirt:#1c1e25}
+html[data-theme="glass-light"]{--sheet-skirt:#f6f7f9}
 /* KH.ui.popIn: one frame at the trigger's shape before it grows (not on a box still leaving) */
 .kpop-at0{transition:none!important;opacity:0!important;clip-path:inset(var(--kp-t,0px) var(--kp-r,0px) var(--kp-b,calc(100% - 12px)) var(--kp-l,0px) round var(--kp-rr,12px))!important}
 /* KH.ui.sheetDrag: the finger owns the sheet (and its scrim) */
@@ -7903,19 +7958,25 @@ html[data-theme="paper"] .sp-head, html[data-theme^="glass"] .sp-head { backgrou
 .sp-rng { grid-column: 1 / -1; }
 .sp-rng dt { display: flex; align-items: baseline; gap: var(--space-4); }
 .sp-rng dt > span { flex: none; }
-.sp-rng dt small { margin-left: auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-xs); color: var(--muted); }
+.sp-rng dt small { margin-left: auto; min-width: 0; overflow: hidden; display: inline-flex; align-items: center; gap: var(--space-5); white-space: nowrap; font-size: var(--fs-xs); color: var(--muted); }   /* keys side by side, the gap is the separator (the " · " is for screen readers only, .sr) */
+.sp-rng dt small > .k-open, .sp-rng dt small > .k-prev { display: inline-flex; align-items: center; gap: var(--space-2); min-width: 0; }
 .sp-rng dd { display: flex; align-items: center; gap: var(--space-4); overflow: visible; margin-top: var(--space-2); }
 .sp-rng .lo, .sp-rng .hi { flex: none; font-size: var(--fs-md); }
 .sp-rng .track { position: relative; flex: 1; min-width: 40px; height: 6px; border-radius: var(--r-mark); background: var(--line2); }
 .sp-rng .track .dot { position: absolute; z-index: 2; top: 50%; width: 12px; height: 12px; transform: translate(-50%, -50%); border-radius: 50%; background: var(--fg); box-shadow: 0 0 0 2px var(--panel); }   /* the ring is a cut-out in the cell's colour */
+.sp-rng .track .dot.up { background: var(--up-text); }
+.sp-rng .track .dot.dn { background: var(--dn-text); }   /* the day's move from 전일 종가 (10:46 "색상이 들어가야지"); flat stays --fg */
+.sp-rng .lo.up, .sp-rng .hi.up, .sp-rng .k-open b.up { color: var(--up-text); }
+.sp-rng .lo.dn, .sp-rng .hi.dn, .sp-rng .k-open b.dn { color: var(--dn-text); }
+.sp-rng .k-open b { font-weight: inherit; }
 .sp-rng .track .fill { position: absolute; top: 0; bottom: 0; border-radius: var(--r-mark); }
 .sp-rng .track .fill.up { background: color-mix(in srgb, var(--up-text) 60%, transparent); }
 .sp-rng .track .fill.dn { background: color-mix(in srgb, var(--dn-text) 60%, transparent); }
 .sp-rng .tk { position: absolute; z-index: 1; }
 .sp-rng .tk.prev { top: -4px; bottom: -4px; width: 2px; margin-left: -1px; border-radius: var(--r-mark); background: var(--fg2); }   /* 전일 종가: a line through the bar */
-.sp-rng .tk.open { top: -9px; width: 0; height: 0; transform: translateX(-50%); border: 4px solid transparent; border-top: 5px solid var(--muted); border-bottom: 0; }   /* 시가: a notch above */
-.sp-rng .k-open::before { content: ""; display: inline-block; margin-right: var(--space-2); vertical-align: 1px; border: 4px solid transparent; border-top: 5px solid var(--muted); border-bottom: 0; }
-.sp-rng .k-prev::before { content: ""; display: inline-block; width: 2px; height: 9px; margin-right: var(--space-2); vertical-align: -1px; border-radius: var(--r-mark); background: var(--fg2); }
+.sp-rng .tk.open { top: -7px; width: 0; height: 0; transform: translateX(-50%); border: 4px solid transparent; border-top: 5px solid var(--muted); border-bottom: 0; }   /* 시가: a notch above */
+.sp-rng .k-open::before { content: ""; flex: none; border: 4px solid transparent; border-top: 5px solid var(--muted); border-bottom: 0; }
+.sp-rng .k-prev::before { content: ""; flex: none; width: 2px; height: 10px; border-radius: var(--r-mark); background: var(--fg2); }
 
 /* ── body ───────────────────────── */
 .sp-body { display: flex; flex-direction: column; gap: var(--space-6); margin-top: var(--space-5); }
@@ -8187,7 +8248,7 @@ html[data-motion="reduced"] .sp-fold-x { transition: none; }
 .sp-m dt { font-size: var(--fs-xs); line-height: var(--lh-ui); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .sp-m dd { margin: var(--space-1) 0 0; font-size: var(--fs-lg); line-height: var(--lh-row); font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .sp-m dd.sub { margin-top: 1px; font-size: var(--fs-xs); font-weight: 500; color: var(--muted); }
-@container (min-width: 470px) { .sp-mgrid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+/* nine figures since 주당배당금 joined (2026-11-16): three columns at every width — three full rows, 배당수익률 · 주당배당금 side by side */
 /* 재무 */
 .sp-fin-lg { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-5); margin-bottom: var(--space-2); font-size: var(--fs-sm); color: var(--fg2); }
 .sp-fin-lg span { display: inline-flex; align-items: center; gap: var(--space-2); }
@@ -9170,9 +9231,10 @@ function renderStats() {
   const p = isNum(s.price) ? +s.price : null;
   const prev = isNum(s.prevClose) && +s.prevClose > 0 ? +s.prevClose : sumRef();
   const open = isNum(s.open) && +s.open > 0 ? +s.open : null;
-  const d1 = rangeBar('1일', s.low, s.high, p, { ref: prev, open });
-  const w52 = rangeBar('52주', s.low52, s.high52, p, {});
-  const legend = [open != null ? h('span', { class: 'k-open', text: `시가 ${int(open)}` }) : null,
+  const d1 = rangeBar('1일', s.low, s.high, p, { ref: prev, open, base: prev });
+  const w52 = rangeBar('52주', s.low52, s.high52, p, { base: prev });
+  // 시가 in the colour of its move from 전일 종가 (사용자 2026-11-16 10:46 "색상이 들어가야지"); 전일 is the base, so neutral
+  const legend = [open != null ? h('span', { class: 'k-open' }, '시가 ', h('b', { class: prev != null ? cls(open - prev) : 'flat', text: int(open) })) : null,
     prev != null ? h('span', { class: 'k-prev', text: `전일 ${int(prev)}` }) : null].filter(Boolean);
   R.stats.replaceChildren(
     statItem('시가총액', isNum(s.marketCap) ? F.eok(+s.marketCap) : '—'),
@@ -9187,10 +9249,10 @@ function renderStats() {
 // A price outside the range (NXT after 15:30 against a KRX-only high/low) pins the dot to the end.
 function rangeItem(label, legend, value, kind) {
   return h('div', { class: 'sp-stat sp-rng ' + kind },
-    h('dt', {}, h('span', { text: label }), legend ? h('small', { class: 'num' }, legend.flatMap((x, i) => (i ? [' · ', x] : [x]))) : null),
+    h('dt', {}, h('span', { text: label }), legend ? h('small', { class: 'num' }, legend.flatMap((x, i) => (i ? [h('span', { class: 'sr', text: ' · ' }), x] : [x]))) : null),
     h('dd', { class: 'num' }, value));
 }
-function rangeBar(name, lo, hi, p, { ref, open }) {
+function rangeBar(name, lo, hi, p, { ref, open, base }) {
   if (!isNum(lo) || !isNum(hi) || +lo <= 0 || +hi < +lo || p == null) return null;
   lo = +lo; hi = +hi;
   const pos = v => (hi > lo ? Math.max(0, Math.min(1, (v - lo) / (hi - lo))) : 0.5);
@@ -9203,8 +9265,11 @@ function rangeBar(name, lo, hi, p, { ref, open }) {
       h('em', { class: 'tk prev', style: `left:${at(ref)}`, title: `전일 종가 ${int(ref)}` }));
   }
   if (open != null) track.append(h('em', { class: 'tk open', style: `left:${at(open)}`, title: `시가 ${int(open)}` }));
-  track.append(h('i', { class: 'dot', style: `left:${at(p)}` }));
-  return [h('span', { class: 'lo', text: int(lo) }), track, h('span', { class: 'hi', text: int(hi) })];
+  // colour (사용자 2026-11-16 10:46): 최저 · 최고 and the current-price dot in the colour of their move from 전일 종가 (base) — the
+  // Korean apps' 저가 파랑 · 고가 빨강 read, in the user's palette; no base → neutral
+  const tone = v => (base != null && base > 0 ? cls(v - base) : 'flat');
+  track.append(h('i', { class: 'dot ' + tone(p), style: `left:${at(p)}` }));
+  return [h('span', { class: 'lo ' + tone(lo), text: int(lo) }), track, h('span', { class: 'hi ' + tone(hi), text: int(hi) })];
 }
 
 // 같은 업종: Naver's 동일업종 list from /summary (peers, AGENTS.md §3-3) once it is there; until then, in the snapshot and
@@ -10810,7 +10875,16 @@ function renderMetrics() {
     metric('ROE', faWait ? wait : roe ? fixed(roe.v, 2, '%') : '—', roe ? `${periodLong(roe.col, 'annual')} 기준` : ''),
     metric('PSR', !s || faWait || fqWait ? (S.sumErr ? '—' : wait) : psr ? fixed(psr.v, 2, '배') : '—', psr ? psr.basis : ''),
     metric('배당수익률', v(s && s.dividendYield, x => fixed(x, 2, '%'))),
+    // 주당배당금 right after 배당수익률 (사용자 2026-11-16 10:47) — /summary dps, else the last annual 결산 (같은 값을 아래 배당 칸도 써요)
+    dpsMetric(s, v),
     metric('외국인 소진율', v(s && s.foreignRate, x => fixed(x, 2, '%')))));
+}
+
+function dpsMetric(s, v) {
+  const fa = ciState('fa') === 'ok' ? ciData('fa') : null, last = fa ? latestActual(fa, '주당배당금') : null;
+  if (s && isNum(s.dps)) return metric('주당배당금', +s.dps > 0 ? int(+s.dps) + '원' : '—', last && +s.dps === last.v ? `${periodLong(last.col, 'annual')} 결산` : '');
+  if (!s) return metric('주당배당금', v(null, () => '—'));
+  return metric('주당배당금', last && last.v > 0 ? int(last.v) + '원' : ciState('fa') === 'loading' ? skel('3.6em', '1em') : '—', last && last.v > 0 ? `${periodLong(last.col, 'annual')} 결산` : '');
 }
 
 /* 재무: grouped bars per period, estimates hatched, zero line with losses below */
@@ -11954,6 +12028,11 @@ html.sb-mid .sb-tip{bottom:auto;top:calc(100% + var(--space-4))}
 dialog.xk-info{width:min(360px,calc(100% - 2 * var(--space-5)))}
 .xk-v{margin:0 0 var(--space-4);font-size:var(--fs-2xl);font-weight:700;line-height:var(--lh-num);letter-spacing:-.01em;font-variant-numeric:tabular-nums}
 .xk-v.up{color:var(--up-text)} .xk-v.dn{color:var(--dn-text)}
+/* 글라스 (④ 리퀴드 글라스, AGENTS §3-38): like the template's tooltip and quick view — the floating glass here writes its secondary words
+   one step stronger (--gl-ink2), and the info box's 등락 number sits on the template's number plate (--gl-plate, 2px either side given
+   back by the margin: nothing moves). Glass themes only (the tokens exist there only). */
+html[data-theme^="glass"] :is(dialog.xd,.xwc,.sb-tip,.xt-toast,section.rp-player){--fg2:var(--gl-ink2);--muted:var(--gl-ink2);--faint:var(--gl-ink2)}
+html[data-theme^="glass"] .xk-v:is(.up,.dn){width:fit-content;background:var(--gl-plate);border-radius:var(--r-badge);padding:0 var(--space-1);margin-left:calc(-1 * var(--space-1));margin-right:calc(-1 * var(--space-1))}
 /* keys in the picker and the info box (controls.md §5-2, design.md §4 --h-key): raised; 완료 is the one primary key; 1px press */
 .xk-link,.xk-open,.xk-reset,.xk-done{position:relative;display:inline-flex;align-items:center;justify-content:center;min-height:var(--h-key);padding:0 var(--space-6);border-radius:var(--r-key);border:0;background:var(--key-bg);box-shadow:var(--key-sh);color:var(--key-fg);font-size:var(--fs-md);font-weight:600;text-decoration:none;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent;transition:transform var(--c-fast) var(--c-out),box-shadow var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out),background-color var(--sp-fade-dur) var(--sp-fade),color var(--sp-fade-dur) var(--sp-fade)}
 .xk-done{background:var(--pri-bg);color:var(--pri-fg);box-shadow:var(--pri-sh)}
@@ -13136,8 +13215,10 @@ function readIxLine() {
   const rows = [];
   const multi = el.querySelectorAll('.ixv .ixr');
   if (multi.length) multi.forEach(r => { const sp = r.querySelectorAll(':scope > span'), pc = sp[sp.length - 1]; rows.push({ name: (r.querySelector('i') || {}).textContent || '', val: (r.querySelector('b') || {}).textContent || '', pct: pc ? pc.textContent : '', color: pc ? rgbOf(pc) : IMG.fg }); });
-  else { const v = el.querySelector('.ixv'); if (v) { const b = v.querySelector('b'), pc = v.querySelector('span'); rows.push({ name: '', val: b ? b.textContent : '', pct: pc ? pc.textContent : '', color: pc ? rgbOf(pc) : IMG.fg }); } }
-  const tt = el.querySelector('.ixt'), tb = tt && tt.querySelector('b'), ts = tt && tt.querySelector('span');
+  // the % is the row's own last span — not v.querySelector('span'), which since KH.ui.swap (ux/std-template) finds the value's .sw-n
+  // inside <b> first and drew the value twice ("675.54 675.54", 사용자 2026-11-16 11:22)
+  else { const v = el.querySelector('.ixv'); if (v) { const b = v.querySelector(':scope > b'), sp = v.querySelectorAll(':scope > span'), pc = sp[sp.length - 1]; rows.push({ name: '', val: b ? b.textContent : '', pct: pc ? pc.textContent : '', color: pc ? rgbOf(pc) : IMG.fg }); } }
+  const tt = el.querySelector('.ixt'), tb = tt && tt.querySelector(':scope > b'), ts = tt && tt.querySelector(':scope > span');   // own children only (a swapped <b> holds a .sw-n span)
   return g.length ? { w: vb.width, h: vb.height, g, y0: bl ? +bl.getAttribute('y1') : null, rows, time: tb ? tb.textContent : '', sub: ts ? ts.textContent : '' } : null;
 }
 // style B, the PC way, in a row of its own under the header: value · % on the left, the line (dashed 전일 종가, a tick at the latest point) in the middle, time / 15:30 or 종가 on the right
@@ -13279,7 +13360,8 @@ function drawMap(nodes, wt) {
   const ctx = cnv.getContext('2d');
   // the screen's own header row (title, today's index line behind it, N종목 · ±%), the whole map, the legend row, a small footer
   const chrome = readChrome(wt);
-  const tSize = W < 520 ? 14 : 16, TH = Math.round(tSize * 2.4);
+  // the market name reads as the picture's title (사용자 2026-11-16 11:22 "코스닥 또는 코스피 글자가 더 컸으면"): 20 · 24 (was 14 · 16)
+  const tSize = W < 520 ? 20 : 24, TH = Math.round(tSize * 2.4);
   ctx.font = `500 12px ${fam}`;
   const lg = layoutLegend(ctx, fam, chrome.legend, W, pad);
   const FH = 24, XH = ixRowHeight(chrome.ix), HT = TH + XH;
@@ -15083,6 +15165,11 @@ html[data-theme="glass-light"] #world{--nodata:#e6e9ee}
 .kw-scrim{display:none}
 .kw-sheet{position:fixed;z-index:92;right:var(--edge);bottom:var(--edge);width:360px;max-height:min(680px,calc(100vh - 2 * var(--edge)));overflow:auto;background:var(--sheet-bg,#18191e);border:1px solid var(--sheet-bd,var(--line2));border-radius:max(2px,calc(var(--sheet-r,16px) - 4px));box-shadow:var(--sheet-fl-sh,var(--sheet-sh));-webkit-backdrop-filter:var(--blur,none);backdrop-filter:var(--blur,none);font-size:var(--fs-md);color:var(--fg);overscroll-behavior:contain;
   opacity:1;translate:none;transition:var(--fl-open)}
+/* 글라스 (④ 리퀴드 글라스, AGENTS §3-38): like the template's tooltip and quick view — the 등락 numbers written on the sheet's glass sit
+   on the template's number plate (--gl-plate, 2px either side given back by the margin: nothing moves), the secondary words one step
+   stronger (--gl-ink2). Glass themes only (the tokens exist there only). */
+html[data-theme^="glass"] .kw-sheet{--fg2:var(--gl-ink2);--muted:var(--gl-ink2);--faint:var(--gl-ink2)}
+html[data-theme^="glass"] .kw-sheet :is(.up,.dn):not(svg){background:var(--gl-plate);border-radius:var(--r-badge);padding:0 var(--space-1);margin:0 calc(-1 * var(--space-1));-webkit-box-decoration-break:clone;box-decoration-break:clone}
 /* open · close (design.md §5 · §7, the template's floating-window tokens — the 일정 sheet's exit technique): desktop = a floating sheet
    that rises 12px with `open` as it fades in (`fade`) and leaves with `close`; phones = up from the bottom edge, the scrim fading, the
    grip / head drag it down (KH.ui.sheetDrag). It stays drawn while it leaves (display allow-discrete); 줄이기 = at once. */
@@ -21159,6 +21246,12 @@ html.sm-noanchor{overflow-anchor:none}
   .sm-band > .sm-b2{min-height:calc(var(--fs-lg) * var(--lh-row))}
 }
 
+/* 상 · 하한가 견본 (사용자 2026-11-16 11:16): 지도 범례와 같은 그림 — 타일 바탕(--limsw) 위 · 아래 막대(--lim-bar) */
+.msum .sm-lim{display:inline-flex;align-items:center;gap:var(--space-2);white-space:nowrap}
+.msum .sm-lsw{display:inline-block;flex:none;width:12px;height:10px;border-radius:var(--r-mark);background:var(--limsw)}
+.msum .sm-lsw.u{box-shadow:inset 0 3px 0 var(--lim-bar)}
+.msum .sm-lsw.d{box-shadow:inset 0 -3px 0 var(--lim-bar)}
+
 </style>
 <script>
 /* 오늘의 시장 요약 카드 (docs/standards/market-summary.md, AGENTS §3-34 — 사용자 2026-11-15 18:00 "b자리에 원래 a모양이었다가 상세 누르면 b모양").
@@ -21519,7 +21612,11 @@ const chev = () => { const s = svgOf('<path d="m7 10 5 5 5-5"/>', 16); s.classLi
 
 /* 접힌 띠: 오른 · 내린 막대 + 수 + 상한가 / 업종 오른 · 내린 (휴대폰 · PC 같은 두 줄, 넘치면 이름만 줄여요).
    바뀐 칸만 바꾸게 칸마다 열쇠(data-k) — 숫자(data-num)는 방향 있게(커지면 아래에서 · 작아지면 위에서, P9), 이름은 위로 */
-const kn = (k, v, text) => h('span', { 'data-k': k, 'data-v': String(v), 'data-num': '', text });
+const kn = (k, v, text, c) => h('span', { class: c || null, 'data-k': k, 'data-v': String(v), 'data-num': '', text });
+// 상 · 하한가 (사용자 2026-11-16 11:16 "상하한가 종목 수도 색깔과 필요하면 아이콘"): the map legend's swatch (a tile with the bar on top · at
+// the bottom, --limsw · --lim-bar) + the count in 상승 · 하락 colour (0 stays neutral) — the same read as the 등락 분포 card and the dock
+const lsw = d => h('i', { class: 'sm-lsw ' + d, 'aria-hidden': 'true' });
+const limCls = (n, dir) => (n ? (dir > 0 ? 'up' : 'dn') : 'flat');
 function band(M) {
   const B = M.br, phone = phoneMQ.matches;
   const l1 = h('div', { class: 'sm-b1', title: B ? `코스피 · 코스닥 ${scopeText(B)}` : null },
@@ -21527,7 +21624,9 @@ function band(M) {
     B ? h('b', { class: 'sm-n up' }, '상승 ', kn('up', B.up, NF0.format(B.up))) : later(LIVE ? '전 종목 등락을 받는 중…' : '—'),
     B ? sep() : null, B ? h('b', { class: 'sm-n dn' }, '하락 ', kn('dn', B.dn, NF0.format(B.dn))) : null,
     B && (B.lu || B.ld) ? sep() : null,
-    B && (B.lu || B.ld) ? h('span', { class: 'sm-k' }, '상한가 ', kn('lu', B.lu, String(B.lu)), B.ld && !phone ? ' · 하한가 ' : null, B.ld && !phone ? kn('ld', B.ld, String(B.ld)) : null) : null);
+    // the folded band is tight (PC side card ~ 300px): colour only, the swatches live in 자세히
+    B && (B.lu || B.ld) ? h('span', { class: 'sm-k' }, '상한가 ', kn('lu', B.lu, String(B.lu), 'sm-n ' + limCls(B.lu, 1)),
+      B.ld && !phone ? ' · 하한가 ' : null, B.ld && !phone ? kn('ld', B.ld, String(B.ld), 'sm-n ' + limCls(B.ld, -1)) : null) : null);
   const ind = [['iu', M.indUp[0]], ['id', M.indDn[0]]].filter(x => x[1]);
   const l2 = h('div', { class: 'sm-b2' }, ind.length ? kk('업종') : null, ...join(ind.map(([k, x]) => h('span', { class: 'sm-nv', title: x.name },
     h('span', { class: 'sm-nm', 'data-k': k + 'n', text: x.name }), h('b', { class: 'sm-n ' + cls(x.r), 'data-k': k + 'v', 'data-v': String(x.r), 'data-num': '', text: pct(x.r) })))));
@@ -21571,7 +21670,8 @@ function facts(M) {
   for (const x of M.idx) f('idx', x.name, null, h('span', { class: 'sm-v', text: NF2.format(x.v) }), num(x.r));
   if (M.br) f('br', '오른 · 내린 종목', '두 시장', bar(M.br), h('b', { class: 'sm-n up', text: NF0.format(M.br.up) }), sep(), h('b', { class: 'sm-n dn', text: NF0.format(M.br.dn) }));
   else f('br', '오른 · 내린 종목', null, later(LIVE ? '받는 중…' : '—'));
-  if (M.br && (M.br.lu || M.br.ld)) f('lim', '상한가 · 하한가', null, h('b', { class: 'sm-n', text: `${M.br.lu} · ${M.br.ld}` }));
+  if (M.br && (M.br.lu || M.br.ld)) f('lim', '상한가 · 하한가', null, h('span', { class: 'sm-lim' }, lsw('u'), h('b', { class: 'sm-n ' + limCls(M.br.lu, 1), text: NF0.format(M.br.lu) })), sep(),
+    h('span', { class: 'sm-lim' }, lsw('d'), h('b', { class: 'sm-n ' + limCls(M.br.ld, -1), text: NF0.format(M.br.ld) })));
   if (M.indUp[0]) f('indUp', '많이 오른 업종', null, nv(M.indUp[0].name, M.indUp[0].r));
   if (M.indDn[0]) f('indDn', '많이 내린 업종', null, nv(M.indDn[0].name, M.indDn[0].r));
   if (M.flows) f('flows', '외국인 · 기관', M.flows.today ? null : dayShort(M.flows.date), h('b', { class: 'sm-n ' + cls(M.flows.all[0], 0), text: amt(M.flows.all[0]) }), sep(), h('b', { class: 'sm-n ' + cls(M.flows.all[1], 0), text: amt(M.flows.all[1]) }));
@@ -21607,7 +21707,7 @@ function secSector(M) {
 function secMovers(M) {
   const L = M.limNames || [];
   return sec('눈에 띄는 종목',
-    L.length ? line(kk(`상한가 ${M.br.lu}`), ...L.slice(0, 2).map(x => (x.onMap ? stk(x.c, x.n, x.r) : h('span', { class: 'sm-off', text: x.n }))),
+    L.length ? line(h('span', { class: 'sm-k sm-lim' }, lsw('u'), '상한가 ', h('b', { class: 'sm-n up', text: NF0.format(M.br.lu) })), ...L.slice(0, 2).map(x => (x.onMap ? stk(x.c, x.n, x.r) : h('span', { class: 'sm-off', text: x.n }))),
       L.length > 2 ? kk(`외 ${L.length - 2}`) : null) : null,
     M.bigUp || M.bigDn ? line(kk('시총 100위 안'), M.bigUp ? stk(M.bigUp.c, M.bigUp.n, M.bigUp.r) : null, M.bigDn ? stk(M.bigDn.c, M.bigDn.n, M.bigDn.r) : null) : null,
     M.tvTop.length ? line(kk('거래대금 상위'), ...M.tvTop.map(x => stk(x.c, x.n, 0, eok(x.tv)))) : null,

@@ -34,7 +34,7 @@ from playwright.sync_api import sync_playwright
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 PORT = int(os.environ.get('SUMMARY_QA_PORT', 8981))
-assert 8980 <= PORT <= 8988 or 9010 <= PORT <= 9068   # 9010–9069: the ux/std-* runs (PORT + 1 serves the base build)
+assert 8980 <= PORT <= 8988 or 9010 <= PORT <= 9068 or 9080 <= PORT <= 9088   # 9010–9069: the ux/std-* runs (PORT + 1 serves the base build)
 URL = f'http://127.0.0.1:{PORT}/'
 BASE_REV = os.environ.get('SUMMARY_QA_BASE', 'main')
 OUT = ROOT / 'qa/shots/market_summary'
@@ -362,7 +362,7 @@ def main():
             ctx, pg, errs = open_page(br, 1440, 900)
             pg.click('#summary .sm-tog'); pg.wait_for_timeout(900)
             t = pg.evaluate("document.getElementById('summary').innerText")
-            lim = re.search(r'상한가 · 하한가\s*([\d,]+) · ([\d,]+)', t)
+            lim = re.search(r'상한가 · 하한가\s*([\d,]+)\s*·\s*([\d,]+)', t)   # 11:16: swatch + coloured count each, the dot between
             check('상한가 · 하한가 = 9 · 0 (close.json lim — the old ±29.5 % guess counted 1 하한가)', bool(lim) and lim.groups() == ('9', '0'), lim and lim.groups())
             check('외국인 · 기관 = the 11/13 file with its date', re.search(r'외국인 · 기관\s*11/13', t) is not None and '11/13 · 코스피 · 코스닥 합' in t)
             check('"거래대금 상위", never "급증"', '거래대금 상위' in t and '급증' not in t)

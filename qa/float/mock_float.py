@@ -40,5 +40,5 @@ class H(W.H):
 
 if __name__ == '__main__':
     port = int(sys.argv[1]) if len(sys.argv) > 1 else 8970
-    assert 8970 <= port <= 8979 or 9010 <= port <= 9079, 'ports 8970–8979 (or 9010–9079: the design-standard agents · ux/motion-rigid)'
+    assert 8970 <= port <= 8979 or 9010 <= port <= 9089, 'ports 8970–8979 (or 9010–9089: the design-standard agents)'
     ThreadingHTTPServer(('127.0.0.1', port), H).serve_forever()

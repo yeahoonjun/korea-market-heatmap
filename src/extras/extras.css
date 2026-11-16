@@ -409,6 +409,11 @@ html.sb-mid .sb-tip{bottom:auto;top:calc(100% + var(--space-4))}
 dialog.xk-info{width:min(360px,calc(100% - 2 * var(--space-5)))}
 .xk-v{margin:0 0 var(--space-4);font-size:var(--fs-2xl);font-weight:700;line-height:var(--lh-num);letter-spacing:-.01em;font-variant-numeric:tabular-nums}
 .xk-v.up{color:var(--up-text)} .xk-v.dn{color:var(--dn-text)}
+/* 글라스 (④ 리퀴드 글라스, AGENTS §3-38): like the template's tooltip and quick view — the floating glass here writes its secondary words
+   one step stronger (--gl-ink2), and the info box's 등락 number sits on the template's number plate (--gl-plate, 2px either side given
+   back by the margin: nothing moves). Glass themes only (the tokens exist there only). */
+html[data-theme^="glass"] :is(dialog.xd,.xwc,.sb-tip,.xt-toast,section.rp-player){--fg2:var(--gl-ink2);--muted:var(--gl-ink2);--faint:var(--gl-ink2)}
+html[data-theme^="glass"] .xk-v:is(.up,.dn){width:fit-content;background:var(--gl-plate);border-radius:var(--r-badge);padding:0 var(--space-1);margin-left:calc(-1 * var(--space-1));margin-right:calc(-1 * var(--space-1))}
 /* keys in the picker and the info box (controls.md §5-2, design.md §4 --h-key): raised; 완료 is the one primary key; 1px press */
 .xk-link,.xk-open,.xk-reset,.xk-done{position:relative;display:inline-flex;align-items:center;justify-content:center;min-height:var(--h-key);padding:0 var(--space-6);border-radius:var(--r-key);border:0;background:var(--key-bg);box-shadow:var(--key-sh);color:var(--key-fg);font-size:var(--fs-md);font-weight:600;text-decoration:none;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent;transition:transform var(--c-fast) var(--c-out),box-shadow var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out),background-color var(--sp-fade-dur) var(--sp-fade),color var(--sp-fade-dur) var(--sp-fade)}
 .xk-done{background:var(--pri-bg);color:var(--pri-fg);box-shadow:var(--pri-sh)}

@@ -1073,8 +1073,10 @@ function readIxLine() {
   const rows = [];
   const multi = el.querySelectorAll('.ixv .ixr');
   if (multi.length) multi.forEach(r => { const sp = r.querySelectorAll(':scope > span'), pc = sp[sp.length - 1]; rows.push({ name: (r.querySelector('i') || {}).textContent || '', val: (r.querySelector('b') || {}).textContent || '', pct: pc ? pc.textContent : '', color: pc ? rgbOf(pc) : IMG.fg }); });
-  else { const v = el.querySelector('.ixv'); if (v) { const b = v.querySelector('b'), pc = v.querySelector('span'); rows.push({ name: '', val: b ? b.textContent : '', pct: pc ? pc.textContent : '', color: pc ? rgbOf(pc) : IMG.fg }); } }
-  const tt = el.querySelector('.ixt'), tb = tt && tt.querySelector('b'), ts = tt && tt.querySelector('span');
+  // the % is the row's own last span — not v.querySelector('span'), which since KH.ui.swap (ux/std-template) finds the value's .sw-n
+  // inside <b> first and drew the value twice ("675.54 675.54", 사용자 2026-11-16 11:22)
+  else { const v = el.querySelector('.ixv'); if (v) { const b = v.querySelector(':scope > b'), sp = v.querySelectorAll(':scope > span'), pc = sp[sp.length - 1]; rows.push({ name: '', val: b ? b.textContent : '', pct: pc ? pc.textContent : '', color: pc ? rgbOf(pc) : IMG.fg }); } }
+  const tt = el.querySelector('.ixt'), tb = tt && tt.querySelector(':scope > b'), ts = tt && tt.querySelector(':scope > span');   // own children only (a swapped <b> holds a .sw-n span)
   return g.length ? { w: vb.width, h: vb.height, g, y0: bl ? +bl.getAttribute('y1') : null, rows, time: tb ? tb.textContent : '', sub: ts ? ts.textContent : '' } : null;
 }
 // style B, the PC way, in a row of its own under the header: value · % on the left, the line (dashed 전일 종가, a tick at the latest point) in the middle, time / 15:30 or 종가 on the right
@@ -1216,7 +1218,8 @@ function drawMap(nodes, wt) {
   const ctx = cnv.getContext('2d');
   // the screen's own header row (title, today's index line behind it, N종목 · ±%), the whole map, the legend row, a small footer
   const chrome = readChrome(wt);
-  const tSize = W < 520 ? 14 : 16, TH = Math.round(tSize * 2.4);
+  // the market name reads as the picture's title (사용자 2026-11-16 11:22 "코스닥 또는 코스피 글자가 더 컸으면"): 20 · 24 (was 14 · 16)
+  const tSize = W < 520 ? 20 : 24, TH = Math.round(tSize * 2.4);
   ctx.font = `500 12px ${fam}`;
   const lg = layoutLegend(ctx, fam, chrome.legend, W, pad);
   const FH = 24, XH = ixRowHeight(chrome.ix), HT = TH + XH;

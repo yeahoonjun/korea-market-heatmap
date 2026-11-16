@@ -147,3 +147,9 @@ html.sm-noanchor{overflow-anchor:none}
   .msum .sm-hl{font-size:var(--fs-lg)}
   .sm-band > .sm-b2{min-height:calc(var(--fs-lg) * var(--lh-row))}
 }
+
+/* 상 · 하한가 견본 (사용자 2026-11-16 11:16): 지도 범례와 같은 그림 — 타일 바탕(--limsw) 위 · 아래 막대(--lim-bar) */
+.msum .sm-lim{display:inline-flex;align-items:center;gap:var(--space-2);white-space:nowrap}
+.msum .sm-lsw{display:inline-block;flex:none;width:12px;height:10px;border-radius:var(--r-mark);background:var(--limsw)}
+.msum .sm-lsw.u{box-shadow:inset 0 3px 0 var(--lim-bar)}
+.msum .sm-lsw.d{box-shadow:inset 0 -3px 0 var(--lim-bar)}

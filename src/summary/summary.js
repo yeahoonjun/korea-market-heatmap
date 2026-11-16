@@ -356,7 +356,11 @@ const chev = () => { const s = svgOf('<path d="m7 10 5 5 5-5"/>', 16); s.classLi
 
 /* 접힌 띠: 오른 · 내린 막대 + 수 + 상한가 / 업종 오른 · 내린 (휴대폰 · PC 같은 두 줄, 넘치면 이름만 줄여요).
    바뀐 칸만 바꾸게 칸마다 열쇠(data-k) — 숫자(data-num)는 방향 있게(커지면 아래에서 · 작아지면 위에서, P9), 이름은 위로 */
-const kn = (k, v, text) => h('span', { 'data-k': k, 'data-v': String(v), 'data-num': '', text });
+const kn = (k, v, text, c) => h('span', { class: c || null, 'data-k': k, 'data-v': String(v), 'data-num': '', text });
+// 상 · 하한가 (사용자 2026-11-16 11:16 "상하한가 종목 수도 색깔과 필요하면 아이콘"): the map legend's swatch (a tile with the bar on top · at
+// the bottom, --limsw · --lim-bar) + the count in 상승 · 하락 colour (0 stays neutral) — the same read as the 등락 분포 card and the dock
+const lsw = d => h('i', { class: 'sm-lsw ' + d, 'aria-hidden': 'true' });
+const limCls = (n, dir) => (n ? (dir > 0 ? 'up' : 'dn') : 'flat');
 function band(M) {
   const B = M.br, phone = phoneMQ.matches;
   const l1 = h('div', { class: 'sm-b1', title: B ? `코스피 · 코스닥 ${scopeText(B)}` : null },
@@ -364,7 +368,9 @@ function band(M) {
     B ? h('b', { class: 'sm-n up' }, '상승 ', kn('up', B.up, NF0.format(B.up))) : later(LIVE ? '전 종목 등락을 받는 중…' : '—'),
     B ? sep() : null, B ? h('b', { class: 'sm-n dn' }, '하락 ', kn('dn', B.dn, NF0.format(B.dn))) : null,
     B && (B.lu || B.ld) ? sep() : null,
-    B && (B.lu || B.ld) ? h('span', { class: 'sm-k' }, '상한가 ', kn('lu', B.lu, String(B.lu)), B.ld && !phone ? ' · 하한가 ' : null, B.ld && !phone ? kn('ld', B.ld, String(B.ld)) : null) : null);
+    // the folded band is tight (PC side card ~ 300px): colour only, the swatches live in 자세히
+    B && (B.lu || B.ld) ? h('span', { class: 'sm-k' }, '상한가 ', kn('lu', B.lu, String(B.lu), 'sm-n ' + limCls(B.lu, 1)),
+      B.ld && !phone ? ' · 하한가 ' : null, B.ld && !phone ? kn('ld', B.ld, String(B.ld), 'sm-n ' + limCls(B.ld, -1)) : null) : null);
   const ind = [['iu', M.indUp[0]], ['id', M.indDn[0]]].filter(x => x[1]);
   const l2 = h('div', { class: 'sm-b2' }, ind.length ? kk('업종') : null, ...join(ind.map(([k, x]) => h('span', { class: 'sm-nv', title: x.name },
     h('span', { class: 'sm-nm', 'data-k': k + 'n', text: x.name }), h('b', { class: 'sm-n ' + cls(x.r), 'data-k': k + 'v', 'data-v': String(x.r), 'data-num': '', text: pct(x.r) })))));
@@ -408,7 +414,8 @@ function facts(M) {
   for (const x of M.idx) f('idx', x.name, null, h('span', { class: 'sm-v', text: NF2.format(x.v) }), num(x.r));
   if (M.br) f('br', '오른 · 내린 종목', '두 시장', bar(M.br), h('b', { class: 'sm-n up', text: NF0.format(M.br.up) }), sep(), h('b', { class: 'sm-n dn', text: NF0.format(M.br.dn) }));
   else f('br', '오른 · 내린 종목', null, later(LIVE ? '받는 중…' : '—'));
-  if (M.br && (M.br.lu || M.br.ld)) f('lim', '상한가 · 하한가', null, h('b', { class: 'sm-n', text: `${M.br.lu} · ${M.br.ld}` }));
+  if (M.br && (M.br.lu || M.br.ld)) f('lim', '상한가 · 하한가', null, h('span', { class: 'sm-lim' }, lsw('u'), h('b', { class: 'sm-n ' + limCls(M.br.lu, 1), text: NF0.format(M.br.lu) })), sep(),
+    h('span', { class: 'sm-lim' }, lsw('d'), h('b', { class: 'sm-n ' + limCls(M.br.ld, -1), text: NF0.format(M.br.ld) })));
   if (M.indUp[0]) f('indUp', '많이 오른 업종', null, nv(M.indUp[0].name, M.indUp[0].r));
   if (M.indDn[0]) f('indDn', '많이 내린 업종', null, nv(M.indDn[0].name, M.indDn[0].r));
   if (M.flows) f('flows', '외국인 · 기관', M.flows.today ? null : dayShort(M.flows.date), h('b', { class: 'sm-n ' + cls(M.flows.all[0], 0), text: amt(M.flows.all[0]) }), sep(), h('b', { class: 'sm-n ' + cls(M.flows.all[1], 0), text: amt(M.flows.all[1]) }));
@@ -444,7 +451,7 @@ function secSector(M) {
 function secMovers(M) {
   const L = M.limNames || [];
   return sec('눈에 띄는 종목',
-    L.length ? line(kk(`상한가 ${M.br.lu}`), ...L.slice(0, 2).map(x => (x.onMap ? stk(x.c, x.n, x.r) : h('span', { class: 'sm-off', text: x.n }))),
+    L.length ? line(h('span', { class: 'sm-k sm-lim' }, lsw('u'), '상한가 ', h('b', { class: 'sm-n up', text: NF0.format(M.br.lu) })), ...L.slice(0, 2).map(x => (x.onMap ? stk(x.c, x.n, x.r) : h('span', { class: 'sm-off', text: x.n }))),
       L.length > 2 ? kk(`외 ${L.length - 2}`) : null) : null,
     M.bigUp || M.bigDn ? line(kk('시총 100위 안'), M.bigUp ? stk(M.bigUp.c, M.bigUp.n, M.bigUp.r) : null, M.bigDn ? stk(M.bigDn.c, M.bigDn.n, M.bigDn.r) : null) : null,
     M.tvTop.length ? line(kk('거래대금 상위'), ...M.tvTop.map(x => stk(x.c, x.n, 0, eok(x.tv)))) : null,
