@@ -246,8 +246,8 @@ html[data-theme="glass-light"] #world{--nodata:#e6e9ee}
 .kw-gl.chip.end{transform:translate(-100%,-50%)}
 .kw-gl.chip .t{font-weight:600}
 .kw-gl.chip .p{font-weight:650}
-.kw-gl:hover{z-index:2}
 @media (hover:hover) and (pointer:fine){
+  .kw-gl:hover{z-index:2}
   .kw-gl.chip:hover{border-color:var(--kw-gchip-bdh)}
   .kw-gl.in:hover{background:var(--kw-in-hov)}
 }
