@@ -437,7 +437,7 @@ function numParts(el) {
 // a part written at once: whatever rolls or swaps in it stops where it should end
 function numWrite(el, t) {
   for (const a of el.getAnimations({ subtree: true })) { try { a.cancel(); } catch (e) { /* gone */ } }
-  el.classList.remove('sw-go'); delete el.dataset.was;
+  el.classList.remove('sw-go', 'sw-b'); delete el.dataset.was;
   if (el.textContent !== t || el.childElementCount) el.textContent = t;
 }
 const rollDigits = (a, b) => { let n = 0; for (let i = 0; i < b.length; i++) if (a[i] !== b[i] && /\d/.test(a[i] || '') && /\d/.test(b[i])) n++; return n; };
