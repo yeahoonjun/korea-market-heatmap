@@ -7,7 +7,8 @@ Serves the live build (web/) with qa/float/mock_float.py on DOCK_QA_PORT (defaul
 with fuser -k. Checks:
 page    four themes × 360 × 780 · 390 × 844 (touch, DPR 2): hidden on the first screen; up once the map has gone by (never over it — the
         map's bottom ≥ 8px above the dock); panel 56 · gap 8 · sides 8; cells 44, 🔍 44 × 44; the swipe area ≥ 12px from both screen
-        edges; no light: the dock has no backdrop blur, no gradient, no zero-offset blurred shadow (glow), in the glass themes too; the
+        edges; no light: the dock has no backdrop blur, no gradient, no zero-offset blurred shadow (glow) — in the glass themes no blur
+        either, but ④ 리퀴드 글라스 (AGENTS §3-38) gives the dock itself the card sheen and the 1.25px ring (no part inside it); the
         glass themes keep their material on the search sheet (--sheet-bg's sheen = a gradient, the 1px inset edge, the blur) while
         기본 · 신문 have none; type on the seven steps (≥ 11px); no amber but the ★ (켜짐) and the focus ring; the 🔍 and × icons
         1.75px (non-scaling); every number in the cells whole (the mover's name gives way first, dock.md §4); the sheet's rows
@@ -38,7 +39,7 @@ from playwright.sync_api import sync_playwright
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 PORT = int(os.environ.get('DOCK_QA_PORT', 9060))
-assert 9060 <= PORT <= 9069, 'ports 9060–9069'
+assert 9060 <= PORT <= 9069 or 9080 <= PORT <= 9089, 'ports 9060–9069 (or 9080–9089: ux/glass-liquid)'
 URL = f'http://127.0.0.1:{PORT}/'
 NOPROXY = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 THEMES = ['base', 'paper', 'glass-dark', 'glass-light']
@@ -160,12 +161,16 @@ def page(br):
             pg.click('.dk-k'); pg.wait_for_timeout(600)
             pg.keyboard.type('삼성'); pg.wait_for_timeout(400)
             lk = pg.evaluate(LOOK)
-            check(f'page [{tag}]: no light on the dock — no blur, no gradient, no glow (dock and every part)', lk['blur'] == 'none' and lk['bg'] == 'none' and not lk['glow'] and not lk['grads'] and not lk['glows'], lk)
             ss = lk['ss']
             if th.startswith('glass'):
+                # ④ 리퀴드 글라스 (AGENTS §3-38): the dock is thick glass to look at — the card sheen in its fill and the 1.25px ring, no blur
+                ring = pg.evaluate("() => { const a = getComputedStyle(document.querySelector('.dock'), '::after'); return a.backgroundImage.slice(0, 30) + ' ' + a.paddingTop; }")
+                check(f'page [{tag}]: the glass dock (④) — no blur, no glow, the card sheen on the dock only (radial), the 1.25px ring',
+                      lk['blur'] == 'none' and lk['bg'].startswith('radial-gradient') and not lk['glow'] and lk['grads'] == ['dock'] and not lk['glows'] and ring.startswith('linear-gradient(135deg') and ring.endswith('1.25px'), (lk, ring))
                 check(f'page [{tag}]: glass material kept on the search sheet — the sheen (gradient), the 1px inset edge, the blur',
-                      ss and 'blur(' in ss['blur'] and 'linear-gradient' in ss['bg'] and 'inset' in ss['sh'], ss)
+                      ss and 'blur(' in ss['blur'] and 'gradient' in ss['bg'] and 'inset' in ss['sh'], ss)
             else:
+                check(f'page [{tag}]: no light on the dock — no blur, no gradient, no glow (dock and every part)', lk['blur'] == 'none' and lk['bg'] == 'none' and not lk['glow'] and not lk['grads'] and not lk['glows'], lk)
                 check(f'page [{tag}]: the search sheet is flat (no gradient, no blur)', ss and ss['bg'] == 'none' and ss['blur'] == 'none', ss)
             check(f'page [{tag}]: type on the seven steps, nothing under 11px {lk["fs"]}', set(lk['fs']) <= SCALE and min(lk['fs']) >= 11, lk['fs'])
             check(f'page [{tag}]: no amber in the dock but the ★ (켜짐)', not lk['amb'], lk['amb'])
