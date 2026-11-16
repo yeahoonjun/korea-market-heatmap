@@ -32,7 +32,7 @@ from playwright.sync_api import sync_playwright
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 PORT = int(os.environ.get('FLOAT_QA_PORT', 8970))
-assert 8970 <= PORT <= 8979 or 9010 <= PORT <= 9048, 'ports 8970–8979 (or 9010–9048: the design-standard agents)'
+assert 8970 <= PORT <= 8979 or 9010 <= PORT <= 9069, 'ports 8970–8979 (or 9010–9069: the design-standard agents)'
 URL = f'http://127.0.0.1:{PORT}/'
 SHOTS = pathlib.Path(os.environ.get('FLOAT_QA_SHOTS', ROOT / 'qa/shots/float_motion'))
 NOPROXY = urllib.request.build_opener(urllib.request.ProxyHandler({}))
@@ -642,7 +642,7 @@ def overflow_net(br):
     check('no element drawn past the screen sides (360 · 390 · 768 · 1280 × 코스피 · 테마 · 해외 · 지표 · 일정 · 관심)', not found, found)
     # 일정 with real rows (qa/calendar/mock_cal.py: a released value on a past day, long titles): every day of the week strip
     cport = PORT + 1
-    assert 8970 <= cport <= 8979 or 9010 <= cport <= 9049
+    assert 8970 <= cport <= 8979 or 9010 <= cport <= 9069
     subprocess.run(['fuser', '-k', f'{cport}/tcp'], capture_output=True)
     srv = subprocess.Popen([sys.executable, str(ROOT / 'qa/calendar/mock_cal.py'), str(cport)], env=dict(os.environ, MOCK_WEB=os.environ.get('FLOAT_WEB', str(ROOT / 'web'))),
                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
