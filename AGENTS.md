@@ -78,8 +78,9 @@ python3 tmp/shot.py /home/claude/heatmap/dist/index.html    # 1440×900 / 390×8
 - 정규장 이후(15:30~20:00) 오늘 봉과 현재가에는 NXT가 섞여요. 일별 시세(`daily`)의 오늘 행도 KRX+NXT 통합 가격이라 KRX 종가(15:30)와 다를 수 있어요. 화면에 표시해요.
 
 **히트맵 → 종목 페이지 연결** (`src/template.html`이 제공)
-- `window.KH`: `MODE('snapshot'|'live')`, `LIVE_URL`(= `https://panse.pages.dev/`), `MKT_NAME`, `stock(code)`, `stocks()`, `asOf()`, `colorOf(r)`, `palette()` → `{key,label,stops,up,down,flat,upText,dnText}`, `fmt.{pct,int,chg,eok,cls}`, `h(tag, props, ...kids)`.
-- 이벤트(document): `kh:data`(시세 갱신 뒤), `kh:palette`(색상·범위 변경 뒤).
+- `window.KH`: `MODE('snapshot'|'live')`, `LIVE_URL`(= `https://panse.pages.dev/`), `MKT_NAME`, `stock(code)`, `stocks()`, `asOf()`, `colorOf(r, scope?)`, `palette(scope?)` → `{key,label,stops,up,down,flat,upText,dnText,scope,same}`, `fmt.{pct,int,chg,eok,cls}`, `h(tag, props, ...kids)`. **`scope`(§3-39)**: 없음 = **국내** 팔레트(예전 그대로), `'world'` = 해외 · 지표 팔레트, `'tab'` = 지금 탭 쪽. `colorOf`의 범위는 예전처럼 지금 쓰는 오늘 범위. `KH.palScope()` → `'kr'|'world'`(지금 탭 쪽), `KH.palettePick()` → `{kr, world}`(`world`는 키 또는 `'same'`).
+- 이벤트(document): `kh:data`(시세 갱신 뒤), `kh:palette`(색상·범위 변경 뒤 — 색상 줄에서 바꾸면 `detail.scope` = `'kr'` · `'world'` · `'both'`(해외가 국내와 같게라 둘 다 바뀜)).
+- 해외 · 지표 모듈(`src/world`)은 `KH.colorOf(r, 'world')` · `KH.palette('world')`를 불러요. 해외 · 지표 값을 그리는 상자에는 클래스 **`.pal-w`** — 그 안에서 `--up-text` · `--dn-text` · `--cd-up` · `--cd-dn`이 해외 · 지표 값(`--up-text-w` …)이 돼요.
 - 종목 페이지가 제공: `window.KHStock = { open(code, {opener}), close(), isOpen() }`. 주소 해시는 `#s-005930` 형식(아티팩트는 `#이름`만 허용).
 - 스냅샷 모드에서는 헤더를 `KH.stock(code)`로 그리고, 차트·호가·투자자·일별 자리에 "실시간 버전에서 볼 수 있어요" + `LIVE_URL#s-코드` 링크를 둬요.
 
@@ -138,7 +139,7 @@ python3 tmp/shot.py /home/claude/heatmap/dist/index.html    # 1440×900 / 390×8
 
 - 다크 톤. 지도 바닥은 `#000`, 화면 `--page #131418`, 패널 `--panel #191a1f`, 선 `--line #2b2d34`.
 - 인터페이스 강조색은 앰버 `#ffb547`(선택·포커스·활성 탭). 빨강·초록은 **데이터(등락)에만** 써요.
-- 숫자 텍스트 색: 상승 `--up-text`, 하락 `--dn-text`(팔레트가 바꿔요). 다른 텍스트는 `--fg`, `--fg2`, `--muted`.
+- 숫자 텍스트 색: 상승 `--up-text`, 하락 `--dn-text`(팔레트가 바꿔요). 다른 텍스트는 `--fg`, `--fg2`, `--muted`. 해외 · 지표 값은 `.pal-w` 상자 안에서 같은 이름이 해외 · 지표 팔레트예요(§3-39).
 - 해요체, 짧게. 레이블에 ALL CAPS나 영문 장식 쓰지 않아요.
 - 데이터 출처(네이버 증권)와 시점을 화면에 적어요. 정규장(15:30) 이후 시세에는 NXT·시간외 거래가 섞인다는 걸 표시해요.
 - 투자 조언처럼 보이는 문구를 쓰지 않아요.
@@ -280,6 +281,7 @@ python3 tmp/shot.py /home/claude/heatmap/dist/index.html    # 1440×900 / 390×8
 - `KH.addSetting({key,label,hint?,default, options?:[{v,label}], onChange})`, `KH.getSetting(key)`, 이벤트 `kh:setting`. 값은 `khm.set.<key>`.
 - `KH.refresh()` → `Promise<boolean>`(진행 중 요청을 기다렸다가 새로 받음) + 이벤트 `kh:refresh`(스냅샷에서는 내보내지 않아요).
 - `KH.marketStatus()` → `{KOSPI,KOSDAQ}`, `KH.view()` → `'map'|'3d'|'table'`, `KH.range()` → 지금 색 범위(숫자, 자동이면 그 단계 — §3-27 `KH.rangeInfo()`·`KH.feedRange()`).
+- **등락 색상 쪽**(§3-39): `KH.colorOf(r, scope?)` · `KH.palette(scope?)`(`scope` 없음 = 국내, `'world'` · `{scope:'world'}` = 해외 · 지표, `'tab'` = 지금 탭 쪽; `palette()`에 `scope` · `same`) · `KH.palScope()` · `KH.palettePick()` · CSS `.pal-w`(`--up-text-w` · `--dn-text-w` · `--cd-up-w` · `--cd-dn-w`) · `KHWorld.openDetail(key, {opener, today, scope:'kr'})`(티커 · 아래 막대가 연 코스피 · 코스닥 시트는 국내 색).
 - `kh:data`의 `detail.changed`(바뀐 종목 코드), `KH.layout()` 타일의 `dim`.
 - `KH.setReplay(frame, {tween:ms, easing?:'out'})` — `fancy`에서만 보간, 아니면 즉시.
 - `KH3D.show()`, `KH3D.hide()` → `Promise`(fancy면 접히는 0.36초 뒤 끝남), `KH3D.isOn()`, `KH3D.stats()`. `#map3d`는 템플릿이 `#map` 위에 놓고(`#map`은 visibility:hidden으로 계속 배치), 실패 시 `kh:3d-unavailable {reason,message}`.
@@ -516,6 +518,13 @@ python3 tmp/shot.py /home/claude/heatmap/dist/index.html    # 1440×900 / 390×8
 - **시세 반짝임** — 정함: 사용자 "2+4로 진행 추가로 아쉬운 점은 너 추천대로 해줘"(01:43). ② 약한 밝기 펄스(어두운 톤 오르면 밝게 · 내리면 어둡게, 밝은 톤은 양쪽 옅게 어둡게) + ④ 등락률 숫자 뒤 알약에 방향색. 예전 테두리 · 안쪽 빛으로 되돌리려면 `src/template.html`의 `--fl-wu` 묶음만 바꾸면 돼요. 장중에 보시고 더 고칠 게 있으면 말씀 주세요.
 - **모든 컨트롤 움직임 통일**: "토글 버튼마다 애니메이션이 다른데(찌그러지며 스위치 원이 옮겨짐) 나중에 모든 버튼 모션 전부 통일하자 어떤걸로 할지 이야기해보고" — 디자인 기준 이관이 끝나면 스위치 · 세그먼트 · 칩 · 키의 움직임 후보를 시안으로 나란히 보여 드리고 고른 하나로 모든 화면을 맞춰요(그 전엔 손대지 않아요). 함께 맞출 것(ux/std-stock): 종목 페이지 지분 공시 스위치는 템플릿 `.swbtn` 그대로라 손잡이가 늘어나는 `KH.spring.knob`이 없어요. → **정함 (사용자 2026-11-16 10:02 "컨트롤 움직임은 추천대로 2번")**: 시안 `drafts/motion-unify.html`의 **② 단단한 이동** — 세그먼트 · 밑줄 탭 표시 · 스위치 손잡이가 모양 그대로 `lead` 스프링 하나로 옮겨 가요(늘어남 없음 → design.md §10 결정 8 "스위치 손잡이 늘어남"을 거둬요, 끌어서 놓을 때 `settle`이 손가락 속도를 이어받는 건 그대로), 칩은 체크 자리를 늘 비워 폭 그대로 · 체크 `fade`, ☆ `fade`, 키 누름 1px. 구현 `ux/motion-rigid`.
 - **글라스 테마 개선**: "사실 원래 글라스 테마도 글라스 느낌이 없어서 다음에 개선하자"(01:38) — 지금(재질 되살린 상태)도 유리 느낌이 약해요. 다음에 시안(유리 두께 · 굴절 · 가장자리 빛 · 바탕 비침 정도 등 몇 안)을 보여 드리고 고른 것으로 두 글라스 테마를 다시 만들어요. 시점은 디자인 기준 이관 뒤, 컨트롤 움직임 통일과 같은 때. → **정함 (사용자 2026-11-16 10:02 "글라스 테마는 추천대로 4번")**: 시안 `drafts/glass.html`의 **④ 리퀴드 글라스 느낌(절제)** — 흐림 14px · 채도 1.8(밝게는 뒤 밝기 1.06), 위 왼쪽 · 아래 오른쪽 1.25px 반사 고리 + 위 · 아래 1px 빛 + 안쪽 두께 빛(design.md §6-6 금지의 글라스 예외로 §2에 더해요), 떠 있는 판 흐림 24 → 14px, 머리글 탭 숫자 뒤 숫자 판(어둡게 검정 55 % · 밝게 흰색 72 %) · 고른 탭 거의 불투명, 툴팁 · 빠른 보기의 등락 숫자도 숫자 판 위에. SVG 굴절 없음. 흐림 끔 · 투명도 줄이기 · 흐림 미지원은 같은 모양에 채움만 불투명. 구현 `ux/glass-liquid`. → **구현 메모 (`ux/glass-liquid`, 2026-11-16)**: 값은 템플릿 글라스 두 묶음의 `--gl-*` 토큰 한 곳(광택 `--gl-sheen` · 고리 `--gl-ring` · `--gl-rw` 1.25px · 숫자 판 `--gl-plate` · 고른 탭 `--gl-sel` · 보조 글자 `--gl-ink2`) + `--tip-bg` · `--bar-bg` · `--card-bg` · `--dock-bg` · `*-sh`. 고리는 자기 상자를 스크롤하지 않는 판(머리글 · 툴팁 · 팝오버 · 🔍 검색 시트 · 카드 · 아래 막대)에만 — 빠른 보기 · 휴대폰 표시 설정 시트 · 검색 제안은 내용과 함께 스크롤돼서 그림자 가장자리만. 숫자 판을 넣은 곳: 머리글 시장 탭 트레이(휴대폰도 글라스에서만 트레이를 다시 깔아요) · 고른 탭 · 상태 배지 · KRX/NXT 고르기, 툴팁 · 빠른 보기 · 검색 제안 · 🔍 검색 시트 · 지수 선 말풍선의 등락 숫자, 해외 상세 시트(`src/world`) · 티커 정보 상자(`src/extras`). 떠 있는 유리의 보조 글자는 한 단 진하게(`--gl-ink2`). 모서리 `--tip-r` 22(팝오버 24) · `--card-r` 24. 대비(가장 나쁜 타일, 실제 페이지 값): 탭 숫자 5.31 · 4.98, 고른 탭 4.90 · 6.33, 툴팁 숫자 5.66 · 5.02(전엔 2.27~4.48). 점검 `qa/std_template/test_std_template.py glass` · `qa/std_template/test_glass_contrast.py`(대비 + 기본 · 신문 픽셀이 main과 같음), 전후 스크린샷 `qa/std_template/glass_shots.py`. 자세한 건 design.md §2 예외 · §11 진행.
+
+## 3-39. 등락 색상 국내 · 해외 따로 (사용자 2026-11-16 11:20 "등락률 색상을 해외 시장이랑 국내 시장이랑 따로 정하도록?", `feat/palette-world`)
+- **두 쪽**(색 범위 `khm.range` · `khm.rangeW`와 같은 선, §3-27): **국내** = 코스피 · 코스닥 · 전체 · 테마 · ★관심 · 일정 탭과 종목 페이지 · 티커의 코스피 · 코스닥 · 종목 · 관심 항목 · 아래 막대 · 요약 카드의 나머지, **해외 · 지표** = 해외 · 지표 탭(목록 · 세계지도 · 상세 시트 · 증시 자금)과 어디에 있든 해외 · 지표 값 — 티커의 해외 지수 · 선물 · 원자재 · 환율 · 가상자산 항목, 티커에서 연 해외 상세, 세계 시각 상자, 요약 카드의 간밤 미국(미국 장중 · 미국 선물) · 원/달러 · "환율 · 금리 · 해외" 묶음. 해외 탭의 "한국 (비교용)" 코스피 · 코스닥은 그 탭 쪽(해외), 티커 · 아래 막대에서 연 코스피 · 코스닥 시트는 국내. 범례 · 색 막대 · 등락 분포 같은 보조 표시는 그 화면 쪽, 이미지 저장도 그 탭 쪽(extras `drawMap`의 `KH.palette(wt ? 'world' : 'kr')`).
+- **저장**: 국내 `khm.palette2`(그대로), 해외 · 지표 `khm.paletteW` = 팔레트 키 또는 **`'same'`(국내와 같게 — 기본, 값이 없거나 모르는 값이어도)**. 옛 프로필(`palette2`만)은 예전과 똑같이 보여요.
+- **고르는 곳**: 지금 색상 줄(도구 줄 · 표시 설정 시트 · 태블릿 팝오버)이 지금 탭 쪽을 바꿔요. 해외 · 지표 탭에서는 이름 **"해외 · 지표 색"** + 맨 앞 **"국내와 같게"**(국내 팔레트 견본 + 글자, 도구 줄에서도 글자가 보이고 시트에선 한 줄 전체), 국내 탭에서는 도구 줄(1280 이상, 자리가 빠듯해 폭 그대로) **"색상"** · 시트 · 팝오버(1280 아래) **"국내 색상"**. 묶음 이름(`aria-label`) "국내 탭 색상 (해외 · 지표 탭은 따로 골라요)" · "해외 · 지표 탭 색상", 키 title "국내 색: HTS 색" · "해외 · 지표 색: 초록 상승". 쪽이 바뀌면 키 줄을 다시 만들고 표시는 미끄러지지 않고 제자리에.
+- **구현**: 템플릿 `palSide()` · `palKey(side)` · `PAL(side)`(없음 = 국내), 저울 `dayScale`(국내) · `dayScaleW`(해외, 같은 범위 — 국내와 같으면 같은 저울), 루트 변수 `--up-text` … (국내) + `--up-text-w` …, `<div id="world" class="pal-w">`. 모듈: world.js `colorOf(it, scope)` 기본 `'world'` · 상세 시트 `.pal-w`(국내 시트는 뺌), extras 티커 항목 · 정보 상자 `.pal-w`(코스피 · 코스닥 · `s:` · `g:` 빼고) · 세계 시각 상자 `.pal-w`, summary 사실 줄 `fx` · `us`와 "환율 · 금리 · 해외" 묶음 `.pal-w`. 종목 페이지 · 지도 · 아래 막대 · map3d는 그대로(인자 없음 = 국내).
+- 점검 `python3 qa/tabs/test_palette_world.py`(포트 `PALW_QA_PORT` 9050, 9010~9089) — 국내 krb · 해외 global로 따로 골라 지도 타일 · 범례 · 국내 글자 · 해외 목록 칩 · 글자 · 범례 · 세계지도 · 티커 항목별 · 티커 시트 · 요약 카드 · 종목 페이지(해외 탭에서 열어도) · 이미지 저장, 국내와 같게 따라가기, 새로고침 기억, 옛 프로필 · 틀린 값, 4테마 × 360 · 1280 넘침 0 · 도구 줄 한 줄 · 시트 맞음, 콘솔 오류 0. 해외 점검(`qa/world/test_world.py` · `test_fx_rates.py` · `test_funds.py`)은 칩 색을 `KH.colorOf(r, 'world')`와 비교해요.
 
 ## 3-24. 앞으로 쓸 에이전트 (사용자 2026-11-13 10:51 "3번 맞아" — 지금은 시작하지 않음)
 사용자가 준 세 에이전트 정의(원본은 저장소 밖 오케스트레이터 작업 폴더에 보관, 공개 저장소에 올리지 않음)를 §3-23 작업을 "시작하자"고 할 때부터 씀. 모두 opus · xhigh.
