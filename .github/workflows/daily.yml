@@ -122,3 +122,36 @@ jobs:
           done
           echo "::error::could not push after 3 attempts"
           exit 1
+
+      # 「왕이 될 상」 (AGENTS §3-41): dated byte-for-byte copies on the `archive` branch. The folder date is each file's own
+      # date (close.json `date`, the rest `asOf`), never the run date — this step runs after every committing run (16:40 ·
+      # 21:30 · 07:50) and a later run of the same date replaces that day's copy. Each attempt starts over from the remote
+      # tip (the script is idempotent), so a rejected push just retries. The branch is created as an orphan the first time.
+      - name: Archive dated copies
+        if: steps.day.outputs.trading == 'true' || steps.morning.outputs.commit == 'true'
+        run: |
+          for attempt in 1 2 3; do
+            rm -rf .archive && git worktree prune
+            if git fetch --depth=1 origin archive 2>/dev/null; then
+              git worktree add -f -B archive .archive FETCH_HEAD
+            else
+              git worktree add --detach .archive
+              git -C .archive checkout -q --orphan archive
+              git -C .archive rm -rfq --ignore-unmatch .
+            fi
+            python3 scripts/archive_daily.py --out .archive
+            git -C .archive add -A
+            if git -C .archive diff --cached --quiet; then
+              echo "Archive unchanged."
+              exit 0
+            fi
+            git -C .archive commit -qm "archive: $(TZ=Asia/Seoul date '+%F %H:%M')"
+            if git -C .archive push origin archive; then
+              echo "archive pushed on attempt $attempt"
+              exit 0
+            fi
+            echo "::warning::archive push rejected (attempt $attempt), retrying"
+            sleep $((attempt * 5))
+          done
+          echo "::error::could not push the archive after 3 attempts"
+          exit 1

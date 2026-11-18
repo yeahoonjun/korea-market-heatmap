@@ -45,6 +45,7 @@ import { calendarRoute } from './calendar.js';   // 증시 캘린더 /api/calend
 import { koreaeximRoute } from './koreaexim.js';   // 수출입은행 고시 /api/koreaexim?kind=fx|rate + 확인용 /probe (AGENTS §3-27 끝 · §3-2)
 import { kisRawRoute } from './kis.js';   // 한국투자 Open API — 장중 수급 잠정 (AGENTS §3-40); /api/kis/raw = dev 초대만
 import { stockDatagoRoute } from './stock_datago.js';   // 종목 페이지 대차 · 기업 · 배당 /api/stock/{code}/lending|corp|dividend (AGENTS §3 · §3-32)
+import { consensusTick, consensusRoute } from './consensus.js';   // 「왕이 될 상」 컨센서스 스냅숏 — 비공개, 초대 토큰만 (AGENTS §3-41)
 export { MarketHub };                // the Durable Object class (wrangler.toml [exports.MarketHub]) must be exported by the main module
 // the hub polls the same rows as /api/quotes (quotesCore is a hoisted function declaration below)
 configureLive((env, ms) => quotesCore(env, null, false, ms));
@@ -134,6 +135,7 @@ export default {
       if (path === '/api/calendar') return await calendarRoute(request, env, ctx, url);   // 증시 캘린더 (calendar.js)
       if (path === '/api/koreaexim' || path === '/api/koreaexim/probe') return await koreaeximRoute(request, env, ctx, url);   // 수출입은행 고시 · 확인용 (koreaexim.js)
       if (path === '/api/kis/raw') return await kisRawRoute(request, env, url);   // 확인용 — dev 초대 토큰만 (kis.js)
+      if (path === '/api/archive/consensus' || path.startsWith('/api/archive/consensus/')) return await consensusRoute(request, env, url);   // 초대 토큰만 (consensus.js)
       if (ASSETS[path]) return await getAsset(request, env, ctx, path);
       m = path.match(THEME_WHY_RE);                                   // 테마 편입 이유 (§3-37 ①): one small file per theme
       if (m) return await getAsset(request, env, ctx, path, { file: `theme_why/${+m[1]}.json`, type: JSON_T, ttl: 600, cors: true });
@@ -192,8 +194,10 @@ export default {
   },
   async scheduled(event, env, ctx) {
     const run = runRecorder(event, env || {});   // never rejects: errors → console.error + KV replay:status
-    if (ctx && typeof ctx.waitUntil === 'function') ctx.waitUntil(run);
+    const cons = consensusTick(env || {});       // §3-41: weekdays 16:10–16:59 KST, once a day; never rejects, no KV outside that hour
+    if (ctx && typeof ctx.waitUntil === 'function') { ctx.waitUntil(run); ctx.waitUntil(cons); }
     await run;
+    await cons;
   },
 };
 

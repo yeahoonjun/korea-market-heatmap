@@ -176,7 +176,11 @@ section('2. skips');
   const w = await isolate(), env = newEnv();
   for (const [at, why] of [['2026-11-13T08:59', 'before 09:00'], ['2026-11-13T16:31', 'after 16:30'], ['2026-11-14T10:00', 'Saturday'], ['2026-11-15T10:00', 'Sunday']]) {
     await fire(w, env, at);
-    check(`outside hours (${why}): no KV op, no fetch`, env.REPLAY.log.length === 0 && Object.keys(calls).length === 0, { log: env.REPLAY.log, calls });
+    // the recorder touches nothing; the consensus snapshot (§3-41, weekdays 16:10–16:59) may touch its own cons:* keys only
+    const rec = env.REPLAY.log.filter(x => !/:cons:/.test(x));
+    check(`outside hours (${why}): no KV op, no fetch`, rec.length === 0 && Object.keys(calls).length === 0, { log: env.REPLAY.log, calls });
+    if (why === 'after 16:30') check('16:31: only the consensus tick touched KV (cons:* keys)', env.REPLAY.log.length > 0 && env.REPLAY.log.every(x => /:cons:/.test(x)), env.REPLAY.log);
+    env.REPLAY.log.length = 0;
   }
   check('outside hours leave no status', !env.REPLAY.m.has('replay:status'));
 
