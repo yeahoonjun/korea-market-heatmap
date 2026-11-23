@@ -1854,6 +1854,7 @@ const ASSETS = {
   '/data/names.json': { file: 'names.json', type: JSON_T, ttl: 600, cors: true },
   '/data/close.json': { file: 'close.json', type: JSON_T, ttl: 600, cors: true },
   '/data/alerts.json': { file: 'alerts.json', type: JSON_T, ttl: 600, cors: true },   // 시장 경보 (§3-37 ⓐ, daily job 07:50 · 16:40)
+  '/data/marks.json': { file: 'marks.json', type: JSON_T, ttl: 600, cors: true },     // 거래 급증 · 신고가 기준 (§3-2, daily job 16:40)
   '/manifest.webmanifest': { file: 'manifest.webmanifest', type: 'application/manifest+json', ttl: 3600 },
   '/sw.js': { file: 'sw.js', type: 'text/javascript; charset=utf-8', ttl: 3600, extra: { 'service-worker-allowed': '/' } },
   '/icon.svg': { file: 'icon.svg', type: 'image/svg+xml', ttl: 3600 },

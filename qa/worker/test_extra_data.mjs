@@ -1,6 +1,7 @@
 // QA: 추가 기능 데이터 (AGENTS §3-37 ⓐ ①) through the real router (worker/src/index.js) — fake fetch / edge cache, no network.
 //   ⓐ /data/alerts.json (시장 경보, made by the daily job) and the quotes row key `hx:1` (거래정지 only)
 //   ① /data/theme_why/<id>.json (테마 편입 이유, one file per theme)
+//   ② /data/marks.json (거래 급증 · 신고가 기준 — roadmap §3-23c ②, made by the daily job with periods)
 //   node qa/worker/test_extra_data.mjs          → exit 1 on any failure
 // Each scenario imports a fresh copy of the module (?i=N) so module memory (universe cache) starts empty.
 import assert from 'node:assert/strict';
@@ -33,6 +34,7 @@ const files = new Map([
   ['universe.json', UNIVERSE],
   ['alerts.json', JSON.stringify({ asOf: '2026-11-16', at: '07:51', n: 2701, c: { '079550': { a: 'caution' }, '181710': { a: 'warning' }, '001570': { adm: 1, stop: 1 } } })],
   ['theme_why/576.json', JSON.stringify({ asOf: '2026-11-13', r: { '393210': '퓨리오사AI 투자 이력 부각.' } })],
+  ['marks.json', JSON.stringify({ asOf: '2026-11-20', unit: '억원', tvn: 20, from: '2025-11-24', c: { '005930': [37795.3, 374500, 96200, '2026-06-19', '2025-11-24'] } })],
 ]);
 const fetched = [];
 // per-code status for the polling rows: [tradableStatus, tradableStatusCode, tradeStopType.name] (undefined = key absent)
@@ -107,6 +109,22 @@ await t('missing upstream file → 404 {error}, not cached', async () => {
     assert.ok((await r.json()).error);
     assert.ok(![...cacheStore.keys()].some(k => k.includes('alerts')), 'a 404 must not be cached');
   } finally { files.set('alerts.json', keep); }
+});
+
+console.log('② /data/marks.json — static from ASSET_BASE like alerts.json');
+await t('200, JSON, 10-minute cache, CORS, body as committed; missing → 404 not cached', async () => {
+  const r = await call('/data/marks.json');
+  assert.equal(r.status, 200);
+  assert.match(r.headers.get('content-type'), /^application\/json/);
+  assert.equal(r.headers.get('cache-control'), 'public, max-age=600');
+  assert.equal(r.headers.get('access-control-allow-origin'), ORIGIN);
+  assert.deepEqual((await r.json()).c['005930'], [37795.3, 374500, 96200, '2026-06-19', '2025-11-24']);
+  const keep = files.get('marks.json'); files.delete('marks.json'); cacheStore.clear();
+  try {
+    const m = await call('/data/marks.json');
+    assert.equal(m.status, 404);
+    assert.ok(![...cacheStore.keys()].some(k => k.includes('marks')), 'a 404 must not be cached');
+  } finally { files.set('marks.json', keep); }
 });
 
 console.log('① /data/theme_why/<id>.json — one file per theme');

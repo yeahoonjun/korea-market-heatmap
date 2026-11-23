@@ -332,3 +332,21 @@ day or an unparseable row ends it. All 2,592 common stocks on 11/13: 외국인 �
 ≥ 7 days 117 / 40; a whole 20-day run (shown as "20일 이상") 45 stocks. Long 기관 runs are common in SPACs and small caps with tiny daily amounts
 (e.g. 11 days, 0.0억) — the amount column lets the page filter them.
 
+
+## 10. 거래 급증 · 52-week high / low from the periods chart call (2026-11-23, AGENTS §3-2 `web/marks.json`)
+The `chart/domestic/item/{code}/day` response the periods step already fetches (§6) carries per bar `localDate, openPrice, highPrice, lowPrice,
+closePrice, accumulatedTradingVolume, foreignRetentionRate` — **no trading-value field** (also checked: `?periodType=dayCandle`, extra query flags,
+the `front-api/external/chart` table — volume only). So `marks.json` needs **0 extra calls** (the same 2,703 calls as before; the whole periods + marks step took 96 s for 2,702 stocks).
+- **What the bars are** (measured 11/23 10:30 KST): KRX, not NXT-integrated — 005930's 11/20 bar volume 17,713,847 = snapshot KRX volume 17,706,899
+  + 6,948 (after-hours), and today's partial bar low 174,000 = KRX polling `lv` while the integrated `/price` row says 172,200. The bar close can be the
+  시간외 단일가 last (11/20 bar 180,900 vs official close 183,100), which is the §6 caveat. Bars are **split / rights adjusted** (196170 hi 424,737,
+  207940 1,971,704 — not valid ticks). A halted day is a bar with open / high / low 0 and volume 0 (000300, 001570).
+- **52-week figures**: max high / min low of the bars from (next weekday after the data day) − 52 weeks through the data day = Naver polling
+  `polling.finance.naver.com/api/realtime?query=SERVICE_ITEM:{code}` `adjustedHighPriceOf52Weeks` / `adjustedLowPriceOf52Weeks` (null when there was no
+  adjustment → `highPriceOf52Weeks` / `lowPriceOf52Weeks`) on that next day, exactly: 005930 374,500 / 96,200 · 000660 2,987,000 / 501,000 ·
+  196170 424,737 / 152,500 · 247540 255,907 / 75,200. `integration` `totalInfos.highPriceOf52Weeks` / `lowPriceOf52Weeks` is unadjusted and
+  KRX+NXT (005930 380,000 / 95,700, 000660 3,002,000, 196170 555,000, 247540 260,000 / 75,100) — not comparable with KRX `hi` / `lo`.
+  (The 52-weeks-vs-one-year boundary can't be told apart from one Monday: 2025-11-23 was a Sunday.)
+- **Trading value estimate** (11/20, 705 stocks with ≥ 10억 in the snapshot): (H+L+C)/3 × volume vs the real KRX 거래대금 — median error −0.4 %,
+  |error| median 0.9 % · p90 3.4 %; close × volume 2.1 % · 5.3 %. Outliers are after-hours block deals inside the bar volume (319400 +6,500,000
+  shares → +1,473 %, 061970 +2,500,000 → +377 %).

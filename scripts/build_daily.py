@@ -1,19 +1,29 @@
 #!/usr/bin/env python3
 """Daily data job for the heatmap (AGENTS.md §3-2, §3-37).  Plain Python 3 stdlib only.
 
-    python3 scripts/build_daily.py                    # themes (+ theme_why/) + periods + flows (+ streaks) + alerts
-    python3 scripts/build_daily.py --only flows       # one part (themes|periods|flows|alerts); repeatable
+    python3 scripts/build_daily.py                    # themes (+ theme_why/) + periods (+ marks) + flows (+ streaks) + alerts
+    python3 scripts/build_daily.py --only flows       # one part (themes|periods|flows|alerts); repeatable — periods also writes marks
     python3 scripts/build_daily.py --only alerts      # the 07:50 KST morning run (market alerts only)
     python3 scripts/build_daily.py --limit 50 --out /tmp/x   # test: first 50 stocks / themes only, into another dir
     python3 scripts/build_daily.py --check-trading-day   # exit 0 if KRX traded today, 10 if not (holiday)
     python3 scripts/build_daily.py --check-trading-day --wait-session-end   # ...and sleep until the real session end
 
 Reads  data/snapshot.json (the universe).
-Writes web/themes.json, web/theme_why/<id>.json, web/periods.json, web/flows.json, web/alerts.json.
+Writes web/themes.json, web/theme_why/<id>.json, web/periods.json, web/marks.json, web/flows.json, web/alerts.json.
 
 Sources (data/ENDPOINTS_EXTRA.md §1, §6, §7, §9):
   themes   m.stock.naver.com/api/stocks/theme[/{no}]  (+ themeItemInfoMap → theme_why/, no extra calls)
   periods  api.stock.naver.com/chart/domestic/item/{code}/day   (one call per stock)
+  marks    the same day-chart responses as periods (no extra calls): high / low / volume of each candle →
+           tv20 (20-session average 거래대금, 억원 — estimated as (H+L+C)/3 × volume: the chart has no trading-value
+           field) and the 52-week high / low with their dates, for the page's 거래 급증 · 신고가 · 신저가 marks.
+           The window ENDS AT asOf (the data day D) and starts at (the weekday after D) − 52 weeks, so when the page
+           uses the file on the next session it compares today's live values with "everything before today":
+             거래 급증  today's tv ≥ k × tv20            (k is the page's choice)
+             신고가     today's KRX high > hi52            신저가  today's KRX low < lo52
+           and that is Naver's own 52-week window (polling SERVICE_ITEM highPriceOf52Weeks, KRX candles) on that day.
+           On the evening of D itself (the 16:40 file, asOf == today) the window already contains today:
+           use hiDate == asOf / loDate == asOf for 신고가 / 신저가 then (tv20 includes today's own value).
   flows    m.stock.naver.com/api/stock/{code}/trend?pageSize=20 (one call per stock; streaks from the same rows)
   alerts   stock.naver.com/api/stockSecurity/items/v2/domestic/{code}/profile (one call per stock, honest UA, polite)
            + stock.naver.com/api/domestic/market/stock/default?orderType=marketAlertType (3 calls, cross-check only)
@@ -137,10 +147,23 @@ def iso(s):
     return f"{s[:4]}-{s[4:6]}-{s[6:]}"
 
 
+def day_candles(code, start, end):
+    """[(YYYY-MM-DD, close, high, low, volume)] oldest first — one chart call. A bar without any trade (halted day,
+    or an illiquid day) comes with open/high/low 0 and volume 0; high/low are then 0 here too (callers skip them)."""
+    rows = get_json(f"{CHART}/{code}/day?startDateTime={start}000000&endDateTime={end}235959")
+    out = []
+    for b in rows:
+        c = b.get("closePrice")
+        if c is None:
+            continue
+        out.append((iso(b["localDate"]), c, num(b.get("highPrice")) or 0, num(b.get("lowPrice")) or 0,
+                    num(b.get("accumulatedTradingVolume")) or 0))
+    return out
+
+
 def day_bars(code, start, end):
     """[(YYYY-MM-DD, close)] oldest first."""
-    rows = get_json(f"{CHART}/{code}/day?startDateTime={start}000000&endDateTime={end}235959")
-    return [(iso(b["localDate"]), b["closePrice"]) for b in rows if b.get("closePrice") is not None]
+    return [(d, c) for d, c, *_ in day_candles(code, start, end)]
 
 
 # ------------------------------------------------------------------------------ trading day
@@ -360,13 +383,18 @@ def build_periods(snap):
     log(f"periods: ref {REF} last bar {last}; base " + ", ".join(f"{k}={base[k]}(-{off[k]} sessions)" for k in order))
     start = ymd(dt.date.fromisoformat(base["y1"]) - dt.timedelta(days=14))   # slack for halted base days
     end = ymd(last_d)
+    w_from = (next_weekday(last_d) - dt.timedelta(days=52 * 7)).isoformat()    # marks: 52-week window start (§3-2)
+    if start > w_from.replace("-", ""):
+        raise RuntimeError(f"chart range starts {start}, after the 52-week window start {w_from}")
 
     def one(code):
         try:
-            bars = day_bars(code, start, end)
+            cand = day_candles(code, start, end)
         except RuntimeError as e:
             log("  ", e)
-            return code, None
+            return code, None, None, False
+        bars = [(d, c) for d, c, *_ in cand]
+        mk = mark_row(cand, w_from, dates)            # same response, no extra call
         out = []
         for k in order:
             v = None
@@ -378,15 +406,133 @@ def build_periods(snap):
             if v is not None and bars[0][0] > base[k]:
                 v = None
             out.append(None if v is None else (int(v) if float(v).is_integer() else v))
-        return code, out
+        return code, out, mk, True
 
     pcodes = [s["c"] for s in snap["stocks"]]
-    res = dict(pmap(one, pcodes[:LIMIT[0]] if LIMIT[0] else pcodes))
+    got = pmap(one, pcodes[:LIMIT[0]] if LIMIT[0] else pcodes)
+    res = {code: out for code, out, _, _ in got}
     c = {k: v for k, v in res.items() if v is not None}
     nulls = [sum(v[i] is None for v in c.values()) for i in range(5)]
     log(f"periods: {len(c)}/{len(res)} stocks, nulls per period {dict(zip(order, nulls))}, "
         f"{len(res) - len(c)} fetch failures")
-    return {"asOf": last, "base": {k: base[k] for k in order}, "off": {k: off[k] for k in order}, "c": c}
+    periods = {"asOf": last, "base": {k: base[k] for k in order}, "off": {k: off[k] for k in order}, "c": c}
+    return periods, {"asOf": last, "from": w_from, "got": [(code, mk, ok) for code, _, mk, ok in got]}
+
+
+# ------------------------------------------------------------------------------------- marks
+# web/marks.json (AGENTS §3-2 · roadmap §3-23c ② 거래 급증 · 신고가): built from the SAME day-chart responses as periods.
+MARK_TV_N = 20           # tv20 = average 거래대금 over this many market sessions ending at asOf
+MARK_TV_MIN = 5          # fewer sessions of history than this inside that window → tv20 null (just listed)
+MARK_MAX_FAIL = 0.03     # more than 3 % of the chart calls failing → keep the previous marks.json (no partial file)
+
+
+def next_weekday(d):
+    d += dt.timedelta(days=1)
+    while d.weekday() >= 5:
+        d += dt.timedelta(days=1)
+    return d
+
+
+def est_tv(c, h, lo, v):
+    """억원 traded that day, estimated: the chart has no trading-value field, so typical price (H+L+C)/3 × volume
+    (measured against the snapshot's real KRX 거래대금 — see the log line `tv estimate`)."""
+    if v <= 0:
+        return 0.0
+    p = (h + lo + c) / 3 if h > 0 and lo > 0 else c
+    return p * v / 1e8
+
+
+def mark_row(cand, w_from, sessions):
+    """One stock's marks from its day candles (oldest first, ending at asOf)
+    → (row, its last candle date, that day's est_tv — for the log's sanity line) | None.
+      row = [tv20, hi52, lo52, hiDate, loDate] (+ since)
+      tv20     mean of est_tv over the last MARK_TV_N market sessions (`sessions` = the reference stock's bar dates)
+               ending at the stock's last candle; a session without a candle counts 0 (no trade); sessions before the
+               stock's first candle don't count; fewer than MARK_TV_MIN counted sessions → null. 1 decimal.
+      hi52/lo52 highest high / lowest low of the candles dated w_from..asOf that traded (high and low > 0 — a halted
+               day's candle is all zeros); no such candle → null. Date = the most recent day at that price.
+      since    only when the stock's first candle is after w_from (listed inside the window): that date — the
+               high/low then cover since..asOf, not 52 weeks."""
+    if not cand or cand[-1][0] < w_from:
+        return None
+    first, last = cand[0][0], cand[-1][0]
+    hi = lo = None
+    for d, c, h, l, v in cand:
+        if d < w_from or h <= 0 or l <= 0:
+            continue
+        if hi is None or h >= hi[0]:
+            hi = (h, d)
+        if lo is None or l <= lo[0]:
+            lo = (l, d)
+    tv = {d: est_tv(c, h, l, v) for d, c, h, l, v in cand}
+    ses = [d for d in sessions if first <= d <= last][-MARK_TV_N:]
+    tv20 = round(sum(tv.get(d, 0.0) for d in ses) / len(ses), 1) if len(ses) >= MARK_TV_MIN else None
+    p = lambda x: int(x) if float(x).is_integer() else x
+    row = [None if tv20 is None else p(tv20),
+           None if hi is None else p(hi[0]), None if lo is None else p(lo[0]),
+           None if hi is None else hi[1], None if lo is None else lo[1]]
+    if first > w_from:
+        row.append(first)
+    return row, last, tv[last]
+
+
+def build_marks(snap, part):
+    """web/marks.json = {asOf, unit:'억원', tvn, from, c:{code: [tv20, hi52, lo52, hiDate, loDate(, since)]}, stale?}
+    — every snapshot stock (preferreds too) with a candle inside the window. asOf = periods asOf (the data day D);
+    the window is from..asOf, where from = (the weekday after D) − 52 weeks, so on that next session the page's
+    "today's high > hi52" is exactly Naver's own 52-week window (KRX day candles, today included) — see AGENTS §3-2.
+    A stock whose chart call failed keeps its previous row (stale = that row's date); a stock whose last candle is
+    older than asOf is computed up to that candle (stale = that date). More than MARK_MAX_FAIL failing → raise."""
+    asof, w_from = part["asOf"], part["from"]
+    prev = load_prev("marks.json") or {}
+    prev_c, prev_asof, prev_st = prev.get("c", {}), prev.get("asOf"), prev.get("stale", {})
+    c, stale, failed, kept, nowin = {}, {}, [], 0, 0
+    for code, mk, ok in part["got"]:
+        if not ok:
+            failed.append(code)
+            if code in prev_c and prev_asof:
+                c[code] = prev_c[code]
+                d = prev_st.get(code, prev_asof)
+                if d < asof:
+                    stale[code] = d
+                kept += 1
+            continue
+        if mk is None:
+            nowin += 1
+            continue
+        row, last, _ = mk
+        c[code] = row
+        if last < asof:
+            stale[code] = last
+    n = len(part["got"])
+    if len(failed) > MARK_MAX_FAIL * n:
+        raise RuntimeError(f"marks: {len(failed)}/{n} chart calls failed — keeping the previous marks.json")
+    rows = list(c.values())
+    newhi = sum(1 for r in rows if r[3] == asof)
+    newlo = sum(1 for r in rows if r[4] == asof)
+    since = sum(1 for r in rows if len(r) > 5)
+    # sanity: the day's estimate vs the snapshot's real KRX 거래대금 (integer 억원) when the snapshot is that day
+    if snap["asOf"][:10] == asof:
+        real = {s["c"]: s.get("tv") for s in snap["stocks"]}
+        pairs = sorted((mk[2] / real[code] - 1, code) for code, mk, ok in part["got"]
+                       if ok and mk and mk[1] == asof and (real.get(code) or 0) >= 10)   # ≥ 10억: rounding aside
+        if pairs:
+            err = [e for e, _ in pairs]
+            q = lambda a, f: a[min(len(a) - 1, int(f * len(a)))]
+            ab = sorted(abs(e) for e in err)
+            worst = max(pairs, key=lambda t: abs(t[0]))
+            log(f"marks: tv estimate vs snapshot tv on {asof} ({len(err)} stocks ≥ 10억): median {q(err, .5):+.1%}, "
+                f"|error| median {q(ab, .5):.1%} · p90 {q(ab, .9):.1%} · max {worst[0]:+.0%} ({worst[1]}"
+                + (" — big ones are after-hours block deals inside the candle's volume; the snapshot is the regular session)"
+                   if abs(worst[0]) > 0.2 else ")"))
+    log(f"marks: {len(c)}/{n} stocks (no candle in the window {nowin}), from {w_from} to {asof}, "
+        f"tv20 null {sum(1 for r in rows if r[0] is None)}, hi/lo null (no trade in the window) "
+        f"{sum(1 for r in rows if r[1] is None)}, listed inside the window {since}, stale {len(stale)}, "
+        f"failures {len(failed)} ({kept} kept from the previous file); on {asof}: 52-week high {newhi}, low {newlo}")
+    out = {"asOf": asof, "unit": "억원", "tvn": MARK_TV_N, "from": w_from, "c": c}
+    if stale:
+        out["stale"] = dict(sorted(stale.items()))
+    return out
 
 
 # ------------------------------------------------------------------------------------- flows
@@ -650,6 +796,12 @@ def main():
         elif name == "themes":
             obj, why = fn(snap)
             write_theme_why(why, obj["asOf"])
+        elif name == "periods":
+            obj, part = fn(snap)
+            try:                             # marks.json comes from the same chart responses (no extra calls)
+                write_json("marks.json", build_marks(snap, part))
+            except RuntimeError as e:        # too many failures: the old marks.json stays, periods is still written
+                log(f"::warning::{e}")
         else:
             obj = fn(snap)
         write_json(f"{name}.json", obj)
