@@ -38,6 +38,7 @@ html[data-motion="reduced"] .flows{--fl-tx-out:0ms;--fl-tx-in:0ms}
 
 /* 줄: 순위 · 오늘 캔들 · 이름 · 금액 · 작은 등락률 (눈에 띄는 종목 카드 줄과 같은 높이 · 안쪽 여백 · 누름) */
 .flows .fl-list{display:flex;flex-direction:column;gap:1px}
+.flows .fl-li{display:flex;flex-direction:column}   /* role="listitem" 상자 — 안의 버튼이 줄 폭 그대로(음수 여백까지) 늘어나요 */
 .flows .fl-r{display:grid;grid-template-columns:1.5em 10px minmax(0,1fr) auto 4.6em;gap:var(--space-3);align-items:center;padding:var(--space-3);margin:0 calc(-1 * var(--space-3));border-radius:var(--r-row);font-size:var(--fs-md);text-align:left;color:var(--fg);touch-action:manipulation;-webkit-tap-highlight-color:transparent}
 /* 휴대폰: 눈에 띄는 종목 줄처럼 --h-key(40) 높이 */
 @media (max-width:760px){ .flows .fl-r{min-height:var(--h-key)} }

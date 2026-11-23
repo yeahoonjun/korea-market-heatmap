@@ -304,12 +304,13 @@ function rowEl(x, i) {
   try { o = typeof KH.ohlc === 'function' ? KH.ohlc(x.c) : null; } catch (e) { o = null; }
   const icon = typeof KH.candleIcon === 'function' ? KH.candleIcon(o) : h('span', { class: 'cdi none' });
   const label = `${i + 1}위 ${n}, ${WHO_NAME[S.who]} ${S.dir === 'buy' ? '순매수' : '순매도'} ${amt(x.a)}원` + (r == null ? '' : `, 등락률 ${pctText(r)}`) + ' · 종목 페이지';
-  const b = h('button', { type: 'button', class: 'fl-r' + (i >= TOP ? ' fl-x' : ''), role: 'listitem', 'data-c': x.c, 'aria-label': label },
+  // 목록 항목은 감싸는 div(role="listitem") — 버튼에 listitem을 주면 버튼이라는 역할이 사라져요
+  const b = h('button', { type: 'button', class: 'fl-r', 'data-c': x.c, 'aria-label': label },
     h('span', { class: 'fl-rk', 'aria-hidden': 'true', text: String(i + 1) }), icon, h('span', { class: 'nm', text: n }),
     h('b', { class: 'fl-a ' + cls(x.a), text: amt(x.a) }),
     h('small', { class: 'fl-p ' + (r == null ? 'flat' : cls(+r.toFixed(2))), text: r == null ? '—' : pctText(r) }));
   b.addEventListener('click', () => openStock(x.c, b));
-  return b;
+  return h('div', { class: 'fl-li' + (i >= TOP ? ' fl-x' : ''), role: 'listitem' }, b);
 }
 let lastSig = '';
 function drawList(pk, force) {

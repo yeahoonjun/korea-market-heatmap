@@ -227,6 +227,8 @@ def main():
                   {'got': [(r['c'], r['a']) for r in c['rows'][:4]], 'want': [(x[0], amt(x[1])) for x in want[:4]]})
             check('row: rank · today candle · name · amount · small 등락률 (= the quote)', [r['rk'] for r in c['rows']] == [str(i) for i in range(1, 11)] and sum(r['cdi'] for r in c['rows']) >= 8
                   and all(re.fullmatch(r'[+−]?\d+\.\d\d%|0\.00%|—', r['p']) for r in c['rows']), c['rows'][:2])
+            aria = pg.evaluate("(() => { const l = document.querySelector('#flowsCard .fl-list'), it = [...l.children]; return { list: l.getAttribute('role'), items: it.length, li: it.every(x => x.getAttribute('role') === 'listitem' && x.children.length === 1 && x.firstElementChild.tagName === 'BUTTON' && !x.firstElementChild.hasAttribute('role')) }; })()")
+            check('a11y: role="list" → div role="listitem" → a real button (no role taken away)', aria['list'] == 'list' and aria['items'] == 10 and aria['li'], aria)
             check(f'public label "{mdw(F["asOf"])} 확정", scope 코스피, src file', c['lab'].startswith(mdw(F['asOf']) + ' 확정') and c['scope'] == '코스피' and c['src'] == 'file', [c['lab'], c['scope'], c['src']])
             mk = MK['K']
             check('market-wide line: 코스피 외국인 · 기관 · 개인 from /api/flows/market + "13:05 기준"', c['mt'] == [['코스피', amt(mk['foreign']), amt(mk['institutional']), amt(mk['personal'])]] and c['at'] == '13:05 기준' and not c['atStale'], [c['mt'], c['at']])
