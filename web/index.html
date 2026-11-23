@@ -724,12 +724,22 @@ html[data-motion="fancy"] .tile .dm.pop{animation:dmIn var(--c-base) var(--c-out
   --g-lo:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2016%2016%27%3E%3Cpath%20d%3D%27M2%2012.2h12v2.3H2zM8%2010.4%202%201.5h12z%27%2F%3E%3C%2Fsvg%3E");
   --g-v1:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2016%2016%27%3E%3Cpath%20d%3D%27M6.2%201.5h3.6v13H6.2z%27%2F%3E%3C%2Fsvg%3E");
   --g-v2:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2016%2016%27%3E%3Cpath%20d%3D%27M4.1%206h3.6v8.5H4.1zM8.3%201.5h3.6v13H8.3z%27%2F%3E%3C%2Fsvg%3E");
-  --g-v3:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2016%2016%27%3E%3Cpath%20d%3D%27M2%2010h3.6v4.5H2zM6.2%206h3.6v8.5H6.2zM10.4%201.5H14v13h-3.6z%27%2F%3E%3C%2Fsvg%3E")}
+  --g-v3:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2016%2016%27%3E%3Cpath%20d%3D%27M2%2010h3.6v4.5H2zM6.2%206h3.6v8.5H6.2zM10.4%201.5H14v13h-3.6z%27%2F%3E%3C%2Fsvg%3E");
+  --g-al:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2016%2016%27%3E%3Cpath%20fill-rule%3D%27evenodd%27%20d%3D%27M8%20.8%2015.2%208%208%2015.2.8%208zM7%204v5.2h2V4zm0%206.4v2h2v-2z%27%2F%3E%3C%2Fsvg%3E");
+  --bm-ink:#000}
 .tile .bm{position:absolute;left:0;bottom:0;z-index:1;display:flex;align-items:center;gap:var(--gp);height:var(--s);padding:0 var(--p);background:var(--bm-bg);color:var(--bm-fg);border-radius:0 calc(var(--s) * .32) 0 0;box-shadow:0 0 0 1px var(--bm-ring);pointer-events:none}
 .tile.limd .bm{bottom:3px;border-radius:0 calc(var(--s) * .32) calc(var(--s) * .32) 0}
 .tile .bm > i,.bmc > i{display:block;flex:none;width:calc(var(--s) - 2px);height:calc(var(--s) - 2px);background:currentColor;-webkit-mask:var(--m) center/contain no-repeat;mask:var(--m) center/contain no-repeat}
 .tile .bm > b{font-size:var(--fs-b);font-weight:700;line-height:1;letter-spacing:-.04em}
 .tile.has-bm .lab{position:relative;z-index:2}
+/* 연속 순매도 (only while its chip is lit — 사용자 2026-11-23 "배지 표시가 다 안나오는데?"): the 외 · 기 letters in inverted ink with a
+   small down tick — selling, still neutral (no green); 시장 경보 = the --g-al diamond with a cut-out "!" */
+.tile .bm > b.sl{padding:0 1px;border-radius:var(--r-mark);background:var(--bm-fg);color:var(--bm-ink)}
+.tile .bm > b.sl::after,.bmc.sl > b::after{content:"";display:inline-block;margin-left:1px;border-left:.22em solid transparent;border-right:.22em solid transparent;border-top:.32em solid currentColor;vertical-align:.1em}
+.bmc.sl{background:var(--bm-fg);color:var(--bm-ink);box-shadow:inset 0 0 0 1px var(--bm-bg)}
+/* a lit stock whose tile is too small for a plate (short side under 12px, or no room left of the fold): a tiny neutral corner square */
+.tile .bmk{position:absolute;left:0;bottom:0;z-index:1;width:var(--s);height:var(--s);background:var(--bm-fg);box-shadow:inset 0 0 0 1px var(--bm-bg);border-radius:0 var(--r-mark) 0 0;pointer-events:none}
+.tile.limd .bmk{bottom:3px}
 /* the same marks standing alone (legend chips · tooltip · quick view · table): a small chip in the plate's ink, ring inside */
 .bmc{--s:16px;display:inline-flex;align-items:center;justify-content:center;flex:none;height:var(--s);min-width:var(--s);padding:0 var(--space-1);border-radius:var(--r-mark);background:var(--bm-bg);color:var(--bm-fg);box-shadow:inset 0 0 0 1px var(--bm-ring);vertical-align:middle;font-size:var(--fs-xs);font-weight:700;line-height:1;letter-spacing:-.02em;white-space:nowrap}
 .bmc > i{width:calc(var(--s) - 4px);height:calc(var(--s) - 4px)}
@@ -3011,7 +3021,8 @@ function alertsInfo() { return ALERTS ? { asOf: ALERTS.asOf, at: ALERTS.at, n: A
      Replay: another day → no badges; the same day → 연속 수급 only (a frame has no high or value).
    Cost: one Map lookup per tile (BG.memo, cleared when VER moves); the plate is built from numbers (no layout read). */
 const BG_GLYPHS = { hi: 'M2 1.5h12v2.3H2zM8 5.6l6 8.9H2z', lo: 'M2 12.2h12v2.3H2zM8 10.4 2 1.5h12z', v1: 'M6.2 1.5h3.6v13H6.2z',
-  v2: 'M4.1 6h3.6v8.5H4.1zM8.3 1.5h3.6v13H8.3z', v3: 'M2 10h3.6v4.5H2zM6.2 6h3.6v8.5H6.2zM10.4 1.5H14v13h-3.6z' };   // 16 grid, filled
+  v2: 'M4.1 6h3.6v8.5H4.1zM8.3 1.5h3.6v13H8.3z', v3: 'M2 10h3.6v4.5H2zM6.2 6h3.6v8.5H6.2zM10.4 1.5H14v13h-3.6z',
+  al: 'M8 .8 15.2 8 8 15.2.8 8zM7 4v5.2h2V4zm0 6.4v2h2v-2z' };   // 16 grid, filled (al: fill-rule evenodd — the "!" is cut out)
 let MARKSF = null;                    // {asOf, from, tvn, c: Map(code → [tv20, hi52, lo52, hiDate, loDate, since?]), stale: Map} | null
 const MK_LOAD = { st: 'idle', t: 0 };
 const BGF = { t: 0, busy: false };    // flows.json read again when it fell behind the session day (a page left open overnight)
@@ -3099,7 +3110,11 @@ function bgCalc(c, X, full) {
   if (hi) parts.push(`${hi.listed ? '상장 후' : '52주'} 신고가`); else if (lo) parts.push(`${lo.listed ? '상장 후' : '52주'} 신저가`);
   if (vol) parts.push(`거래대금 20일 평균의 ${x.toFixed(1)}배`);
   for (const [who, v] of [['외국인', f], ['기관', i]]) if (v && v[0] >= 7) parts.push(`${who} ${v[0] >= X.sw ? X.sw + '일 이상' : v[0] + '일'} 연속 순매수`);
-  return { g, k, hi, lo, x, avg, tv, vol, f, i, al, aria: parts.length ? ', ' + parts.join(', ') : '', title: parts.join(' · ') };
+  // 연속 순매도 (7+): its letters and words, for the plate and the aria tail while the 연속 순매도 chip is lit
+  const fs = !!f && f[0] <= -7, is = !!i && i[0] <= -7, sells = [];
+  for (const [who, v] of [['외국인', f], ['기관', i]]) if (v && v[0] <= -7) sells.push(`${who} ${-v[0] >= X.sw ? X.sw + '일 이상' : -v[0] + '일'} 연속 순매도`);
+  return { g, k, hi, lo, x, avg, tv, vol, f, i, al, aria: parts.length ? ', ' + parts.join(', ') : '', title: parts.join(' · '),
+    sw: fs || is ? (fs && is ? '외기' : fs ? '외' : '기') : '', sellAria: sells.length ? ', ' + sells.join(', ') : '', sellTitle: sells.join(' · ') };
 }
 const bgKinds = b => Object.keys(BGK).filter(n => b.k & BGK[n]);
 // the facts, memoised per data version (one Map lookup per tile)
@@ -3112,11 +3127,30 @@ function badgeOf(code) {
 // badges show on stock maps / tables (not 해외 · 지표 · 일정, not the theme overview, not a replay of another day)
 const bgOn = () => !!DATA && !isWorld() && !(state.market === 'THEME' && state.theme == null) && bgCtx().rp !== 'other';
 const tileBadge = code => (bgOn() ? badgeOf(code) : null);
-function badgeAria(code) { const b = tileBadge(code); return b ? b.aria : ''; }
+function badgeAria(code) { const b = tileBadge(code); return b ? b.aria + (BLIT.has('sell') ? b.sellAria : '') : ''; }
 const bgGk = g => (g.k === 'vol' ? 'v' + (g.tier || 3) : g.k);
+/* while a legend chip is lit (사용자 2026-11-23 "배지 표시가 다 안나오는데?"), the lit stocks carry THAT kind's mark in front of the
+   plate — 연속 순매도 (letters in inverted ink + a down tick) and 시장 경보 (the --g-al diamond) only then — and the normal priority after
+   it; chips off → the normal plate. bgItems(b) → the plate's items for a stock now (the table's marks too) */
+const BG_LIT_ORDER = ['hi', 'lo', 'vol', 'buy', 'sell', 'alert'];
+function bgItemOf(b, k) {
+  if (k === 'hi' || k === 'lo') return { k };
+  if (k === 'vol') return { k: 'vol', tier: b.vol ? b.vol.tier : 1 };
+  if (k === 'buy') return b.g.find(g => g.k === 'flow') || null;
+  if (k === 'sell') return b.sw ? { k: 'sell', who: b.sw } : null;
+  return { k: 'al' };
+}
+function bgItems(b) {
+  if (!BLIT.size) return b.g;
+  const front = [];
+  for (const k of BG_LIT_ORDER) if (BLIT.has(k) && (b.k & BGK[k])) { const g = bgItemOf(b, k); if (g) front.push(g); }
+  if (!front.length) return b.g;
+  return front.concat(b.g.filter(g => !front.some(x => x.k === g.k)));
+}
 // a mark standing alone (legend chip · tooltip line · table): 16px, or 15 (s15)
 function bgMark(g, s15) {
-  return h('span', { class: 'bmc' + (s15 ? ' s15' : ''), 'aria-hidden': 'true' }, g.k === 'flow' ? h('b', { text: g.who }) : h('i', { style: `--m:var(--g-${bgGk(g)})` }));
+  const t = g.k === 'flow' || g.k === 'sell';
+  return h('span', { class: 'bmc' + (g.k === 'sell' ? ' sl' : '') + (s15 ? ' s15' : ''), 'aria-hidden': 'true' }, t ? h('b', { text: g.who }) : h('i', { style: `--m:var(--g-${bgGk(g)})` }));
 }
 // the plate for a tile w × hh with a 공시 fold of foldS px: {s, pad, gap, fs, w, items} | null — A: 12 → 1 · 20 → 2 · 40 → 3, sizes 9 · 11 · 13 · 14
 function planPlate(G, w, hh, foldS) {
@@ -3124,7 +3158,7 @@ function planPlate(G, w, hh, foldS) {
   if (!G.length || m < 12) return null;
   const s = m < 20 ? 9 : m < 40 ? 11 : m < 64 ? 13 : 14, max = m < 20 ? 1 : m < 40 ? 2 : 3;
   const pad = s >= 13 ? 2 : 1, gap = s >= 13 ? 2 : 1, fs = Math.round(s * 0.76);
-  const cw = g => (g.k === 'flow' ? Math.ceil(fs * 0.98 * g.who.length) : s - 2);
+  const cw = g => (g.k === 'flow' ? Math.ceil(fs * 0.98 * g.who.length) : g.k === 'sell' ? Math.ceil(fs * (0.98 * g.who.length + 0.5)) + 3 : s - 2);
   const room = w - (foldS ? foldS + 2 : 0) - 2;
   const items = [];
   let width = pad * 2;
@@ -3136,25 +3170,37 @@ function planPlate(G, w, hh, foldS) {
   }
   return items.length ? { s, pad, gap, fs, w: width, items } : null;
 }
-// the plate element on a tile (one <span class="bm">, rebuilt only when what it shows changed)
-function paintPlate(el, P) {
-  let bm = el.__bm || null;
+// the plate element on a tile (one <span class="bm">, rebuilt only when what it shows changed); tick = the tiny corner of a lit stock
+// with no plate (px, 0 = none)
+function paintPlate(el, P, tick) {
+  let bm = el.__bm || null, bk = el.__bk || null;
+  if (!(tick > 0) || P) { if (bk) { bk.remove(); el.__bk = null; } }
+  else {
+    if (!bk) { bk = el.__bk = h('i', { class: 'bmk', 'aria-hidden': 'true' }); el.append(bk); }
+    if (bk.__s !== tick) { bk.style.setProperty('--s', tick + 'px'); bk.__s = tick; }
+  }
   if (!P) { if (bm) { bm.remove(); el.__bm = null; el.classList.remove('has-bm'); } return; }
   if (!bm) { bm = el.__bm = h('span', { class: 'bm', 'aria-hidden': 'true' }); el.append(bm); el.classList.add('has-bm'); }
   const sig = P.s + '|' + P.items.map(g => g.k + (g.tier || '') + (g.who || '')).join(',');
   if (bm.__sig !== sig) {
     bm.__sig = sig;
     bm.style.cssText = `--s:${P.s}px;--p:${P.pad}px;--gp:${P.gap}px;--fs-b:${P.fs}px`;
-    bm.replaceChildren(...P.items.map(g => (g.k === 'flow' ? h('b', { text: g.who }) : h('i', { style: `--m:var(--g-${bgGk(g)})` }))));
+    bm.replaceChildren(...P.items.map(g => (g.k === 'flow' || g.k === 'sell' ? h('b', { class: g.k === 'sell' ? 'sl' : null, text: g.who }) : h('i', { style: `--m:var(--g-${bgGk(g)})` }))));
   }
   bm.__P = P;
 }
 // the table's name cell: two marks + "외 N" (the full list in the title and the row's aria-label)
 function bgRowMarks(code) {
-  const b = tileBadge(code);
-  if (!b || !b.g.length) return null;
-  return h('span', { class: 'mks', title: b.title, 'aria-hidden': 'true' }, b.g.slice(0, 2).map(g => bgMark(g, true)),
-    b.g.length > 2 ? h('span', { class: 'almore', text: '외 ' + (b.g.length - 2) }) : null);
+  const b = tileBadge(code), G = b ? bgItems(b) : null;
+  if (!G || !G.length) return null;
+  const title = [b.title, BLIT.has('sell') ? b.sellTitle : ''].filter(Boolean).join(' · ') || null;
+  return h('span', { class: 'mks', title, 'aria-hidden': 'true' }, G.slice(0, 2).map(g => bgMark(g, true)),
+    G.length > 2 ? h('span', { class: 'almore', text: '외 ' + (G.length - 2) }) : null);
+}
+// the tiny corner square of a lit stock without a plate: 3–6px by the short side (none under 3px — the tile itself stays bright)
+function bgTick(w, hh, foldS) {
+  const m = Math.min(w, hh), s = Math.min(6, Math.max(3, Math.round(m * 0.5)), m - 1, w - (foldS ? foldS + 1 : 0) - 1);
+  return s >= 2 ? Math.floor(s) : 0;
 }
 // the session's pace: the value so far ÷ the 20-day average ÷ the share of 09:00–15:30 gone (live, the session open, after 09:30)
 function bgPace(b) {
@@ -3181,7 +3227,7 @@ function bgLines(code) {
     const v = b[key];
     if (!v || Math.abs(v[0]) < 3) continue;
     const n = Math.abs(v[0]), buy = v[0] > 0, cap = n >= X.sw;
-    L.push({ g: buy && n >= 7 ? { k: 'flow', who: w1 } : null, flow: true, t: `${who} ${cap ? X.sw + '일 이상' : n + '일'} 연속 ${buy ? '순매수' : '순매도'}`,
+    L.push({ g: n >= 7 ? { k: buy ? 'flow' : 'sell', who: w1 } : null, flow: true, t: `${who} ${cap ? X.sw + '일 이상' : n + '일'} 연속 ${buy ? '순매수' : '순매도'}`,
       d: `· ${cap ? X.sw + '일 ' : ''}누적 ${fmtEok(Math.abs(v[1]))}` });
   }
   return L;
@@ -3204,7 +3250,7 @@ function bgBlock(st, how) {
 CARD_EXTRA.set('badges', bgBlock);        // first in the slot: the modules (공시 …) add theirs after it
 /* the legend's chip line (#bgl, under #legend — built once, counts written in place so a focused chip never loses focus on a poll) */
 const BGL = [['hi', '신고가'], ['lo', '신저가'], ['vol', '거래 급증'], ['buy', '연속 순매수'], ['sell', '연속 순매도'], ['alert', '시장 경보']];
-const BGL_MARK = { hi: { k: 'hi' }, lo: { k: 'lo' }, vol: { k: 'vol', tier: 3 }, buy: { k: 'flow', who: '외' } };
+const BGL_MARK = { hi: { k: 'hi' }, lo: { k: 'lo' }, vol: { k: 'vol', tier: 3 }, buy: { k: 'flow', who: '외' }, sell: { k: 'sell', who: '외' }, alert: { k: 'al' } };
 const BLIT = new Set();                   // the chips pressed now (any of them → bright); not remembered
 const BGL_EL = (() => {
   const box = document.getElementById('bgl');
@@ -3229,15 +3275,27 @@ function bgLitHas(c) {
   for (const k of BLIT) if (b.k & BGK[k]) return true;
   return false;
 }
+// the tab's stocks before 종목 수 and a zoom cut them (what "지도 밖" counts): 코스피 · 코스닥 · 전체 = the market's quotes the page has,
+// 테마 · ★관심 = the members / the group (a zoom only)
+function bgPool() {
+  if (state.market === 'WATCH' || state.market === 'THEME') return universe();
+  return allStocks().filter(s => inMarket(s) && !isPreferred(s));
+}
 function bgSyncChips() {
   const L = BGL_EL;
   if (!L) return;
   for (const [k, b] of L.chips) { const v = String(BLIT.has(k)); if (b.getAttribute('aria-pressed') !== v) b.setAttribute('aria-pressed', v); }
-  let n = 0;
-  if (BLIT.size && bgOn()) for (const s of universe()) if (inFocus(s) && bgLitHas(s.c)) n++;
-  L.n = n;
-  const t = BLIT.size ? `· ${fmtInt(n)}종목 밝게` : '';
+  let n = 0, off = 0;
+  if (BLIT.size && bgOn()) {
+    const on = new Set();
+    for (const s of universe()) if (inFocus(s)) { on.add(s.c); if (bgLitHas(s.c)) n++; }
+    for (const s of bgPool()) if (!on.has(s.c) && bgLitHas(s.c)) off++;
+  }
+  L.n = n; L.off = off;
+  const t = BLIT.size ? `· ${fmtInt(n)}종목 밝게${off ? ` · 지도 밖 ${fmtInt(off)}` : ''}` : '';
   if (L.lit.textContent !== t) L.lit.textContent = t;
+  const tt = BLIT.size ? `이 지도에서 ${fmtInt(n)}종목${off ? ` · 종목 수 · 확대 밖에 ${fmtInt(off)}종목 더 있어요` : ''}` : '';
+  if ((L.lit.title || '') !== tt) L.lit.title = tt;
 }
 // counts = the map's stocks (tab · 종목 수 · zoom) with that kind; a chip with none hides (and lets go); off the stock maps everything lets go
 function bgLegend() {
@@ -3253,8 +3311,9 @@ function bgLegend() {
     if (b.hidden !== !n) b.hidden = !n;
     const t = fmtInt(n);
     if (b.__n.textContent !== t) b.__n.textContent = t;
-    const lbl = `${b.__name} 종목만 지도에서 밝게, ${t}종목`;
+    const lbl = `${b.__name} 종목만 지도에서 밝게, 이 지도에서 ${t}종목`;
     if (b.getAttribute('aria-label') !== lbl) b.setAttribute('aria-label', lbl);
+    if (b.title !== `이 지도의 ${b.__name} ${t}종목`) b.title = `이 지도의 ${b.__name} ${t}종목`;
     if (!n && BLIT.has(k)) { BLIT.delete(k); drop = true; }
   }
   if ((!on || !any) && BLIT.size) { BLIT.clear(); drop = true; }
@@ -3263,14 +3322,14 @@ function bgLegend() {
   if (L.hint.textContent !== hint) L.hint.textContent = hint;
   L.counts = cnt;
   bgSyncChips();
-  if (drop) applyHighlights();
+  if (drop) render();                           // the plates lose that kind's front mark (render ends with applyHighlights)
 }
 function bgToggle(k) {
   if (BLIT.has(k)) BLIT.delete(k); else BLIT.add(k);
   bgSyncChips();
-  applyHighlights();
+  render();                                     // lit stocks carry that kind's mark in front (or a tiny corner on small tiles); ends with applyHighlights
   const names = BGL.filter(([x]) => BLIT.has(x)).map(([, n]) => n).join(' · ');
-  uiLive(BLIT.size ? `${names} ${fmtInt(BGL_EL.n)}종목만 밝게 보여요.` : '모든 종목을 다시 보여요.');
+  uiLive(BLIT.size ? `${names} ${fmtInt(BGL_EL.n)}종목만 밝게 보여요.${BGL_EL.off ? ` 지도 밖에 ${fmtInt(BGL_EL.off)}종목 더 있어요.` : ''}` : '모든 종목을 다시 보여요.');
 }
 // flows.json behind the session day (a page left open overnight): read it again, at most every 30 minutes while seen
 function bgFlowsAgain() {
@@ -4335,9 +4394,9 @@ function paintTile(el, d, w, hh) {
   if (d.code) paintMark(el, d.code, w, hh);
   el.classList.toggle('limu', d.lim > 0); el.classList.toggle('limd', d.lim < 0);
   // 지도 배지 (§3-41 A): the bottom-left plate — sized from the short side, left of the 공시 fold; 3px up over a 하한가 bar
-  const B = d.code ? tileBadge(d.code) : null, lift = d.lim < 0 ? 3 : 0;
-  const P = B && B.g.length ? planPlate(B.g, w, hh, (el.__dm && el.__dm.__s) || 0) : null;
-  if (d.code) paintPlate(el, P);
+  const B = d.code ? tileBadge(d.code) : null, lift = d.lim < 0 ? 3 : 0, G = B ? bgItems(B) : null, foldS = (el.__dm && el.__dm.__s) || 0;
+  const P = G && G.length ? planPlate(G, w, hh, foldS) : null;
+  if (d.code) paintPlate(el, P, !P && BLIT.size && B && bgLitHas(d.code) ? bgTick(w, hh - lift, foldS) : 0);
   const lab = el.firstChild, nm = lab.children[0], pc = lab.children[1], px = lab.children[2], mc = lab.children[3] || null;
   const chip = el.children[1] || null;
   let L = fitLabel(d, w, hh), chipOn = false;
@@ -4894,9 +4953,9 @@ function refreshMarks() {
     paintMark(el, el.dataset.c, el.__g[2], el.__g[3]);
     if (el.__aria != null) el.setAttribute('aria-label', el.__aria + markAria(el.dataset.c));
     // 지도 배지: the fold's size is the plate's right limit — a plate that may grow now needs the label refit (render, below)
-    const B = el.__bm ? tileBadge(el.dataset.c) : null;
-    if (B && B.g.length) {
-      const was = el.__bm.__P, P = planPlate(B.g, el.__g[2], el.__g[3], (el.__dm && el.__dm.__s) || 0);
+    const B = el.__bm ? tileBadge(el.dataset.c) : null, G = B ? bgItems(B) : null;
+    if (G && G.length) {
+      const was = el.__bm.__P, P = planPlate(G, el.__g[2], el.__g[3], (el.__dm && el.__dm.__s) || 0);
       if (!P || !was || P.w > was.w) wider = true; else paintPlate(el, P);
     }
   }
@@ -4919,20 +4978,21 @@ const marksApi = {
   onlyName: () => MARK_ONLY,
   /* 지도 배지 (AGENTS §3-41): badge(code) → {kinds ['hi'|'lo'|'vol'|'buy'|'sell'|'alert'], plate [{k, tier?, who?}], aria} | null (what the
      map / table / tooltip show now — null off the stock maps); lit(kinds | null) presses the legend chips (any of them → bright, .mdim on
-     the rest, ANDed with only()); litKinds(); badgeInfo() → {marks, mode 'next'|'eve'|null, flows, session, pre, replay, shown, counts,
-     lit}; glyphs = the plate's 16-grid SVG paths {hi, lo, v1, v2, v3} (the image save draws the same) */
-  badge(code) { const b = tileBadge(String(code)); return b ? { kinds: bgKinds(b), plate: b.g.map(g => Object.assign({}, g)), aria: b.aria } : null; },
+     the rest, ANDed with only(); while lit, those stocks' plates carry that kind first — now = the items in that order, 'sell' {who} ·
+     'al' included); litKinds(); badgeInfo() → {marks, mode 'next'|'eve'|null, flows, session, pre, replay, shown, counts,
+     lit, litN (lit on this map), litOff (lit off it — 종목 수 · zoom)}; glyphs = the plate's 16-grid SVG paths {hi, lo, v1, v2, v3, al} (the image save draws the same) */
+  badge(code) { const b = tileBadge(String(code)); return b ? { kinds: bgKinds(b), plate: b.g.map(g => Object.assign({}, g)), now: bgItems(b).map(g => Object.assign({}, g)), aria: b.aria } : null; },
   lit(kinds) {
     const want = (Array.isArray(kinds) ? kinds : kinds ? [kinds] : []).map(String);
     BLIT.clear();
     for (const [k] of BGL) if (want.includes(k)) BLIT.add(k);
-    bgLegend(); applyHighlights();
+    bgLegend(); render();
   },
   litKinds: () => [...BLIT],
   badgeInfo() {
     const X = bgCtx();
     return { marks: X.M ? X.M.asOf : null, mode: X.mk || null, flows: X.fl ? X.F.asOf : null, session: X.S || null, pre: X.pre, replay: X.rp || null,
-      shown: bgOn(), counts: Object.assign({}, BGL_EL ? BGL_EL.counts : {}), lit: [...BLIT] };
+      shown: bgOn(), counts: Object.assign({}, BGL_EL ? BGL_EL.counts : {}), lit: [...BLIT], litN: BGL_EL ? BGL_EL.n : 0, litOff: BGL_EL ? BGL_EL.off || 0 : 0 };
   },
   glyphs: Object.assign({}, BG_GLYPHS),
 };
@@ -7942,6 +8002,7 @@ function khLayout() {
       if (el.__dm && el.__dm.__s) t.mark = { kind: el.__dmk || '', size: el.__dm.__s, isNew: el.__dm.classList.contains('new') };   // the folded corner as drawn (§13 ⑥)
       // 지도 배지 (§3-41): the bottom-left plate as drawn — s (height), pad, gap, fs (외 · 기 type), w (width), lift (3 over a 하한가 bar),
       // items [{k 'hi'|'lo'|'vol'|'flow', tier?, who?}] in order from the corner; the glyphs are KH.marks.glyphs (16-grid paths)
+      if (el.__bk && el.__bk.__s) t.litTick = el.__bk.__s;     // a lit stock's tiny corner square (px, bottom-left, --bm-fg + 1px --bm-bg ring)
       if (el.__bm && el.__bm.__P) { const P = el.__bm.__P; t.badges = { s: P.s, pad: P.pad, gap: P.gap, fs: P.fs, w: P.w, lift: el.classList.contains('limd') ? 3 : 0, items: P.items.map(g => Object.assign({}, g)) }; }
       if (el.classList.contains('nonx')) t.nonx = true;                            // NXT prices drawn, no NXT trade: the KRX value (§3-8)
       out.push(t);
