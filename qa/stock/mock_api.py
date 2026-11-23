@@ -601,6 +601,9 @@ class Handler(SimpleHTTPRequestHandler):
             return self.send_json({'asOf': dt.datetime.now(KST).replace(microsecond=0).isoformat(), 'themes': []})
         if path == '/api/replay/dates':
             return self.send_json({'dates': []})
+        if path == '/api/flows/market':   # 투자자별 순매수 (AGENTS §3-40): a quiet "before the open" day (all 0) — qa/flows has the real cases
+            return self.send_json({'asOf': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()), 'date': time.strftime('%Y-%m-%d', time.gmtime(time.time() + 9 * 3600)),
+                                   'K': {'personal': 0, 'foreign': 0, 'institutional': 0}, 'Q': {'personal': 0, 'foreign': 0, 'institutional': 0}})
         if path == '/api/time':
             return self.send_json({'t': int(time.time() * 1000)})
         if path == '/api/news':   # 시장 뉴스 (AGENTS.md §3-2): two quiet items

@@ -396,6 +396,20 @@ html[data-motion="reduced"] .sp-fold-x { transition: none; }
 .sp-today-r .bar i { position: absolute; top: 0; bottom: 0; border-radius: var(--r-mark); }
 .sp-today-r .bar i.up { background: color-mix(in srgb, var(--up-text) 85%, transparent); }
 .sp-today-r .bar i.dn { background: color-mix(in srgb, var(--dn-text) 85%, transparent); }
+/* 오늘 잠정 (AGENTS §3-40, 가족 기기만 — stock.js estBox): "오늘" 카드 바로 아래, 같은 카드 판에 회차마다 한 줄(입력 · 외국인 · 기관, 주) */
+.sp-est { background: var(--card-bg, var(--panel)); border: 1px solid var(--card-bd, var(--line)); border-radius: var(--card-r); box-shadow: var(--card-sh, none); padding: var(--space-5) var(--space-5) var(--space-4); margin-bottom: var(--space-4); }
+.sp-est-t { width: 100%; border-collapse: collapse; font-size: var(--fs-md); font-variant-numeric: tabular-nums; }
+.sp-est-t th { font-size: var(--fs-xs); font-weight: 500; color: var(--muted); text-align: right; padding: var(--space-2) 0 var(--space-2) var(--space-4); white-space: nowrap; }
+.sp-est-t tbody th { font-size: var(--fs-md); color: var(--fg2); text-align: left; padding-left: 0; }
+.sp-est-t thead th:first-child { text-align: left; padding-left: 0; }
+.sp-est-t td { text-align: right; font-weight: 600; padding: var(--space-2) 0 var(--space-2) var(--space-4); white-space: nowrap; }
+.sp-est-t td.up { color: var(--up-text); } .sp-est-t td.dn { color: var(--dn-text); } .sp-est-t td.flat { color: var(--muted); font-weight: 400; }
+.sp-est-t td .s { display: none; }
+.sp-est-w { display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-2) 0; }
+.sp-est-e, .sp-est-f { font-size: var(--fs-sm); color: var(--muted); line-height: var(--lh-text); }
+.sp-est-f { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); color: var(--fg2); }
+.sp-est-f .sp-retry { margin-top: 0; }
+.sp-est .kwn { color: var(--fail-dot); vertical-align: middle; }
 
 /* ── 종목 정보 ───────────────────────── */
 .sp-ci { padding: var(--space-3) 0 var(--space-6); }
@@ -644,6 +658,8 @@ a.sp-nw-a:visited .sp-nw-t { color: var(--fg2); }
   .sp-tbl .c-hl { display: table-cell; }
   .sp-cum-r b .l, .sp-today-r b .l { display: none; }
   .sp-cum-r b .s, .sp-today-r b .s { display: inline; }
+  .sp-est-t td .l { display: none; }
+  .sp-est-t td .s { display: inline; }
   .sp-today-r { grid-template-columns: 46px minmax(5.5em, auto) minmax(0, 1fr); }
   .sp-cum-r b { min-width: 5.5em; }
 }

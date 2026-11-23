@@ -80,6 +80,7 @@ def stock_module() -> str:
     return (module("ui", "spring") + module("stock", "stock") + module("extras", "extras") + module("world", "world") + module("news", "match") + module("news", "news")
             + module("disclosure", "disc") + module("policy", "policy") + module("live", "live")
             + module("calendar", "calendar")   # 일정 tab (AGENTS §3-33)
+            + module("flows", "flows")         # 투자자별 순매수 카드 (AGENTS §3-40): before summary, which shares its /api/flows/market (KHFlows.market)
             # 오늘의 시장 요약 카드 (docs/standards/market-summary.md, AGENTS §3-34): last — it reads what the others already hold (KH.disclosures …)
             + module("summary", "summary"))
 

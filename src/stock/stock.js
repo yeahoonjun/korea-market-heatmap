@@ -50,7 +50,7 @@ const WARM = 119;   // bars before the window, so the 120-bar average is complet
 const TABS = [
   { key: 'ob', label: '호가', build: buildOb, show: () => { renderOb(); obStart(); }, hide: obStop, reset: obReset, summary: obSummary },
   { key: 'info', label: '종목 정보', build: buildInfo, show: infoShow, reset: infoReset, summary: infoSummary },
-  { key: 'inv', label: '투자자', show: () => (S.inv || S.invLoading ? renderInv() : loadInv()), reset: invReset },
+  { key: 'inv', label: '투자자', show: () => { loadEst(false); return S.inv || S.invLoading ? renderInv() : loadInv(); }, reset: invReset },
   { key: 'daily', label: '일별 시세', show: () => (S.daily ? renderDaily() : loadDaily(1)), reset: dailyReset, summary: renderDailyNote },
   { key: 'news', label: '뉴스·공시', build: buildNews, show: newsShow, reset: newsReset },
 ];
@@ -262,6 +262,7 @@ const S = {
   sum: null, sumErr: null, phase: 'unknown',
   ob: null, obErr: null, obAt: null,              // 호가 tab
   inv: null, invErr: null, invLoading: false,     // 투자자 tab
+  est: null,                                      //   its 오늘 잠정 block (가족 기기만, AGENTS §3-40): {code, st:'load'|'ok'|'fail'|'none', at, j}
   daily: null,                                    // 일별 시세 tab
   news: { news: null, disc: null },               // 뉴스·공시 tab: per list {loading, err} while fetching (rows live in newsCache)
   ci: { fa: null, fq: null, res: null },          // 종목 정보 tab: per source {loading, err} while fetching (data lives in ciCache)
@@ -1795,7 +1796,70 @@ function renderOb() {
    paint, and a period switch cross-fades instead of regrowing; ux/std-stock) */
 
 /* ── 투자자 ── */
-function invReset() { S.inv = null; S.invErr = null; S.invLoading = false; }
+function invReset() { S.inv = null; S.invErr = null; S.invLoading = false; S.est = null; R.est = null; }
+/* 오늘 잠정 (AGENTS §3-40 — 가족 기기만): "오늘" 카드 아래 작은 덩어리 "오늘 잠정 · 한국투자증권 가집계", 입력 회차마다 한 줄(09:30 · 10:00 ·
+   11:20 · 13:20 · 14:30 — 외국인 · 기관 순매수 주식 수, 입력 시각까지 누적, 등락색). 투자자 탭을 열 때 KH.inv.fetch('/api/flows/live/stock/'
+   + code)로 한 번(같은 종목은 1분 안 다시 묻지 않아요). 초대 토큰이 없는 기기 · 스냅샷 · 403 · 404(옛 Worker)는 흔적 없이 아무것도
+   그리지 않아요. 그날 확정 행이 이미 있으면(저녁 21:30 뒤) 잠정은 빼요. */
+const invApi = () => (LIVE && KH.inv && typeof KH.inv.has === 'function' && typeof KH.inv.fetch === 'function' ? KH.inv : null);
+const famOn = () => { try { const I = invApi(); return !!(I && I.has()); } catch (e) { return false; } };
+async function loadEst(force) {
+  if (!famOn() || !S.code) { if (S.est) { S.est = null; paintEst(); } return null; }
+  const code = S.code, g = S.gen, old = S.est && S.est.code === code ? S.est : null;
+  if (!force && old && (old.st === 'load' || Date.now() - old.at < 60e3)) return null;
+  S.est = { code, st: 'load', at: Date.now(), j: old ? old.j : null };
+  paintEst();
+  let st = 'fail', j = null;
+  try {
+    const r = await KH.inv.fetch('/api/flows/live/stock/' + encodeURIComponent(code));
+    if (r.status === 403 || r.status === 404) st = 'none';                 // 초대가 꺼졌거나 그 경로가 없는 옛 Worker: 흔적 없이
+    else if (r.ok) { try { j = await r.json(); } catch (e) { j = null; } st = j && j.closed ? 'none' : j && Array.isArray(j.slots) ? 'ok' : 'fail'; }   // closed: 휴장일 — 덩어리 없이
+  } catch (e) { st = 'fail'; }
+  if (g !== S.gen || S.code !== code) return null;
+  S.est = { code, st, at: Date.now(), j };
+  paintEst();
+  return st === 'ok';
+}
+const EST_T = { 1: '09:30', 2: '10:00', 3: '11:20', 4: '13:20', 5: '14:30' };
+function estBox() {
+  if (!famOn() || !S.est || S.est.code !== S.code || S.est.st === 'none') return null;
+  const E = S.est, j = E.j;
+  // 그날 확정(저녁 매일 작업 · 네이버)이 이미 들어왔으면 잠정은 빼요
+  if (j && j.date && Array.isArray(S.inv) && S.inv[0] && S.inv[0].date === j.date) return null;
+  const today = kst(new Date()).key, dk = j && j.date ? +j.date.replace(/-/g, '') : today;
+  const lp = j && j.date ? j.date.split('-').map(Number) : null;
+  const when = !j || dk === today ? '오늘 잠정' : `${lp[1]}월 ${lp[2]}일 잠정`;
+  const head = h('div', { class: 'sp-cum-h' }, h('h3', { text: when }), h('small', { text: '한국투자증권 가집계' }));
+  let body;
+  if (E.st === 'load' && !j) body = h('div', { class: 'sp-est-w', role: 'status', 'aria-label': '잠정 회차 불러오는 중' }, skel('100%', '18px'), skel('70%', '18px'));
+  else if (E.st === 'fail' && !j) body = h('p', { class: 'sp-est-f', role: 'status' }, uiIcon('warn'), h('span', { text: '잠정 회차를 불러오지 못했어요' }),
+    retryKey('est', () => loadEst(true), () => paintEst()));
+  else if (!j.slots.length) body = h('p', { class: 'sp-est-e', text: '아직 입력분이 없어요 · 외국인은 09:30, 기관은 10:00부터 들어와요' });
+  else {
+    const cell = (v, none) => (none || !isNum(v) ? h('td', { class: 'num flat', text: '—' })
+      : h('td', { class: 'num ' + cls(v) }, h('span', { class: 'l', text: signed(v) + '주' }), h('span', { class: 's', text: signedCompact(v) + '주' })));
+    const rows = j.slots.slice().sort((a, b) => (+a.no || 0) - (+b.no || 0)).map(x => {
+      const t = x.t || EST_T[x.no] || '';
+      // 09:30 회차엔 기관이 아직 입력되지 않아 0으로 와요(data/ENDPOINTS_KIS.md ②) — 값이 아니라 "아직"이라 — 로
+      return h('tr', null, h('th', { scope: 'row', text: t }), cell(x.f), cell(x.i, (t === '09:30' || +x.no === 1) && !+x.i));
+    });
+    body = h('table', { class: 'sp-est-t' }, h('caption', { class: 'sr', text: `${when} 순매수 회차별 (단위: 주)` }),
+      h('thead', null, h('tr', null, h('th', { scope: 'col', text: '입력' }), h('th', { scope: 'col', text: '외국인' }), h('th', { scope: 'col', text: '기관' }))),
+      h('tbody', null, rows));
+  }
+  const stale = (E.st === 'fail' && j) || (j && j.stale);   // 지난 사본(stale:true) · 다시 받다 실패
+  return h('section', { class: 'sp-est', 'aria-label': `${when} · 한국투자증권 가집계` }, head, body,
+    h('p', { class: 'sp-cum-sub' }, stale ? [uiIcon('warn'), ' 새 회차를 받지 못했어요 · '] : null, '입력 시각까지 누적한 잠정치예요 · 개인은 장 마감 뒤 확정돼요'));
+}
+// 이미 그려진 투자자 탭이면 "오늘" 카드 바로 아래 자리만 바꿔요(탭 전체를 다시 그리지 않아요)
+function paintEst() {
+  const P = R.panels && R.panels.inv;
+  if (!P || !P.isConnected) return;
+  const el = estBox(), cur = R.est && R.est.isConnected && P.contains(R.est) ? R.est : null;
+  if (cur && el) cur.replaceWith(el); else if (cur) cur.remove();
+  else if (el) { const t = P.querySelector(':scope > .sp-today'); if (!t) return; t.after(el); }
+  R.est = el;
+}
 // quiet (the retry key): no loading picture, nothing drawn at the end → true / false / null
 async function loadInv(quiet) {
   const g = S.gen;
@@ -1868,7 +1932,8 @@ function renderInv() {
     h('td', { class: 'num c-pct ' + cls(r.ratio), text: pct(r.ratio) }),
     netCell(r.individual), netCell(r.foreign), netCell(r.institution),
     h('td', { class: 'num', text: fixed(r.foreignHoldRatio, 2, '%') }))));
-  P.replaceChildren(todayCard(rows[0], isToday ? '오늘' : `${lp[1]}월 ${lp[2]}일`), card, note, h('table', { class: 'sp-tbl sp-inv-t' }, h('caption', { text: '날짜별 순매수 (단위: 주, 만 = 1만 주)' }), thead, tbody));
+  R.est = estBox();
+  P.replaceChildren(todayCard(rows[0], isToday ? '오늘' : `${lp[1]}월 ${lp[2]}일`), ...(R.est ? [R.est] : []), card, note, h('table', { class: 'sp-tbl sp-inv-t' }, h('caption', { text: '날짜별 순매수 (단위: 주, 만 = 1만 주)' }), thead, tbody));
 }
 
 /* ── 일별 시세 ── */
@@ -3037,6 +3102,7 @@ document.addEventListener('kh:basis', () => { if (S.open) renderHead(); });   //
 // a change of effect level ends whatever rolls or swaps in the header at its end value (design.md §6-3)
 document.addEventListener('kh:motion', () => { if (R.price) for (const el of [R.price, R.chg, R.nxt.querySelector('.pv'), R.nxt.querySelector('.pr')]) numSettle(el); });
 document.addEventListener('kh:watch', () => { if (S.open) renderStar(); });
+document.addEventListener('kh:inv', () => { if (S.open && S.tab === 'inv') { if (famOn()) loadEst(true); else { S.est = null; paintEst(); } } });   // 가족 보기를 켜고 끔
 document.addEventListener('kh:alerts', () => { if (S.open) { renderAl(); renderMeta(); } });   // the picker keeps its own ticks and counts in step
 
 window.KHStock = { open, close, isOpen: () => S.open };
