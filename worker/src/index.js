@@ -33,6 +33,10 @@
 //   GET /api/policy                    → 정책 자료: KDI 경제정책자료 RSS + 행정안전부 관보 목록 (policy.js; key = secret DATA_GO_KR_KEY)
 //   GET /api/koreaexim?kind=fx|rate    → 수출입은행 고시 환율 · 기준금리 · 은행간 금리, 하루 한 번 (koreaexim.js; KV day copies,
 //                                        secrets KOREAEXIM_FX_KEY · KOREAEXIM_RATE_KEY); /api/koreaexim/probe = 확인용
+//   GET /api/flows/market              → 시장 전체 3주체 장중 수급(네이버 dealTrendInfo, 억원 — 공개, flows.js; AGENTS §3-40)
+//   GET /api/flows/live, /api/flows/live/stock/:code → 한국투자 가집계 순위 · 종목별 추정(초대 토큰만, X-Panse-Inv, private no-store)
+//   GET /api/inv/me, GET|POST /api/inv, DELETE /api/inv/:id → 가족 보기 초대 확인 · 목록 · 만들기 · 끄기(own만, inv.js)
+//   scheduled() also runs flowsTick (flows.js): weekdays after each KIS input round, ① ranks + ② 600 estimates into KV kisflow:<day>
 //   GET /api/live (WebSocket), /api/live/state → 실시간 갱신 hub (Durable Object MarketHub, live.js; docs/standards/realtime.md):
 //                                        top 300 × 2 every LIVE_POLL_MS in the regular session, budget-guarded to stay inside the $5 plan
 // Contract: AGENTS.md §3, sources and pitfalls: data/ENDPOINTS_DETAIL.md.
@@ -46,9 +50,16 @@ import { koreaeximRoute } from './koreaexim.js';   // 수출입은행 고시 /ap
 import { kisRawRoute } from './kis.js';   // 한국투자 Open API — 장중 수급 잠정 (AGENTS §3-40); /api/kis/raw = dev 초대만
 import { stockDatagoRoute } from './stock_datago.js';   // 종목 페이지 대차 · 기업 · 배당 /api/stock/{code}/lending|corp|dividend (AGENTS §3 · §3-32)
 import { consensusTick, consensusRoute } from './consensus.js';   // 「왕이 될 상」 컨센서스 스냅숏 — 비공개, 초대 토큰만 (AGENTS §3-41)
+import { flowsTick, flowsRoute, configureFlows } from './flows.js';   // 장중 수급 순위 — 시장 전체(공개) · 한국투자 가집계(초대만) (AGENTS §3-40)
+import { invRoute } from './inv.js';   // 가족 보기 초대 /api/inv* (AGENTS §3-40 계약)
 export { MarketHub };                // the Durable Object class (wrangler.toml [exports.MarketHub]) must be exported by the main module
 // the hub polls the same rows as /api/quotes (quotesCore is a hoisted function declaration below)
 configureLive((env, ms) => quotesCore(env, null, false, ms));
+// 장중 수급: 네이버는 같은 도우미(naver · UA)로, ② 종목 목록은 /api/quotes와 같은 유니버스 상위 300 × 2로
+configureFlows({
+  naver: (u, ms) => naver(u, ms),
+  codes: async env => { await getUniverse(env); const U = universeMem; return U.codes || (U.codes = [...U.map.keys()]); },
+});
 
 const DEFAULT_ASSET_BASE = 'https://raw.githubusercontent.com/yeahoonjun/korea-market-heatmap/main/web/';
 const QUOTES_TTL = 8;                // seconds
@@ -135,6 +146,8 @@ export default {
       if (path === '/api/calendar') return await calendarRoute(request, env, ctx, url);   // 증시 캘린더 (calendar.js)
       if (path === '/api/koreaexim' || path === '/api/koreaexim/probe') return await koreaeximRoute(request, env, ctx, url);   // 수출입은행 고시 · 확인용 (koreaexim.js)
       if (path === '/api/kis/raw') return await kisRawRoute(request, env, url);   // 확인용 — dev 초대 토큰만 (kis.js)
+      if (path === '/api/flows/market' || path === '/api/flows/live' || path.startsWith('/api/flows/live/')) return await flowsRoute(request, env, ctx, url);   // §3-40 (flows.js)
+      if (path === '/api/inv' || path.startsWith('/api/inv/')) return await invRoute(request, env, url);   // 초대 (inv.js)
       if (path === '/api/archive/consensus' || path.startsWith('/api/archive/consensus/')) return await consensusRoute(request, env, url);   // 초대 토큰만 (consensus.js)
       if (ASSETS[path]) return await getAsset(request, env, ctx, path);
       m = path.match(THEME_WHY_RE);                                   // 테마 편입 이유 (§3-37 ①): one small file per theme
@@ -195,9 +208,11 @@ export default {
   async scheduled(event, env, ctx) {
     const run = runRecorder(event, env || {});   // never rejects: errors → console.error + KV replay:status
     const cons = consensusTick(env || {});       // §3-41: weekdays 16:10–16:59 KST, once a day; never rejects, no KV outside that hour
-    if (ctx && typeof ctx.waitUntil === 'function') { ctx.waitUntil(run); ctx.waitUntil(cons); }
+    const flows = flowsTick(event, env || {});   // §3-40: after each KIS input round; never rejects, nothing without the KIS keys / outside 09:34–16:29
+    if (ctx && typeof ctx.waitUntil === 'function') { ctx.waitUntil(run); ctx.waitUntil(cons); ctx.waitUntil(flows); }
     await run;
     await cons;
+    await flows;
   },
 };
 

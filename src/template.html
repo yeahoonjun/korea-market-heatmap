@@ -9,7 +9,14 @@
 try{var o=JSON.parse(decodeURIComponent(escape(atob(decodeURIComponent(i<0?rest:rest.slice(0,i)))))),first=localStorage.getItem('khm.migrated')==null;
 for(var k in o)if(k.indexOf('khm.')===0&&k!=='khm.migrated'&&typeof o[k]==='string'&&(first||localStorage.getItem(k)==null))localStorage.setItem(k,o[k]);
 localStorage.setItem('khm.migrated',new Date().toISOString());}catch(e){}
-try{history.replaceState(null,'',location.pathname+location.search+(keep?'#'+keep:''));}catch(e){location.hash=keep;}})();</script>
+try{history.replaceState(null,'',location.pathname+location.search+(keep?'#'+keep:''));}catch(e){location.hash=keep;}})();
+/* §3-40 가족 보기 초대: #inv=<token>[&… | ~…] → localStorage khm.inv (JSON, like every khm.* key), then the address loses it and keeps the
+   rest of the hash (after the import above, so a link carried over from the old address works too). Live page only — the snapshot
+   (dist/, file://) leaves all of this alone. data-inv-new tells the page to say "가족 보기를 켰어요" once the token is confirmed. */
+(function(){var d=document.documentElement,h=location.hash,m;if(d.getAttribute('data-mode')!=='live'||location.protocol==='file:'||h.indexOf('#inv=')!==0)return;
+m=/^#inv=([^&~]*)(?:[&~](.*))?$/.exec(h);if(!m)return;var t=m[1],keep=m[2]||'';
+if(/^[A-Za-z0-9_-]{20,64}$/.test(t))try{localStorage.setItem('khm.inv',JSON.stringify(t));d.setAttribute('data-inv-new','1')}catch(e){}
+try{history.replaceState(history.state,'',location.pathname+location.search+(keep?'#'+keep:''));}catch(e){location.hash=keep;}})();</script>
 <meta name="theme-color" content="#131418">
 <!--__SERIF__-->
 <script>/* themes (docs/standards/themes.md): <html data-theme · data-tone · data-labs · data-serif · data-blur> before the first paint, so a stored
@@ -1337,6 +1344,45 @@ html[data-theme="paper"] :is(.secs > button,.movers > button){border-radius:0;bo
 .dkset .dkh{font-size:var(--fs-md);font-weight:700;color:var(--fg)}
 .dkset .hint{font-size:var(--fs-sm);color:var(--muted);line-height:var(--lh-text)}
 @media (min-width:761px){.dkset{display:none!important}}
+/* 표시 설정 › 가족 보기 (AGENTS §3-40): only on a device holding an invite token (the DOM is not there otherwise). Phones: the sheet's
+   last section; from 761 px the 화면 panel's last one. Keys = the V1 raised key on tokens; 끄기 arms on the first press (the neutral fail
+   surface — never red / green / amber) and acts on the second within --c-arm */
+.famset{display:flex;flex-direction:column;gap:var(--space-4);border-top:1px solid var(--line);padding-top:var(--space-5);min-width:0}
+.famset [hidden]{display:none!important}
+.famset .famh{font-size:var(--fs-md);font-weight:700;color:var(--fg)}
+.famset .famh2{font-size:var(--fs-md);font-weight:600;color:var(--fg)}
+.famset .hint{font-size:var(--fs-sm);color:var(--muted);line-height:var(--lh-text)}
+.famme{display:flex;align-items:baseline;gap:var(--space-3);min-width:0;font-size:var(--fs-md);color:var(--fg2);line-height:var(--lh-row)}
+.famme .famn{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--fg);font-weight:600}
+.famme .famn.pend{color:var(--muted);font-weight:500}
+.famoff{display:flex}
+.famk{position:relative;display:inline-flex;align-items:center;justify-content:center;flex:none;height:var(--h-key);padding:0 var(--space-5);border-radius:var(--r-key);background:var(--key-bg);box-shadow:var(--key-sh);color:var(--key-fg);font-size:var(--fs-md);font-weight:600;white-space:nowrap;
+  transition:transform var(--c-fast) var(--c-out),box-shadow var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out),background-color var(--sp-fade-dur) var(--sp-fade),color var(--sp-fade-dur) var(--sp-fade)}
+@media (hover:hover) and (pointer:fine){ .famk:hover{background:var(--key-hover)} }
+.famk:is(:active:not([aria-disabled="true"]),.is-press){transform:translateY(1px);box-shadow:var(--key-dn);filter:var(--press-f);transition-duration:0s,0s,0s,var(--sp-fade-dur),var(--sp-fade-dur)}
+.famk.famk-pri{background:var(--pri-bg);color:var(--pri-fg);box-shadow:var(--pri-sh)}
+.famk[data-st="arm"]{background:var(--fail-bg);color:var(--fail-fg);box-shadow:inset 0 0 0 1px var(--fail-ring),var(--key-sh)}
+.famk.famk-sm{height:var(--h-chip);padding:0 var(--space-4);font-size:var(--fs-sm)}
+@media (pointer:coarse){ .famk.famk-sm::before{content:"";position:absolute;left:50%;top:50%;width:max(100%,44px);height:44px;transform:translate(-50%,-50%)} }
+.faminv{display:flex;flex-direction:column;gap:var(--space-4);border-top:1px solid var(--line);padding-top:var(--space-5);min-width:0}
+.famnew,.famacts{display:flex;gap:var(--space-3);min-width:0}
+.famin{flex:1 1 auto;min-width:0;height:var(--h-key);padding:0 var(--space-4);border:0;border-radius:var(--r-in);background:var(--tray-bg);box-shadow:var(--tray-sh);color:var(--fg);font:inherit;font-size:var(--fs-md)}
+.famin::placeholder{color:var(--muted)}
+.famin.famurl{flex:none;width:100%;font-size:var(--fs-sm);font-variant-numeric:tabular-nums;color:var(--fg2)}
+@media (max-width:760px){ .famin{font-size:var(--fs-xl)} .famin.famurl{font-size:var(--fs-md)} }
+.famlink{display:flex;flex-direction:column;gap:var(--space-3);padding:var(--space-4);border-radius:var(--r-row);background:var(--fill-1);min-width:0}
+.famlist{min-width:0}
+.famrows{display:flex;flex-direction:column;margin:0;padding:0;list-style:none}
+.famr{display:flex;align-items:center;gap:var(--space-4);min-height:var(--h-row);min-width:0;font-size:var(--fs-md)}
+.famr + .famr{border-top:1px solid var(--line)}
+.famr .nm{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--fg)}
+.famr .at{flex:none;font-size:var(--fs-sm);color:var(--muted);font-variant-numeric:tabular-nums}
+.famtag{flex:none;padding:0 var(--space-2);border-radius:var(--r-badge);box-shadow:inset 0 0 0 1px var(--line2);font-size:var(--fs-xs);font-weight:600;line-height:var(--lh-ui);color:var(--fg2)}
+.famst{display:flex;align-items:center;flex-wrap:wrap;gap:var(--space-3);min-height:var(--h-row);font-size:var(--fs-sm);color:var(--fg2)}
+.famst .kwn{color:var(--fail-dot)}
+.famst:empty{display:none}
+/* 순매수 기간 오늘 잠정 (§3-40, family devices only): a small neutral tag after 오늘 */
+.fwtag{display:inline-block;margin-left:var(--space-2);padding:0 var(--space-2);border-radius:var(--r-badge);box-shadow:inset 0 0 0 1px var(--line2);font-size:var(--fs-xs);font-weight:600;line-height:var(--lh-ui);color:var(--fg2);vertical-align:1px}
 @media (max-width:760px){.thm .seg button{min-height:var(--h-key)}}
 
 /* ───────────────── 아래 막대 — the phone dock (docs/standards/dock.md, V2 two cells + swipe pages, 🔍 at the end) ─────────────────
@@ -1745,6 +1791,19 @@ html[data-theme="glass-light"]{--sheet-skirt:#f6f7f9}
         snapshot, under 전체, when empty); pausePoll(on) — the 10 s quotes timer off while the hub is live, back within one interval;
         scope() → 'top' | 'all'; polling() → {paused, ok, last, wait}. Mount <span id="live-mark" hidden> in #status (src/live draws the
         state; #status.has-lm while it shows: the status dot and the "실시간" badge give way to it).
+   §3-40 가족 보기 (the invite token on this device — a public device has none: no family DOM, no gated request):
+        inv.has() → bool (a token is stored here; the live page only) · inv.name() → the invite's name | null (once /api/inv/me answered) ·
+        inv.own() → bool (the owner: makes and turns off invites) · inv.ready() → Promise<bool> (the check under way answered — ok, 403 or
+        no answer — then has(); at once when none is under way) · inv.fetch(path, init?) → Promise<Response>: fetch with X-Panse-Inv (this
+        origin or the Worker's https address only; no token / another site → a local 403 {error:'forbidden'}, nothing sent; network errors
+        reject like fetch); a 403 {error:'forbidden'} from a family route forgets the token (from GET/POST /api/inv · DELETE /api/inv/{id}
+        it asks /api/inv/me again instead) · inv.forget() — this device only. 'kh:inv' {detail: {has, n, own}} after a confirmation and
+        after forgetting (also a token taken from another tab or a pasted #inv= link).
+        flowsLive.data() → the /api/flows/live payload {date, slot, slotNo, at, src, unit, rank, est, estSlot, estN} when its date is
+        today (KST, KH.now() when there) | null · flowsLive.want(key, on) — polls while any key wants it (and inv.has(), live, the page
+        seen): weekdays 09:25–15:50 KST every 60 s, otherwise every 10 min, a failed answer again within a minute · flowsLive.refresh() →
+        Promise<data() | null> now (joins one under way) · flowsLive.status() → {wants, polling, next ms | null, ivl, at, ok} (read-only).
+        'kh:flowslive' {detail: {data}} after every answer that arrived ({data: null} when the token is forgotten).
    §3-37 ⓐ 시장 경보: alerts.of(code) → {keys ['stop'|'risk'|'warning'|'adm'|'caution'|'other', most important first], labels, live,
         file, when 'M/D HH:MM', quoteAt} | null (web/alerts.json from today or the weekday before + the quotes' hx), alerts.tags(code,
         {max = 2, cls}) → <span class="altags"> neutral badges + "외 N" | null, alerts.note(code) → "한국거래소 지정 · M/D HH:MM 기준",
@@ -1849,7 +1908,8 @@ const FLOW_WHO = { fgn: '외국인', inst: '기관' };
 // flows.json f[code] = [외국인1일, 기관1일, 개인1일, 외국인5일, 기관5일, 외국인20일, 기관20일] (억원)
 const FLOW_IX = { fgn: { 1: 0, 5: 3, 20: 5 }, inst: { 1: 1, 5: 4, 20: 6 } };
 // colour range presets per metric kind; flow ranges are net buying as % of market cap
-const RANGES = { day: [3, 5, 10], period: [10, 20, 50], flow: { 1: [0.1, 0.3, 1], 5: [0.3, 1, 3], 20: [1, 3, 10] } };
+// flow 0 = 오늘 잠정 (§3-40, family devices only): the 1일 ranges
+const RANGES = { day: [3, 5, 10], period: [10, 20, 50], flow: { 0: [0.1, 0.3, 1], 1: [0.1, 0.3, 1], 5: [0.3, 1, 3], 20: [1, 3, 10] } };
 // §3-27 색 범위 자동 (today's change only): the 95th percentile of |change %| over what the tab draws, rounded up to one of these
 const AUTO_STEPS = [1, 2, 3, 4, 5, 7, 10, 15, 20, 30];
 // 구역마다 (사용자 2026-11-16 13:04 "환율 금리 증시자금 에너지 금속 농산물 등 각 구역별 계산"): the 지표 tab's 자동 sets a range per zone.
@@ -2345,6 +2405,191 @@ function kst(v) {
   return { date: `${p.year}-${p.month}-${p.day}`, hm: p.hour + p.minute, hhmm: `${p.hour}:${p.minute}` };
 }
 
+/* ───────────────── 가족 보기 (AGENTS §3-40): the invite token on this device · KH.inv · KH.flowsLive ─────────────────
+   The head script stores #inv=<token> as khm.inv (live page only). A device without it is a public one: no family DOM, no request to
+   /api/inv* or /api/flows/live, nothing at all. With it: GET /api/inv/me (X-Panse-Inv) once → {n, own}; a 403 {error:'forbidden'}
+   forgets the token ('kh:inv'); no answer (network, 5xx, an older Worker) keeps it and asks again later, quietly (20 s · 1 · 2 · 5 min,
+   and when the page comes back online / into view). Every gated request goes through invFetch — the header only to this origin (or the
+   Worker's own address), and a 403 from a family route forgets the token (an owner-only route asks /api/inv/me instead: a family
+   token is refused there without being wrong). KH.flowsLive is the one fetcher of /api/flows/live on the page: it polls only while some
+   part wants it, the device has a token, the page is live and seen — weekdays 09:25–15:50 KST every 60 s, otherwise every 10 min
+   (KST from KH.now() when src/extras has it). data() = the payload only when its date is today (KST). */
+const INV_RE = /^[A-Za-z0-9_-]{20,64}$/;
+const INV_WORKER = 'korea-market-heatmap.ssslot.workers.dev';
+const INV = { tok: null, n: null, own: false, st: 'none', busy: null, tries: 0, timer: null };
+// st: 'none' (no token) · 'new' (not asked yet) · 'checking' · 'ok' (the Worker knows it) · 'retry' (no answer yet: kept, asked again later)
+function invRead() {
+  if (MODE !== 'live' || location.protocol === 'file:') return null;
+  let v = null;
+  try { v = localStorage.getItem('khm.inv'); } catch (e) { return null; }
+  if (v == null) return null;
+  try { const j = JSON.parse(v); if (typeof j === 'string') v = j; } catch (e) { /* a bare token is fine too */ }
+  return INV_RE.test(v) ? v : null;
+}
+INV.tok = invRead();
+INV.st = INV.tok ? 'new' : 'none';
+INV.fresh = !!INV.tok && document.documentElement.hasAttribute('data-inv-new');     // just opened from an invite link: say so once confirmed
+document.documentElement.removeAttribute('data-inv-new');
+const invHas = () => !!INV.tok;
+const nowMs = () => { const K = window.KH, v = K && typeof K.now === 'function' ? +K.now() : NaN; return isFinite(v) ? v : Date.now(); };
+const kstToday = () => (kst(new Date(nowMs())) || {}).date || '';
+const invEmit = () => document.dispatchEvent(new CustomEvent('kh:inv', { detail: { has: invHas(), n: INV.tok ? INV.n : null, own: !!(INV.tok && INV.own) } }));
+let invP = null, invRes = null;            // ready(): the check under way, answered with has() (ok · 403 · no answer alike)
+function invDone() { if (invRes) { const r = invRes; invRes = null; invP = null; r(invHas()); } }
+const invReady = () => invP || Promise.resolve(invHas());
+// the header goes to this page's origin (or the Worker's own https address) only — never to a third party
+function invUrl(path) {
+  try { const u = new URL(String(path), location.href); return u.origin === location.origin || (u.protocol === 'https:' && u.host === INV_WORKER) ? u : null; }
+  catch (e) { return null; }
+}
+const invOwnerPath = p => /^\/api\/inv(\/(?!me\/?$)[^/]+)?\/?$/.test(p);      // GET /api/inv · POST /api/inv · DELETE /api/inv/{id}
+const invRefused = () => new Response('{"error":"forbidden"}', { status: 403, headers: { 'content-type': 'application/json; charset=utf-8' } });
+async function invFetch(path, init) {
+  const tok = INV.tok, u = invUrl(path);
+  if (!tok || !u) return invRefused();        // no token (a public device, the snapshot) · another site: refused here, nothing is sent
+  const o = Object.assign({ cache: 'no-store' }, init || {}), hd = new Headers(o.headers || {});
+  hd.set('X-Panse-Inv', tok); o.headers = hd;
+  const res = await fetch(u.href, o);
+  if (res.status === 403 && INV.tok === tok) {
+    let b = null; try { b = await res.clone().json(); } catch (e) { b = null; }
+    if (b && b.error === 'forbidden') { if (invOwnerPath(u.pathname)) invCheck(); else invForget(); }   // a proxy's own 403 page forgets nothing
+  }
+  return res;
+}
+function invCheck() {
+  clearTimeout(INV.timer); INV.timer = null;
+  const tok = INV.tok;
+  if (!tok) { invDone(); return invReady(); }
+  if (INV.busy === tok) return invReady();
+  if (!invP) invP = new Promise(r => { invRes = r; });
+  INV.busy = tok; INV.st = 'checking';
+  (async () => {
+    let j = null, answered = false;
+    try {
+      const res = await invFetch('api/inv/me');
+      if (res.ok) { try { j = await res.json(); answered = !!j && typeof j === 'object'; } catch (e) { j = null; } }
+    } catch (e) { answered = false; }
+    if (INV.busy === tok) INV.busy = null;
+    if (INV.tok !== tok) return;               // forgotten (a 403 — invForget answered ready()) or replaced (that token's own check runs)
+    if (answered) {
+      INV.n = typeof j.n === 'string' && j.n.trim() ? j.n.trim().slice(0, 24) : null; INV.own = !!j.own; INV.st = 'ok'; INV.tries = 0;
+      invDone(); invEmit(); return;
+    }
+    INV.st = 'retry'; INV.tries++;
+    INV.timer = setTimeout(invCheck, [20, 60, 120, 300][Math.min(INV.tries, 4) - 1] * 1000);
+    invDone();
+    famRender();                               // the section's name line says it is not confirmed yet (no event: nothing changed)
+  })();
+  return invReady();
+}
+function invSet(tok) {
+  if (!INV_RE.test(String(tok || '')) || tok === INV.tok || MODE !== 'live') return;
+  INV.tok = tok; INV.n = null; INV.own = false; INV.st = 'new'; INV.tries = 0;
+  try { localStorage.setItem('khm.inv', JSON.stringify(tok)); } catch (e) { /* this page only */ }
+  invEmit();
+  invCheck();
+}
+function invForget() {
+  const had = !!INV.tok;
+  INV.tok = null; INV.n = null; INV.own = false; INV.st = 'none'; INV.tries = 0; INV.busy = null;
+  clearTimeout(INV.timer); INV.timer = null;
+  try { localStorage.removeItem('khm.inv'); } catch (e) { /* gone with the page */ }
+  invDone();
+  if (had) invEmit();
+}
+// another tab of this site took or dropped a token; an address changed to #inv=… without a reload (pasted into an open tab)
+addEventListener('storage', e => {
+  if (e.key !== 'khm.inv' && e.key !== null) return;
+  const t = invRead();
+  if (t === INV.tok) return;
+  if (t) invSet(t); else invForget();
+});
+addEventListener('hashchange', e => {
+  if (MODE !== 'live' || location.hash.indexOf('#inv=') !== 0) return;
+  e.stopImmediatePropagation();                                     // not a tab address: the page's own hash handlers never see it
+  const m = /^#inv=([^&~]*)(?:[&~](.*))?$/.exec(location.hash), keep = m ? m[2] || '' : '';
+  try { history.replaceState(history.state, '', location.pathname + location.search + (keep ? '#' + keep : '')); } catch (e) { location.hash = keep; }
+  if (m && INV_RE.test(m[1])) { INV.fresh = true; invSet(m[1]); }
+  if (keep) dispatchEvent(new HashChangeEvent('hashchange'));          // the rest of the address (a tab, a stock) as if typed alone
+});
+const invAgain = () => { if (INV.st === 'retry' && !document.hidden) invCheck(); };
+addEventListener('online', invAgain);
+document.addEventListener('visibilitychange', invAgain);
+
+const FL = { j: null, wants: new Set(), timer: null, due: 0, busy: null, at: 0, ok: null };
+const FL_IN = 60000, FL_OUT = 600000;
+const kstWd = ymd => new Date(ymd + 'T00:00:00Z').getUTCDay();         // 0 = Sunday
+function flIvl() {
+  const t = kst(new Date(nowMs()));
+  if (!t) return FL_OUT;
+  const wd = kstWd(t.date);
+  return wd >= 1 && wd <= 5 && t.hm >= '0925' && t.hm < '1550' ? FL_IN : FL_OUT;
+}
+// a weekday morning before 09:25: the 10-minute wait never sleeps past the window's start
+function flUntilOpen() {
+  const now = nowMs(), t = kst(new Date(now));
+  if (!t || t.hm >= '0925') return Infinity;
+  const wd = kstWd(t.date);
+  if (wd < 1 || wd > 5) return Infinity;
+  return (9 * 60 + 25 - (+t.hm.slice(0, 2) * 60 + +t.hm.slice(2))) * 60000 - (now % 60000);
+}
+const flWanted = () => FL.wants.size > 0 && invHas() && MODE === 'live';
+const flData = () => (FL.j && FL.j.date === kstToday() ? FL.j : null);
+function flSchedule() {
+  clearTimeout(FL.timer); FL.timer = null; FL.due = 0;
+  if (!flWanted() || document.hidden || FL.busy) return;
+  const ivl = FL.ok === false ? Math.min(flIvl(), FL_IN) : flIvl();      // no answer: again within a minute
+  const wait = Math.max(0, Math.min(FL.at ? FL.at + ivl - Date.now() : 0, flUntilOpen()));
+  FL.due = Date.now() + wait;
+  FL.timer = setTimeout(() => { FL.timer = null; flFetch(); }, wait);
+}
+function flFetch() {
+  if (FL.busy) return FL.busy;
+  if (!invHas() || MODE !== 'live') return Promise.resolve(flData());
+  clearTimeout(FL.timer); FL.timer = null; FL.due = 0;
+  const tok = INV.tok;
+  FL.busy = (async () => {
+    let j = null;
+    try {
+      const res = await invFetch('api/flows/live');
+      if (res.ok) { const b = await res.json(); if (b && typeof b === 'object' && typeof b.date === 'string') j = b; }
+    } catch (e) { j = null; }
+    FL.busy = null; FL.at = Date.now();
+    if (!tok || INV.tok !== tok) return flData();     // forgotten meanwhile (a 403 here forgets): nothing is kept
+    if (j) { if (!j.est || typeof j.est !== 'object') j.est = {}; FL.j = j; FL.ok = true; } else FL.ok = false;
+    flSchedule();
+    flMapSync();
+    if (j) document.dispatchEvent(new CustomEvent('kh:flowslive', { detail: { data: flData() } }));
+    return flData();
+  })();
+  return FL.busy;
+}
+function flWant(key, on) {
+  key = String(key);
+  if (!!on === FL.wants.has(key)) return;
+  if (on) FL.wants.add(key); else FL.wants.delete(key);
+  if (on && flWanted() && !FL.busy && !document.hidden && (!FL.at || Date.now() - FL.at >= flIvl() || (!flData() && FL.ok !== false))) flFetch();
+  else flSchedule();
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) { clearTimeout(FL.timer); FL.timer = null; FL.due = 0; return; }
+  if (flWanted() && !FL.busy && (!FL.at || Date.now() - FL.at >= flIvl())) flFetch(); else flSchedule();
+});
+document.addEventListener('kh:inv', () => {
+  if (invHas()) { flSchedule(); if (flWanted() && !FL.j && !FL.busy && !document.hidden) flFetch(); return; }
+  const had = !!FL.j;
+  clearTimeout(FL.timer); FL.timer = null; FL.due = 0; FL.j = null; FL.ok = null; FL.at = 0;
+  if (had) document.dispatchEvent(new CustomEvent('kh:flowslive', { detail: { data: null } }));
+});
+const invApi = { has: invHas, name: () => (INV.tok ? INV.n : null), own: () => !!(INV.tok && INV.own), ready: invReady, fetch: invFetch, forget: () => invForget() };
+const flowsLiveApi = {
+  data: flData,
+  want: flWant,
+  refresh: () => flFetch(),
+  // read-only, for checks: who wants it, whether a fetch is due (ms until it, null when not polling), the last answer
+  status: () => ({ wants: [...FL.wants], polling: !!FL.timer || !!FL.busy, next: FL.timer ? Math.max(0, FL.due - Date.now()) : null, ivl: flIvl(), at: FL.at || null, ok: FL.ok }),
+};
+
 /* ───────────────── state ───────────────── */
 const bootHash = parseHash(location.hash.slice(1));
 const state = {
@@ -2386,7 +2631,9 @@ if (MODE === 'live' && state.topN === 500) state.topN = 300;   // live: the top 
 // §3-15 종목 수 전체: the live quotes come from /api/quotes?scope=all (~2,700 rows) and refresh every 15 s
 const allScope = () => MODE === 'live' && state.topN === 'all';
 if (!SIZE_METRICS[state.sizeBy]) state.sizeBy = 'cap';
-if (![1, 5, 20].includes(state.flowWin)) state.flowWin = 5;
+// 0 = 오늘 잠정 (§3-40): kept only on a family device (a token here); otherwise — the token forgotten — 1일, and that is saved
+if (state.flowWin === 0 && !invHas()) { state.flowWin = 1; store.set('flowWin', 1); }
+if (![0, 1, 5, 20].includes(state.flowWin)) state.flowWin = 5;
 if (!COLOR_METRICS[state.colorBy]) state.colorBy = 'r';
 if (!MKT_NAME[state.market]) state.market = 'Q';
 if (state.market !== 'THEME') state.theme = null;
@@ -2510,9 +2757,11 @@ function rangeMoved() {
   document.dispatchEvent(new CustomEvent('kh:palette'));
   return true;
 }
-const flowShort = () => `${FLOW_WHO[state.sizeBy]} ${state.flowWin}일`;
+// the window's words: '1일' · '5일' · '20일', or 0 = '오늘 잠정' (§3-40 — today's intraday estimate, family devices)
+const flowWinText = () => state.flowWin === 0 ? '오늘 잠정' : `${state.flowWin}일`;
+const flowShort = () => `${FLOW_WHO[state.sizeBy]} ${flowWinText()}`;
 const metricShort = () => isFlow() ? flowShort() : COLOR_METRICS[state.colorBy].short;
-const metricLong = () => isFlow() ? `${FLOW_WHO[state.sizeBy]} 순매수 ${state.flowWin}일` : COLOR_METRICS[state.colorBy].long;
+const metricLong = () => isFlow() ? `${FLOW_WHO[state.sizeBy]} 순매수 ${flowWinText()}` : COLOR_METRICS[state.colorBy].long;
 
 /* ───────────────── daily data (themes / periods / flows) ───────────────── */
 const DATA_NAMES = ['themes', 'periods', 'flows', 'names', 'close', 'alerts'];
@@ -2553,6 +2802,7 @@ function need(name) {
     else if (j && name === 'flows' && j.f && typeof j.f === 'object') ok = true;
     d.j = ok ? j : null; d.st = ok ? 'ok' : 'fail';
     bump();
+    if (name === 'flows' && flowOptSync()) { rebuildColor(); state.bucket = null; syncControls(); }   // §3-40 an evening file dated today: 오늘 잠정 steps aside
     if (name === 'themes' && state.market === 'THEME' && state.theme != null && !THEMES.byId.has(state.theme)) state.theme = null;
     renderAll();
     syncPollers();
@@ -3271,11 +3521,37 @@ const candleHint = cr => h('div', { class: 'cdhint', text: `${CANDLE_HINT} · �
 
 /* ───────────────── metrics ───────────────── */
 function amt(st) {
-  const f = FLO(); if (!f || !isFlow()) return null;
+  if (!isFlow() || !st) return null;
+  if (state.flowWin === 0) return liveAmt(st);
+  const f = FLO(); if (!f) return null;
   const a = f.f[st.c]; if (!a) return null;
   const v = a[FLOW_IX[state.sizeBy][state.flowWin]];
   return v == null || !isFinite(v) ? null : +v;
 }
+/* 오늘 잠정 (§3-40, flowWin 0 — family devices): KH.flowsLive.data().est[code] = [외국인 주, 기관 주] (the Worker's latest round over the
+   map's top 300 × 2) × the price drawn now ÷ 1e8 → 억원, the unit of flows.json. A code without est = no data (like a missing flows row).
+   Nothing until flows.json has answered too: an evening file dated today takes the option away (flowOptSync), so a page opened then
+   never shows the estimate first. */
+const liveOn = () => isFlow() && state.flowWin === 0;
+function liveAmt(st) {
+  if (DS.flows.st === 'idle' || DS.flows.st === 'loading') return null;
+  const d = flData(), e = d && d.est ? d.est[st.c] : null;
+  if (!Array.isArray(e)) return null;
+  const q = e[state.sizeBy === 'inst' ? 1 : 0];
+  return q == null || q === '' || !isFinite(q) || !(st.p > 0) ? null : +q * st.p / 1e8;
+}
+// one code's amount in the window drawn (the theme overview sums its members: est needs the member's price drawn)
+function codeAmt(c) {
+  if (state.flowWin === 0) { const s = get(c); return s ? liveAmt(s) : null; }
+  const F = FLO(), x = F ? F.f[c] : null, y = x ? x[FLOW_IX[state.sizeBy][state.flowWin]] : null;
+  return y == null || !isFinite(y) ? null : +y;
+}
+// the evening's confirmed file is today's: 오늘 잠정 steps aside for it (AGENTS §3-40 "flows.json asOf가 오늘이 되면 잠정을 그만 보여요")
+const flowsToday = () => { const F = FLO(); return !!(F && F.asOf && F.asOf === kstToday()); };
+const liveWinOk = () => MODE === 'live' && invHas() && !flowsToday();
+// the round the map's est is from ('14:30'), the source line of the legend · tooltip · footer
+const liveSlot = () => { const d = flData(); return d ? d.estSlot || d.slot || null : null; };
+const liveSrc = () => { const d = flData(); return (d && typeof d.src === 'string' && d.src) || '한국투자증권 가집계'; };
 function baseOf(st) {
   const P = PER(), m = COLOR_METRICS[state.colorBy];
   if (!P || m.kind !== 'period') return null;
@@ -3421,8 +3697,7 @@ function themeRows() {
     let v = null, up = 0, flat = 0, down = 0, a = null, counted = false;
     if (k === 'flow') {
       let sum = 0, n = 0;
-      const F = FLO();
-      if (F) for (const c of t.codes) { const x = F.f[c]; const y = x ? x[FLOW_IX[state.sizeBy][state.flowWin]] : null; if (y != null) { sum += +y; n++; if (y > 0) up++; else if (y < 0) down++; else flat++; } }
+      for (const c of t.codes) { const y = codeAmt(c); if (y != null) { sum += y; n++; if (y > 0) up++; else if (y < 0) down++; else flat++; } }
       a = n ? sum : null; v = n && t.cap ? sum / t.cap * 100 : null; counted = true;
     } else if (liveDay) {
       const L = THEME_LIVE && THEME_LIVE.map.get(t.id);
@@ -4057,7 +4332,8 @@ function emptyText(mdl) {
   const m = state.market;
   if (!DATA.stocks.length && m !== 'WATCH') return MODE === 'live' && liveState.ok ? '시세를 불러오는 중…' : '시세를 불러오지 못했어요. 잠시 뒤 자동으로 다시 시도해요.';
   if (m === 'THEME' && !THEMES) return DS.themes.st === 'fail' ? '테마 목록을 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요.' : '테마 목록을 불러오는 중…';
-  if (isFlow() && DS.flows.st !== 'ok') return DS.flows.st === 'fail' ? '순매수 데이터를 불러오지 못했어요. 다른 크기 기준을 골라 주세요.' : '순매수 데이터를 불러오는 중…';
+  if (liveOn()) { const t = liveEmpty(); if (t) return t; }
+  else if (isFlow() && DS.flows.st !== 'ok') return DS.flows.st === 'fail' ? '순매수 데이터를 불러오지 못했어요. 다른 크기 기준을 골라 주세요.' : '순매수 데이터를 불러오는 중…';
   if (m === 'THEME' && mdl.type === 'members') {
     const t = curTheme();
     if (t && MODE === 'live' && extra.busy) return '테마 종목 시세를 불러오는 중…';
@@ -4070,6 +4346,15 @@ function emptyText(mdl) {
     return MODE === 'live' && !extra.ok ? '관심종목 시세를 불러오지 못했어요. 잠시 뒤 다시 시도해요.' : '관심종목의 시세가 아직 없어요.';
   }
   return '표시할 종목이 없어요. 시장이나 종목 수를 바꿔 보세요.';
+}
+// 오늘 잠정 with nothing to draw: flows.json first (the evening check), then the live answer — under way · failed · nothing today yet
+function liveEmpty() {
+  if (DS.flows.st === 'idle' || DS.flows.st === 'loading') return '순매수 데이터를 불러오는 중…';
+  if (!FL.j) return FL.ok === false ? '오늘 잠정 수급을 불러오지 못했어요. 잠시 뒤 다시 시도해요.' : '오늘 잠정 수급을 불러오는 중…';
+  const d = flData();
+  if (!d || !d.slot) return '오늘 첫 입력(09:30) 뒤에 보여요';
+  if (!Object.keys(d.est || {}).length) return '지도에 쓸 잠정 수급을 받는 중이에요. 몇 분 뒤 보여요.';   // the round is in, the map's 600 still coming
+  return '';
 }
 function renderEmpty(mdl) {
   let empty = $('.map-empty', mapEl);
@@ -4313,9 +4598,11 @@ function metricRow(st) {
     const a = amt(st), v = cval(st);
     const F = FLO();
     // flows.json stale: the stock's latest investor row is older than asOf (evening rows not published yet)
-    const sd = F && F.stale && F.stale[st.c];
+    const sd = !liveOn() && F && F.stale && F.stale[st.c];
+    const when = liveOn() ? (liveSlot() ? h('span', { text: `${liveSlot()} 입력분 · ${liveSrc()}` }) : null)
+      : sd ? h('span', { text: `전일(${dayName(sd)}) 기준` }) : F && F.asOf ? h('span', { text: `${dayName(F.asOf)} 기준` }) : null;
     return h('div', { class: 'mrow' }, `${flowShort()} 순매수 `, h('b', { class: a == null ? 'flat' : cls(a), text: a == null ? '데이터 없음' : fmtAmt(a) }),
-      v != null ? h('span', { text: `시총의 ${fmtPct(v, 2)}` }) : null, sd ? h('span', { text: `전일(${dayName(sd)}) 기준` }) : F && F.asOf ? h('span', { text: `${dayName(F.asOf)} 기준` }) : null);
+      v != null ? h('span', { text: `시총의 ${fmtPct(v, 2)}` }) : null, when);
   }
   const v = cval(st), b = baseOf(st), P = PER(), m = COLOR_METRICS[state.colorBy];
   const bd = P && P.base ? dayName(P.base[m.key]) : '';
@@ -5024,10 +5311,13 @@ function renderLegend() {
     kids.push(h('span', { class: 'lg' }, h('span', { class: 'k', text: '색' }), h('i', { class: 'sw', style: `background:${P[6]}` }), h('b', { text: '순매수' }), h('i', { class: 'sw', style: `background:${P[0]}` }), h('b', { text: '순매도' })));
     kids.push(h('span', { class: 'lg' }, h('span', { class: 'k', text: '시가총액 대비' }), ticks));
     kids.push(h('span', { class: 'lg right' }, h('span', { class: 'k', text: '크기' }),
-      h('b', { text: themeOv ? '테마 시가총액' : `${FLOW_WHO[state.sizeBy]} 순매수 금액` }), h('span', { text: state.flowWin === 1 ? '1일' : `${state.flowWin}일 합` }),
-      F && F.asOf ? h('span', { class: 'note', text: `${dayName(F.asOf)} 기준` }) : null));
-    if (DS.flows.st === 'loading') kids.push(h('span', { class: 'lg note', text: '순매수 데이터를 불러오는 중…' }));
-    else if (DS.flows.st === 'fail') kids.push(h('span', { class: 'lg note', text: '순매수 데이터를 불러오지 못했어요' }));
+      h('b', { text: themeOv ? '테마 시가총액' : `${FLOW_WHO[state.sizeBy]} 순매수 금액` }), h('span', { text: liveOn() ? '오늘 잠정' : state.flowWin === 1 ? '1일' : `${state.flowWin}일 합` }),
+      liveOn() ? (liveSlot() ? h('span', { class: 'note', text: `${liveSlot()} 입력분 · ${liveSrc()} · 금액은 수량 × 지금 가격` }) : null)
+        : F && F.asOf ? h('span', { class: 'note', text: `${dayName(F.asOf)} 기준` }) : null));
+    const lt = liveOn() ? liveEmpty() : '';
+    if (lt) kids.push(h('span', { class: 'lg note', text: lt.replace(/\. 잠시 뒤.*$|\.$/, '') }));
+    else if (!liveOn() && DS.flows.st === 'loading') kids.push(h('span', { class: 'lg note', text: '순매수 데이터를 불러오는 중…' }));
+    else if (!liveOn() && DS.flows.st === 'fail') kids.push(h('span', { class: 'lg note', text: '순매수 데이터를 불러오지 못했어요' }));
     else if (!themeOv) {
       const uni = universe();
       if (uni.noData) kids.push(h('span', { class: 'lg note', text: `데이터 없는 ${uni.noData}종목은 빠졌어요` }));
@@ -5249,6 +5539,8 @@ function distPool() {
   const k = kind();
   if (MODE === 'snapshot') return { list: allStocks().filter(inMarket), scope: k === 'day' ? 'all' : 'data', label };
   const stream = allStocks().filter(inMarket);
+  // 오늘 잠정 (§3-40): est covers the streamed top 300 × 2 only — count those, never the close.json rest as "데이터 없음"
+  if (liveOn()) return { list: stream, scope: 'data', label, note: '실시간으로 받는 시장별 시총 상위 300종목 중' };
   if (distClose()) {
     // KRX closes: every code in close.json; names.json tells the market
     const N = namesIdx();
@@ -5361,7 +5653,8 @@ function distSummary() {
     if (pool.scope === 'data') note = (note ? note + ' ' : '') + '데이터가 있는 종목만 셌어요.';
     if (pool.partial) note = '일부 묶음을 받지 못해 받은 종목만 셌어요.';
     const F = isFlow() ? FLO() : null;
-    if (F && F.stale) { let st = 0; for (const x of list) if (F.stale[x.c] && amt(x) != null) st++; if (st) note = (note + ` ${fmtInt(st)}종목은 전일 기준이에요.`).trim(); }
+    if (F && F.stale && !liveOn()) { let st = 0; for (const x of list) if (F.stale[x.c] && amt(x) != null) st++; if (st) note = (note + ` ${fmtInt(st)}종목은 전일 기준이에요.`).trim(); }
+    if (liveOn() && liveSlot()) note = (note + ` 잠정 · ${liveSlot()} 입력분이에요.`).trim();
     return { vals, opts: { scope, big: grpText(list, 2), bigCls: grpCls(list), note, lim: limCount(pool), mapVals: pool.scope !== 'map' ? universe().filter(inFocus).filter(s => !s.nonx).map(cval) : null,
       bigLab: (k === 'flow' ? `${flowShort()} 순매수 합계` : k === 'day' ? '시가총액 가중' :   /* 사용자 2026-11-13 23:50: "시가총액 가중이라고만" */ `시가총액 가중 ${COLOR_METRICS[state.colorBy].long}`) + capNote, unit: '종목' } };
   }
@@ -5856,7 +6149,8 @@ function renderFooter() {
   const daily = [];
   const P = PER(), F = FLO();
   if (P && P.asOf && k === 'period') daily.push(`기간 수익률 기준 종가는 ${dayName(P.asOf)}에 만든 자료예요`);
-  if (F && F.asOf && isFlow()) daily.push(`순매수는 ${dayName(F.asOf)}까지 집계예요(장중에는 전 거래일까지)`);
+  if (liveOn()) { if (liveSlot()) daily.push(`오늘 잠정 순매수는 ${liveSrc()} ${liveSlot()} 입력분이에요(금액은 수량 × 지금 가격, 장 마감 뒤 저녁에 확정돼요)`); }
+  else if (F && F.asOf && isFlow()) daily.push(`순매수는 ${dayName(F.asOf)}까지 집계예요(장중에는 전 거래일까지)`);
   if (THEMES && THEMES.asOf && state.market === 'THEME') daily.push(`테마 구성은 ${dayName(THEMES.asOf)} 기준이에요`);
   if (daily.length) parts.push(h('p', {}, daily.join('. ') + '.'));
   if (MODE === 'snapshot') parts.push(h('p', {}, `이 화면은 ${asOf} 시세를 담은 스냅샷이라 자동으로 갱신되지 않아요. `,
@@ -5918,7 +6212,8 @@ function syncControls() {
   const gb = $('.ctl[data-ctl="groupBy"]');
   if (gb.hidden !== !GROUPABLE.includes(state.market)) { gb.hidden = !GROUPABLE.includes(state.market); syncSetSections(); }
   uiSwap($('.ctl[data-ctl="colorBy"] .ddv'), COLOR_METRICS[state.colorBy].label);
-  uiSwap($('.ctl[data-ctl="flowWin"] .ddv'), `${state.flowWin}일`);
+  uiSwap($('.ctl[data-ctl="flowWin"] .ddv'), flowWinText());
+  flWant('map', liveOn());                // KH.flowsLive polls while the map draws 오늘 잠정 (and anything else asks)
   // 종목 수 only applies to market maps; the colour metric is replaced by net buying in a flow size mode
   const off = { topN: state.market === 'THEME' || state.market === 'WATCH', colorBy: isFlow() };
   for (const [k, v] of Object.entries(off)) {
@@ -6035,7 +6330,7 @@ function syncSetSections() {
   for (const sec of [morePanel, document.querySelector('.dkset')]) {
     if (!sec) continue;
     sec.classList.remove('set-empty');
-    const any = [...sec.querySelectorAll(':scope > .ctl')].some(r => !r.hidden && getComputedStyle(r).display !== 'none');
+    const any = [...sec.querySelectorAll(':scope > .ctl')].some(r => !r.hidden && getComputedStyle(r).display !== 'none') || !!sec.querySelector(':scope > .famset');
     sec.classList.toggle('set-empty', !any);
   }
 }
@@ -6139,6 +6434,7 @@ function openCtls() {
   else { ctlsEl.style.left = ''; scrim2.classList.add('open'); }      // phones: a sheet from the bottom edge (CSS)
   const first = ctlsEl.querySelector('.seg button[aria-pressed="true"]') || ctlsEl.querySelector('button');
   if (first) first.focus({ preventScroll: true });
+  famOnOpen();
 }
 function closeCtls(restore = true) {
   if (!ctlsOpen()) return;
@@ -6172,6 +6468,7 @@ function openMore() {
   uiPopIn(morePanel, moreBtn);
   const f = morePanel.querySelector('button[aria-pressed="true"]:not([hidden])') || morePanel.querySelector('button:not([hidden])');
   if (f) f.focus({ preventScroll: true });
+  famOnOpen();
 }
 function closeMore(restore) {
   if (!moreOpen()) return;
@@ -6280,7 +6577,8 @@ function addSetting(spec) {
   }
   o.el = settingRow(o);
   const old = SETTINGS.get(key);
-  if (old && old.el && old.el.isConnected) old.el.replaceWith(o.el); else morePanel.append(o.el);
+  if (old && old.el && old.el.isConnected) old.el.replaceWith(o.el);
+  else if (FAM.el && FAM.el.parentNode === morePanel) FAM.el.before(o.el); else morePanel.append(o.el);   // 가족 보기 stays last
   SETTINGS.set(key, o);
   syncSetSections();
   callSetting(o);
@@ -6304,6 +6602,231 @@ function settingState(key, st) {
   }
   if ('hint' in st) { const el = o.el.querySelector('.hint'); if (el) el.textContent = st.hint || ''; }
 }
+
+/* ───────────────── 표시 설정 › 가족 보기 (AGENTS §3-40) ─────────────────
+   Only while this device holds an invite token (KH.inv.has()) — a public device never gets this DOM. Phones: the 표시 설정 sheet's last
+   section (after 아래 막대); from 761 px: the 화면 panel's last section (the tablet popover · the ≥ 1280 화면 popover). "이 기기: 이름" +
+   what it unlocks + 이 기기에서 끄기 (two presses within --c-arm). own(): 가족 초대 — a name (≤ 12자) → POST /api/inv → the link once
+   (복사 · 공유 when the device can share) and the list (GET /api/inv, when the panel opens) with 끄기 on every row but the owner's
+   (DELETE /api/inv/{id}, two presses). Feedback: the bubble under the key + the polite live region (KH.ui.bubble · KH.ui.live). */
+const FAM = { el: null, name: null, offK: null, offHint: null, inv: null, invHead: null, inp: null, mk: null, link: null, linkIn: null, share: null,
+  listBox: null, list: null, listSt: 'idle', listAt: 0, url: '', who: '' };
+const famMd = at => { const m = /^\d{4}-(\d\d)-(\d\d)/.exec(String(at || '')); return m ? `${+m[1]}/${+m[2]}` : ''; };
+const famLen = s => [...String(s)].length;
+// two presses: the first arms the key (the fail surface, its label "한 번 더 …") for --c-arm, the second within that time does it; a
+// second press within 0.4 s is a slip and is ignored (the same rule as extras' 기본값으로)
+function famArm(k, run) {
+  let t = null, at = 0;
+  k.addEventListener('click', () => {
+    const st = k.dataset.st;
+    if (st === 'work') return;
+    if (st !== 'arm') {
+      uiState(k, 'arm'); at = performance.now();
+      clearTimeout(t); t = setTimeout(() => { if (k.dataset.st === 'arm') { uiState(k, 'idle'); if (k === FAM.offK && FAM.offHint) FAM.offHint.hidden = true; } }, uiMs('--c-arm') || 4000);
+      if (k === FAM.offK && FAM.offHint) FAM.offHint.hidden = false;
+      return;
+    }
+    if (performance.now() - at < 400) return;
+    clearTimeout(t);
+    run();
+  });
+}
+function famBuild() {
+  FAM.name = h('b', { class: 'famn' });
+  FAM.offK = uiAkey('famk', { idle: '이 기기에서 끄기', arm: '한 번 더 누르면 꺼져요' });
+  FAM.offK.setAttribute('aria-describedby', 'famOffH');
+  FAM.offHint = h('small', { class: 'hint', id: 'famOffH', hidden: true, text: '끄면 이 기기에서 잠정 수급이 사라져요. 다시 보려면 받은 초대 링크를 다시 열어 주세요.' });
+  famArm(FAM.offK, () => {
+    const inside = FAM.el && FAM.el.contains(document.activeElement);
+    invForget();
+    uiLive('이 기기에서 가족 보기를 껐어요.');
+    if (inside) {
+      const back = narrowMQ.matches || collapsedMQ.matches ? (ctlsOpen() ? $('#ctlsX') : setBtn) : moreOpen() ? moreBtn : setBtn;
+      if (back) back.focus({ preventScroll: true });
+    }
+  });
+  // 가족 초대 (own only)
+  FAM.invHead = h('span', { class: 'famh2', id: 'famInvH', text: '가족 초대' });
+  FAM.inp = h('input', { type: 'text', class: 'famin', maxlength: '12', placeholder: '받는 사람 이름', 'aria-labelledby': 'famInvH',
+    'aria-describedby': 'famInvD', autocomplete: 'off', spellcheck: 'false', enterkeyhint: 'done' });
+  FAM.mk = uiAkey('famk famk-pri', { idle: '만들기', work: '만드는 중', done: '만들었어요', fail: '다시' });
+  FAM.mk.addEventListener('click', () => famCreate());
+  FAM.inp.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); famCreate(); } });
+  FAM.linkIn = h('input', { type: 'text', class: 'famin famurl', readonly: true, 'aria-label': '초대 링크', spellcheck: 'false' });
+  FAM.linkIn.addEventListener('focus', () => FAM.linkIn.select());
+  const copy = h('button', { type: 'button', class: 'famk', text: '복사' });
+  copy.addEventListener('click', async () => {
+    const ok = await famCopy(FAM.url);
+    uiBubble(copy, ok ? '복사했어요' : '복사하지 못했어요 · 링크를 길게 눌러 복사해 주세요', ok ? 'done' : 'fail');
+  });
+  FAM.share = h('button', { type: 'button', class: 'famk', text: '공유', hidden: true });
+  FAM.share.addEventListener('click', async () => {
+    try { await navigator.share({ title: '판세 가족 보기', text: `${FAM.who ? FAM.who + '님, ' : ''}판세에서 장중 잠정 수급을 볼 수 있는 초대 링크예요.`, url: FAM.url }); }
+    catch (e) { if (!e || e.name !== 'AbortError') uiBubble(FAM.share, '공유하지 못했어요 · 복사해서 보내 주세요', 'fail'); }
+  });
+  FAM.link = h('div', { class: 'famlink', hidden: true, role: 'group', 'aria-label': '새 초대 링크' },
+    FAM.linkIn, h('div', { class: 'famacts' }, copy, FAM.share),
+    h('small', { class: 'hint', text: '이 링크는 지금 한 번만 보여요. 받은 사람이 열면 그 기기에서 잠정 수급이 보여요.' }));
+  FAM.listBox = h('div', { class: 'famlist' });                   // changes are said once through KH.ui.live, not by re-reading the list
+  FAM.inv = h('div', { class: 'faminv', role: 'group', 'aria-labelledby': 'famInvH' },
+    FAM.invHead,
+    h('div', { class: 'famnew' }, FAM.inp, FAM.mk),
+    h('small', { class: 'hint', id: 'famInvD', text: '받는 사람마다 따로 만들어요(이름 12자까지). 목록에서 하나씩 끌 수 있어요.' }),
+    FAM.link, FAM.listBox);
+  FAM.el = h('section', { class: 'famset', role: 'group', 'aria-labelledby': 'famH' },
+    h('span', { class: 'famh', id: 'famH', text: '가족 보기' }),
+    h('div', { class: 'famme' }, h('span', { text: '이 기기' }), FAM.name),
+    h('small', { class: 'hint', text: '장중 외국인 · 기관 잠정 수급을 볼 수 있어요' }),
+    h('div', { class: 'famoff' }, FAM.offK), FAM.offHint,
+    FAM.inv);
+}
+// the section where it belongs now: the sheet's end on phones, the 화면 panel's end from 761 px (KH.addSetting rows go before it)
+function famPlace() {
+  if (!FAM.el) return;
+  const home = narrowMQ.matches ? ctlsEl : morePanel;
+  if (FAM.el.parentNode !== home || FAM.el.nextElementSibling) home.append(FAM.el);
+}
+function famRender() {
+  if (!invHas()) {
+    if (FAM.el) { FAM.el.remove(); FAM.el = null; }
+    FAM.list = null; FAM.listSt = 'idle'; FAM.listAt = 0; FAM.url = ''; FAM.who = '';
+    syncSetSections();
+    return;
+  }
+  if (!FAM.el) famBuild();
+  famPlace();
+  const n = invApi.name();
+  FAM.name.textContent = n || (INV.st === 'retry' ? '이름을 아직 확인하지 못했어요' : '확인하는 중…');
+  FAM.name.classList.toggle('pend', !n);
+  const own = invApi.own();
+  FAM.inv.hidden = !own;
+  if (!own) { FAM.list = null; FAM.listSt = 'idle'; FAM.listAt = 0; }
+  FAM.link.hidden = !FAM.url;
+  if (FAM.url) { FAM.linkIn.value = FAM.url; FAM.share.hidden = !(navigator.share && (!navigator.canShare || navigator.canShare({ url: FAM.url }))); }
+  famListDraw();
+  syncSetSections();
+}
+// the panel opened (sheet · tablet popover · 화면 popover): the owner's list, at most once a minute
+function famOnOpen() { if (FAM.el && invApi.own() && FAM.listSt !== 'loading' && (FAM.listSt !== 'ok' || Date.now() - FAM.listAt > 60000)) famLoad(); }
+async function famLoad() {
+  if (!invApi.own() || FAM.listSt === 'loading') return;
+  FAM.listSt = 'loading'; famListDraw();
+  let j = null;
+  try { const res = await invFetch('api/inv'); if (res.ok) j = await res.json(); } catch (e) { j = null; }
+  if (!FAM.el) return;
+  if (j && Array.isArray(j.items)) {
+    FAM.list = j.items.filter(x => x && typeof x === 'object' && x.id != null).map(x => ({ id: String(x.id), n: String(x.n == null ? '' : x.n), at: String(x.at || ''), own: !!x.own }));
+    FAM.listSt = 'ok'; FAM.listAt = Date.now();
+  } else FAM.listSt = 'fail';
+  famListDraw();
+}
+function famListDraw() {
+  const box = FAM.listBox;
+  if (!box) return;
+  if (!invApi.own()) { box.replaceChildren(); return; }
+  if (FAM.listSt === 'fail' && !FAM.list) {
+    box.replaceChildren(h('div', { class: 'famst' }, uiIcon('warn'), h('span', { text: '초대 목록을 불러오지 못했어요' }),
+      uiRetry({ cls: 'famk', run: async () => { FAM.listSt = 'idle'; await famLoad(); return FAM.listSt === 'ok' ? true : FAM.el ? false : null; }, render: () => famListDraw() })));
+    return;
+  }
+  if (!FAM.list) { box.replaceChildren(h('div', { class: 'famst', text: FAM.listSt === 'loading' ? '초대 목록을 불러오는 중…' : '' })); return; }
+  const rows = FAM.list.map(it => {
+    let key = null;
+    if (!it.own) {
+      key = uiAkey('famk famk-sm', { idle: '끄기', arm: '정말 끄기', work: '끄는 중', fail: '다시' });
+      const say = { idle: `${it.n} 초대 끄기`, arm: `${it.n} 초대를 끌까요? 한 번 더 누르면 꺼져요`, work: `${it.n} 초대를 끄는 중`, fail: `${it.n} 초대를 끄지 못했어요 · 다시` };
+      for (const kl of key.querySelectorAll('.kl')) kl.dataset.say = say[kl.dataset.l] || kl.textContent;
+      key.setAttribute('aria-label', say.idle);
+      famArm(key, () => famDelete(it, key));
+    }
+    return h('li', { class: 'famr' }, h('span', { class: 'nm', text: it.n || '이름 없음' }), it.own ? h('span', { class: 'famtag', text: '관리' }) : null,
+      h('span', { class: 'at', text: famMd(it.at), 'aria-label': it.at ? `${dayName(it.at)} 만듦` : null }), key);
+  });
+  const others = FAM.list.filter(x => !x.own).length;
+  box.replaceChildren(...[h('ul', { class: 'famrows', 'aria-label': `초대 목록 ${FAM.list.length}개` }, rows),
+    others ? null : h('small', { class: 'hint', text: '아직 초대한 가족이 없어요.' })].filter(Boolean));   // native replaceChildren prints a null
+}
+async function famCreate() {
+  const k = FAM.mk, n = FAM.inp.value.trim();
+  if (!k || k.dataset.st === 'work' || !invApi.own()) return;
+  if (!n) { uiBubble(k, '이름을 적어 주세요', 'fail'); FAM.inp.focus(); return; }
+  if (famLen(n) > 12) { uiBubble(k, '이름은 12자까지예요', 'fail'); FAM.inp.focus(); return; }
+  uiState(k, 'work');
+  let j = null;
+  try {
+    const res = await invFetch('api/inv', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ n }) });
+    if (res.ok) j = await res.json();
+  } catch (e) { j = null; }
+  if (!FAM.el) return;
+  if (!j || !INV_RE.test(String(j.token || ''))) { uiState(k, 'fail'); uiLive('초대 링크를 만들지 못했어요. 잠시 뒤 다시 눌러 주세요.'); return; }
+  FAM.url = `${location.origin}/#inv=${j.token}`; FAM.who = n;
+  FAM.inp.value = '';
+  famRender();
+  uiLive(`${n} 초대 링크를 만들었어요. 이 링크는 지금 한 번만 보여요.`);
+  if (MOTION !== 'reduced') { uiState(k, 'done'); setTimeout(() => { if (k.dataset.st === 'done') uiState(k, 'idle'); }, uiMs('--c-dwell') || 1120); } else uiState(k, 'idle');
+  FAM.linkIn.focus({ preventScroll: true });
+  FAM.listSt = 'idle'; famLoad();
+}
+async function famDelete(it, k) {
+  uiState(k, 'work');
+  let ok = false;
+  try { const res = await invFetch('api/inv/' + encodeURIComponent(it.id), { method: 'DELETE' }); ok = res.ok; } catch (e) { ok = false; }
+  if (!FAM.el) return;
+  if (!ok) { if (k.isConnected) uiState(k, 'fail'); uiLive(`${it.n} 초대를 끄지 못했어요. 잠시 뒤 다시 눌러 주세요.`); return; }
+  if (FAM.list) FAM.list = FAM.list.filter(x => x.id !== it.id);
+  famListDraw();
+  uiBubble(FAM.invHead, `${it.n} 초대를 껐어요`, 'done');
+  uiLive(`${it.n} 초대를 껐어요. 그 기기에서는 잠정 수급이 사라져요.`);
+  if (FAM.inp && document.activeElement === document.body) FAM.inp.focus({ preventScroll: true });
+  FAM.listSt = 'idle'; famLoad();
+}
+async function famCopy(text) {
+  if (!text) return false;
+  try { if (navigator.clipboard && window.isSecureContext) { await navigator.clipboard.writeText(text); return true; } } catch (e) { /* the selection below */ }
+  try { FAM.linkIn.focus(); FAM.linkIn.select(); return !!document.execCommand('copy'); } catch (e) { return false; }
+}
+// a device that has just opened its invite link: said once the Worker confirms it (the key that opens 표시 설정 / 화면)
+function famWelcome() {
+  if (!INV.fresh || INV.st !== 'ok') return;
+  INV.fresh = false;
+  const key = [setBtn, moreBtn].find(b => b && b.offsetParent);
+  const n = invApi.name();
+  if (key) uiBubble(key, `가족 보기를 켰어요${n ? ' · ' + n : ''}`, 'done'); else uiLive('가족 보기를 켰어요.');
+}
+narrowMQ.addEventListener('change', famPlace);
+// 오늘 잠정 (flowWin 0) is offered on a family device unless the evening's confirmed flows.json is today's; gone → 1일 (saved only when the
+// device is no longer a family one — a family device keeps 0 for the next morning). → true when the window moved
+function flowOptSync() {
+  const seg = document.querySelector('.seg[data-key="flowWin"]');
+  if (!seg) return false;
+  const ok = liveWinOk();
+  let b = seg.querySelector('button[data-v="0"]');
+  if (ok && !b) {
+    b = h('button', { 'data-v': '0', 'aria-label': '오늘 잠정', title: '오늘 장중 잠정 순매수 · 한국투자증권 가집계 · 금액은 수량 × 지금 가격' }, '오늘', h('span', { class: 'fwtag', 'aria-hidden': 'true', text: '잠정' }));
+    seg.prepend(b);
+  } else if (!ok && b) b.remove();
+  if (ok || state.flowWin !== 0) return false;
+  state.flowWin = 1;
+  if (!invHas()) store.set('flowWin', 1);
+  return true;
+}
+function flowOptApply() {
+  const moved = flowOptSync();
+  if (moved) { rebuildColor(); state.bucket = null; bump(); }
+  syncControls();
+  if (moved) renderAll();
+}
+// a KH.flowsLive answer (or none): the map redraws when 오늘 잠정 is drawn and the round · its est moved (or the answer's state did)
+let flSig = '';
+function flMapSync() {
+  if (flowOptSync()) { rebuildColor(); state.bucket = null; bump(); syncControls(); renderAll(); return; }
+  if (!liveOn()) return;
+  const d = FL.j, sig = d ? [d.date, d.slot, d.estSlot, d.at, d.estN, Object.keys(d.est || {}).length, flData() ? 1 : 0].join('|') : 'none:' + FL.ok;
+  if (sig === flSig) return;
+  flSig = sig;
+  bump(); renderAll(); refreshOpenViews();
+}
+document.addEventListener('kh:inv', () => { famRender(); flowOptApply(); if (liveOn()) { flSig = ''; flMapSync(); } famWelcome(); if (ctlsOpen() || moreOpen()) famOnOpen(); });
 
 const viewBtns = () => document.querySelectorAll('.viewseg button');
 function syncViewSeg() { for (const b of viewBtns()) b.setAttribute('aria-pressed', String(b.dataset.v === state.view)); }
@@ -7061,6 +7584,10 @@ window.KH = {
   // own road: store, views, flashes, 'kh:data'); pausePoll(on) stops / restarts the 10 s quotes timer; scope() → 'top' (the 600 stream)
   // | 'all' (전체, polled); polling() → {paused, ok, last (ms | null), wait (ms)}; the status mount is <span id="live-mark" hidden> in #status
   feed: body => feed(body, 'live'),
+  // 가족 보기 (AGENTS §3-40): inv = this device's invite (has · name · own · ready · fetch · forget, 'kh:inv' {has, n, own}); flowsLive =
+  // the page's one fetcher of /api/flows/live (data · want · refresh · status, 'kh:flowslive' {data}) — see the contract block at the top
+  inv: invApi,
+  flowsLive: flowsLiveApi,
   pausePoll,
   scope: () => (allScope() ? 'all' : 'top'),
   polling: () => ({ paused: pollPaused, ok: !!liveState.ok, last: liveState.last ? +liveState.last : null, wait: pollWait() }),
@@ -7773,6 +8300,7 @@ rebuildColor();
 buildPaletteSeg();
 syncMotionSeg();
 trimControlsForMode();
+flowOptSync();                              // §3-40 오늘 잠정 among the 순매수 기간 keys (family devices only)
 syncControls();
 needForMetric();
 fitMapHeight();
@@ -7785,6 +8313,7 @@ renderCrumbs();
 renderSide();
 renderLegend();
 if (MODE === 'live') { poll(); syncPollers(); loadClose(); }
+if (invHas()) { famRender(); invCheck(); }  // §3-40 a family device: its section now, the token checked once (GET /api/inv/me)
 loadAlerts();
 // 시장 경보: the daily job writes 07:50 · 16:40 KST — a page left open asks again every 30 minutes while it is seen
 if (MODE === 'live') {
