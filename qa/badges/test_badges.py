@@ -2,7 +2,7 @@
 """지도 배지 (AGENTS §3-41 A안 · drafts/badges.html A): 52주 신고가 · 신저가 · 거래 급증 · 연속 순매수 on the map plate, the legend chips
 (+ 연속 순매도 · 시장 경보), the tooltip / quick-view lines, the table marks and the aria tails.
 
-  python3 scripts/build_page.py && python3 qa/badges/test_badges.py [--only=rules,plate,legend,views,themes,perf,snapshot] [--shots DIR]
+  python3 scripts/build_page.py && python3 qa/badges/test_badges.py [--only=rules,plate,legend,lit,views,themes,perf,snapshot] [--shots DIR]
 
 The built web/ runs behind qa/badges/mock_badges.py on BADGES_QA_PORT (default 9125; 9125–9129 only) with the scenes of
 qa/badges/scenes.py posted to /__scene: /api/quotes (top 300 × 2 with KRX op · hi · lo · tv; one NXT row), /data/marks.json,
@@ -19,6 +19,9 @@ What is checked:
   legend   chip counts = the map's stocks (KH.marks.badge over KH.mapCodes()), zero chips hidden, a chip lights only those stocks (.mdim
            on the rest, union of chips, AND with search and the 공시 switch, the table keeps only those rows), the chips let go off the
            stock maps (해외) and are not remembered, a focused chip keeps focus over a quotes refresh
+  lit      a lit chip puts THAT kind's mark in front on every lit stock's plate (연속 순매도 = 외 · 기 in inverted neutral ink + a down
+           tick, 시장 경보 = the --g-al diamond), tiles too small for a plate get a 2–6px corner square, nothing left blank, unlit plates
+           unchanged, the table and aria follow, chips off → normal; counts: chip = lit = this map, "· N종목 밝게 · 지도 밖 M" (종목 수 · zoom)
   views    tooltip lines (wording of the draft, the pace line, the note), the phone quick view (a 수급 line opens the stock page's
            투자자 tab), the table marks (two + "외 N", their own line under 430px), the tile / row aria tails before the 공시 tail
   themes   four themes × 360 · 1280: no element past the screen, the chip line fits, plate and chip ink neutral; map top 390 × 844 247,
@@ -47,7 +50,7 @@ assert 9125 <= PORT <= 9129, 'ports 9125–9129 (default 9125)'
 URL = f'http://127.0.0.1:{PORT}/'
 NP = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 THEMES = ['base', 'paper', 'glass-dark', 'glass-light']
-ONLY = set(next((a.split('=', 1)[1] for a in sys.argv if a.startswith('--only=')), 'rules,plate,legend,views,themes,perf,snapshot').split(','))
+ONLY = set(next((a.split('=', 1)[1] for a in sys.argv if a.startswith('--only=')), 'rules,plate,legend,lit,views,themes,perf,snapshot').split(','))
 SHOTS = pathlib.Path(next((sys.argv[i + 1] for i, a in enumerate(sys.argv) if a == '--shots' and i + 1 < len(sys.argv)), '/tmp/badges_shots'))
 SHOTS.mkdir(parents=True, exist_ok=True)
 D3 = (ROOT / 'src/vendor/d3-7.9.0.min.js').read_bytes()
@@ -143,7 +146,7 @@ def rules(br):
     check('next: under 3× so far but on pace → "거래대금 지금까지 20일 평균의 2.5배 · 이 속도면 하루 4배쯤" (text, no badge)',
           t == '거래대금 지금까지 20일 평균의 2.5배 · 이 속도면 하루 4배쯤 시세 KRX 13:05 기준' and not K[SC.PACE], t)
     t = tip_text(pg, SC.SELL)
-    check('next: 순매도 line "외국인 8일 연속 순매도 · 누적 880억" + note', t == f'외국인 8일 연속 순매도 · 누적 880억 수급 {SC.md(SC.PREV)}까지 확정', t)
+    check('next: 순매도 line "외국인 8일 연속 순매도 · 누적 880억" (with its sell mark) + note', t and t.endswith(f'외국인 8일 연속 순매도 · 누적 880억 수급 {SC.md(SC.PREV)}까지 확정'), t)
     t = tip_text(pg, SC.FLOW5)
     check('next: a 5-day streak is a line without a mark', t == f'외국인 5일 연속 순매수 · 누적 86억 수급 {SC.md(SC.PREV)}까지 확정', t)
     # same-day replay: 연속 수급 only; another day: nothing
@@ -293,7 +296,7 @@ def legend(br):
     }""")
     check('legend: chip counts = the map\'s stocks with that kind', d['cnt'] == d['chips'] and all(d['cnt'].values()), d)
     check('legend: chips 신고가 · 신저가 · 거래 급증 · 연속 순매수 · 연속 순매도 · 시장 경보, named "… 종목만 지도에서 밝게, N종목"',
-          d['order'] == ['hi', 'lo', 'vol', 'buy', 'sell', 'alert'] and d['labels'][0] == f"신고가 종목만 지도에서 밝게, {d['chips']['hi']}종목", d['labels'])
+          d['order'] == ['hi', 'lo', 'vol', 'buy', 'sell', 'alert'] and d['labels'][0] == f"신고가 종목만 지도에서 밝게, 이 지도에서 {d['chips']['hi']}종목", d['labels'])
     lit_js = """() => { const t = [...document.querySelectorAll('#map .tile[data-c]')]; return { dim: t.filter(e => e.classList.contains('mdim')).map(e => e.dataset.c), all: t.map(e => e.dataset.c),
       lit: document.querySelector('#bgl .lit').textContent, pressed: [...document.querySelectorAll('#bgl .lgc[aria-pressed="true"]')].map(b => b.dataset.k) }; }"""
     pg.click('#bgl .lgc[data-k="hi"]'); pg.wait_for_timeout(250)
@@ -338,6 +341,79 @@ def legend(br):
     ctx, pg = open_page(br, 1440, 900)
     check('chips are not remembered (a reload starts with none pressed, nothing dimmed)', pg.evaluate("[KH.marks.litKinds().length, document.querySelectorAll('#map .tile.mdim').length]") == [0, 0])
     ctx.close()
+
+
+# ───────────────────────── lit chips → marks on every lit stock (사용자 2026-11-23 "배지 표시가 다 안나오는데?") ─────────────────────────
+LIT_JS = r"""(k) => {
+  const key = g => g.k === 'flow' ? 'flow' + g.who : g.k === 'sell' ? 'sell' + g.who : g.k === 'vol' ? 'v' + g.tier : g.k;
+  const out = { lit: 0, plate: 0, tick: 0, none: [], front: [], tickBad: [], unlitOdd: [] };
+  for (const t of document.querySelectorAll('#map .tile[data-c]')) {
+    const b = KH.marks.badge(t.dataset.c), has = !!b && b.kinds.includes(k);
+    const bm = t.querySelector(':scope > .bm'), bk = t.querySelector(':scope > .bmk'), g = t.__g, m = Math.min(g[2], g[3]);
+    const kids = bm ? [...bm.children].map(x => x.tagName === 'B' ? (x.classList.contains('sl') ? 'sell' : 'flow') + x.textContent : (x.style.getPropertyValue('--m').match(/--g-(\w+)/) || [])[1]) : [];
+    if (!has) { if (bk || kids.some(x => x === 'al' || /^sell/.test(x))) out.unlitOdd.push(t.dataset.c); continue; }
+    out.lit++;
+    if (bm) { out.plate++; const want = key(b.now[0]); if (kids[0] !== want || !(k === 'buy' ? /^flow/.test(want) : k === 'sell' ? /^sell/.test(want) : k === 'alert' ? want === 'al' : k === 'vol' ? /^v\d/.test(want) : want === k)) out.front.push([t.dataset.c, kids, want]); }
+    else if (bk) {
+      out.tick++;
+      const r = bk.getBoundingClientRect(), tr = t.getBoundingClientRect(), s = r.width, dm = t.querySelector(':scope > .dm');
+      const dr = dm && dm.getBoundingClientRect(), over = dr && r.right > dr.left + 0.5 && r.bottom > dr.top + 0.5;
+      if (s < 2 || s > 6 || r.left < tr.left - 0.5 || r.bottom > tr.bottom + 0.5 || r.right > tr.right + 0.5 || over || getComputedStyle(bk).backgroundColor !== 'rgb(255, 255, 255)') out.tickBad.push([t.dataset.c, s]);
+    } else if (m >= 3) out.none.push([t.dataset.c, Math.round(g[2]), Math.round(g[3])]);
+  }
+  return out;
+}"""
+
+
+def lit(br):
+    post_scene('next')
+    for (w, h) in ((1280, 800), (360, 740)):
+        ctx, pg = open_page(br, w, h)
+        for k in ('hi', 'lo', 'vol', 'buy', 'sell', 'alert'):
+            pg.evaluate(f"KH.marks.lit(['{k}'])"); pg.wait_for_timeout(150)
+            r = pg.evaluate(LIT_JS, k)
+            check(f'{w} lit {k}: every lit stock shows it — {r["plate"]} plates with {k} in front, {r["tick"]} corner ticks (of {r["lit"]}); none left blank, unlit plates unchanged',
+                  r['lit'] > 0 and not r['none'] and not r['front'] and not r['tickBad'] and not r['unlitOdd'], {x: r[x][:4] for x in ('none', 'front', 'tickBad', 'unlitOdd')})
+            if w == 360 and k == 'vol':
+                check('360 lit 거래 급증: tiles too small for a plate get the corner tick', r['tick'] >= 3, r['tick'])
+                pg.screenshot(path=str(SHOTS / 'lit_vol_360.png'))
+            if w == 1280 and k == 'sell':
+                ink = pg.evaluate(f"(() => {{ const b = document.querySelector('#map .tile[data-c=\"{SC.SELL}\"] .bm > b.sl'); if (!b) return null; const c = getComputedStyle(b), a = getComputedStyle(b, '::after'); return [b.textContent, c.backgroundColor, c.color, a.borderTopStyle, a.borderTopColor]; }})()")
+                check('1280 lit 연속 순매도: the 외 letters in inverted neutral ink with a down tick (white box, black ink — no green)',
+                      ink and ink[0] == '외' and ink[1] == 'rgb(255, 255, 255)' and ink[2] == 'rgb(0, 0, 0)' and ink[3] == 'solid' and ink[4] == 'rgb(0, 0, 0)', ink)
+                al = pg.evaluate(f"document.querySelector('#map .tile[data-c=\"{SC.SELL}\"]').getAttribute('aria-label')")
+                check('lit 연속 순매도: the tile aria tail says it (", 외국인 8일 연속 순매도")', ', 외국인 8일 연속 순매도' in al, al)
+                pg.click('.viewseg button[data-v="table"]'); pg.wait_for_timeout(500)
+                tm = pg.evaluate(f"(() => {{ const m = document.querySelector('#tablewrap tr[data-c=\"{SC.SELL}\"] .mks'); return m ? [m.firstElementChild.className, m.textContent] : null; }})()")
+                check('lit 연속 순매도: the table row shows the sell mark first', tm and 'sl' in tm[0].split() and tm[1].startswith('외'), tm)
+                pg.click('.viewseg button[data-v="map"]'); pg.wait_for_timeout(500)
+                pg.screenshot(path=str(SHOTS / 'lit_sell_1280.png'))
+            if w == 1280 and k == 'alert':
+                pg.screenshot(path=str(SHOTS / 'lit_alert_1280.png'))
+        pg.evaluate("KH.marks.lit(null)"); pg.wait_for_timeout(150)
+        off = pg.evaluate("[document.querySelectorAll('#map .tile .bmk').length, document.querySelectorAll('#map .tile .bm > b.sl').length, [...document.querySelectorAll('#map .tile .bm > i')].filter(i => /--g-al/.test(i.style.getPropertyValue('--m'))).length, document.querySelector('#map .tile[data-c=\"" + SC.SELL + "\"]').getAttribute('aria-label')]")
+        check(f'{w} chips off: plates back to normal — no tick, no sell or alert mark, no 순매도 aria words', off[:3] == [0, 0, 0] and '순매도' not in off[3], off)
+        ctx.close()
+    # the chip marks for 연속 순매도 · 시장 경보 (the marks a lit chip draws)
+    ctx, pg = open_page(br, 1280, 800)
+    cm = pg.evaluate("['sell', 'alert'].map(k => { const m = document.querySelector('#bgl .lgc[data-k=\"' + k + '\"] .bmc'); return m ? [m.className, m.textContent, m.querySelector('i') ? m.querySelector('i').style.getPropertyValue('--m') : ''] : null; })")
+    check('legend: the 연속 순매도 chip carries the sell mark, 시장 경보 the alert diamond', cm[0] and 'sl' in cm[0][0].split() and cm[0][1] == '외' and cm[1] and '--g-al' in cm[1][2], cm)
+    # counts: chips = this map; a lit chip says how many more there are off it (종목 수 · zoom)
+    ctx.close()
+    for top, zoom in ((300, None), (100, None), (300, '정보기술')):
+        ctx, pg = open_page(br, 1280, 800, store={'topN': top})
+        if zoom:
+            pg.evaluate(f"(() => {{ const b = document.querySelector('#map .sec[data-s=\"{zoom}\"] .hd'); if (b) b.click(); }})()"); pg.wait_for_timeout(700)
+        pg.click('#bgl .lgc[data-k="vol"]'); pg.wait_for_timeout(400)
+        d = pg.evaluate("""() => { const map = new Set(KH.mapCodes()), focus = [...document.querySelectorAll('#map .tile[data-c]')].map(t => t.dataset.c), on = new Set(focus);
+          const has = c => { const b = KH.marks.badge(c); return !!b && b.kinds.includes('vol'); };
+          const pool = KH.stocks().filter(s => s.m === 'K' && s.c.slice(-1) === '0');
+          return { info: KH.marks.badgeInfo(), text: document.querySelector('#bgl .lit').textContent, chip: +document.querySelector('#bgl .lgc[data-k="vol"] .n').textContent.replace(/,/g, ''),
+            onMap: focus.filter(has).length, off: pool.filter(s => !on.has(s.c) && has(s.c)).length }; }""")
+        want = f"· {d['onMap']}종목 밝게" + (f" · 지도 밖 {d['off']}" if d['off'] else '')
+        check(f'counts {top}{" · " + zoom + " 확대" if zoom else ""}: chip = lit = the tiles on this map ({d["onMap"]}); "지도 밖" = the rest of the market\'s stocks ({d["off"]}) — "{d["text"]}"',
+              d['chip'] == d['onMap'] == d['info']['litN'] and d['info']['litOff'] == d['off'] and d['text'] == want and ((top == 300 and not zoom) == (d['off'] == 0)), d)
+        ctx.close()
 
 
 # ───────────────────────── tooltip · quick view · table · aria ─────────────────────────
@@ -449,7 +525,7 @@ def perf(br):
     blk = src[src.index('/* ───────────────── 지도 배지 (AGENTS §3-41 A안'):src.index('function bgFlowsAgain')]
     reads = [k for k in ('getBoundingClientRect', 'offsetWidth', 'offsetHeight', 'clientWidth', 'clientHeight', 'getComputedStyle', 'scrollWidth') if k in blk]
     check('perf: the badge code reads no layout (plates are built from the numbers the treemap already has)', not reads, reads)
-    mine = {'bgCalc', 'badgeOf', 'tileBadge', 'bgCtx', 'bgOn', 'bgLegend', 'bgSyncChips', 'planPlate', 'paintPlate', 'badgeAria', 'alertKeys', 'bgLitHas', 'bgKinds'}
+    mine = {'bgCalc', 'badgeOf', 'tileBadge', 'bgCtx', 'bgOn', 'bgLegend', 'bgSyncChips', 'planPlate', 'paintPlate', 'badgeAria', 'alertKeys', 'bgLitHas', 'bgKinds', 'bgItems', 'bgItemOf', 'bgTick', 'bgPool'}
     allrows = [SC.krx(dict(r)) for r in SC.SNAP['stocks'] if r['c'] not in SC.BY]
     out = {}
     for kind in ('next', 'none'):
@@ -505,7 +581,7 @@ def main():
                 time.sleep(0.1)
         with sync_playwright() as p:
             br = p.chromium.launch(executable_path='/usr/bin/google-chrome', args=['--no-sandbox'])
-            for name, fn in (('rules', rules), ('plate', plate), ('legend', legend), ('views', views), ('themes', themes), ('perf', perf), ('snapshot', snapshot)):
+            for name, fn in (('rules', rules), ('plate', plate), ('legend', legend), ('lit', lit), ('views', views), ('themes', themes), ('perf', perf), ('snapshot', snapshot)):
                 if name in ONLY:
                     print(f'── {name}', flush=True)
                     fn(br)
