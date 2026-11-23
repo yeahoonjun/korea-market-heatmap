@@ -30,6 +30,7 @@ const pct = (v, d = 2) => { if (v == null || !isFinite(v)) return '—'; const r
 const cls = (v, d = 2) => { const r = v == null || !isFinite(v) ? 0 : rnd(v, d); return r > 0 ? 'up' : r < 0 ? 'dn' : 'flat'; };
 // 억원 → "6,364억" · "1.2조" (부호 있음 / 없음)
 const eok = v => { const a = Math.abs(v); return a >= 10000 ? NF1.format(a / 10000) + '조' : NF0.format(Math.round(a)) + '억'; };
+const surgeTxt = m => NF1.format(Math.floor(m * 10 + 1e-9) / 10) + '배';   // 3.0배 문턱을 반올림으로 넘지 않게 내림
 const amt = v => (Math.abs(v) < 0.5 ? '0억' : sg(v) + eok(v));
 const pad = n => String(n).padStart(2, '0');
 const nowMs = () => (typeof KH.now === 'function' ? KH.now() : Date.now());
@@ -77,6 +78,7 @@ const D = {
   names: null,                     // Map code → [name, 'K'|'Q']
   close: null,                     // close.json — 장 밖(장 전 · 마감 후 · 휴장)엔 업종 · 종목 줄도 KRX 정규장 종가로(문서 §3-0)
   flows: null, themesFile: null,
+  marks: null, marksAt: 0,         // marks.json — 거래 급증 · 52주 신고가 · 신저가 기준(§3-2). 없거나 오래됐으면 화면이 줄을 바꾸거나 숨겨요
   themes: { j: null, at: 0, fail: false },
   market: { j: null, at: 0, fail: false },
   wIdx: { j: null, at: 0, fail: false },
@@ -117,6 +119,15 @@ async function closeFile() {
   const j = await KH.loadData('close');
   if (j && j.c) D.close = j;
   return D.close;
+}
+// marks.json: KH.loadData('marks')(템플릿이 이름을 받으면) → 아직이면 data/marks.json을 직접. 못 받으면 10분 뒤 다시(없는 파일에 매번 묻지 않게)
+async function pullMarks() {
+  if (!LIVE || D.marks || (D.marksAt && Date.now() - D.marksAt < 600e3)) return;
+  D.marksAt = Date.now();
+  let j = null;
+  try { j = await KH.loadData('marks'); } catch (e) { j = null; }
+  if (!j) { try { j = await getJSON('data/marks.json'); } catch (e) { j = null; } }
+  if (j && j.c && j.asOf) { D.marks = j; schedule(true); }
 }
 // 상 · 하한가: close.json의 네 번째 칸(빌드가 넣어요, "lim": true) · breadth 행의 lim · 시세 행의 원천 표시 limf(템플릿 norm — lim에는
 // ±29.5% 어림이 섞여 있어요). 옛 close.json(표시 없음)에만 있는 종목만 ±29.5% 어림
@@ -168,6 +179,7 @@ const TABLE = ['themes', 'market', 'wIdx', 'wMac', 'news'];
 function refreshAll(force) {
   pullBreadth(force);
   if (LIVE && phase() !== 'open' && !D.close) closeFile().then(() => schedule(true));
+  pullMarks();
   if (!D.flows) KH.loadData('flows').then(j => { if (j && j.f) { D.flows = j; schedule(true); } });
   if (!D.themesFile) KH.loadData('themes').then(j => { if (j && j.themes) { D.themesFile = j; schedule(true); } });
   if (LIVE) names().then(() => schedule(true));
@@ -231,6 +243,37 @@ function groupBy(list, key, minN, minCap) {
   }
   return out.sort((a, b) => b.r - a.r);
 }
+// 거래 급증(오늘 KRX 거래대금 ≥ 3 × tv20 — 배수 큰 순, 눈에 띄는 종목과 같은 풀) · 52주 신고가 · 신저가 수(§3-2 marks.json 화면 규칙).
+// 파일 asOf가 카드의 데이터 날과 같으면(저녁 · 다음 날 아침) 창에 그날이 이미 들어 있어 hiDate · loDate = asOf로 세고, 바로 앞 평일이면 오늘 KRX 고저를
+// hi52 · lo52와 비교, 그보다 오래됐으면 통째로 숨겨요(null → 호출한 쪽이 "거래대금 상위"로). 파일의 stale 종목은 빼요.
+const SURGE_K = 3;
+function marksView(R, ph) {
+  const J = LIVE ? D.marks : null;
+  if (!J || !J.c || !J.asOf) return null;
+  const today = kstOf(nowMs()).day;
+  const d0 = ph === 'open' || ph === 'after' ? today : (dataDay() || prevWeekday(today));
+  const mode = J.asOf === d0 ? 'incl' : J.asOf === prevWeekday(d0) ? 'cmp' : null;
+  if (!mode) return null;
+  const st = J.stale || {}, out = { surge: [], hi: null, lo: null };
+  for (const x of R) {
+    const m = J.c[x.c]; if (!m || st[x.c]) continue;
+    const s = KH.stock(x.c), tv = +(s && s.tv != null ? s.tv : x.tv) || 0, t20 = +m[0];
+    if (t20 > 0 && tv >= SURGE_K * t20) out.surge.push({ c: x.c, n: x.n, mult: tv / t20 });
+  }
+  out.surge.sort((a, b) => b.mult - a.mult || a.n.localeCompare(b.n, 'ko'));
+  out.surge = out.surge.slice(0, 2);
+  let H = 0, L = 0, seen = 0;
+  if (mode === 'incl') {
+    for (const c in J.c) { const m = J.c[c]; if (!Array.isArray(m) || st[c]) continue; seen++; if (m[3] === J.asOf) H++; if (m[4] === J.asOf) L++; }
+  } else {
+    for (const s of KH.stocks()) {
+      const m = J.c[s.c], o = s.ohl; if (!Array.isArray(m) || st[s.c] || !o || m[1] == null || m[2] == null) continue;
+      seen++; if (o.hi > m[1]) H++; if (o.lo < m[2]) L++;
+    }
+  }
+  if (seen) { out.hi = H; out.lo = L; }
+  return out;
+}
 function model() {
   const ph = phase(), M = { ph, pill: PILL[ph], when: whenText(ph), live: ph === 'open' };
   // 장중 + the 3-second stream running → "실시간" in --live, the header's word (사용자 2026-11-16 11:45 "장중이 아니라 실시간으로 바꾸고 색깔")
@@ -283,6 +326,9 @@ function model() {
     const hi = big.reduce((a, x) => (x.r > a.r ? x : a)), lo = big.reduce((a, x) => (x.r < a.r ? x : a));
     M.bigUp = hi.r > 0 ? hi : null; M.bigDn = lo.r < 0 ? lo : null;
   }
+  M.surge = []; M.hi52 = null; M.lo52 = null;
+  const mv = marksView(R, ph);
+  if (mv) { M.surge = mv.surge; M.hi52 = mv.hi; M.lo52 = mv.lo; }
   M.tvTop = R.filter(x => x.tv > 0).sort((a, b) => b.tv - a.tv).slice(0, 2);
   const nm = D.names, capOf = new Map(R.map(x => [x.c, x.cap]));
   const nameOf = c => { const s = KH.stock(c); return (s && s.n) || (nm && nm.get(c) && nm.get(c)[0]) || null; };
@@ -515,7 +561,10 @@ function secMovers(M) {
     L.length ? line(h('span', { class: 'sm-k sm-lim' }, lsw('u'), M.brOld ? `${dayShort(M.brOld)} 상한가 ` : '상한가 ', h('b', { class: 'sm-n up', text: NF0.format(M.br.lu) })), ...L.slice(0, 2).map(x => (x.onMap ? stk(x.c, x.n, x.r) : h('span', { class: 'sm-off', text: x.n }))),
       L.length > 2 ? kk(`외 ${L.length - 2}`) : null) : null,
     M.bigUp || M.bigDn ? line(kk('시총 100위 안'), M.bigUp ? stk(M.bigUp.c, M.bigUp.n, M.bigUp.r) : null, M.bigDn ? stk(M.bigDn.c, M.bigDn.n, M.bigDn.r) : null) : null,
-    M.tvTop.length ? line(kk('거래대금 상위'), ...M.tvTop.map(x => stk(x.c, x.n, 0, eok(x.tv)))) : null,
+    M.surge.length ? line(kk('거래 급증'), ...M.surge.map(x => stk(x.c, x.n, 0, surgeTxt(x.mult)))) : null,
+    !M.surge.length && M.tvTop.length ? line(kk('거래대금 상위'), ...M.tvTop.map(x => stk(x.c, x.n, 0, eok(x.tv)))) : null,
+    M.hi52 != null ? line(kk('52주 신고가'), h('b', { class: 'sm-n ' + limCls(M.hi52, 1), text: NF0.format(M.hi52) }), sep(), kk('신저가'), h('b', { class: 'sm-n ' + limCls(M.lo52, -1), text: NF0.format(M.lo52) })) : null,
+    M.surge.length ? sub('거래 급증은 오늘 거래대금이 20일 평균의 3배 이상') : null,
     M.br && (M.br.u10 || M.br.d10) ? sub(`10% 넘게 오른 종목 ${NF0.format(M.br.u10)} · 내린 종목 ${NF0.format(M.br.d10)}`) : null);
 }
 const WHO3 = ['외국인', '기관', '개인'];
@@ -571,6 +620,8 @@ function plain(M) {
   if (M.idx.length) L.push(M.idx.map(x => `${x.name} ${NF2.format(x.v)} (${pct(x.r)})`).join(' · '));
   if (M.br) L.push((M.brOld ? `${dayShort(M.brOld)} 종가 ` : '') + `상승 ${NF0.format(M.br.up)} · 하락 ${NF0.format(M.br.dn)} — ${M.br.say}` + (M.br.lu || M.br.ld ? ` · 상한가 ${M.br.lu} · 하한가 ${M.br.ld}` : ''));
   if (M.indUp.length || M.indDn.length) L.push('업종: ' + [...M.indUp, ...M.indDn].map(x => `${x.name} ${pct(x.r)}`).join(' · '));
+  if (M.surge.length) L.push('거래 급증: ' + M.surge.map(x => `${x.n} ${surgeTxt(x.mult)}`).join(' · '));
+  if (M.hi52 != null) L.push(`52주 신고가 ${NF0.format(M.hi52)} · 신저가 ${NF0.format(M.lo52)}`);
   if (M.mflows) L.push(`수급(${M.mflows.today && M.mflows.at ? M.mflows.at + ' 기준' : dayShort(M.mflows.date)}): 외국인 ${amt(M.mflows.all[0])} · 기관 ${amt(M.mflows.all[1])} · 개인 ${amt(M.mflows.all[2])}`);
   else if (M.flows) L.push(`수급(${M.flows.today ? '오늘' : dayShort(M.flows.date)}, 추정): 외국인 ${amt(M.flows.all[0])} · 기관 ${amt(M.flows.all[1])} · 개인 ${amt(M.flows.all[2])}`);
   if (M.fx) L.push(`원/달러 ${NF1.format(+M.fx.value)}원 (${fxChg(M.fx)})` + (M.us ? ` · ${M.us.label} ` + M.us.items.slice(0, 2).map(x => `${shortUS(x.name)} ${pct(x.r)}`).join(' · ') : ''));

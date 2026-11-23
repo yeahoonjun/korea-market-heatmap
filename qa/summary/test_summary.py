@@ -394,6 +394,36 @@ def main():
             check(f'외국인 · 기관 = the {DATA["flows"]} file with its date', re.search(r'외국인 · 기관\s*' + DATA['flows'], t) is not None and f'{DATA["flows"]} · 코스피 · 코스닥 합' in t)
             check('"거래대금 상위", never "급증"', '거래대금 상위' in t and '급증' not in t)
             ctx.close()
+            # marks.json (거래 급증 · 52주): the mock serves a fixture built from the snapshot (mock_summary.py /__marks?mode=…)
+            plan = json.loads(NOPROXY.open(f'http://127.0.0.1:{PORT}/__marks_plan', timeout=3).read())
+            top2 = sorted(plan['names'].items(), key=lambda kv: -kv[1])[:2]          # [(name, multiple)] biggest first — the 3rd is 3.04×, the 4th 2.9× (below the line)
+            want_chips = [f'{n}\\s*{m:.1f}배' for n, m in top2]
+            fact52 = f'52주 신고가\\s*{plan["hi"]}\\s*(·\\s*)?신저가\\s*{plan["lo"]}'
+            for mode, (surge, f52) in {'ok': (True, True), 'prev': (True, False), 'stale': (False, False), 'none': (False, True), 'missing': (False, False)}.items():
+                NOPROXY.open(f'http://127.0.0.1:{PORT}/__marks?mode={mode}', timeout=3).read()
+                ctx, pg, errs = open_page(br, 1440, 900, perms=True)
+                pg.click('#summary .sm-tog'); pg.wait_for_timeout(900)
+                t = pg.evaluate("document.getElementById('summary').innerText")
+                order = t.find('거래 급증') < t.find(top2[0][0], t.find('거래 급증')) < t.find(top2[1][0], t.find('거래 급증')) if surge else True
+                chips = all(re.search(c, t) for c in want_chips)
+                check(f'marks {mode}: 눈에 띄는 종목 = ' + ('"거래 급증" with ' + ' · '.join(f'{n} {m:.1f}배' for n, m in top2) + ' (biggest first, top 2 only, 3.04× / 2.9× not shown)' if surge else '"거래대금 상위" as before, no 급증'),
+                      (('거래 급증' in t and chips and order and '거래대금 상위' not in t and '3.0배' not in t and '2.9배' not in t) if surge else ('거래대금 상위' in t and '거래 급증' not in t and '급증' not in t)), t[t.find('눈에 띄는'):][:160])
+                check(f'marks {mode}: 52주 fact ' + (f'"신고가 {plan["hi"]} · 신저가 {plan["lo"]}"' if f52 else 'hidden'), (re.search(fact52, t) is not None) == f52 and ('52주' in t) == f52, repr(t[t.find('52주'):][:60]) if '52주' in t else '')
+                if mode in ('ok', 'none'):
+                    pg.click('#summary .sm-copy'); pg.wait_for_timeout(500)
+                    lines = pg.evaluate('navigator.clipboard.readText()').split('\n')
+                    sl = next((l for l in lines if l.startswith('거래 급증: ')), None)
+                    fl = next((l for l in lines if l.startswith('52주 신고가 ')), None)
+                    check(f'marks {mode}: 글로 복사 ' + ('has "거래 급증: A 4.2배 · B 3.5배" and "52주 신고가 N · 신저가 N"' if mode == 'ok' else 'has no 급증 line, still the 52주 line'),
+                          (sl == '거래 급증: ' + ' · '.join(f'{n} {m:.1f}배' for n, m in top2) if mode == 'ok' else sl is None) and fl == f'52주 신고가 {plan["hi"]} · 신저가 {plan["lo"]}' and lines[-1].endswith('투자 판단의 근거로 쓰지 마세요.'), [sl, fl])
+                else:
+                    pg.click('#summary .sm-copy'); pg.wait_for_timeout(500)
+                    lines = pg.evaluate('navigator.clipboard.readText()').split('\n')
+                    check(f'marks {mode}: 글로 복사 has no 급증 / 52주 line' if not surge else f'marks {mode}: 글로 복사 has the 급증 line, no 52주 line',
+                          (any(l.startswith('거래 급증: ') for l in lines) == surge) and not any(l.startswith('52주') for l in lines), lines[:12])
+                check(f'marks {mode}: no console errors, chips are buttons (빠른 보기) and nothing overflows' + (' (the missing file\'s own 404 is the only console line allowed)' if mode == 'missing' else ''), not [e for e in errs if not (mode == 'missing' and '404' in e)] and pg.evaluate("(() => { const c = document.getElementById('summary'); return c.scrollWidth <= c.clientWidth + 1 && [...c.querySelectorAll('.sm-stk')].every(b => b.tagName === 'BUTTON'); })()"), errs[:2])
+                ctx.close()
+            NOPROXY.open(f'http://127.0.0.1:{PORT}/__marks?mode=stale', timeout=3).read()
             # reload → collapsed (not remembered)
             ctx, pg, errs = open_page(br, 390, 844)
             pg.click('#summary .sm-tog'); pg.wait_for_timeout(900)

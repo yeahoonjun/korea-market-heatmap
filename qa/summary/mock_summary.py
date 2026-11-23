@@ -47,11 +47,61 @@ def themes_body():
 THEMES = themes_body()
 
 
+# /data/marks.json fixture (AGENTS §3-2 web/marks.json) built from the snapshot: /__marks?mode=ok|prev|stale|none|missing
+#   ok      asOf = the snapshot day, the 3 biggest 시총-top stocks at 4.2 · 3.5 · 3.04× their tv20 (a 4th at 2.9×, 7 stocks with hiDate = asOf and 4 with loDate = asOf
+#   prev    asOf = the weekday before (compare mode: needs the stocks' today highs/lows — the snapshot has none, so the 52주 fact hides, the surge line stays)
+#   stale   asOf two weekdays before → both hide;  none: ok but every tv = 2 × tv20 (nobody qualifies);  missing: 404
+import datetime as _dt
+MARKS_MODE = {'m': 'stale'}   # default: an out-of-date file (the older tests: 거래대금 상위, no 52주, no 404 in the console); qa/summary/test_summary.py switches it
+SNAP_DAY = SNAP['asOf'][:10]
+
+
+def _prev_weekday(ymd):
+    d = _dt.date.fromisoformat(ymd)
+    while True:
+        d -= _dt.timedelta(days=1)
+        if d.weekday() < 5:
+            return d.isoformat()
+
+
+MARK_PLAN = {'surge': [(4.2, 0), (3.5, 1), (3.04, 2), (2.9, 3)], 'hi': 7, 'lo': 4}
+
+
+def marks_body(mode):
+    if mode == 'missing':
+        return None
+    day = {'ok': SNAP_DAY, 'none': SNAP_DAY, 'prev': _prev_weekday(SNAP_DAY), 'stale': _prev_weekday(_prev_weekday(SNAP_DAY))}[mode]
+    ranked = sorted((x for x in SNAP['stocks'] if x['c'].endswith('0') and x.get('tv')), key=lambda x: -x['cap'])
+    # the card's pool = per market top 300 by cap; take plan stocks from the biggest of KOSPI
+    top = [x for x in ranked if x['m'] == 'K'][:40]
+    mult = {top[i]['c']: k for k, i in MARK_PLAN['surge']}
+    c = {}
+    for x in SNAP['stocks']:
+        k = mult.get(x['c'], 1.0)
+        tv20 = x['tv'] / (2.0 if mode == 'none' else k) if x.get('tv') else None
+        c[x['c']] = [tv20, 100000, 50000, '2026-01-02', '2026-01-03']
+    codes = [x['c'] for x in SNAP['stocks']]
+    for i, cd in enumerate(codes[:MARK_PLAN['hi']]):
+        c[cd][3] = day
+    for cd in codes[100:100 + MARK_PLAN['lo']]:
+        c[cd][4] = day
+    return {'asOf': day, 'unit': '억원', 'tvn': 20, 'from': '2025-11-24', 'c': c}, mult
+
+
 class H(base.H):
     def do_GET(self):
         u = urllib.parse.urlparse(self.path)
         q = dict(urllib.parse.parse_qsl(u.query))
         path = u.path
+        if path == '/__marks':
+            MARKS_MODE['m'] = q.get('mode', 'ok')
+            return self.send_json({'mode': MARKS_MODE['m']})
+        if path == '/data/marks.json':
+            b = marks_body(MARKS_MODE['m'])
+            return self.send_json({'error': 'missing'}, 404) if b is None else self.send_json(b[0])
+        if path == '/__marks_plan':
+            b = marks_body('ok')
+            return self.send_json({'names': {R[c]['n']: k for c, k in b[1].items()}, 'hi': MARK_PLAN['hi'], 'lo': MARK_PLAN['lo'], 'day': SNAP_DAY})
         if path == '/api/market':
             return self.send_json(MARKET)
         if path == '/api/breadth':
