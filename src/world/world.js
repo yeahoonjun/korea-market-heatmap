@@ -6,7 +6,7 @@
                      지표 also: GET api/funds (증시 자금, 금융투자협회 — once a day upstream, asked here at most every 10 min) and
                      api/funds/chart/{key}?tf=3m|1y; an older Worker without the route → the group is simply absent (AGENTS §3-32).
                      지표 also: GET api/koreaexim?kind=fx|rate (수출입은행 고시 — once a business day, asked here at most every 10 min):
-                     two small tables inside the 환율 and 금리 cards (AGENTS §3-27 끝).
+                     two LED boards inside the 환율 and 금리 cards (AGENTS §3-27 끝, design.md §2 예외 「LED 전광판」).
    Uses window.KH (§3): MODE, LIVE_URL, colorOf, palette, fmt, h, market; listens to kh:palette.
    등락 색상 (2026-11-16): everything here is a 해외 · 지표 value, so colours ask KH.colorOf(r, 'world') / KH.palette('world') (an older
    template ignores the argument) and the boxes carry .pal-w (#world from the template, the detail sheet here). The one exception: a
@@ -451,7 +451,8 @@ function loadFunds(force) {
 
 /* 수출입은행 고시 (AGENTS §3-27 끝 · §3-2, 사용자 2026-11-16 11:33 "그래 추천대로"): GET api/koreaexim?kind=fx|rate. The bank posts
    once a business day (before 11:32 on 2026-11-16, the minute unknown); the Worker keeps one copy per posting day. Two small
-   tables in the 지표 tab, not clickable (a row's title is the only extra):
+   tables in the 지표 tab, drawn as LED boards since 2026-11-23 (below), not clickable (a row's title is the only extra; the board's
+   strip has its ⏸ key):
    ① inside the 환율 card, below its rows — 원/달러 · 원/엔(100엔) · 원/유로 · 원/위안: 매매기준율 · 송금 보낼 때(tts) · 받을 때(ttb),
       the numbers to look at when changing or sending money. No change is shown, so no colour.
    ③ inside the 금리 card, below the 국채 rows under its own heading "기준금리 · 은행간 금리" — SOFR · ESTR (· TONA when it is sent)
@@ -519,64 +520,273 @@ function kxHeight(secKey, compact) {
   if (!st) return 0;
   const m = KXIM.hm[kind + (compact ? ':c' : '') + ':' + st];
   if (m) return m;
-  if (st === 'fail') return 70;
-  const n = KXIM[kind].items.length;
-  return 16 + 26 + 22 + n * (compact ? 30 : 26) + (compact ? 48 : 34);
+  const n = st === 'fail' ? (kind === 'fx' ? KX_FX.length : KX_RATE_SKEL.length) : KXIM[kind].items.length;
+  return 64 + n * 23 + (compact ? 40 : 32) + 22;           // rule · head · board top · heads, rows, strip, note
 }
-const kxWhen = v => (v.today ? (v.firstSeen ? (v.exact ? `오늘 ${v.firstSeen} 고시` : `오늘 고시 · ${v.firstSeen} 확인`) : '오늘 고시') : `${mdText(v.date, true)} 고시`);
 const kxFixed = (v, dp) => (v == null ? '—' : (v < 0 ? MINUS : '') + fixed(v, dp));
-function kxHead(kind, v) {
-  const id = 'kw-kx-' + kind;
-  const meta = ['하루 한 번', kind === 'rate' ? '수출입은행' : null, v ? kxWhen(v) : null].filter(Boolean).join(' · ');
-  const warn = v && v.stale ? h('span', { class: 'kw-kxw', title: '수출입은행에서 새 값을 확인하지 못했어요' }, uiWarn(), h('span', { class: 'sr', text: '새 값을 확인하지 못했어요' })) : null;
-  return h('div', { class: 'kw-kxh' }, h('h5', { class: 'kw-kxt', id }, kind === 'fx' ? '수출입은행 고시' : '기준금리 · 은행간 금리'), h('span', { class: 'kw-kxm' }, meta, warn));
+
+/* ── LED 전광판 (사용자 2026-11-23 12:56 "추천대로하는데 아래 띠는 계속 흐르게" — drafts/led-board.html C on the B look; AGENTS §3-27 끝,
+   design.md §2 예외 「LED 전광판」) ──
+   Both tables are a dark dot-matrix board in every theme. A number cell is an SVG of 5 × 7 dots per character slot over its real text
+   (transparent .kw-lbx — what screen readers, copy, find, zoom and the tests read; forced colours show it instead). A column's slots
+   are set by its widest value ("#,###.##"), right-aligned, so the unlit modules make the board's grid. The bp change keeps colour +
+   sign (the 해외 · 지표 palette's dark-ground inks, --up-text-w-dk from the template). A new posting relights only the cells that
+   changed (화려하게, on screen, visible tab — kxRelight); otherwise values switch at once. Under the table a strip of the board's words
+   keeps moving (기본 · 화려하게, constant px/s, seamless copies — kxRun), pausable by its ⏸ key or a press anywhere on it (KXIM.paused,
+   kept in khm.kxPaused like the ticker's ⏸), held while a mouse is over it or the key has keyboard focus, still off screen
+   (IntersectionObserver) and in a hidden tab, static and wrapped in 줄이기. No canvas and no rAF loop: CSS animations only (the strip's
+   transform, the relight's clip-path). */
+const LB_GL = {
+  '0': ['.###.', '#...#', '#...#', '#...#', '#...#', '#...#', '.###.'],
+  '1': ['..#..', '.##..', '..#..', '..#..', '..#..', '..#..', '.###.'],
+  '2': ['.###.', '#...#', '....#', '...#.', '..#..', '.#...', '#####'],
+  '3': ['.###.', '#...#', '....#', '..##.', '....#', '#...#', '.###.'],
+  '4': ['...#.', '..##.', '.#.#.', '#..#.', '#####', '...#.', '...#.'],
+  '5': ['#####', '#....', '####.', '....#', '....#', '#...#', '.###.'],
+  '6': ['..##.', '.#...', '#....', '####.', '#...#', '#...#', '.###.'],
+  '7': ['#####', '....#', '...#.', '..#..', '.#...', '.#...', '.#...'],
+  '8': ['.###.', '#...#', '#...#', '.###.', '#...#', '#...#', '.###.'],
+  '9': ['.###.', '#...#', '#...#', '.####', '....#', '...#.', '.##..'],
+  '.': ['.', '.', '.', '.', '.', '.', '#'],
+  ',': ['..', '..', '..', '..', '..', '.#', '#.'],
+  '+': ['.....', '..#..', '..#..', '#####', '..#..', '..#..', '.....'],
+  [MINUS]: ['.....', '.....', '.....', '#####', '.....', '.....', '.....'],
+  '–': ['.....', '.....', '.....', '.###.', '.....', '.....', '.....'],     // 값 없음 (dimmed)
+};
+const LB_W = { '#': 5, ',': 2, '.': 1 };
+const lbShape = s => [...s].map(c => (c === ',' || c === '.' ? c : '#')).join('');
+const lbTpl = (strs, min) => strs.reduce((best, s) => { const t = lbShape(s); return t.length > best.length ? t : best; }, min);
+const lbTplW = t => [...t].reduce((a, c) => a + LB_W[c] + 1, 0) - 1;
+const lbBp = bp => { const r = Math.round(bp * 10) / 10; return r === 0 ? '0.0' : (r > 0 ? '+' : MINUS) + Math.abs(r).toFixed(1); };
+const lbDash = tpl => tpl.replace(/#/g, '–');
+// one value into its column's slots, right-aligned: {on, off} path data (a dot = "M x y h0", round caps) and the width in dots
+function lbDots(str, tpl) {
+  const slots = [...tpl], chars = [...str], xs = [];
+  let x = 0;
+  for (const t of slots) { xs.push(x); x += LB_W[t] + 1; }
+  let on = '', off = '';
+  for (let i = slots.length - 1, j = chars.length - 1; i >= 0; i--, j--) {
+    const w = LB_W[slots[i]], g = j >= 0 ? LB_GL[chars[j]] : null;
+    for (let r = 0; r < 7; r++) for (let k = 0; k < w; k++) {
+      const d = `M${xs[i] + k + 0.5} ${r + 0.5}h0`;
+      if (g && g[r] && g[r][k] === '#') on += d; else off += d;
+    }
+  }
+  return { on, off, W: x - 1 };
 }
-function kxFxTable(v) {
-  return h('table', { class: 'kw-kxtb kw-kxf', 'aria-labelledby': 'kw-kx-fx' },
-    h('thead', {}, h('tr', {}, h('th', { scope: 'col', class: 'nm' }, h('span', { class: 'sr', text: '통화' })),
-      h('th', { scope: 'col', text: '매매기준율' }), h('th', { scope: 'col', text: '송금 보낼 때' }), h('th', { scope: 'col', text: '송금 받을 때' }))),
-    h('tbody', {}, v.items.map(it => h('tr', { 'data-k': it.code, title: `${it.name} · 매매기준율 ${kxFixed(it.base, 2)}원 · 송금 보낼 때 ${kxFixed(it.tts, 2)}원 · 받을 때 ${kxFixed(it.ttb, 2)}원` },
-      h('th', { scope: 'row', class: 'nm', text: it.name }), h('td', { text: kxFixed(it.base, 2) }), h('td', { text: kxFixed(it.tts, 2) }), h('td', { text: kxFixed(it.ttb, 2) })))));
+function lbCell(str, tpl, text, cl, key) {
+  const d = lbDots(str, tpl), vb = `-1 -1 ${d.W + 2} 9`, sz = `width:calc(var(--p) * ${d.W + 2});height:calc(var(--p) * 9)`;
+  const pane = (c, path) => svg('svg', { class: c, viewBox: vb, style: sz, 'aria-hidden': 'true', focusable: 'false' }, svg('path', { d: path }));
+  return h('td', { class: 'd' + (cl ? ' ' + cl : ''), 'data-key': key, 'data-v': str, 'data-tpl': tpl },
+    h('span', { class: 'kw-lbg', 'aria-hidden': 'true' }, pane('off', d.off), pane('on', d.on)), h('span', { class: 'kw-lbx', text }));
 }
-function kxRateTable(v) {
-  const hasBp = v.items.some(it => it.bp != null);
+const lbHead = (t, cl) => h('th', { scope: 'col', class: cl || null }, h('span', { class: 'kw-lbl', text: t }));
+// the 환율 board: 원/달러 · 원/엔(100엔) · 원/유로 · 원/위안 × 매매기준율 · 송금 보낼 때 · 받을 때 (no colour — no change is shown).
+// v null = the failed board: the same rows in dim dashes (hidden from screen readers — the line under it says it), same height
+function kxFxBoard(v) {
+  const rows = v ? v.items : KX_FX.map(([code, name]) => ({ code, name, base: null, tts: null, ttb: null }));
+  const tpl = lbTpl(rows.flatMap(it => [it.base, it.tts, it.ttb]).filter(x => x != null).map(x => kxFixed(x, 2)), '#,###.##');
+  const nameEl = nm => { const m = /^(.*?)(\(.+\))$/.exec(nm); return h('span', { class: 'kw-lbl' }, m ? m[1] : nm, m ? h('small', { text: m[2] }) : null); };
+  const cell = (it, c) => (it[c] == null ? lbCell(lbDash(tpl), tpl, v ? '—' : '', 'na', it.code + c) : lbCell(kxFixed(it[c], 2), tpl, kxFixed(it[c], 2), '', it.code + c));
+  return h('table', v ? { class: 'kw-lbt', 'aria-labelledby': 'kw-kx-fx' } : { class: 'kw-lbt', 'aria-hidden': 'true' },
+    h('thead', {}, h('tr', {}, h('th', { scope: 'col', class: 'nm' }, h('span', { class: 'sr', text: '통화' })), lbHead('매매기준율'), lbHead('송금 보낼 때'), lbHead('송금 받을 때'))),
+    h('tbody', {}, rows.map(it => h('tr', { 'data-k': it.code, title: v ? `${it.name} · 매매기준율 ${kxFixed(it.base, 2)}원 · 송금 보낼 때 ${kxFixed(it.tts, 2)}원 · 받을 때 ${kxFixed(it.ttb, 2)}원` : null },
+      h('th', { scope: 'row', class: 'nm' }, nameEl(it.name)), ['base', 'tts', 'ttb'].map(c => cell(it, c))))));
+}
+const KX_RATE_SKEL = [['SOFRON', 'SOFR', '달러', '익일'], ['ESTRON', 'ESTR', '유로', '익일'], ['EURIBOR1M', 'EURIBOR', '유로', '1개월'], ['EURIBOR3M', 'EURIBOR', '유로', '3개월'],
+  ['EURIBOR6M', 'EURIBOR', '유로', '6개월'], ['EURIBOR12M', 'EURIBOR', '유로', '12개월'], ['TIBOR1M', 'TIBOR', '엔', '1개월'], ['TIBOR3M', 'TIBOR', '엔', '3개월'],
+  ['TIBOR6M', 'TIBOR', '엔', '6개월'], ['TIBOR12M', 'TIBOR', '엔', '12개월']].map(([key, family, cur, tenor]) => ({ key, family, cur, tenor, value: null, bp: null, raw: null, name: '' }));
+// the 금리 board: family (rowspan) · 기간 · 금리(%) · 변화(bp, only with the previous posting — colour + sign = direction only)
+function kxRateBoard(v) {
+  const items = v ? v.items : KX_RATE_SKEL, hasBp = !v || items.some(it => it.bp != null);
+  const tplV = lbTpl(items.filter(it => it.value != null).map(it => kxFixed(it.value, 3)), '#.###');
+  const tplB = lbTpl(items.filter(it => it.bp != null).map(it => lbBp(it.bp)), '##.#');
   const fams = [];
-  for (const it of v.items) { const f = fams[fams.length - 1]; if (f && f.family === it.family) f.items.push(it); else fams.push({ family: it.family, cur: it.cur, items: [it] }); }
-  return h('table', { class: 'kw-kxtb kw-kxr' + (hasBp ? '' : ' nobp'), 'aria-labelledby': 'kw-kx-rate' },
-    h('thead', {}, h('tr', {}, h('th', { scope: 'col', class: 'nm' }, h('span', { class: 'sr', text: '이름' })), h('th', { scope: 'col', class: 'tn', text: '기간' }),
-      h('th', { scope: 'col', text: '금리' }), hasBp ? h('th', { scope: 'col', text: '변화' }) : null)),
+  for (const it of items) { const f = fams[fams.length - 1]; if (f && f.family === it.family) f.items.push(it); else fams.push({ family: it.family, cur: it.cur, items: [it] }); }
+  return h('table', v ? { class: 'kw-lbt', 'aria-labelledby': 'kw-kx-rate' } : { class: 'kw-lbt', 'aria-hidden': 'true' },
+    h('thead', {}, h('tr', {}, h('th', { scope: 'col', class: 'nm' }, h('span', { class: 'sr', text: '이름' })), lbHead('기간', 'tn'), lbHead('금리(%)'), hasBp ? lbHead('변화(bp)') : null)),
     fams.map(f => h('tbody', { 'data-f': f.family }, f.items.map((it, i) => {
       const bp = it.bp == null ? null : Math.round(it.bp * 10) / 10;
-      return h('tr', { 'data-k': it.key, title: `${it.name || f.family + ' ' + it.tenor} · ${it.raw != null ? it.raw : kxFixed(it.value, 3)}%` },
-        i === 0 ? h('th', { scope: 'rowgroup', class: 'nm', rowspan: String(f.items.length) }, f.family, f.cur ? h('small', { text: f.cur }) : null) : null,
-        h('td', { class: 'tn', text: it.tenor }),
-        h('td', { text: kxFixed(it.value, 3) + '%' }),
-        hasBp ? h('td', { class: 'bp ' + (bp == null ? 'flat' : cls(bp)), text: bp == null ? '' : bpText(bp) }) : null);
+      return h('tr', { 'data-k': it.key, title: v ? `${it.name || f.family + ' ' + it.tenor} · ${it.raw != null ? it.raw : kxFixed(it.value, 3)}%${bp == null ? '' : ` · 전 영업일 대비 ${bpText(bp)}`}` : null },
+        i === 0 ? h('th', { scope: 'rowgroup', class: 'nm', rowspan: String(f.items.length) }, h('span', { class: 'kw-lbl' }, f.family, f.cur ? h('small', { text: f.cur }) : null)) : null,
+        h('td', { class: 'tn' }, h('span', { class: 'kw-lbl', text: it.tenor })),
+        v && it.value != null ? lbCell(kxFixed(it.value, 3), tplV, kxFixed(it.value, 3) + '%', '', it.key + 'v') : lbCell(lbDash(tplV), tplV, v ? '—' : '', 'na', it.key + 'v'),
+        !hasBp ? null : bp == null ? lbCell(lbDash(tplB), tplB, '', 'na', it.key + 'b') : lbCell(lbBp(bp), tplB, bpText(bp), cls(bp), it.key + 'b'));
     }))));
 }
+/* the strip: the source, the posting and what the board is for — words that used to sit in the head and the note */
+const KX_WHAT = { fx: '환전 · 송금할 때 참고하는 은행 고시값이에요', rate: '익일은 하루짜리 기준금리, 1~12개월은 은행끼리 빌려주는 기간별 금리예요' };
+// "11월 23일 (월) 11:02 고시" (exact) · "11월 23일 (월) 고시 · 13:20 확인" (first seen later) · "11월 20일 (금) 고시"
+const kxWhen = v => { const md = mdText(v.date, true); return v.today && v.firstSeen ? (v.exact ? `${md} ${v.firstSeen} 고시` : `${md} 고시 · ${v.firstSeen} 확인`) : `${md} 고시`; };
+function kxStripText(kind, v) {
+  if (!v) return '한국수출입은행 · 하루 한 번 · 2분 뒤 다시 확인해요';
+  const tail = `한국수출입은행 · ${kxWhen(v)} · 하루 한 번 · ${KX_WHAT[kind]}`;
+  return v.stale ? `새 값을 확인하지 못했어요 · ${tail}` : v.waiting ? `오늘 고시 전이에요 · ${tail}` : tail;
+}
+KXIM.paused = store.get('khm.kxPaused') === '1';
+KXIM.shown = {};
+KXIM.lit = {};
+const kxPpTitle = () => (KXIM.paused ? '고시 띠를 멈췄어요 · 누르면 다시 흘러요' : '누르면 고시 띠를 멈춰요');
+const ppIcon = d => svg('svg', { viewBox: '0 0 20 20', 'aria-hidden': 'true', focusable: 'false', fill: 'currentColor' }, svg('path', { d }));
+function kxPause(on) {
+  KXIM.paused = !!on;
+  store.set('khm.kxPaused', KXIM.paused ? '1' : '0');
+  for (const s of document.querySelectorAll('.kw-lbs:not(.st)')) {
+    s.classList.toggle('ps', KXIM.paused);
+    s.classList.remove('hd');                                   // a press means it: the hover / focus hold lets go until next time
+    const b = s.querySelector('.kw-lbp');
+    if (b) { b.setAttribute('aria-pressed', String(KXIM.paused)); b.title = kxPpTitle(); }
+  }
+}
+function kxStrip(kind, v) {
+  const text = kxStripText(kind, v), still = !v;
+  const s = h('div', { class: 'kw-lbs' + (still ? ' st' : '') + (!still && KXIM.paused ? ' ps' : '') + (document.hidden ? ' hid' : '') },
+    v && v.stale ? uiWarn() : null,
+    h('p', { class: 'kw-lbm' }, h('span', { class: 'kw-lbk' }, h('span', { class: 'kw-lbq', text }), still ? null : h('span', { class: 'kw-lbq', 'aria-hidden': 'true', text }))));
+  if (still) return s;
+  const btn = h('button', { type: 'button', class: 'kw-lbp', 'aria-pressed': String(KXIM.paused), 'aria-label': '고시 띠 멈춤', title: kxPpTitle() }, ppIcon(PP_PAUSE), ppIcon(PP_PLAY));
+  s.append(btn);
+  btn.addEventListener('click', () => kxPause(!KXIM.paused));
+  s.addEventListener('click', e => {
+    if (e.target.closest('.kw-lbp') || motion() === 'reduced') return;
+    const sel = window.getSelection && getSelection();
+    if (sel && !sel.isCollapsed && s.contains(sel.anchorNode)) return;     // selecting the words to copy them is not a press
+    kxPause(!KXIM.paused);
+  });
+  s.addEventListener('pointerenter', e => { if (e.pointerType === 'mouse') s.classList.add('hd'); });
+  s.addEventListener('pointerleave', () => s.classList.remove('hd'));
+  btn.addEventListener('focus', () => { if (btn.matches(':focus-visible')) s.classList.add('hd'); });
+  btn.addEventListener('blur', () => s.classList.remove('hd'));
+  return s;
+}
+const PP_PAUSE = 'M6 4.5h2.6v11H6zM11.4 4.5H14v11h-2.6z', PP_PLAY = 'M6.5 4.6v10.8a.6.6 0 0 0 .9.5l8.6-5.4a.6.6 0 0 0 0-1L7.4 4.1a.6.6 0 0 0-.9.5z';
+// off screen → still (.off); one observer for both strips, pruned when a strip leaves the page
+let kxIO = null;
+const kxWatched = new Set();
+function kxObserve(s) {
+  if (typeof IntersectionObserver !== 'function') return;
+  if (!kxIO) kxIO = new IntersectionObserver(es => { for (const e of es) e.target.classList.toggle('off', !e.isIntersecting); });
+  s.classList.add('off');
+  kxIO.observe(s); kxWatched.add(s);
+}
+document.addEventListener('visibilitychange', () => { for (const s of document.querySelectorAll('.kw-lbs')) s.classList.toggle('hid', document.hidden); });
+document.addEventListener('kh:motion', () => { for (const s of document.querySelectorAll('#world .kw-lbs')) kxRun(s); });
+// the loop: identical copies, enough to cover the viewport once more, moving one copy's width per period at a constant speed
+// (the ticker's: 38 px/s on phones, 45 elsewhere); measured again only when the width or the words change
+function kxRun(s) {
+  if (s.classList.contains('st') || motion() === 'reduced') return;
+  const vp = s.querySelector('.kw-lbm'), k = vp && vp.firstElementChild, q = k && k.firstElementChild;
+  if (!q) return;
+  const W = q.offsetWidth, vw = vp.clientWidth;
+  if (!(W > 0)) return;
+  const n = Math.max(2, Math.ceil(vw / W) + 1);
+  while (k.children.length < n) k.append(h('span', { class: 'kw-lbq', 'aria-hidden': 'true', text: q.textContent }));
+  while (k.children.length > n) k.lastElementChild.remove();
+  const d = (-W).toFixed(1) + 'px', t = (W / (narrowMQ.matches ? 38 : 45)).toFixed(2) + 's';
+  if (k.style.getPropertyValue('--kw-lbs-d') !== d) k.style.setProperty('--kw-lbs-d', d);
+  if (k.style.getPropertyValue('--kw-lbs-t') !== t) k.style.setProperty('--kw-lbs-t', t);
+}
+// a new posting: only the cells whose value differs from what this page showed (or every cell when the dashes of a failed board, or
+// today's posting seen for the first time on this page, light up) go dark and come back top to bottom — 화려하게, a visible tab and the
+// board on screen only; otherwise the new values are simply there
+const kxStag = i => Math.min(300, i === 0 ? 0 : i === 1 ? 40 : i === 2 ? 70 : 90 + 20 * (i - 3));
+// (the list may rebuild its columns right after — the measured board heights re-balance them: a relight under way carries over to the
+// new cells, picking up where it was through a negative delay, KXIM.lit)
+function kxRelight(box, kind, st) {
+  const cells = [...box.querySelectorAll('td.d[data-key]')];
+  const was = KXIM.shown[kind];
+  KXIM.shown[kind] = st === 'data' ? new Map(cells.map(td => [td.dataset.key, td.dataset.v])) : 'fail';
+  if (st !== 'data' || motion() !== 'fancy' || document.hidden) { KXIM.lit[kind] = null; return; }
+  const run = KXIM.lit[kind], now = performance.now();
+  const lit = was instanceof Map ? cells.filter(td => was.get(td.dataset.key) !== td.dataset.v) : was === 'fail' || KXIM[kind].today ? cells : [];
+  if (!lit.length) {
+    if (!run || now - run.t0 > 800) return;
+    for (const td of cells) if (run.d.has(td.dataset.key)) { td.style.setProperty('--kw-lb-d', Math.round(run.d.get(td.dataset.key) - (now - run.t0)) + 'ms'); td.classList.add('lit'); }
+    return;
+  }
+  const r = box.getBoundingClientRect();
+  if (r.bottom <= 0 || r.top >= innerHeight || !r.height) { KXIM.lit[kind] = null; return; }
+  const rows = [...box.querySelectorAll('tbody tr')], d = new Map();
+  for (const td of lit) { const ms = 80 + kxStag(rows.indexOf(td.parentElement)); d.set(td.dataset.key, ms); td.style.setProperty('--kw-lb-d', ms + 'ms'); td.classList.add('lit'); }
+  KXIM.lit[kind] = { t0: now, d };
+}
+function kxHead(kind, v) {
+  const warn = v && v.stale ? h('span', { class: 'kw-kxm' }, h('span', { class: 'kw-kxw', title: '수출입은행에서 새 값을 확인하지 못했어요' }, uiWarn(), h('span', { class: 'sr', text: '새 값을 확인하지 못했어요' }))) : null;
+  return h('div', { class: 'kw-kxh' }, h('h5', { class: 'kw-kxt', id: 'kw-kx-' + kind }, kind === 'fx' ? '수출입은행 고시' : '기준금리 · 은행간 금리'), warn);
+}
 function kxNote(kind, v) {
-  const t = kind === 'fx' ? ['환전 · 송금할 때 참고하는 은행 고시값이에요. 실제로 적용되는 환율은 은행과 우대율마다 달라요.']
-    : ['익일은 하루짜리 기준금리, 1~12개월은 은행끼리 빌려주는 기간별 금리예요.', v.items.some(it => it.bp != null) ? '변화는 전 영업일 고시 대비 bp(1bp = 0.01%p)로 보여 줘요.' : null];
+  const t = kind === 'fx' ? ['실제로 적용되는 환율은 은행과 우대율마다 달라요.'] : [v.items.some(it => it.bp != null) ? '변화는 전 영업일 고시 대비 bp(1bp = 0.01%p)로 보여 줘요.' : null];
   if (v.waiting) t.push('오늘 고시는 아직 나오지 않았어요.');
   if (v.stale) t.push('새 값을 확인하지 못해 지난 값을 보여 줘요.');
-  return h('p', { class: 'kw-kxn', text: t.filter(Boolean).join(' ') });
+  const txt = t.filter(Boolean).join(' ');
+  return txt ? h('p', { class: 'kw-kxn', text: txt }) : null;
 }
-// fill one table's place (only when what it shows changed); returns true when its height moved off the one distribute used
+// fill one table's place (only when what it shows changed)
 function fillKx(box, kind, compact) {
   const st = kxState(kind), v = KXIM[kind];
   const sig = JSON.stringify([st, v, compact]);
-  if (box.__sig !== sig) {
-    box.__sig = sig;
-    box.hidden = !st;
-    if (!st) box.replaceChildren();
-    else if (st === 'fail') put(box, kxHead(kind, null), h('p', { class: 'kw-kxn kw-stale' }, uiWarn(), kind === 'fx' ? '수출입은행 고시 환율을 불러오지 못했어요' : '수출입은행 고시 금리를 불러오지 못했어요'));
-    else put(box, kxHead(kind, v), kind === 'fx' ? kxFxTable(v) : kxRateTable(v), kxNote(kind, v));
+  if (box.__sig === sig) return;
+  box.__sig = sig;
+  for (const s of box.querySelectorAll('.kw-lbs')) if (kxWatched.delete(s) && kxIO) kxIO.unobserve(s);
+  box.hidden = !st;
+  if (!st) { box.replaceChildren(); return; }
+  const fail = st === 'fail';
+  put(box, kxHead(kind, fail ? null : v), h('div', { class: 'kw-lbd ' + kind }, kind === 'fx' ? kxFxBoard(fail ? null : v) : kxRateBoard(fail ? null : v), kxStrip(kind, fail ? null : v)),
+    fail ? h('p', { class: 'kw-kxn kw-stale' }, uiWarn(), kind === 'fx' ? '수출입은행 고시 환율을 불러오지 못했어요' : '수출입은행 고시 금리를 불러오지 못했어요') : kxNote(kind, v));
+  const s = box.querySelector('.kw-lbs:not(.st)');
+  if (s) kxObserve(s);
+  kxRelight(box, kind, st);
+}
+// the dot pitch one board can take: its width shared out among the digit columns (a column is as wide as its slots or its head, + the
+// gap and the --p each cell keeps on its right) after the name and 기간 columns
+function lbFit(b) {
+  const narrow = b.clientWidth < 420;
+  if (b.classList.contains('narrow') !== narrow) b.classList.toggle('narrow', narrow);
+  const t = b.querySelector('table'), row = t && t.tBodies[0] && t.tBodies[0].rows[0];
+  if (!row) return Infinity;
+  const cs = getComputedStyle(b), gap = parseFloat(cs.getPropertyValue('--kw-lb-gap')) || 16;
+  const avail = b.clientWidth - 2 * (parseFloat(cs.paddingLeft) || 0);
+  const wOf = sel => Math.max(0, ...[...t.querySelectorAll(sel)].map(e => e.offsetWidth));
+  const head = [...t.tHead.rows[0].cells], cells = [...row.cells];
+  let fixed = wOf('tbody th.nm .kw-lbl'), per = 0;
+  const dig = [];
+  head.forEach((th, i) => {
+    if (!i) return;
+    const hw = wOf(`thead th:nth-child(${i + 1}) .kw-lbl`), c = cells[i];
+    if (th.classList.contains('tn')) { fixed += Math.max(hw, wOf('td.tn .kw-lbl')) + gap; per += 1; }
+    else if (c && c.dataset.tpl) { fixed += gap; per += 1; dig.push({ u: lbTplW(c.dataset.tpl), hw }); }
+  });
+  let p = 3;
+  for (let pass = 0; pass < 4; pass++) {
+    const byHead = dig.filter(d => d.u * p < d.hw), byDots = dig.filter(d => d.u * p >= d.hw);
+    const np = (avail - fixed - byHead.reduce((a, d) => a + d.hw, 0)) / (per + byDots.reduce((a, d) => a + d.u, 0));
+    if (Math.abs(np - p) < 0.01) { p = np; break; }
+    p = np;
   }
-  if (!st) return false;
-  const k = kind + (compact ? ':c' : '') + ':' + st, used = kxHeight(kind === 'fx' ? 'fx' : 'rates', compact);
-  const hgt = box.offsetHeight + parseFloat(getComputedStyle(box).marginTop || 0);
-  KXIM.hm[k] = hgt;
-  return Math.abs(hgt - used) > 12;
+  return p;
+}
+// after the places are filled: one dot pitch for both boards (the 환율 board's fit, bounded 1.6 … 3px — × the root font size / 16, so a
+// larger Android font size makes the digits larger too), the strips measured, each place's height recorded for the column balance;
+// true when a height moved off the estimate distribute() used (the columns are balanced again, once)
+function fitKx(boxes, compact) {
+  const live = boxes.filter(b => !b.hidden);
+  const boards = live.map(b => b.querySelector('.kw-lbd')).filter(Boolean);
+  if (boards.length) {
+    const rem = (parseFloat(getComputedStyle(document.documentElement).fontSize) || 16) / 16;
+    let p = Math.min(...boards.map(lbFit));
+    p = Math.max(1.6, Math.min(3 * rem, Math.floor(p * 20) / 20));
+    for (const b of boards) if (b.style.getPropertyValue('--p') !== p + 'px') b.style.setProperty('--p', p + 'px');
+    for (const b of boards) for (const s of b.querySelectorAll('.kw-lbs')) kxRun(s);
+  }
+  for (const s of kxWatched) if (!s.isConnected) { kxWatched.delete(s); if (kxIO) kxIO.unobserve(s); }
+  let moved = false;
+  for (const box of live) {
+    const kind = box.dataset.kx, k = kind + (compact ? ':c' : '') + ':' + kxState(kind), used = kxHeight(kind === 'fx' ? 'fx' : 'rates', compact);
+    const hgt = box.offsetHeight + parseFloat(getComputedStyle(box).marginTop || 0);
+    KXIM.hm[k] = hgt;
+    if (Math.abs(hgt - used) > 12) moved = true;
+  }
+  return moved;
 }
 
 /* ───────── DOM scaffold ───────── */
@@ -1472,6 +1682,7 @@ function renderList(d) {
   // fill in place
   fillZoneCaption(L, d);
   let kxMoved = false;
+  const kxBoxes = [];
   for (const secEl of L.querySelectorAll('.kw-sec')) {
     const old = secEl.__sec;
     const sec = cols.flat().find(s => s.key === old.key) || old;
@@ -1479,8 +1690,9 @@ function renderList(d) {
     fillHead(sec, secEl.firstChild);
     sec.items.forEach((it, i) => fillRow(els.rows.get(it.key), it, subs.get(it.key), sec.flat && !sec.ref ? sec.rank + i : 0, R));
     const kx = secEl.querySelector(':scope > .kw-kx');
-    if (kx && fillKx(kx, kx.dataset.kx, geo.compact)) kxMoved = true;
+    if (kx) { fillKx(kx, kx.dataset.kx, geo.compact); kxBoxes.push(kx); }
   }
+  if (kxBoxes.length) kxMoved = fitKx(kxBoxes, geo.compact);
   if (kxMoved && !els.kxRe) { els.kxRe = true; schedRender(); } else if (!kxMoved) els.kxRe = false;   // the columns balance on the measured height (once)
   if (!S.listFocus || !els.rows.has(S.listFocus)) S.listFocus = cols.length && cols[0][0] ? cols[0][0].items[0].key : null;
   for (const [k, el] of els.rows) el.tabIndex = k === S.listFocus ? 0 : -1;

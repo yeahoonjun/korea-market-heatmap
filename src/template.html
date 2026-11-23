@@ -43,6 +43,8 @@ if(d.dataset.serif==='on'){var s=document.getElementById('kh-serif');if(s&&windo
   --acc-soft:rgba(255,181,71,.14); --acc-bd:rgba(255,181,71,.35);
   --amber:var(--acc-fill); --amber-soft:var(--acc-soft);
   --up-text:#ff5c66; --dn-text:#2fd67a; --up-text-w:#ff5c66; --dn-text-w:#2fd67a;   /* -w = 해외 · 지표 (rebuildColor sets both sides) */
+  /* -w-dk = the 해외 · 지표 palette's dark-ground inks in every theme (a dark object on a light page — the LED board, AGENTS §3-7) */
+  --up-text-w-dk:#ff5c66; --dn-text-w-dk:#2fd67a;
   --nodata:#26282e;
   --rule:transparent;
   /* overlay ink (hover tints: color-mix with transparent) and shadow ink */
@@ -2000,6 +2002,8 @@ const palSide = () => state.market === 'WORLD' || state.market === 'CMDTY' ? 'wo
 const palArg = s => { const v = s && typeof s === 'object' ? s.scope : s; return v === 'world' || v === 'w' ? 'world' : v === 'tab' ? palSide() : 'kr'; };
 const palKey = side => side === 'world' && state.paletteW !== 'same' && PALETTES[state.paletteW] ? state.paletteW : state.palette;
 const PAL = side => (THEME_PAL[THEME] || PALETTES)[palKey(side)] || PALETTES.krg;
+// the same palette's inks for a dark ground whatever the theme (a light theme borrows 기본's): KH.palette(scope, {tone:'dark'}) · --*-w-dk
+const PAL_DK = side => (THEME_PAL[lightTone() ? 'base' : THEME] || PALETTES)[palKey(side)] || PALETTES.krg;
 const CODE_RE = /^[0-9A-Z]{6}$/;
 const reduced = () => MOTION === 'reduced';
 const fancy = () => MOTION === 'fancy';
@@ -4057,6 +4061,9 @@ function rebuildColor() {
   st.setProperty('--dn-text-w', w.dnText);
   st.setProperty('--cd-up-w', w.stops[6]);
   st.setProperty('--cd-dn-w', w.stops[0]);
+  const wd = PAL_DK('world');
+  st.setProperty('--up-text-w-dk', wd.upText);
+  st.setProperty('--dn-text-w-dk', wd.dnText);
 }
 const colorOf = v => v == null ? NODATA : v === 0 ? PAL().stops[3] : actScale(v);
 const colorFor = st => colorOf(cval(st));
@@ -8032,10 +8039,11 @@ window.KH = {
   // the tab shown now) | anything else / none = 국내 (what every module drew before the sides). The range is today's range in use, as before
   // {scope, range: R} (구역마다) = that side's palette on ±R instead (src/world's zones; R in the caller's unit)
   colorOf: (r, scope) => rangeColor(r, palArg(scope), rangeArg(scope)),
-  palette: scope => {
-    const side = palArg(scope), p = PAL(side);
+  // palette(scope, {tone:'dark'}) = that side's inks for a dark ground in every theme (a light theme gives 기본's), + tone:'dark'
+  palette: (scope, opt) => {
+    const side = palArg(scope), dk = !!(opt && opt.tone === 'dark'), p = dk ? PAL_DK(side) : PAL(side);
     return { key: palKey(side), label: p.label, stops: p.stops.slice(), up: p.stops[6], down: p.stops[0], flat: p.stops[3], upText: p.upText, dnText: p.dnText,
-      scope: side, same: side === 'world' && palKey('world') === palKey('kr') };
+      scope: side, same: side === 'world' && palKey('world') === palKey('kr'), tone: dk ? 'dark' : undefined };
   },
   // the side the tab shown now belongs to ('kr' | 'world'), and what each side picked: {kr: key, world: key | 'same'}
   palScope: () => palSide(),

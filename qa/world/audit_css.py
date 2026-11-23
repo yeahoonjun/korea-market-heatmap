@@ -10,10 +10,15 @@ CSS (src/world/world.css):
      from the template's role tokens and is allowed (design.md §2 예외, user 2026-11-16 01:32); world.css itself paints none
   ② no glow — no filter: blur() / drop-shadow(); no box-shadow layer with blur at offset 0 0 or a blurred amber / status colour;
      text-shadow only the template's label token var(--lab-sh) (legibility of labels on data colours); no @keyframes that animate a
-     shadow / filter, no pulse, no endless animation; no open-market glow layers (.kw-ggb / .kw-ggl / .kw-gp / kwRing gone)
+     shadow / filter, no pulse, no endless animation; no open-market glow layers (.kw-ggb / .kw-ggl / .kw-gp / kwRing gone).
+     The one named exception — 「LED 전광판」 (design.md §2, AGENTS §3-27 끝, the 수출입은행 고시 boards): the lit dots' drop-shadow
+     (.kw-lbg .on only, scaled by the dot pitch, in the dot's own colour) and the strip's endless kwLbRun (transform, .kw-lbk only),
+     which must pause (key · hold · off screen · hidden tab) and stop in 줄이기
   ③ status — 장중 / open markets use --live, failure --fail-dot; amber (--acc*, --amber, #ffb547) only on selection (.sel),
      focus (:focus-visible) and switched-on (aria-pressed) rules; no --kw-* module token that is amber or a glow
-  ④ type on the scale — font-size from --fs-* (em of a fitted tile label and calc(--fs-* × --gs) map labels allowed), nothing < 11px
+  ④ type on the scale — font-size from --fs-* (em of a fitted tile label and calc(--fs-* × --gs) map labels allowed), nothing < 11px;
+     the LED board's transparent real text (.kw-lbx) is sized to the dot digits (calc(--p × 6.4)) — never seen, shown at --fs-md in
+     forced colours
   ⑤ space on the scale — padding / margin / gap literal px only 0 or 1px; the one exception is the outer layout's 14px gap / bottom
      (#world.kw = the template's main.layout, a design.md §11 map-box exception)
   ⑥ corners — border-radius from tokens (--r-* · --card-r · --sheet-r · 50% for dots), no bare px
@@ -107,8 +112,15 @@ gl_override = [(s, k, v) for s, k, v in D if 'glass' in s and k in ('background'
 check('① no world rule takes the glass material away (no background / blur / shadow: none under a glass theme)', not gl_override, gl_override)
 
 # ② glow
-bad = [(s, k, v) for s, k, v in D if re.search(r'drop-shadow\(|(?<![\w-])blur\(', v) and k not in ('backdrop-filter', '-webkit-backdrop-filter')]
-check('② no filter: blur() / drop-shadow()', not bad, bad)
+LED_GLOW = ('.kw-lbg .on', 'filter', 'drop-shadow(0 0 calc(var(--p) * .7) color-mix(in srgb,currentColor 58%,transparent))')
+bad = [(s, k, v) for s, k, v in D if re.search(r'drop-shadow\(|(?<![\w-])blur\(', v) and k not in ('backdrop-filter', '-webkit-backdrop-filter') and (s, k, v) != LED_GLOW]
+check('② no filter: blur() / drop-shadow() (but the LED board\'s lit dots — design.md §2 「LED 전광판」)', not bad, bad)
+check('② 「LED 전광판」: the glow is one drop-shadow on the lit dots only, in their own colour, scaled by the dot pitch (no glow on the panel, '
+      'the names or the strip)', [x for x in D if x == LED_GLOW] == [LED_GLOW] and not [x for x in D if re.search(r'\.kw-lb[a-z]', x[0]) and x[1] in ('filter', 'text-shadow')
+                                                                                   and x != LED_GLOW])
+led = re.search(r'--kw-led:\s*([^;]+);', css)
+check('② 「LED 전광판」: the LED is one warm white (#fbecd6 — not amber, not a data colour) in every theme',
+      led and led.group(1).strip() == '#fbecd6' and len(re.findall(r'--kw-led:', css)) == 1, led and led.group(0))
 halo = []
 for s, k, v in D:
     if k == 'text-shadow':
@@ -128,10 +140,17 @@ for s, k, v in D:
                 halo.append((s, layer))
 check('② no glow shadows (no blurred halo, no blurred amber / status colour; text-shadow only var(--lab-sh))', not halo, halo)
 kf = re.findall(r'@keyframes\s+([\w-]+)\s*\{(.*?\})\s*\}', css, flags=re.S)
-bad = [n for n, body in kf if re.search(r'box-shadow|text-shadow|filter|transform', body) or re.search(r'glow|pulse|ring', n, re.I)]
-check('② no @keyframes that animate a shadow / filter / scale (no glow, no pulse ring)', not bad, [n for n, _ in kf])
+bad = [n for n, body in kf if (re.search(r'box-shadow|text-shadow|filter|transform', body) or re.search(r'glow|pulse|ring', n, re.I))
+       and not (n == 'kwLbRun' and re.fullmatch(r'to\{transform:translateX\(var\(--kw-lbs-d,[^)]*\)\)\}', body.strip()))]
+check('② no @keyframes that animate a shadow / filter / scale (no glow, no pulse ring; the LED strip\'s kwLbRun only translates)', not bad, [n for n, _ in kf])
 inf = [(s, v) for s, k, v in D if k.startswith('animation') and 'infinite' in v]
-check('② no endless animation in #world (nothing pulses)', not inf, inf)
+check('② no endless animation in #world (nothing pulses) — but the LED strip (.kw-lbk kwLbRun, linear)', [(s, v) for s, v in inf if not (s == '.kw-lbk' and v.startswith('kwLbRun ') and ' linear ' in v)] == [], inf)
+hold = re.search(r'\.kw-lbs:is\(\.ps,\.hd,\.off,\.hid\) \.kw-lbk\{animation-play-state:paused\}', css)
+still = re.search(r'html\[data-motion="reduced"\] \.kw-lbk[^{]*\{[^}]*animation:none', css)
+check('② 「LED 전광판」: the strip pauses (key · hover / focus hold · off screen · hidden tab) and stands still in 줄이기', hold and still)
+lit = re.search(r'\.kw-lbt td\.lit \.on\{animation:kwLbLit var\(--kw-lb-lit\) steps\(9,end\) var\(--kw-lb-d,0ms\) backwards\}', css)
+check('② 「LED 전광판」: the relight is a 9-step clip reveal of the lit dots (no overshoot, no flash), 0 ms in 줄이기',
+      lit and re.search(r'html\[data-motion="reduced"\]\{[^}]*--kw-lb-lit:0ms', css))
 gone = [t for t in ('.kw-ggb', '.kw-ggl', '.kw-gp', 'kwRing', '--kw-glow', '--kw-open', 'kw-paused', 'kwFlc', 'kwFl{') if t in css]
 check('② the open-market glow, its pulse rings and the old value flash are gone', not gone, gone)
 
@@ -163,7 +182,8 @@ for s, k, v in D:
         vv = re.sub(r'var\([^)]*\)', 'T', v)
         if re.search(r'\d(px|pt|rem)\b', vv):
             bad.append((s, v))
-        if k == 'font-size' and not re.fullmatch(r'(T|calc\(T \* T\)|\.\d+em|\d+(\.\d+)?em|inherit)', vv.replace('var(--gs,1)', 'T')):
+        if k == 'font-size' and not re.fullmatch(r'(T|calc\(T \* T\)|\.\d+em|\d+(\.\d+)?em|inherit)', vv.replace('var(--gs,1)', 'T')) \
+                and not (s == '.kw-lbx' and v == 'calc(var(--p) * 6.4)'):
             bad.append((s, v))
 check('④ font sizes on the --fs-* scale (em inside fitted tile labels, calc(--fs-* × --gs) for map labels)', not bad, bad)
 fs_used = sorted(set(re.findall(r'--fs-[\w]+', css)))

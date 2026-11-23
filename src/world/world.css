@@ -24,8 +24,17 @@
   --kw-seq-1:40ms; --kw-seq-2:70ms;
   /* the badge recipe (design.md §5): 11px / 600 · 18 high · --r-badge · a 1px inset rule */
   --kw-badge-h:18px;
+  /* LED 전광판 (design.md §2 예외 「LED 전광판」, AGENTS §3-27 끝 — the two 수출입은행 고시 boards): a dark object in every theme (like the
+     clock), an opaque near-black panel with a sunk edge; the dots are one warm white (OKLCH C ≈ 0.03 — not amber, not a data colour),
+     the unlit grid a flat 7.5 % of it (no light), 0.0bp · 값 없음 dimmed; names in Pretendard on the board's own two greys. The bp's up /
+     down are the 해외 · 지표 palette's dark-ground inks (--up-text-w-dk · --dn-text-w-dk, the template). --kw-lb-lit = the relight's
+     9-step reveal of a changed cell (화려하게 only, a new posting) */
+  --kw-lb-bg:#08090b; --kw-lb-edge:inset 0 1px 3px rgba(0,0,0,.75),inset 0 0 0 1px rgba(255,255,255,.06); --kw-lb-r:var(--r-row);
+  --kw-led:#fbecd6; --kw-led-off:rgba(251,236,214,.075); --kw-led-dim:#9d968b;
+  --kw-lb-lab:#ddd6ca; --kw-lb-lab2:#a29b91; --kw-lb-rule:rgba(251,236,214,.1);
+  --kw-lb-lit:315ms;
 }
-html[data-motion="reduced"]{--kw-seq-1:0ms; --kw-seq-2:0ms}
+html[data-motion="reduced"]{--kw-seq-1:0ms; --kw-seq-2:0ms; --kw-lb-lit:0ms}
 /* 신문 (paper): ink on warm paper */
 html[data-theme="paper"]{
   --kw-sea:#fbf1e6; --kw-grat:rgba(33,26,21,.07); --kw-none:#e8d8c6; --kw-ref:#c9bcae; --kw-base:rgba(33,26,21,.45);
@@ -39,6 +48,7 @@ html[data-theme="paper"]{
   --kw-in-hov:rgba(251,241,230,.55); --kw-in-ring:#4a3f37;
   --kw-cross:rgba(33,26,21,.4); --kw-cdot-o:#fbf1e6; --kw-chip-l:#eddac7;
   --kw-nsw-a:#fbf1e6; --kw-nsw-b:#4b4a6b; --kw-pri-hov:#3a3029;
+  --kw-lb-bg:#1d1814; --kw-lb-edge:inset 0 0 0 1px #211a15,inset 0 2px 0 rgba(0,0,0,.4); --kw-lb-r:var(--r-mark);
 }
 html[data-theme="paper"] #world{--nodata:#e8d8c6}
 /* 글라스 밝게 */
@@ -54,8 +64,10 @@ html[data-theme="glass-light"]{
   --kw-in-hov:rgba(255,255,255,.55); --kw-in-ring:#353b44;
   --kw-cross:rgba(15,17,21,.35); --kw-cdot-o:#f4f6f9; --kw-chip-l:#e3e7ee;
   --kw-nsw-a:#f4f6f9; --kw-nsw-b:#5b6275; --kw-pri-hov:#2b2f38;
+  --kw-lb-bg:#15171c; --kw-lb-edge:inset 0 1px 3px rgba(0,0,0,.55),0 0 0 .5px rgba(15,17,21,.18),0 1px 0 #fff; --kw-lb-r:var(--r-card);
 }
 html[data-theme="glass-light"] #world{--nodata:#e6e9ee}
+html[data-theme="glass-dark"]{--kw-lb-bg:#06070a; --kw-lb-edge:inset 0 1px 3px rgba(0,0,0,.8),inset 0 0 0 .5px rgba(255,255,255,.12),0 1px 0 rgba(255,255,255,.06); --kw-lb-r:var(--r-card)}
 #world[hidden]{display:none!important}
 /* the same outer layout as the heatmap's main.layout (its 14px gaps are the template's map-box exceptions, design.md §11) */
 #world.kw{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:14px;padding:0 var(--edge) 14px;flex:1;min-height:0;align-items:start}
@@ -155,30 +167,79 @@ html[data-theme="glass-light"] #world{--nodata:#e6e9ee}
 .kw-sec[data-g=funds] .kw-sh{flex-wrap:wrap;row-gap:0;padding-top:var(--space-1);padding-bottom:var(--space-1)}
 .kw-sec[data-g=funds] .kw-sh .a.note{flex:none}
 .kw-fsrc{margin:0;padding:var(--space-3) var(--space-3) var(--space-1);font-size:var(--fs-xs);line-height:var(--lh-ui,1.25);color:var(--faint)}
-/* 수출입은행 고시 (AGENTS §3-27 끝): a small table inside the 환율 card and one inside the 금리 card, below their rows, after a rule
-   and their own heading (h5) — once a business day, not clickable. Colour only for the bp's up / down (design.md §2); figures
-   tabular; --fs-md rows, --fs-xs heads and notes; the meta line wraps under the heading when the card is narrow (360 phones). */
+/* 수출입은행 고시 (AGENTS §3-27 끝): one LED board inside the 환율 card and one inside the 금리 card, below their rows, after a rule and
+   their own heading (h5) — once a business day. The board (사용자 2026-11-23 12:56 "추천대로하는데 아래 띠는 계속 흐르게" = drafts/
+   led-board.html C on the B look, design.md §2 예외 「LED 전광판」): a dark panel in every theme, 5 × 7 dot digits (SVG, aria-hidden)
+   over the real text (.kw-lbx — transparent: screen readers, copy, find and zoom read it; forced colours show it instead of the dots),
+   the unlit grid as flat dots and a soft glow on the lit dots only, names in Pretendard. --p = the dot pitch (world.js fits it to the
+   환율 board's width; both boards share it). Under the table the board's strip: its words keep moving (기본 · 화려하게) at a constant
+   speed, paused by its ⏸ key (the strip's right end) or a press anywhere on it, held while hovered by a mouse or focused from the keyboard, still while off
+   screen or in a hidden tab, and static, whole and wrapped in 줄이기. Nothing else is clickable (rows carry a title). */
 .kw-kx{margin:var(--space-4) var(--space-3) 0;padding-top:var(--space-4);border-top:1px solid var(--line);min-width:0}
 .kw-kx[hidden]{display:none}
 .kw-kxh{display:flex;flex-wrap:wrap;align-items:baseline;column-gap:var(--space-4);row-gap:var(--space-1);margin-bottom:var(--space-3)}
 .kw-kxt{margin:0;font-size:var(--fs-md);font-weight:var(--w-strong,700);line-height:var(--lh-ui);color:var(--fg);font-family:var(--font-head,inherit)}
-.kw-kxm{display:inline-flex;align-items:center;gap:var(--space-2);margin-left:auto;font-size:var(--fs-xs);line-height:var(--lh-ui);color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.kw-kxm{display:inline-flex;align-items:center;gap:var(--space-2);margin-left:auto;font-size:var(--fs-xs);line-height:var(--lh-ui);color:var(--muted);white-space:nowrap}
 .kw-kxw{display:inline-flex}
 .kw-kxw .kwn{width:13px;height:13px;color:var(--fail-dot)}
-.kw-kxtb{width:100%;border-collapse:collapse;font-size:var(--fs-md);line-height:var(--lh-row);font-variant-numeric:tabular-nums;color:var(--fg)}
-.kw-kxtb :is(th,td){padding:var(--space-2) 0 var(--space-2) var(--space-4);text-align:right;white-space:nowrap;font-weight:500;vertical-align:baseline}
-.kw-kxtb :is(th,td).nm{padding-left:0;text-align:left}
-.kw-kxtb thead th{padding-top:0;font-size:var(--fs-xs);color:var(--muted)}
-.kw-kxtb tbody th.nm{font-weight:600}
-.kw-kxtb th.nm small{margin-left:var(--space-2);font-size:var(--fs-xs);font-weight:500;color:var(--muted)}
-.kw-kxtb .tn{text-align:left}
-.kw-kxtb td.tn{color:var(--fg2)}
-.kw-kxr th.nm{width:100%}                /* the name takes the slack: 기간 · 금리 · 변화 read together on the right */
-.kw-kxtb td.bp{font-size:var(--fs-sm)}
-.kw-kxtb td.bp.flat{color:var(--fg2)}
-.kw-kxr tbody+tbody :is(th,td){border-top:1px solid var(--line)}
 .kw-kxn{margin:var(--space-3) 0 0;font-size:var(--fs-xs);line-height:var(--lh-ui);color:var(--muted)}
 .kw-kxn.kw-stale{display:flex;color:var(--fg2)}
+/* the board: opaque panel, sunk edge (--kw-lb-*, one set per theme above); the right padding gives back the --p every cell keeps on its
+   right (the dots' own margin), so the last digit ends --kw-lb-px from the edge */
+.kw-lbd{--p:2px;--kw-lb-px:var(--space-5);--kw-lb-gap:var(--space-6);position:relative;min-width:0;padding:var(--space-4) calc(var(--kw-lb-px) - var(--p)) 0 var(--kw-lb-px);border-radius:var(--kw-lb-r);background:var(--kw-lb-bg);box-shadow:var(--kw-lb-edge);color:var(--kw-lb-lab)}
+.kw-lbd.narrow{--kw-lb-px:var(--space-4);--kw-lb-gap:var(--space-5)}
+.kw-lbt{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums;color:var(--kw-lb-lab)}
+.kw-lbt :is(th,td){padding:max(calc(var(--p) * 1.4),var(--space-2)) var(--p) max(calc(var(--p) * 1.4),var(--space-2)) var(--kw-lb-gap);text-align:right;white-space:nowrap;vertical-align:middle;font-weight:500;line-height:var(--lh-ui)}
+.kw-lbt thead th{padding-top:0;padding-bottom:var(--space-2);font-size:var(--fs-xs);color:var(--kw-lb-lab2)}
+.kw-lbt .nm{padding-left:0;text-align:left;width:100%}
+.kw-lbt tbody th.nm{font-size:var(--fs-sm);font-weight:600}
+.kw-lbl{display:inline-block}
+.kw-lbl small{margin-left:var(--space-2);font-size:var(--fs-xs);font-weight:500;color:var(--kw-lb-lab2)}
+.kw-lbd.narrow.fx .kw-lbl small{display:block;margin-left:0}
+.kw-lbt .tn{text-align:left}
+.kw-lbt td.tn{font-size:var(--fs-sm);color:var(--kw-lb-lab2)}
+.kw-lbt tbody+tbody tr:first-child>*{border-top:1px solid var(--kw-lb-rule)}
+/* a digit cell: every slot of the column is a 5 × 7 module (2 × 7 comma, 1 × 7 point) — lit dots for the character, unlit for the rest;
+   the SVG keeps one dot of room round itself (viewBox −1 … +1, margin −p) so the glow is not cut and the cell is exactly 7p high */
+.kw-lbt td.d{position:relative;line-height:0}       /* no strut: the row is the digits' 7p + its padding */
+.kw-lbg{display:inline-grid;vertical-align:middle}
+.kw-lbg svg{grid-area:1/1;display:block;margin:calc(var(--p) * -1);overflow:visible}
+.kw-lbg path{fill:none;stroke:currentColor;stroke-width:.72;stroke-linecap:round}
+.kw-lbg .off{color:var(--kw-led-off)}
+.kw-lbg .on{color:var(--kw-led);filter:drop-shadow(0 0 calc(var(--p) * .7) color-mix(in srgb,currentColor 58%,transparent))}
+.kw-lbt td.up .on{color:var(--up-text-w-dk,#ff5c66)}
+.kw-lbt td.dn .on{color:var(--dn-text-w-dk,#2fd67a)}
+.kw-lbt td:is(.flat,.na) .on{color:var(--kw-led-dim)}
+.kw-lbx{position:absolute;inset:0;padding:inherit;padding-left:0;display:flex;align-items:center;justify-content:flex-end;color:transparent;font-size:calc(var(--p) * 6.4);line-height:1;overflow:hidden;white-space:nowrap}
+.kw-lbx::selection{color:transparent;background:color-mix(in srgb,var(--kw-led) 30%,transparent)}
+/* a new posting (화려하게 only — world.js adds .lit to the changed cells): the lit dots go dark, then come back one dot row at a time from
+   the top (9 steps of the 9-unit box — the board redrawing, no overshoot), rows 40 → 30 → 20 ms apart (--kw-lb-d), all within ~0.6 s */
+.kw-lbt td.lit .on{animation:kwLbLit var(--kw-lb-lit) steps(9,end) var(--kw-lb-d,0ms) backwards}
+@keyframes kwLbLit{from{clip-path:inset(0 0 100% 0)}to{clip-path:inset(0 0 0 0)}}
+/* the strip: the board's own words in LED white (no glow), a seamless loop of identical copies moving left at a constant px/s
+   (world.js sets the period --kw-lbs-d and its length --kw-lbs-t); .ps = paused by the key, .hd = held (mouse over · keyboard focus),
+   .off = off screen, .hid = hidden tab; .st = the failed board's strip (words only, nothing moves) */
+.kw-lbs{position:relative;display:flex;align-items:center;gap:var(--space-2);min-height:var(--h-chip);margin:var(--space-3) calc(var(--p) - var(--kw-lb-px)) 0 calc(var(--kw-lb-px) * -1);padding:0 var(--space-2) 0 var(--kw-lb-px);border-top:1px solid var(--kw-lb-rule);color:var(--kw-led);cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+.kw-lbs.st{cursor:auto;padding-right:var(--kw-lb-px)}
+.kw-lbs .kwn{flex:none;width:12px;height:12px;color:var(--kw-led)}
+.kw-lbp{flex:none;display:grid;place-items:center;width:var(--h-badge);height:var(--h-badge);margin:0;padding:0;border:0;border-radius:var(--r-badge);background:none;color:var(--kw-led);cursor:pointer;-webkit-tap-highlight-color:transparent}
+.kw-lbp svg{grid-area:1/1;width:10px;height:10px;transition:opacity var(--sp-fade-dur) var(--sp-fade)}
+.kw-lbp[aria-pressed="true"] svg:first-child,.kw-lbp:not([aria-pressed="true"]) svg:last-child{opacity:0;transition:opacity var(--sp-close-dur) var(--sp-close)}
+.kw-lbm{flex:1 1 0;min-width:0;margin:0;overflow:hidden;font-size:var(--fs-xs);font-weight:600;line-height:var(--h-chip);white-space:nowrap;word-break:keep-all}
+.kw-lbk{display:flex;width:max-content;animation:kwLbRun var(--kw-lbs-t,20s) linear infinite;will-change:transform}
+.kw-lbq{flex:none;padding-right:var(--space-8)}
+@keyframes kwLbRun{to{transform:translateX(var(--kw-lbs-d,-50%))}}
+.kw-lbs:is(.ps,.hd,.off,.hid) .kw-lbk{animation-play-state:paused}
+.kw-lbs:is(.off,.hid) .kw-lbk{will-change:auto}
+html[data-motion="reduced"] .kw-lbk,.kw-lbs.st .kw-lbk{display:block;width:auto;animation:none;will-change:auto}
+html[data-motion="reduced"] .kw-lbq,.kw-lbs.st .kw-lbq{padding-right:0}
+html[data-motion="reduced"] .kw-lbq+.kw-lbq,.kw-lbs.st .kw-lbq+.kw-lbq{display:none}
+html[data-motion="reduced"] .kw-lbm,.kw-lbs.st .kw-lbm{padding:var(--space-2) 0;line-height:var(--lh-ui);white-space:normal}
+html[data-motion="reduced"] .kw-lbs{cursor:auto;padding-right:var(--kw-lb-px)}
+html[data-motion="reduced"] .kw-lbp{display:none}
+/* a finger gets 44px of strip to press (design.md §8) — the strip itself is 32 on phones */
+@media (pointer:coarse){.kw-lbs:not(.st)::after{content:"";position:absolute;left:0;right:0;top:min(0px,calc(50% - 22px));bottom:min(0px,calc(50% - 22px))}html[data-motion="reduced"] .kw-lbs::after{content:none}}
+@media (forced-colors:active){.kw-lbg{display:none}.kw-lbx{position:static;padding:0;color:CanvasText;font-size:var(--fs-md)}.kw-lbd{border:1px solid CanvasText}}
 .kw-sum .kw-sumk{font-weight:600;color:var(--fg)}
 .kw-rows{display:flex;flex-direction:column}
 /* a list row (design.md §7 목록 줄): --h-row (36 desktop · 44 phones), --r-row, the theme's press filter (rows never sink) */
