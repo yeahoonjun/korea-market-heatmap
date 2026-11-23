@@ -9429,7 +9429,7 @@ a.sp-nw-a:visited .sp-nw-t { color: var(--fg2); }
   .sp-tbl th { top: 0; background: var(--sp-solid); }
   #sp-p-ob:not([hidden]) { display: flex; flex-direction: column; }
   .sp-ob-grid { flex: 1 1 auto; max-height: 560px; background: var(--sp-nest); box-shadow: none; grid-template-rows: repeat(10, minmax(34px, 1fr)); }
-  .sp-cum, .sp-today, .sp-m { background: var(--sp-nest); box-shadow: none; }   /* wells inside the side card: no second ink rule / rim */
+  .sp-cum, .sp-today, .sp-est, .sp-m { background: var(--sp-nest); box-shadow: none; }   /* wells inside the side card: no second ink rule / rim */
   .sp-m { box-shadow: inset 0 0 0 1px var(--row-bd, transparent); }
   .sp-ln .pt, .sp-lb-fig .pt { background: var(--sp-solid); }
   .sp-foot { margin-top: var(--space-4); }
@@ -22625,6 +22625,7 @@ html[data-motion="reduced"] .flows{--fl-tx-out:0ms;--fl-tx-in:0ms}
 
 /* 줄: 순위 · 오늘 캔들 · 이름 · 금액 · 작은 등락률 (눈에 띄는 종목 카드 줄과 같은 높이 · 안쪽 여백 · 누름) */
 .flows .fl-list{display:flex;flex-direction:column;gap:1px}
+.flows .fl-li{display:flex;flex-direction:column}   /* role="listitem" 상자 — 안의 버튼이 줄 폭 그대로(음수 여백까지) 늘어나요 */
 .flows .fl-r{display:grid;grid-template-columns:1.5em 10px minmax(0,1fr) auto 4.6em;gap:var(--space-3);align-items:center;padding:var(--space-3);margin:0 calc(-1 * var(--space-3));border-radius:var(--r-row);font-size:var(--fs-md);text-align:left;color:var(--fg);touch-action:manipulation;-webkit-tap-highlight-color:transparent}
 /* 휴대폰: 눈에 띄는 종목 줄처럼 --h-key(40) 높이 */
 @media (max-width:760px){ .flows .fl-r{min-height:var(--h-key)} }
@@ -22971,12 +22972,13 @@ function rowEl(x, i) {
   try { o = typeof KH.ohlc === 'function' ? KH.ohlc(x.c) : null; } catch (e) { o = null; }
   const icon = typeof KH.candleIcon === 'function' ? KH.candleIcon(o) : h('span', { class: 'cdi none' });
   const label = `${i + 1}위 ${n}, ${WHO_NAME[S.who]} ${S.dir === 'buy' ? '순매수' : '순매도'} ${amt(x.a)}원` + (r == null ? '' : `, 등락률 ${pctText(r)}`) + ' · 종목 페이지';
-  const b = h('button', { type: 'button', class: 'fl-r' + (i >= TOP ? ' fl-x' : ''), role: 'listitem', 'data-c': x.c, 'aria-label': label },
+  // 목록 항목은 감싸는 div(role="listitem") — 버튼에 listitem을 주면 버튼이라는 역할이 사라져요
+  const b = h('button', { type: 'button', class: 'fl-r', 'data-c': x.c, 'aria-label': label },
     h('span', { class: 'fl-rk', 'aria-hidden': 'true', text: String(i + 1) }), icon, h('span', { class: 'nm', text: n }),
     h('b', { class: 'fl-a ' + cls(x.a), text: amt(x.a) }),
     h('small', { class: 'fl-p ' + (r == null ? 'flat' : cls(+r.toFixed(2))), text: r == null ? '—' : pctText(r) }));
   b.addEventListener('click', () => openStock(x.c, b));
-  return b;
+  return h('div', { class: 'fl-li' + (i >= TOP ? ' fl-x' : ''), role: 'listitem' }, b);
 }
 let lastSig = '';
 function drawList(pk, force) {

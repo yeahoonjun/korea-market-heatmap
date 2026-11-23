@@ -732,7 +732,7 @@ a.sp-nw-a:visited .sp-nw-t { color: var(--fg2); }
   .sp-tbl th { top: 0; background: var(--sp-solid); }
   #sp-p-ob:not([hidden]) { display: flex; flex-direction: column; }
   .sp-ob-grid { flex: 1 1 auto; max-height: 560px; background: var(--sp-nest); box-shadow: none; grid-template-rows: repeat(10, minmax(34px, 1fr)); }
-  .sp-cum, .sp-today, .sp-m { background: var(--sp-nest); box-shadow: none; }   /* wells inside the side card: no second ink rule / rim */
+  .sp-cum, .sp-today, .sp-est, .sp-m { background: var(--sp-nest); box-shadow: none; }   /* wells inside the side card: no second ink rule / rim */
   .sp-m { box-shadow: inset 0 0 0 1px var(--row-bd, transparent); }
   .sp-ln .pt, .sp-lb-fig .pt { background: var(--sp-solid); }
   .sp-foot { margin-top: var(--space-4); }
