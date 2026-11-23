@@ -137,10 +137,12 @@ def when(y, mo, d, hh, mm):
     return dt.datetime(y, mo, d, hh, mm, tzinfo=KST)
 
 
-def open_page(br, w, h, *, at, fam=False, live=None, stub=True, theme='base', market='K', query='', motion='standard', url=None, scroll=False, wait=2600):
+def open_page(br, w, h, *, at, fam=False, live=None, stub=True, theme='base', market='K', query='', motion='standard', url=None, scroll=False, wait=2600, token=None):
     mobile = w <= 760
     ctx = br.new_context(viewport={'width': w, 'height': h}, is_mobile=mobile, has_touch=mobile, device_scale_factor=2 if mobile else 1)
     st = {'theme': theme, 'motion': motion, 'tickerPaused': True, 'market': market}
+    if token:
+        st['inv'] = token                     # the template's own invite token (khm.inv, JSON like every khm.* key)
     ctx.add_init_script('try{' + ''.join(f"localStorage.setItem('khm.{k}', {json.dumps(json.dumps(v))});" for k, v in st.items()) + '}catch(e){}')
     ctx.add_init_script(f'window.__fam = {json.dumps(bool(fam))}; window.__live = {json.dumps(live)}; window.__stub = {json.dumps(bool(stub))};')
     ctx.add_init_script(STUB % json.dumps(FIX['token']))
@@ -363,11 +365,31 @@ def main():
             check('outside the session: market polled every 10 min even near the viewport', st['near'] and not st['session'] and st['ttl'] == 600000, st['ttl'])
             ctx.close()
 
-            # no KH.inv at all (an older template): a public card, no errors
+            # the template's own KH.inv / KH.flowsLive (no stub): without a token = public, nothing asked
             config()
             ctx, pg, errs = open_page(br, 1280, 800, at=session, stub=False, scroll=True)
             c = pg.evaluate(CARD)
-            check('no KH.inv / KH.flowsLive (old template): public card, console errors 0', c and c['src'] == 'file' and len(c['rows']) == 10 and not errs, errs[:2])
+            fs = mock('__fstats')
+            check('the template\'s own KH.inv, no token: public card, no /api/inv · /api/flows/live request, console errors 0',
+                  c and c['src'] == 'file' and len(c['rows']) == 10 and not any(fs.get(k) for k in ('live', 'live/stock', 'inv')) and not errs, [fs, errs[:2]])
+            ctx.close()
+            # … with a token (khm.inv): /api/inv/me, then KH.flowsLive polls /api/flows/live once the card wants it → 잠정 on the card
+            config()
+            ctx, pg, errs = open_page(br, 1440, 900, at=session, stub=False, token=FIX['token'], wait=3000)
+            pg.evaluate("document.getElementById('flowsCard').scrollIntoView({block: 'center'})")
+            for _ in range(20):
+                pg.wait_for_timeout(300)
+                if pg.evaluate("document.getElementById('flowsCard').dataset.src") == 'live':
+                    break
+            c = pg.evaluate(CARD)
+            fs = mock('__fstats')
+            st = pg.evaluate("KH.flowsLive && KH.flowsLive.status ? KH.flowsLive.status() : null")
+            check('the template\'s own KH.inv with a token: KH.flowsLive.want(card) → /api/flows/live → "잠정 · 13:20 입력분" on the card, console errors 0',
+                  c['src'] == 'live' and c['lab'].startswith('잠정 · 13:20 입력분') and fs.get('inv', 0) >= 1 and fs.get('live', 0) >= 1 and not errs, [c['src'], c['lab'], fs, st, errs[:2]])
+            pg.goto(URL + '#s-005930'); pg.wait_for_timeout(2600)
+            pg.click('#sp-t-inv'); pg.wait_for_selector('#sp-p-inv .sp-today'); pg.wait_for_timeout(1200)
+            n = pg.evaluate("document.querySelectorAll('#sp-p-inv .sp-est tbody tr').length")
+            check('… and the stock page\'s 오늘 잠정 through the real KH.inv.fetch (X-Panse-Inv)', n == 4 and mock('__fstats').get('live/stock', 0) >= 1, n)
             ctx.close()
 
             # ── 3. market line states ─────────────────────────────────────────────────
