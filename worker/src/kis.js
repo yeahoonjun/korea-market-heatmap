@@ -27,10 +27,23 @@ export const kisScrub = (s, env, tok) => {
   return t.slice(0, 400);
 };
 
-export async function inviteOf(request, env) {
+// KV를 읽지 못한 것은 "초대 없음"이 아니에요 — 403이면 화면이 기기의 토큰을 지워 버려서(영영 로그아웃) 503으로 알려요.
+export class InviteUnavailable extends Error { constructor() { super('unavailable'); this.status = 503; } }
+export async function inviteRecord(request, env) {
   const t = (request.headers.get('x-panse-inv') || '').trim();
   if (!/^[A-Za-z0-9_-]{20,64}$/.test(t) || !env || !env.REPLAY) return null;
-  try { return (await env.REPLAY.get('inv:' + await sha256hex(t), 'json')) || null; } catch (e) { return null; }
+  const h = await sha256hex(t);
+  let rec, err = null;
+  for (let i = 0; i < 2; i++) {                                  // 한 번 더 읽어 보고, 그래도 안 되면 503
+    try { rec = await env.REPLAY.get('inv:' + h, 'json'); err = null; break; } catch (e) { err = e; }
+  }
+  if (err) throw new InviteUnavailable();
+  return rec && typeof rec === 'object' ? { h, rec } : null;
+}
+// 초대 기록 | null(없음 · 틀림) — KV 오류면 InviteUnavailable(status 503)을 던져요(index.js가 503 {error:'unavailable'}로)
+export async function inviteOf(request, env) {
+  const r = await inviteRecord(request, env);
+  return r ? r.rec : null;
 }
 
 // 이 isolate의 토큰 사본 · 발급 중인 약속(같은 isolate 안 동시 요청이 한 번만 발급하게) — 2026-11-23 장중 수급(§3-40)

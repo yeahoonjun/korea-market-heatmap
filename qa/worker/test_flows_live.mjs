@@ -45,7 +45,7 @@ function makeKV() {
 const KEY = 'FAKEAPPKEY-PSsecret-0123456789abcdefghij', SECRET = 'FAKESECRET-zyxwvutsrq-9876543210ZYXWV';
 let tokSeq = 0, curTok = null;
 const inj = {};
-const resetInj = () => Object.assign(inj, { round: 0, yesterday: false, rankEmpty: false, tradedAt: null, naverFail: false, r2fail: new Set(), rateEvery: 0, keyInMsg: false, zeroLatest: false,
+const resetInj = () => Object.assign(inj, { round: 0, yesterday: false, rankEmpty: false, tradedAt: null, naverFail: false, r2fail: new Set(), rateEvery: 0, keyInMsg: false, zeroLatest: false, uniFail: false,
   dealFail: { KOSPI: false, KOSDAQ: false }, tokenFail: false, allPerm: false });
 resetInj();
 let calls = {}, kisStarts = [], kisTotal = 0, tokIssues = 0, rateN = 0;
@@ -413,10 +413,11 @@ section('7. invites');
   r = await req(env, '/api/inv/me', { tok: DEV });
   check('/api/inv/me dev → own:false', r.s === 200 && r.j.own === false, r.j);
   check('dev invite cannot list', (await req(env, '/api/inv', { tok: DEV })).s === 403);
-  check('inv:index does not exist yet', !env.REPLAY.m.has('inv:index'));
+  const slotKeys = e => [...e.REPLAY.m.keys()].filter(k => /^inv:s:\d+$/.test(k));
+  check('no list yet (no inv:s:* slots)', slotKeys(env).length === 0);
   r = await req(env, '/api/inv', { tok: OWNER });
   check('GET /api/inv builds the index lazily: owner only, no dev', r.s === 200 && r.j.items.length === 1 && r.j.items[0].n === '나' && r.j.items[0].own === true && r.j.items[0].id === (await sha(OWNER)).slice(0, 12), r.j);
-  check('…and stores it', Array.isArray(env.REPLAY.json('inv:index')) && env.REPLAY.json('inv:index').length === 1);
+  check('…and stores it in one slot', slotKeys(env).length === 1 && env.REPLAY.json(slotKeys(env)[0]).own === 1);
   r = await req(env, '/api/inv', { method: 'POST', tok: OWNER, body: { n: '엄마' } });
   const mom = r.j;
   check('POST {n:"엄마"} → {id, token}', r.s === 200 && /^[0-9a-f]{12}$/.test(mom.id) && /^[A-Za-z0-9_-]{32}$/.test(mom.token) && r.cc === 'private, no-store', r.j);
@@ -452,7 +453,104 @@ section('7. invites');
   // max 20
   let last;
   for (let i = 0; i < 25; i++) last = await req(env, '/api/inv', { method: 'POST', tok: OWNER2, body: { n: '가족' + i } });
-  check('index holds at most 20 → 409 after', last.s === 409 && env.REPLAY.json('inv:index').length === 20, { s: last.s, n: env.REPLAY.json('inv:index').length });
+  check('list holds at most 20 → 409 after', last.s === 409 && slotKeys(env).length === 20, { s: last.s, n: slotKeys(env).length });
+  check('…no orphan record left by the refused POST', [...env.REPLAY.m.keys()].filter(k => /^inv:[0-9a-f]{64}$/.test(k)).length === 20 + 1, [...env.REPLAY.m.keys()].filter(k => /^inv:[0-9a-f]{64}$/.test(k)).length);   // 20 listed + dev
+}
+
+/* ── 7b. 초대 — KV 오류 · 옛 목록 옮기기 · 겹친 쓰기 · 스스로 고침 ─────────────────────────────── */
+section('7b. invites: KV errors, migration, overlapping writes, self-heal');
+{
+  const env = newEnv();
+  await seedInvites(env);
+  NOW = kst('2026-11-23T12:00');
+  env.REPLAY.fail.get = 'KV GET failed: 503';
+  for (const p of ['/api/inv/me', '/api/inv', '/api/flows/live', '/api/flows/live/stock/005930', '/api/archive/consensus/days']) {
+    const r = await req(env, p, { tok: OWNER });
+    check(`${p}: KV read error → 503 {error:'unavailable'} (not 403)`, r.s === 503 && r.j && r.j.error === 'unavailable', { s: r.s, j: r.j });
+  }
+  env.REPLAY.fail.get = null;
+  check('…a missing record is still 403', (await req(env, '/api/inv/me', { tok: 'neverIssuedTokenABCDEFGHIJ0123' })).s === 403);
+  let flaky = 0;                                       // one failed read, then fine → retried once, no 503
+  const g0 = env.REPLAY.get.bind(env.REPLAY);
+  env.REPLAY.get = async (k, t) => { if (flaky++ === 0) throw new Error('blip'); return g0(k, t); };
+  check('one KV blip → retried, 200', (await req(env, '/api/inv/me', { tok: OWNER })).s === 200);
+  env.REPLAY.get = g0;
+
+  // the old single list (live since 11/23) moves into slots once
+  const MOM = 'momTokenABCDEFGHIJKLMNOP0123456789', DAD = 'dadTokenABCDEFGHIJKLMNOP0123456789';
+  await env.REPLAY.put('inv:' + await sha(MOM), JSON.stringify({ n: '엄마', at: '2026-11-23' }));
+  await env.REPLAY.put('inv:' + await sha(DAD), JSON.stringify({ n: '아빠', at: '2026-11-23' }));
+  await env.REPLAY.put('inv:index', JSON.stringify([{ h: await sha(OWNER), n: '나', at: '2026-11-16', own: 1 }, { h: await sha(MOM), n: '엄마', at: '2026-11-23' }, { h: await sha(DAD), n: '아빠', at: '2026-11-23' }]));
+  let r = await req(env, '/api/inv', { tok: OWNER });
+  check('old inv:index migrated: 3 items, list deleted', r.s === 200 && r.j.items.map(x => x.n).join() === '나,엄마,아빠' && !env.REPLAY.m.has('inv:index'), r.j);
+  // overlapping writes no longer drop entries
+  const [a, b, c] = await Promise.all([
+    req(env, '/api/inv', { method: 'POST', tok: OWNER, body: { n: '언니' } }),
+    req(env, '/api/inv', { method: 'POST', tok: OWNER, body: { n: '동생' } }),
+    req(env, '/api/inv/' + (await sha(DAD)).slice(0, 12), { method: 'DELETE', tok: OWNER }),
+  ]);
+  r = await req(env, '/api/inv', { tok: OWNER });
+  const names = r.j.items.map(x => x.n).sort().join();
+  check('two POSTs + a DELETE at once → both new listed, the deleted one gone', a.s === 200 && b.s === 200 && c.s === 200 && names === ['나', '엄마', '언니', '동생'].sort().join(), { names, s: [a.s, b.s, c.s] });
+  // a slot whose record vanished (crash between the two deletes) is cleaned on the next list
+  await env.REPLAY.delete('inv:' + await sha(MOM));
+  r = await req(env, '/api/inv', { tok: OWNER });
+  check('GET heals a slot whose record is gone', !r.j.items.some(x => x.n === '엄마') && r.j.items.length === 3, r.j.items.map(x => x.n));
+}
+
+/* ── 7c. 회차 받기 — 유니버스 실패 · 네이버 없음 · 확인된 날의 빈 ① ─────────────────────────────── */
+section('7c. rounds: universe failure, Naver silent, empty ① on a confirmed day');
+{
+  flows.configureFlows({ codes: async () => { if (inj.uniFail) throw new Error('universe 503'); return CODES; } });
+  coldIsolate(); resetInj();
+  const env = newEnv();
+  inj.round = 1; inj.uniFail = true;
+  let r = await fire(env, '2026-12-01T09:34');
+  let s = st(env, '20261201');
+  check('universe fails → round not taken (no 0 → 1), no ① calls, error kept', r.res === 'no-universe' && s.no === 0 && s.seen === 1 && !calls.r1 && s.err.code === 'universe', { res: r.res, no: s && s.no, r1: calls.r1 });
+  inj.uniFail = false;
+  r = await fire(env, '2026-12-01T09:35');
+  s = st(env, '20261201');
+  check('…next minute retried (seen > no): round 1 taken, ① + job', r.res === 'round' && s.no === 1 && s.rankNo === 1 && !!s.job, { res: r.res });
+
+  // Naver silent + KIS still shows the last trading day's final rows → not today
+  coldIsolate(); resetInj();
+  const e2 = newEnv();
+  inj.naverFail = true; inj.yesterday = true;
+  const yRows = [1, 2, 3, 4, 5].map(no => ({ no, f: fv('005930', no) + 111, i: iv('005930', no) + 111 }));
+  await e2.REPLAY.put('kisflow:last', JSON.stringify({ day: '20261230', rows: yRows }));
+  r = await fire(e2, '2026-12-31T14:34');
+  check('Naver silent, 5 rows = last stored day → not taken as today', r.res === 'not-today' && !st(e2, '20261231') && !calls.r1, { res: r.res });
+  await e2.REPLAY.delete('kisflow:last');
+  coldIsolate();
+  r = await fire(e2, '2026-12-31T14:42');
+  check('Naver silent, nothing to compare, 5 rows → skipped too', r.res === 'not-today' && !st(e2, '20261231'), r.res);
+  inj.yesterday = false; inj.round = 5;
+  await e2.REPLAY.put('kisflow:last', JSON.stringify({ day: '20261230', rows: yRows }));
+  coldIsolate();
+  r = await fire(e2, '2026-12-31T14:50');
+  check('Naver silent, rows differ from the last day → taken', r.res === 'round' && st(e2, '20261231').no === 5, r.res);
+  check('…and today\'s rows become the new kisflow:last', (e2.REPLAY.json('kisflow:last') || {}).day === '20261231');
+
+  // Naver confirmed trading: an all-empty ① on round 1 is not a holiday
+  coldIsolate(); resetInj();
+  const e3 = newEnv();
+  inj.round = 1; inj.rankEmpty = true;
+  r = await fire(e3, '2026-12-02T09:34');
+  s = st(e3, '20261202');
+  check('Naver says traded today + ① empty → not closed, job runs', r.res === 'round' && !s.closed && !!s.job && s.rankNo === 1, { res: r.res, closed: s && s.closed });
+
+  // weekends say closed:true (≠ "before 09:30")
+  const e4 = newEnv(); await seedInvites(e4);
+  NOW = kst('2026-11-28T10:00');
+  r = await req(e4, '/api/flows/live', { tok: OWNER });
+  check('Saturday /api/flows/live → closed:true, slot null', r.j.closed === true && r.j.slot === null, r.j);
+  NOW = kst('2026-11-30T09:00');
+  r = await req(e4, '/api/flows/live', { tok: OWNER });
+  check('Monday 09:00 → no closed (before the first round)', !('closed' in r.j) && r.j.slot === null, r.j);
+  NOW = kst('2026-11-29T10:00');
+  r = await req(e4, '/api/flows/live/stock/005930', { tok: OWNER });
+  check('Sunday stock route → slots [] + closed:true', r.j.closed === true && r.j.slots.length === 0, r.j);
 }
 
 /* ── 8. 종목 경로 ─────────────────────────────── */
@@ -485,7 +583,7 @@ section('8. /api/flows/live/stock/{code}');
   check('bad code → 400 (0126Z0 style codes are fine)', (await req(env, '/api/flows/live/stock/12345', { tok: OWNER })).s === 400 && (await req(env, '/api/flows/live/stock/abc123', { tok: OWNER })).s === 400);
   before = kisTotal; NOW = kst('2026-11-28T11:00');
   r = await req(env, '/api/flows/live/stock/005930', { tok: OWNER });
-  check('Saturday → slots [] without a KIS call', r.s === 200 && r.j.slots.length === 0 && kisTotal === before, r.j);
+  check('Saturday → slots [] without a KIS call', r.s === 200 && r.j.slots.length === 0 && r.j.closed === true && kisTotal === before, r.j);
   coldIsolate(); inj.yesterday = true; NOW = kst('2026-11-30T09:25');
   r = await req(env, '/api/flows/live/stock/005930', { tok: OWNER });
   check('Monday 09:25 with yesterday\'s 5 rounds → slots []', r.s === 200 && r.j.slots.length === 0, r.j);

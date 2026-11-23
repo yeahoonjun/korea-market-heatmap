@@ -286,6 +286,21 @@ async function naverOpen(day, mins) {
   } catch (e) { return null; }                                   // 네이버가 안 되면 판단하지 않고 KIS 쪽 규칙(시계 · 빈 ①)만
 }
 
+// 그날 마지막으로 받아들인 삼성전자 ② 줄 — 다음 날 네이버가 답하지 않을 때 "전날 값이 아직 남아 있는지" 비교해요
+// (KV `kisflow:last` = {day, rows:[{no, f, i}]}, 30일, 회차마다 한 번)
+const sameRows = (a, b) => Array.isArray(a) && Array.isArray(b) && a.length === b.length && a.every((x, i) => x.no === b[i].no && x.f === b[i].f && x.i === b[i].i);
+async function saveLast(env, day, p) {
+  try { await env.REPLAY.put('kisflow:last', JSON.stringify({ day, rows: p.rows }), { expirationTtl: 30 * 86400 }); } catch (e) { /* 덤이에요 */ }
+}
+// 네이버로 오늘 체결을 확인하지 못했을 때, ② 줄이 오늘 것이라는 근거: 지난 거래일의 마지막 줄과 다르면 오늘 것.
+// 비교할 것이 없으면 5회차(하루를 다 채운 전날 값과 모양이 같아요)만 받지 않아요.
+async function todayEvidence(env, day, p) {
+  let last = null;
+  try { last = await env.REPLAY.get('kisflow:last', 'json'); } catch (e) { last = null; }
+  if (last && last.day && last.day !== day && Array.isArray(last.rows)) return !sameRows(last.rows, p.rows);
+  return p.no < 5;
+}
+
 async function universeCodes(env) {
   const c = CONF.codes ? await CONF.codes(env) : null;
   if (!Array.isArray(c) || c.length < 100) throw new Error('universe codes');
@@ -339,6 +354,7 @@ async function tick(env, k) {
       if (o === 'wait') { MEM.probeAt = now; return 'not-open-yet'; }
       if (o === true) { MEM.open = true; st.open = true; }
     }
+    const openKnown = st.open === true || (MEM.day === k.day && MEM.open === true);
     MEM.probeAt = now;
     const pr = await run.call(R2, TR2, { MKSC_SHRN_ISCD: KF.PROBE });
     if (pr.kind !== 'ok') {
@@ -351,13 +367,18 @@ async function tick(env, k) {
     while (p.rows.length && !p.rows[p.rows.length - 1].f && !p.rows[p.rows.length - 1].i) p.rows.pop();   // 삼성전자가 0 · 0 = 아직 입력 전
     p.no = p.rows.length ? p.rows[p.rows.length - 1].no : 0;
     if (p.no > st.seen) st.seen = p.no;
+    if (p.no > st.no && !openKnown && !st.no && !(await todayEvidence(env, k.day, p))) {
+      return unsaved(run, 'not-today');                            // 네이버 답이 없고 전날 마지막 값과 같거나 비교할 것이 없어요
+    }
     if (p.no > st.no) {                                              // 새 회차
+      let codes;                                                     // 유니버스가 먼저 — 실패하면 회차를 올리지 않고 다음 분에 다시(seen > no)
+      try { codes = await universeCodes(env); } catch (e) { noteErr(env, st, 'universe', e && e.message, now); await saveState(env, st); return 'no-universe'; }
       st.no = p.no;
       const first = !st.rankNo && !st.estNo;
       await fetchRanks(run, p.no);
-      if (first && rankEmpty(st, p.no)) { st.closed = 'empty'; st.rnext = null; await saveState(env, st); return 'closed'; }
-      let codes;
-      try { codes = await universeCodes(env); } catch (e) { noteErr(env, st, 'universe', e && e.message, now); await saveState(env, st); return 'no-universe'; }
+      // 첫 회차 ①이 모두 비면 휴장 — 네이버가 오늘 체결을 확인해 준 날은 그렇게 보지 않아요
+      if (first && !openKnown && rankEmpty(st, p.no)) { st.closed = 'empty'; st.rnext = null; await saveState(env, st); return 'closed'; }
+      await saveLast(env, k.day, p);
       st.job = newJob(p.no, codes, p, k.mins >= KF.FINAL_M, now);
       await workJob(run, k.mins);
       res = 'round';
@@ -366,6 +387,7 @@ async function tick(env, k) {
       await fetchRanks(run, p.no);
       const row = p.rows.find(x => x.no === p.no), mine = st.est && st.est[KF.PROBE];
       const differs = !mine || !row || mine[0] !== row.f || mine[1] !== row.i;
+      if (differs) await saveLast(env, k.day, p);
       if (st.estNo < p.no || differs) {
         let codes;
         try { codes = await universeCodes(env); } catch (e) { noteErr(env, st, 'universe', e && e.message, now); await saveState(env, st); return 'no-universe'; }
@@ -388,7 +410,7 @@ function unsaved(run, res) {
 /* ───────── 경로 ───────── */
 const priv = (b, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'private, no-store' } });
 
-export function liveView(st, day, dev) {
+export function liveView(st, day, dev, { weekend = false } = {}) {
   const has = st && st.day === day;
   const body = {
     date: dash(day),
@@ -401,7 +423,7 @@ export function liveView(st, day, dev) {
     estSlot: has ? label(st.estNo) : null,
     estN: has ? st.estN || 0 : 0,
   };
-  if (has && st.closed) body.closed = true;
+  if ((has && st.closed) || weekend) body.closed = true;         // 주말 · 휴장 = 오늘은 장이 없어요(09:30 전과 구분)
   if (dev) body.run = has ? { n: st.n, no: st.no, seen: st.seen, final: !!st.final, cool: st.cool || null, err: st.err || null,
     job: st.job ? { no: st.job.no, next: st.job.next, total: st.job.codes.length, got: Object.keys(st.job.got).length, retry: st.job.retry.length, miss: st.job.miss } : null } : null;
   return body;
@@ -412,7 +434,7 @@ async function liveRoute(request, env, inv) {
   let st = null;
   try { st = await env.REPLAY.get(sKey(k.day), 'json'); } catch (e) { st = null; }
   if (MEM.day === k.day && MEM.st && (!st || (MEM.st.seq || 0) > (st.seq || 0))) st = MEM.st;
-  return priv(liveView(st, k.day, !!inv.dev));
+  return priv(liveView(st, k.day, !!inv.dev, { weekend: k.wd < 1 || k.wd > 5 }));
 }
 
 // ② 한 종목 그때 받기 — KV 사본 `kisflow:st:<code>` 3분(오래된 사본은 실패할 때 stale로), 하루 400번(`kisflow:od:<날짜>`)
@@ -420,7 +442,8 @@ async function stockRoute(request, env, code) {
   if (!CODE_RE.test(code)) return priv({ error: '종목 코드가 올바르지 않아요' }, 400);
   const now = Date.now(), k = kstOf(now), date = dash(k.day);
   const none = { code, date, slots: [] };
-  if (k.wd < 1 || k.wd > 5 || !clockMax(k.mins)) return priv(none);    // 주말 · 09:20 전: 오늘 값이 있을 수 없어요
+  if (k.wd < 1 || k.wd > 5) return priv({ ...none, closed: true });    // 주말
+  if (!clockMax(k.mins)) return priv(none);                           // 09:20 전: 오늘 값이 아직 있을 수 없어요
   let st = null;
   try { st = await env.REPLAY.get(sKey(k.day), 'json'); } catch (e) { st = null; }
   if (st && st.closed) return priv({ ...none, closed: true });
@@ -513,7 +536,9 @@ export async function flowsRoute(request, env, ctx, url) {
   if (request.method !== 'GET') return priv({ error: 'GET만 돼요' }, 405);
   const path = url.pathname;
   if (path === '/api/flows/market') return marketRoute(request, env, ctx);
-  const inv = await inviteOf(request, env);
+  let inv;
+  try { inv = await inviteOf(request, env); }
+  catch (e) { if (e && e.status === 503) return priv({ error: 'unavailable' }, 503); throw e; }   // KV 오류 ≠ 초대 없음
   if (!inv) return priv({ error: 'forbidden' }, 403);
   if (path === '/api/flows/live') return liveRoute(request, env, inv);
   const m = path.match(/^\/api\/flows\/live\/stock\/([^/]+)$/);
