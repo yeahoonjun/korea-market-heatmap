@@ -85,7 +85,7 @@ def stock_module() -> str:
             + module("summary", "summary"))
 
 
-DATA_FILES = ("themes", "periods", "flows", "market", "alerts")   # alerts: 시장 경보 (AGENTS §3-37 ⓐ); market: /api/market after the close (index spark for the §3-20 header line)
+DATA_FILES = ("themes", "periods", "flows", "market", "alerts", "marks")   # alerts: 시장 경보 (AGENTS §3-37 ⓐ); market: /api/market after the close (index spark for the §3-20 header line); marks: 지도 배지 (§3-41)
 
 
 def embedded_data() -> str:
