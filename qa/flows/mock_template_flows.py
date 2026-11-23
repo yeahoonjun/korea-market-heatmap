@@ -13,7 +13,8 @@ Routes (header X-Panse-Inv: <token>, cache-control private, no-store — 403 {er
                                 left out: "no data"), date = the test's "today"
   GET  /data/flows.json         web/flows.json with asOf = MODE['flowsAsOf'] when set (the evening file)
 Test controls (not part of the contract):
-  /__mode?today=YYYY-MM-DD&slot=on|null&flowsAsOf=YYYY-MM-DD|off&live=ok|fail|403&me=ok|fail|403&date=today|yesterday
+  /__mode?today=YYYY-MM-DD&slot=on|null|r1|closed&flowsAsOf=YYYY-MM-DD|off&live=ok|fail|403&me=ok|fail|403&own=ok|fail&date=today|yesterday
+         slot r1 = round 1 (09:30: 외국인 only, every 기관 est 0); closed = the Worker's 휴장 (closed:true, slot null)
   /__stats   {path: count} + 'hdr:<path>' = requests that carried the header      /__reset   counts, modes, invites back to default
   /__est     the est sent last ({code: [f, i]})
 Tokens: OWNER = 'own_' + 28 × 'a' (n 예훈, own), FAMILY = 'fam_' + 28 × 'b' (n 엄마) — synthetic, not real invites.
@@ -56,7 +57,7 @@ def fresh_invites():
             h12(FAMILY): {'n': '엄마', 'at': '2026-11-22', 'tok': FAMILY}}
 
 
-DEFAULT = {'today': None, 'slot': 'on', 'flowsAsOf': 'off', 'live': 'ok', 'me': 'ok', 'date': 'today'}
+DEFAULT = {'today': None, 'slot': 'on', 'flowsAsOf': 'off', 'live': 'ok', 'me': 'ok', 'own': 'ok', 'date': 'today'}
 MODE = dict(DEFAULT)
 INVITES = fresh_invites()
 STATS = {}
@@ -91,9 +92,17 @@ def rank_rows(est, m, who, side):
 def live_body():
     today = MODE['today'] or kst_today()
     date = today if MODE['date'] == 'today' else time.strftime('%Y-%m-%d', time.gmtime(time.mktime(time.strptime(today, '%Y-%m-%d')) - 86400))
-    if MODE['slot'] == 'null':
-        return {'date': date, 'slot': None, 'slotNo': 0, 'at': None, 'src': '한국투자증권 가집계', 'unit': '억원', 'rank': {}, 'est': {}, 'estSlot': None, 'estN': 0}
+    if MODE['slot'] in ('null', 'closed'):
+        body = {'date': date, 'slot': None, 'slotNo': 0, 'at': None, 'src': '한국투자증권 가집계', 'unit': '억원', 'rank': {}, 'est': {}, 'estSlot': None, 'estN': 0}
+        if MODE['slot'] == 'closed':
+            body['closed'] = True
+        return body
     est = est_for(today)
+    if MODE['slot'] == 'r1':                         # round 1: 외국인 09:30 only — 기관종합 starts at 10:00
+        est = {c: [v[0], 0] for c, v in est.items()}
+        LAST['est'] = est
+        rank = {m: {'f': {'buy': rank_rows(est, m, 'f', 'buy'), 'sell': rank_rows(est, m, 'f', 'sell')}, 'i': {'buy': [], 'sell': []}} for m in ('K', 'Q')}
+        return {'date': date, 'slot': '09:30', 'slotNo': 1, 'at': '09:34', 'src': '한국투자증권 가집계', 'unit': '억원', 'rank': rank, 'est': est, 'estSlot': '09:30', 'estN': len(est)}
     LAST['est'] = est
     rank = {m: {w: {'buy': rank_rows(est, m, w, 'buy'), 'sell': rank_rows(est, m, w, 'sell')} for w in ('f', 'i')} for m in ('K', 'Q')}
     return {'date': date, 'slot': '14:30', 'slotNo': 4, 'at': '14:36', 'src': '한국투자증권 가집계', 'unit': '억원', 'rank': rank,
@@ -142,6 +151,8 @@ class H(F.H):
             if MODE['live'] == 'fail':
                 self.private({'error': 'upstream'}, 503); return True
             self.private(live_body()); return True
+        if MODE['own'] == 'fail':                    # a KV error on the Worker: 503 before it knows who asks — never a reason to forget
+            self.private({'error': 'upstream'}, 503); return True
         if not me or not me.get('own'):
             self.forbid(); return True
         if path == '/api/inv' and method == 'GET':

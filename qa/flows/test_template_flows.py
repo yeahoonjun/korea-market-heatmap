@@ -16,7 +16,10 @@ invite   #inv=<token>&<rest> / ~<rest>: stored (khm.inv), the address keeps only
 map      오늘 잠정: the first 순매수 기간 key with its 잠정 tag; tiles = est × the price drawn ÷ 1e8 (text, colour on the 1일 range, size —
          시총순 so areas are comparable), codes without est left out; 외국인 · 기관; legend · footer · 섹터 card · table column · tooltip read
          "오늘 잠정" and "14:30 입력분 · 한국투자증권 가집계 · 금액은 수량 × 지금 가격"; slot null and a payload from another day → "오늘 첫 입력
-         (09:30) 뒤에 보여요"; the evening file (flows.json asOf today) → no 오늘 key, 1일 drawn, 0 kept for the morning; forget → 1 saved.
+         (09:30) 뒤에 보여요" on a weekday 09:00–10:00 only; no session (a weekend, before 09:00, closed:true, no round by 10:00) → 1일 drawn,
+         0 kept, polled again only on weekdays (back to 오늘 once a round is in); round 1 + 기관 → "기관은 10:00 입력분부터 보여요"; the evening
+         file (flows.json asOf today) → no 오늘 key, 1일 drawn, 0 kept; a page left open past 21:00 reads flows.json again (once the card has
+         the new file, or every 10 min) and steps aside; forget → 1 saved; #khm-import= never carries khm.inv; 503s never forget the token.
 owner    가족 초대 only for own(): the list on opening (GET /api/inv once a minute at most), 만들기 → POST {n} → the link once
          (${origin}/#inv=…, 복사 → the clipboard, 공유 only with navigator.share), the list grows; 끄기 arms then DELETEs (the owner's row
          has none); 이 기기에서 끄기 arms then forgets (no more gated requests); a family token sees no 가족 초대 and asks no /api/inv.
@@ -26,6 +29,7 @@ layout   4 themes × 360 · 1280 with the owner's section at its fullest (link +
          panel, console errors 0; map top (390 × 844: 247 · 1280 / 1440: 207) with and without a token.
 Exit 1 on a fail. The port is stopped with fuser -k.
 """
+import base64
 import json
 import math
 import os
@@ -34,6 +38,7 @@ import re
 import subprocess
 import sys
 import time
+import urllib.parse
 import urllib.request
 from datetime import datetime, timezone, timedelta
 
@@ -87,7 +92,7 @@ GATED = re.compile(r'/api/(inv|flows/live)')
 
 class Page:
     """a context + page with the clock pinned, localStorage seeded, console errors and gated requests recorded"""
-    def __init__(self, br, w=1440, h=900, at=T10, theme='base', st=None, inv=None, hash_='', perms=False, init=''):
+    def __init__(self, br, w=1440, h=900, at=T10, theme='base', st=None, inv=None, hash_='', perms=False, init='', flow=False):
         mobile = w <= 760
         self.ctx = br.new_context(viewport={'width': w, 'height': h}, is_mobile=mobile, has_touch=mobile, device_scale_factor=2 if mobile else 1)
         if perms:
@@ -102,8 +107,11 @@ class Page:
         # seed once: a reload keeps what the page itself wrote (a forgotten token stays forgotten)
         self.ctx.add_init_script("try{if(!sessionStorage.getItem('qa.seeded')){sessionStorage.setItem('qa.seeded','1');" + js + "}}catch(e){}" + init)
         self.pg = self.ctx.new_page()
-        self.pg.clock.set_fixed_time(at)
-        self.errs, self.gated, self.hdr = [], [], []
+        if flow:
+            self.pg.clock.install(time=at)          # time flows (fast_forward jumps it); else pinned
+        else:
+            self.pg.clock.set_fixed_time(at)
+        self.errs, self.gated, self.hdr, self.files = [], [], [], []
         self.pg.on('console', lambda m: self.errs.append(m.text[:200]) if m.type == 'error' else None)
         self.pg.on('pageerror', lambda e: self.errs.append('pageerror: ' + str(e)[:200]))
         self.pg.on('request', self._req)
@@ -111,6 +119,8 @@ class Page:
         self.pg.wait_for_timeout(2200)
 
     def _req(self, r):
+        if 'data/flows.json' in r.url:
+            self.files.append(r.url)
         if GATED.search(r.url):
             self.gated.append(f'{r.method} {r.url.split(str(PORT), 1)[-1]}')
             self.hdr.append(r.headers.get('x-panse-inv'))
@@ -256,7 +266,11 @@ def invite(br):
     p = Page(br, 1440, 900, inv=FAMILY)
     r = p.ev("async () => { const a = await KH.inv.fetch('api/inv'); await new Promise(r => setTimeout(r, 400)); return { st: a.status, has: KH.inv.has(), n: KH.inv.name() }; }")
     check('invite: a family token refused on an owner route (GET /api/inv 403) is not forgotten (re-checked: still 엄마)', r == {'st': 403, 'has': True, 'n': '엄마'}, r)
+    mode(own='fail')
+    r2 = p.ev("async () => { const a = await KH.inv.fetch('api/inv'); const b = await KH.inv.fetch('api/flows/live'); await new Promise(r => setTimeout(r, 300)); return { a: a.status, b: b.status, has: KH.inv.has() }; }")
+    mode(own='ok')
     r = p.ev("async () => { const a = await KH.inv.fetch('https://example.com/api/flows/live'); return a.status; }")
+    check('invite: 503s (an owner route on a KV error) never forget the token', r2 == {'a': 503, 'b': 200, 'has': True}, r2)
     check('invite: KH.inv.fetch to another site → a local 403, the header never leaves', r == 403 and not any('example.com' in x for x in p.gated), (r, p.gated))
     p.close()
 
@@ -316,15 +330,60 @@ def map_checks(br):
             p.ev("() => document.querySelector('.viewseg button[data-v=\"map\"]').click()")
             check('map: console errors 0', not p.errs, p.errs)
         p.close()
-    # slot null · another day
+    # slot null · another day — the message only on a weekday 09:00–10:00 before round 1
+    T915 = datetime(2026, 11, 23, 9, 15, tzinfo=KST)
     for m, why in (({'slot': 'null'}, 'slot null'), ({'date': 'yesterday'}, 'a payload from yesterday')):
         reset(); mode(**m)
-        p = Page(br, 1440, 900, inv=FAMILY, st={'sizeBy': 'fgn', 'flowWin': 0})
+        p = Page(br, 1440, 900, at=T915, inv=FAMILY, st={'sizeBy': 'fgn', 'flowWin': 0})
         t = p.ev(TEXTS); d = p.ev("() => KH.flowsLive.data()")
         ok_d = (d is not None and d['slot'] is None) if why == 'slot null' else d is None
-        check(f'map: {why} → the map says "오늘 첫 입력(09:30) 뒤에 보여요" (data() {"slot null" if why == "slot null" else "null"}), no tiles',
-              t['empty'].strip() == '오늘 첫 입력(09:30) 뒤에 보여요' and ok_d and p.ev("() => document.querySelectorAll('#map .tile').length") == 0, (t['empty'], d and d.get('slot')))
+        check(f'map: {why} at 09:15 → the map says "오늘 첫 입력(09:30) 뒤에 보여요" (data() {"slot null" if why == "slot null" else "null"}), no tiles, 오늘 pressed',
+              t['empty'].strip() == '오늘 첫 입력(09:30) 뒤에 보여요' and ok_d and t['pressed'] == '0' and p.ev("() => document.querySelectorAll('#map .tile').length") == 0, (t['empty'], t['pressed'], d and d.get('slot')))
         check(f'map: {why} — console errors 0', not p.errs, p.errs)
+        p.close()
+    # no session today: 1일 drawn, the stored 0 kept; polled again only on weekdays
+    T11, SAT = datetime(2026, 11, 23, 11, 0, tzinfo=KST), datetime(2026, 11, 28, 11, 0, tzinfo=KST)
+    T830 = datetime(2026, 11, 23, 8, 30, tzinfo=KST)
+    for at, m, why, polls in ((T11, {'slot': 'null'}, 'weekday 11:00, no round yet (a holiday not flagged)', True), (T11, {'slot': 'closed'}, 'weekday 11:00, closed:true (휴장)', True),
+                              (T11, {'date': 'yesterday'}, 'weekday 11:00, a payload of another day', True), (SAT, {}, 'Saturday 11:00', False), (T830, {}, 'weekday 08:30 (before the session)', True)):
+        reset(); mode(today=at.strftime('%Y-%m-%d'), **m)
+        p = Page(br, 1440, 900, at=at, inv=FAMILY, st={'sizeBy': 'fgn', 'flowWin': 0})
+        t = p.ev(TEXTS); s_ = p.ev("() => KH.flowsLive.status()"); n = p.ev("() => document.querySelectorAll('#map .tile').length")
+        lives = [x for x in p.gated if 'flows/live' in x]
+        check(f'map: {why} → 1일 drawn ({n} tiles, "외국인 1일"), no 오늘 key, the stored 0 kept, no "오늘 첫 입력" message',
+              t['pressed'] == '1' and t['ddv'] == '1일' and t['win'] == '0' and '외국인 1일' in t['sec'] and not any(k.startswith('0:') for k in t['keys']) and n > 50 and not t['empty'], t)
+        if polls:
+            check(f'map: {why} → still asks /api/flows/live (the map waits for the session: {s_["ivl"] // 1000} s)', 'map' in s_['wants'] and s_['polling'] and len(lives) >= 1, (s_, lives))
+        else:
+            check(f'map: {why} → the map asks nothing (no session on a weekend; the 수급 카드 keeps its own want)', 'map' not in s_['wants'], (s_, lives))
+        check(f'map: {why} — console errors 0', not p.errs, p.errs)
+        p.close()
+    # back to 오늘 once a round is in (a page open from 08:30: the session starts — here the answer changes and the minute tick runs)
+    reset(); mode(slot='null')
+    p = Page(br, 1440, 900, at=T11, inv=FAMILY, st={'sizeBy': 'fgn', 'flowWin': 0})
+    t0 = p.ev(TEXTS)
+    mode(slot='on')
+    p.ev("() => KH.flowsLive.refresh()"); p.pg.wait_for_timeout(600)
+    t1 = p.ev(TEXTS); n = p.ev("() => document.querySelectorAll('#map .tile').length")
+    check('map: a round arrives → the stored 오늘 comes back by itself (pressed 0, "외국인 오늘 잠정", tiles)', t0['pressed'] == '1' and t1['pressed'] == '0' and t1['ddv'] == '오늘 잠정' and '외국인 오늘 잠정' in t1['sec'] and n > 50, (t0['pressed'], t1, n))
+    p.close()
+    # a family device that never picked 오늘: the key appears only when there is a session (and polls nothing meanwhile)
+    reset()
+    p = Page(br, 1440, 900, at=SAT, inv=FAMILY, st={'sizeBy': 'fgn', 'flowWin': 5})
+    t = p.ev(TEXTS)
+    check('map: Saturday, 5일 picked → no 오늘 key, the map wants nothing', not any(k.startswith('0:') for k in t['keys']) and t['pressed'] == '5' and 'map' not in p.ev("() => KH.flowsLive.status().wants"), (t, p.gated))
+    p.close()
+    # round 1: 외국인 only
+    T940 = datetime(2026, 11, 23, 9, 40, tzinfo=KST)
+    for who, want in (('inst', '기관은 10:00 입력분부터 보여요'), ('fgn', None)):
+        reset(); mode(slot='r1')
+        p = Page(br, 1440, 900, at=T940, inv=FAMILY, st={'sizeBy': who, 'flowWin': 0})
+        t = p.ev(TEXTS); n = p.ev("() => document.querySelectorAll('#map .tile').length")
+        if want:
+            check('map: round 1 (09:30) with 기관 → "기관은 10:00 입력분부터 보여요", no tiles, 오늘 kept', t['empty'].strip() == want and n == 0 and t['pressed'] == '0' and want in t['legend'], (t['empty'], t['legend'], n))
+        else:
+            check('map: round 1 (09:30) with 외국인 → drawn, the legend says "09:30 입력분"', n > 50 and '09:30 입력분 · 한국투자증권 가집계' in t['legend'], (n, t['legend']))
+        check(f'map: round 1 [{who}] — console errors 0', not p.errs, p.errs)
         p.close()
     # live failing: the message
     reset(); mode(live='fail')
@@ -340,6 +399,26 @@ def map_checks(br):
           [k.split(':')[0] for k in t['keys']] == ['1', '5', '20'] and t['pressed'] == '1' and t['ddv'] == '1일' and t['win'] == '0' and '외국인 1일' in t['sec'] and '잠정' not in t['legend'], t)
     st = p.ev("() => KH.flowsLive.status()")
     check('map: the evening — the map no longer wants the live answer', 'map' not in st['wants'], st)
+    p.close()
+    # a page left open past 21:00: flows.json read again, the evening fallback kicks in (the card's new file shared when it has one)
+    reset()
+    T2140 = datetime(2026, 11, 23, 21, 40, tzinfo=KST)
+    p = Page(br, 1440, 900, at=T2140, inv=FAMILY, st={'sizeBy': 'fgn', 'flowWin': 0}, flow=True)
+    t0 = p.ev(TEXTS); f0 = len(p.files)
+    mode(flowsAsOf=DAY)
+    for step in ('10:30', '01:05', '01:05'):
+        p.pg.clock.fast_forward(step); p.pg.wait_for_timeout(900)
+    t1 = p.ev(TEXTS); card = p.ev("() => window.KHFlows ? KHFlows.state().file : null")
+    check(f'map: open past 21:00 with 오늘 → flows.json read again ({len(p.files) - f0} more), the evening file → 1일, no 오늘 key, 0 kept (card file {card})',
+          t0['pressed'] == '0' and t1['pressed'] == '1' and t1['win'] == '0' and not any(k.startswith('0:') for k in t1['keys']) and 1 <= len(p.files) - f0 <= 2, (t0['pressed'], t1, p.files[f0:]))
+    check('map: open past 21:00 — console errors 0', not p.errs, p.errs)
+    p.close()
+    # #khm-import= (the old address's bridge) never carries khm.inv
+    reset()
+    blob = base64.b64encode(json.dumps({'khm.theme': json.dumps('paper'), 'khm.inv': json.dumps(FAMILY)}).encode()).decode()
+    p = Page(br, 1440, 900, hash_='#khm-import=' + urllib.parse.quote(blob, safe='') + '~kosdaq')
+    g = p.ev("() => ({ theme: localStorage.getItem('khm.theme'), inv: localStorage.getItem('khm.inv'), has: KH.inv.has(), hash: location.hash, sec: !!document.querySelector('.famset') })")
+    check('map: #khm-import= copies khm.theme but never khm.inv (no token, no section, no gated request)', g == {'theme': json.dumps('paper'), 'inv': None, 'has': False, 'hash': '#kosdaq', 'sec': False} and not p.gated, (g, p.gated))
     p.close()
     # forget while 0 → 1 saved
     reset()
