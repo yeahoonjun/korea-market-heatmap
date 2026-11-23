@@ -54,6 +54,12 @@ function phase() {
   return 'closed';                                   // a weekday with no trades today (공휴일)
 }
 const dataDay = () => { const a = asOfMs(); return a ? kstOf(a).day : null; };
+// close.json은 마지막 거래일 것일 때만 "오늘 마감"(§3-34 고칠 것 ①, 사용자 2026-11-16 18:40 — 16:40 작업이 늦어 금요일 상한가가 오늘로 나왔어요):
+// 오늘 마감(after) = 오늘, 장 전 · 휴장(pre · closed) = 바로 앞 평일 이후. 장중(open)은 close.json을 쓰지 않아요
+const prevWeekday = ymd => { const m = /^(\d{4})-(\d\d)-(\d\d)/.exec(ymd || ''); if (!m) return null; const d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]));
+  do d.setUTCDate(d.getUTCDate() - 1); while (d.getUTCDay() === 0 || d.getUTCDay() === 6); return d.toISOString().slice(0, 10); };
+const closeWant = ph => { const t = kstOf(nowMs()).day; return ph === 'after' ? t : prevWeekday(t); };
+const closeFresh = (cj, ph) => !!(cj && cj.date && cj.date >= closeWant(ph));
 const PILL = { pre: '장 전', open: '장중', after: '오늘 마감', closed: '휴장' };
 const streaming = () => { try { const L = window.KHLive, st = L && typeof L.state === 'function' ? L.state() : null; return !!(st && st.phase === 'stream'); } catch (e) { return false; } };
 function whenText(ph) {
@@ -76,6 +82,7 @@ const D = {
   wIdx: { j: null, at: 0, fail: false },
   wMac: { j: null, at: 0, fail: false },
   news: { j: null, at: 0, fail: false },
+  mflow: { j: null, at: 0, fail: false, gone: false, busy: false },   // /api/flows/market — src/flows(KHFlows.market)가 있으면 그쪽 것을 같이 써요
 };
 async function getJSON(url, wait = 9000) {
   const ac = new AbortController(), t = setTimeout(() => ac.abort(), wait);
@@ -122,14 +129,17 @@ async function pullBreadth(force) {
   const had = !!b.src;
   const own = () => { const K = [], Q = []; for (const s of KH.stocks()) (s.m === 'Q' ? Q : K).push({ c: s.c, r: +s.r || 0, lim: flagOf(s) }); return { K, Q }; };
   if (!LIVE) { if (!b.src) Object.assign(b, own(), { src: 'snapshot', date: dataDay() }); return; }
-  const ph = phase(), useClose = ph !== 'open' && !DEV_PHASE;
+  const ph = phase();
   const ttl = ph === 'open' ? 60e3 : 600e3;
-  if (!force && b.at && Date.now() - b.at < ttl && b.src) return;
+  if (!force && b.at && Date.now() - b.at < ttl && b.src && b.ph === ph) return;
   b.busy = true;
   try {
+    const [cj0, nm0] = ph !== 'open' ? await Promise.all([closeFile(), names()]) : [null, null];
+    // 오늘 마감인데 close.json이 오늘 것이 아니면(매일 작업이 늦음) 장중처럼 /api/breadth — 지난 거래일 상한가를 "오늘"이라 하지 않게.
+    // 장 전 · 휴장엔 파일 그대로(날짜를 머리 · 줄에 밝혀요), 파일이 없으면 /api/breadth
+    const useClose = ph !== 'open' && !!(cj0 && cj0.c && nm0) && (ph !== 'after' || closeFresh(cj0, ph));
     if (useClose) {
-      const [cj, nm] = await Promise.all([closeFile(), names()]);
-      if (!cj || !cj.c || !nm) throw new Error('close');
+      const cj = cj0, nm = nm0;
       const exact = cj.lim === true, limOf = exact ? null : new Map(KH.stocks().map(s => [s.c, flagOf(s)]));
       const K = [], Q = [];
       for (const c in cj.c) {
@@ -138,15 +148,15 @@ async function pullBreadth(force) {
         const lim = exact ? (x[3] === 1 || x[3] === -1 ? x[3] : 0) : limOf.has(c) ? limOf.get(c) : limGuess(r);
         (m[1] === 'Q' ? Q : K).push({ c, r, lim });
       }
-      Object.assign(b, { K, Q, src: 'close', exact, date: cj.date || null, fail: false });
+      Object.assign(b, { K, Q, src: 'close', exact, date: cj.date || null, fail: false, ph });
     } else {
       const [k, q] = await Promise.all(['K', 'Q'].map(m => getJSON(`api/breadth?m=${m}`)));
       const conv = j => ((j && j.rows) || []).filter(x => Array.isArray(x) && isFinite(+x[1])).map(x => ({ c: String(x[0]), r: +x[1], lim: x[2] === 1 || x[2] === -1 ? x[2] : 0 }));
-      Object.assign(b, { K: conv(k), Q: conv(q), src: 'breadth', exact: true, date: dataDay(), fail: false });
+      Object.assign(b, { K: conv(k), Q: conv(q), src: 'breadth', exact: true, date: dataDay(), fail: false, ph });
     }
   } catch (e) {
     b.fail = true;
-    if (!b.src) Object.assign(b, own(), { src: 'stream', exact: true, date: dataDay() });   // the streamed 600 at least (labelled so)
+    if (!b.src) Object.assign(b, own(), { src: 'stream', exact: true, date: dataDay(), ph });   // the streamed 600 at least (labelled so)
   }
   b.busy = false; b.at = Date.now();
   schedule(!had);
@@ -166,7 +176,28 @@ function refreshAll(force) {
   pull(D.market, 'api/market', 60e3, 300e3, force);
   pull(D.wIdx, 'api/world?kind=index', 120e3, 600e3, force);
   pull(D.wMac, 'api/world?kind=commodity&with=fx,rates', 120e3, 600e3, force);
+  pullFlows(force);
   if (newsOn) pull(D.news, 'api/news', 180e3, 180e3, force);
+}
+// 시장 전체 3주체 /api/flows/market (AGENTS §3-40): 투자자별 순매수 카드(src/flows)와 한 번만 받아요(KHFlows.market). 그 모듈이 없으면 직접,
+// 404(옛 Worker)는 10분 뒤에야 다시 물어요
+const mflow = () => { const K = window.KHFlows; return K && typeof K.marketState === 'function' ? K.marketState() : D.mflow; };
+function pullFlows(force) {
+  if (!LIVE) return;
+  const ttl = force ? 0 : fast() ? 60e3 : 600e3, K = window.KHFlows;
+  if (K && typeof K.market === 'function') { const pr = K.market(ttl); if (pr && typeof pr.then === 'function') pr.then(() => schedule(true), () => {}); return; }
+  const m = D.mflow;
+  if (m.busy || (m.at && Date.now() - m.at < (m.gone ? 600e3 : m.fail ? 60e3 : ttl))) return;
+  m.busy = true;
+  (async () => {
+    try {
+      const r = await fetch('api/flows/market');
+      if (r.status === 404) { m.gone = true; m.fail = false; m.j = null; }
+      else { const j = r.ok ? await r.json() : null; if (j && (j.K || j.Q)) { m.j = j; m.fail = false; m.gone = false; } else m.fail = true; }
+    } catch (e) { m.fail = true; }
+    m.busy = false; m.at = Date.now();
+    schedule(true);
+  })();
 }
 function warm() { if (!newsOn && LIVE) { newsOn = true; pull(D.news, 'api/news', 180e3, 180e3, false); } }
 
@@ -177,10 +208,12 @@ function rows(ph) {
   const all = KH.stocks().filter(s => /0$/.test(s.c));
   const top = [];
   for (const m of ['K', 'Q']) top.push(...all.filter(s => s.m === m).sort((a, b) => (b.cap || 0) - (a.cap || 0)).slice(0, 300));
-  const fixed = LIVE && ph !== 'open' && D.close && D.close.c;
+  const fixed = LIVE && ph !== 'open' && D.close && D.close.c && (ph !== 'after' || closeFresh(D.close, ph));
+  // 오늘 마감인데 close.json이 늦으면 시세 행 그대로 = KRX 값(KH.stock — 장 뒤엔 KRX 종가, NXT는 nx에 따로), 장중은 고른 가격 기준(KH.quote)
+  const krx = LIVE && ph === 'after';
   return top.map(s => {
     const x = fixed ? D.close.c[s.c] : null;
-    const q = !fixed && LIVE && typeof KH.quote === 'function' ? KH.quote(s.c) : null;
+    const q = fixed || !LIVE ? null : krx ? KH.stock(s.c) : typeof KH.quote === 'function' ? KH.quote(s.c) : null;
     const r = x ? +x[2] || 0 : q && isFinite(+q.r) ? +q.r : +s.r || 0;
     const lim = x && D.close.lim === true ? (x[3] === 1 || x[3] === -1 ? x[3] : 0) : flagOf(q || s);
     return { c: s.c, n: s.n, m: s.m, s: s.s, i: s.i, cap: +s.cap || 0, r, tv: +(q && q.tv != null ? q.tv : s.tv) || 0, lim };
@@ -217,6 +250,9 @@ function model() {
     const all = [...(b.K || []), ...(b.Q || [])];
     const cnt = xs => { let up = 0, dn = 0, fl = 0, lu = 0, ld = 0, u10 = 0, d10 = 0; for (const x of xs) { const r = rnd(x.r, 2); r > 0 ? up++ : r < 0 ? dn++ : fl++; if (x.lim > 0) lu++; else if (x.lim < 0) ld++; if (x.r >= 10) u10++; else if (x.r <= -10) d10++; } return { up, dn, fl, n: xs.length, lu, ld, u10, d10 }; };
     M.br = Object.assign(cnt(all), { K: cnt(b.K || []), Q: cnt(b.Q || []), src: b.src, med: median(all.map(x => x.r)), fail: b.fail, date: b.date });
+    // 장 전 · 휴장에 쓰는 close.json이 마지막 거래일 것이 아니면 그 날짜를 머리 · 줄에 밝혀요(§3-34 고칠 것 ①)
+    M.brOld = LIVE && b.src === 'close' && b.date && !closeFresh({ date: b.date }, ph) ? b.date : null;
+    if (M.brOld) M.when += ` · 종목 등락은 ${dayLong(M.brOld)} 종가`;
     M.br.say = breadthSentence(M.br, M.live);
     M.br.limUp = all.filter(x => x.lim > 0).map(x => x.c);
     if (M.capW != null && M.br.med != null) M.capSay = capSentence(M.capW, M.br.med, M.live);
@@ -269,6 +305,20 @@ function model() {
     }
     M.flows = { date: F.asOf, sum, all: [0, 1, 2].map(i => sum.K[i] + sum.Q[i]), top: fTop && fTop.v > 0 ? Object.assign(fTop, { n: nameOf(fTop.c) }) : null, bot: fBot && fBot.v < 0 ? Object.assign(fBot, { n: nameOf(fBot.c) }) : null };
     M.flows.today = F.asOf === kstOf(nowMs()).day;
+  }
+  // 시장 전체 3주체(AGENTS §3-40 ③, 네이버 dealTrendInfo): 그 값이 확정 파일보다 새 날이면(장중 · 장 뒤 21:30 작업 전) 외국인 · 기관 · 개인
+  // 줄은 이 값 + "HH:MM 기준". 경로가 없는 옛 Worker(404) · 실패면 확정 파일 그대로
+  const mf = mflow();
+  if (mf && mf.j && mf.j.date && (!F || !F.asOf || mf.j.date > F.asOf)) {
+    const j = mf.j, ms = ['K', 'Q'].filter(m => j[m] && typeof j[m] === 'object');
+    // 장 시작 전엔 그날 date에 0 · 0 · 0이 와요 — 아직 집계 전이라 확정 파일 그대로
+    const zero = ms.every(m => ['personal', 'foreign', 'institutional'].every(k => !(+j[m][k])));
+    if (ms.length && !zero) {
+      const v = k => ms.reduce((a, m) => a + (isFinite(+j[m][k]) ? +j[m][k] : 0), 0);
+      const a = Date.parse(j.asOf || ''), k = isFinite(a) ? kstOf(a) : null;
+      M.mflows = { all: [v('foreign'), v('institutional'), v('personal')], date: j.date, today: j.date === kstOf(nowMs()).day, at: k ? k.hhmm : null,
+        stale: !!(j.stale || mf.fail), only: ms.length === 1 ? ms[0] : null };
+    }
   }
   // 환율 · 금리 · 해외
   const mk = D.market.j && Array.isArray(D.market.j.items) ? new Map(D.market.j.items.map(x => [x.key, x])) : new Map();
@@ -366,7 +416,8 @@ const lsw = d => h('i', { class: 'sm-lsw ' + d, 'aria-hidden': 'true' });
 const limCls = (n, dir) => (n ? (dir > 0 ? 'up' : 'dn') : 'flat');
 function band(M) {
   const B = M.br, phone = phoneMQ.matches;
-  const l1 = h('div', { class: 'sm-b1', title: B ? `코스피 · 코스닥 ${scopeText(B)}` : null },
+  const l1 = h('div', { class: 'sm-b1', title: B ? `코스피 · 코스닥 ${scopeText(B)}` + (M.brOld ? ` · ${dayLong(M.brOld)} 종가` : '') : null },
+    M.brOld && B ? h('span', { class: 'sm-k', 'data-k': 'od', text: dayShort(M.brOld) }) : null,
     B ? bar(B) : null,
     B ? h('b', { class: 'sm-n up' }, '상승 ', kn('up', B.up, NF0.format(B.up))) : later(LIVE ? '전 종목 등락을 받는 중…' : '—'),
     B ? sep() : null, B ? h('b', { class: 'sm-n dn' }, '하락 ', kn('dn', B.dn, NF0.format(B.dn))) : null,
@@ -415,13 +466,15 @@ function facts(M) {
   const F = [];
   const f = (key, label, note, ...v) => F.push({ key, label, note, v });
   for (const x of M.idx) f('idx', x.name, null, h('span', { class: 'sm-v', text: NF2.format(x.v) }), num(x.r));
-  if (M.br) f('br', '오른 · 내린 종목', '두 시장', bar(M.br), h('b', { class: 'sm-n up', text: NF0.format(M.br.up) }), sep(), h('b', { class: 'sm-n dn', text: NF0.format(M.br.dn) }));
+  if (M.br) f('br', '오른 · 내린 종목', M.brOld ? dayShort(M.brOld) : '두 시장', bar(M.br), h('b', { class: 'sm-n up', text: NF0.format(M.br.up) }), sep(), h('b', { class: 'sm-n dn', text: NF0.format(M.br.dn) }));
   else f('br', '오른 · 내린 종목', null, later(LIVE ? '받는 중…' : '—'));
-  if (M.br && (M.br.lu || M.br.ld)) f('lim', '상한가 · 하한가', null, h('span', { class: 'sm-lim' }, lsw('u'), h('b', { class: 'sm-n ' + limCls(M.br.lu, 1), text: NF0.format(M.br.lu) })), sep(),
+  if (M.br && (M.br.lu || M.br.ld)) f('lim', '상한가 · 하한가', M.brOld ? dayShort(M.brOld) : null, h('span', { class: 'sm-lim' }, lsw('u'), h('b', { class: 'sm-n ' + limCls(M.br.lu, 1), text: NF0.format(M.br.lu) })), sep(),
     h('span', { class: 'sm-lim' }, lsw('d'), h('b', { class: 'sm-n ' + limCls(M.br.ld, -1), text: NF0.format(M.br.ld) })));
   if (M.indUp[0]) f('indUp', '많이 오른 업종', null, nv(M.indUp[0].name, M.indUp[0].r));
   if (M.indDn[0]) f('indDn', '많이 내린 업종', null, nv(M.indDn[0].name, M.indDn[0].r));
-  if (M.flows) f('flows', '외국인 · 기관', M.flows.today ? null : dayShort(M.flows.date), h('b', { class: 'sm-n ' + cls(M.flows.all[0], 0), text: amt(M.flows.all[0]) }), sep(), h('b', { class: 'sm-n ' + cls(M.flows.all[1], 0), text: amt(M.flows.all[1]) }));
+  const FL = M.mflows || M.flows;
+  if (FL) f('flows', '외국인 · 기관', M.mflows ? (M.mflows.today && M.mflows.at ? `${M.mflows.at} 기준` : dayShort(M.mflows.date)) : M.flows.today ? null : dayShort(M.flows.date),
+    h('b', { class: 'sm-n ' + cls(FL.all[0], 0), text: amt(FL.all[0]) }), sep(), h('b', { class: 'sm-n ' + cls(FL.all[1], 0), text: amt(FL.all[1]) }));
   const wait = LIVE && !M.macroFail ? later('받는 중…') : null;
   if (M.fx) f('fx', '원/달러', null, h('span', { class: 'sm-v', text: NF1.format(+M.fx.value) }), h('b', { class: 'sm-n ' + cls(+M.fx.change, 1), text: fxChg(M.fx) }));
   else if (wait) f('fx', '원/달러', null, wait);
@@ -446,7 +499,7 @@ function secFlow(M) {
     M.capW != null && B ? line(kk('시총 가중'), num(M.capW), sep(), kk('종목 중간값'), num(B.med)) : null,
     B ? h('p', { class: 'sm-sub' }, '상승 : 하락 — 코스피 ', h('b', { class: 'sm-c up', text: NF0.format(B.K.up) }), ' : ', h('b', { class: 'sm-c dn', text: NF0.format(B.K.dn) }),
       ' · 코스닥 ', h('b', { class: 'sm-c up', text: NF0.format(B.Q.up) }), ' : ', h('b', { class: 'sm-c dn', text: NF0.format(B.Q.dn) }),
-      ` · ${scopeText(B)}` + (B.src === 'stream' && B.fail ? ' · 전 종목은 불러오지 못했어요' : '')) : null);
+      ` · ${scopeText(B)}` + (M.brOld ? ` · ${dayLong(M.brOld)} 종가` : '') + (B.src === 'stream' && B.fail ? ' · 전 종목은 불러오지 못했어요' : '')) : null);
 }
 function secSector(M) {
   return sec('업종 · 테마',
@@ -459,20 +512,28 @@ function secSector(M) {
 function secMovers(M) {
   const L = M.limNames || [];
   return sec('눈에 띄는 종목',
-    L.length ? line(h('span', { class: 'sm-k sm-lim' }, lsw('u'), '상한가 ', h('b', { class: 'sm-n up', text: NF0.format(M.br.lu) })), ...L.slice(0, 2).map(x => (x.onMap ? stk(x.c, x.n, x.r) : h('span', { class: 'sm-off', text: x.n }))),
+    L.length ? line(h('span', { class: 'sm-k sm-lim' }, lsw('u'), M.brOld ? `${dayShort(M.brOld)} 상한가 ` : '상한가 ', h('b', { class: 'sm-n up', text: NF0.format(M.br.lu) })), ...L.slice(0, 2).map(x => (x.onMap ? stk(x.c, x.n, x.r) : h('span', { class: 'sm-off', text: x.n }))),
       L.length > 2 ? kk(`외 ${L.length - 2}`) : null) : null,
     M.bigUp || M.bigDn ? line(kk('시총 100위 안'), M.bigUp ? stk(M.bigUp.c, M.bigUp.n, M.bigUp.r) : null, M.bigDn ? stk(M.bigDn.c, M.bigDn.n, M.bigDn.r) : null) : null,
     M.tvTop.length ? line(kk('거래대금 상위'), ...M.tvTop.map(x => stk(x.c, x.n, 0, eok(x.tv)))) : null,
     M.br && (M.br.u10 || M.br.d10) ? sub(`10% 넘게 오른 종목 ${NF0.format(M.br.u10)} · 내린 종목 ${NF0.format(M.br.d10)}`) : null);
 }
+const WHO3 = ['외국인', '기관', '개인'];
+const who3 = all => line(...join(all.map((v, i) => h('span', { class: 'sm-nv' }, h('span', { class: 'sm-nm', text: WHO3[i] }), h('b', { class: 'sm-n ' + cls(v, 0), text: amt(v) })))));
 function secFlows(M) {
-  if (!M.flows) return sec('수급', later(D.flows ? '계산하는 중…' : '수급 파일을 받는 중…'));
-  const F = M.flows, who = ['외국인', '기관', '개인'];
-  return sec('수급 (추정)',
-    line(...join(F.all.map((v, i) => h('span', { class: 'sm-nv' }, h('span', { class: 'sm-nm', text: who[i] }), h('b', { class: 'sm-n ' + cls(v, 0), text: amt(v) }))))),
-    F.bot && F.bot.n ? line(kk('외국인 순매도 1위'), stk(F.bot.c, F.bot.n, F.bot.v, amt(F.bot.v))) : null,
-    F.top && F.top.n ? line(kk('외국인 순매수 1위'), stk(F.top.c, F.top.n, F.top.v, amt(F.top.v))) : null,
-    sub(`${F.today ? '오늘' : dayShort(F.date)} · 코스피 · 코스닥 합 · 종목별 순매수 주식 수 × 종가를 더한 값이에요` + (F.today ? '' : ' · 매일 장 마감 뒤 새로 받아요')));
+  const F = M.flows, X = M.mflows;
+  if (!F && !X) return sec('수급', later(D.flows ? '계산하는 중…' : '수급 파일을 받는 중…'));
+  // 장중 · 장 뒤(저녁 확정 전): 시장 전체 줄은 /api/flows/market(그때까지 합한 값), 종목 줄은 확정 파일과 그 날짜
+  const fd = F ? (F.today ? '오늘' : dayShort(F.date)) : '';
+  const tag = t => (X && F && !F.today ? `${t} (${fd})` : t);
+  return sec(X ? '수급' : '수급 (추정)',
+    X ? who3(X.all) : who3(F.all),
+    X ? sub((X.only ? `${X.only === 'K' ? '코스피' : '코스닥'}만` : '코스피 · 코스닥 합') + ' · 시장 전체 · ' + (X.today && X.at ? `${X.at} 기준` : `${dayShort(X.date)} 기준`)
+      + (X.stale ? ' · 새 값을 받지 못해 지난 값이에요' : X.today ? ' · 장중엔 그때까지 합한 값이에요' : '')) : null,
+    F && F.bot && F.bot.n ? line(kk(tag('외국인 순매도 1위')), stk(F.bot.c, F.bot.n, F.bot.v, amt(F.bot.v))) : null,
+    F && F.top && F.top.n ? line(kk(tag('외국인 순매수 1위')), stk(F.top.c, F.top.n, F.top.v, amt(F.top.v))) : null,
+    F ? sub(X ? `종목은 ${fd} 확정 · 종목별 순매수 주식 수 × 종가예요`
+      : `${fd} · 코스피 · 코스닥 합 · 종목별 순매수 주식 수 × 종가를 더한 값이에요` + (F.today ? '' : ' · 매일 장 마감 뒤 새로 받아요')) : null);
 }
 function secMacro(M) {
   if (!LIVE && !M.us10 && !M.us) return sec('환율 · 금리 · 해외', snapNote('금리 · 해외 지수'));
@@ -508,9 +569,10 @@ function plain(M) {
   const L = [`판세 · 오늘 시장 요약 (${M.pill} · ${M.when})`];
   if (M.headline) L.push(M.headline);
   if (M.idx.length) L.push(M.idx.map(x => `${x.name} ${NF2.format(x.v)} (${pct(x.r)})`).join(' · '));
-  if (M.br) L.push(`상승 ${NF0.format(M.br.up)} · 하락 ${NF0.format(M.br.dn)} — ${M.br.say}` + (M.br.lu || M.br.ld ? ` · 상한가 ${M.br.lu} · 하한가 ${M.br.ld}` : ''));
+  if (M.br) L.push((M.brOld ? `${dayShort(M.brOld)} 종가 ` : '') + `상승 ${NF0.format(M.br.up)} · 하락 ${NF0.format(M.br.dn)} — ${M.br.say}` + (M.br.lu || M.br.ld ? ` · 상한가 ${M.br.lu} · 하한가 ${M.br.ld}` : ''));
   if (M.indUp.length || M.indDn.length) L.push('업종: ' + [...M.indUp, ...M.indDn].map(x => `${x.name} ${pct(x.r)}`).join(' · '));
-  if (M.flows) L.push(`수급(${M.flows.today ? '오늘' : dayShort(M.flows.date)}, 추정): 외국인 ${amt(M.flows.all[0])} · 기관 ${amt(M.flows.all[1])} · 개인 ${amt(M.flows.all[2])}`);
+  if (M.mflows) L.push(`수급(${M.mflows.today && M.mflows.at ? M.mflows.at + ' 기준' : dayShort(M.mflows.date)}): 외국인 ${amt(M.mflows.all[0])} · 기관 ${amt(M.mflows.all[1])} · 개인 ${amt(M.mflows.all[2])}`);
+  else if (M.flows) L.push(`수급(${M.flows.today ? '오늘' : dayShort(M.flows.date)}, 추정): 외국인 ${amt(M.flows.all[0])} · 기관 ${amt(M.flows.all[1])} · 개인 ${amt(M.flows.all[2])}`);
   if (M.fx) L.push(`원/달러 ${NF1.format(+M.fx.value)}원 (${fxChg(M.fx)})` + (M.us ? ` · ${M.us.label} ` + M.us.items.slice(0, 2).map(x => `${shortUS(x.name)} ${pct(x.r)}`).join(' · ') : ''));
   L.push('출처: 네이버 증권 외 · panse.pages.dev · 투자 판단의 근거로 쓰지 마세요.');
   return L.join('\n');

@@ -5,7 +5,8 @@
 
 Starts qa/summary/mock_summary.py on SUMMARY_QA_PORT (default 8981; ports 8980–8988, or 9010–9068 for the ux/std-* runs) and, for "the map does not move", a second
 one on SUMMARY_QA_PORT + 1 serving the web/ of git rev SUMMARY_QA_BASE (default main) — the page without the card. Both are stopped with
-fuser -k <port>/tcp at the end. The mock data is the 11/13 (금) close: 상한가 9 · 하한가 0 (snapshot lim), flows of 11/13.
+fuser -k <port>/tcp at the end. The mock data is the built data (data/snapshot.json · web/close.json · web/flows.json — refreshed every day,
+so the 상한가 · 하한가 counts, the dates and the index direction are read from those files: DATA below; they were the 11/13 close once).
 Static: summary.css uses only design tokens for type, corners, colour, spacing and motion (design.md §2–§6); close.json carries lim.
 Browser (live, 360 · 390 · 768 · 1440, 기본 테마; 390 · 1440 also 신문): the card's place (phone: right after the map, before #news;
 tablet / desktop: first in .side), the map's box = the base build's, collapsed by default and after a reload (not remembered), no
@@ -42,6 +43,32 @@ SHOTS = '--shots' in sys.argv
 NOPROXY = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 fails = []
 counts = {'pass': 0}
+
+
+def _data():
+    snap = json.loads((ROOT / 'data/snapshot.json').read_text(encoding='utf-8'))
+    cj = json.loads((ROOT / 'web/close.json').read_text(encoding='utf-8'))
+    fj = json.loads((ROOT / 'web/flows.json').read_text(encoding='utf-8'))
+    nm = json.loads((ROOT / 'web/names.json').read_text(encoding='utf-8'))['n']
+    rows = [(c, v) for c, v in cj['c'].items() if c in nm and v[0] and v[0] > 0]
+    up = sum(1 for _, v in rows if round(v[2], 2) > 0)
+    dn = sum(1 for _, v in rows if round(v[2], 2) < 0)
+    lu = sum(1 for _, v in rows if len(v) > 3 and v[3] == 1)
+    ld = sum(1 for _, v in rows if len(v) > 3 and v[3] == -1)
+    d = snap['asOf'][:10]
+    y, mo, dd = map(int, d.split('-'))
+    import datetime as _dt
+    long = f"{mo}월 {dd}일 ({'월화수목금토일'[_dt.date(y, mo, dd).weekday()]})"
+    fd = fj['asOf']
+    ix = snap['index']
+    dirs = [0 if abs(ix[k]['ratio']) < 0.05 else (1 if ix[k]['ratio'] > 0 else -1) for k in ('KOSPI', 'KOSDAQ')]
+    return {'lu': lu, 'ld': ld, 'up': up, 'dn': dn, 'long': long, 'flows': f'{int(fd[5:7])}/{int(fd[8:10])}', 'kospi': f"{ix['KOSPI']['value']:,.2f}", 'dirs': dirs}
+
+
+DATA = _data()
+# the headline's last verb (summary.js idxSentence): both down → 내렸어요, both up → 올랐어요, mixed → the 코스닥 part
+_VERB = {1: ('올랐어요', '오르고 있어요'), -1: ('내렸어요', '내리고 있어요'), 0: ('제자리였어요', '제자리예요')}
+VERB_DONE, VERB_LIVE = _VERB[DATA['dirs'][1]]
 
 
 def check(name, ok, detail=''):
@@ -363,8 +390,8 @@ def main():
             pg.click('#summary .sm-tog'); pg.wait_for_timeout(900)
             t = pg.evaluate("document.getElementById('summary').innerText")
             lim = re.search(r'상한가 · 하한가\s*([\d,]+)\s*·\s*([\d,]+)', t)   # 11:16: swatch + coloured count each, the dot between
-            check('상한가 · 하한가 = 9 · 0 (close.json lim — the old ±29.5 % guess counted 1 하한가)', bool(lim) and lim.groups() == ('9', '0'), lim and lim.groups())
-            check('외국인 · 기관 = the 11/13 file with its date', re.search(r'외국인 · 기관\s*11/13', t) is not None and '11/13 · 코스피 · 코스닥 합' in t)
+            check(f'상한가 · 하한가 = {DATA["lu"]} · {DATA["ld"]} (close.json lim — not the old ±29.5 % guess)', bool(lim) and lim.groups() == (f'{DATA["lu"]:,}', f'{DATA["ld"]:,}'), lim and lim.groups())
+            check(f'외국인 · 기관 = the {DATA["flows"]} file with its date', re.search(r'외국인 · 기관\s*' + DATA['flows'], t) is not None and f'{DATA["flows"]} · 코스피 · 코스닥 합' in t)
             check('"거래대금 상위", never "급증"', '거래대금 상위' in t and '급증' not in t)
             ctx.close()
             # reload → collapsed (not remembered)
@@ -391,13 +418,13 @@ def main():
                   (k0['w'], k0['h']) == (k1['w'], k1['h']) == (k2['w'], k2['h']) and k1['done'] > 0.95 and k1['copy'] < 0.05 and k1['label'] == '복사했어요' and k2['st'] == 'idle' and k2['copy'] > 0.95 and k2['label'] == '글로 복사', [k0, k1, k2])
             lines = clip.split('\n')
             check('글로 복사: plain text — title, headline, 지수, 오른·내린, 업종, 수급, 원/달러, last line the disclaimer',
-                  lines[0].startswith('판세 · 오늘 시장 요약 (휴장 · 11월 13일 (금) 마감 기준)') and '코스피는 내리고 코스닥은 올랐어요' in lines and any(l.startswith('코스피 5,290.53') for l in lines)
-                  and any(l.startswith('상승 1,276 · 하락 1,211') and '상한가 9 · 하한가 0' in l for l in lines) and any(l.startswith('업종: ') for l in lines)
-                  and any(l.startswith('수급(11/13, 추정)') for l in lines) and any(l.startswith('원/달러 ') for l in lines) and lines[-1].endswith('투자 판단의 근거로 쓰지 마세요.'), lines)
+                  re.match(r'판세 · 오늘 시장 요약 \((휴장|장 전) · ' + re.escape(DATA['long']) + ' 마감 기준', lines[0]) is not None and lines[1].endswith(VERB_DONE) and any(l.startswith('코스피 ' + DATA['kospi']) for l in lines)
+                  and any(l.startswith(f'상승 {DATA["up"]:,} · 하락 {DATA["dn"]:,}') and f'상한가 {DATA["lu"]} · 하한가 {DATA["ld"]}' in l for l in lines) and any(l.startswith('업종: ') for l in lines)
+                  and any(l.startswith(f'수급({DATA["flows"]}, 추정)') for l in lines) and any(l.startswith('원/달러 ') for l in lines) and lines[-1].endswith('투자 판단의 근거로 쓰지 마세요.'), lines)
             check('글로 복사: console errors 0', not errs, errs[:2])
             ctx.close()
             # the four phases (wording only)
-            want = {'pre': ('장 전', '9시에 시작해요', '올랐어요'), 'open': ('장중', '기준', '오르고 있어요'), 'after': ('오늘 마감', '15:30 정규장 종가 기준', '올랐어요'), 'closed': ('휴장', '11월 13일 (금) 마감 기준', '올랐어요')}
+            want = {'pre': ('장 전', '9시에 시작해요', VERB_DONE), 'open': ('장중', '기준', VERB_LIVE), 'after': ('오늘 마감', '15:30 정규장 종가 기준', VERB_DONE), 'closed': ('휴장', f'{DATA["long"]} 마감 기준', VERB_DONE)}
             for ph, (pill, when, verb) in want.items():
                 ctx, pg, errs = open_page(br, 390, 844, query=f'?summary_phase={ph}')
                 st = pg.evaluate(STATE)

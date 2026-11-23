@@ -1,0 +1,77 @@
+/* 투자자별 순매수 카드 (src/flows, AGENTS §3-40). 카드 = 템플릿 .card(글라스 재질은 --card-bg · --card-sh로 그대로), 고르기 = 템플릿
+   .movers-tabs 세그먼트(표시 = KH.ui.seg, lead 하나), 줄 = 눈에 띄는 종목 카드 줄과 같은 조리법. design.md(승인)대로: 글자 --fs-* ·
+   간격 --space-* · 모서리 --r-* · 높이 --h-* · 움직임 --sp-* 토큰만, 빨강 · 초록은 숫자에만(.up · .dn), 앰버는 열린 키 · 포커스만,
+   실패 · 지난 값 ! = --fail-dot, 빛 · 그라데이션 없음, 최소 11px. */
+
+.flows{min-width:0;
+  /* design.md §6-4 글자 바꿈 길이(나감 100 → 들어옴 180) — 더보기의 새 줄, 줄이기 = 0 (뉴스 카드 --nw-tx-*와 같은 값) */
+  --fl-tx-out:100ms;--fl-tx-in:180ms}
+html[data-motion="reduced"] .flows{--fl-tx-out:0ms;--fl-tx-in:0ms}
+.flows p{margin:0}
+
+/* 시장 전체: 머리 줄(이름 · 기준 시각) + 작은 표(열 = 외국인 · 기관 · 개인, 줄 = 그 탭의 시장) */
+.flows .fl-mkt{margin-bottom:var(--space-5)}
+.flows .fl-mkt[hidden]{display:none}
+.flows .fl-mh{display:flex;align-items:center;justify-content:space-between;gap:var(--space-4);margin-bottom:var(--space-2);font-size:var(--fs-xs);line-height:var(--lh-ui);color:var(--muted)}
+.flows .fl-at{display:inline-flex;align-items:center;gap:var(--space-2);font-variant-numeric:tabular-nums;white-space:nowrap}
+.flows .fl-at.stale{color:var(--fg2);font-weight:600}
+.flows .fl-at svg,.flows .fl-fail svg{width:15px;height:15px;flex:none;color:var(--fail-dot)}
+.flows table.fl-mt{width:100%;border-collapse:collapse;font-size:var(--fs-sm);line-height:var(--lh-row);font-variant-numeric:tabular-nums}
+.flows .fl-mt thead th{padding:0 0 var(--space-1);font-size:var(--fs-xs);font-weight:500;color:var(--muted);text-align:right}
+.flows .fl-mt tbody th{padding:var(--space-1) var(--space-3) var(--space-1) 0;font-weight:500;color:var(--fg2);text-align:left;white-space:nowrap}
+.flows .fl-mt td{padding:var(--space-1) 0;text-align:right;white-space:nowrap}
+.flows .fl-mt td.fl-v{font-weight:600}
+.flows .fl-mt td + td,.flows .fl-mt th + th{padding-left:var(--space-3)}
+
+/* 고르기 두 개: 한 줄에 들어가면 한 줄, 좁으면(태블릿 칸 · 큰 글자) 두 줄 — 세그먼트 안은 줄 바꿈 없음 */
+.flows .fl-ctl{display:flex;flex-wrap:wrap;gap:var(--space-3);margin-bottom:var(--space-4)}
+.flows .fl-ctl > .movers-tabs{flex:1 1 auto;margin-bottom:0}
+.flows .fl-seg button{padding:var(--space-2) var(--space-3)}
+
+/* 목록 머리 줄: "11/20 (금) 확정" · "잠정 · 14:30 입력분" + 작은 출처 */
+.flows .fl-lab{display:flex;align-items:baseline;flex-wrap:wrap;gap:var(--space-1) var(--space-3);margin-bottom:var(--space-2);font-size:var(--fs-sm);line-height:var(--lh-ui);min-width:0}
+.flows .fl-tag{color:var(--fg2);font-weight:600;white-space:nowrap}
+.flows .fl-src{font-size:var(--fs-xs);color:var(--muted);min-width:0}
+.flows .fl-wait{font-size:var(--fs-sm);line-height:var(--lh-ui);color:var(--muted);padding:var(--space-2) 0}
+.flows .fl-wait a{color:var(--fg);text-decoration:underline;text-decoration-color:var(--line2);text-underline-offset:var(--space-1)}
+.flows .fl-fail{display:flex;align-items:center;flex-wrap:wrap;gap:var(--space-3);font-size:var(--fs-sm);line-height:var(--lh-ui);color:var(--fg2);padding:var(--space-2) 0}
+
+/* 줄: 순위 · 오늘 캔들 · 이름 · 금액 · 작은 등락률 (눈에 띄는 종목 카드 줄과 같은 높이 · 안쪽 여백 · 누름) */
+.flows .fl-list{display:flex;flex-direction:column;gap:1px}
+.flows .fl-r{display:grid;grid-template-columns:1.5em 10px minmax(0,1fr) auto 4.6em;gap:var(--space-3);align-items:center;padding:var(--space-3);margin:0 calc(-1 * var(--space-3));border-radius:var(--r-row);font-size:var(--fs-md);text-align:left;color:var(--fg);touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+/* 휴대폰: 눈에 띄는 종목 줄처럼 --h-key(40) 높이 */
+@media (max-width:760px){ .flows .fl-r{min-height:var(--h-key)} }
+@media (hover:hover) and (pointer:fine){ .flows .fl-r:hover{background:var(--row-hov)} .flows .fl-more:hover{background:var(--key-hover)} }
+.flows .fl-r:active{filter:var(--press-f);transition:filter 0s}
+.flows .fl-rk{font-size:var(--fs-xs);color:var(--muted);font-variant-numeric:tabular-nums;text-align:right}
+.flows .fl-r .cdi{width:10px;height:15px}
+.flows .fl-r .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500}
+.flows .fl-a{font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap;text-align:right}
+.flows .fl-p{font-size:var(--fs-xs);font-variant-numeric:tabular-nums;white-space:nowrap;text-align:right}
+.flows .fl-note{margin-top:var(--space-3);font-size:var(--fs-xs);line-height:var(--lh-text);color:var(--muted)}
+.flows .fl-note[hidden]{display:none}
+
+/* 더보기 · 접기: 눈에 띄는 종목 카드의 키와 같은 모양(한 줄 전체 키, 꺾쇠) — 꺾쇠는 펼칠 때 open, 접을 때 close로 반 바퀴 */
+.flows .fl-more{position:relative;display:flex;align-items:center;justify-content:center;gap:var(--space-3);width:100%;min-height:var(--h-key);margin-top:var(--space-4);padding:0;border-radius:var(--r-key);background:var(--key-bg);box-shadow:var(--key-sh);
+  font-size:var(--fs-sm);line-height:var(--lh-ui);font-weight:600;color:var(--key-fg);text-align:center;touch-action:manipulation;-webkit-tap-highlight-color:transparent;
+  transition:transform var(--c-fast) var(--c-out),box-shadow var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out),background-color var(--sp-fade-dur) var(--sp-fade)}
+.flows .fl-more[hidden]{display:none}
+.flows .fl-more:is(:active,.is-press){transform:translateY(1px);box-shadow:var(--key-dn);filter:var(--press-f);transition-duration:0s}
+.flows .fl-more::after{content:"";flex:none;width:6px;height:6px;border:solid var(--key-ic);border-width:0 1.75px 1.75px 0;transform:translateY(-25%) rotate(45deg);transition:transform var(--sp-close-dur) var(--sp-close)}
+.flows .fl-more[aria-expanded="true"]::after{transform:translateY(25%) rotate(225deg);transition-duration:var(--sp-open-dur);transition-timing-function:var(--sp-open)}
+@media (pointer:coarse){ .flows .fl-more::before{content:"";position:absolute;left:0;right:0;top:50%;height:44px;transform:translateY(-50%)} }
+
+/* 다시 시도 키(KH.ui.retry — 표면 · 상태는 템플릿 .kasync) */
+.flows .fl-rk.kasync{position:relative;display:inline-flex;align-items:center;justify-content:center;height:var(--h-chip);padding:0 var(--space-5);border-radius:var(--r-key);background:var(--key-bg);box-shadow:var(--key-sh);
+  font-size:var(--fs-sm);line-height:var(--lh-ui);font-weight:600;color:var(--key-fg);white-space:nowrap;touch-action:manipulation;
+  transition:transform var(--c-fast) var(--c-out),box-shadow var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out)}
+.flows .fl-rk.kasync:is(:active,.is-press){transform:translateY(1px);box-shadow:var(--key-dn);filter:var(--press-f);transition-duration:0s}
+@media (pointer:coarse){ .flows .fl-rk.kasync::before{content:"";position:absolute;left:50%;top:50%;width:max(100%,44px);height:44px;transform:translate(-50%,-50%)} }
+
+/* 더보기 · 접기 = 펼치는 목록 (design.md §7, flows.js fold): 목록 상자만 open으로 열리고(아래가 열리는 클립), 새 줄(.fl-x)은 상자가 25 %
+   열린 뒤 §6-4로 함께(흐림 2px · 4px), 접을 땐 새 줄이 먼저 함께 나가고(100ms) 상자가 close로 닫혀요 */
+.flows .fl-list.fl-fold-anim > .fl-x{opacity:0;transform:translateY(var(--space-2));filter:blur(2px)}
+.flows .fl-list.fl-fold-in > .fl-x{opacity:1;transform:none;filter:none;transition:opacity var(--fl-tx-in) var(--sp-fade),transform var(--fl-tx-in) var(--sp-fade),filter var(--fl-tx-in) var(--sp-fade)}
+.flows .fl-list.fl-fold-out > .fl-x{opacity:0;transform:translateY(calc(-1 * var(--space-2)));filter:blur(2px);transition:opacity var(--fl-tx-out) var(--sp-close),transform var(--fl-tx-out) var(--sp-close),filter var(--fl-tx-out) var(--sp-close)}
+
+html[data-theme="paper"] .flows .fl-r{border-radius:0;box-shadow:inset 0 -1px 0 var(--row-bd)}

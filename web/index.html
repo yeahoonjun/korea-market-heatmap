@@ -9093,6 +9093,20 @@ html[data-motion="reduced"] .sp-fold-x { transition: none; }
 .sp-today-r .bar i { position: absolute; top: 0; bottom: 0; border-radius: var(--r-mark); }
 .sp-today-r .bar i.up { background: color-mix(in srgb, var(--up-text) 85%, transparent); }
 .sp-today-r .bar i.dn { background: color-mix(in srgb, var(--dn-text) 85%, transparent); }
+/* 오늘 잠정 (AGENTS §3-40, 가족 기기만 — stock.js estBox): "오늘" 카드 바로 아래, 같은 카드 판에 회차마다 한 줄(입력 · 외국인 · 기관, 주) */
+.sp-est { background: var(--card-bg, var(--panel)); border: 1px solid var(--card-bd, var(--line)); border-radius: var(--card-r); box-shadow: var(--card-sh, none); padding: var(--space-5) var(--space-5) var(--space-4); margin-bottom: var(--space-4); }
+.sp-est-t { width: 100%; border-collapse: collapse; font-size: var(--fs-md); font-variant-numeric: tabular-nums; }
+.sp-est-t th { font-size: var(--fs-xs); font-weight: 500; color: var(--muted); text-align: right; padding: var(--space-2) 0 var(--space-2) var(--space-4); white-space: nowrap; }
+.sp-est-t tbody th { font-size: var(--fs-md); color: var(--fg2); text-align: left; padding-left: 0; }
+.sp-est-t thead th:first-child { text-align: left; padding-left: 0; }
+.sp-est-t td { text-align: right; font-weight: 600; padding: var(--space-2) 0 var(--space-2) var(--space-4); white-space: nowrap; }
+.sp-est-t td.up { color: var(--up-text); } .sp-est-t td.dn { color: var(--dn-text); } .sp-est-t td.flat { color: var(--muted); font-weight: 400; }
+.sp-est-t td .s { display: none; }
+.sp-est-w { display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-2) 0; }
+.sp-est-e, .sp-est-f { font-size: var(--fs-sm); color: var(--muted); line-height: var(--lh-text); }
+.sp-est-f { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); color: var(--fg2); }
+.sp-est-f .sp-retry { margin-top: 0; }
+.sp-est .kwn { color: var(--fail-dot); vertical-align: middle; }
 
 /* ── 종목 정보 ───────────────────────── */
 .sp-ci { padding: var(--space-3) 0 var(--space-6); }
@@ -9341,6 +9355,8 @@ a.sp-nw-a:visited .sp-nw-t { color: var(--fg2); }
   .sp-tbl .c-hl { display: table-cell; }
   .sp-cum-r b .l, .sp-today-r b .l { display: none; }
   .sp-cum-r b .s, .sp-today-r b .s { display: inline; }
+  .sp-est-t td .l { display: none; }
+  .sp-est-t td .s { display: inline; }
   .sp-today-r { grid-template-columns: 46px minmax(5.5em, auto) minmax(0, 1fr); }
   .sp-cum-r b { min-width: 5.5em; }
 }
@@ -9513,7 +9529,7 @@ const WARM = 119;   // bars before the window, so the 120-bar average is complet
 const TABS = [
   { key: 'ob', label: '호가', build: buildOb, show: () => { renderOb(); obStart(); }, hide: obStop, reset: obReset, summary: obSummary },
   { key: 'info', label: '종목 정보', build: buildInfo, show: infoShow, reset: infoReset, summary: infoSummary },
-  { key: 'inv', label: '투자자', show: () => (S.inv || S.invLoading ? renderInv() : loadInv()), reset: invReset },
+  { key: 'inv', label: '투자자', show: () => { loadEst(false); return S.inv || S.invLoading ? renderInv() : loadInv(); }, reset: invReset },
   { key: 'daily', label: '일별 시세', show: () => (S.daily ? renderDaily() : loadDaily(1)), reset: dailyReset, summary: renderDailyNote },
   { key: 'news', label: '뉴스·공시', build: buildNews, show: newsShow, reset: newsReset },
 ];
@@ -9725,6 +9741,7 @@ const S = {
   sum: null, sumErr: null, phase: 'unknown',
   ob: null, obErr: null, obAt: null,              // 호가 tab
   inv: null, invErr: null, invLoading: false,     // 투자자 tab
+  est: null,                                      //   its 오늘 잠정 block (가족 기기만, AGENTS §3-40): {code, st:'load'|'ok'|'fail'|'none', at, j}
   daily: null,                                    // 일별 시세 tab
   news: { news: null, disc: null },               // 뉴스·공시 tab: per list {loading, err} while fetching (rows live in newsCache)
   ci: { fa: null, fq: null, res: null },          // 종목 정보 tab: per source {loading, err} while fetching (data lives in ciCache)
@@ -11258,7 +11275,70 @@ function renderOb() {
    paint, and a period switch cross-fades instead of regrowing; ux/std-stock) */
 
 /* ── 투자자 ── */
-function invReset() { S.inv = null; S.invErr = null; S.invLoading = false; }
+function invReset() { S.inv = null; S.invErr = null; S.invLoading = false; S.est = null; R.est = null; }
+/* 오늘 잠정 (AGENTS §3-40 — 가족 기기만): "오늘" 카드 아래 작은 덩어리 "오늘 잠정 · 한국투자증권 가집계", 입력 회차마다 한 줄(09:30 · 10:00 ·
+   11:20 · 13:20 · 14:30 — 외국인 · 기관 순매수 주식 수, 입력 시각까지 누적, 등락색). 투자자 탭을 열 때 KH.inv.fetch('/api/flows/live/stock/'
+   + code)로 한 번(같은 종목은 1분 안 다시 묻지 않아요). 초대 토큰이 없는 기기 · 스냅샷 · 403 · 404(옛 Worker)는 흔적 없이 아무것도
+   그리지 않아요. 그날 확정 행이 이미 있으면(저녁 21:30 뒤) 잠정은 빼요. */
+const invApi = () => (LIVE && KH.inv && typeof KH.inv.has === 'function' && typeof KH.inv.fetch === 'function' ? KH.inv : null);
+const famOn = () => { try { const I = invApi(); return !!(I && I.has()); } catch (e) { return false; } };
+async function loadEst(force) {
+  if (!famOn() || !S.code) { if (S.est) { S.est = null; paintEst(); } return null; }
+  const code = S.code, g = S.gen, old = S.est && S.est.code === code ? S.est : null;
+  if (!force && old && (old.st === 'load' || Date.now() - old.at < 60e3)) return null;
+  S.est = { code, st: 'load', at: Date.now(), j: old ? old.j : null };
+  paintEst();
+  let st = 'fail', j = null;
+  try {
+    const r = await KH.inv.fetch('/api/flows/live/stock/' + encodeURIComponent(code));
+    if (r.status === 403 || r.status === 404) st = 'none';                 // 초대가 꺼졌거나 그 경로가 없는 옛 Worker: 흔적 없이
+    else if (r.ok) { try { j = await r.json(); } catch (e) { j = null; } st = j && j.closed ? 'none' : j && Array.isArray(j.slots) ? 'ok' : 'fail'; }   // closed: 휴장일 — 덩어리 없이
+  } catch (e) { st = 'fail'; }
+  if (g !== S.gen || S.code !== code) return null;
+  S.est = { code, st, at: Date.now(), j };
+  paintEst();
+  return st === 'ok';
+}
+const EST_T = { 1: '09:30', 2: '10:00', 3: '11:20', 4: '13:20', 5: '14:30' };
+function estBox() {
+  if (!famOn() || !S.est || S.est.code !== S.code || S.est.st === 'none') return null;
+  const E = S.est, j = E.j;
+  // 그날 확정(저녁 매일 작업 · 네이버)이 이미 들어왔으면 잠정은 빼요
+  if (j && j.date && Array.isArray(S.inv) && S.inv[0] && S.inv[0].date === j.date) return null;
+  const today = kst(new Date()).key, dk = j && j.date ? +j.date.replace(/-/g, '') : today;
+  const lp = j && j.date ? j.date.split('-').map(Number) : null;
+  const when = !j || dk === today ? '오늘 잠정' : `${lp[1]}월 ${lp[2]}일 잠정`;
+  const head = h('div', { class: 'sp-cum-h' }, h('h3', { text: when }), h('small', { text: '한국투자증권 가집계' }));
+  let body;
+  if (E.st === 'load' && !j) body = h('div', { class: 'sp-est-w', role: 'status', 'aria-label': '잠정 회차 불러오는 중' }, skel('100%', '18px'), skel('70%', '18px'));
+  else if (E.st === 'fail' && !j) body = h('p', { class: 'sp-est-f', role: 'status' }, uiIcon('warn'), h('span', { text: '잠정 회차를 불러오지 못했어요' }),
+    retryKey('est', () => loadEst(true), () => paintEst()));
+  else if (!j.slots.length) body = h('p', { class: 'sp-est-e', text: '아직 입력분이 없어요 · 외국인은 09:30, 기관은 10:00부터 들어와요' });
+  else {
+    const cell = (v, none) => (none || !isNum(v) ? h('td', { class: 'num flat', text: '—' })
+      : h('td', { class: 'num ' + cls(v) }, h('span', { class: 'l', text: signed(v) + '주' }), h('span', { class: 's', text: signedCompact(v) + '주' })));
+    const rows = j.slots.slice().sort((a, b) => (+a.no || 0) - (+b.no || 0)).map(x => {
+      const t = x.t || EST_T[x.no] || '';
+      // 09:30 회차엔 기관이 아직 입력되지 않아 0으로 와요(data/ENDPOINTS_KIS.md ②) — 값이 아니라 "아직"이라 — 로
+      return h('tr', null, h('th', { scope: 'row', text: t }), cell(x.f), cell(x.i, (t === '09:30' || +x.no === 1) && !+x.i));
+    });
+    body = h('table', { class: 'sp-est-t' }, h('caption', { class: 'sr', text: `${when} 순매수 회차별 (단위: 주)` }),
+      h('thead', null, h('tr', null, h('th', { scope: 'col', text: '입력' }), h('th', { scope: 'col', text: '외국인' }), h('th', { scope: 'col', text: '기관' }))),
+      h('tbody', null, rows));
+  }
+  const stale = (E.st === 'fail' && j) || (j && j.stale);   // 지난 사본(stale:true) · 다시 받다 실패
+  return h('section', { class: 'sp-est', 'aria-label': `${when} · 한국투자증권 가집계` }, head, body,
+    h('p', { class: 'sp-cum-sub' }, stale ? [uiIcon('warn'), ' 새 회차를 받지 못했어요 · '] : null, '입력 시각까지 누적한 잠정치예요 · 개인은 장 마감 뒤 확정돼요'));
+}
+// 이미 그려진 투자자 탭이면 "오늘" 카드 바로 아래 자리만 바꿔요(탭 전체를 다시 그리지 않아요)
+function paintEst() {
+  const P = R.panels && R.panels.inv;
+  if (!P || !P.isConnected) return;
+  const el = estBox(), cur = R.est && R.est.isConnected && P.contains(R.est) ? R.est : null;
+  if (cur && el) cur.replaceWith(el); else if (cur) cur.remove();
+  else if (el) { const t = P.querySelector(':scope > .sp-today'); if (!t) return; t.after(el); }
+  R.est = el;
+}
 // quiet (the retry key): no loading picture, nothing drawn at the end → true / false / null
 async function loadInv(quiet) {
   const g = S.gen;
@@ -11331,7 +11411,8 @@ function renderInv() {
     h('td', { class: 'num c-pct ' + cls(r.ratio), text: pct(r.ratio) }),
     netCell(r.individual), netCell(r.foreign), netCell(r.institution),
     h('td', { class: 'num', text: fixed(r.foreignHoldRatio, 2, '%') }))));
-  P.replaceChildren(todayCard(rows[0], isToday ? '오늘' : `${lp[1]}월 ${lp[2]}일`), card, note, h('table', { class: 'sp-tbl sp-inv-t' }, h('caption', { text: '날짜별 순매수 (단위: 주, 만 = 1만 주)' }), thead, tbody));
+  R.est = estBox();
+  P.replaceChildren(todayCard(rows[0], isToday ? '오늘' : `${lp[1]}월 ${lp[2]}일`), ...(R.est ? [R.est] : []), card, note, h('table', { class: 'sp-tbl sp-inv-t' }, h('caption', { text: '날짜별 순매수 (단위: 주, 만 = 1만 주)' }), thead, tbody));
 }
 
 /* ── 일별 시세 ── */
@@ -12500,6 +12581,7 @@ document.addEventListener('kh:basis', () => { if (S.open) renderHead(); });   //
 // a change of effect level ends whatever rolls or swaps in the header at its end value (design.md §6-3)
 document.addEventListener('kh:motion', () => { if (R.price) for (const el of [R.price, R.chg, R.nxt.querySelector('.pv'), R.nxt.querySelector('.pr')]) numSettle(el); });
 document.addEventListener('kh:watch', () => { if (S.open) renderStar(); });
+document.addEventListener('kh:inv', () => { if (S.open && S.tab === 'inv') { if (famOn()) loadEst(true); else { S.est = null; paintEst(); } } });   // 가족 보기를 켜고 끔
 document.addEventListener('kh:alerts', () => { if (S.open) { renderAl(); renderMeta(); } });   // the picker keeps its own ticks and counts in step
 
 window.KHStock = { open, close, isOpen: () => S.open };
@@ -22503,6 +22585,579 @@ sync();
 
 </script>
 <style>
+/* 투자자별 순매수 카드 (src/flows, AGENTS §3-40). 카드 = 템플릿 .card(글라스 재질은 --card-bg · --card-sh로 그대로), 고르기 = 템플릿
+   .movers-tabs 세그먼트(표시 = KH.ui.seg, lead 하나), 줄 = 눈에 띄는 종목 카드 줄과 같은 조리법. design.md(승인)대로: 글자 --fs-* ·
+   간격 --space-* · 모서리 --r-* · 높이 --h-* · 움직임 --sp-* 토큰만, 빨강 · 초록은 숫자에만(.up · .dn), 앰버는 열린 키 · 포커스만,
+   실패 · 지난 값 ! = --fail-dot, 빛 · 그라데이션 없음, 최소 11px. */
+
+.flows{min-width:0;
+  /* design.md §6-4 글자 바꿈 길이(나감 100 → 들어옴 180) — 더보기의 새 줄, 줄이기 = 0 (뉴스 카드 --nw-tx-*와 같은 값) */
+  --fl-tx-out:100ms;--fl-tx-in:180ms}
+html[data-motion="reduced"] .flows{--fl-tx-out:0ms;--fl-tx-in:0ms}
+.flows p{margin:0}
+
+/* 시장 전체: 머리 줄(이름 · 기준 시각) + 작은 표(열 = 외국인 · 기관 · 개인, 줄 = 그 탭의 시장) */
+.flows .fl-mkt{margin-bottom:var(--space-5)}
+.flows .fl-mkt[hidden]{display:none}
+.flows .fl-mh{display:flex;align-items:center;justify-content:space-between;gap:var(--space-4);margin-bottom:var(--space-2);font-size:var(--fs-xs);line-height:var(--lh-ui);color:var(--muted)}
+.flows .fl-at{display:inline-flex;align-items:center;gap:var(--space-2);font-variant-numeric:tabular-nums;white-space:nowrap}
+.flows .fl-at.stale{color:var(--fg2);font-weight:600}
+.flows .fl-at svg,.flows .fl-fail svg{width:15px;height:15px;flex:none;color:var(--fail-dot)}
+.flows table.fl-mt{width:100%;border-collapse:collapse;font-size:var(--fs-sm);line-height:var(--lh-row);font-variant-numeric:tabular-nums}
+.flows .fl-mt thead th{padding:0 0 var(--space-1);font-size:var(--fs-xs);font-weight:500;color:var(--muted);text-align:right}
+.flows .fl-mt tbody th{padding:var(--space-1) var(--space-3) var(--space-1) 0;font-weight:500;color:var(--fg2);text-align:left;white-space:nowrap}
+.flows .fl-mt td{padding:var(--space-1) 0;text-align:right;white-space:nowrap}
+.flows .fl-mt td.fl-v{font-weight:600}
+.flows .fl-mt td + td,.flows .fl-mt th + th{padding-left:var(--space-3)}
+
+/* 고르기 두 개: 한 줄에 들어가면 한 줄, 좁으면(태블릿 칸 · 큰 글자) 두 줄 — 세그먼트 안은 줄 바꿈 없음 */
+.flows .fl-ctl{display:flex;flex-wrap:wrap;gap:var(--space-3);margin-bottom:var(--space-4)}
+.flows .fl-ctl > .movers-tabs{flex:1 1 auto;margin-bottom:0}
+.flows .fl-seg button{padding:var(--space-2) var(--space-3)}
+
+/* 목록 머리 줄: "11/20 (금) 확정" · "잠정 · 14:30 입력분" + 작은 출처 */
+.flows .fl-lab{display:flex;align-items:baseline;flex-wrap:wrap;gap:var(--space-1) var(--space-3);margin-bottom:var(--space-2);font-size:var(--fs-sm);line-height:var(--lh-ui);min-width:0}
+.flows .fl-tag{color:var(--fg2);font-weight:600;white-space:nowrap}
+.flows .fl-src{font-size:var(--fs-xs);color:var(--muted);min-width:0}
+.flows .fl-wait{font-size:var(--fs-sm);line-height:var(--lh-ui);color:var(--muted);padding:var(--space-2) 0}
+.flows .fl-wait a{color:var(--fg);text-decoration:underline;text-decoration-color:var(--line2);text-underline-offset:var(--space-1)}
+.flows .fl-fail{display:flex;align-items:center;flex-wrap:wrap;gap:var(--space-3);font-size:var(--fs-sm);line-height:var(--lh-ui);color:var(--fg2);padding:var(--space-2) 0}
+
+/* 줄: 순위 · 오늘 캔들 · 이름 · 금액 · 작은 등락률 (눈에 띄는 종목 카드 줄과 같은 높이 · 안쪽 여백 · 누름) */
+.flows .fl-list{display:flex;flex-direction:column;gap:1px}
+.flows .fl-r{display:grid;grid-template-columns:1.5em 10px minmax(0,1fr) auto 4.6em;gap:var(--space-3);align-items:center;padding:var(--space-3);margin:0 calc(-1 * var(--space-3));border-radius:var(--r-row);font-size:var(--fs-md);text-align:left;color:var(--fg);touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+/* 휴대폰: 눈에 띄는 종목 줄처럼 --h-key(40) 높이 */
+@media (max-width:760px){ .flows .fl-r{min-height:var(--h-key)} }
+@media (hover:hover) and (pointer:fine){ .flows .fl-r:hover{background:var(--row-hov)} .flows .fl-more:hover{background:var(--key-hover)} }
+.flows .fl-r:active{filter:var(--press-f);transition:filter 0s}
+.flows .fl-rk{font-size:var(--fs-xs);color:var(--muted);font-variant-numeric:tabular-nums;text-align:right}
+.flows .fl-r .cdi{width:10px;height:15px}
+.flows .fl-r .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500}
+.flows .fl-a{font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap;text-align:right}
+.flows .fl-p{font-size:var(--fs-xs);font-variant-numeric:tabular-nums;white-space:nowrap;text-align:right}
+.flows .fl-note{margin-top:var(--space-3);font-size:var(--fs-xs);line-height:var(--lh-text);color:var(--muted)}
+.flows .fl-note[hidden]{display:none}
+
+/* 더보기 · 접기: 눈에 띄는 종목 카드의 키와 같은 모양(한 줄 전체 키, 꺾쇠) — 꺾쇠는 펼칠 때 open, 접을 때 close로 반 바퀴 */
+.flows .fl-more{position:relative;display:flex;align-items:center;justify-content:center;gap:var(--space-3);width:100%;min-height:var(--h-key);margin-top:var(--space-4);padding:0;border-radius:var(--r-key);background:var(--key-bg);box-shadow:var(--key-sh);
+  font-size:var(--fs-sm);line-height:var(--lh-ui);font-weight:600;color:var(--key-fg);text-align:center;touch-action:manipulation;-webkit-tap-highlight-color:transparent;
+  transition:transform var(--c-fast) var(--c-out),box-shadow var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out),background-color var(--sp-fade-dur) var(--sp-fade)}
+.flows .fl-more[hidden]{display:none}
+.flows .fl-more:is(:active,.is-press){transform:translateY(1px);box-shadow:var(--key-dn);filter:var(--press-f);transition-duration:0s}
+.flows .fl-more::after{content:"";flex:none;width:6px;height:6px;border:solid var(--key-ic);border-width:0 1.75px 1.75px 0;transform:translateY(-25%) rotate(45deg);transition:transform var(--sp-close-dur) var(--sp-close)}
+.flows .fl-more[aria-expanded="true"]::after{transform:translateY(25%) rotate(225deg);transition-duration:var(--sp-open-dur);transition-timing-function:var(--sp-open)}
+@media (pointer:coarse){ .flows .fl-more::before{content:"";position:absolute;left:0;right:0;top:50%;height:44px;transform:translateY(-50%)} }
+
+/* 다시 시도 키(KH.ui.retry — 표면 · 상태는 템플릿 .kasync) */
+.flows .fl-rk.kasync{position:relative;display:inline-flex;align-items:center;justify-content:center;height:var(--h-chip);padding:0 var(--space-5);border-radius:var(--r-key);background:var(--key-bg);box-shadow:var(--key-sh);
+  font-size:var(--fs-sm);line-height:var(--lh-ui);font-weight:600;color:var(--key-fg);white-space:nowrap;touch-action:manipulation;
+  transition:transform var(--c-fast) var(--c-out),box-shadow var(--c-fast) var(--c-out),filter var(--c-fast) var(--c-out)}
+.flows .fl-rk.kasync:is(:active,.is-press){transform:translateY(1px);box-shadow:var(--key-dn);filter:var(--press-f);transition-duration:0s}
+@media (pointer:coarse){ .flows .fl-rk.kasync::before{content:"";position:absolute;left:50%;top:50%;width:max(100%,44px);height:44px;transform:translate(-50%,-50%)} }
+
+/* 더보기 · 접기 = 펼치는 목록 (design.md §7, flows.js fold): 목록 상자만 open으로 열리고(아래가 열리는 클립), 새 줄(.fl-x)은 상자가 25 %
+   열린 뒤 §6-4로 함께(흐림 2px · 4px), 접을 땐 새 줄이 먼저 함께 나가고(100ms) 상자가 close로 닫혀요 */
+.flows .fl-list.fl-fold-anim > .fl-x{opacity:0;transform:translateY(var(--space-2));filter:blur(2px)}
+.flows .fl-list.fl-fold-in > .fl-x{opacity:1;transform:none;filter:none;transition:opacity var(--fl-tx-in) var(--sp-fade),transform var(--fl-tx-in) var(--sp-fade),filter var(--fl-tx-in) var(--sp-fade)}
+.flows .fl-list.fl-fold-out > .fl-x{opacity:0;transform:translateY(calc(-1 * var(--space-2)));filter:blur(2px);transition:opacity var(--fl-tx-out) var(--sp-close),transform var(--fl-tx-out) var(--sp-close),filter var(--fl-tx-out) var(--sp-close)}
+
+html[data-theme="paper"] .flows .fl-r{border-radius:0;box-shadow:inset 0 -1px 0 var(--row-bd)}
+
+</style>
+<script>
+/* 투자자별 순매수 카드 (AGENTS §3-40 계약 · 화면, 사용자 2026-11-16 15:25 "순매수 순매도 순위 만들건데" → 15:31 "나랑 가족만 볼수있도록").
+   자리: 옆 칸 눈에 띄는 종목 카드 바로 다음(PC · 태블릿 · 휴대폰 모두 같은 순서) — 지도는 움직이지 않아요.
+   머리: 시장 전체 3주체(/api/flows/market, 네이버 dealTrendInfo, 억원) — 지금 탭 시장(코스피 K · 코스닥 Q, 그 밖 탭은 둘 다), "HH:MM 기준",
+     지난 값이면 ! (--fail-dot). 장중 · 카드가 화면 근처면 60초, 그 밖 10분마다.
+   고르기: [외국인 · 기관 · 개인] × [순매수 · 순매도] (템플릿 .movers-tabs 세그먼트 — 표시는 KH.ui.seg), 목록 10줄 + 더보기 30줄(펼치는 목록,
+     design.md §7 — 목록 상자만 `open`으로 자라고 아래는 한 번에, 새 줄은 25 % 뒤 §6-4로, 접을 땐 새 줄이 먼저 나가고 `close`).
+   줄: 순위 · 오늘 캔들(KH.candleIcon(KH.ohlc)) · 이름(누르면 눈에 띄는 종목 카드와 같은 곳 — 종목 페이지, 없으면 빠른 보기) · 금액(억원 · 조,
+     등락색) · 작은 등락률.
+   원천: 모두에게 = flows.json 1일 칸([0] 외국인 · [1] 기관 · [2] 개인, 확정 — "M/D 확정"), 시장은 KH.stock(c).m 또는 names.json.
+     초대 토큰이 있는 기기(KH.inv.has()) + KH.flowsLive.data().slot이 있고 flows.json asOf가 오늘이 아니면: 외국인 · 기관 = 오늘 잠정(rank,
+     전체 · 그 밖 탭은 코스피 + 코스닥을 합쳐 다시 정렬), 개인은 확정 + "개인은 장 마감 뒤 저녁에 확정돼요". 잠정 자료는 카드가 화면 근처에
+     올 때만 KH.flowsLive.want('card', true). 공개 기기엔 그 흔적이 없어요(글자 · 출처 줄 · 요청 모두).
+   KH.inv · KH.flowsLive가 없는 템플릿(옛 빌드)이면 공개 기기처럼. 스냅샷(dist/)은 내장 flows.json 목록 + 시장 전체 줄은 실시간 버전 안내.
+   window.KHFlows = {state(), market(maxAge?) → Promise<시장 전체 상태>, marketState(), render(), refresh()} — 요약 카드가 같은 시장 전체 값을
+     따로 받지 않게 market()을 같이 써요. */
+(() => {
+'use strict';
+const KH = window.KH;
+if (!KH || typeof KH.h !== 'function' || window.KHFlows) return;
+
+const h = KH.h, UI = KH.ui || {};
+const LIVE = KH.MODE === 'live';
+const MINUS = '−';
+const TOP = 10, MAX = 30;
+const WHO = [['f', '외국인'], ['i', '기관'], ['p', '개인']], WHO_IX = { f: 0, i: 1, p: 2 }, WHO_NAME = Object.fromEntries(WHO);
+const DIR = [['buy', '순매수'], ['sell', '순매도']];
+const MKT = { K: '코스피', Q: '코스닥' };
+const NF0 = new Intl.NumberFormat('ko-KR', { maximumFractionDigits: 0 });
+const NF1 = new Intl.NumberFormat('ko-KR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+const NF2 = new Intl.NumberFormat('ko-KR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const put = (el, ...kids) => { el.replaceChildren(...kids.flat(Infinity).filter(k => k != null && k !== false && k !== '')); return el; };
+const sg = v => (v > 0 ? '+' : v < 0 ? MINUS : '');
+const cls = v => (v > 0 ? 'up' : v < 0 ? 'dn' : 'flat');
+// 억원 → "+1,234억" · "−1.2조" · 10억 아래는 소수 한 자리("+3.4억")
+const eokAbs = a => (a >= 10000 ? NF1.format(a / 10000) + '조' : a >= 10 ? NF0.format(Math.round(a)) + '억' : NF1.format(a) + '억');
+const amt = v => { const a = Math.abs(+v || 0); return (a < 0.05 ? '' : sg(v)) + eokAbs(a); };
+const pctText = v => { const r = +(+v).toFixed(2); return sg(r) + NF2.format(Math.abs(r)) + '%'; };
+const pad = n => String(n).padStart(2, '0');
+const nowMs = () => (typeof KH.now === 'function' ? KH.now() : Date.now());
+const kstOf = ms => { const k = new Date(ms + 9 * 3600e3); return { dow: k.getUTCDay(), hm: k.getUTCHours() * 100 + k.getUTCMinutes(), hhmm: `${pad(k.getUTCHours())}:${pad(k.getUTCMinutes())}`, day: `${k.getUTCFullYear()}-${pad(k.getUTCMonth() + 1)}-${pad(k.getUTCDate())}` }; };
+const DOW = '일월화수목금토';
+const md = ymd => { const m = /^(\d{4})-(\d\d)-(\d\d)/.exec(ymd || ''); return m ? `${+m[2]}/${+m[3]}` : ''; };
+const mdw = ymd => { const m = /^(\d{4})-(\d\d)-(\d\d)/.exec(ymd || ''); if (!m) return ''; const w = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3])).getUTCDay(); return `${+m[2]}/${+m[3]} (${DOW[w]})`; };
+const today = () => kstOf(nowMs()).day;
+const motion = () => (typeof KH.motion === 'function' ? KH.motion() : 'standard');
+const store = {
+  get(k, d) { try { const v = localStorage.getItem('khm.' + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem('khm.' + k, JSON.stringify(v)); } catch (e) { /* private mode */ } },
+};
+
+/* ───────── 장 · 탭 ───────── */
+// 정규장 중: 시세가 OPEN이거나, 평일 09:00~15:30이고 시세가 오늘 것(휴장일이 아님)
+function inSession() {
+  const st = typeof KH.marketStatus === 'function' ? KH.marketStatus() || {} : {};
+  if (st.KOSPI === 'OPEN' || st.KOSDAQ === 'OPEN') return true;
+  const n = kstOf(nowMs());
+  if (n.dow === 0 || n.dow === 6 || n.hm < 900 || n.hm >= 1530) return false;
+  const a = Date.parse(KH.asOf() || '');
+  return isFinite(a) && kstOf(a).day === n.day;
+}
+// 코스피 탭 → K, 코스닥 탭 → Q, 그 밖(전체 · 테마 · 관심) → 둘 다
+const scope = () => { const m = typeof KH.market === 'function' ? KH.market() : 'ALL'; return m === 'K' || m === 'Q' ? m : 'KQ'; };
+
+/* ───────── 가족(초대 토큰이 있는 기기) — 템플릿 KH.inv · KH.flowsLive, 없으면 공개 기기처럼 ───────── */
+const inv = () => (LIVE && KH.inv && typeof KH.inv.has === 'function' ? KH.inv : null);
+const fam = () => { try { const I = inv(); return !!(I && I.has()); } catch (e) { return false; } };
+const liveApi = () => (fam() && KH.flowsLive && typeof KH.flowsLive.data === 'function' ? KH.flowsLive : null);
+// 오늘 잠정을 보여 줄 수 있으면 그 자료(slot이 있고 오늘 것), 아니면 null. flows.json이 오늘 것이 되면 잠정을 그만 써요
+function livePayload() {
+  const L = liveApi();
+  if (!L) return null;
+  let p = null;
+  try { p = L.data(); } catch (e) { p = null; }
+  if (!p || p.closed || !p.slot || !p.rank || typeof p.rank !== 'object') return null;   // closed: 휴장일 — 잠정 없음
+  const t = today();
+  if (p.date && p.date !== t) return null;
+  if (S.file && S.file.asOf === t) return null;
+  return p;
+}
+
+/* ───────── 상태 ───────── */
+const S = {
+  who: WHO_IX[store.get('flowsWho', 'f')] != null ? store.get('flowsWho', 'f') : 'f',
+  dir: store.get('flowsDir', 'buy') === 'sell' ? 'sell' : 'buy',
+  more: false,                       // 더보기 (이 페이지에서만)
+  file: null, fileFail: false, fileAt: 0,
+  names: null, namesDone: !LIVE,     // Map code → [name, 'K'|'Q'] (names.json); done = tried (a failed load: the streamed rows' markets only)
+  near: !('IntersectionObserver' in window),
+  wanted: false,
+};
+// 시장 전체 (요약 카드도 같이 써요): j = 마지막 응답, at = 받은 때(Date.now), fail = 마지막 시도 실패, gone = 404(그 경로가 없는 옛 Worker)
+const MK = { j: null, at: 0, fail: false, gone: false, busy: null, tries: 0, hold: false };
+
+async function getJSON(url, wait = 9000) {
+  const ac = new AbortController(), t = setTimeout(() => ac.abort(), wait);
+  try {
+    const r = await fetch(url, { signal: ac.signal });
+    let body = null;
+    try { body = await r.json(); } catch (e) { body = null; }
+    return { status: r.status, ok: r.ok, body };
+  } finally { clearTimeout(t); }
+}
+function marketTtl() { return MK.gone ? 600e3 : MK.fail ? 60e3 : inSession() && S.near ? 60e3 : 600e3; }
+// maxAge(ms) 안에 받은 값이 있으면 그대로, 아니면 새로 받아요(같은 때 둘이 물으면 한 번만)
+function market(maxAge) {
+  if (!LIVE) return Promise.resolve(marketState());
+  const age = maxAge == null ? marketTtl() : maxAge;
+  if (MK.busy) return MK.busy;
+  if (MK.at && Date.now() - MK.at < age) return Promise.resolve(marketState());
+  MK.busy = (async () => {
+    try {
+      const r = await getJSON('api/flows/market');
+      if (r.status === 404) { MK.gone = true; MK.fail = false; MK.j = null; }
+      else if (r.ok && r.body && typeof r.body === 'object' && (r.body.K || r.body.Q)) { MK.j = r.body; MK.fail = false; MK.gone = false; }
+      else MK.fail = true;
+    } catch (e) { MK.fail = true; }
+    MK.at = Date.now(); MK.busy = null; MK.tries++;
+    soon();
+    document.dispatchEvent(new CustomEvent('kh:flowsmarket', { detail: marketState() }));
+    return marketState();
+  })();
+  return MK.busy;
+}
+// 장 시작 전엔 그날 date로 0 · 0 · 0이 와요(실측 11/23 08:45) — 0억이 아니라 "아직 집계 전"
+const marketZero = (j, ms) => ms.every(m => !j[m] || ['personal', 'foreign', 'institutional'].every(k => !(+j[m][k])));
+const marketState = () => ({ zero: !!(MK.j && marketZero(MK.j, ['K', 'Q'])), j: MK.j, at: MK.at, fail: MK.fail, gone: MK.gone, stale: !!(MK.j && MK.j.stale) || (MK.fail && !!MK.j), tried: MK.tries > 0 || !LIVE });
+
+async function loadFile(force) {
+  if (S.file && !force) return S.file;
+  let j = null;
+  if (force && LIVE) {             // 저녁 21:30 작업 뒤 새 파일(KH.loadData는 한 번 읽으면 기억해요)
+    try { const r = await getJSON('data/flows.json?t=' + Math.floor(Date.now() / 600e3)); j = r.ok ? r.body : null; } catch (e) { j = null; }
+  } else j = await KH.loadData('flows');
+  if (j && j.f && typeof j.f === 'object') { S.file = j; S.fileFail = false; RANK.clear(); }
+  else if (!S.file) S.fileFail = true;
+  S.fileAt = Date.now();
+  soon();
+  return S.file;
+}
+async function loadNames() {
+  if (S.names || !LIVE) return S.names;
+  const j = await KH.loadData('names');
+  if (j && j.n) S.names = new Map(Object.entries(j.n));
+  S.namesDone = true; RANK.clear(); soon();
+  return S.names;
+}
+const mktOf = c => { const s = KH.stock(c); if (s && (s.m === 'K' || s.m === 'Q')) return s.m; const x = S.names && S.names.get(c); return x ? x[1] : null; };
+const nameOf = c => { const s = KH.stock(c); return (s && s.n) || (S.names && S.names.get(c) && S.names.get(c)[0]) || c; };
+
+/* ───────── 순위 ───────── */
+// 확정(flows.json): 시장 · 주체 · 방향마다 한 번만 정렬해 둬요(파일 · 이름표가 바뀌면 다시)
+const RANK = new Map();
+function fileRows(sc, who, dir) {
+  const F = S.file;
+  if (!F || (sc !== 'KQ' && !S.namesDone)) return null;   // a market's list waits for names.json (codes outside the stream)
+  const key = `${sc}|${who}|${dir}`;
+  if (RANK.has(key)) return RANK.get(key);
+  const ix = WHO_IX[who], stale = F.stale || {}, out = [];
+  for (const c in F.f) {
+    const v = F.f[c];
+    if (!Array.isArray(v) || stale[c] || v[ix] == null || !isFinite(+v[ix])) continue;
+    const a = +v[ix];
+    if (dir === 'buy' ? !(a > 0) : !(a < 0)) continue;
+    if (sc !== 'KQ') { const m = mktOf(c); if (m !== sc) continue; }
+    out.push({ c, a });
+  }
+  out.sort((x, y) => (dir === 'buy' ? y.a - x.a : x.a - y.a) || (x.c < y.c ? -1 : x.c > y.c ? 1 : 0));   // same amount: by code (fixed order)
+  const top = out.slice(0, MAX);
+  RANK.set(key, top);
+  return top;
+}
+// 잠정(rank): 행 = [코드, 이름, 금액(억원), 수량, 현재가, 등락률]. 순매도 목록은 늘 −, 순매수는 늘 +(방향은 목록이 정해요)
+function liveRows(p, sc, who, dir) {
+  const ms = sc === 'KQ' ? ['K', 'Q'] : [sc], out = [];
+  for (const m of ms) {
+    const L = p.rank[m] && p.rank[m][who] && p.rank[m][who][dir];
+    if (!Array.isArray(L)) continue;
+    for (const r of L) {
+      if (!Array.isArray(r) || !/^[0-9A-Z]{6}$/.test(String(r[0])) || !isFinite(+r[2])) continue;
+      const a = Math.abs(+r[2]) * (dir === 'buy' ? 1 : -1);
+      out.push({ c: String(r[0]), n: r[1] ? String(r[1]) : null, a, r: isFinite(+r[5]) && r[5] !== null && r[5] !== '' ? +r[5] : null, m });
+    }
+  }
+  out.sort((x, y) => (dir === 'buy' ? y.a - x.a : x.a - y.a) || (x.c < y.c ? -1 : x.c > y.c ? 1 : 0));   // same amount: by code (fixed order)
+  return out.slice(0, MAX);
+}
+// 지금 보여 줄 것: {src:'file'|'live', rows, p?, note?}
+function pick() {
+  const sc = scope(), p = S.who === 'p' ? null : livePayload();
+  if (p) {
+    const rows = liveRows(p, sc, S.who, S.dir);
+    if (rows.length) return { src: 'live', rows, p, sc };
+    // 기관 첫 입력(10:00) 전처럼 그 주체 · 방향 잠정이 아직 없으면 확정 목록 + 짧은 말(가족 기기에만)
+    return { src: 'file', rows: fileRows(sc, S.who, S.dir), sc, note: `${WHO_NAME[S.who]} 잠정은 다음 입력분부터 보여요` };
+  }
+  const out = { src: 'file', rows: fileRows(sc, S.who, S.dir), sc };
+  if (S.who === 'p' && livePayload()) out.note = '개인은 장 마감 뒤 저녁에 확정돼요';
+  return out;
+}
+
+/* ───────── 그리기 ───────── */
+let host = null, P = null;
+const ICON_WARN = () => (typeof UI.icon === 'function' ? UI.icon('warn') : h('span', { class: 'fl-bang', 'aria-hidden': 'true', text: '!' }));
+function segOf(label, items, cur, on) {
+  const seg = h('div', { class: 'movers-tabs fl-seg', role: 'group', 'aria-label': label },
+    items.map(([v, t]) => h('button', { type: 'button', 'data-v': v, 'aria-pressed': String(v === cur), text: t })));
+  seg.addEventListener('click', e => { const b = e.target.closest('button[data-v]'); if (b && seg.contains(b)) on(b.dataset.v); });
+  return seg;
+}
+function mount() {
+  host = h('section', { class: 'card flows', id: 'flowsCard', 'aria-labelledby': 'fl-h' });
+  const scopeEl = h('small', { class: 'fl-scope' });
+  const mkt = h('div', { class: 'fl-mkt' });
+  const who = segOf('투자자', WHO, S.who, v => { if (v === S.who) return; S.who = v; store.set('flowsWho', v); render(true); });
+  const dir = segOf('순매수 · 순매도', DIR, S.dir, v => { if (v === S.dir) return; S.dir = v; store.set('flowsDir', v); render(true); });
+  const lab = h('p', { class: 'fl-lab' });
+  const list = h('div', { class: 'fl-list', role: 'list', 'aria-labelledby': 'fl-h' });
+  const moreT = h('span', { class: 'fl-mt' });
+  const more = h('button', { type: 'button', class: 'fl-more', 'aria-expanded': 'false', hidden: true }, moreT);
+  more.addEventListener('click', () => toggleMore());
+  const note = h('p', { class: 'fl-note', hidden: true });
+  put(host, h('h2', null, h('span', { id: 'fl-h', text: '투자자별 순매수' }), ' ', scopeEl), mkt, h('div', { class: 'fl-ctl' }, who, dir), lab, list, more, note);
+  P = { scopeEl, mkt, who, dir, lab, list, more, moreT, note };
+  place();
+  if (typeof UI.seg === 'function') { UI.seg(who); UI.seg(dir); }
+}
+// 옆 칸의 눈에 띄는 종목 카드 바로 다음(휴대폰도 옆 칸 안이라 같은 순서). 그 카드가 없는 옛 템플릿이면 옆 칸 끝
+function place() {
+  const mv = document.getElementById('moverCard'), side = document.querySelector('main.layout > .side');
+  if (mv && mv.parentNode) { if (mv.nextElementSibling !== host) mv.after(host); }
+  else if (side && host.parentNode !== side) side.append(host);
+}
+
+// 시장 전체 줄: 표 하나(열 = 외국인 · 기관 · 개인, 줄 = 그 탭의 시장), 머리 오른쪽 "HH:MM 기준"
+function drawMarket() {
+  const box = P.mkt;
+  if (MK.hold) return;                                  // 다시 시도 키가 받는 중 · 받았어요를 보이는 동안은 그대로
+  if (!LIVE) {
+    put(box, h('p', { class: 'fl-wait' }, '시장 전체 수급은 ', h('a', { href: KH.LIVE_URL, target: '_blank', rel: 'noopener', text: '실시간 버전' }), '에서 볼 수 있어요'));
+    box.hidden = false; return;
+  }
+  const M = marketState();
+  if (M.gone) { box.hidden = true; box.replaceChildren(); return; }   // 그 경로가 없는 옛 Worker: 줄 없이 목록만
+  box.hidden = false;
+  const sc = scope(), ms = sc === 'KQ' ? ['K', 'Q'] : [sc];
+  const j = M.j;
+  if (!j) {
+    if (M.fail) put(box, h('p', { class: 'fl-fail', role: 'status' }, ICON_WARN(), h('span', { text: '시장 전체 수급을 불러오지 못했어요' }), retryKey()));
+    else put(box, h('p', { class: 'fl-wait', role: 'status', text: '시장 전체 수급을 받는 중…' }));
+    return;
+  }
+  const a = Date.parse(j.asOf || ''), k = isFinite(a) ? kstOf(a) : null;
+  const when = j.date && j.date !== today() ? `${mdw(j.date)} 기준` : k ? `${k.hhmm} 기준` : '';
+  const stale = M.stale;
+  if (marketZero(j, ms)) {
+    put(box, h('p', { class: 'fl-mh' }, h('span', { text: '시장 전체' })), h('p', { class: 'fl-wait', role: 'status', text: '아직 집계 전이에요 · 장이 열리면 들어와요' }));
+    return;
+  }
+  const head = h('p', { class: 'fl-mh' }, h('span', { text: '시장 전체' }),
+    h('span', { class: 'fl-at' + (stale ? ' stale' : ''), title: stale ? '새 값을 받지 못해 지난 값을 보여 줘요' : '네이버 증권 · 장중엔 그때까지 합한 값이에요' },
+      stale ? ICON_WARN() : null, h('span', { text: when }), stale ? h('span', { class: 'sr', text: ' · 새 값을 받지 못했어요' }) : null));
+  const rows = ms.map(m => {
+    const x = j[m];
+    const cell = key => { const v = x && isFinite(+x[key]) && x[key] !== null ? +x[key] : null; return h('td', { class: 'fl-v ' + (v == null ? 'flat' : cls(v)), text: v == null ? '—' : amt(v) }); };
+    return h('tr', null, h('th', { scope: 'row', text: MKT[m] }), cell('foreign'), cell('institutional'), cell('personal'));
+  });
+  put(box, head, h('table', { class: 'fl-mt' }, h('caption', { class: 'sr', text: '시장 전체 투자자별 순매수 (억원)' }),
+    h('thead', null, h('tr', null, h('td'), ...WHO.map(([, t]) => h('th', { scope: 'col', text: t })))), h('tbody', null, rows)));
+}
+function retryKey() {
+  if (typeof UI.retry !== 'function') return null;
+  return UI.retry({ cls: 'fl-rk', run: async () => { const s = await market(0); return s.j && !s.fail ? true : false; },
+    onStart: () => { MK.hold = true; }, onFail: () => { MK.hold = false; }, render: () => { MK.hold = false; drawMarket(); },
+    alive: () => { const ok = !!host && host.isConnected; if (!ok) MK.hold = false; return ok; } });
+}
+
+// 목록 머리 줄: 확정 "11/20 (금) 확정" · 잠정 "잠정 · 14:30 입력분" + 작은 출처
+function drawLabel(pk) {
+  const F = S.file, sc = pk.sc;
+  const where = sc === 'KQ' ? '코스피 · 코스닥' : MKT[sc];
+  if (pk.src === 'live') {
+    put(P.lab, h('span', { class: 'fl-tag', text: `잠정 · ${pk.p.slot} 입력분` }), h('small', { class: 'fl-src', text: '한국투자증권 가집계' }));
+    P.lab.title = `${where} · ${WHO_NAME[S.who]} ${S.dir === 'buy' ? '순매수' : '순매도'} 상위 · 입력 시각까지 누적한 잠정치예요` + (pk.p.at ? ` · ${pk.p.at}에 받았어요` : '');
+    return;
+  }
+  put(P.lab, F && F.asOf ? h('span', { class: 'fl-tag', text: `${mdw(F.asOf)} 확정` }) : null, h('small', { class: 'fl-src', text: '금액 = 순매수 주식 수 × 그날 종가' }));
+  P.lab.title = F && F.asOf ? `${where} · 네이버 증권 · 매일 장 마감 뒤 저녁에 받아요` : '';
+}
+const pctOf = (c, fallback) => {
+  let q = null;
+  try { q = typeof KH.quote === 'function' ? KH.quote(c) : null; } catch (e) { q = null; }
+  if (q && isFinite(+q.r) && +q.p > 0) return +q.r;
+  const s = KH.stock(c);
+  if (s && isFinite(+s.r) && +s.p > 0) return +s.r;
+  return fallback == null ? null : fallback;
+};
+function openStock(c, btn) {
+  if (typeof KH.openStock === 'function' && KH.openStock(c, { opener: btn })) return;   // 눈에 띄는 종목 카드와 같은 곳(종목 페이지)
+  if (typeof KH.quick === 'function') KH.quick(c, btn);
+}
+function rowEl(x, i) {
+  const n = x.n || nameOf(x.c), r = pctOf(x.c, x.r);
+  let o = null;
+  try { o = typeof KH.ohlc === 'function' ? KH.ohlc(x.c) : null; } catch (e) { o = null; }
+  const icon = typeof KH.candleIcon === 'function' ? KH.candleIcon(o) : h('span', { class: 'cdi none' });
+  const label = `${i + 1}위 ${n}, ${WHO_NAME[S.who]} ${S.dir === 'buy' ? '순매수' : '순매도'} ${amt(x.a)}원` + (r == null ? '' : `, 등락률 ${pctText(r)}`) + ' · 종목 페이지';
+  const b = h('button', { type: 'button', class: 'fl-r' + (i >= TOP ? ' fl-x' : ''), role: 'listitem', 'data-c': x.c, 'aria-label': label },
+    h('span', { class: 'fl-rk', 'aria-hidden': 'true', text: String(i + 1) }), icon, h('span', { class: 'nm', text: n }),
+    h('b', { class: 'fl-a ' + cls(x.a), text: amt(x.a) }),
+    h('small', { class: 'fl-p ' + (r == null ? 'flat' : cls(+r.toFixed(2))), text: r == null ? '—' : pctText(r) }));
+  b.addEventListener('click', () => openStock(x.c, b));
+  return b;
+}
+let lastSig = '';
+function drawList(pk, force) {
+  const rows = pk.rows;
+  const wait = rows == null;
+  if (wait) {
+    const failed = S.fileFail;
+    put(P.list, h('p', { class: failed ? 'fl-fail' : 'fl-wait', role: 'status' }, failed ? ICON_WARN() : null,
+      h('span', { text: failed ? '종목별 수급 자료를 불러오지 못했어요 · 잠시 뒤 다시 받아요' : '종목별 수급을 받는 중…' })));
+    P.more.hidden = true; lastSig = ''; return;
+  }
+  if (!rows.length) {
+    put(P.list, h('p', { class: 'fl-wait', role: 'status', text: `${WHO_NAME[S.who]} ${S.dir === 'buy' ? '순매수' : '순매도'} 종목이 없어요.` }));
+    P.more.hidden = true; lastSig = ''; return;
+  }
+  const n = S.more ? Math.min(MAX, rows.length) : Math.min(TOP, rows.length);
+  const shown = rows.slice(0, n);
+  // 같은 줄(종목 · 금액 · 등락률 · 캔들)이면 다시 만들지 않아요 — 포커스 · 누르는 중인 줄이 그대로
+  const sig = shown.map(x => `${x.c}:${x.a}:${pctOf(x.c, x.r)}:${JSON.stringify(typeof KH.ohlc === 'function' ? KH.ohlc(x.c) : null)}`).join('|') + `|${S.who}${S.dir}`;
+  if (force || sig !== lastSig) {
+    const fc = document.activeElement && P.list.contains(document.activeElement) ? document.activeElement.dataset.c : null;
+    put(P.list, shown.map(rowEl));
+    if (fc) { const b = P.list.querySelector(`[data-c="${fc}"]`); if (b) b.focus({ preventScroll: true }); }
+    lastSig = sig;
+  }
+  const total = Math.min(MAX, rows.length);
+  P.more.hidden = total <= TOP;
+  const txt = S.more ? '접기' : `더보기 (${total}개)`;
+  P.more.setAttribute('aria-expanded', String(S.more));
+  if (P.moreT.textContent !== txt) P.moreT.textContent = txt;
+}
+function drawNote(pk) {
+  const t = pk.note || '';
+  if (P.note.textContent !== t) P.note.textContent = t;
+  P.note.hidden = !t;
+}
+let renderT = 0;
+function render(force) {
+  if (!P) return;
+  clearTimeout(renderT); renderT = 0;
+  if (FOLD.run) { FOLD.pending = true; return; }
+  const sc = scope();
+  P.scopeEl.textContent = sc === 'KQ' ? '코스피 · 코스닥' : MKT[sc];
+  for (const [seg, cur] of [[P.who, S.who], [P.dir, S.dir]]) for (const b of seg.children) b.setAttribute('aria-pressed', String(b.dataset.v === cur));
+  drawMarket();
+  const pk = pick();
+  host.dataset.src = pk.src;
+  drawLabel(pk);
+  drawList(pk, force);
+  drawNote(pk);
+  footer(pk);
+}
+// 시세 · 탭이 바뀌는 대로 자주 오는 이벤트는 한 프레임에 한 번
+function soon() { if (!renderT) renderT = setTimeout(() => { renderT = 0; render(false); }, 60); }
+
+/* ───────── 더보기 · 접기 = 펼치는 목록 (design.md §7 · news.js fold · 종목 페이지 foldMove와 같은 규칙) ─────────
+   펼칠 때: 레이아웃은 누르는 순간 한 번에 새 높이(아래 내용이 한 번만 움직여요), 목록 상자는 옛 높이로 잘린 채 `open`으로 열리고, 새 줄
+   (.fl-x)은 상자가 25 % 열린 뒤 함께 §6-4로 들어와요. 접을 때: 새 줄이 먼저 함께 나가고(100ms) 상자가 높이를 지킨 채 `close`로 닫힌 뒤
+   레이아웃이 한 번에 올라와요. 줄이기 · 숨은 페이지 · 스프링 엔진 없음 = 끝 상태 바로. 순차 등장 없음(자주 여는 것, §6-2). */
+const FOLD = { run: null, pending: false };
+const TX_OUT = 100, BLEED = 8;
+const clipTo = b => `inset(-${BLEED}px -${BLEED}px ${Math.max(0, b).toFixed(1)}px -${BLEED}px)`;
+function fold(box, want, apply, onEnd) {
+  if (FOLD.run) FOLD.run.finish();
+  const ok = KH.spring && typeof KH.spring.animate === 'function' && motion() !== 'reduced' && !document.hidden && box.isConnected && box.getClientRects().length > 0;
+  if (!ok) { apply(want); if (onEnd) onEnd(); return; }
+  const me = { done: false, h: null, t: 0, end: () => {} };
+  const finish = () => {
+    if (me.done) return; me.done = true; clearTimeout(me.t); if (me.h) me.h.stop();
+    if (FOLD.run === me) FOLD.run = null;
+    me.end(); if (onEnd) onEnd();
+    if (FOLD.pending) { FOLD.pending = false; render(false); }
+  };
+  me.finish = finish; FOLD.run = me;
+  const run = (name, frame) => { me.h = KH.spring.animate({ from: 0, to: 1, name, onUpdate: p => { if (!me.done) frame(p); }, onRest: finish }); };
+  if (want) {
+    const H0 = box.offsetHeight;
+    apply(true);
+    const D = box.offsetHeight - H0;
+    me.end = () => { box.classList.remove('fl-fold-anim', 'fl-fold-in'); box.style.clipPath = ''; };
+    if (!(D > 0)) { finish(); return; }
+    box.classList.add('fl-fold-anim');
+    let shown = false;
+    const frame = p => { box.style.clipPath = clipTo((1 - p) * D); if (!shown && p >= 0.25) { shown = true; box.classList.add('fl-fold-in'); } };
+    frame(0);
+    run('open', frame);
+    return;
+  }
+  const x = box.querySelector('.fl-x'), H1 = box.offsetHeight, D = x ? H1 - x.offsetTop : 0;
+  box.style.height = H1 + 'px';
+  box.classList.add('fl-fold-out');
+  me.end = () => { box.classList.remove('fl-fold-out'); box.style.clipPath = ''; box.style.height = ''; apply(false); };
+  if (!(D > 0)) { finish(); return; }
+  me.t = setTimeout(() => { if (!me.done) run('close', p => { box.style.clipPath = clipTo(p * D); }); }, TX_OUT);
+}
+function toggleMore() {
+  const want = !S.more, was = P.moreT.textContent;
+  fold(P.list, want, w => {
+    S.more = w; drawList(pick(), true);
+    if (typeof UI.swap === 'function' && P.moreT.textContent !== was && motion() !== 'reduced') { const t = P.moreT.textContent; P.moreT.textContent = was; UI.swap(P.moreT, t, was); }
+  }, want ? null : () => {
+    // 접은 뒤: 카드 머리가 화면 위로 지나갔으면 머리로 돌아오고, 포커스는 그 키에(눈에 띄는 종목 카드와 같음)
+    const r = host.getBoundingClientRect();
+    if (r.top < 0) host.scrollIntoView({ block: 'start', behavior: motion() === 'reduced' ? 'auto' : 'smooth' });
+    P.more.focus({ preventScroll: true });
+  });
+}
+
+/* ───────── 페이지 아래 출처 줄 (공시 · 정책 자료 다음, © · 투자 유의 문구 위 — AGENTS §3-30) ───────── */
+const footP = h('p', { id: 'foot-flows', hidden: true });
+function footText(pk) {
+  if (!host || !host.isConnected || host.hidden) return '';
+  const base = '투자자별 순매수: 네이버 증권 (시장 전체는 장중 값, 종목별은 장 마감 뒤 확정)';
+  return pk && pk.src === 'live' ? base + ' · 종목별 잠정: 한국투자증권 가집계' : base + '.';
+}
+let footLast = '';
+function placeFoot() {
+  const foot = document.getElementById('foot');
+  if (!foot) return;
+  const after = document.getElementById('foot-policy') || document.getElementById('foot-disc');
+  if (!after || after.parentNode !== foot) { if (footP.parentNode) footP.remove(); return; }   // 해외 · 지표 · 일정: 이 줄 없음
+  if (after.nextElementSibling !== footP) after.after(footP);
+}
+function footer(pk) {
+  const t = footText(pk);
+  footLast = t;
+  if (footP.textContent !== t) footP.textContent = t;
+  footP.hidden = !t;
+  placeFoot();
+}
+const footEl = document.getElementById('foot');
+if (footEl) new MutationObserver(() => placeFoot()).observe(footEl, { childList: true });
+
+/* ───────── 받기 · 갱신 ───────── */
+function want(on) {
+  const L = KH.flowsLive;
+  const ok = !!on && fam() && L && typeof L.want === 'function';
+  if (ok === S.wanted) return;
+  S.wanted = ok;
+  try { if (L && typeof L.want === 'function') L.want('card', ok); } catch (e) { /* the template's own trouble */ }
+}
+function tick(force) {
+  if (document.hidden && !force) return;
+  if (!S.file || (force && LIVE)) loadFile(false);
+  else if (LIVE && S.file.asOf !== today()) {
+    // 저녁 작업(21:30) 뒤 그날 파일 — 평일 21:00 넘으면 10분마다(보이는 동안) 다시 물어요
+    const n = kstOf(nowMs());
+    if (n.dow > 0 && n.dow < 6 && n.hm >= 2100 && S.near && Date.now() - S.fileAt > 600e3) loadFile(true);
+  }
+  if (LIVE && !S.names) loadNames();
+  if (LIVE) market(force ? 0 : marketTtl());
+}
+mount();
+if ('IntersectionObserver' in window) new IntersectionObserver(es => {
+  const v = es[es.length - 1].isIntersecting;
+  if (v === S.near) return;
+  S.near = v; want(v);
+  if (v) { tick(false); render(false); }
+}, { rootMargin: '300px' }).observe(host);
+else want(true);
+for (const ev of ['kh:render', 'kh:data', 'kh:basis', 'kh:flowslive']) document.addEventListener(ev, () => { place(); soon(); });
+document.addEventListener('kh:inv', () => { want(S.near); RANK.clear(); render(true); });
+document.addEventListener('kh:refresh', () => { tick(true); if (S.wanted && KH.flowsLive && typeof KH.flowsLive.refresh === 'function') { try { KH.flowsLive.refresh(); } catch (e) { /* ignore */ } } });
+document.addEventListener('visibilitychange', () => { if (!document.hidden) tick(false); });
+setInterval(() => tick(false), 15000);
+tick(false);
+render(true);
+// 초대 토큰 확인(/api/inv/me)이 끝나면 한 번 더(템플릿은 kh:inv도 보내요)
+{ const I = inv(); if (I && typeof I.ready === 'function') try { Promise.resolve(I.ready()).then(() => { want(S.near); render(true); }, () => {}); } catch (e) { /* ignore */ } }
+window.KHFlows = {
+  state: () => { const pk = pick(); return { scope: scope(), who: S.who, dir: S.dir, more: S.more, src: pk.src, rows: (pk.rows || []).map(x => ({ c: x.c, a: x.a })), near: S.near, wanted: S.wanted,
+    session: inSession(), ttl: marketTtl(), market: marketState(), file: S.file ? S.file.asOf : null, foot: footLast }; },
+  market: maxAge => market(maxAge),
+  marketState,
+  render: () => render(true),
+  refresh: () => tick(true),
+};
+})();
+
+</script>
+<style>
 /* 오늘의 시장 요약 카드 (docs/standards/market-summary.md, AGENTS §3-34). 맨 바깥 클래스는 .msum — 지도의 작은 타일 이름표가 .sm을 써요.
    design.md(승인 2026-11-15)대로: 글자 --fs-* · 간격 --space-* · 모서리 --r-* / 테마 --card-r · 높이 --h-* · 움직임 --sp-* 토큰만,
    빨강 · 초록은 숫자에만(.up · .dn), 앰버는 포커스 · 열린 키(--key-on)만, 장중 점은 --live, 빛 · 그라데이션 없음, 최소 11px. */
@@ -22721,6 +23376,12 @@ function phase() {
   return 'closed';                                   // a weekday with no trades today (공휴일)
 }
 const dataDay = () => { const a = asOfMs(); return a ? kstOf(a).day : null; };
+// close.json은 마지막 거래일 것일 때만 "오늘 마감"(§3-34 고칠 것 ①, 사용자 2026-11-16 18:40 — 16:40 작업이 늦어 금요일 상한가가 오늘로 나왔어요):
+// 오늘 마감(after) = 오늘, 장 전 · 휴장(pre · closed) = 바로 앞 평일 이후. 장중(open)은 close.json을 쓰지 않아요
+const prevWeekday = ymd => { const m = /^(\d{4})-(\d\d)-(\d\d)/.exec(ymd || ''); if (!m) return null; const d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]));
+  do d.setUTCDate(d.getUTCDate() - 1); while (d.getUTCDay() === 0 || d.getUTCDay() === 6); return d.toISOString().slice(0, 10); };
+const closeWant = ph => { const t = kstOf(nowMs()).day; return ph === 'after' ? t : prevWeekday(t); };
+const closeFresh = (cj, ph) => !!(cj && cj.date && cj.date >= closeWant(ph));
 const PILL = { pre: '장 전', open: '장중', after: '오늘 마감', closed: '휴장' };
 const streaming = () => { try { const L = window.KHLive, st = L && typeof L.state === 'function' ? L.state() : null; return !!(st && st.phase === 'stream'); } catch (e) { return false; } };
 function whenText(ph) {
@@ -22743,6 +23404,7 @@ const D = {
   wIdx: { j: null, at: 0, fail: false },
   wMac: { j: null, at: 0, fail: false },
   news: { j: null, at: 0, fail: false },
+  mflow: { j: null, at: 0, fail: false, gone: false, busy: false },   // /api/flows/market — src/flows(KHFlows.market)가 있으면 그쪽 것을 같이 써요
 };
 async function getJSON(url, wait = 9000) {
   const ac = new AbortController(), t = setTimeout(() => ac.abort(), wait);
@@ -22789,14 +23451,17 @@ async function pullBreadth(force) {
   const had = !!b.src;
   const own = () => { const K = [], Q = []; for (const s of KH.stocks()) (s.m === 'Q' ? Q : K).push({ c: s.c, r: +s.r || 0, lim: flagOf(s) }); return { K, Q }; };
   if (!LIVE) { if (!b.src) Object.assign(b, own(), { src: 'snapshot', date: dataDay() }); return; }
-  const ph = phase(), useClose = ph !== 'open' && !DEV_PHASE;
+  const ph = phase();
   const ttl = ph === 'open' ? 60e3 : 600e3;
-  if (!force && b.at && Date.now() - b.at < ttl && b.src) return;
+  if (!force && b.at && Date.now() - b.at < ttl && b.src && b.ph === ph) return;
   b.busy = true;
   try {
+    const [cj0, nm0] = ph !== 'open' ? await Promise.all([closeFile(), names()]) : [null, null];
+    // 오늘 마감인데 close.json이 오늘 것이 아니면(매일 작업이 늦음) 장중처럼 /api/breadth — 지난 거래일 상한가를 "오늘"이라 하지 않게.
+    // 장 전 · 휴장엔 파일 그대로(날짜를 머리 · 줄에 밝혀요), 파일이 없으면 /api/breadth
+    const useClose = ph !== 'open' && !!(cj0 && cj0.c && nm0) && (ph !== 'after' || closeFresh(cj0, ph));
     if (useClose) {
-      const [cj, nm] = await Promise.all([closeFile(), names()]);
-      if (!cj || !cj.c || !nm) throw new Error('close');
+      const cj = cj0, nm = nm0;
       const exact = cj.lim === true, limOf = exact ? null : new Map(KH.stocks().map(s => [s.c, flagOf(s)]));
       const K = [], Q = [];
       for (const c in cj.c) {
@@ -22805,15 +23470,15 @@ async function pullBreadth(force) {
         const lim = exact ? (x[3] === 1 || x[3] === -1 ? x[3] : 0) : limOf.has(c) ? limOf.get(c) : limGuess(r);
         (m[1] === 'Q' ? Q : K).push({ c, r, lim });
       }
-      Object.assign(b, { K, Q, src: 'close', exact, date: cj.date || null, fail: false });
+      Object.assign(b, { K, Q, src: 'close', exact, date: cj.date || null, fail: false, ph });
     } else {
       const [k, q] = await Promise.all(['K', 'Q'].map(m => getJSON(`api/breadth?m=${m}`)));
       const conv = j => ((j && j.rows) || []).filter(x => Array.isArray(x) && isFinite(+x[1])).map(x => ({ c: String(x[0]), r: +x[1], lim: x[2] === 1 || x[2] === -1 ? x[2] : 0 }));
-      Object.assign(b, { K: conv(k), Q: conv(q), src: 'breadth', exact: true, date: dataDay(), fail: false });
+      Object.assign(b, { K: conv(k), Q: conv(q), src: 'breadth', exact: true, date: dataDay(), fail: false, ph });
     }
   } catch (e) {
     b.fail = true;
-    if (!b.src) Object.assign(b, own(), { src: 'stream', exact: true, date: dataDay() });   // the streamed 600 at least (labelled so)
+    if (!b.src) Object.assign(b, own(), { src: 'stream', exact: true, date: dataDay(), ph });   // the streamed 600 at least (labelled so)
   }
   b.busy = false; b.at = Date.now();
   schedule(!had);
@@ -22833,7 +23498,28 @@ function refreshAll(force) {
   pull(D.market, 'api/market', 60e3, 300e3, force);
   pull(D.wIdx, 'api/world?kind=index', 120e3, 600e3, force);
   pull(D.wMac, 'api/world?kind=commodity&with=fx,rates', 120e3, 600e3, force);
+  pullFlows(force);
   if (newsOn) pull(D.news, 'api/news', 180e3, 180e3, force);
+}
+// 시장 전체 3주체 /api/flows/market (AGENTS §3-40): 투자자별 순매수 카드(src/flows)와 한 번만 받아요(KHFlows.market). 그 모듈이 없으면 직접,
+// 404(옛 Worker)는 10분 뒤에야 다시 물어요
+const mflow = () => { const K = window.KHFlows; return K && typeof K.marketState === 'function' ? K.marketState() : D.mflow; };
+function pullFlows(force) {
+  if (!LIVE) return;
+  const ttl = force ? 0 : fast() ? 60e3 : 600e3, K = window.KHFlows;
+  if (K && typeof K.market === 'function') { const pr = K.market(ttl); if (pr && typeof pr.then === 'function') pr.then(() => schedule(true), () => {}); return; }
+  const m = D.mflow;
+  if (m.busy || (m.at && Date.now() - m.at < (m.gone ? 600e3 : m.fail ? 60e3 : ttl))) return;
+  m.busy = true;
+  (async () => {
+    try {
+      const r = await fetch('api/flows/market');
+      if (r.status === 404) { m.gone = true; m.fail = false; m.j = null; }
+      else { const j = r.ok ? await r.json() : null; if (j && (j.K || j.Q)) { m.j = j; m.fail = false; m.gone = false; } else m.fail = true; }
+    } catch (e) { m.fail = true; }
+    m.busy = false; m.at = Date.now();
+    schedule(true);
+  })();
 }
 function warm() { if (!newsOn && LIVE) { newsOn = true; pull(D.news, 'api/news', 180e3, 180e3, false); } }
 
@@ -22844,10 +23530,12 @@ function rows(ph) {
   const all = KH.stocks().filter(s => /0$/.test(s.c));
   const top = [];
   for (const m of ['K', 'Q']) top.push(...all.filter(s => s.m === m).sort((a, b) => (b.cap || 0) - (a.cap || 0)).slice(0, 300));
-  const fixed = LIVE && ph !== 'open' && D.close && D.close.c;
+  const fixed = LIVE && ph !== 'open' && D.close && D.close.c && (ph !== 'after' || closeFresh(D.close, ph));
+  // 오늘 마감인데 close.json이 늦으면 시세 행 그대로 = KRX 값(KH.stock — 장 뒤엔 KRX 종가, NXT는 nx에 따로), 장중은 고른 가격 기준(KH.quote)
+  const krx = LIVE && ph === 'after';
   return top.map(s => {
     const x = fixed ? D.close.c[s.c] : null;
-    const q = !fixed && LIVE && typeof KH.quote === 'function' ? KH.quote(s.c) : null;
+    const q = fixed || !LIVE ? null : krx ? KH.stock(s.c) : typeof KH.quote === 'function' ? KH.quote(s.c) : null;
     const r = x ? +x[2] || 0 : q && isFinite(+q.r) ? +q.r : +s.r || 0;
     const lim = x && D.close.lim === true ? (x[3] === 1 || x[3] === -1 ? x[3] : 0) : flagOf(q || s);
     return { c: s.c, n: s.n, m: s.m, s: s.s, i: s.i, cap: +s.cap || 0, r, tv: +(q && q.tv != null ? q.tv : s.tv) || 0, lim };
@@ -22884,6 +23572,9 @@ function model() {
     const all = [...(b.K || []), ...(b.Q || [])];
     const cnt = xs => { let up = 0, dn = 0, fl = 0, lu = 0, ld = 0, u10 = 0, d10 = 0; for (const x of xs) { const r = rnd(x.r, 2); r > 0 ? up++ : r < 0 ? dn++ : fl++; if (x.lim > 0) lu++; else if (x.lim < 0) ld++; if (x.r >= 10) u10++; else if (x.r <= -10) d10++; } return { up, dn, fl, n: xs.length, lu, ld, u10, d10 }; };
     M.br = Object.assign(cnt(all), { K: cnt(b.K || []), Q: cnt(b.Q || []), src: b.src, med: median(all.map(x => x.r)), fail: b.fail, date: b.date });
+    // 장 전 · 휴장에 쓰는 close.json이 마지막 거래일 것이 아니면 그 날짜를 머리 · 줄에 밝혀요(§3-34 고칠 것 ①)
+    M.brOld = LIVE && b.src === 'close' && b.date && !closeFresh({ date: b.date }, ph) ? b.date : null;
+    if (M.brOld) M.when += ` · 종목 등락은 ${dayLong(M.brOld)} 종가`;
     M.br.say = breadthSentence(M.br, M.live);
     M.br.limUp = all.filter(x => x.lim > 0).map(x => x.c);
     if (M.capW != null && M.br.med != null) M.capSay = capSentence(M.capW, M.br.med, M.live);
@@ -22936,6 +23627,20 @@ function model() {
     }
     M.flows = { date: F.asOf, sum, all: [0, 1, 2].map(i => sum.K[i] + sum.Q[i]), top: fTop && fTop.v > 0 ? Object.assign(fTop, { n: nameOf(fTop.c) }) : null, bot: fBot && fBot.v < 0 ? Object.assign(fBot, { n: nameOf(fBot.c) }) : null };
     M.flows.today = F.asOf === kstOf(nowMs()).day;
+  }
+  // 시장 전체 3주체(AGENTS §3-40 ③, 네이버 dealTrendInfo): 그 값이 확정 파일보다 새 날이면(장중 · 장 뒤 21:30 작업 전) 외국인 · 기관 · 개인
+  // 줄은 이 값 + "HH:MM 기준". 경로가 없는 옛 Worker(404) · 실패면 확정 파일 그대로
+  const mf = mflow();
+  if (mf && mf.j && mf.j.date && (!F || !F.asOf || mf.j.date > F.asOf)) {
+    const j = mf.j, ms = ['K', 'Q'].filter(m => j[m] && typeof j[m] === 'object');
+    // 장 시작 전엔 그날 date에 0 · 0 · 0이 와요 — 아직 집계 전이라 확정 파일 그대로
+    const zero = ms.every(m => ['personal', 'foreign', 'institutional'].every(k => !(+j[m][k])));
+    if (ms.length && !zero) {
+      const v = k => ms.reduce((a, m) => a + (isFinite(+j[m][k]) ? +j[m][k] : 0), 0);
+      const a = Date.parse(j.asOf || ''), k = isFinite(a) ? kstOf(a) : null;
+      M.mflows = { all: [v('foreign'), v('institutional'), v('personal')], date: j.date, today: j.date === kstOf(nowMs()).day, at: k ? k.hhmm : null,
+        stale: !!(j.stale || mf.fail), only: ms.length === 1 ? ms[0] : null };
+    }
   }
   // 환율 · 금리 · 해외
   const mk = D.market.j && Array.isArray(D.market.j.items) ? new Map(D.market.j.items.map(x => [x.key, x])) : new Map();
@@ -23033,7 +23738,8 @@ const lsw = d => h('i', { class: 'sm-lsw ' + d, 'aria-hidden': 'true' });
 const limCls = (n, dir) => (n ? (dir > 0 ? 'up' : 'dn') : 'flat');
 function band(M) {
   const B = M.br, phone = phoneMQ.matches;
-  const l1 = h('div', { class: 'sm-b1', title: B ? `코스피 · 코스닥 ${scopeText(B)}` : null },
+  const l1 = h('div', { class: 'sm-b1', title: B ? `코스피 · 코스닥 ${scopeText(B)}` + (M.brOld ? ` · ${dayLong(M.brOld)} 종가` : '') : null },
+    M.brOld && B ? h('span', { class: 'sm-k', 'data-k': 'od', text: dayShort(M.brOld) }) : null,
     B ? bar(B) : null,
     B ? h('b', { class: 'sm-n up' }, '상승 ', kn('up', B.up, NF0.format(B.up))) : later(LIVE ? '전 종목 등락을 받는 중…' : '—'),
     B ? sep() : null, B ? h('b', { class: 'sm-n dn' }, '하락 ', kn('dn', B.dn, NF0.format(B.dn))) : null,
@@ -23082,13 +23788,15 @@ function facts(M) {
   const F = [];
   const f = (key, label, note, ...v) => F.push({ key, label, note, v });
   for (const x of M.idx) f('idx', x.name, null, h('span', { class: 'sm-v', text: NF2.format(x.v) }), num(x.r));
-  if (M.br) f('br', '오른 · 내린 종목', '두 시장', bar(M.br), h('b', { class: 'sm-n up', text: NF0.format(M.br.up) }), sep(), h('b', { class: 'sm-n dn', text: NF0.format(M.br.dn) }));
+  if (M.br) f('br', '오른 · 내린 종목', M.brOld ? dayShort(M.brOld) : '두 시장', bar(M.br), h('b', { class: 'sm-n up', text: NF0.format(M.br.up) }), sep(), h('b', { class: 'sm-n dn', text: NF0.format(M.br.dn) }));
   else f('br', '오른 · 내린 종목', null, later(LIVE ? '받는 중…' : '—'));
-  if (M.br && (M.br.lu || M.br.ld)) f('lim', '상한가 · 하한가', null, h('span', { class: 'sm-lim' }, lsw('u'), h('b', { class: 'sm-n ' + limCls(M.br.lu, 1), text: NF0.format(M.br.lu) })), sep(),
+  if (M.br && (M.br.lu || M.br.ld)) f('lim', '상한가 · 하한가', M.brOld ? dayShort(M.brOld) : null, h('span', { class: 'sm-lim' }, lsw('u'), h('b', { class: 'sm-n ' + limCls(M.br.lu, 1), text: NF0.format(M.br.lu) })), sep(),
     h('span', { class: 'sm-lim' }, lsw('d'), h('b', { class: 'sm-n ' + limCls(M.br.ld, -1), text: NF0.format(M.br.ld) })));
   if (M.indUp[0]) f('indUp', '많이 오른 업종', null, nv(M.indUp[0].name, M.indUp[0].r));
   if (M.indDn[0]) f('indDn', '많이 내린 업종', null, nv(M.indDn[0].name, M.indDn[0].r));
-  if (M.flows) f('flows', '외국인 · 기관', M.flows.today ? null : dayShort(M.flows.date), h('b', { class: 'sm-n ' + cls(M.flows.all[0], 0), text: amt(M.flows.all[0]) }), sep(), h('b', { class: 'sm-n ' + cls(M.flows.all[1], 0), text: amt(M.flows.all[1]) }));
+  const FL = M.mflows || M.flows;
+  if (FL) f('flows', '외국인 · 기관', M.mflows ? (M.mflows.today && M.mflows.at ? `${M.mflows.at} 기준` : dayShort(M.mflows.date)) : M.flows.today ? null : dayShort(M.flows.date),
+    h('b', { class: 'sm-n ' + cls(FL.all[0], 0), text: amt(FL.all[0]) }), sep(), h('b', { class: 'sm-n ' + cls(FL.all[1], 0), text: amt(FL.all[1]) }));
   const wait = LIVE && !M.macroFail ? later('받는 중…') : null;
   if (M.fx) f('fx', '원/달러', null, h('span', { class: 'sm-v', text: NF1.format(+M.fx.value) }), h('b', { class: 'sm-n ' + cls(+M.fx.change, 1), text: fxChg(M.fx) }));
   else if (wait) f('fx', '원/달러', null, wait);
@@ -23113,7 +23821,7 @@ function secFlow(M) {
     M.capW != null && B ? line(kk('시총 가중'), num(M.capW), sep(), kk('종목 중간값'), num(B.med)) : null,
     B ? h('p', { class: 'sm-sub' }, '상승 : 하락 — 코스피 ', h('b', { class: 'sm-c up', text: NF0.format(B.K.up) }), ' : ', h('b', { class: 'sm-c dn', text: NF0.format(B.K.dn) }),
       ' · 코스닥 ', h('b', { class: 'sm-c up', text: NF0.format(B.Q.up) }), ' : ', h('b', { class: 'sm-c dn', text: NF0.format(B.Q.dn) }),
-      ` · ${scopeText(B)}` + (B.src === 'stream' && B.fail ? ' · 전 종목은 불러오지 못했어요' : '')) : null);
+      ` · ${scopeText(B)}` + (M.brOld ? ` · ${dayLong(M.brOld)} 종가` : '') + (B.src === 'stream' && B.fail ? ' · 전 종목은 불러오지 못했어요' : '')) : null);
 }
 function secSector(M) {
   return sec('업종 · 테마',
@@ -23126,20 +23834,28 @@ function secSector(M) {
 function secMovers(M) {
   const L = M.limNames || [];
   return sec('눈에 띄는 종목',
-    L.length ? line(h('span', { class: 'sm-k sm-lim' }, lsw('u'), '상한가 ', h('b', { class: 'sm-n up', text: NF0.format(M.br.lu) })), ...L.slice(0, 2).map(x => (x.onMap ? stk(x.c, x.n, x.r) : h('span', { class: 'sm-off', text: x.n }))),
+    L.length ? line(h('span', { class: 'sm-k sm-lim' }, lsw('u'), M.brOld ? `${dayShort(M.brOld)} 상한가 ` : '상한가 ', h('b', { class: 'sm-n up', text: NF0.format(M.br.lu) })), ...L.slice(0, 2).map(x => (x.onMap ? stk(x.c, x.n, x.r) : h('span', { class: 'sm-off', text: x.n }))),
       L.length > 2 ? kk(`외 ${L.length - 2}`) : null) : null,
     M.bigUp || M.bigDn ? line(kk('시총 100위 안'), M.bigUp ? stk(M.bigUp.c, M.bigUp.n, M.bigUp.r) : null, M.bigDn ? stk(M.bigDn.c, M.bigDn.n, M.bigDn.r) : null) : null,
     M.tvTop.length ? line(kk('거래대금 상위'), ...M.tvTop.map(x => stk(x.c, x.n, 0, eok(x.tv)))) : null,
     M.br && (M.br.u10 || M.br.d10) ? sub(`10% 넘게 오른 종목 ${NF0.format(M.br.u10)} · 내린 종목 ${NF0.format(M.br.d10)}`) : null);
 }
+const WHO3 = ['외국인', '기관', '개인'];
+const who3 = all => line(...join(all.map((v, i) => h('span', { class: 'sm-nv' }, h('span', { class: 'sm-nm', text: WHO3[i] }), h('b', { class: 'sm-n ' + cls(v, 0), text: amt(v) })))));
 function secFlows(M) {
-  if (!M.flows) return sec('수급', later(D.flows ? '계산하는 중…' : '수급 파일을 받는 중…'));
-  const F = M.flows, who = ['외국인', '기관', '개인'];
-  return sec('수급 (추정)',
-    line(...join(F.all.map((v, i) => h('span', { class: 'sm-nv' }, h('span', { class: 'sm-nm', text: who[i] }), h('b', { class: 'sm-n ' + cls(v, 0), text: amt(v) }))))),
-    F.bot && F.bot.n ? line(kk('외국인 순매도 1위'), stk(F.bot.c, F.bot.n, F.bot.v, amt(F.bot.v))) : null,
-    F.top && F.top.n ? line(kk('외국인 순매수 1위'), stk(F.top.c, F.top.n, F.top.v, amt(F.top.v))) : null,
-    sub(`${F.today ? '오늘' : dayShort(F.date)} · 코스피 · 코스닥 합 · 종목별 순매수 주식 수 × 종가를 더한 값이에요` + (F.today ? '' : ' · 매일 장 마감 뒤 새로 받아요')));
+  const F = M.flows, X = M.mflows;
+  if (!F && !X) return sec('수급', later(D.flows ? '계산하는 중…' : '수급 파일을 받는 중…'));
+  // 장중 · 장 뒤(저녁 확정 전): 시장 전체 줄은 /api/flows/market(그때까지 합한 값), 종목 줄은 확정 파일과 그 날짜
+  const fd = F ? (F.today ? '오늘' : dayShort(F.date)) : '';
+  const tag = t => (X && F && !F.today ? `${t} (${fd})` : t);
+  return sec(X ? '수급' : '수급 (추정)',
+    X ? who3(X.all) : who3(F.all),
+    X ? sub((X.only ? `${X.only === 'K' ? '코스피' : '코스닥'}만` : '코스피 · 코스닥 합') + ' · 시장 전체 · ' + (X.today && X.at ? `${X.at} 기준` : `${dayShort(X.date)} 기준`)
+      + (X.stale ? ' · 새 값을 받지 못해 지난 값이에요' : X.today ? ' · 장중엔 그때까지 합한 값이에요' : '')) : null,
+    F && F.bot && F.bot.n ? line(kk(tag('외국인 순매도 1위')), stk(F.bot.c, F.bot.n, F.bot.v, amt(F.bot.v))) : null,
+    F && F.top && F.top.n ? line(kk(tag('외국인 순매수 1위')), stk(F.top.c, F.top.n, F.top.v, amt(F.top.v))) : null,
+    F ? sub(X ? `종목은 ${fd} 확정 · 종목별 순매수 주식 수 × 종가예요`
+      : `${fd} · 코스피 · 코스닥 합 · 종목별 순매수 주식 수 × 종가를 더한 값이에요` + (F.today ? '' : ' · 매일 장 마감 뒤 새로 받아요')) : null);
 }
 function secMacro(M) {
   if (!LIVE && !M.us10 && !M.us) return sec('환율 · 금리 · 해외', snapNote('금리 · 해외 지수'));
@@ -23175,9 +23891,10 @@ function plain(M) {
   const L = [`판세 · 오늘 시장 요약 (${M.pill} · ${M.when})`];
   if (M.headline) L.push(M.headline);
   if (M.idx.length) L.push(M.idx.map(x => `${x.name} ${NF2.format(x.v)} (${pct(x.r)})`).join(' · '));
-  if (M.br) L.push(`상승 ${NF0.format(M.br.up)} · 하락 ${NF0.format(M.br.dn)} — ${M.br.say}` + (M.br.lu || M.br.ld ? ` · 상한가 ${M.br.lu} · 하한가 ${M.br.ld}` : ''));
+  if (M.br) L.push((M.brOld ? `${dayShort(M.brOld)} 종가 ` : '') + `상승 ${NF0.format(M.br.up)} · 하락 ${NF0.format(M.br.dn)} — ${M.br.say}` + (M.br.lu || M.br.ld ? ` · 상한가 ${M.br.lu} · 하한가 ${M.br.ld}` : ''));
   if (M.indUp.length || M.indDn.length) L.push('업종: ' + [...M.indUp, ...M.indDn].map(x => `${x.name} ${pct(x.r)}`).join(' · '));
-  if (M.flows) L.push(`수급(${M.flows.today ? '오늘' : dayShort(M.flows.date)}, 추정): 외국인 ${amt(M.flows.all[0])} · 기관 ${amt(M.flows.all[1])} · 개인 ${amt(M.flows.all[2])}`);
+  if (M.mflows) L.push(`수급(${M.mflows.today && M.mflows.at ? M.mflows.at + ' 기준' : dayShort(M.mflows.date)}): 외국인 ${amt(M.mflows.all[0])} · 기관 ${amt(M.mflows.all[1])} · 개인 ${amt(M.mflows.all[2])}`);
+  else if (M.flows) L.push(`수급(${M.flows.today ? '오늘' : dayShort(M.flows.date)}, 추정): 외국인 ${amt(M.flows.all[0])} · 기관 ${amt(M.flows.all[1])} · 개인 ${amt(M.flows.all[2])}`);
   if (M.fx) L.push(`원/달러 ${NF1.format(+M.fx.value)}원 (${fxChg(M.fx)})` + (M.us ? ` · ${M.us.label} ` + M.us.items.slice(0, 2).map(x => `${shortUS(x.name)} ${pct(x.r)}`).join(' · ') : ''));
   L.push('출처: 네이버 증권 외 · panse.pages.dev · 투자 판단의 근거로 쓰지 마세요.');
   return L.join('\n');
