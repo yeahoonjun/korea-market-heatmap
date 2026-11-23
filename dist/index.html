@@ -7,12 +7,13 @@
 <script>/* §3-26 kospimap → 판세 이사: 옛 주소가 #khm-import=<설정>~<원래 해시>로 넘겨준 설정·관심종목을 옮겨요. 첫 이사는 옛 값으로 덮고, 그 뒤엔 빈 키만 채워요. */
 (function(){var p='#khm-import=',h=location.hash;if(h.indexOf(p)!==0)return;var rest=h.slice(p.length),i=rest.indexOf('~'),keep=i<0?'':rest.slice(i+1);
 try{var o=JSON.parse(decodeURIComponent(escape(atob(decodeURIComponent(i<0?rest:rest.slice(0,i)))))),first=localStorage.getItem('khm.migrated')==null;
-for(var k in o)if(k.indexOf('khm.')===0&&k!=='khm.migrated'&&typeof o[k]==='string'&&(first||localStorage.getItem(k)==null))localStorage.setItem(k,o[k]);
+for(var k in o)if(k.indexOf('khm.')===0&&k!=='khm.migrated'&&k!=='khm.inv'&&typeof o[k]==='string'&&(first||localStorage.getItem(k)==null))localStorage.setItem(k,o[k]);
 localStorage.setItem('khm.migrated',new Date().toISOString());}catch(e){}
 try{history.replaceState(null,'',location.pathname+location.search+(keep?'#'+keep:''));}catch(e){location.hash=keep;}})();
 /* §3-40 가족 보기 초대: #inv=<token>[&… | ~…] → localStorage khm.inv (JSON, like every khm.* key), then the address loses it and keeps the
    rest of the hash (after the import above, so a link carried over from the old address works too). Live page only — the snapshot
-   (dist/, file://) leaves all of this alone. data-inv-new tells the page to say "가족 보기를 켰어요" once the token is confirmed. */
+   (dist/, file://) leaves all of this alone. data-inv-new tells the page to say "가족 보기를 켰어요" once the token is confirmed. The
+   import above never carries khm.inv: a device becomes a family one only through its own link. */
 (function(){var d=document.documentElement,h=location.hash,m;if(d.getAttribute('data-mode')!=='live'||location.protocol==='file:'||h.indexOf('#inv=')!==0)return;
 m=/^#inv=([^&~]*)(?:[&~](.*))?$/.exec(h);if(!m)return;var t=m[1],keep=m[2]||'';
 if(/^[A-Za-z0-9_-]{20,64}$/.test(t))try{localStorage.setItem('khm.inv',JSON.stringify(t));d.setAttribute('data-inv-new','1')}catch(e){}
@@ -2806,6 +2807,7 @@ function need(name) {
     else if (j && name === 'flows' && j.f && typeof j.f === 'object') ok = true;
     d.j = ok ? j : null; d.st = ok ? 'ok' : 'fail';
     bump();
+    if (name === 'flows') FLF.at = Date.now();                       // §3-40 the evening re-check counts from here
     if (name === 'flows' && flowOptSync()) { rebuildColor(); state.bucket = null; syncControls(); }   // §3-40 an evening file dated today: 오늘 잠정 steps aside
     if (name === 'themes' && state.market === 'THEME' && state.theme != null && !THEMES.byId.has(state.theme)) state.theme = null;
     renderAll();
@@ -3552,7 +3554,30 @@ function codeAmt(c) {
 }
 // the evening's confirmed file is today's: 오늘 잠정 steps aside for it (AGENTS §3-40 "flows.json asOf가 오늘이 되면 잠정을 그만 보여요")
 const flowsToday = () => { const F = FLO(); return !!(F && F.asOf && F.asOf === kstToday()); };
-const liveWinOk = () => MODE === 'live' && invHas() && !flowsToday();
+/* no session to draw today (yet) — the 1일 map instead, the stored 0 kept for when there is one (리뷰 2026-11-23 ②): a weekend, before
+   09:00, a day the Worker calls closed (휴장), or no round by 10:00 (a holiday it did not flag, a payload of another day). "오늘 첫 입력
+   (09:30) 뒤에 보여요" is left for a weekday 09:00–10:00 before round 1. No answer yet (or none at all) is not idle: that has its own words */
+function liveIdle() {
+  const t = kst(new Date(nowMs()));
+  if (!t) return false;
+  const wd = kstWd(t.date);
+  if (wd < 1 || wd > 5 || t.hm < '0900') return true;
+  if (!FL.j) return false;
+  const d = FL.j.date === t.date ? FL.j : null;
+  if (d && d.closed) return true;
+  if (d && d.slot) return false;
+  return t.hm >= '1000';
+}
+const liveWinOk = () => MODE === 'live' && invHas() && !flowsToday() && !liveIdle();
+// 오늘 is this family device's pick (khm.flowWin 0), whatever is drawn now (1일 while there is no session or the evening file is in)
+const livePref = () => isFlow() && invHas() && store.get('flowWin', 5) === 0;
+// the map wants the live answer while it draws 오늘, or waits for a weekday's session to begin with 오늘 picked (weekends ask nothing)
+function mapWantsLive() {
+  if (liveOn()) return true;
+  if (!livePref() || flowsToday()) return false;
+  const t = kst(new Date(nowMs())), wd = t ? kstWd(t.date) : 0;
+  return wd >= 1 && wd <= 5;
+}
 // the round the map's est is from ('14:30'), the source line of the legend · tooltip · footer
 const liveSlot = () => { const d = flData(); return d ? d.estSlot || d.slot || null : null; };
 const liveSrc = () => { const d = flData(); return (d && typeof d.src === 'string' && d.src) || '한국투자증권 가집계'; };
@@ -4357,6 +4382,8 @@ function liveEmpty() {
   if (!FL.j) return FL.ok === false ? '오늘 잠정 수급을 불러오지 못했어요. 잠시 뒤 다시 시도해요.' : '오늘 잠정 수급을 불러오는 중…';
   const d = flData();
   if (!d || !d.slot) return '오늘 첫 입력(09:30) 뒤에 보여요';
+  // round 1 (09:30) is 외국인 only — 기관종합 starts at 10:00 (AGENTS §3-40 원천): its est is 0 for every stock
+  if (state.sizeBy === 'inst' && ((d.estSlot || d.slot) === '09:30' || (!d.estSlot && +d.slotNo === 1))) return '기관은 10:00 입력분부터 보여요';
   if (!Object.keys(d.est || {}).length) return '지도에 쓸 잠정 수급을 받는 중이에요. 몇 분 뒤 보여요.';   // the round is in, the map's 600 still coming
   return '';
 }
@@ -6217,7 +6244,7 @@ function syncControls() {
   if (gb.hidden !== !GROUPABLE.includes(state.market)) { gb.hidden = !GROUPABLE.includes(state.market); syncSetSections(); }
   uiSwap($('.ctl[data-ctl="colorBy"] .ddv'), COLOR_METRICS[state.colorBy].label);
   uiSwap($('.ctl[data-ctl="flowWin"] .ddv'), flowWinText());
-  flWant('map', liveOn());                // KH.flowsLive polls while the map draws 오늘 잠정 (and anything else asks)
+  flWant('map', mapWantsLive());          // KH.flowsLive polls while the map draws 오늘 잠정 or waits for the day's session (and anything else asks)
   // 종목 수 only applies to market maps; the colour metric is replaced by net buying in a flow size mode
   const off = { topN: state.market === 'THEME' || state.market === 'WATCH', colorBy: isFlow() };
   for (const [k, v] of Object.entries(off)) {
@@ -6809,6 +6836,7 @@ function flowOptSync() {
     b = h('button', { 'data-v': '0', 'aria-label': '오늘 잠정', title: '오늘 장중 잠정 순매수 · 한국투자증권 가집계 · 금액은 수량 × 지금 가격' }, '오늘', h('span', { class: 'fwtag', 'aria-hidden': 'true', text: '잠정' }));
     seg.prepend(b);
   } else if (!ok && b) b.remove();
+  if (ok && state.flowWin !== 0 && livePref()) { state.flowWin = 0; return true; }   // the stored 오늘 again (a session began, the next morning)
   if (ok || state.flowWin !== 0) return false;
   state.flowWin = 1;
   if (!invHas()) store.set('flowWin', 1);
@@ -6823,13 +6851,46 @@ function flowOptApply() {
 // a KH.flowsLive answer (or none): the map redraws when 오늘 잠정 is drawn and the round · its est moved (or the answer's state did)
 let flSig = '';
 function flMapSync() {
-  if (flowOptSync()) { rebuildColor(); state.bucket = null; bump(); syncControls(); renderAll(); return; }
+  if (flowOptSync()) { flSig = ''; rebuildColor(); state.bucket = null; bump(); syncControls(); renderAll(); return; }
   if (!liveOn()) return;
   const d = FL.j, sig = d ? [d.date, d.slot, d.estSlot, d.at, d.estN, Object.keys(d.est || {}).length, flData() ? 1 : 0].join('|') : 'none:' + FL.ok;
   if (sig === flSig) return;
   flSig = sig;
   bump(); renderAll(); refreshOpenViews();
 }
+/* the evening file (리뷰 2026-11-23 ⑧): flows.json is read once, so a page left open past 21:30 kept 오늘 잠정 while the card turned to
+   확정. With 오늘 picked and the file not today's, weekdays from 21:00 KST: read it again every 10 min — unless the card (src/flows,
+   KHFlows) is on screen, which asks every 10 min itself: then only once, when its file has become today's (no second fetch meanwhile) */
+const FLF = { at: 0, busy: false };
+function flowsRecheck() {
+  if (FLF.busy || DS.flows.st !== 'ok' || !livePref() || flowsToday()) return;
+  const t = kst(new Date(nowMs()));
+  if (!t || t.hm < '2100') return;
+  const wd = kstWd(t.date);
+  if (wd < 1 || wd > 5) return;
+  let card = null;
+  try { card = window.KHFlows && typeof window.KHFlows.state === 'function' ? window.KHFlows.state() : null; } catch (e) { card = null; }
+  const cardNew = !!(card && card.file === t.date);
+  if (!cardNew && (card && card.near || Date.now() - FLF.at < 600000)) return;
+  FLF.busy = true; FLF.at = Date.now();
+  loadData('flows', true).then(j => {
+    FLF.busy = false;
+    const F = DS.flows.j;
+    if (!j || !j.f || typeof j.f !== 'object' || !F || j.asOf === F.asOf) return;
+    DS.flows.j = j; bump();
+    if (flowOptSync()) { rebuildColor(); state.bucket = null; syncControls(); }
+    renderAll();
+  });
+}
+// every minute on a family device (seen): the hour moved — a session began or ended, 21:00 came — and so may 오늘's place
+function liveTick() {
+  if (MODE !== 'live' || !invHas() || document.hidden) return;
+  if (flowOptSync()) { flSig = ''; rebuildColor(); state.bucket = null; bump(); syncControls(); renderAll(); }
+  else flWant('map', mapWantsLive());
+  flowsRecheck();
+}
+setInterval(liveTick, 60000);
+document.addEventListener('visibilitychange', liveTick);
 document.addEventListener('kh:inv', () => { famRender(); flowOptApply(); if (liveOn()) { flSig = ''; flMapSync(); } famWelcome(); if (ctlsOpen() || moreOpen()) famOnOpen(); });
 
 const viewBtns = () => document.querySelectorAll('.viewseg button');
